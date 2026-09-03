@@ -24,23 +24,39 @@ interface PreviewPhoto {
 const PREVIEW_PHOTOS: PreviewPhoto[] = [
   {
     id: 'no-kings-capitol',
-    title: 'No Kings in America Mass Demonstration',
+    title: 'No Kings in America: Capitol Steps Demonstration',
     location: 'California State Capitol West Steps, Sacramento',
     category: 'No Kings Sacramento',
     signQuote: 'We Fought A War About This In 1776',
     date: 'Sacramento Mobilization',
-    image:
-      'https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=800&q=80',
+    image: '/images/gallery/sacramento-capitol-no-kings.jpg',
   },
   {
-    id: 'norcal-resist-court',
-    title: 'Sacramento Court Watch & Accompaniment',
-    location: '501 I Street Federal Courthouse, Sacramento',
+    id: 'no-kings-tower-bridge',
+    title: 'Tower Bridge Mass Demonstration',
+    location: 'Tower Bridge & Sacramento River, Sacramento',
+    category: 'No Kings Sacramento',
+    signQuote: 'Presidents Are Not Kings',
+    date: 'Sacramento River March',
+    image: '/images/gallery/sacramento-tower-bridge-march.jpg',
+  },
+  {
+    id: 'norcal-brake-light',
+    title: 'NorCal Resist Free Brake Light Repair Clinic',
+    location: 'Oak Park Community Center, Sacramento',
     category: 'NorCal Resist',
-    signQuote: 'No Human Being Is Illegal',
-    date: 'Direct Solidarity Circle',
-    image:
-      'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?auto=format&fit=crop&w=800&q=80',
+    signQuote: 'Fixing Lights To Protect Neighbors',
+    date: 'Mutual Aid Defense',
+    image: '/images/gallery/norcal-resist-brake-light-clinic.jpg',
+  },
+  {
+    id: 'choir-bandstand',
+    title: 'Carmichael Resistance Choir Community Assembly',
+    location: 'Carmichael Park Community Bandstand, Carmichael',
+    category: 'Resistance Choir',
+    signQuote: 'Music Sustains The Movement',
+    date: 'Bi-Weekly Assembly',
+    image: '/images/gallery/carmichael-resistance-choir.jpg',
   },
   {
     id: 'witty-ikea',
@@ -49,67 +65,45 @@ const PREVIEW_PHOTOS: PreviewPhoto[] = [
     category: 'Witty Signs',
     signQuote: "I've Seen Smarter Cabinets At IKEA",
     date: 'Community Sidewalk Action',
-    image:
-      'https://images.unsplash.com/photo-1588681664899-f142ff2dc9b1?auto=format&fit=crop&w=800&q=80',
+    image: '/images/gallery/witty-ikea-sign.jpg',
   },
   {
-    id: 'choir-st-michaels',
-    title: 'Resistance Choir 4-Part Harmonies',
-    location: 'St. Michael’s Parish Hall, Carmichael',
-    category: 'Resistance Choir',
-    signQuote: 'Every Good Protest Movement Needs Music',
-    date: 'Bi-Weekly Assembly',
-    image:
-      'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
+    id: 'witty-introverts',
+    title: 'When Introverts Leave the House',
+    location: 'Community Sidewalk Demonstration, Sacramento',
+    category: 'Witty Signs',
+    signQuote: "You Know It's Bad When Introverts Are Out Here",
+    date: 'Sidewalk Stand-Out',
+    image: '/images/gallery/witty-introverts-sign.jpg',
   },
   {
-    id: 'unity-carmichael-park',
-    title: 'Intergenerational Solidarity Gathering',
-    location: 'Carmichael Park, Carmichael',
+    id: 'unity-peaceful-rally',
+    title: 'Sunrise Solidarity Weekly Demonstration',
+    location: 'Sunrise Blvd & Greenback Lane, Citrus Heights',
     category: 'Sacramento Unity',
-    signQuote: 'United For The Next Generation',
-    date: 'Grassroots Community Care',
+    signQuote: 'Being In Community Is Our Superpower',
+    date: 'Weekly Grassroots Rally',
     image:
-      'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1784631912491-4cb9fa3b51d4?auto=format&fit=crop&w=1200&q=80',
+  },
+  {
+    id: 'unity-night-vigil',
+    title: 'Silent Candlelight Vigil for Democracy',
+    location: 'Fair Oaks Plaza Park, Fair Oaks Village',
+    category: 'Sacramento Unity',
+    signQuote: 'Courage In The Face Of Injustice',
+    date: 'Bi-Weekly Silent Vigil',
+    image:
+      'https://images.unsplash.com/photo-1770251960846-384b8bd21d60?auto=format&fit=crop&w=1200&q=80',
   },
   {
     id: 'legacy-good-trouble-drop',
-    title: 'John Lewis Highway 50 Banner Drop',
+    title: 'John Lewis Highway 50 Banner Drop Artwork',
     location: 'Highway 50 Pedestrian Overpass, Sacramento',
     category: 'Legacy Archives',
     signQuote: 'Good Trouble Lives On!',
     date: 'Historic Chapter Archive',
     image: '/images/legacy/legacy-good-trouble-banner.jpg',
-  },
-  {
-    id: 'no-kings-tower-bridge',
-    title: 'Tower Bridge Mass Mobilization',
-    location: 'Tower Bridge & Sacramento River, Sacramento',
-    category: 'No Kings Sacramento',
-    signQuote: 'Presidents Are Not Kings',
-    date: 'Sacramento River March',
-    image:
-      'https://images.unsplash.com/photo-1568992687947-868a62a9f521?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'norcal-brake-light',
-    title: 'Oak Park Free Brake Light Clinic',
-    location: 'Oak Park Community Center, Sacramento',
-    category: 'NorCal Resist',
-    signQuote: 'Fixing Lights To Protect Neighbors',
-    date: 'Mutual Aid Defense',
-    image:
-      'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    id: 'witty-introverts',
-    title: 'When Introverts Leave the House',
-    location: 'Carmichael Park Community Stand-Out',
-    category: 'Witty Signs',
-    signQuote: "You Know It's Bad When Introverts Are Out Here",
-    date: 'Sidewalk Stand-Out',
-    image:
-      'https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?auto=format&fit=crop&w=800&q=80',
   },
 ];
 
@@ -155,7 +149,7 @@ export function HomeGalleryPreview() {
             href="/gallery"
             className="inline-flex items-center gap-2 text-sm font-bold text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-wider group shrink-0"
           >
-            <span>Explore Full 35+ Photo Gallery</span>
+            <span>Explore Full Gallery</span>
             <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
@@ -192,7 +186,7 @@ export function HomeGalleryPreview() {
                 alt={photo.title}
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                className="object-cover group-hover:scale-105 transition-transform duration-700 brightness-90 group-hover:brightness-100"
+                className="object-cover group-hover:scale-105 transition-transform duration-700 brightness-95 group-hover:brightness-100"
               />
 
               {/* Gradient Scrim */}
