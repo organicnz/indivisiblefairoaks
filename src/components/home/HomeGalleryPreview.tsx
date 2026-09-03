@@ -7,29 +7,33 @@ interface PreviewPhoto {
   location: string;
   category: string;
   image: string;
+  signQuote?: string;
 }
 
 const PREVIEW_PHOTOS: PreviewPhoto[] = [
   {
-    title: 'Fair Oaks Blvd Stand-Out',
-    location: 'Fair Oaks Blvd & Manzanita Ave, Carmichael',
-    category: 'Rallies & Vigils',
+    title: 'No Kings in America Mobilization',
+    location: 'Downtown Sacramento Plaza',
+    category: 'No Kings Protests',
+    signQuote: 'We Fought A War About This In 1776',
     image:
-      'https://images.unsplash.com/photo-1577962917302-cd874c4e31d2?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Witty Signs at Fair Oaks Blvd Stand-Out',
+    location: 'Fair Oaks Blvd & Manzanita Ave, Carmichael',
+    category: 'Witty Signs & Humor',
+    signQuote: "I've Seen Smarter Cabinets At IKEA",
+    image:
+      'https://images.unsplash.com/photo-1588681664899-f142ff2dc9b1?auto=format&fit=crop&w=800&q=80',
   },
   {
     title: 'Resistance Choir 4-Part Harmonies',
     location: 'St. Michael’s Parish Hall, Carmichael',
     category: 'Resistance Choir',
+    signQuote: 'Defiant 4-Part Harmonies',
     image:
       'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
-  },
-  {
-    title: 'California Capitol Steps Rally',
-    location: 'State Capitol West Steps, Sacramento',
-    category: 'Capitol Advocacy',
-    image:
-      'https://images.unsplash.com/photo-1568992687947-868a62a9f521?auto=format&fit=crop&w=800&q=80',
   },
 ];
 
@@ -78,10 +82,15 @@ export function HomeGalleryPreview() {
 
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent opacity-90 group-hover:opacity-80 transition-opacity" />
 
-              <div className="absolute top-4 left-4 z-10">
+              <div className="absolute top-4 left-4 z-10 flex flex-col items-start gap-1.5 max-w-[85%]">
                 <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-slate-900/80 backdrop-blur-md border border-slate-700 text-amber-300">
                   {photo.category}
                 </span>
+                {photo.signQuote && (
+                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-400 text-slate-950 shadow-md truncate max-w-full">
+                    “{photo.signQuote}”
+                  </span>
+                )}
               </div>
 
               <div className="absolute bottom-0 inset-x-0 p-6 z-10 space-y-2">
