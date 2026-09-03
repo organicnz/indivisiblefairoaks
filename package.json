@@ -1,9 +1,9 @@
 {
-  "name": "catch-22-next",
+  "name": "indivisible-fairoaks",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "prepare": "lefthook install",
+    "prepare": "test -d .git && lefthook install || true",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
