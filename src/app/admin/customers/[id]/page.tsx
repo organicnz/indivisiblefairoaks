@@ -20,7 +20,7 @@ export const instant = false;
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return {
-    title: `Customer #${id} — Admin · Catch-22`,
+    title: `Member #${id} — Admin · Indivisible Fair Oaks`,
     robots: { index: false, follow: false },
   };
 }

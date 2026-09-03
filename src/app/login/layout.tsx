@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/login' },
-  title: 'Sign In | Catch-22 New Zealand',
-  description: 'Sign in to your Catch-22 account.',
+  title: 'Sign In | Indivisible Fair Oaks-Carmichael',
+  description: 'Sign in to your member account.',
 };
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {

@@ -489,15 +489,15 @@ pre-commit:
       glob: "src/app/api/**"
       run: |
         EMPTY_DIRS=""
-        find src/app/api -mindepth 1 -maxdepth 3 -type d 2>/dev/null | sort > /tmp/catch22_api_dirs.txt || true
+        find src/app/api -mindepth 1 -maxdepth 3 -type d 2>/dev/null | sort > /tmp/indivisiblefairoaks_api_dirs.txt || true
         while IFS= read -r dir; do
           [ -z "$dir" ] && continue
           if ! ls "$dir"/route.{ts,tsx,js} 2>/dev/null | grep -q .; then
             [ "$dir" = "src/app/api" ] && continue
             EMPTY_DIRS="$EMPTY_DIRS\n  $dir"
           fi
-        done < /tmp/catch22_api_dirs.txt
-        rm -f /tmp/catch22_api_dirs.txt
+        done < /tmp/indivisiblefairoaks_api_dirs.txt
+        rm -f /tmp/indivisiblefairoaks_api_dirs.txt
         if [ -n "$EMPTY_DIRS" ]; then
           echo ""
           echo "⚠️   API route directories with no route.ts:"

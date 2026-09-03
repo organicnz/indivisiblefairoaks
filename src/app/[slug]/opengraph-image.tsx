@@ -3,7 +3,7 @@ import { getPublishedContent } from '@/lib/queries/content';
 
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-export const alt = 'Catch-22 content page';
+export const alt = 'Indivisible Fair Oaks-Carmichael content page';
 
 export default async function ContentOgImage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -18,7 +18,7 @@ export default async function ContentOgImage({ params }: { params: Promise<{ slu
   const title = content.title;
   const description =
     content.body?.replace(/<[^>]*>?/gm, '').slice(0, 140) ??
-    'Built for the Elements — premium fishing gear tested in the harshest NZ conditions.';
+    'Grassroots democracy in action — Fair Oaks, Carmichael, and Sacramento County, CA.';
 
   return new ImageResponse(
     <div
@@ -37,12 +37,12 @@ export default async function ContentOgImage({ params }: { params: Promise<{ slu
           display: 'flex',
           fontSize: 28,
           fontWeight: 900,
-          letterSpacing: '0.3em',
+          letterSpacing: '0.15em',
           color: '#94A3B8',
           textTransform: 'uppercase',
         }}
       >
-        Catch-22
+        Indivisible Fair Oaks-Carmichael
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div
@@ -50,24 +50,23 @@ export default async function ContentOgImage({ params }: { params: Promise<{ slu
             display: 'flex',
             height: 10,
             width: 120,
-            background: '#D1FF00',
+            background: '#F59E0B',
             borderRadius: 9999,
           }}
         />
         <div
           style={{
             display: 'flex',
-            fontSize: 68,
+            fontSize: 64,
             fontWeight: 900,
             color: '#FFFFFF',
-            textTransform: 'uppercase',
             letterSpacing: '-0.02em',
             lineHeight: 1.05,
           }}
         >
           {title}
         </div>
-        <div style={{ display: 'flex', fontSize: 28, color: '#94A3B8', lineHeight: 1.4 }}>
+        <div style={{ display: 'flex', fontSize: 26, color: '#94A3B8', lineHeight: 1.4 }}>
           {description}
         </div>
       </div>
@@ -77,14 +76,14 @@ export default async function ContentOgImage({ params }: { params: Promise<{ slu
           justifyContent: 'space-between',
           alignItems: 'center',
           color: '#64748B',
-          fontSize: 24,
+          fontSize: 22,
           fontWeight: 700,
           textTransform: 'uppercase',
-          letterSpacing: '0.2em',
+          letterSpacing: '0.15em',
         }}
       >
-        <span>Built for the Elements</span>
-        <span style={{ color: '#D1FF00' }}>catch-22.co.nz</span>
+        <span>Defending Democracy & Community</span>
+        <span style={{ color: '#F59E0B' }}>indivisiblefairoaks.org</span>
       </div>
     </div>,
     size

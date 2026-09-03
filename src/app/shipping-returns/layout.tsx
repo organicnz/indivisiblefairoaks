@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/shipping-returns' },
-  title: 'Shipping & Returns | Catch-22 New Zealand',
+  title: 'Shipping & Delivery Policy | Indivisible Fair Oaks-Carmichael',
   description:
-    'Fast NZ shipping on all Catch-22 orders. 30-day returns and our tackle-faulty guarantee.',
+    'Information regarding material delivery, rally supplies, and distribution policies for Indivisible Fair Oaks-Carmichael.',
 };
 
 export default function ShippingReturnsLayout({ children }: { children: React.ReactNode }) {

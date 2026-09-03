@@ -48,10 +48,10 @@ export default function ShippingReturnsPage() {
               </div>
 
               <ul className="space-y-2 list-disc list-inside text-sm">
-                <li>NZ Wide Delivery via tracked courier</li>
-                <li>Dispatched from Catch-22 Warehouse</li>
-                <li>Indicative delivery times provided at checkout</li>
-                <li>Secure packaging built for the elements</li>
+                <li>Direct community pickup & delivery for local actions</li>
+                <li>Dispatched from Indivisible Fair Oaks Distribution Hub</li>
+                <li>Indicative delivery times provided at order</li>
+                <li>Civic materials packaged securely</li>
               </ul>
             </div>
           </div>
@@ -97,25 +97,27 @@ export default function ShippingReturnsPage() {
                 <h3 className="text-lg font-black text-secondary uppercase m-0">Damaged Goods</h3>
               </div>
               <p className="text-slate-500 text-sm leading-relaxed">
-                Catch-22 is not responsible for loss or damage to goods caused by transit events
-                once dispatched. If you receive a damaged item, please contact us so we can lodge
-                this with NZ Post.
+                Indivisible Fair Oaks is dedicated to ensuring you receive all advocacy materials in
+                good order. If you receive damaged items, please contact our volunteer logistics
+                team immediately.
               </p>
             </div>
           </div>
         </div>
 
         <div className="mt-20 text-center bg-secondary p-12 rounded-[3rem] text-white">
-          <h3 className="text-2xl font-black uppercase mb-4">Need help with an order?</h3>
+          <h3 className="text-2xl font-black uppercase mb-4">
+            Need help with materials or an order?
+          </h3>
           <p className="text-slate-300 mb-8 max-w-md mx-auto">
-            Our gear experts are ready to assist with any questions regarding shipping, returns, or
-            product advice.
+            Our volunteer organizing team is ready to assist with any questions regarding
+            deliveries, rally materials, or community inquiries.
           </p>
           <a
-            href="mailto:orders@catch-22.co.nz"
+            href="mailto:contact@indivisiblefairoaks.org"
             className="inline-block bg-primary hover:bg-white hover:text-secondary text-secondary font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm"
           >
-            Contact Orders Team
+            Contact Organizing Team
           </a>
         </div>
       </div>

@@ -42,7 +42,7 @@ export async function generateMetadata({
 
   return {
     alternates: { canonical: `/products/${slug}` },
-    title: `${product.name} | Catch-22 Gear`,
+    title: `${product.name} | Indivisible Fair Oaks-Carmichael`,
     description: description,
     openGraph: {
       title: product.name,
@@ -90,7 +90,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
     return notFound();
   }
 
-  const productUrl = `https://catch-22.co.nz/products/${slug}`;
+  const productUrl = `https://indivisiblefairoaks.org/products/${slug}`;
   const price = Number(product.sale_price ?? product.price ?? 0);
   const inStock = product.stock_status === 'instock';
   const jsonLd = {
@@ -109,7 +109,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
     offers: {
       '@type': 'Offer',
       url: productUrl,
-      priceCurrency: 'NZD',
+      priceCurrency: 'USD',
       price: price.toFixed(2),
       availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       itemCondition: 'https://schema.org/NewCondition',
@@ -119,12 +119,12 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.catch-22.co.nz/' },
+      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://indivisiblefairoaks.org/' },
       {
         '@type': 'ListItem',
         position: 2,
-        name: 'Shop',
-        item: 'https://www.catch-22.co.nz/products',
+        name: 'Materials',
+        item: 'https://indivisiblefairoaks.org/products',
       },
       { '@type': 'ListItem', position: 3, name: product.name, item: productUrl },
     ],

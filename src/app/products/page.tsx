@@ -23,8 +23,8 @@ export async function generateMetadata({
       .single();
 
     if (category) {
-      const title = `${category.name} | Catch-22 New Zealand`;
-      const description = `Shop premium ${category.name.toLowerCase()} from Catch-22. High-performance fishing gear built for New Zealand conditions.`;
+      const title = `${category.name} | Indivisible Fair Oaks-Carmichael`;
+      const description = `Browse ${category.name.toLowerCase()} and civic materials from Indivisible Fair Oaks-Carmichael.`;
       return {
         alternates: { canonical },
         title,
@@ -32,33 +32,22 @@ export async function generateMetadata({
         openGraph: {
           title,
           description,
-          url: `https://catch-22.co.nz/products?category=${categorySlug}`,
-          siteName: 'Catch-22',
-          locale: 'en_NZ',
-          images: [
-            {
-              url: 'https://wcoaqlglwxwceqktpckt.supabase.co/storage/v1/object/public/media/site/thunder-charter.jpg',
-              width: 1200,
-              height: 630,
-              alt: `Catch-22 ${category.name}`,
-            },
-          ],
+          url: `https://indivisiblefairoaks.org/products?category=${categorySlug}`,
+          siteName: 'Indivisible Fair Oaks-Carmichael',
+          locale: 'en_US',
         },
         twitter: {
           card: 'summary_large_image',
           title,
           description,
-          images: [
-            'https://wcoaqlglwxwceqktpckt.supabase.co/storage/v1/object/public/media/site/thunder-charter.jpg',
-          ],
         },
       };
     }
   }
 
-  const title = 'All Gear | Catch-22 New Zealand';
+  const title = 'Materials & Gear | Indivisible Fair Oaks-Carmichael';
   const description =
-    'Browse our full collection of premium fishing braid, lures, and apparel. High-performance gear built for New Zealand conditions.';
+    'Browse our community outreach materials, rally shirts, and campaign gear supporting grassroots democracy.';
   return {
     alternates: { canonical: '/products' },
     title,
@@ -66,17 +55,9 @@ export async function generateMetadata({
     openGraph: {
       title,
       description,
-      url: 'https://catch-22.co.nz/products',
-      siteName: 'Catch-22',
-      locale: 'en_NZ',
-      images: [
-        {
-          url: 'https://wcoaqlglwxwceqktpckt.supabase.co/storage/v1/object/public/media/site/thunder-charter.jpg',
-          width: 1200,
-          height: 630,
-          alt: 'Catch-22 Premium Fishing Gear',
-        },
-      ],
+      url: 'https://indivisiblefairoaks.org/products',
+      siteName: 'Indivisible Fair Oaks-Carmichael',
+      locale: 'en_US',
     },
     twitter: {
       card: 'summary_large_image',

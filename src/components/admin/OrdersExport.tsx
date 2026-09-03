@@ -53,7 +53,7 @@ export function OrdersExport({ orders }: { orders: ExportOrder[] }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `catch-22-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `indivisible-orders-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };

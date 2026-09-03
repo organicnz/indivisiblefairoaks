@@ -31,7 +31,7 @@ const SUPABASE_URL = REQUIRED_ENV[0][1]!
 const SUPABASE_SERVICE_ROLE_KEY = REQUIRED_ENV[1][1]!
 const RESEND_API_KEY = REQUIRED_ENV[2][1]!
 
-const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'orders@catch-22.co.nz'
+const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'orders@indivisiblefairoaks.org'
 const TO_EMAIL = Deno.env.get('ADMIN_ORDER_EMAIL')
 
 // Max notifications per rolling 10 minutes, globally.
@@ -74,7 +74,7 @@ function buildEmail(name: string, email: string, message: string, receivedAt: st
 <tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#1E293B;border-radius:24px;overflow:hidden;border:1px solid rgba(209,255,0,0.2);">
 <tr><td style="padding:28px 40px;border-bottom:1px solid rgba(209,255,0,0.15);">
-<span style="color:#D1FF00;font-weight:900;font-size:18px;letter-spacing:0.2em;text-transform:uppercase;">Catch-22</span>
+<span style="color:#D1FF00;font-weight:900;font-size:18px;letter-spacing:0.2em;text-transform:uppercase;">Indivisible Fair Oaks</span>
 <span style="color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-left:12px;">Contact Form</span></td></tr>
 <tr><td style="padding:32px 40px;color:#E2E8F0;font-size:14px;line-height:1.7;">
 <p style="margin:0 0 18px;"><span style="display:block;color:rgba(255,255,255,0.45);font-size:10px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:4px;">From</span><strong style="font-size:16px;">${safeName}</strong></p>
@@ -96,15 +96,15 @@ function buildCustomerCopy(name: string, email: string, message: string, receive
 <tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#1E293B;border-radius:24px;overflow:hidden;border:1px solid rgba(209,255,0,0.2);">
 <tr><td style="padding:28px 40px;border-bottom:1px solid rgba(209,255,0,0.15);">
-<span style="color:#D1FF00;font-weight:900;font-size:18px;letter-spacing:0.2em;text-transform:uppercase;">Catch-22</span>
+<span style="color:#D1FF00;font-weight:900;font-size:18px;letter-spacing:0.2em;text-transform:uppercase;">Indivisible Fair Oaks</span>
 <span style="color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-left:12px;">Message Received</span></td></tr>
 <tr><td style="padding:32px 40px;color:#E2E8F0;font-size:14px;line-height:1.7;">
-<p style="margin:0 0 18px;">Hi ${safeName}, thanks for getting in touch — this is a copy of the message you sent us via catch-22.co.nz:</p>
+<p style="margin:0 0 18px;">Hi ${safeName}, thanks for getting in touch — this is a copy of the message you sent us via indivisiblefairoaks.org:</p>
 <p style="margin:0 0 18px;padding:16px 20px;background:#0F172A;border-radius:12px;border-left:3px solid #D1FF00;">${safeMessage}</p>
 <p style="margin:0;">Our team will get back to you at ${safeEmail} as soon as possible. No need to reply to this email.</p>
 </td></tr>
 <tr><td style="padding:20px 40px;border-top:1px solid rgba(209,255,0,0.2);text-align:center;">
-<p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Sent ${receivedAt} NZT &middot; Catch-22 &middot; Premium Fishing Gear &middot; New Zealand</p></td></tr>
+<p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Sent ${receivedAt} NZT &middot; Indivisible Fair Oaks &middot; Civic Action &middot; Sacramento County</p></td></tr>
 </table></td></tr></table></body></html>`
 }
 
@@ -185,7 +185,7 @@ app.post('*', async (c) => {
       from: FROM_EMAIL,
       to: [TO_EMAIL],
       reply_to: contactEmail,
-      subject: `New message from ${contactName} — catch-22.co.nz`,
+      subject: `New message from ${contactName} — indivisiblefairoaks.org`,
       html: buildEmail(contactName, contactEmail, claimed.message, receivedNzt),
     }),
   })
@@ -214,7 +214,7 @@ app.post('*', async (c) => {
         from: FROM_EMAIL,
         to: [contactEmail],
         reply_to: TO_EMAIL,
-        subject: 'Copy of your message to Catch-22',
+        subject: 'Copy of your message to Indivisible Fair Oaks',
         html: buildCustomerCopy(
           contactName,
           contactEmail,

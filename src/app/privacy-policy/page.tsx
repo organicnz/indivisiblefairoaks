@@ -11,8 +11,9 @@ export default function PrivacyPage() {
 
         <div className="prose prose-slate max-w-none space-y-8 text-slate-600 font-medium leading-relaxed">
           <p>
-            At Catch-22, we recognise your right to confidentiality and are committed to protecting
-            your privacy. Our website address is: https://catch-22.co.nz.
+            At Indivisible Fair Oaks-Carmichael, we recognise your right to confidentiality and are
+            committed to protecting your privacy. Our website address is:
+            https://indivisiblefairoaks.org.
           </p>
 
           <section>
