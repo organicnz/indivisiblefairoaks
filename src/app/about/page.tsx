@@ -1,5 +1,6 @@
 import { CheckCircle2, Heart, Shield, Sparkles, Users } from 'lucide-react';
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
@@ -14,6 +15,16 @@ export default function AboutPage() {
       {/* Header Banner */}
       <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="flex justify-center mb-6">
+            <Image
+              src="/images/logo/indivisible-fairoaks-logo-dark.png"
+              alt="Indivisible Fair Oaks & Carmichael Chapter Identity"
+              width={380}
+              height={67}
+              className="h-12 sm:h-16 md:h-20 w-auto object-contain drop-shadow-lg"
+              priority
+            />
+          </div>
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
             <Users size={14} className="text-amber-400" />
             <span>Grassroots Democracy In Action</span>
