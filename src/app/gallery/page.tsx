@@ -20,7 +20,12 @@ interface CivicPhoto {
   url: string;
   caption: string;
   location: string;
-  category: 'No Kings Protests' | 'Witty Signs & Humor' | 'Resistance Choir' | 'Community Action';
+  category:
+    | 'No Kings Protests'
+    | 'Witty Signs & Humor'
+    | 'Unity & Solidarity'
+    | 'Resistance Choir'
+    | 'Community Action';
   date: string;
   photographer: string;
   signQuote?: string;
@@ -48,6 +53,16 @@ const CIVIC_GALLERY: CivicPhoto[] = [
     signQuote: "I've Seen Smarter Cabinets At IKEA",
   },
   {
+    id: 'unity-food-bank-drive',
+    url: 'https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Community Solidarity: Food Bank Collection before Chapter Gathering',
+    location: 'Fair Oaks Community Clubhouse',
+    category: 'Unity & Solidarity',
+    date: 'September 2026',
+    photographer: 'Community Care Circle',
+    signQuote: 'Neighbors Caring For Neighbors',
+  },
+  {
     id: 'choir-street-harmony',
     url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80',
     caption: 'Carmichael Resistance Choir singing "Singing for Our Lives"',
@@ -66,6 +81,36 @@ const CIVIC_GALLERY: CivicPhoto[] = [
     date: 'September 2026',
     photographer: 'David K., Member',
     signQuote: "You Know It's Bad When Introverts Are Out Here",
+  },
+  {
+    id: 'intersection-singing-rushhour',
+    url: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Rush Hour Singing Protest: Lawn Chairs, Song Sheets & Sidewalk Harmonies',
+    location: 'Fair Oaks Blvd & Manzanita Ave, Carmichael',
+    category: 'Resistance Choir',
+    date: 'August 2026',
+    photographer: 'Choir Working Group',
+    signQuote: 'Bring Your Signs, Chairs, & Voices!',
+  },
+  {
+    id: 'unity-generations-hands',
+    url: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Intergenerational Unity: Grandparents & Students Standing Side-by-Side',
+    location: 'Fair Oaks Plaza Park',
+    category: 'Unity & Solidarity',
+    date: 'June 2026',
+    photographer: 'Youth & Elders Working Group',
+    signQuote: 'United For The Next Generation',
+  },
+  {
+    id: 'funny-sign-librarians',
+    url: 'https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&w=1200&q=80',
+    caption: 'When Silence Is Not Golden: Library Workers & Readers Rallying',
+    location: 'Carmichael Library Assembly Area',
+    category: 'Witty Signs & Humor',
+    date: 'May 2026',
+    photographer: 'Literacy for Democracy',
+    signQuote: 'So Bad Even Librarians Are Getting Loud',
   },
   {
     id: 'capitol-steps-no-kings',
@@ -88,16 +133,6 @@ const CIVIC_GALLERY: CivicPhoto[] = [
     signQuote: 'Make America Think Again',
   },
   {
-    id: 'choir-rally-accompaniment',
-    url: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Choir raising four-part harmonies before chapter monthly assembly',
-    location: 'Carmichael Community Hall',
-    category: 'Resistance Choir',
-    date: 'May 2026',
-    photographer: 'Choir Working Group',
-    signQuote: "Ain't Gonna Let Nobody Turn Us Around",
-  },
-  {
     id: 'good-trouble-banner-drop',
     url: 'https://images.unsplash.com/photo-1576267423445-b2e0074d68a4?auto=format&fit=crop&w=1200&q=80',
     caption: 'Good Trouble Lives On: Annual John Lewis Overpass Banner Action',
@@ -118,6 +153,16 @@ const CIVIC_GALLERY: CivicPhoto[] = [
     signQuote: 'Art Is Defiant Resistance',
   },
   {
+    id: 'unity-peace-vigil',
+    url: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Candlelight Vigil for Constitutional Norms & Peaceful Unity',
+    location: 'Fair Oaks Plaza Park',
+    category: 'Unity & Solidarity',
+    date: 'January 2026',
+    photographer: 'Community Peace Circle',
+    signQuote: 'Lighting The Path For Democracy',
+  },
+  {
     id: 'rally-fair-oaks-blvd',
     url: 'https://images.unsplash.com/photo-1577962917302-cd874c4e31d2?auto=format&fit=crop&w=1200&q=80',
     caption: 'Democracy Stand-Out: Fair Oaks Blvd & Manzanita Demonstration',
@@ -125,6 +170,7 @@ const CIVIC_GALLERY: CivicPhoto[] = [
     category: 'No Kings Protests',
     date: 'August 2026',
     photographer: 'Indivisible Field Team',
+    signQuote: 'Stand Up For Free Elections',
   },
   {
     id: 'postcard-blitz-2026',
@@ -134,6 +180,17 @@ const CIVIC_GALLERY: CivicPhoto[] = [
     category: 'Community Action',
     date: 'September 2026',
     photographer: 'Voter Outreach Working Group',
+    signQuote: 'Every Voice, Every Vote',
+  },
+  {
+    id: 'volunteers-solidarity-day',
+    url: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Sacramento & Fair Oaks volunteers ready for neighborhood canvassing blitz',
+    location: 'Ancil Hoffman Park, Carmichael',
+    category: 'Unity & Solidarity',
+    date: 'August 2026',
+    photographer: 'Grassroots Field Coordinator',
+    signQuote: 'Our Community, Our Power',
   },
   {
     id: 'high-school-voter-drive',
@@ -143,24 +200,37 @@ const CIVIC_GALLERY: CivicPhoto[] = [
     category: 'Community Action',
     date: 'October 2026',
     photographer: 'Youth Civic Initiative',
+    signQuote: 'Pre-Register At 16: Your Vote Is Your Voice',
   },
   {
-    id: 'candlelight-democracy-vigil',
-    url: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Candlelight Vigil for Constitutional Norms & Peaceful Transfer of Power',
-    location: 'Fair Oaks Plaza Park',
-    category: 'No Kings Protests',
-    date: 'January 2026',
-    photographer: 'Community Peace Circle',
+    id: 'funny-sign-pets',
+    url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Humor on the Sidewalk: When Even Family Pets Oppose Oligarchy',
+    location: 'Carmichael Farmers Market Stand-Out',
+    category: 'Witty Signs & Humor',
+    date: 'July 2026',
+    photographer: 'Elena R., Member',
+    signQuote: 'Even My Cat Knows We Need Checks & Balances',
   },
   {
-    id: 'volunteers-solidarity-day',
-    url: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Sacramento & Fair Oaks volunteers ready for neighborhood canvassing blitz',
-    location: 'Ancil Hoffman Park, Carmichael',
-    category: 'Community Action',
-    date: 'August 2026',
-    photographer: 'Grassroots Field Coordinator',
+    id: 'choir-rehearsal-circle',
+    url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Carmichael Resistance Choir Bi-Weekly Rehearsal Gathering',
+    location: 'Carmichael Parish Rehearsal Room',
+    category: 'Resistance Choir',
+    date: 'June 2026',
+    photographer: 'Choir Media Team',
+    signQuote: 'Weaving Voices Together in Song',
+  },
+  {
+    id: 'unity-coalition-march',
+    url: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Grassroots Coalition Solidarity March: Neighbors United for Human Dignity',
+    location: 'Capitol Mall to West Steps, Sacramento',
+    category: 'Unity & Solidarity',
+    date: 'April 2026',
+    photographer: 'NorCal Resist & Indivisible Allies',
+    signQuote: 'United Against Authoritarianism',
   },
 ];
 
@@ -173,6 +243,7 @@ export default function GalleryPage() {
     'All',
     'No Kings Protests',
     'Witty Signs & Humor',
+    'Unity & Solidarity',
     'Resistance Choir',
     'Community Action',
   ];
@@ -241,8 +312,9 @@ export default function GalleryPage() {
           <div className="h-1.5 w-24 bg-amber-400 rounded-full" />
 
           <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl">
-            From No Kings protests and witty cardboard signs on Fair Oaks Blvd to four-part harmony
-            singing protests and Capitol steps rallies, here is our grassroots resistance in action.
+            100% grassroots community action — zero politicians, zero corporate branding. Real
+            neighbors, witty handmade signs, peaceful singing protests, and true community
+            solidarity across Sacramento County.
           </p>
 
           {/* Quick Metrics Bar */}
@@ -355,19 +427,19 @@ export default function GalleryPage() {
         {/* Submit Photo CTA */}
         <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-slate-800 text-center space-y-4 max-w-3xl mx-auto">
           <h3 className="text-2xl font-black text-white">
-            Have Great Resistance Pics or Funny Signs?
+            Have Great Resistance Pics, Unity Shots, or Funny Signs?
           </h3>
           <p className="text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
-            Did you snap a brilliant, funny cardboard sign or a high-energy photo at a recent No
-            Kings rally, choir singing protest, or neighborhood stand-out? Send them to our chapter
-            media team!
+            Did you snap a brilliant, witty cardboard sign, an uplifting choir moment, or neighbors
+            standing in solidarity? Strictly grassroots (no politicians or corporate imagery) — send
+            your photos to our media team to be featured in the community archive!
           </p>
           <div className="pt-2">
             <a
               href="mailto:contact@indivisiblefairoaks.org?subject=Community%20Photo%20Submission"
               className="inline-block px-8 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25"
             >
-              Submit Photos to Media Committee
+              Submit Grassroots Photos
             </a>
           </div>
         </div>
