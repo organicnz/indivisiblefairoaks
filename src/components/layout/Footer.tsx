@@ -1,4 +1,5 @@
 import { Heart, Mail, MapPin, Music } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 async function CopyrightYear() {
@@ -13,12 +14,18 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 lg:gap-12">
           {/* Brand & Mission Column */}
           <div className="col-span-1 md:col-span-1">
-            <Link href="/" className="inline-flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-md">
-                IF
+            <Link href="/" className="inline-flex items-center gap-3 group">
+              <div className="relative w-11 h-11 shrink-0 group-hover:scale-105 transition-transform">
+                <Image
+                  src="/images/logo/indivisible-emblem.png"
+                  alt="Indivisible Fair Oaks & Carmichael"
+                  width={44}
+                  height={44}
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div>
-                <span className="text-white font-black text-lg tracking-tight uppercase block leading-tight">
+                <span className="text-white font-black text-lg tracking-tight uppercase block leading-tight group-hover:text-blue-400 transition-colors">
                   Indivisible
                 </span>
                 <span className="text-blue-400 text-xs font-semibold uppercase block leading-tight">

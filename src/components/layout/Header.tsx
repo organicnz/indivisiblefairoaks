@@ -1,6 +1,7 @@
 'use client';
 
 import { Heart, Menu, X } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -31,8 +32,15 @@ function HeaderFallback() {
     <header className="bg-slate-900 py-4 border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-md">
-            I
+          <div className="relative w-10 h-10 shrink-0">
+            <Image
+              src="/images/logo/indivisible-emblem.png"
+              alt="Indivisible Fair Oaks & Carmichael"
+              width={40}
+              height={40}
+              className="w-full h-full object-contain"
+              priority
+            />
           </div>
           <div>
             <span className="text-white font-black text-lg tracking-tight uppercase block">
@@ -83,8 +91,15 @@ function HeaderInner() {
         <div className="flex justify-between items-center">
           {/* Logo / Chapter Identity */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-blue-500 flex items-center justify-center text-white font-black text-xl shadow-md group-hover:scale-105 transition-transform">
-              <span className="tracking-tighter">IF</span>
+            <div className="relative w-10 h-10 shrink-0 group-hover:scale-105 transition-transform">
+              <Image
+                src="/images/logo/indivisible-emblem.png"
+                alt="Indivisible Fair Oaks & Carmichael"
+                width={40}
+                height={40}
+                className="w-full h-full object-contain"
+                priority
+              />
             </div>
             <div>
               <span className="text-white font-black text-base sm:text-lg tracking-tight uppercase group-hover:text-blue-400 transition-colors block leading-tight">
@@ -150,9 +165,15 @@ function HeaderInner() {
         }`}
       >
         <div className="flex items-center justify-between pb-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-xl">
-              IF
+          <Link href="/" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3">
+            <div className="relative w-10 h-10 shrink-0">
+              <Image
+                src="/images/logo/indivisible-emblem.png"
+                alt="Indivisible Fair Oaks & Carmichael"
+                width={40}
+                height={40}
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <span className="text-white font-black text-base uppercase block leading-tight">
@@ -162,7 +183,7 @@ function HeaderInner() {
                 Fair Oaks & Carmichael
               </span>
             </div>
-          </div>
+          </Link>
           <button
             type="button"
             className="p-2 text-slate-300 hover:text-white transition-colors"
