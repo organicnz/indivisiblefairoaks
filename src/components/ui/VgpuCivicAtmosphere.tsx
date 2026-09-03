@@ -56,8 +56,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
-  let mouseRipple = sin(mouseDist * 24.0 - t * 4.0) * 0.5 + 0.5;
-  let mouseGlow = exp(-mouseDist * 2.8) * (0.35 + mouseRipple * 0.25) * params.intensity;
+  let mouseGlow = exp(-mouseDist * 2.6) * 0.42 * params.intensity;
 
   let q = vec2f(
     fbm(p * 1.3 + vec2f(t * 0.35, t * 0.18)),
