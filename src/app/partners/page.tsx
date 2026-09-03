@@ -1,159 +1,130 @@
+import { ExternalLink, Handshake } from 'lucide-react';
 import type { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
-import { getStorageUrl } from '@/lib/supabase';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/partners' },
-  title: 'Our Partners | Catch-22 New Zealand',
+  title: 'Coalition Partners & Allies | Indivisible Fair Oaks-Carmichael',
   description:
-    'Meet the fishing guides, charters, and conservation organisations that test and trust Catch-22 gear in the harshest New Zealand conditions.',
+    'Meet the national and California grassroots partners, voting rights organizations, and local coalitions working alongside Indivisible Fair Oaks-Carmichael.',
   openGraph: {
-    title: 'Our Partners | Catch-22 New Zealand',
+    title: 'Coalition Partners & Allies | Indivisible Fair Oaks-Carmichael',
     description:
-      'Meet the fishing guides, charters, and conservation organisations that test and trust Catch-22 gear in the harshest New Zealand conditions.',
-    url: 'https://catch-22.co.nz/partners',
-    siteName: 'Catch-22',
-    locale: 'en_NZ',
+      'Meet the national and California grassroots partners, voting rights organizations, and local coalitions working alongside Indivisible Fair Oaks-Carmichael.',
+    url: 'https://indivisiblefairoaks.org/partners',
+    siteName: 'Indivisible Fair Oaks-Carmichael',
+    locale: 'en_US',
     type: 'website',
-    images: [
-      {
-        url: 'https://wcoaqlglwxwceqktpckt.supabase.co/storage/v1/object/public/media/site/partner-thunder.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Catch-22 Partners — THUNDER Charter and Sea Cleaners',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Our Partners | Catch-22 New Zealand',
-    description:
-      'Meet the fishing guides, charters, and conservation organisations that test and trust Catch-22 gear in the harshest New Zealand conditions.',
-    images: [
-      'https://wcoaqlglwxwceqktpckt.supabase.co/storage/v1/object/public/media/site/partner-thunder.jpg',
-    ],
   },
 };
 
 export default function PartnersPage() {
   const partners = [
     {
-      name: 'Ham & Cheese Fishing Adventures',
+      name: 'National Indivisible Project',
+      category: 'National Movement',
       description:
-        'Follow Ham & Cheese for some off the hook entertainment. Check out their shop for custom mugs, hats, and the legendary Sledger Rigs.',
-      links: [
-        { label: 'Facebook', url: 'https://www.facebook.com/share/g/1HJnwn1Pt9/' },
-        { label: 'YouTube', url: 'https://www.youtube.com/@hamandtysfishingadventures9685' },
-      ],
-      image: '/partners/ham-cheese-logo.jpg',
-      imageAlt: 'Ham and Cheese Fishing Adventures',
+        'A grassroots movement of thousands of local chapters with a shared vision of a democracy by the people, of the people, and for all people.',
+      url: 'https://indivisible.org',
     },
     {
-      name: 'Northland Fishing and Mental Wellness Support Group',
+      name: 'Indivisible California StateStrong',
+      category: 'Statewide Coalition',
       description:
-        'A dedicated initiative combining the healing power of fishing and the outdoors with community support for mental wellness. A safe place to share and heal.',
-      links: [
-        { label: 'Facebook Group', url: 'https://www.facebook.com/groups/531386178569441/' },
-        {
-          label: 'Donate',
-          url: 'https://givealittle.co.nz/cause/koha-towards-community-fishing-program-focusing-on',
-        },
-      ],
-      image: '/partners/northland-logo.jpg',
-      imageAlt: 'Northland Fishing and Mental Wellness Support Group community',
+        'Connecting dozens of local Indivisible chapters across California to coordinate legislative advocacy in Sacramento and champion state-level progressive policy.',
+      url: 'https://indivisibleca.org',
     },
     {
-      name: 'NZ ANGLER',
+      name: 'Sister District Sacramento',
+      category: 'Electoral Partner',
       description:
-        'Our mates down at NZ ANGLER provide solid acidwrap rods and pro-series reels for the serious fisho.',
-      links: [{ label: 'Visit Website', url: 'https://nzangler.co.nz/' }],
-      image: getStorageUrl('site/snap2.jpg'),
-      imageAlt: 'NZ Angler fishing rods and reels',
+        'Mobilizing volunteers to build lasting progressive power in state legislatures across the country by supporting critical swing-district candidates.',
+      url: 'https://sisterdistrict.com',
     },
     {
-      name: 'THUNDER Charter',
+      name: '5 Calls: Make Your Voice Heard',
+      category: 'Civic Tech Partner',
       description:
-        'Run by Charles at Bay of Plenty Boat Hire. A premier charter experience testing Catch-22 gear in the toughest conditions.',
-      links: [{ label: 'Visit Website', url: 'https://www.bayofplentyboathire.co.nz' }],
-      image: '/partners/thunder-logo.jpg',
-      imageAlt: 'THUNDER Charter boat on Bay of Plenty waters',
+        'The most effective, fast way for everyday citizens to call their elected officials about crucial democracy, healthcare, and civil rights bills.',
+      url: 'https://5calls.org',
     },
     {
-      name: 'Sea Cleaners',
+      name: 'League of Women Voters Sacramento County',
+      category: 'Voting Rights & Nonpartisan Guides',
       description:
-        'Dedicated to preserving our New Zealand coastlines. We are proud to support their mission by donating 2.5% of all profits.',
-      links: [{ label: 'Visit Website', url: 'https://seacleaners.org.nz/' }],
-      image: '/seacleaners-logos.png',
-      imageAlt: 'Sea Cleaners volunteers cleaning New Zealand coastline',
+        'Empowering voters and defending democracy through nonpartisan ballot analysis, candidate forums, and local high school voter registration drives.',
+      url: 'https://my.lwv.org/california/sacramento-county',
+    },
+    {
+      name: 'ACLU of Northern California',
+      category: 'Civil Liberties & Legal Defense',
+      description:
+        'Guarding the constitutional rights of all Californians through strategic litigation, community education, and policy reform.',
+      url: 'https://www.aclunc.org',
     },
   ];
 
   return (
-    <main className="bg-white pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col items-center text-center mb-16">
-          <h1 className="text-4xl font-black text-secondary uppercase tracking-tight mb-4">
-            Our Partners
+    <main className="bg-slate-950 text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
+      <div className="max-w-5xl mx-auto space-y-12">
+        <div className="flex flex-col items-center text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
+            <Handshake size={14} className="text-amber-400" />
+            <span>Grassroots Solidarity</span>
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
+            Our Coalition Partners & Allies
           </h1>
-          <div className="h-2 w-24 bg-primary" />
-          <p className="mt-6 text-slate-500 font-medium text-lg max-w-2xl">
-            We work with the best in the business to ensure our gear is truly tried and true.
+          <div className="h-1.5 w-24 bg-amber-400 rounded-full mb-4" />
+          <p className="text-slate-300 text-sm sm:text-base max-w-2xl leading-relaxed">
+            We believe democracy is a team sport. Indivisible Fair Oaks-Carmichael works in close
+            partnership with national organizations, California coalitions, and Sacramento community
+            advocates.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {partners.map((partner) => (
             <div
               key={partner.name}
-              className="group bg-slate-50 rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-500 ease-out flex flex-col"
+              className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-blue-500/40 transition-all flex flex-col justify-between group"
             >
-              <div className="relative h-64 overflow-hidden bg-white">
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 bg-secondary/20 group-hover:bg-secondary/10 transition-colors z-10 pointer-events-none"
-                />
-                <Image
-                  src={partner.image}
-                  alt={partner.imageAlt}
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  className="object-contain p-8 group-hover:scale-105 transition-transform duration-500 ease-out"
-                />
-              </div>
-              <div className="p-8 flex flex-col flex-1">
-                <h2 className="text-2xl font-black text-secondary uppercase mb-4 leading-tight">
+              <div className="space-y-3">
+                <span className="text-[11px] font-mono text-amber-400 font-bold uppercase tracking-wider block">
+                  {partner.category}
+                </span>
+                <h2 className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors">
                   {partner.name}
                 </h2>
-                <p className="text-slate-600 font-medium mb-8">{partner.description}</p>
-                <div className="flex flex-wrap gap-4 mt-auto">
-                  {partner.links.map((link) => (
-                    <a
-                      key={link.label}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={`Visit ${partner.name} ${link.label} (opens in new tab)`}
-                      className="inline-block bg-white text-secondary border-2 border-secondary hover:bg-secondary hover:text-white font-black py-3 px-6 rounded-full transition-all uppercase tracking-widest text-[10px]"
-                    >
-                      {link.label}
-                    </a>
-                  ))}
-                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">{partner.description}</p>
+              </div>
+
+              <div className="pt-6 border-t border-slate-800/80">
+                <a
+                  href={partner.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  <span>Visit Partner Website</span>
+                  <ExternalLink size={13} />
+                </a>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-24 text-center">
-          <h3 className="text-xl font-black text-secondary uppercase tracking-[0.2em] mb-8">
-            Want to partner with us?
-          </h3>
+        <div className="p-8 rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-4">
+          <h3 className="text-xl font-bold text-white">Looking to Partner with Our Chapter?</h3>
+          <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
+            If your organization shares our dedication to civil rights, progressive governance, and
+            democratic defense, we’d love to collaborate on upcoming actions.
+          </p>
           <Link
             href="/contact"
-            className="text-primary-ink font-black uppercase tracking-widest border-b-2 border-primary-ink hover:text-secondary hover:border-secondary transition-all"
+            className="inline-block px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all"
           >
-            Get in touch today
+            Connect With Our Coalition Team
           </Link>
         </div>
       </div>

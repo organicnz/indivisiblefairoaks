@@ -1,88 +1,84 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { SHIPPING_RATES } from '@/config/shipping';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/faqs' },
-  title: 'FAQs | Catch-22 New Zealand',
+  title: 'Frequently Asked Questions | Indivisible Fair Oaks-Carmichael',
   description:
-    'Find answers to common questions about Catch-22 fishing gear, shipping to New Zealand, charter bookings, and more.',
+    'Answers to common questions about Indivisible Fair Oaks-Carmichael meetings, the Resistance Choir, voter outreach, and getting involved.',
   openGraph: {
-    title: 'FAQs | Catch-22 New Zealand',
+    title: 'Frequently Asked Questions | Indivisible Fair Oaks-Carmichael',
     description:
-      'Find answers to common questions about Catch-22 fishing gear, shipping to New Zealand, charter bookings, and more.',
-    url: 'https://catch-22.co.nz/faqs',
-    siteName: 'Catch-22',
-    locale: 'en_NZ',
+      'Answers to common questions about Indivisible Fair Oaks-Carmichael meetings, the Resistance Choir, voter outreach, and getting involved.',
+    url: 'https://indivisiblefairoaks.org/faqs',
+    siteName: 'Indivisible Fair Oaks-Carmichael',
+    locale: 'en_US',
     type: 'website',
-    images: [
-      {
-        url: 'https://wcoaqlglwxwceqktpckt.supabase.co/storage/v1/object/public/media/site/thunder-charter.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Catch-22 Premium Fishing Gear New Zealand',
-      },
-    ],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'FAQs | Catch-22 New Zealand',
-    description:
-      'Find answers to common questions about Catch-22 fishing gear, shipping to New Zealand, charter bookings, and more.',
-    images: [
-      'https://wcoaqlglwxwceqktpckt.supabase.co/storage/v1/object/public/media/site/thunder-charter.jpg',
-    ],
   },
 };
 
 export default function FAQPage() {
   const faqs = [
     {
-      category: 'Shipping',
+      category: 'About Our Chapter',
       questions: [
         {
-          q: 'How long does shipping normally take?',
-          a: 'Standard deliveries typically take between 2-5 business days. For rural deliveries please allow an additional 1-3 business days. Please select courier option for faster shipping.',
+          q: 'What is Indivisible Fair Oaks-Carmichael?',
+          a: 'We are a grassroots community organization in Sacramento County, California, affiliated with the national Indivisible movement. We are dedicated to defending democracy, protecting voting rights, promoting social and climate justice, and holding our elected officials accountable.',
         },
         {
-          q: 'What are the shipping costs?',
-          a: SHIPPING_RATES.map(
-            (rate) => `${rate.name} is ${rate.amount === 0 ? 'free of charge' : rate.displayPrice}.`
-          ).join(' '),
+          q: 'When and where are the regular chapter meetings held?',
+          a: "We gather on the first Tuesday of every month from 6:30 PM to 8:00 PM at St. Michael's Episcopal Church, 2140 Mission Avenue, Carmichael, CA 95608. Hybrid Zoom options are also provided for members participating remotely.",
         },
         {
-          q: 'Where will my order be shipped from?',
-          a: 'Orders are shipped from within Auckland.',
-        },
-        {
-          q: 'How do I track my order?',
-          a: 'Once your order has been shipped you will receive a shipment confirmation email with tracking number. This email will contain information for you to be able to track and trace your parcel.',
-        },
-        {
-          q: 'Do you ship overseas?',
-          a: 'Unfortunately we only ship to addresses within New Zealand, for the time being.',
+          q: 'Do I have to live in Fair Oaks or Carmichael to join?',
+          a: 'Not at all! We welcome neighbors from Citrus Heights, Orangevale, Arden-Arcade, Rancho Cordova, Sacramento, and surrounding communities across California Congressional Districts CA-06 and CA-03.',
         },
       ],
     },
     {
-      category: 'Charters & Partners',
+      category: 'Carmichael Resistance Choir',
       questions: [
         {
-          q: 'How do I arrange a fishing trip with the legendary THUNDER charter?',
-          a: 'Charles, who runs the THUNDER can be contacted through our website www.bayofplentyboathire.co.nz or by calling 0210542854.',
+          q: 'Do I need to audition to join the Resistance Choir?',
+          a: 'No audition is required! All voices, experience levels, and musical backgrounds are warmly welcomed. Rehearsals are held every other Wednesday evening from 6:30 PM to 8:00 PM.',
+        },
+        {
+          q: 'Where does the choir perform?',
+          a: 'We sing at peaceful street corner demonstrations (such as the intersection of Fair Oaks Blvd & Manzanita Ave), civic rallies, Sacramento Capitol events, and our monthly community gatherings.',
+        },
+      ],
+    },
+    {
+      category: 'Voter Action & Contributions',
+      questions: [
+        {
+          q: 'Are contributions to Indivisible Fair Oaks tax-deductible?',
+          a: 'No. Contributions made through our ActBlue portal are dedicated to grassroots civic advocacy and political mobilization, and are therefore not tax-deductible as charitable gifts. 100% of donations fund meeting hall rentals, rally signs, and voter contact materials.',
+        },
+        {
+          q: 'How can I participate in postcard writing for voter turnout?',
+          a: 'We supply pre-printed postcards, verified voter addresses, and proven scripts for swing districts. Visit our Events page or email contact@indivisiblefairoaks.org to join our monthly postcarding blitzes.',
         },
       ],
     },
   ];
 
   return (
-    <main className="bg-white pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8 min-h-screen">
+    <main className="bg-slate-950 text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
       <div className="max-w-3xl mx-auto">
         <div className="flex flex-col items-center text-center mb-16">
-          <h1 className="text-4xl font-black text-secondary uppercase tracking-tight mb-4">
-            Frequently Asked Questions
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
+            <span>Frequently Asked Questions</span>
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
+            Everything You Need To Know
           </h1>
-          <div className="h-2 w-24 bg-primary" />
+          <div className="h-1.5 w-24 bg-amber-400 rounded-full mb-4" />
+          <p className="text-slate-300 text-sm sm:text-base max-w-xl">
+            Have questions about attending a meeting, singing with the choir, or getting involved?
+            Find quick answers below.
+          </p>
         </div>
 
         <div className="space-y-12">
@@ -90,43 +86,36 @@ export default function FAQPage() {
             <section key={group.category} aria-labelledby={`faq-category-${group.category}`}>
               <h2
                 id={`faq-category-${group.category}`}
-                className="text-xl font-black text-primary-ink uppercase tracking-widest mb-6 border-b border-slate-100 pb-2"
+                className="text-xl font-bold text-amber-400 uppercase tracking-wider mb-6 flex items-center gap-3"
               >
-                {group.category}
+                <span>{group.category}</span>
+                <div className="h-px bg-slate-800 flex-1" />
               </h2>
-              <div className="space-y-8">
+              <div className="space-y-4">
                 {group.questions.map((faq) => (
-                  <details
+                  <div
                     key={faq.q}
-                    className="bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-sm group transition-all duration-500 ease-out"
+                    className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-2"
                   >
-                    <summary className="text-lg font-black text-secondary mb-3 leading-tight uppercase cursor-pointer list-none flex justify-between items-center">
-                      {faq.q}
-                      <span
-                        aria-hidden="true"
-                        className="text-primary font-black text-xl group-open:rotate-45 transition-transform duration-500 ease-out"
-                      >
-                        +
-                      </span>
-                    </summary>
-                    <p className="text-slate-600 font-medium leading-relaxed mt-4">{faq.a}</p>
-                  </details>
+                    <h3 className="text-base sm:text-lg font-bold text-white">{faq.q}</h3>
+                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{faq.a}</p>
+                  </div>
                 ))}
               </div>
             </section>
           ))}
         </div>
 
-        <div className="mt-20 bg-secondary rounded-3xl p-10 text-center text-white shadow-xl">
-          <h3 className="text-2xl font-black uppercase mb-4">Still have questions?</h3>
-          <p className="text-white/80 mb-8 font-medium">
-            We&apos;re here to help you get the right gear for your next catch.
+        <div className="mt-16 text-center p-8 rounded-3xl bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-blue-500/30 space-y-4">
+          <h3 className="text-xl font-black text-white">Still have a question?</h3>
+          <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto">
+            Our volunteer organizing committee is always here to help you get connected.
           </p>
           <Link
             href="/contact"
-            className="inline-block bg-primary hover:bg-primary-dark text-secondary font-black py-5 px-12 rounded-full transition-all uppercase tracking-[0.2em] text-sm"
+            className="inline-block px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all"
           >
-            Contact Our Team
+            Contact Us Directly
           </Link>
         </div>
       </div>

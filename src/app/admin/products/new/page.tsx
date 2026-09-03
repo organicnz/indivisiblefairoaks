@@ -7,7 +7,7 @@ import { requireAdmin } from '@/lib/admin-auth';
 export const instant = false;
 
 export const metadata = {
-  title: 'New Product — Admin · Catch-22',
+  title: 'New Material / Resource — Admin · Indivisible Fair Oaks',
   robots: { index: false, follow: false },
 };
 

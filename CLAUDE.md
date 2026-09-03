@@ -1,4 +1,4 @@
-# Catch-22: Developer Manifesto & Guide
+# Indivisible Fair Oaks-Carmichael: Developer Manifesto & Guide
 
 ## ⚡ Quick Start
 - `bun run dev`: Launch local development environment.

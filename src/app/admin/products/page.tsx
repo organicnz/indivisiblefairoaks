@@ -14,7 +14,7 @@ import { getStorageUrl } from '@/lib/supabase';
 export const instant = false;
 
 export const metadata = {
-  title: 'Products — Admin · Catch-22',
+  title: 'Materials — Admin · Indivisible Fair Oaks',
   robots: { index: false, follow: false },
 };
 

@@ -12,8 +12,9 @@ const NAV_LINKS = [
   { name: 'Events & Actions', href: '/events' },
   { name: 'Resistance Choir', href: '/choir' },
   { name: 'Voter Info', href: '/voter-info' },
+  { name: 'Gallery', href: '/gallery' },
   { name: 'News', href: '/news' },
-  { name: 'Coalition Links', href: '/links' },
+  { name: 'Coalition', href: '/links' },
   { name: 'Contact', href: '/contact' },
 ];
 

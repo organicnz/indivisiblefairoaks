@@ -1,7 +1,7 @@
-# Catch-22: Migration Architectural Guide
+# Indivisible Fair Oaks-Carmichael: Migration Architectural Guide
 
 ## Project Objective
-Transform the legacy WordPress/Elementor ecosystem (catch-22.co.nz) into a modern, high-performance headless e-commerce platform. The goal is to achieve feature parity while introducing a "Sensory Luxury" design language and a robust, secure infrastructure.
+Transform the legacy WordPress/Elementor ecosystem (catch-22.co.nz) into a modern, high-performance headless platform. The goal is to achieve feature parity while introducing a "Sensory Luxury" design language and a robust, secure infrastructure.
 
 ---
 

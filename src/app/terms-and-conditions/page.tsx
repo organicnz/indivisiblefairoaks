@@ -15,10 +15,10 @@ export default function TermsPage() {
           </p>
 
           <p>
-            These terms and conditions govern the relationship between you and Catch-22 (Us).
-            Including the use of this website, any purchases you make from us and our promotions. By
-            accessing, browsing or using this site, you acknowledge and agree to these terms and
-            conditions.
+            These terms and conditions govern the relationship between you and Indivisible Fair
+            Oaks-Carmichael (Us). Including the use of this website, any contributions or orders you
+            make from us and our community programs. By accessing, browsing or using this site, you
+            acknowledge and agree to these terms and conditions.
           </p>
 
           <section>
@@ -73,9 +73,9 @@ export default function TermsPage() {
               on dispatch.
             </p>
             <p>
-              Delivery times given on this website are indicative only. Your order will be
-              dispatched from the Catch-22 Warehouse provided they have the items to fulfil your
-              order in stock.
+              Delivery times given on this website are indicative only. Your order or materials will
+              be dispatched from the Indivisible Fair Oaks distribution hub provided they have the
+              items to fulfil your order in stock.
             </p>
           </section>
 

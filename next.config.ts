@@ -20,7 +20,7 @@ const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.network.com",
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: https://${supabaseHost} https://images.unsplash.com https://*.googleusercontent.com https://i.ytimg.com https://catch-22.co.nz https://i0.wp.com https://i1.wp.com https://i2.wp.com`,
+  `img-src 'self' data: blob: https://${supabaseHost} https://images.unsplash.com https://*.googleusercontent.com https://i.ytimg.com https://indivisiblefairoaks.org https://i0.wp.com https://i1.wp.com https://i2.wp.com`,
   "font-src 'self' data:",
   `connect-src 'self' https://${supabaseHost} https://api.stripe.com https://m.stripe.network.com`,
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://js.stripe.com https://hooks.stripe.com https://secure.actblue.com https://www.mobilize.us",
@@ -80,7 +80,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'catch-22.co.nz',
+        hostname: 'indivisiblefairoaks.org',
       },
       {
         protocol: 'https',

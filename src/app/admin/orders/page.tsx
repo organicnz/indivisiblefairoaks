@@ -25,7 +25,7 @@ import type { createAdminClient } from '@/lib/supabase-server';
 export const instant = false;
 
 export const metadata = {
-  title: 'Orders — Admin · Catch-22',
+  title: 'Orders — Admin · Indivisible Fair Oaks',
   robots: { index: false, follow: false },
 };
 

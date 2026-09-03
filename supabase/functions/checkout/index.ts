@@ -45,7 +45,7 @@ type NormalizedItem = { id: number; quantity: number }
 
 const app = new Hono()
 
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://catch-22.co.nz'
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://indivisiblefairoaks.org'
 
 app.use(
   '/*',

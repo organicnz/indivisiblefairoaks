@@ -23,17 +23,17 @@ export default function SuccessPage() {
           Order Confirmed!
         </h1>
         <p className="text-slate-600 mb-10 font-medium leading-relaxed">
-          Thank you for choosing Catch-22. We&apos;ve received your order and are getting it ready
-          for the elements.
+          Thank you for supporting Indivisible Fair Oaks-Carmichael. We&apos;ve received your
+          request and will follow up with details shortly.
         </p>
         <Link
-          href="/products"
-          className="w-full inline-block py-5 px-8 bg-primary hover:bg-primary-dark text-white font-black rounded-full transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20"
+          href="/"
+          className="w-full inline-block py-5 px-8 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-full transition-all uppercase tracking-[0.2em] text-sm shadow-xl"
         >
-          Continue Shopping
+          Return to Home
         </Link>
         <p className="mt-8 text-[10px] text-slate-400 font-black uppercase tracking-widest">
-          2.5% of your purchase is donated to NZ Sea Cleaners
+          100% Volunteer Powered • Grassroots Community Funded
         </p>
       </div>
     </div>

@@ -12,7 +12,7 @@ import type { AdminOrder, MyOrder } from '@/types/orders';
 export const instant = false;
 
 export const metadata = {
-  title: 'Account — Catch-22',
+  title: 'Account — Indivisible Fair Oaks-Carmichael',
   robots: { index: false, follow: false },
 };
 

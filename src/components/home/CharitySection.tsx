@@ -38,18 +38,9 @@ export function CharitySection() {
             </h2>
 
             <p className="text-slate-400 text-lg md:text-xl font-medium mb-12 leading-relaxed">
-              At Catch-22, we believe in preserving the rugged beauty of the New Zealand coast. A
-              portion of every purchase goes directly to{' '}
-              <a
-                href="https://www.seacleaners.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-white hover:text-primary font-black italic underline decoration-primary decoration-4 underline-offset-8 transition-colors"
-              >
-                Sea Cleaners
-              </a>
-              , helping remove plastic and debris from our oceans to ensure future generations can
-              experience the same thrill of the chase.
+              At Indivisible Fair Oaks-Carmichael, we believe in preserving the democratic
+              institutions of our community. A portion of all community fundraising goes directly
+              toward local food drives, community mutual aid, and civic voter protection.
             </p>
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-10">

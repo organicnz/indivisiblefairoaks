@@ -30,7 +30,7 @@ export async function generateMetadata({
 
   return {
     alternates: { canonical: `/${slug}` },
-    title: `${content.title} | Catch-22`,
+    title: `${content.title} | Indivisible Fair Oaks-Carmichael`,
     description: description,
     openGraph: {
       title: content.title,
@@ -83,8 +83,8 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           headline: content.title,
           datePublished: content.created_at ?? undefined,
           dateModified: content.created_at ?? undefined,
-          author: { '@type': 'Organization', name: 'Catch-22' },
-          publisher: { '@type': 'Organization', name: 'Catch-22' },
+          author: { '@type': 'Organization', name: 'Indivisible Fair Oaks-Carmichael' },
+          publisher: { '@type': 'Organization', name: 'Indivisible Fair Oaks-Carmichael' },
         }
       : null;
 

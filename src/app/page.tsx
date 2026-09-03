@@ -15,7 +15,9 @@ import {
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { HomeGalleryPreview } from '@/components/home/HomeGalleryPreview';
 import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
+import { CivicActionTicker } from '@/components/ui/CivicActionTicker';
 import { VgpuCivicAtmosphere } from '@/components/ui/VgpuCivicAtmosphere';
 
 export const metadata: Metadata = {
@@ -117,6 +119,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Live Civic Action Ticker */}
+      <CivicActionTicker />
 
       {/* Urgent Community Gathering Alert Card */}
       <section className="bg-slate-900 border-b border-slate-800 py-8">
@@ -410,6 +415,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Community Photojournalism / Moments of Resistance Preview */}
+      <HomeGalleryPreview />
 
       {/* Non-violent Action Commitment Banner */}
       <section className="bg-slate-950 py-12 border-t border-b border-slate-800">

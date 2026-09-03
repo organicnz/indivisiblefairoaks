@@ -47,7 +47,7 @@ export function MfaSettings() {
       setEnrolling(true);
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
-        issuer: 'Catch-22',
+        issuer: 'Indivisible Fair Oaks',
         friendlyName: 'Default',
       });
 

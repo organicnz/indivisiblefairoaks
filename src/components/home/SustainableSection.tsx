@@ -10,7 +10,7 @@ export function SustainableSection() {
             <div className="relative aspect-square w-full max-w-[500px] mx-auto rounded-[3rem] overflow-hidden shadow-2xl border border-slate-200 group mb-8 lg:mb-0">
               <Image
                 src="/sustainable-bumper.png"
-                alt="Catch-22 Sustainable Fishing Bumper Sticker"
+                alt="Indivisible Fair Oaks Civic Action Bumper Sticker"
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover group-hover:scale-105 transition-transform duration-700"
@@ -24,18 +24,18 @@ export function SustainableSection() {
               Our Commitment
             </span>
             <h2 className="text-5xl md:text-7xl font-black text-secondary uppercase tracking-tighter leading-[0.9] mb-10">
-              Be Proud To Be A <br /> <span className="text-slate-500">Sustainable</span> <br />{' '}
-              Fisherman
+              Proud To Stand For <br /> <span className="text-slate-500">Democracy &</span> <br />{' '}
+              Community
             </h2>
             <p className="text-slate-500 text-xl font-medium leading-relaxed mb-12">
-              At Catch-22, we believe in protecting the waters that sustain us. 2.5% of all our
-              profits are donated directly to the NZ Sea Cleaners Charitable Trust, ensuring our
-              oceans remain pristine for the next generation of anglers.
+              At Indivisible Fair Oaks-Carmichael, we believe in protecting the constitutional norms
+              that sustain our republic. 100% of grassroots funds go directly toward local actions,
+              voter outreach, and neighborhood civic engagement.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-6">
               <Link
-                href="/products/catch-22-bumper-sticker"
+                href="/products/indivisible-bumper-sticker"
                 className="inline-block bg-secondary text-white font-black py-6 px-10 rounded-2xl transition-all uppercase tracking-[0.2em] text-xs hover:bg-primary hover:text-secondary text-center"
               >
                 Get Your Sticker Today

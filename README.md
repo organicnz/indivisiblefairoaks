@@ -1,16 +1,16 @@
-# Catch-22: Built for the Elements
+# Indivisible Fair Oaks-Carmichael: Grassroots Democracy in Action
 
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database-green?logo=supabase)](https://supabase.com/)
 [![Stripe](https://img.shields.io/badge/Stripe-Payments-blue?logo=stripe)](https://stripe.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-Styling-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
 
-A premium e-commerce migration of the [Catch-22](https://catch-22.co.nz) platform. This project transitions a legacy WordPress/Elementor ecosystem into a high-performance, cinematic "Sensory Luxury" experience built with Next.js 16, Supabase, and Stripe.
+A modern platform for [Indivisible Fair Oaks-Carmichael](https://indivisiblefairoaks.org) — a non-violent grassroots movement defending democracy and advocating for community in Fair Oaks and Carmichael, CA. Built with Next.js 16, Supabase, and Stripe.
 
 ---
 
 ## 🌊 The Vision: Sensory Luxury
-Catch-22 is not just gear; it's an experience. This digital storefront is engineered to mirror the raw, tactile nature of the New Zealand coast.
+Indivisible Fair Oaks-Carmichael is more than a chapter; it's a movement. This digital platform is engineered to reflect the energy and commitment of grassroots democracy in action.
 - **Visual Depth**: Glassmorphism, high-contrast typography, and fluid micro-animations.
 - **Performance First**: Optimized LCP and cumulative layout stability for a seamless journey.
 - **Tactile UI**: Interactive "Liquid Glass" galleries and responsive, high-fidelity components.
@@ -35,7 +35,7 @@ Catch-22 is not just gear; it's an experience. This digital storefront is engine
 
 ### 1. Prerequisites
 - Bun ≥1.4
-- A Supabase project with the catch-22 schema applied
+- A Supabase project with the indivisiblefairoaks schema applied
 
 ### 2. Installation
 ```bash
@@ -73,4 +73,4 @@ For more detailed information, please refer to:
 
 ---
 
-&copy; 2026 Catch-22. All rights reserved. Built for the elements.
+&copy; 2026 Indivisible Fair Oaks-Carmichael. All rights reserved. Built for the movement.

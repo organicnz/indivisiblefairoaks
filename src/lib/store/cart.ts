@@ -61,7 +61,7 @@ export const useCartStore = create<CartState>()(
       totalPrice: () => get().items.reduce((total, item) => total + item.price * item.quantity, 0),
     }),
     {
-      name: 'catch-22-cart',
+      name: 'indivisible-cart',
     }
   )
 );

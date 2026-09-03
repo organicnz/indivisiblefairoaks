@@ -55,12 +55,17 @@ export const SPAM_KEYWORDS = [
 ] as const;
 
 export const TRUSTED_DOMAINS = [
-  'catch-22.co.nz',
+  'indivisiblefairoaks.org',
+  'indivisiblefairoaks.org',
   'i0.wp.com',
   'i1.wp.com',
   'i2.wp.com',
   'supabase.co',
   'stripe.com',
+  'mobilize.us',
+  'actblue.com',
+  'indivisible.org',
+  'indivisibleca.org',
   'hamandtys.com',
   'bayofplentyboathire.co.nz',
   'nzangler.co.nz',
@@ -80,8 +85,11 @@ export function isSpamContent(text: string): boolean {
   const hasSpamKeyword = SPAM_KEYWORDS.some((kw) => lowerText.includes(kw));
 
   // Check for non-Latin characters (strict ASCII check)
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
-  const hasNonLatin = /[^\x00-\x7F]/.test(text) && !lowerText.includes('catch-22');
+  const hasNonLatin =
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
+    /[^\x00-\x7F]/.test(text) &&
+    !lowerText.includes('catch-22') &&
+    !lowerText.includes('indivisible');
 
   return hasSpamKeyword || hasNonLatin;
 }

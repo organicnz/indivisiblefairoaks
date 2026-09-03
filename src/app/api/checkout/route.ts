@@ -18,12 +18,13 @@ function resolveReturnOrigin(req: Request): string {
   const raw = req.headers.get('origin');
   if (
     raw &&
-    (/^https:\/\/([\w-]+\.)*catch-22\.co\.nz$/.test(raw) ||
-      /^https:\/\/[\w-]+\.vercel\.app$/.test(raw))
+    (/^https:\/\/([\w-]+\.)*indivisiblefairoaks\.org$/.test(raw) ||
+      /^https:\/\/[\w-]+\.vercel\.app$/.test(raw) ||
+      /^http:\/\/localhost:\d+$/.test(raw))
   ) {
     return raw;
   }
-  return env.NEXT_PUBLIC_SITE_URL || 'https://catch-22.co.nz';
+  return env.NEXT_PUBLIC_SITE_URL || 'https://indivisiblefairoaks.org';
 }
 
 export async function POST(req: Request) {

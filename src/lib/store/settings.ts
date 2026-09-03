@@ -111,7 +111,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
     }),
     {
-      name: 'catch22-settings-v2', // Changed version to reset potentially stale cache
+      name: 'indivisiblefairoaks-settings-v2', // Changed version to reset potentially stale cache
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ settings: state.settings }),
     }
