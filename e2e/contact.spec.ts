@@ -13,7 +13,7 @@ async function getMockState(request: APIRequestContext) {
 async function fillAndSubmit(page: import('@playwright/test').Page, opts: { copy?: boolean } = {}) {
   await page.goto('/contact');
   await page.getByLabel('Full Name').fill('E2E Tester');
-  await page.getByLabel('Email Address').fill('e2e-tester@catch-22.co.nz');
+  await page.getByLabel('Email Address').fill('e2e-tester@indivisiblefairoaks.org');
   await page
     .getByLabel('Message', { exact: true })
     .fill('Automated end-to-end verification of the contact delivery status flow.');
@@ -35,7 +35,7 @@ test.describe('contact form delivery status', () => {
 
     const banner = page.getByRole('status');
     await expect(banner).toContainText(/message sent successfully/i);
-    await expect(banner).toContainText('e2e-tester@catch-22.co.nz');
+    await expect(banner).toContainText('e2e-tester@indivisiblefairoaks.org');
 
     const state = await getMockState(request);
     expect(state.calls).toBe(1);
@@ -123,7 +123,7 @@ test.describe('contact form delivery status', () => {
   test('server-side length validation surfaces the error banner', async ({ page }) => {
     await page.goto('/contact');
     await page.getByLabel('Full Name').fill('x'.repeat(101));
-    await page.getByLabel('Email Address').fill('valid@catch-22.co.nz');
+    await page.getByLabel('Email Address').fill('valid@indivisiblefairoaks.org');
     await page
       .getByLabel('Message', { exact: true })
       .fill('Long enough to pass the minimum message check.');

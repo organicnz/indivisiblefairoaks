@@ -61,7 +61,7 @@ describe('profileSchema', () => {
   const valid = {
     id: 1,
     user_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-    email: 'angler@catch-22.co.nz',
+    email: 'supporter@indivisiblefairoaks.org',
     first_name: 'Mike',
     last_name: 'Fisher',
     username: 'mikef',

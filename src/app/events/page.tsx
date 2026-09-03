@@ -1,6 +1,7 @@
 import { AlertCircle, Calendar, ExternalLink, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 
 export const metadata: Metadata = {
   title: 'Events & Actions | Indivisible Fair Oaks-Carmichael',
@@ -11,9 +12,10 @@ export const metadata: Metadata = {
 export default function EventsPage() {
   return (
     <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* Header Banner with VGPU Constellation Network */}
+      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
+        <VgpuCivicConstellation />
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
             <Calendar size={14} className="text-amber-400" />
             <span>Community Actions & Calendar</span>

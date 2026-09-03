@@ -33,14 +33,14 @@ describe('isSpamContent()', () => {
     }
   });
 
-  it('returns true for non-Latin characters unrelated to catch-22', () => {
+  it('returns true for non-Latin characters unrelated to indivisible', () => {
     expect(isSpamContent('Текст на русском языке')).toBe(true);
     expect(isSpamContent('日本語テキスト')).toBe(true);
   });
 
-  it('returns false for text containing catch-22 despite non-Latin chars', () => {
-    // The non-Latin guard is bypassed when 'catch-22' appears
-    expect(isSpamContent('catch-22 — Ōtautahi')).toBe(false);
+  it('returns false for text containing indivisible despite non-Latin chars', () => {
+    // The non-Latin guard is bypassed when 'indivisible' appears
+    expect(isSpamContent('indivisible — Ōtautahi')).toBe(false);
   });
 
   it('returns false for ASCII-only clean text', () => {
@@ -158,7 +158,7 @@ describe('sanitizeWPContent() — image src rewriting', () => {
   });
 
   it('leaves external https img src intact', () => {
-    const url = 'https://catch-22.co.nz/fish.jpg';
+    const url = 'https://indivisiblefairoaks.org/fish.jpg';
     const html = `<img src="${url}" alt="fish" />`;
     const result = sanitizeWPContent(html);
     expect(result).toContain(url);
