@@ -43,6 +43,12 @@
       "skillPath": "skills/react-view-transitions/SKILL.md",
       "computedHash": "b1be40dfc6e714612020c7583b574cc4c92a1b5bc185a7dd3eea5c0123653d1c"
     },
+    "vgpu": {
+      "source": "vercel-labs/vgpu",
+      "sourceType": "github",
+      "skillPath": "skills/vgpu/SKILL.md",
+      "computedHash": "6807eb456d284d2f8f7cf7b8ab722ec021058dc7fea1e21598547316f57ab44b"
+    },
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",

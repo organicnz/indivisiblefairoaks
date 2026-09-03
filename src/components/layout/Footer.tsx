@@ -1,5 +1,6 @@
 import { Heart, Mail, MapPin, Music } from 'lucide-react';
 import Link from 'next/link';
+
 async function CopyrightYear() {
   'use cache';
   return <span>{new Date().getFullYear()}</span>;
@@ -94,7 +95,10 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <Link href="/choir" className="hover:text-white transition-colors flex items-center gap-1.5">
+                <Link
+                  href="/choir"
+                  className="hover:text-white transition-colors flex items-center gap-1.5"
+                >
                   <Music size={14} className="text-blue-400" />
                   Sing in the Choir
                 </Link>
@@ -130,7 +134,9 @@ export function Footer() {
                 Have a question or want to get involved with our local organizing team?
               </p>
               <div>
-                <span className="text-slate-500 text-[11px] block uppercase tracking-wider">General Inquiries:</span>
+                <span className="text-slate-500 text-[11px] block uppercase tracking-wider">
+                  General Inquiries:
+                </span>
                 <a
                   href="mailto:contact@indivisiblefairoaks.org"
                   className="text-blue-400 hover:text-blue-300 font-semibold break-all"
@@ -139,7 +145,9 @@ export function Footer() {
                 </a>
               </div>
               <div>
-                <span className="text-slate-500 text-[11px] block uppercase tracking-wider">Mailing List:</span>
+                <span className="text-slate-500 text-[11px] block uppercase tracking-wider">
+                  Mailing List:
+                </span>
                 <a
                   href="mailto:subscribe@indivisiblefairoaks.org"
                   className="text-blue-400 hover:text-blue-300 font-semibold break-all"
@@ -154,7 +162,8 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <p>
-            © <CopyrightYear /> Indivisible Fair Oaks-Carmichael. All rights reserved. Grassroots volunteer organization.
+            © <CopyrightYear /> Indivisible Fair Oaks-Carmichael. All rights reserved. Grassroots
+            volunteer organization.
           </p>
           <div className="flex items-center gap-6">
             <Link href="/about" className="hover:text-slate-400 transition-colors">

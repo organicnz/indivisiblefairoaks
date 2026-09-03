@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
 import { CheckCircle2, Heart, Shield, Sparkles, Users } from 'lucide-react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
@@ -22,7 +22,9 @@ export default function AboutPage() {
             About Indivisible Fair Oaks-Carmichael
           </h1>
           <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            We are a local grassroots chapter representing residents in and near Fair Oaks and Carmichael, California, dedicated to protecting our democracy through peaceful civic power.
+            We are a local grassroots chapter representing residents in and near Fair Oaks and
+            Carmichael, California, dedicated to protecting our democracy through peaceful civic
+            power.
           </p>
         </div>
       </div>
@@ -36,31 +38,38 @@ export default function AboutPage() {
           </h2>
           <div className="p-8 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 text-slate-300 leading-relaxed text-base">
             <p className="font-semibold text-white text-lg">
-              The mission of the Fair Oaks - Carmichael Indivisible Chapter is to cultivate a disciplined, non-violent grassroots movement that:
+              The mission of the Fair Oaks - Carmichael Indivisible Chapter is to cultivate a
+              disciplined, non-violent grassroots movement that:
             </p>
             <ul className="space-y-3 pt-2">
               <li className="flex items-start gap-3">
                 <CheckCircle2 className="text-emerald-400 shrink-0 mt-1" size={18} />
                 <span>
-                  <strong className="text-white">Stops the rise of authoritarianism:</strong> Holding officials accountable and sounding the alarm against anti-democratic power grabs.
+                  <strong className="text-white">Stops the rise of authoritarianism:</strong>{' '}
+                  Holding officials accountable and sounding the alarm against anti-democratic power
+                  grabs.
                 </span>
               </li>
               <li className="flex items-start gap-3">
                 <CheckCircle2 className="text-emerald-400 shrink-0 mt-1" size={18} />
                 <span>
-                  <strong className="text-white">Supports and defends democratic norms:</strong> Protecting voting rights, equal representation, free press, and constitutional governance.
+                  <strong className="text-white">Supports and defends democratic norms:</strong>{' '}
+                  Protecting voting rights, equal representation, free press, and constitutional
+                  governance.
                 </span>
               </li>
               <li className="flex items-start gap-3">
                 <CheckCircle2 className="text-emerald-400 shrink-0 mt-1" size={18} />
                 <span>
-                  <strong className="text-white">Elects bold leaders:</strong> Mobilizing voters to elect public servants who champion democratic integrity and progressive values.
+                  <strong className="text-white">Elects bold leaders:</strong> Mobilizing voters to
+                  elect public servants who champion democratic integrity and progressive values.
                 </span>
               </li>
               <li className="flex items-start gap-3">
                 <CheckCircle2 className="text-emerald-400 shrink-0 mt-1" size={18} />
                 <span>
-                  <strong className="text-white">Secures progressive policies:</strong> Championing economic justice, environmental stewardship, and civil rights for all people.
+                  <strong className="text-white">Secures progressive policies:</strong> Championing
+                  economic justice, environmental stewardship, and civil rights for all people.
                 </span>
               </li>
             </ul>
@@ -75,10 +84,17 @@ export default function AboutPage() {
           </h2>
           <div className="text-slate-300 space-y-4 leading-relaxed">
             <p>
-              We are neighbors, retirees, workers, students, educators, and community members in Sacramento County who believe that true democracy requires active, ongoing participation. As an affiliated chapter of the national <strong>Indivisible</strong> network, we apply national organizing strategies locally where our voices have the greatest impact.
+              We are neighbors, retirees, workers, students, educators, and community members in
+              Sacramento County who believe that true democracy requires active, ongoing
+              participation. As an affiliated chapter of the national <strong>Indivisible</strong>{' '}
+              network, we apply national organizing strategies locally where our voices have the
+              greatest impact.
             </p>
             <p>
-              Our monthly gatherings provide a welcoming space for dialogue, education, and coordinated action. Whether writing postcards, attending town halls, rallying on street corners, or lifting our voices in song, we turn concern into constructive, democratic action.
+              Our monthly gatherings provide a welcoming space for dialogue, education, and
+              coordinated action. Whether writing postcards, attending town halls, rallying on
+              street corners, or lifting our voices in song, we turn concern into constructive,
+              democratic action.
             </p>
           </div>
         </section>
@@ -90,7 +106,10 @@ export default function AboutPage() {
             Commitment to Non-Violent Action & De-escalation
           </h3>
           <p className="text-slate-300 text-sm leading-relaxed">
-            A foundational pillar behind all Indivisible Fair Oaks-Carmichael events is a strict commitment to nonviolence. We expect all attendees to act lawfully, treat fellow citizens with dignity, and actively seek to de-escalate potential conflict with counter-protesters. Weapons of any kind are strictly prohibited at our gatherings.
+            A foundational pillar behind all Indivisible Fair Oaks-Carmichael events is a strict
+            commitment to nonviolence. We expect all attendees to act lawfully, treat fellow
+            citizens with dignity, and actively seek to de-escalate potential conflict with
+            counter-protesters. Weapons of any kind are strictly prohibited at our gatherings.
           </p>
         </section>
 
@@ -101,7 +120,9 @@ export default function AboutPage() {
             <span>Community Care & Food Drives</span>
           </h2>
           <p className="text-slate-300 leading-relaxed">
-            We believe that civic justice begins with community care. At every in-person monthly gathering, our members bring non-perishable canned goods and staple foods to donate to local Carmichael and Fair Oaks food pantries.
+            We believe that civic justice begins with community care. At every in-person monthly
+            gathering, our members bring non-perishable canned goods and staple foods to donate to
+            local Carmichael and Fair Oaks food pantries.
           </p>
         </section>
 
@@ -109,7 +130,8 @@ export default function AboutPage() {
         <section className="p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-6">
           <h3 className="text-2xl font-black text-white">Join Our Next Gathering</h3>
           <p className="text-slate-300 text-sm max-w-xl mx-auto">
-            Ready to get involved? Join our mailing list, attend our next monthly meeting, or sing with the Carmichael Resistance Choir.
+            Ready to get involved? Join our mailing list, attend our next monthly meeting, or sing
+            with the Carmichael Resistance Choir.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link

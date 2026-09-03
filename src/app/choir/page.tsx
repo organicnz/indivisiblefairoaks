@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import {
   Calendar,
   CheckCircle2,
@@ -9,6 +8,7 @@ import {
   MapPin,
   Music,
 } from 'lucide-react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
@@ -31,7 +31,8 @@ export default function ChoirPage() {
             The Carmichael Resistance Choir
           </h1>
           <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed italic">
-            &ldquo;Every good protest movement needs music. Music lifts us up, keeps us motivated, and sustains us through the long haul.&rdquo;
+            &ldquo;Every good protest movement needs music. Music lifts us up, keeps us motivated,
+            and sustains us through the long haul.&rdquo;
           </p>
         </div>
       </div>
@@ -45,10 +46,15 @@ export default function ChoirPage() {
             </h2>
             <div className="text-slate-300 space-y-4 text-sm sm:text-base leading-relaxed">
               <p>
-                The <strong>Carmichael Resistance Choir</strong> brings people together through the power of collective song. Rooted in the rich tradition of American civil rights, labor, and anti-war movements, our choir provides a joyful, defiant, and creative outlet for community resistance.
+                The <strong>Carmichael Resistance Choir</strong> brings people together through the
+                power of collective song. Rooted in the rich tradition of American civil rights,
+                labor, and anti-war movements, our choir provides a joyful, defiant, and creative
+                outlet for community resistance.
               </p>
               <p>
-                We perform at rallies, street corner singing protests (such as the intersection of Fair Oaks Blvd & Manzanita Ave), marches, and community meetings throughout the greater Sacramento region.
+                We perform at rallies, street corner singing protests (such as the intersection of
+                Fair Oaks Blvd & Manzanita Ave), marches, and community meetings throughout the
+                greater Sacramento region.
               </p>
             </div>
 
@@ -57,14 +63,18 @@ export default function ChoirPage() {
                 <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={18} />
                 <div>
                   <span className="font-bold text-white text-sm block">No Auditions</span>
-                  <span className="text-xs text-slate-400">All skill levels and vocal ranges welcome.</span>
+                  <span className="text-xs text-slate-400">
+                    All skill levels and vocal ranges welcome.
+                  </span>
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-start gap-3">
                 <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={18} />
                 <div>
                   <span className="font-bold text-white text-sm block">100% Free</span>
-                  <span className="text-xs text-slate-400">No membership dues or fees ever required.</span>
+                  <span className="text-xs text-slate-400">
+                    No membership dues or fees ever required.
+                  </span>
                 </div>
               </div>
             </div>
@@ -169,7 +179,8 @@ export default function ChoirPage() {
               <span>Choir Songbook & Sheet Lyrics</span>
             </h3>
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-              We provide printed and digital copies of all our protest songs, rounds, and chants so newcomers can sing along right from day one.
+              We provide printed and digital copies of all our protest songs, rounds, and chants so
+              newcomers can sing along right from day one.
             </p>
           </div>
           <a
@@ -185,7 +196,8 @@ export default function ChoirPage() {
         <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-4">
           <h3 className="text-2xl font-black text-white">Ready to Sing With Us?</h3>
           <p className="text-slate-300 text-sm max-w-lg mx-auto">
-            You don&apos;t need to be a trained musician. If you have a heart for justice and a voice to lend, you belong in our choir.
+            You don&apos;t need to be a trained musician. If you have a heart for justice and a
+            voice to lend, you belong in our choir.
           </p>
           <div className="pt-2 flex flex-wrap justify-center gap-4">
             <a
