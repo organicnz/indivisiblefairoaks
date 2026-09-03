@@ -107,14 +107,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 interface VgpuCivicAtmosphereProps {
   className?: string;
   intensity?: number;
-  showBadge?: boolean;
 }
 
-export function VgpuCivicAtmosphere({
-  className = '',
-  intensity = 1.0,
-  showBadge = true,
-}: VgpuCivicAtmosphereProps) {
+export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCivicAtmosphereProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isWebGPUActive, setIsWebGPUActive] = useState(false);
@@ -270,22 +265,6 @@ export function VgpuCivicAtmosphere({
         <div className="absolute top-[20%] -right-[15%] w-[60vw] h-[60vw] rounded-full bg-indigo-500/15 blur-[140px] animate-pulse duration-[10000ms]" />
         <div className="absolute -bottom-[20%] left-[20%] w-[50vw] h-[50vw] rounded-full bg-cyan-400/10 blur-[130px] animate-pulse duration-[12000ms]" />
       </div>
-
-      {/* Optional Hardware Acceleration Indicator Badge */}
-      {showBadge && (
-        <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono font-medium text-slate-300 shadow-lg">
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isWebGPUActive
-                  ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse'
-                  : 'bg-blue-400'
-              }`}
-            />
-            <span>{isWebGPUActive ? 'WebGPU 60fps' : 'Civic Aurora'}</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

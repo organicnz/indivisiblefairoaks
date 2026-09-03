@@ -96,13 +96,11 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 interface VgpuCivicConstellationProps {
   className?: string;
   intensity?: number;
-  showBadge?: boolean;
 }
 
 export function VgpuCivicConstellation({
   className = '',
   intensity = 1.0,
-  showBadge = true,
 }: VgpuCivicConstellationProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -259,22 +257,6 @@ export function VgpuCivicConstellation({
         <div className="absolute top-[15%] left-[20%] w-[50vw] h-[50vw] rounded-full bg-blue-600/10 blur-[120px] animate-pulse duration-[8000ms]" />
         <div className="absolute bottom-[10%] right-[15%] w-[45vw] h-[45vw] rounded-full bg-amber-500/10 blur-[130px] animate-pulse duration-[10000ms]" />
       </div>
-
-      {/* Hardware Acceleration Indicator Badge */}
-      {showBadge && (
-        <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono font-medium text-slate-300 shadow-lg">
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isWebGPUActive
-                  ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)] animate-pulse'
-                  : 'bg-amber-400'
-              }`}
-            />
-            <span>{isWebGPUActive ? 'VGPU Constellation 60fps' : 'Coalition Network'}</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
