@@ -1,15 +1,8 @@
-import {
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Download,
-  ExternalLink,
-  Mail,
-  MapPin,
-  Music,
-} from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, ExternalLink, Mail, MapPin, Music } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
+import { ChoirSongbookExplorer } from '@/components/ui/ChoirSongbookExplorer';
 
 export const metadata: Metadata = {
   title: 'Carmichael Resistance Choir | Indivisible Fair Oaks-Carmichael',
@@ -171,26 +164,11 @@ export default function ChoirPage() {
           </div>
         </div>
 
-        {/* Songbook & Repertoire Section */}
-        <div className="p-8 rounded-2xl bg-gradient-to-r from-slate-900 via-blue-950/40 to-slate-900 border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <Music className="text-amber-400" size={20} />
-              <span>Choir Songbook & Sheet Lyrics</span>
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-              We provide printed and digital copies of all our protest songs, rounds, and chants so
-              newcomers can sing along right from day one.
-            </p>
-          </div>
-          <a
-            href="mailto:contact@indivisiblefairoaks.org?subject=Choir%20Songbook%20Request"
-            className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 shrink-0 shadow-md"
-          >
-            <Download size={16} />
-            <span>Request Digital Songbook</span>
-          </a>
-        </div>
+        {/* 10x Pro Interactive Audio Synthesizer */}
+        <ChoirAudioPlayer />
+
+        {/* 10x Pro Interactive Songbook Explorer */}
+        <ChoirSongbookExplorer />
 
         {/* Join CTA */}
         <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-4">

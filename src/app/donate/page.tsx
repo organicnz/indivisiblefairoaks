@@ -1,5 +1,6 @@
-import { ExternalLink, Heart, Megaphone, Music, Shield, Users } from 'lucide-react';
+import { Heart, Megaphone, Music, Shield, Users } from 'lucide-react';
 import type { Metadata } from 'next';
+import { ActBlueDonationCalculator } from '@/components/ui/ActBlueDonationCalculator';
 
 export const metadata: Metadata = {
   title: 'Donate & Support | Indivisible Fair Oaks-Carmichael',
@@ -7,11 +8,7 @@ export const metadata: Metadata = {
     'Support Indivisible Fair Oaks-Carmichael via ActBlue. Every grassroots contribution powers our local organizing, choir rallies, and voter turnout campaigns.',
 };
 
-const AMOUNTS = [10, 25, 50, 100, 250];
-
 export default function DonatePage() {
-  const baseActBlueUrl = 'https://secure.actblue.com/donate/indivisiblefoc1432155925';
-
   return (
     <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
       {/* Header Banner */}
@@ -32,49 +29,8 @@ export default function DonatePage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
-        {/* Donation Portal Box */}
-        <div className="p-8 sm:p-10 rounded-3xl bg-gradient-to-tr from-slate-900 via-blue-950/40 to-slate-900 border border-amber-500/30 shadow-2xl space-y-8">
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl font-black text-white">
-              Choose an Amount to Contribute
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400">
-              Secure payments processed through ActBlue.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            {AMOUNTS.map((amt) => (
-              <a
-                key={amt}
-                href={`${baseActBlueUrl}?amount=${amt}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="py-4 px-3 rounded-2xl bg-slate-900 border border-slate-700 hover:border-amber-400 hover:bg-slate-800 transition-all text-center group"
-              >
-                <span className="block text-2xl font-black text-white group-hover:text-amber-400 transition-colors">
-                  ${amt}
-                </span>
-                <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider block mt-1">
-                  One-Time
-                </span>
-              </a>
-            ))}
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
-            <a
-              href={baseActBlueUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2"
-            >
-              <Heart size={18} className="fill-slate-950" />
-              <span>Donate Custom Amount on ActBlue</span>
-              <ExternalLink size={16} />
-            </a>
-          </div>
-        </div>
+        {/* 10x Pro Interactive ActBlue Donation Calculator */}
+        <ActBlueDonationCalculator />
 
         {/* How Your Contribution Is Put To Work */}
         <div className="space-y-6">

@@ -10,6 +10,7 @@ import {
   Vote,
 } from 'lucide-react';
 import type { Metadata } from 'next';
+import { SacramentoRepresentativeFinder } from '@/components/ui/SacramentoRepresentativeFinder';
 
 export const metadata: Metadata = {
   title: 'Voter Information & Guides | Indivisible Fair Oaks-Carmichael',
@@ -106,6 +107,9 @@ export default function VoterInfoPage() {
             </div>
           </a>
         </div>
+
+        {/* 10x Pro Interactive District & Representative Lookup Tool */}
+        <SacramentoRepresentativeFinder />
 
         {/* Detailed Guides Section */}
         <div className="space-y-8">
