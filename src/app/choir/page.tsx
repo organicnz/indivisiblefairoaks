@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
 import { ChoirSongbookExplorer } from '@/components/ui/ChoirSongbookExplorer';
+import { VgpuChoirHarmonics } from '@/components/ui/VgpuChoirHarmonics';
 
 export const metadata: Metadata = {
   title: 'Carmichael Resistance Choir | Indivisible Fair Oaks-Carmichael',
@@ -13,9 +14,10 @@ export const metadata: Metadata = {
 export default function ChoirPage() {
   return (
     <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* Header Banner with VGPU Harmonic Soundwave Atmosphere */}
+      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-20">
+        <VgpuChoirHarmonics />
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
             <Music size={14} className="text-amber-400" />
             <span>Harmonizing For Justice</span>

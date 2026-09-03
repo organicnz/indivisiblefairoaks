@@ -87,9 +87,7 @@ export function isSpamContent(text: string): boolean {
   // Check for non-Latin characters (strict ASCII check)
   const hasNonLatin =
     // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
-    /[^\x00-\x7F]/.test(text) &&
-    !lowerText.includes('catch-22') &&
-    !lowerText.includes('indivisible');
+    /[^\x00-\x7F]/.test(text) && !lowerText.includes('indivisible');
 
   return hasSpamKeyword || hasNonLatin;
 }

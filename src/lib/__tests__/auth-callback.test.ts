@@ -37,7 +37,7 @@ import { GET } from '../../app/auth/callback/route';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeRequest(params: Record<string, string>): Request {
-  const url = new URL('https://catch-22.co.nz/auth/callback');
+  const url = new URL('https://indivisiblefairoaks.org/auth/callback');
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
@@ -59,7 +59,7 @@ describe('GET /auth/callback', () => {
 
     expect(mockExchangeCodeForSession).toHaveBeenCalledWith('valid-code-123');
     expect(res.status).toBe(307); // NextResponse.redirect
-    expect(res.headers.get('location')).toBe('https://catch-22.co.nz/account');
+    expect(res.headers.get('location')).toBe('https://indivisiblefairoaks.org/account');
   });
 
   it('redirects to custom `next` param on success', async () => {
@@ -68,7 +68,7 @@ describe('GET /auth/callback', () => {
     const req = makeRequest({ code: 'valid-code-456', next: '/account/orders' });
     const res = await GET(req);
 
-    expect(res.headers.get('location')).toBe('https://catch-22.co.nz/account/orders');
+    expect(res.headers.get('location')).toBe('https://indivisiblefairoaks.org/account/orders');
   });
 
   it('redirects to /login?error=Invalid_Token when exchange fails', async () => {
@@ -79,7 +79,9 @@ describe('GET /auth/callback', () => {
     const req = makeRequest({ code: 'bad-code' });
     const res = await GET(req);
 
-    expect(res.headers.get('location')).toBe('https://catch-22.co.nz/login?error=Invalid_Token');
+    expect(res.headers.get('location')).toBe(
+      'https://indivisiblefairoaks.org/login?error=Invalid_Token'
+    );
   });
 
   it('redirects to /login?error=Invalid_Token when no code is provided', async () => {
@@ -88,6 +90,8 @@ describe('GET /auth/callback', () => {
 
     // No code → skip exchange entirely → error redirect
     expect(mockExchangeCodeForSession).not.toHaveBeenCalled();
-    expect(res.headers.get('location')).toBe('https://catch-22.co.nz/login?error=Invalid_Token');
+    expect(res.headers.get('location')).toBe(
+      'https://indivisiblefairoaks.org/login?error=Invalid_Token'
+    );
   });
 });

@@ -1,6 +1,7 @@
 import { ExternalLink, Handshake } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/partners' },
@@ -65,9 +66,11 @@ export default function PartnersPage() {
   ];
 
   return (
-    <main className="bg-slate-950 text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
-      <div className="max-w-5xl mx-auto space-y-12">
-        <div className="flex flex-col items-center text-center">
+    <main className="bg-slate-950 text-white min-h-screen">
+      {/* Header Banner with VGPU Constellation Network */}
+      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
+        <VgpuCivicConstellation />
+        <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
             <Handshake size={14} className="text-amber-400" />
             <span>Grassroots Solidarity</span>
@@ -82,7 +85,9 @@ export default function PartnersPage() {
             advocates.
           </p>
         </div>
+      </div>
 
+      <div className="max-w-5xl mx-auto space-y-12 px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {partners.map((partner) => (
             <div

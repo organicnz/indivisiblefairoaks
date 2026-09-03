@@ -95,7 +95,7 @@ describe('isSpamContent()', () => {
 
   it('flags non-ASCII injection but tolerates brand name', () => {
     expect(isSpamContent('лото клуб bonus')).toBe(true);
-    expect(isSpamContent('catch-22 quality braid')).toBe(false);
+    expect(isSpamContent('indivisible quality braid')).toBe(false);
   });
 });
 
