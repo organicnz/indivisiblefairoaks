@@ -1,12 +1,5 @@
+import { ExternalLink, Heart, Megaphone, Music, Shield, Users } from 'lucide-react';
 import type { Metadata } from 'next';
-import {
-  ExternalLink,
-  Heart,
-  Megaphone,
-  Music,
-  Shield,
-  Users,
-} from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Donate & Support | Indivisible Fair Oaks-Carmichael',
@@ -32,7 +25,8 @@ export default function DonatePage() {
             Fuel The Fair Oaks - Carmichael Resistance
           </h1>
           <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            We don&apos;t take corporate PAC money. Our work is powered entirely by neighbors like you who pitch in to defend democracy right here in Sacramento County.
+            We don&apos;t take corporate PAC money. Our work is powered entirely by neighbors like
+            you who pitch in to defend democracy right here in Sacramento County.
           </p>
         </div>
       </div>
@@ -95,7 +89,8 @@ export default function DonatePage() {
               </div>
               <h3 className="text-lg font-bold text-white">Community Meeting Spaces</h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Rent for our monthly meeting spaces (such as St. Michael&apos;s Church hall) to provide safe, welcoming gathering venues for residents and guest speakers.
+                Rent for our monthly meeting spaces (such as St. Michael&apos;s Church hall) to
+                provide safe, welcoming gathering venues for residents and guest speakers.
               </p>
             </div>
 
@@ -105,7 +100,8 @@ export default function DonatePage() {
               </div>
               <h3 className="text-lg font-bold text-white">Resistance Choir Sound Gear</h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Battery-powered amplifiers, portable microphones, sheet music printing, and acoustic gear to carry our voices across busy intersections.
+                Battery-powered amplifiers, portable microphones, sheet music printing, and acoustic
+                gear to carry our voices across busy intersections.
               </p>
             </div>
 
@@ -115,7 +111,8 @@ export default function DonatePage() {
               </div>
               <h3 className="text-lg font-bold text-white">Protest Banners & Supplies</h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Weatherproof protest signs, high-visibility banners for street demonstrations, art supplies for youth rallies, and flyers.
+                Weatherproof protest signs, high-visibility banners for street demonstrations, art
+                supplies for youth rallies, and flyers.
               </p>
             </div>
 
@@ -125,7 +122,8 @@ export default function DonatePage() {
               </div>
               <h3 className="text-lg font-bold text-white">Voter Outreach & Registration</h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Printed guides for youth pre-registration, rights restoration flyers for formerly incarcerated community members, and postcard stamps.
+                Printed guides for youth pre-registration, rights restoration flyers for formerly
+                incarcerated community members, and postcard stamps.
               </p>
             </div>
           </div>
@@ -135,7 +133,10 @@ export default function DonatePage() {
         <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-850 text-xs text-slate-400 space-y-2">
           <p className="font-bold text-slate-300">Contribution Disclaimers:</p>
           <p>
-            Contributions or gifts to Indivisible Fair Oaks-Carmichael are not deductible as charitable contributions for federal income tax purposes. All donations are processed securely by ActBlue in accordance with FEC and California political contribution regulations.
+            Contributions or gifts to Indivisible Fair Oaks-Carmichael are not deductible as
+            charitable contributions for federal income tax purposes. All donations are processed
+            securely by ActBlue in accordance with FEC and California political contribution
+            regulations.
           </p>
         </div>
       </div>

@@ -60,7 +60,8 @@ export default function ContactPage() {
             Contact Indivisible Fair Oaks-Carmichael
           </h1>
           <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Have a question, want to volunteer, or suggest an action in our community? We’d love to hear from you.
+            Have a question, want to volunteer, or suggest an action in our community? We’d love to
+            hear from you.
           </p>
         </div>
       </div>
@@ -100,7 +101,10 @@ export default function ContactPage() {
               className="block mb-8 p-4 bg-amber-950/80 border border-amber-500/50 text-amber-200 rounded-2xl font-bold text-sm tracking-wide text-center"
             >
               ⚠️ Message saved — for an immediate response, please email us directly at{' '}
-              <a href="mailto:contact@indivisiblefairoaks.org" className="underline font-bold text-amber-300">
+              <a
+                href="mailto:contact@indivisiblefairoaks.org"
+                className="underline font-bold text-amber-300"
+              >
                 contact@indivisiblefairoaks.org
               </a>
               .
@@ -234,9 +238,7 @@ export default function ContactPage() {
                 Monthly Gatherings
               </span>
               <p>First Tuesday of the month (6:30 – 8:00 PM)</p>
-              <p className="text-slate-500">
-                St. Michael&apos;s Episcopal Church, Carmichael, CA
-              </p>
+              <p className="text-slate-500">St. Michael&apos;s Episcopal Church, Carmichael, CA</p>
             </div>
           </div>
         </div>

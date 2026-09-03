@@ -1,9 +1,5 @@
+import { Compass, ExternalLink, Layers } from 'lucide-react';
 import type { Metadata } from 'next';
-import {
-  Compass,
-  ExternalLink,
-  Layers,
-} from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Coalition & Action Links | Indivisible Fair Oaks-Carmichael',
@@ -104,7 +100,8 @@ export default function LinksPage() {
             Coalition & Action Links
           </h1>
           <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Essential websites, nonpartisan voter tools, grassroots allies, and democracy defense resources vetted by our chapter.
+            Essential websites, nonpartisan voter tools, grassroots allies, and democracy defense
+            resources vetted by our chapter.
           </p>
         </div>
       </div>
@@ -139,16 +136,17 @@ export default function LinksPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-400 leading-relaxed">
-                        {item.description}
-                      </p>
+                      <p className="text-xs text-slate-400 leading-relaxed">{item.description}</p>
                     </div>
 
                     <div className="pt-4 mt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
                       <span className="text-[11px] text-blue-400/90 font-mono truncate max-w-[240px]">
                         {item.url.replace(/^https?:\/\//, '')}
                       </span>
-                      <ExternalLink size={14} className="text-slate-400 group-hover:text-amber-400 transition-colors shrink-0" />
+                      <ExternalLink
+                        size={14}
+                        className="text-slate-400 group-hover:text-amber-400 transition-colors shrink-0"
+                      />
                     </div>
                   </a>
                 ))}

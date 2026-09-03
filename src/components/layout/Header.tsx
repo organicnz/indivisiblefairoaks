@@ -4,6 +4,7 @@ import { Heart, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
 
 const NAV_LINKS = [
   { name: 'Home', href: '/' },
@@ -103,9 +104,7 @@ function HeaderInner() {
                   key={link.name}
                   href={link.href}
                   className={`text-xs font-bold uppercase tracking-wider transition-all relative py-1 ${
-                    isActive
-                      ? 'text-amber-400 font-extrabold'
-                      : 'text-slate-200 hover:text-white'
+                    isActive ? 'text-amber-400 font-extrabold' : 'text-slate-200 hover:text-white'
                   }`}
                 >
                   {link.name}
@@ -118,7 +117,9 @@ function HeaderInner() {
           </nav>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <CivicCommandPalette />
+
             <Link
               href="/donate"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg hover:scale-105 transition-all"

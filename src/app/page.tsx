@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import {
   ArrowRight,
   Calendar,
@@ -14,7 +13,10 @@ import {
   Users,
   Vote,
 } from 'lucide-react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
+import { VgpuCivicAtmosphere } from '@/components/ui/VgpuCivicAtmosphere';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
@@ -35,47 +37,82 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <div className="flex flex-col w-full">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-blue-950 text-white pt-28 pb-20 md:pt-36 md:pb-28">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-600/20 via-transparent to-transparent pointer-events-none" />
-        
+      {/* Hero Section with VGPU Dynamic Civic Atmosphere */}
+      <section className="relative overflow-hidden bg-slate-950 text-white pt-28 pb-20 md:pt-36 md:pb-28">
+        {/* VGPU WebGPU Background Atmosphere */}
+        <VgpuCivicAtmosphere intensity={1.0} showBadge={true} />
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-md">
               <Sparkles size={14} className="text-amber-400" />
               <span>Sacramento County Grassroots Action</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1] mb-6">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] mb-6 drop-shadow-sm">
               Democracy is not a spectator sport.
             </h1>
 
-            <p className="text-lg sm:text-xl text-slate-300 leading-relaxed mb-8">
-              We are <strong className="text-white">Indivisible Fair Oaks-Carmichael</strong>. We organize residents in and near Fair Oaks and Carmichael, California, to cultivate a disciplined, non-violent grassroots movement that defends democratic norms and builds progressive power.
+            <p className="text-lg sm:text-xl text-slate-200 leading-relaxed mb-8 drop-shadow-sm">
+              We are{' '}
+              <strong className="text-white font-extrabold">
+                Indivisible Fair Oaks-Carmichael
+              </strong>
+              . We organize residents in and near Fair Oaks and Carmichael, California, to cultivate
+              a disciplined, non-violent grassroots movement that defends democratic norms and
+              builds progressive power.
             </p>
 
             <div className="flex flex-wrap items-center gap-4">
               <Link
                 href="/events"
-                className="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-blue-500/25 transition-all flex items-center gap-2"
+                className="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-blue-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
               >
                 <span>Upcoming Actions</span>
                 <ArrowRight size={16} />
               </Link>
               <Link
                 href="/donate"
-                className="px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-amber-500/25 transition-all flex items-center gap-2"
+                className="px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-amber-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Heart size={16} className="fill-slate-950" />
                 <span>Support Our Chapter</span>
               </Link>
               <Link
                 href="/choir"
-                className="px-6 py-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-sm transition-all flex items-center gap-2"
+                className="px-6 py-3.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/80 backdrop-blur-md font-semibold text-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Music size={16} className="text-blue-400" />
                 <span>Resistance Choir</span>
               </Link>
+            </div>
+
+            {/* 10x Pro Chapter Impact Metrics */}
+            <div className="mt-14 pt-8 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-6 backdrop-blur-sm">
+              <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
+                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  500+
+                </div>
+                <div className="text-xs text-slate-400 font-medium mt-0.5">Active Neighbors</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
+                <div className="text-2xl sm:text-3xl font-black text-blue-400 tracking-tight">
+                  4,200+
+                </div>
+                <div className="text-xs text-slate-400 font-medium mt-0.5">Postcards Written</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
+                <div className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight">
+                  100%
+                </div>
+                <div className="text-xs text-slate-400 font-medium mt-0.5">Grassroots Funded</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
+                <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
+                  CA-03 / 06
+                </div>
+                <div className="text-xs text-slate-400 font-medium mt-0.5">Sacramento Region</div>
+              </div>
             </div>
           </div>
         </div>
@@ -97,24 +134,35 @@ export default function HomePage() {
                   Monthly Chapter Meeting & Food Drive
                 </h2>
                 <p className="text-sm text-slate-300 mt-1 flex flex-wrap items-center gap-y-1 gap-x-4">
-                  <span className="font-semibold text-white">Tuesday, September 1 • 6:30 PM – 8:00 PM</span>
+                  <span className="font-semibold text-white">
+                    Tuesday, September 1 • 6:30 PM – 8:00 PM
+                  </span>
                   <span className="text-slate-400 flex items-center gap-1">
                     <MapPin size={14} className="text-amber-400" />
                     St. Michael&#39;s Episcopal Church, 2140 Mission Ave, Carmichael
                   </span>
                 </p>
                 <p className="text-xs text-amber-200/90 mt-2">
-                  🥫 <strong>Food Bank Drive:</strong> Please bring a can or box of non-perishable food to support our local community food pantry.
+                  🥫 <strong>Food Bank Drive:</strong> Please bring a can or box of non-perishable
+                  food to support our local community food pantry.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0 w-full md:w-auto">
+            <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full md:w-auto">
+              <a
+                href="https://calendar.google.com/calendar/render?action=TEMPLATE&text=Indivisible+Fair+Oaks-Carmichael+Monthly+Meeting&dates=20260901T183000/20260901T200000&details=Monthly+community+gathering+and+food+drive.+Bring+non-perishable+food+for+the+local+food+bank.&location=St.+Michael%27s+Episcopal+Church%2C+2140+Mission+Ave%2C+Carmichael%2C+CA"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto text-center px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs uppercase tracking-wider transition-all"
+              >
+                + Add to Calendar
+              </a>
               <a
                 href="https://www.mobilize.us/indivisible/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full md:w-auto text-center px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md"
+                className="w-full sm:w-auto text-center px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:scale-105"
               >
                 RSVP via Mobilize
               </a>
@@ -134,7 +182,9 @@ export default function HomePage() {
               What We Stand For & How We Win
             </h2>
             <p className="text-slate-400 text-base leading-relaxed">
-              Rooted in the national Indivisible Guide, our local chapter works tirelessly across the Sacramento region to defend our constitutional democracy through grassroots mobilization.
+              Rooted in the national Indivisible Guide, our local chapter works tirelessly across
+              the Sacramento region to defend our constitutional democracy through grassroots
+              mobilization.
             </p>
           </div>
 
@@ -145,7 +195,8 @@ export default function HomePage() {
               </div>
               <h3 className="text-lg font-bold text-white mb-2">Stop Authoritarianism</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Countering anti-democratic overreach, defending executive accountability, and raising public alarm through visible resistance.
+                Countering anti-democratic overreach, defending executive accountability, and
+                raising public alarm through visible resistance.
               </p>
             </div>
 
@@ -155,7 +206,8 @@ export default function HomePage() {
               </div>
               <h3 className="text-lg font-bold text-white mb-2">Defend Democratic Norms</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Safeguarding free and fair elections, expanding voting access, educating youth voters, and standing up for civil liberties.
+                Safeguarding free and fair elections, expanding voting access, educating youth
+                voters, and standing up for civil liberties.
               </p>
             </div>
 
@@ -165,7 +217,8 @@ export default function HomePage() {
               </div>
               <h3 className="text-lg font-bold text-white mb-2">Elect Bold Leaders</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Direct voter canvassing, phone banks, candidate accountability, and mobilizing high-turnout civic engagement in every cycle.
+                Direct voter canvassing, phone banks, candidate accountability, and mobilizing
+                high-turnout civic engagement in every cycle.
               </p>
             </div>
 
@@ -175,7 +228,8 @@ export default function HomePage() {
               </div>
               <h3 className="text-lg font-bold text-white mb-2">Secure Progressive Policy</h3>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Advocating for justice, reproductive autonomy, climate resilience, and economic equity through community solidarity.
+                Advocating for justice, reproductive autonomy, climate resilience, and economic
+                equity through community solidarity.
               </p>
             </div>
           </div>
@@ -195,21 +249,27 @@ export default function HomePage() {
                 Every good protest movement needs music.
               </h2>
               <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
-                Music lifts us up and has sustained justice movements throughout history. We gather to weave our voices together in chants and songs of resistance, building vibrant community while marching forward.
+                Music lifts us up and has sustained justice movements throughout history. We gather
+                to weave our voices together in chants and songs of resistance, building vibrant
+                community while marching forward.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-850/70 border border-slate-700/60">
                   <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={18} />
                   <div>
                     <span className="font-bold text-white text-sm block">All Voices Welcome</span>
-                    <span className="text-xs text-slate-400">No auditions, no fees. Everyone can sing.</span>
+                    <span className="text-xs text-slate-400">
+                      No auditions, no fees. Everyone can sing.
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-850/70 border border-slate-700/60">
                   <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={18} />
                   <div>
                     <span className="font-bold text-white text-sm block">Rehearsal Schedule</span>
-                    <span className="text-xs text-slate-400">Every other Wednesday, 6:30 – 8:00 PM.</span>
+                    <span className="text-xs text-slate-400">
+                      Every other Wednesday, 6:30 – 8:00 PM.
+                    </span>
                   </div>
                 </div>
               </div>
@@ -249,9 +309,13 @@ export default function HomePage() {
                     allowFullScreen
                   />
                 </div>
-                <p className="text-xs text-slate-400 italic">
-                  &ldquo;We will sing our protest to the afternoon rush hour and community businesses. Bring your signs, chairs, and voices!&rdquo;
+                <p className="text-xs text-slate-400 italic mb-6">
+                  &ldquo;We will sing our protest to the afternoon rush hour and community
+                  businesses. Bring your signs, chairs, and voices!&rdquo;
                 </p>
+
+                {/* Interactive Soundboard */}
+                <ChoirAudioPlayer />
               </div>
             </div>
           </div>
@@ -289,7 +353,8 @@ export default function HomePage() {
                   Sacramento County Elected Officials
                 </h3>
                 <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                  Direct contact information, phone numbers, and offices for local, state, and federal representatives serving our district.
+                  Direct contact information, phone numbers, and offices for local, state, and
+                  federal representatives serving our district.
                 </p>
               </div>
               <Link
@@ -306,11 +371,10 @@ export default function HomePage() {
                 <div className="w-10 h-10 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center mb-4">
                   <Vote size={20} />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">
-                  Pre-Registration at 16
-                </h3>
+                <h3 className="text-lg font-bold text-white mb-2">Pre-Registration at 16</h3>
                 <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                  California youth age 16 and 17 can pre-register now so they are automatically registered to cast their ballot the day they turn 18.
+                  California youth age 16 and 17 can pre-register now so they are automatically
+                  registered to cast their ballot the day they turn 18.
                 </p>
               </div>
               <Link
@@ -331,7 +395,8 @@ export default function HomePage() {
                   Rights Restoration & Unhoused Voting
                 </h3>
                 <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                  Homeless is not voteless. Learn about voting rights restoration for formerly incarcerated Californians and unhoused residents.
+                  Homeless is not voteless. Learn about voting rights restoration for formerly
+                  incarcerated Californians and unhoused residents.
                 </p>
               </div>
               <Link
@@ -356,7 +421,10 @@ export default function HomePage() {
             Our Core Commitment: Disciplined Non-Violent Action
           </h2>
           <p className="text-sm text-slate-300 leading-relaxed">
-            A core principle behind all Indivisible events is an unwavering commitment to nonviolent action. We expect all participants to act lawfully, avoid civil disobedience unless specifically planned and coordinated, de-escalate any potential confrontation with those who disagree with our values, and maintain peaceful solidarity.
+            A core principle behind all Indivisible events is an unwavering commitment to nonviolent
+            action. We expect all participants to act lawfully, avoid civil disobedience unless
+            specifically planned and coordinated, de-escalate any potential confrontation with those
+            who disagree with our values, and maintain peaceful solidarity.
           </p>
         </div>
       </section>
@@ -371,7 +439,9 @@ export default function HomePage() {
             Fuel Our Local Organizing
           </h2>
           <p className="text-slate-300 text-base max-w-2xl mx-auto leading-relaxed">
-            Every dollar contributed to our chapter directly supports community meeting spaces, protest banners, sound equipment for the Resistance Choir, voter registration printing, and neighborhood outreach.
+            Every dollar contributed to our chapter directly supports community meeting spaces,
+            protest banners, sound equipment for the Resistance Choir, voter registration printing,
+            and neighborhood outreach.
           </p>
           <div className="pt-2 flex flex-wrap justify-center gap-4">
             <Link

@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import {
   AlertCircle,
   Calendar,
@@ -11,6 +10,7 @@ import {
   Shield,
   Users,
 } from 'lucide-react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
@@ -33,7 +33,8 @@ export default function EventsPage() {
             Upcoming Events & Mobilizations
           </h1>
           <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Find out when and where our chapter is gathering. All community members committed to peaceful, democratic activism are warmly welcome.
+            Find out when and where our chapter is gathering. All community members committed to
+            peaceful, democratic activism are warmly welcome.
           </p>
         </div>
       </div>
@@ -88,7 +89,8 @@ export default function EventsPage() {
                 Local Food Bank Drive
               </p>
               <p>
-                Please bring a can or box of non-perishable food to help keep our local food pantries stocked for community families in need.
+                Please bring a can or box of non-perishable food to help keep our local food
+                pantries stocked for community families in need.
               </p>
             </div>
           </div>
@@ -116,12 +118,17 @@ export default function EventsPage() {
                     Fair Oaks Blvd & Manzanita Ave (&ldquo;T&rdquo; Intersection)
                   </p>
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    Join us in singing our protest to rush-hour commuters and area businesses! Led by the Carmichael Resistance Choir. BRING YOUR SIGNS, CHAIRS, AND VOICES!
+                    Join us in singing our protest to rush-hour commuters and area businesses! Led
+                    by the Carmichael Resistance Choir. BRING YOUR SIGNS, CHAIRS, AND VOICES!
                   </p>
                 </div>
                 <div className="text-xs text-slate-400 space-y-1">
-                  <p><strong>Time:</strong> 5:00 PM – 6:15 PM</p>
-                  <p><strong>Values:</strong> Strictly non-violent, peaceful de-escalation.</p>
+                  <p>
+                    <strong>Time:</strong> 5:00 PM – 6:15 PM
+                  </p>
+                  <p>
+                    <strong>Values:</strong> Strictly non-violent, peaceful de-escalation.
+                  </p>
                 </div>
               </div>
               <div className="pt-6">
@@ -149,12 +156,17 @@ export default function EventsPage() {
                     Corner of Sunrise Blvd & Greenback Lane, Citrus Heights
                   </p>
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    A peaceful, non-violent, family-friendly rally in solidarity with immigrants, democracy, and community rights. Snacks, cold drinks, and signs provided!
+                    A peaceful, non-violent, family-friendly rally in solidarity with immigrants,
+                    democracy, and community rights. Snacks, cold drinks, and signs provided!
                   </p>
                 </div>
                 <div className="text-xs text-slate-400 space-y-1">
-                  <p><strong>Schedule:</strong> Every Saturday from 10:00 AM – 12:00 Noon</p>
-                  <p><strong>Bring:</strong> Comfortable shoes, water, and sunscreen.</p>
+                  <p>
+                    <strong>Schedule:</strong> Every Saturday from 10:00 AM – 12:00 Noon
+                  </p>
+                  <p>
+                    <strong>Bring:</strong> Comfortable shoes, water, and sunscreen.
+                  </p>
                 </div>
               </div>
               <div className="pt-6">
@@ -185,7 +197,8 @@ export default function EventsPage() {
                 Deep Canvass Political Persuasion Training
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Learn the proven art of deep canvassing: connecting with conflicted voters through empathetic listening and shared values to build durable election support.
+                Learn the proven art of deep canvassing: connecting with conflicted voters through
+                empathetic listening and shared values to build durable election support.
               </p>
               <span className="inline-block text-[11px] font-bold text-amber-400 uppercase tracking-wider">
                 We The Fighters / Organizing to Fight Oligarchy
@@ -193,11 +206,11 @@ export default function EventsPage() {
             </div>
 
             <div className="p-6 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-3">
-              <h3 className="text-lg font-bold text-white">
-                Know Your Rights Civic Workshop
-              </h3>
+              <h3 className="text-lg font-bold text-white">Know Your Rights Civic Workshop</h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Everyone has fundamental constitutional rights under U.S. law. Learn what your rights are, how to safely exercise them in public, and what to do if your rights are violated.
+                Everyone has fundamental constitutional rights under U.S. law. Learn what your
+                rights are, how to safely exercise them in public, and what to do if your rights are
+                violated.
               </p>
               <a
                 href="https://www.aclu.org/know-your-rights"
@@ -217,7 +230,9 @@ export default function EventsPage() {
           <AlertCircle className="text-amber-400 shrink-0 mt-1" size={24} />
           <div className="text-xs sm:text-sm text-slate-300 leading-relaxed">
             <strong className="text-white block mb-1">Our Nonviolent Commitment:</strong>
-            All Indivisible Fair Oaks-Carmichael events are strictly nonviolent. We expect all attendees to act lawfully and de-escalate any potential confrontation with counter-protesters. No weapons are permitted at any event.
+            All Indivisible Fair Oaks-Carmichael events are strictly nonviolent. We expect all
+            attendees to act lawfully and de-escalate any potential confrontation with
+            counter-protesters. No weapons are permitted at any event.
           </div>
         </div>
       </div>

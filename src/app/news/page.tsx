@@ -1,12 +1,5 @@
+import { ArrowRight, BookOpen, Mail, Megaphone, Newspaper, Send } from 'lucide-react';
 import type { Metadata } from 'next';
-import {
-  ArrowRight,
-  BookOpen,
-  Mail,
-  Megaphone,
-  Newspaper,
-  Send,
-} from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Newsletters & Bulletins | Indivisible Fair Oaks-Carmichael',
@@ -59,7 +52,8 @@ export default function NewsPage() {
             Newsletters & Chapter Updates
           </h1>
           <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Stay up to date with our grassroots organizing, local legislative actions, and community resistance across Fair Oaks, Carmichael, and Sacramento County.
+            Stay up to date with our grassroots organizing, local legislative actions, and community
+            resistance across Fair Oaks, Carmichael, and Sacramento County.
           </p>
         </div>
       </div>
@@ -74,7 +68,8 @@ export default function NewsPage() {
             </div>
             <h2 className="text-2xl font-black text-white">Subscribe to Action Alerts</h2>
             <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
-              Receive notifications for upcoming meetings, emergency rapid response rallies, choir rehearsal locations, and legislative call-to-action alerts.
+              Receive notifications for upcoming meetings, emergency rapid response rallies, choir
+              rehearsal locations, and legislative call-to-action alerts.
             </p>
           </div>
           <div className="shrink-0 w-full md:w-auto">
@@ -110,12 +105,8 @@ export default function NewsPage() {
                       Chapter Bulletin
                     </span>
                   </div>
-                  <h3 className="text-lg font-bold text-white leading-snug">
-                    {newsletter.title}
-                  </h3>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    {newsletter.description}
-                  </p>
+                  <h3 className="text-lg font-bold text-white leading-snug">{newsletter.title}</h3>
+                  <p className="text-xs text-slate-300 leading-relaxed">{newsletter.description}</p>
                   <div className="flex flex-wrap gap-1.5 pt-2">
                     {newsletter.topics.map((topic) => (
                       <span
@@ -149,7 +140,9 @@ export default function NewsPage() {
             <h2 className="text-xl font-bold text-white">National Indivisible Resources</h2>
           </div>
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            Indivisible Fair Oaks-Carmichael is one of thousands of grassroots groups nationwide following the proven guide created by former congressional staffers. For nationwide campaigns, toolkits, and legislative tracking, visit the national network at{' '}
+            Indivisible Fair Oaks-Carmichael is one of thousands of grassroots groups nationwide
+            following the proven guide created by former congressional staffers. For nationwide
+            campaigns, toolkits, and legislative tracking, visit the national network at{' '}
             <a
               href="https://indivisible.org"
               target="_blank"
