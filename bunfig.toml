@@ -1,0 +1,13 @@
+# Bun configuration file
+# See https://bun.sh/docs/runtime/config for more information
+
+[install]
+# Ensure we use the lockfile
+lockfile = true
+
+[run]
+# Standard run options
+
+[test]
+# Playwright instant-navigation guards (e2e/) run via `playwright test`, not bun test.
+pathIgnorePatterns = ["e2e/**"]

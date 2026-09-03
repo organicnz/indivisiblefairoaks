@@ -1,0 +1,104 @@
+'use client';
+
+import { Edit3 } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { updateCoupon } from '@/app/admin/actions';
+
+export function CouponEditor({
+  id,
+  code,
+  discountType,
+  amount,
+  expiryDate,
+}: {
+  id: number;
+  code: string;
+  discountType: string | null;
+  amount: number | null;
+  expiryDate: string | null;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [type, setType] = useState<'percent' | 'fixed'>(
+    discountType === 'fixed' ? 'fixed' : 'percent'
+  );
+  const [amountValue, setAmountValue] = useState(String(amount ?? ''));
+  const [expiry, setExpiry] = useState(expiryDate ? expiryDate.slice(0, 10) : '');
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const save = () => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await updateCoupon(id, {
+          discount_type: type,
+          amount: Number(amountValue),
+          expiry_date: expiry === '' ? null : new Date(`${expiry}T23:59:59`).toISOString(),
+        });
+        setEditing(false);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to update coupon');
+      }
+    });
+  };
+
+  if (!editing) {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 text-slate-400 hover:bg-slate-100 hover:text-secondary transition-colors"
+        >
+          <Edit3 size={11} /> Edit
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Edit {code}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value as 'percent' | 'fixed')}
+          className="text-xs font-black bg-white border border-slate-200 rounded-xl px-2.5 py-2 outline-none focus:border-primary cursor-pointer"
+        >
+          <option value="percent">Percent %</option>
+          <option value="fixed">Fixed $</option>
+        </select>
+        <input
+          value={amountValue}
+          onChange={(e) => setAmountValue(e.target.value)}
+          inputMode="decimal"
+          placeholder="10"
+          className="text-xs font-black bg-white border border-slate-200 rounded-xl px-2.5 py-2 w-20 outline-none focus:border-primary"
+        />
+        <input
+          type="date"
+          value={expiry}
+          onChange={(e) => setExpiry(e.target.value)}
+          className="text-xs font-black bg-white border border-slate-200 rounded-xl px-2.5 py-2 outline-none focus:border-primary"
+        />
+        <button
+          type="button"
+          onClick={save}
+          disabled={isPending}
+          className="inline-flex items-center text-[10px] font-black uppercase tracking-widest bg-primary text-secondary rounded-full px-3 py-2 hover:opacity-90 transition-opacity disabled:opacity-40"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          disabled={isPending}
+          className="inline-flex items-center text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-2 text-slate-400 hover:text-secondary transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+      {error && <p className="text-[11px] font-bold text-rose-500">{error}</p>}
+    </div>
+  );
+}

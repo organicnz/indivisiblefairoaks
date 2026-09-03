@@ -1,0 +1,916 @@
+# Lefthook – Git hooks for Catch-22
+# Docs: https://github.com/evilmartians/lefthook
+#
+# Skip a hook entirely : LEFTHOOK=0 git commit
+# Skip one command     : LEFTHOOK_EXCLUDE=<name> git <action>
+#
+# ── Baseline metrics (update when intentionally changed) ─────────────────────
+# suppress-count baseline: 7   (checked in pre-push; +2 contact a11y ignores)
+# coverage threshold     : 90% (checked in pre-push + vitest.config.ts)
+# env contract           : every code-referenced env var exists in .env.example
+# lockfile contract      : package.json and bun.lock must move together
+# deps contract          : all non-optional peerDependencies must be satisfied
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─── pre-commit ───────────────────────────────────────────────────────────────
+pre-commit:
+  parallel: true
+  commands:
+
+    # ── 1. Secret leak detection ──────────────────────────────────────────────
+    # Patterns: Supabase secret/publishable, Stripe live/test/webhook, Resend,
+    # PRIVATE_KEY assignments, and Postgres connection strings with passwords.
+    no-secrets:
+      priority: 1
+      glob: "*.{ts,tsx,js,mjs,json,yml,yaml,env,md}"
+      run: |
+        FORBIDDEN=$(grep -rn \
+          -e "sb_secret_[A-Za-z0-9]\{20,\}" \
+          -e "sb_publishable_[A-Za-z0-9]\{40,\}" \
+          -e "sk_live_[A-Za-z0-9]\{20,\}" \
+          -e "sk_test_[A-Za-z0-9]\{20,\}" \
+          -e "whsec_[A-Za-z0-9]\{20,\}" \
+          -e "re_[A-Za-z0-9]\{20,\}" \
+          -e "PRIVATE_KEY\s*=\s*['\"][^'\"]\{20,\}" \
+          -e "postgresql://[^@]*:[^@]\{8,\}@" \
+          -- {staged_files} 2>/dev/null || true)
+        if [ -n "$FORBIDDEN" ]; then
+          echo ""
+          echo "✖  Potential secret detected in staged files:"
+          echo "$FORBIDDEN"
+          echo ""
+          echo "   Remove the secret and rotate it immediately."
+          echo "   Use .env.local for local secrets (it is gitignored)."
+          echo ""
+          exit 1
+        fi
+
+    # ── 2. Migration guard ────────────────────────────────────────────────────
+    # Migrations are append-only. Modifying an already-tracked file is dangerous.
+    migration-guard:
+      priority: 2
+      glob: "supabase/migrations/*.sql"
+      run: |
+        MODIFIED=$(git diff --cached --name-only --diff-filter=M -- "supabase/migrations/*.sql" 2>/dev/null || true)
+        if [ -n "$MODIFIED" ]; then
+          echo ""
+          echo "✖  Modifying an existing migration file is not allowed:"
+          echo "$MODIFIED"
+          echo ""
+          echo "   Migrations are append-only. Create a new one instead:"
+          echo "   supabase migration new <descriptive_name>"
+          echo ""
+          echo "   Bypass: LEFTHOOK_EXCLUDE=migration-guard git commit"
+          echo ""
+          exit 1
+        fi
+
+    # ── 3. SQL: new tables must have RLS enabled ──────────────────────────────
+    # Every new CREATE TABLE in a migration must be followed by
+    # ALTER TABLE <name> ENABLE ROW LEVEL SECURITY within the same file.
+    # Tables without RLS expose all rows to the anon/authenticated roles.
+    rls-table-guard:
+      priority: 3
+      glob: "supabase/migrations/*.sql"
+      run: |
+        VIOLATIONS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          # Extract table names from CREATE TABLE (IF NOT EXISTS) statements
+          tmpfile=$(mktemp)
+          grep -oiE "CREATE TABLE (IF NOT EXISTS )?([a-z_\".]+)" "$f" 2>/dev/null \
+            | sed -E 's/CREATE TABLE (IF NOT EXISTS )?//' \
+            | tr -d '"' \
+            | grep -v "^$" > "$tmpfile" || true
+          while IFS= read -r tbl; do
+            # Strip schema prefix if present (public.foo → foo)
+            tbl_bare=$(echo "$tbl" | sed 's/.*\.//')
+            # Check if RLS is enabled for this table in the same file
+            if ! grep -qi "ALTER TABLE.*${tbl_bare}.*ENABLE ROW LEVEL SECURITY\|ENABLE ROW LEVEL SECURITY.*${tbl_bare}" "$f" 2>/dev/null; then
+              VIOLATIONS="$VIOLATIONS\n  $f → table: $tbl_bare"
+            fi
+          done < "$tmpfile"
+          rm -f "$tmpfile"
+        done
+        if [ -n "$VIOLATIONS" ]; then
+          echo ""
+          echo "✖  New table(s) missing ENABLE ROW LEVEL SECURITY:"
+          printf "$VIOLATIONS"
+          echo ""
+          echo ""
+          echo "   Every table must explicitly enable RLS, even if no policies are"
+          echo "   added yet. Add to the migration:"
+          echo "   ALTER TABLE <table_name> ENABLE ROW LEVEL SECURITY;"
+          echo ""
+          echo "   Bypass: LEFTHOOK_EXCLUDE=rls-table-guard git commit"
+          echo ""
+          exit 1
+        fi
+
+    # ── 4. SQL: SECURITY DEFINER must set search_path ─────────────────────────
+    # A SECURITY DEFINER function without SET search_path = '' is exploitable:
+    # a malicious user can manipulate the search path to hijack the function.
+    # https://www.postgresql.org/docs/current/sql-createfunction.html#id-1.9.3.67.7
+    sql-security-definer-guard:
+      priority: 4
+      glob: "supabase/migrations/*.sql"
+      run: |
+        VIOLATIONS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          # Find SECURITY DEFINER occurrences
+          LINES=$(grep -n "SECURITY DEFINER" "$f" 2>/dev/null | cut -d: -f1 || true)
+          if [ -n "$LINES" ]; then
+            for lineno in $LINES; do
+              # Check ±10 lines around the SECURITY DEFINER for SET search_path
+              start=$((lineno - 5))
+              [ "$start" -lt 1 ] && start=1
+              end=$((lineno + 10))
+              context=$(sed -n "${start},${end}p" "$f" 2>/dev/null || true)
+              if ! echo "$context" | grep -qi "SET search_path"; then
+                VIOLATIONS="$VIOLATIONS\n  $f:$lineno"
+              fi
+            done
+          fi
+        done
+        if [ -n "$VIOLATIONS" ]; then
+          echo ""
+          echo "✖  SECURITY DEFINER function without SET search_path:"
+          printf "$VIOLATIONS"
+          echo ""
+          echo ""
+          echo "   Add SET search_path = '' to the function definition:"
+          echo "   LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';"
+          echo ""
+          echo "   This prevents search_path hijacking attacks."
+          echo ""
+          exit 1
+        fi
+
+    # ── 5. Security-path console.log audit ───────────────────────────────────
+    # console.log in webhook/API/admin/middleware paths leaks payment data,
+    # session tokens, and PII into production logs.
+    no-debug-logs:
+      priority: 5
+      glob: "{src/app/api/**,src/app/admin/**,middleware}.{ts,tsx}"
+      run: |
+        FOUND=$(grep -n "console\.log" {staged_files} 2>/dev/null || true)
+        if [ -n "$FOUND" ]; then
+          echo ""
+          echo "✖  console.log in security-critical path:"
+          echo "$FOUND"
+          echo ""
+          echo "   Use console.error / console.warn for intentional logging."
+          echo ""
+          exit 1
+        fi
+
+    # ── 6. No @ts-ignore / eslint-disable in security-critical paths ─────────
+    # Type suppressions in API routes, middleware, and admin paths mean TypeScript
+    # cannot catch type errors in the code that processes payments and auth.
+    # There is currently 0 suppressions in these paths — this keeps it at 0.
+    no-suppressions-in-security-paths:
+      priority: 6
+      glob: "{src/app/api/**,src/app/admin/**,middleware}.{ts,tsx}"
+      run: |
+        FOUND=$(grep -n "@ts-ignore\|@ts-nocheck\|eslint-disable\|biome-ignore" {staged_files} 2>/dev/null || true)
+        if [ -n "$FOUND" ]; then
+          echo ""
+          echo "✖  Type/lint suppression in security-critical path:"
+          echo "$FOUND"
+          echo ""
+          echo "   Fix the underlying type error instead of suppressing it."
+          echo "   Security paths must have full type coverage."
+          echo ""
+          exit 1
+        fi
+
+    # ── 7. process.env must not be accessed outside src/lib/env.ts ───────────
+    # Direct process.env access bypasses the Zod validation in env.ts and can
+    # silently return undefined in production. All env access must go through
+    # the validated `env` object exported from src/lib/env.ts.
+    # Exception: NEXT_PUBLIC_ vars in metadata (framework pattern) and
+    #            supabase-server.ts which needs raw access for SSR client init.
+    no-raw-env-access:
+      priority: 7
+      glob: "src/**/*.{ts,tsx}"
+      run: |
+        VIOLATIONS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          # Skip the env definition file itself and supabase server init
+          case "$f" in
+            src/lib/env.ts|src/lib/supabase-server.ts|src/lib/supabase.ts) continue ;;
+          esac
+          # Find process.env accesses for non-NEXT_PUBLIC_ vars (server secrets)
+          FOUND=$(grep -n "process\.env\." "$f" 2>/dev/null \
+            | grep -v "NEXT_PUBLIC_" \
+            | grep -v "NODE_ENV" \
+            | grep -v "NEXT_SKIP_ENV_VALIDATION" \
+            || true)
+          if [ -n "$FOUND" ]; then
+            VIOLATIONS="$VIOLATIONS\n--- $f ---\n$FOUND"
+          fi
+        done
+        if [ -n "$VIOLATIONS" ]; then
+          echo ""
+          echo "✖  Direct process.env access outside validated env layer:"
+          printf "$VIOLATIONS"
+          echo ""
+          echo ""
+          echo "   Import the validated env object instead:"
+          echo "   import { env } from '@/lib/env';"
+          echo "   env.STRIPE_SECRET_KEY  (not process.env.STRIPE_SECRET_KEY)"
+          echo ""
+          echo "   Add env.ts entries for any new secrets."
+          echo ""
+          exit 1
+        fi
+
+    # ── 8. New page.tsx files must export metadata or generateMetadata ────────
+    # 13 existing pages lack metadata — this guard prevents the count growing.
+    # Every new page.tsx must define a title/description for SEO and social sharing.
+    # The AGENTS.md spec explicitly requires: "Every dynamic page MUST implement
+    # generateMetadata for unique titles and descriptions."
+    metadata-coverage:
+      priority: 8
+      glob: "src/app/**/page.tsx"
+      run: |
+        VIOLATIONS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          # Only check newly added files (A) — not modified existing ones
+          status=$(git diff --cached --name-status -- "$f" 2>/dev/null | cut -f1)
+          [ "$status" = "A" ] || continue
+          if ! grep -q "generateMetadata\|export const metadata" "$f" 2>/dev/null; then
+            VIOLATIONS="$VIOLATIONS\n  $f"
+          fi
+        done
+        if [ -n "$VIOLATIONS" ]; then
+          echo ""
+          echo "✖  New page.tsx files missing metadata export:"
+          printf "$VIOLATIONS"
+          echo ""
+          echo ""
+          echo "   Add to each new page:"
+          echo ""
+          echo "   // Static metadata:"
+          echo "   export const metadata: Metadata = {"
+          echo "     title: 'Page Title — Catch-22',"
+          echo "     description: 'Description for SEO and social sharing.',"
+          echo "   };"
+          echo ""
+          echo "   // Dynamic metadata (for pages with params):"
+          echo "   export async function generateMetadata({ params }) {"
+          echo "     return { title: \`\${item.name} — Catch-22\` };"
+          echo "   }"
+          echo ""
+          exit 1
+        fi
+
+    # ── 9. use client guard — hooks without directive ────────────────────────
+    # useState/useEffect/useReducer in a file without 'use client' is a Next.js
+    # App Router runtime error: "You're importing a component that needs X".
+    # The error only surfaces at request time, not at build time.
+    use-client-guard:
+      priority: 9
+      glob: "src/**/*.{ts,tsx}"
+      run: |
+        VIOLATIONS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          # Skip server-side files by definition
+          case "$f" in
+            src/app/api/**|src/lib/actions/**|src/app/*/actions.ts) continue ;;
+          esac
+          if grep -qE "useState|useEffect|useReducer|useRef|useCallback|useMemo|useContext" "$f" 2>/dev/null; then
+            if ! grep -q "'use client'" "$f" 2>/dev/null && ! grep -q '"use client"' "$f" 2>/dev/null; then
+              VIOLATIONS="$VIOLATIONS\n  $f"
+            fi
+          fi
+        done
+        if [ -n "$VIOLATIONS" ]; then
+          echo ""
+          echo "✖  React hooks used without 'use client' directive:"
+          printf "$VIOLATIONS"
+          echo ""
+          echo ""
+          echo "   Add to the top of the file:"
+          echo "   'use client';"
+          echo ""
+          echo "   Or move the hook usage into a child Client Component."
+          echo ""
+          exit 1
+        fi
+
+    # ── 10. Admin client scope guard ──────────────────────────────────────────
+    # createAdminClient() bypasses Row Level Security entirely. It must only
+    # appear in the explicitly audited files below. Any new usage outside this
+    # allowlist is a potential data exposure and requires a security review.
+    #
+    # Current allowlist (from audit):
+    #   src/app/admin/         — admin dashboard (is_admin check required)
+    #   src/app/api/webhooks/  — stripe webhook (server-to-server, no user session)
+    #   src/app/products/page.tsx — public product listing (read-only, no write)
+    #   src/app/account/page.tsx  — profile fetch with user-id scoping
+    #   src/lib/admin-auth.ts     — admin-only chokepoint: verifies is_admin
+    #                              BEFORE issuing the admin client, then hands
+    #                              it only to /admin routes and actions.
+    admin-client-scope:
+      priority: 10
+      glob: "src/**/*.{ts,tsx}"
+      run: |
+        ALLOWLIST="src/app/admin/|src/app/api/webhooks/|src/app/products/page.tsx|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts"
+        VIOLATIONS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          if grep -q "createAdminClient" "$f" 2>/dev/null; then
+            if ! echo "$f" | grep -qE "$ALLOWLIST"; then
+              VIOLATIONS="$VIOLATIONS\n  $f"
+            fi
+          fi
+        done
+        if [ -n "$VIOLATIONS" ]; then
+          echo ""
+          echo "✖  createAdminClient() used outside approved scope:"
+          printf "$VIOLATIONS"
+          echo ""
+          echo ""
+          echo "   createAdminClient bypasses Row Level Security entirely."
+          echo "   Use createServerClient() for user-scoped operations."
+          echo ""
+          echo "   If this usage is intentional, add the file to the ALLOWLIST"
+          echo "   in lefthook.yml with a security review comment explaining why."
+          echo ""
+          exit 1
+        fi
+
+    # ── 11. Server actions must have 'use server' directive ───────────────────
+    # A file that exports async functions calling Supabase or revalidatePath
+    # without 'use server' will be treated as a Client Component, causing the
+    # server-only imports to leak to the browser bundle.
+    server-action-directive:
+      priority: 11
+      glob: "src/**/{actions,action}.{ts,tsx}"
+      run: |
+        VIOLATIONS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          if grep -qE "revalidatePath|revalidateTag|createServerClient|createAdminClient" "$f" 2>/dev/null; then
+            if ! grep -q "'use server'" "$f" 2>/dev/null && ! grep -q '"use server"' "$f" 2>/dev/null; then
+              VIOLATIONS="$VIOLATIONS\n  $f"
+            fi
+          fi
+        done
+        if [ -n "$VIOLATIONS" ]; then
+          echo ""
+          echo "✖  Server action file missing 'use server' directive:"
+          printf "$VIOLATIONS"
+          echo ""
+          echo ""
+          echo "   Add as the very first line of the file:"
+          echo "   'use server';"
+          echo ""
+          exit 1
+        fi
+
+    # ── 12. dangerouslySetInnerHTML without sanitize guard ────────────────────
+    # All dangerouslySetInnerHTML must be paired with sanitizeWPContent on the
+    # same or immediately preceding line. The 3 existing uses are protected.
+    no-raw-innerhtml:
+      priority: 12
+      glob: "*.{ts,tsx}"
+      run: |
+        VIOLATIONS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          tmpfile=$(mktemp)
+          grep -n "dangerouslySetInnerHTML" "$f" 2>/dev/null > "$tmpfile" || true
+          while IFS= read -r match; do
+            lineno=$(echo "$match" | cut -d: -f1)
+            start=$((lineno - 2))
+            [ "$start" -lt 1 ] && start=1
+            end=$((lineno + 2))
+            context=$(sed -n "${start},${end}p" "$f" 2>/dev/null || true)
+            if ! echo "$context" | grep -q "sanitizeWPContent"; then
+              VIOLATIONS="$VIOLATIONS\n  $f:$lineno"
+            fi
+          done < "$tmpfile"
+          rm -f "$tmpfile"
+        done
+        if [ -n "$VIOLATIONS" ]; then
+          echo ""
+          echo "✖  dangerouslySetInnerHTML without sanitizeWPContent:"
+          printf "$VIOLATIONS"
+          echo ""
+          echo ""
+          echo "   Wrap with: sanitizeWPContent(yourContent)"
+          echo ""
+          exit 1
+        fi
+
+    # ── 13. Env integrity check ───────────────────────────────────────────────
+    # Every key in .env.example must exist in .env.local.
+    env-integrity:
+      priority: 13
+      glob: ".env*"
+      run: |
+        if [ ! -f ".env.local" ]; then
+          echo ""
+          echo "⚠️   .env.local not found. Copy .env.example and fill in values:"
+          echo "    cp .env.example .env.local"
+          echo ""
+          exit 1
+        fi
+        MISSING=""
+        while IFS= read -r line; do
+          [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+          key=$(echo "$line" | cut -d= -f1)
+          if ! grep -q "^${key}=" .env.local 2>/dev/null; then
+            MISSING="$MISSING\n  - $key"
+          fi
+        done < .env.example
+        if [ -n "$MISSING" ]; then
+          echo ""
+          echo "✖  Keys in .env.example missing from .env.local:"
+          printf "$MISSING"
+          echo ""
+          echo ""
+          exit 1
+        fi
+
+    # ── 14. Hardcoded Supabase project ref guard (new files only) ────────────
+    no-new-hardcoded-ref:
+      priority: 14
+      glob: "*.{ts,tsx,js,mjs}"
+      run: |
+        PROJECT_REF="wcoaqlglwxwceqktpckt"
+        NEW_FILES=$(git diff --cached --name-only --diff-filter=A -- "*.ts" "*.tsx" "*.js" "*.mjs" 2>/dev/null || true)
+        if [ -z "$NEW_FILES" ]; then exit 0; fi
+        FOUND=$(echo "$NEW_FILES" | xargs grep -ln "$PROJECT_REF" 2>/dev/null || true)
+        if [ -n "$FOUND" ]; then
+          echo ""
+          echo "✖  Hardcoded Supabase project ref '$PROJECT_REF' in new file(s):"
+          echo "$FOUND"
+          echo ""
+          echo "   Use process.env.NEXT_PUBLIC_SUPABASE_URL instead."
+          echo ""
+          exit 1
+        fi
+
+    # ── 15. Large file guard ──────────────────────────────────────────────────
+    no-large-files:
+      priority: 15
+      run: |
+        LIMIT_KB=500
+        OVERSIZED=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          size_kb=$(du -k "$f" | cut -f1)
+          if [ "$size_kb" -gt "$LIMIT_KB" ]; then
+            OVERSIZED="$OVERSIZED\n  $f  (${size_kb}KB)"
+          fi
+        done
+        if [ -n "$OVERSIZED" ]; then
+          echo ""
+          echo "✖  Staged files exceed ${LIMIT_KB}KB limit:"
+          printf "$OVERSIZED"
+          echo ""
+          echo ""
+          echo "   Large assets belong in Supabase Storage, not in the repo."
+          echo "   Bypass: LEFTHOOK_EXCLUDE=no-large-files git commit"
+          echo ""
+          exit 1
+        fi
+
+    # ── 16. Empty API route directory guard ──────────────────────────────────
+    no-empty-api-routes:
+      priority: 16
+      glob: "src/app/api/**"
+      run: |
+        EMPTY_DIRS=""
+        find src/app/api -mindepth 1 -maxdepth 3 -type d 2>/dev/null | sort > /tmp/catch22_api_dirs.txt || true
+        while IFS= read -r dir; do
+          [ -z "$dir" ] && continue
+          if ! ls "$dir"/route.{ts,tsx,js} 2>/dev/null | grep -q .; then
+            [ "$dir" = "src/app/api" ] && continue
+            EMPTY_DIRS="$EMPTY_DIRS\n  $dir"
+          fi
+        done < /tmp/catch22_api_dirs.txt
+        rm -f /tmp/catch22_api_dirs.txt
+        if [ -n "$EMPTY_DIRS" ]; then
+          echo ""
+          echo "⚠️   API route directories with no route.ts:"
+          printf "$EMPTY_DIRS"
+          echo ""
+          echo ""
+          echo "   Add a route.ts or delete the directory."
+          echo ""
+          # Warn only — directory may be an intentional scaffold
+        fi
+
+    # ── 17b. Edge function import scope ─────────────────────────────────────
+    # Supabase edge functions are bundled by the CLI at deploy time. Only
+    # jsr:/npm: specifiers and the shared src/config/ module are bundled
+    # correctly. Importing app code (src/lib, src/components…) from a function
+    # breaks the bundle (this caused BOOT_ERROR on earlier deployments).
+    edge-import-scope:
+      priority: 17.5
+      glob: "supabase/functions/**/*.ts"
+      run: |
+        VIOLATIONS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          tmpfile=$(mktemp)
+          grep -nE "from ['\"]|import ['\"]" "$f" 2>/dev/null || true > "$tmpfile"
+          while IFS= read -r line; do
+            # Match import targets: from '...' or import '...'
+            target=$(echo "$line" | sed -nE "s/.*from[[:space:]]+['\"]([^'\"]+)['\"].*/\1/p; s/^[[:space:]]*import[[:space:]]+['\"]([^'\"]+)['\"].*/\1/p" | head -1)
+            [ -z "$target" ] && continue
+            case "$target" in
+              jsr:*|npm:*) continue ;;
+              ./*|../*)
+                case "$target" in
+                  *src/config/*) continue ;;
+                  *) VIOLATIONS="$VIOLATIONS\n  $f → $target" ;;
+                esac
+                ;;
+              *) continue ;;
+            esac
+          done < "$tmpfile"
+          rm -f "$tmpfile"
+        done
+        if [ -n "$VIOLATIONS" ]; then
+          echo ""
+          echo "✖  Edge function imports app code outside supabase/functions + src/config:"
+          printf "$VIOLATIONS"
+          echo ""
+          echo ""
+          echo "   Only jsr:/npm: specifiers and the shared src/config/ module"
+          echo "   are bundled reliably by the CLI. Move shared logic into src/config/"
+          echo "   or supabase/functions/_shared/ and import from there."
+          echo ""
+          exit 1
+        fi
+
+    # ── 17c. Merge conflict markers ─────────────────────────────────────────
+    # A leftover conflict marker compiles fine in most grammars but ships
+    # broken code. Fail the commit if any staged file contains one.
+    no-conflict-markers:
+      priority: 17.6
+      run: |
+        FOUND=$(grep -rn "^<<<<<<< \|^=======$\|^>>>>>>> " {staged_files} 2>/dev/null || true)
+        if [ -n "$FOUND" ]; then
+          echo ""
+          echo "✖  Merge conflict markers in staged files:"
+          echo "$FOUND"
+          echo ""
+          echo "   Resolve the conflict first (git mergetool), then re-stage."
+          echo ""
+          exit 1
+        fi
+
+    # ── 17d. Workflow YAML sanity ───────────────────────────────────────────
+    # A malformed .github/workflows/*.yml silently disables a pipeline
+    # (GitHub drops invalid workflow files). Parse-check any staged workflow
+    # so a broken pipeline never ships.
+    workflow-yaml:
+      priority: 17.7
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: |
+        ERRORS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          if ! ruby -e 'require "yaml"; YAML.load_file(ARGV[0]); puts "ok"' "$f" >/dev/null 2>&1; then
+            ERRORS="$ERRORS\n  $f (invalid YAML)"
+          fi
+        done
+        if [ -n "$ERRORS" ]; then
+          echo ""
+          echo "✖  Invalid YAML in workflow file(s):"
+          printf "$ERRORS"
+          echo ""
+          echo ""
+          echo "   GitHub silently ignores broken workflow files — a malformed"
+          echo "   deploy.yml would disable CI without anyone noticing."
+          echo ""
+          exit 1
+        fi
+
+    # ── 17. Biome – format + lint staged files ────────────────────────────────
+    biome-check:
+      priority: 17
+      glob: "*.{js,jsx,ts,tsx,json,css}"
+      run: bun biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+
+    # ── 18. oxlint – React / hooks / Next.js rules ───────────────────────────
+    oxlint:
+      priority: 18
+      glob: "*.{ts,tsx}"
+      run: bun oxlint {staged_files}
+
+    # ── 19. TypeScript – type-check without full build ────────────────────────
+    typecheck:
+      priority: 19
+      glob: "*.{ts,tsx}"
+      run: bun tsc --noEmit --incremental false
+
+    # ── 20. Env usage coverage ────────────────────────────────────────────────
+    # Every env var referenced in code must be declared in .env.example.
+    # A referenced-but-undeclared var is silently undefined in CI/deploy
+    # (validation-layer drift) — the Vault/edge secrets only cover declared
+    # keys, so undeclared access would ship a runtime bug.
+    # Allowed raw-access files (env.ts, supabase init) are already exempted
+    # by no-raw-env-access; this closes the NEXT_PUBLIC + declaration gap.
+    env-usage-coverage:
+      priority: 20
+      glob: "src/**/*.{ts,tsx}"
+      run: |
+        VIOLATIONS=""
+        for f in {staged_files}; do
+          [ -f "$f" ] || continue
+          FOUND=$(grep -oE "process\.env\.[A-Z_][A-Z0-9_]*" "$f" 2>/dev/null | sed 's/process\.env\.//' | sort -u || true)
+          if [ -n "$FOUND" ]; then
+            for var in $FOUND; do
+              case "$var" in
+                NEXT_PUBLIC_*|NODE_ENV|NEXT_SKIP_ENV_VALIDATION) continue ;;
+              esac
+              if ! grep -q "^${var}=" .env.example 2>/dev/null; then
+                VIOLATIONS="$VIOLATIONS\n  $f → process.env.$var"
+              fi
+            done
+          fi
+        done
+        if [ -n "$VIOLATIONS" ]; then
+          echo ""
+          echo "✖  Env vars used in code but missing from .env.example:"
+          printf "$VIOLATIONS"
+          echo ""
+          echo ""
+          echo "   Add the key to .env.example (and a value to .env.local)."
+          echo "   Secrets live in the Supabase Vault / edge secrets and in"
+          echo "   Vercel Env Variables for the app — .env.example is the"
+          echo "   contract every environment must honour."
+          echo ""
+          exit 1
+        fi
+
+    # ── 21. Lockfile pairing ──────────────────────────────────────────────────
+    # A package.json change without a bun.lock change ships a frozen-lockfile
+    # CI failure (or worse, drift). Require them to move together on commit.
+    lockfile-pair:
+      priority: 21
+      run: |
+        STAGED=$(git diff --cached --name-only 2>/dev/null || true)
+        if echo "$STAGED" | grep -qx "package.json" && ! echo "$STAGED" | grep -qx "bun.lock"; then
+          echo ""
+          echo "✖  package.json staged without bun.lock."
+          echo "   Run: bun install   (updates the lockfile) then re-stage bun.lock."
+          echo "   CI installs with --frozen-lockfile and will fail otherwise."
+          echo ""
+          exit 1
+        fi
+
+# ─── commit-msg ───────────────────────────────────────────────────────────────
+commit-msg:
+  commands:
+    conventional:
+      run: |
+        msg=$(cat {1})
+        clean_msg=$(echo "$msg" | grep -v "^#" | sed '/^[[:space:]]*$/d' | head -1)
+        pattern="^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\(.+\))?(!)?: .{1,100}$"
+        if ! echo "$clean_msg" | grep -qE "$pattern"; then
+          echo ""
+          echo "✖  Commit message doesn't follow Conventional Commits."
+          echo "   Format : type(scope?): subject  (max 100 chars)"
+          echo "   Types  : feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert"
+          echo "   Breaking: append !  →  feat(api)!: redesign checkout"
+          echo ""
+          echo "   Your message: $clean_msg"
+          echo ""
+          exit 1
+        fi
+
+# ─── post-commit ──────────────────────────────────────────────────────────────
+# Auto-regenerate TypeScript types when a migration is committed.
+# Guarded: only runs if the commit actually touched supabase/migrations/*.sql.
+post-commit:
+  commands:
+    regen-types-on-migration:
+      run: |
+        CHANGED=$(git diff-tree -r --name-only --no-commit-id HEAD -- "supabase/migrations/*.sql" 2>/dev/null || true)
+        if [ -z "$CHANGED" ]; then
+          exit 0
+        fi
+        echo ""
+        echo "🗄️   Migration committed — regenerating TypeScript types..."
+        if bun run types:generate 2>/dev/null; then
+          echo "✔   src/types/supabase.ts updated."
+        else
+          echo "⚠️   Type generation failed. Run manually: bun run types:generate"
+        fi
+
+# ─── pre-push ─────────────────────────────────────────────────────────────────
+pre-push:
+  parallel: false
+  commands:
+
+    # ── 1. Block direct pushes to main ───────────────────────────────────────
+    no-direct-main-push:
+      priority: 1
+      run: |
+        if [ "${CI:-}" = "true" ]; then exit 0; fi
+        current_branch=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$current_branch" = "main" ]; then
+          echo ""
+          echo "✖  Direct push to main is not allowed."
+          echo "   Open a pull request: gh pr create"
+          echo "   Bypass: LEFTHOOK_EXCLUDE=no-direct-main-push git push"
+          echo ""
+          exit 1
+        fi
+
+    # ── 2. Lock file sync check ───────────────────────────────────────────────
+    lockfile-sync:
+      priority: 2
+      run: |
+        if git diff --name-only HEAD..@{u} 2>/dev/null | grep -q "package.json"; then
+          if ! git diff --name-only HEAD..@{u} 2>/dev/null | grep -q "bun.lock"; then
+            echo "✖  package.json changed but bun.lock not updated. Run: bun install"
+            exit 1
+          fi
+        fi
+        if git diff --name-only HEAD 2>/dev/null | grep -q "package.json"; then
+          if ! git diff --name-only HEAD 2>/dev/null | grep -q "bun.lock"; then
+            echo "✖  package.json has local changes but bun.lock is unchanged. Run: bun install"
+            exit 1
+          fi
+        fi
+
+    # ── 3. Migration verify script ────────────────────────────────────────────
+    migration-verify:
+      priority: 3
+      glob: "supabase/migrations/*.sql"
+      run: |
+        if [ ! -f ".env.local" ]; then
+          echo "ℹ️   No .env.local — skipping migration verification."; exit 0
+        fi
+        if ! grep -q "^SUPABASE_SECRET_KEY=.\{5,\}" .env.local 2>/dev/null; then
+          echo "ℹ️   SUPABASE_SECRET_KEY not configured — skipping migration verification."; exit 0
+        fi
+        echo "🗄️   Verifying migrations against live schema..."
+        bun scripts/verify_migration.mjs && echo "✔   Migrations verified." || {
+          echo "✖  Migration verification failed. Fix before pushing."
+          exit 1
+        }
+
+    # ── 4. Suppression count gate ─────────────────────────────────────────────
+    # Tracks @ts-ignore / biome-ignore / eslint-disable across all of src/.
+    # Baseline is 7 (5 from audit + 2 deliberate a11y ignores on the contact
+    # form's <output role="status"> banners: Chromium does not expose
+    # <output>'s implicit status role to assistive tech or testing queries).
+    # Fails if the count grows.
+    # To raise the baseline: update the BASELINE value here AND in the comment
+    # at the top of this file with a chore commit explaining why.
+    suppress-count:
+      priority: 4
+      run: |
+        BASELINE=7
+        COUNT=$(grep -rn "@ts-ignore\|@ts-nocheck\|biome-ignore\|eslint-disable" \
+          src --include="*.ts" --include="*.tsx" 2>/dev/null \
+          | grep -v "__tests__" | wc -l | tr -d ' ')
+        if [ "$COUNT" -gt "$BASELINE" ]; then
+          echo ""
+          echo "✖  Type/lint suppression count grew: ${COUNT} (baseline: ${BASELINE})"
+          echo ""
+          echo "   New suppressions found in src/. Fix the underlying issue instead."
+          echo "   If the suppression is unavoidable, raise the BASELINE in lefthook.yml"
+          echo "   with a chore commit explaining why."
+          echo ""
+          exit 1
+        fi
+        echo "✔  Suppression count: ${COUNT}/${BASELINE}"
+
+    # ── 5. CI parity – mirrors .github/workflows/deploy.yml exactly ──────────
+    lint-ci:
+      priority: 5
+      run: bun run lint:check
+
+    # oxlint already runs via lint:check above; kept separate for fast
+    # iteration on the React/hooks/Next rule set.
+    # Just-in-time migration dry-run — mirrors the CI token-only flow:
+    # supabase link + db push --linked --dry-run. Skips silently when the
+    # local machine has no link state / token (CI covers it there).
+    migration-dryrun:
+      priority: 5.5
+      glob: "supabase/migrations/*.sql"
+      run: |
+        if [ ! -f "supabase/.temp/linked-project.json" ]; then
+          echo "ℹ️   No linked Supabase project — skipping migration dry-run."
+          exit 0
+        fi
+        if ! grep -q "^SUPABASE_ACCESS_TOKEN=.\{5,\}" .env.local 2>/dev/null; then
+          echo "ℹ️   SUPABASE_ACCESS_TOKEN not configured — skipping migration dry-run."
+          exit 0
+        fi
+        echo "🗄️   Migrations changed — dry-running local → remote diff..."
+        bun x supabase@latest db push --linked --dry-run --yes 2>&1 && \
+          echo "✔   Migration dry-run passed." || {
+            echo ""
+            echo "✖  Migration dry-run failed (see output above)."
+            echo "   Fix before pushing — CI will fail otherwise."
+            exit 1
+          }
+
+    tests:
+      priority: 6
+      run: bun test
+
+    typecheck:
+      priority: 7
+      run: bun tsc --noEmit
+
+    # ── 6. Coverage threshold ─────────────────────────────────────────────────
+    # Statement coverage ≥90% against the measurable lib/ + config/ files.
+    # Current baseline: ~94% statements, 97% branches, 100% functions.
+    coverage:
+      priority: 8
+      run: |
+        OUTPUT=$(bun vitest run --coverage --coverage.reporter=text-summary 2>&1 || true)
+        echo "$OUTPUT"
+        STMTS=$(echo "$OUTPUT" | grep "Statements" | grep -oE "[0-9]+\.[0-9]+" | head -1)
+        if [ -z "$STMTS" ]; then
+          echo "ℹ️   Could not parse coverage output — skipping threshold check."; exit 0
+        fi
+        THRESHOLD=90
+        BELOW=$(awk -v val="$STMTS" -v thr="$THRESHOLD" 'BEGIN { print (val+0 < thr+0) ? "yes" : "no" }')
+        if [ "$BELOW" = "yes" ]; then
+          echo ""
+          echo "✖  Statement coverage ${STMTS}% is below the ${THRESHOLD}% threshold."
+          echo "   Add tests for new code before pushing."
+          echo "   Run: bun run test:coverage  to see per-file breakdown."
+          exit 1
+        fi
+        echo "✔  Coverage: ${STMTS}% (threshold: ${THRESHOLD}%)"
+
+    # ── 7. Build smoke-test ───────────────────────────────────────────────────
+    build-check:
+      priority: 9
+      run: NEXT_SKIP_ENV_VALIDATION=1 bun run build
+
+    # ── 8. Peer-dependency compatibility ──────────────────────────────────────
+    # Mirrors the nightly deps.yml gate: a dependency update can pass install,
+    # audits, and tests while still violating a peer range that only breaks at
+    # build/deploy time. Cheap to run locally (node_modules is present).
+    peer-deps:
+      priority: 10
+      run: bun scripts/check-peer-deps.mjs --all
+
+# ─── post-checkout ────────────────────────────────────────────────────────────
+post-checkout:
+  commands:
+    deps-changed:
+      run: |
+        prev=$1; curr=$2; is_branch_checkout=$3
+        if [ "$is_branch_checkout" = "1" ]; then
+          changed=$(git diff --name-only "$prev" "$curr" -- package.json bun.lock 2>/dev/null || true)
+          if [ -n "$changed" ]; then
+            echo ""; echo "📦  Dependencies changed on this branch. Run: bun install"; echo ""
+          fi
+        fi
+
+# ─── post-merge ───────────────────────────────────────────────────────────────
+post-merge:
+  commands:
+    auto-install:
+      run: |
+        changed=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD -- bun.lock package.json 2>/dev/null || true)
+        if [ -n "$changed" ]; then
+          echo "📦  Lock file changed — running bun install..."
+          bun install
+        fi
+
+    regen-types-on-merge:
+      run: |
+        changed=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD -- "supabase/migrations/*.sql" 2>/dev/null || true)
+        if [ -n "$changed" ]; then
+          echo "🗄️   Migrations pulled — regenerating TypeScript types..."
+          bun run types:generate 2>/dev/null && \
+            echo "✔   src/types/supabase.ts updated." || \
+            echo "⚠️   Type generation failed. Run: bun run types:generate"
+        fi
+
+# ─── pre-rebase ───────────────────────────────────────────────────────────────
+pre-rebase:
+  commands:
+    warn-rebase-main:
+      run: |
+        upstream=$1
+        if [ "$upstream" = "main" ] || [ "$upstream" = "origin/main" ]; then
+          echo ""
+          echo "⚠️   Rebasing onto main rewrites history."
+          echo "    Only do this on private unshared branches."
+          echo "    Proceeding in 3 seconds... (Ctrl+C to abort)"
+          sleep 3
+        fi
