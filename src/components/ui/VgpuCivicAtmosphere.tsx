@@ -267,9 +267,6 @@ export function VgpuCivicAtmosphere({
         <div className="absolute -bottom-[20%] left-[20%] w-[50vw] h-[50vw] rounded-full bg-cyan-400/10 blur-[130px] animate-pulse duration-[12000ms]" />
       </div>
 
-      {/* Subtle Mesh Grid Overlay for Sensory Luxury Aesthetic */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_40%,#000_60%,transparent_100%)] opacity-20" />
-
       {/* Optional Hardware Acceleration Indicator Badge */}
       {showBadge && (
         <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
