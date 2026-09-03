@@ -52,48 +52,53 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.18;
+  let t = params.time * 0.16;
 
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
-  let mouseGlow = exp(-mouseDist * 3.2) * 0.45 * params.intensity;
+  let mouseRipple = sin(mouseDist * 24.0 - t * 4.0) * 0.5 + 0.5;
+  let mouseGlow = exp(-mouseDist * 2.8) * (0.35 + mouseRipple * 0.25) * params.intensity;
 
   let q = vec2f(
-    fbm(p * 1.4 + vec2f(t * 0.4, t * 0.2)),
-    fbm(p * 1.4 + vec2f(-t * 0.3, t * 0.5))
+    fbm(p * 1.3 + vec2f(t * 0.35, t * 0.18)),
+    fbm(p * 1.3 + vec2f(-t * 0.28, t * 0.45))
   );
 
   let r = vec2f(
-    fbm(p * 1.8 + q * 1.2 + vec2f(t * 0.6, -t * 0.3)),
-    fbm(p * 1.8 + q * 1.2 + vec2f(-t * 0.4, t * 0.7))
+    fbm(p * 1.6 + q * 1.3 + vec2f(t * 0.5, -t * 0.25)),
+    fbm(p * 1.6 + q * 1.3 + vec2f(-t * 0.35, t * 0.6))
   );
 
-  let wave = fbm(p * 2.2 + r * 1.5);
+  let wave = fbm(p * 2.0 + r * 1.6);
+  let auroraRibbon = smoothstep(0.35, 0.75, sin(wave * 4.5 + t * 0.8) * 0.5 + 0.5);
 
-  let baseDark = vec3f(0.02, 0.04, 0.10);
-  let sapphire = vec3f(0.08, 0.22, 0.55);
-  let cyanGlow = vec3f(0.15, 0.65, 0.95);
-  let amberGold = vec3f(0.95, 0.76, 0.25);
+  let baseDark = vec3f(0.015, 0.03, 0.08);
+  let midnight = vec3f(0.05, 0.12, 0.32);
+  let sapphire = vec3f(0.08, 0.25, 0.65);
+  let cyanGlow = vec3f(0.12, 0.68, 0.95);
+  let amberGold = vec3f(0.96, 0.74, 0.24);
 
-  var col = mix(baseDark, sapphire, smoothstep(0.12, 0.65, wave));
-  col = mix(col, cyanGlow, smoothstep(0.45, 0.85, wave) * 0.65);
-  col = mix(col, amberGold, pow(smoothstep(0.68, 0.96, wave), 2.5) * 0.45);
+  var col = mix(baseDark, midnight, smoothstep(0.05, 0.45, wave));
+  col = mix(col, sapphire, smoothstep(0.35, 0.75, wave));
+  col = mix(col, cyanGlow, auroraRibbon * 0.45);
+  col = mix(col, amberGold, pow(smoothstep(0.65, 0.95, wave), 2.8) * 0.40);
 
   col += cyanGlow * mouseGlow;
-  col += amberGold * (mouseGlow * 0.35);
+  col += amberGold * (mouseGlow * 0.4);
 
-  let starGrid = uv * vec2f(50.0 * aspect, 50.0);
+  // Organic twinkling democratic stardust
+  let starGrid = uv * vec2f(45.0 * aspect, 45.0);
   let starCell = floor(starGrid);
   let starRandom = hash21(starCell);
-  if (starRandom > 0.975) {
+  if (starRandom > 0.972) {
     let starPos = fract(starGrid) - 0.5;
     let starDist = length(starPos);
-    let pulse = sin(params.time * 2.2 + starRandom * 6.28) * 0.5 + 0.5;
-    let starLight = exp(-starDist * 16.0) * pulse * 0.65;
+    let pulse = sin(params.time * 2.0 + starRandom * 6.28) * 0.5 + 0.5;
+    let starLight = exp(-starDist * 18.0) * pulse * 0.65;
     col += mix(cyanGlow, amberGold, starRandom) * starLight;
   }
 
-  let vig = (1.0 - length(uv - 0.5) * 0.65) * (1.0 - uv.y * 0.35);
+  let vig = (1.0 - length(uv - 0.5) * 0.62) * (1.0 - uv.y * 0.3);
   col *= max(vig, 0.25);
 
   return vec4f(col, 1.0);

@@ -1,6 +1,7 @@
 import { Heart, Megaphone, Music, Shield, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import { ActBlueDonationCalculator } from '@/components/ui/ActBlueDonationCalculator';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 
 export const metadata: Metadata = {
   title: 'Donate & Support | Indivisible Fair Oaks-Carmichael',
@@ -11,9 +12,10 @@ export const metadata: Metadata = {
 export default function DonatePage() {
   return (
     <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* Header Banner with VGPU Constellation Network */}
+      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
+        <VgpuCivicConstellation />
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-400/30 text-amber-300 text-xs font-bold uppercase tracking-wider mb-4">
             <Heart size={14} className="fill-amber-400 text-amber-400" />
             <span>100% Grassroots Funded</span>
