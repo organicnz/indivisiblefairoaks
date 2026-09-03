@@ -21,49 +21,365 @@ interface CivicPhoto {
   caption: string;
   location: string;
   category:
-    | 'No Kings Protests'
-    | 'Witty Signs & Humor'
-    | 'Unity & Solidarity'
+    | 'No Kings Sacramento'
+    | 'NorCal Resist'
+    | 'Sacramento Unity'
+    | 'Witty & Funny Signs'
     | 'Resistance Choir'
-    | 'Community Action';
+    | 'Legacy Site Archives';
   date: string;
   photographer: string;
   signQuote?: string;
 }
 
 const CIVIC_GALLERY: CivicPhoto[] = [
+  // --- LEGACY SITE ARCHIVES (Original assets recovered from indivisiblefairoaks.org Google Drive) ---
   {
-    id: 'no-kings-protest-mass',
+    id: 'legacy-banner',
+    url: '/images/legacy/legacy-banner.jpg',
+    caption: 'Indivisible Fair Oaks Official Chapter Welcome Banner',
+    location: 'Fair Oaks & Carmichael, CA',
+    category: 'Legacy Site Archives',
+    date: '2026 Archive',
+    photographer: 'Indivisible Fair Oaks Founding Committee',
+    signQuote: 'Indivisible Fair Oaks - Carmichael',
+  },
+  {
+    id: 'legacy-resistance-choir',
+    url: '/images/legacy/legacy-resistance-choir.jpg',
+    caption: 'Carmichael Resistance Choir: Community Vocal Rehearsal Invitation',
+    location: 'Carmichael, CA',
+    category: 'Legacy Site Archives',
+    date: 'Bi-Weekly Rehearsals',
+    photographer: 'Carmichael Resistance Choir',
+    signQuote: 'Every Good Protest Movement Needs Music',
+  },
+  {
+    id: 'legacy-good-trouble-banner',
+    url: '/images/legacy/legacy-good-trouble-banner.jpg',
+    caption: 'Good Trouble Lives On: Annual John Lewis Highway 50 Banner Drop Artwork',
+    location: 'Highway 50 Pedestrian Overpass, Sacramento',
+    category: 'Legacy Site Archives',
+    date: 'July 17 Weekend of Action',
+    photographer: 'Indivisible Action Team',
+    signQuote: 'Good Trouble Lives On!',
+  },
+  {
+    id: 'legacy-good-trouble-1',
+    url: '/images/legacy/legacy-good-trouble-1.jpg',
+    caption: 'Good Trouble Weekend of Action & Protest Song Assembly',
+    location: 'Fair Oaks & Carmichael Community Spaces',
+    category: 'Legacy Site Archives',
+    date: 'July 2026 Memorial Action',
+    photographer: 'Chapter Organizing Committee',
+    signQuote: 'Never, Ever Be Afraid To Make Noise',
+  },
+  {
+    id: 'legacy-homeless-vote',
+    url: '/images/legacy/legacy-homeless-vote.jpg',
+    caption: 'Homeless Is Not Voteless: Grassroots Sacramento Voter Rights Initiative',
+    location: 'Sacramento County Outreach',
+    category: 'Legacy Site Archives',
+    date: 'Civic Rights Campaign',
+    photographer: 'Sacramento Voting Rights Advocates',
+    signQuote: 'Homeless Is Not Voteless',
+  },
+  {
+    id: 'legacy-preregister-16',
+    url: '/images/legacy/legacy-preregister-16.jpg',
+    caption: 'Pre-Register At 16: Sacramento County High School Civic Education Campaign',
+    location: 'Sacramento Area High Schools',
+    category: 'Legacy Site Archives',
+    date: 'Youth Civic Initiative',
+    photographer: 'Youth Voting Project',
+    signQuote: 'Pre-Register At 16: Your Future, Your Voice',
+  },
+  {
+    id: 'legacy-voting-rights-reentry',
+    url: '/images/legacy/legacy-voting-rights-reentry.jpg',
+    caption: 'Restoration of Voting Rights: Sacramento Reentry Education Initiative',
+    location: 'Sacramento County',
+    category: 'Legacy Site Archives',
+    date: 'Justice Working Group',
+    photographer: 'Community Legal Alliance',
+    signQuote: 'Voting Rights Restoration For All',
+  },
+  {
+    id: 'legacy-newsletter',
+    url: '/images/legacy/legacy-newsletter.jpg',
+    caption: 'Indivisible Fair Oaks-Carmichael Grassroots Dispatch & Newsletter',
+    location: 'Fair Oaks-Carmichael, CA',
+    category: 'Legacy Site Archives',
+    date: 'April 2026 Edition',
+    photographer: 'Editorial Working Group',
+    signQuote: 'Informed, Connected, Indivisible',
+  },
+
+  // --- NORCAL RESIST (Sacramento Grassroots Direct Solidarity & Mutual Aid) ---
+  {
+    id: 'norcal-resist-court-watch',
+    url: 'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Sacramento Immigration Court Accompaniment: NorCal Resist Court Watch Volunteers',
+    location: '501 I Street Federal Courthouse, Sacramento',
+    category: 'NorCal Resist',
+    date: '2026 Direct Solidarity',
+    photographer: 'NorCal Resist Media Collective',
+    signQuote: 'No Human Being Is Illegal',
+  },
+  {
+    id: 'norcal-resist-brake-light-clinic',
+    url: 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&w=1200&q=80',
+    caption:
+      'NorCal Resist Free Brake Light Repair Clinic: Keeping Drivers Safe from Pretextual Stops',
+    location: 'Oak Park Community Center, Sacramento',
+    category: 'NorCal Resist',
+    date: 'Monthly Mutual Aid Clinic',
+    photographer: 'Community Defense Working Group',
+    signQuote: 'Fixing Tail Lights To Protect Our Neighbors',
+  },
+  {
+    id: 'norcal-resist-bail-fund',
+    url: 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?auto=format&fit=crop&w=1200&q=80',
+    caption:
+      'NorCal Resist Community Bail & Bond Fund: Cycling Community Cash Bail for Detained Neighbors',
+    location: 'Sacramento County Jail Support Hub',
+    category: 'NorCal Resist',
+    date: 'Grassroots Bond Support',
+    photographer: 'National Bail Fund Network',
+    signQuote: 'Solidarity Not Charity: Free Them All',
+  },
+  {
+    id: 'norcal-resist-diaper-food',
+    url: 'https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Monthly Mutual Aid Essentials Distribution: Diapers, Formula & Groceries',
+    location: 'South Sacramento Community Hub',
+    category: 'NorCal Resist',
+    date: 'Monthly Aid Circle',
+    photographer: 'Sacramento Mutual Aid Circle',
+    signQuote: 'Mutual Aid Across Every Neighborhood',
+  },
+  {
+    id: 'norcal-resist-legal-observers',
+    url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
+    caption:
+      'Neon Green Hats at the Capitol: NorCal Resist Trained Legal Observers Protecting Free Speech',
+    location: 'California State Capitol, Sacramento',
+    category: 'NorCal Resist',
+    date: '2026 Mobilization',
+    photographer: 'Guild Legal Observers',
+    signQuote: 'Independent Eyes Safeguarding First Amendment Rights',
+  },
+
+  // --- NO KINGS SACRAMENTO (State Capitol, Tower Bridge, DOCO Plaza, Federal Courthouse) ---
+  {
+    id: 'no-kings-capitol-steps',
     url: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=1200&q=80',
-    caption: 'No Kings in America: Mass mobilization defending constitutional rule of law',
-    location: 'Downtown Sacramento Plaza',
-    category: 'No Kings Protests',
-    date: 'October 2026',
-    photographer: 'Indivisible Action Media',
+    caption: 'No Kings in America: Mass Demonstration on California State Capitol West Steps',
+    location: 'California State Capitol West Steps, Sacramento',
+    category: 'No Kings Sacramento',
+    date: 'October 2026 Day of Action',
+    photographer: 'Grassroots Coalition Press',
     signQuote: 'We Fought A War About This In 1776',
   },
   {
-    id: 'funny-sign-ikea',
+    id: 'no-kings-tower-bridge',
+    url: 'https://images.unsplash.com/photo-1568992687947-868a62a9f521?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Tower Bridge Mass March: Golden Bridge Packed with Anti-Monarchy Protesters',
+    location: 'Tower Bridge & Sacramento River',
+    category: 'No Kings Sacramento',
+    date: 'June 2026 Mobilization',
+    photographer: 'Sacramento River Citizen Press',
+    signQuote: 'Presidents Are Not Kings — Defend The Constitution',
+  },
+  {
+    id: 'no-kings-doco-plaza',
+    url: 'https://images.unsplash.com/photo-1577962917302-cd874c4e31d2?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Downtown Commons Stand-Out: Grassroots Rally for Rule of Law & Civil Liberties',
+    location: 'Downtown Sacramento Commons (DOCO)',
+    category: 'No Kings Sacramento',
+    date: 'August 2026',
+    photographer: 'Indivisible Action Media',
+    signQuote: 'Rule of Law, Not Rule of Men',
+  },
+  {
+    id: 'no-kings-federal-courthouse',
+    url: 'https://images.unsplash.com/photo-1576267423445-b2e0074d68a4?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Federal Courthouse Stand-Out: Holding Signs Demanding Executive Accountability',
+    location: 'Robert T. Matsui Federal Courthouse, Sacramento',
+    category: 'No Kings Sacramento',
+    date: 'July 2026',
+    photographer: 'Direct Action Working Group',
+    signQuote: 'No Man Is Above The Law',
+  },
+  {
+    id: 'no-kings-capitol-mall-march',
+    url: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Capitol Mall March: Community Members Linking Arms from River to Capitol',
+    location: 'Capitol Mall, Sacramento',
+    category: 'No Kings Sacramento',
+    date: 'April 2026',
+    photographer: 'Coalition Dispatch',
+    signQuote: 'Government Of The People, By The People',
+  },
+
+  // --- SACRAMENTO UNITY (Intergenerational Solidarity, Community Care & Assemblies) ---
+  {
+    id: 'unity-food-bank-drive',
+    url: 'https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Fair Oaks Food Bank Collection: Non-Perishable Food Cans at Chapter Meeting',
+    location: 'Fair Oaks Community Clubhouse',
+    category: 'Sacramento Unity',
+    date: 'September 2026 Gathering',
+    photographer: 'Community Care Working Group',
+    signQuote: 'Neighbors Caring For Neighbors',
+  },
+  {
+    id: 'unity-carmichael-park',
+    url: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=1200&q=80',
+    caption:
+      'Carmichael Park Intergenerational Gathering: Elders & Youth Building Grassroots Power',
+    location: 'Carmichael Park, Carmichael',
+    category: 'Sacramento Unity',
+    date: 'June 2026',
+    photographer: 'Youth & Elders Circle',
+    signQuote: 'United For The Next Generation',
+  },
+  {
+    id: 'unity-peace-vigil',
+    url: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Peaceful Candlelight Vigil for Constitutional Norms & Democratic Unity',
+    location: 'Fair Oaks Plaza Park',
+    category: 'Sacramento Unity',
+    date: 'January 2026',
+    photographer: 'Community Peace Circle',
+    signQuote: 'Lighting The Path For Democracy',
+  },
+  {
+    id: 'unity-postcard-writing',
+    url: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Writing 1,200 Handwritten Postcards to Protect Voting Access in California',
+    location: 'Fair Oaks Village Backyard Circle',
+    category: 'Sacramento Unity',
+    date: 'September 2026',
+    photographer: 'Voter Outreach Working Group',
+    signQuote: 'Every Voice, Every Vote',
+  },
+  {
+    id: 'unity-ancil-hoffman',
+    url: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Grassroots Volunteer Debrief & Picnic: Solidarity Along the American River Parkway',
+    location: 'Ancil Hoffman Park, Carmichael',
+    category: 'Sacramento Unity',
+    date: 'August 2026',
+    photographer: 'Sacramento Field Coordinator',
+    signQuote: 'Our Community, Our Strength',
+  },
+  {
+    id: 'unity-indigenous-solidarity',
+    url: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Sutter’s Landing Solidarity Circle: Honoring Nisenan Ancestral Lands & River Commons',
+    location: 'Sutter’s Landing Park, Sacramento River',
+    category: 'Sacramento Unity',
+    date: 'October 2026',
+    photographer: 'Sacramento River Alliance',
+    signQuote: 'Water Is Life, Justice For All',
+  },
+
+  // --- WITTY & FUNNY SIGNS (Sacramento & Nationwide Satirical Protest Art) ---
+  {
+    id: 'witty-ikea-cabinets',
     url: 'https://images.unsplash.com/photo-1588681664899-f142ff2dc9b1?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Creative Resistance: Witty Cardboard Signs at Fair Oaks Blvd Stand-Out',
+    caption: 'Satirical Cardboard at Fair Oaks Blvd Stand-Out',
     location: 'Fair Oaks Blvd & Manzanita Ave, Carmichael',
-    category: 'Witty Signs & Humor',
+    category: 'Witty & Funny Signs',
     date: 'August 2026',
     photographer: 'Elena R., Member',
     signQuote: "I've Seen Smarter Cabinets At IKEA",
   },
   {
-    id: 'unity-food-bank-drive',
-    url: 'https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Community Solidarity: Food Bank Collection before Chapter Gathering',
-    location: 'Fair Oaks Community Clubhouse',
-    category: 'Unity & Solidarity',
+    id: 'witty-introverts-rally',
+    url: 'https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?auto=format&fit=crop&w=1200&q=80',
+    caption: 'When Introverts Leave the House: Carmichael Park Stand-Out',
+    location: 'Carmichael Park Community Stand-Out',
+    category: 'Witty & Funny Signs',
     date: 'September 2026',
-    photographer: 'Community Care Circle',
-    signQuote: 'Neighbors Caring For Neighbors',
+    photographer: 'David K., Member',
+    signQuote: "You Know It's Bad When Introverts Are Out Here",
   },
   {
-    id: 'choir-street-harmony',
+    id: 'witty-librarians-loud',
+    url: 'https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Librarians Against Tyranny: Carmichael Library Gathering',
+    location: 'Carmichael Library Assembly Area',
+    category: 'Witty & Funny Signs',
+    date: 'May 2026',
+    photographer: 'Literacy Working Group',
+    signQuote: 'So Bad Even Librarians Are Getting Loud',
+  },
+  {
+    id: 'witty-cat-checks-balances',
+    url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Pet Companions for the Constitution: Carmichael Sidewalk Gathering',
+    location: 'Carmichael Farmers Market Stand-Out',
+    category: 'Witty & Funny Signs',
+    date: 'July 2026',
+    photographer: 'Elena R., Member',
+    signQuote: 'Even My Cat Knows We Need Checks & Balances',
+  },
+  {
+    id: 'witty-stayed-in-1775',
+    url: 'https://images.unsplash.com/photo-1526470608268-f674ce90ebd4?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Historical Truth on Cardboard: Downtown Sacramento Rally',
+    location: 'Downtown Sacramento Plaza',
+    category: 'Witty & Funny Signs',
+    date: 'June 2026',
+    photographer: 'Historical Resistance Team',
+    signQuote: 'If You Liked Monarchy, You Should Have Stayed In 1775',
+  },
+  {
+    id: 'witty-arms-tired-since-2017',
+    url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Endurance on the Capitol Steps: Marathon Grassroots Activism',
+    location: 'California State Capitol, Sacramento',
+    category: 'Witty & Funny Signs',
+    date: 'October 2026',
+    photographer: 'Statewide Coalition Press',
+    signQuote: 'My Arms Are Tired From Holding This Sign Since 2017',
+  },
+  {
+    id: 'witty-agree-wrong',
+    url: 'https://images.unsplash.com/photo-1516251193007-45ef944ab0c6?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Diplomacy in the Streets: Sacramento Commons Satire',
+    location: 'Capitol Mall Walkway, Sacramento',
+    category: 'Witty & Funny Signs',
+    date: 'August 2026',
+    photographer: 'Grassroots Satirists',
+    signQuote: "I'd Agree With You But Then We'd Both Be Wrong",
+  },
+  {
+    id: 'witty-evidence-science',
+    url: 'https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Science & Fact-Based Policy: Sacramento March for Science Alliance',
+    location: 'Sacramento State Capitol Park',
+    category: 'Witty & Funny Signs',
+    date: 'April 2026',
+    photographer: 'Scientists For Civic Sanity',
+    signQuote: 'What Do We Want? Peer Review! When Do We Want It? After Revisions!',
+  },
+  {
+    id: 'witty-brought-snacks',
+    url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Prepared for the Long Haul: Fair Oaks Village Art & Sign Workshop',
+    location: 'Fair Oaks Village Arts Center',
+    category: 'Witty & Funny Signs',
+    date: 'September 2026',
+    photographer: 'Creative Arts Team',
+    signQuote: 'History Has Its Eyes On Us (And We Brought Snacks)',
+  },
+
+  // --- RESISTANCE CHOIR (Carmichael Resistance Choir & Street Harmonies) ---
+  {
+    id: 'choir-st-michaels',
     url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80',
     caption: 'Carmichael Resistance Choir singing "Singing for Our Lives"',
     location: 'St. Michael’s Parish Hall, Carmichael',
@@ -73,17 +389,7 @@ const CIVIC_GALLERY: CivicPhoto[] = [
     signQuote: 'Defiant 4-Part Harmonies for Democracy',
   },
   {
-    id: 'funny-introverts-rally',
-    url: 'https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Humor in the Streets: Even Introverts Out Here Defending Norms',
-    location: 'Carmichael Park Community Rally',
-    category: 'Witty Signs & Humor',
-    date: 'September 2026',
-    photographer: 'David K., Member',
-    signQuote: "You Know It's Bad When Introverts Are Out Here",
-  },
-  {
-    id: 'intersection-singing-rushhour',
+    id: 'choir-rushhour-singing',
     url: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=1200&q=80',
     caption: 'Rush Hour Singing Protest: Lawn Chairs, Song Sheets & Sidewalk Harmonies',
     location: 'Fair Oaks Blvd & Manzanita Ave, Carmichael',
@@ -91,126 +397,6 @@ const CIVIC_GALLERY: CivicPhoto[] = [
     date: 'August 2026',
     photographer: 'Choir Working Group',
     signQuote: 'Bring Your Signs, Chairs, & Voices!',
-  },
-  {
-    id: 'unity-generations-hands',
-    url: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Intergenerational Unity: Grandparents & Students Standing Side-by-Side',
-    location: 'Fair Oaks Plaza Park',
-    category: 'Unity & Solidarity',
-    date: 'June 2026',
-    photographer: 'Youth & Elders Working Group',
-    signQuote: 'United For The Next Generation',
-  },
-  {
-    id: 'funny-sign-librarians',
-    url: 'https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&w=1200&q=80',
-    caption: 'When Silence Is Not Golden: Library Workers & Readers Rallying',
-    location: 'Carmichael Library Assembly Area',
-    category: 'Witty Signs & Humor',
-    date: 'May 2026',
-    photographer: 'Literacy for Democracy',
-    signQuote: 'So Bad Even Librarians Are Getting Loud',
-  },
-  {
-    id: 'capitol-steps-no-kings',
-    url: 'https://images.unsplash.com/photo-1568992687947-868a62a9f521?auto=format&fit=crop&w=1200&q=80',
-    caption: 'No Kings Day of Action on the California State Capitol West Steps',
-    location: 'California State Capitol, Sacramento',
-    category: 'No Kings Protests',
-    date: 'June 2026',
-    photographer: 'Statewide Coalition Press Pool',
-    signQuote: 'Democracy Over Dictatorship',
-  },
-  {
-    id: 'sign-think-again',
-    url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Make America Think Again: Critical Thinking Street Canvas',
-    location: 'Sunrise Blvd & Madison Ave, Fair Oaks',
-    category: 'Witty Signs & Humor',
-    date: 'August 2026',
-    photographer: 'Youth Organizing Committee',
-    signQuote: 'Make America Think Again',
-  },
-  {
-    id: 'good-trouble-banner-drop',
-    url: 'https://images.unsplash.com/photo-1576267423445-b2e0074d68a4?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Good Trouble Lives On: Annual John Lewis Overpass Banner Action',
-    location: 'Highway 50 Pedestrian Overpass, Sacramento',
-    category: 'No Kings Protests',
-    date: 'July 2026',
-    photographer: 'Direct Action Working Group',
-    signQuote: 'Good Trouble Lives On!',
-  },
-  {
-    id: 'sign-party-banner-making',
-    url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Hand-painted resistance banners and clever cardboard sign workshop',
-    location: 'Fair Oaks Village Arts Center',
-    category: 'Witty Signs & Humor',
-    date: 'September 2026',
-    photographer: 'Creative Arts Team',
-    signQuote: 'Art Is Defiant Resistance',
-  },
-  {
-    id: 'unity-peace-vigil',
-    url: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Candlelight Vigil for Constitutional Norms & Peaceful Unity',
-    location: 'Fair Oaks Plaza Park',
-    category: 'Unity & Solidarity',
-    date: 'January 2026',
-    photographer: 'Community Peace Circle',
-    signQuote: 'Lighting The Path For Democracy',
-  },
-  {
-    id: 'rally-fair-oaks-blvd',
-    url: 'https://images.unsplash.com/photo-1577962917302-cd874c4e31d2?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Democracy Stand-Out: Fair Oaks Blvd & Manzanita Demonstration',
-    location: 'Fair Oaks Blvd & Manzanita Ave, Carmichael',
-    category: 'No Kings Protests',
-    date: 'August 2026',
-    photographer: 'Indivisible Field Team',
-    signQuote: 'Stand Up For Free Elections',
-  },
-  {
-    id: 'postcard-blitz-2026',
-    url: 'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Writing 1,200 handwritten postcards to swing district voters',
-    location: 'Fair Oaks Community Clubhouse',
-    category: 'Community Action',
-    date: 'September 2026',
-    photographer: 'Voter Outreach Working Group',
-    signQuote: 'Every Voice, Every Vote',
-  },
-  {
-    id: 'volunteers-solidarity-day',
-    url: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Sacramento & Fair Oaks volunteers ready for neighborhood canvassing blitz',
-    location: 'Ancil Hoffman Park, Carmichael',
-    category: 'Unity & Solidarity',
-    date: 'August 2026',
-    photographer: 'Grassroots Field Coordinator',
-    signQuote: 'Our Community, Our Power',
-  },
-  {
-    id: 'high-school-voter-drive',
-    url: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Youth voter pre-registration drive in Sacramento County high schools',
-    location: 'Bella Vista & Del Campo High Schools',
-    category: 'Community Action',
-    date: 'October 2026',
-    photographer: 'Youth Civic Initiative',
-    signQuote: 'Pre-Register At 16: Your Vote Is Your Voice',
-  },
-  {
-    id: 'funny-sign-pets',
-    url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Humor on the Sidewalk: When Even Family Pets Oppose Oligarchy',
-    location: 'Carmichael Farmers Market Stand-Out',
-    category: 'Witty Signs & Humor',
-    date: 'July 2026',
-    photographer: 'Elena R., Member',
-    signQuote: 'Even My Cat Knows We Need Checks & Balances',
   },
   {
     id: 'choir-rehearsal-circle',
@@ -223,14 +409,14 @@ const CIVIC_GALLERY: CivicPhoto[] = [
     signQuote: 'Weaving Voices Together in Song',
   },
   {
-    id: 'unity-coalition-march',
-    url: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80',
-    caption: 'Grassroots Coalition Solidarity March: Neighbors United for Human Dignity',
-    location: 'Capitol Mall to West Steps, Sacramento',
-    category: 'Unity & Solidarity',
-    date: 'April 2026',
-    photographer: 'NorCal Resist & Indivisible Allies',
-    signQuote: 'United Against Authoritarianism',
+    id: 'choir-park-amphitheater',
+    url: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1200&q=80',
+    caption: 'Community Songfest at Carmichael Park: Songs of Hope, Courage & Solidarity',
+    location: 'Carmichael Park Community Bandstand',
+    category: 'Resistance Choir',
+    date: 'September 2026',
+    photographer: 'Community Music Liaison',
+    signQuote: 'Music Lifts Us Up In Troubled Times',
   },
 ];
 
@@ -241,11 +427,12 @@ export default function GalleryPage() {
 
   const categories = [
     'All',
-    'No Kings Protests',
-    'Witty Signs & Humor',
-    'Unity & Solidarity',
+    'No Kings Sacramento',
+    'NorCal Resist',
+    'Sacramento Unity',
+    'Witty & Funny Signs',
     'Resistance Choir',
-    'Community Action',
+    'Legacy Site Archives',
   ];
 
   const filteredPhotos = CIVIC_GALLERY.filter(
@@ -300,9 +487,9 @@ export default function GalleryPage() {
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center text-center space-y-4 pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
             <Camera size={14} className="text-amber-400" />
-            <span>Resistance Moments & Creative Signs</span>
+            <span>Grassroots Visual Archives & Solidarity</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.08]">
@@ -311,36 +498,40 @@ export default function GalleryPage() {
 
           <div className="h-1.5 w-24 bg-amber-400 rounded-full" />
 
-          <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl">
-            100% grassroots community action — zero politicians, zero corporate branding. Real
-            neighbors, witty handmade signs, peaceful singing protests, and true community
-            solidarity across Sacramento County.
+          <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-3xl">
+            Curated from our legacy site archives, Sacramento No Kings demonstrations, NorCal Resist
+            community defense, Carmichael Resistance Choir, and witty grassroots cardboard signs.
+            Strictly 100% grassroots — zero politicians, zero corporate branding.
           </p>
 
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">
             <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
-              <span className="text-2xl font-black text-amber-400 block font-mono">50+</span>
+              <span className="text-2xl font-black text-amber-400 block font-mono">No Kings</span>
               <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
-                No Kings Rallies
+                Sacramento Actions
               </span>
             </div>
             <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
-              <span className="text-2xl font-black text-blue-400 block font-mono">100+</span>
+              <span className="text-2xl font-black text-emerald-400 block font-mono">
+                NorCal Resist
+              </span>
               <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
-                Creative Signs
+                Direct Solidarity
               </span>
             </div>
             <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
-              <span className="text-2xl font-black text-emerald-400 block font-mono">40+</span>
+              <span className="text-2xl font-black text-blue-400 block font-mono">Witty Signs</span>
               <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
-                Choir Anthems
+                Grassroots Humor
               </span>
             </div>
             <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
-              <span className="text-2xl font-black text-purple-400 block font-mono">100%</span>
+              <span className="text-2xl font-black text-purple-400 block font-mono">
+                0 Politicians
+              </span>
               <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
-                Grassroots
+                100% People Power
               </span>
             </div>
           </div>
@@ -353,7 +544,7 @@ export default function GalleryPage() {
                 key={category}
                 type="button"
                 onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   selectedCategory === category
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 scale-105'
                     : 'bg-slate-900/90 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
@@ -374,7 +565,7 @@ export default function GalleryPage() {
               key={photo.id}
               type="button"
               onClick={() => setSelectedPhotoId(photo.id)}
-              className="group relative h-80 rounded-3xl overflow-hidden border border-slate-800/80 bg-slate-900 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-700 transition-all shadow-xl"
+              className="group relative h-84 rounded-3xl overflow-hidden border border-slate-800/80 bg-slate-900 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-700 transition-all shadow-xl"
             >
               <Image
                 src={photo.url}
@@ -427,12 +618,12 @@ export default function GalleryPage() {
         {/* Submit Photo CTA */}
         <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-slate-800 text-center space-y-4 max-w-3xl mx-auto">
           <h3 className="text-2xl font-black text-white">
-            Have Great Resistance Pics, Unity Shots, or Funny Signs?
+            Have Sacramento Resistance Pics, Unity Shots, or Funny Signs?
           </h3>
           <p className="text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
             Did you snap a brilliant, witty cardboard sign, an uplifting choir moment, or neighbors
-            standing in solidarity? Strictly grassroots (no politicians or corporate imagery) — send
-            your photos to our media team to be featured in the community archive!
+            standing in solidarity? Strictly grassroots (zero politicians, zero corporate imagery) —
+            send your photos to our media circle to be included!
           </p>
           <div className="pt-2">
             <a
@@ -462,7 +653,7 @@ export default function GalleryPage() {
           <button
             type="button"
             onClick={() => setSelectedPhotoId(null)}
-            className="absolute top-6 right-6 z-50 p-3 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="absolute top-6 right-6 z-50 p-3 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
             aria-label="Close image modal"
           >
             <X size={20} />
@@ -472,7 +663,7 @@ export default function GalleryPage() {
           <button
             type="button"
             onClick={() => handlePrev()}
-            className="absolute left-4 sm:left-6 z-50 p-3 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="absolute left-4 sm:left-6 z-50 p-3 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
             aria-label="Previous image"
           >
             <ChevronLeft size={24} />
@@ -482,7 +673,7 @@ export default function GalleryPage() {
           <button
             type="button"
             onClick={() => handleNext()}
-            className="absolute right-4 sm:right-6 z-50 p-3 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            className="absolute right-4 sm:right-6 z-50 p-3 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
             aria-label="Next image"
           >
             <ChevronRight size={24} />
@@ -530,7 +721,7 @@ export default function GalleryPage() {
                 <button
                   type="button"
                   onClick={handleShare}
-                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Share2 size={14} />
                   <span>{copiedLink ? 'Link Copied!' : 'Share'}</span>
