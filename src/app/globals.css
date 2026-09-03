@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --primary: #1e3a8a;
+  --primary-light: #2563eb;
+  --primary-dark: #172554;
+  --primary-ink: #1e3a8a;
+  --secondary: #0f172a;
+  --accent: #d97706;
+  --accent-red: #dc2626;
+  --accent-gold: #f59e0b;
+  --surface-muted: #f8fafc;
+  --surface-card: #ffffff;
+
+  /* Fixed-header clearance. */
+  --header-h: 5.5rem; /* 88px */
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --header-h: 6.5rem; /* 104px */
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-ink: var(--primary-ink);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-accent-red: var(--accent-red);
+  --color-accent-gold: var(--accent-gold);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-card: var(--surface-card);
+  --font-sans: var(--font-inter);
+  --font-outfit: var(--font-outfit);
+}
+
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-outfit), sans-serif;
+  }
+}
+
+@layer utilities {
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scale-up {
+    from {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.8s ease-out forwards;
+  }
+
+  .animate-scale-up {
+    animation: scale-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .tracking-ultra {
+    letter-spacing: 0.5em;
+  }
+
+  .transition-sensory {
+    transition: all 500ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+.bg-primary {
+  background-color: var(--primary);
+}
+
+.text-primary {
+  color: var(--primary);
+}
+
+.border-primary {
+  border-color: var(--primary);
+}
+
+/* Reduced-motion safety net: users who opt out of animation get instant,
+   static transitions everywhere — including Tailwind transitions and
+   framer-motion CSS-driven effects. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

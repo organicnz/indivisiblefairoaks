@@ -1,0 +1,162 @@
+import type { Metadata } from 'next';
+import {
+  Compass,
+  ExternalLink,
+  Layers,
+} from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: 'Coalition & Action Links | Indivisible Fair Oaks-Carmichael',
+  description:
+    'Recommended civic resources, grassroots coalition partners, voter registration links, and democracy defense organizations in California.',
+};
+
+interface LinkItem {
+  name: string;
+  category: string;
+  url: string;
+  description: string;
+  badge?: string;
+}
+
+const LINKS_DATA: LinkItem[] = [
+  {
+    name: 'Indivisible National',
+    category: 'Movement Partners',
+    url: 'https://indivisible.org',
+    description:
+      'The national movement to elect progressive leaders and rebuild our democracy. Guides, toolkits, and national call campaigns.',
+    badge: 'National Hub',
+  },
+  {
+    name: 'Indivisible California State Network',
+    category: 'Movement Partners',
+    url: 'https://indivisibleca.org',
+    description:
+      'Coordinating Indivisible chapters across California for Sacramento legislative advocacy and statewide election protection.',
+  },
+  {
+    name: 'Mobilize.us Indivisible Directory',
+    category: 'Movement Partners',
+    url: 'https://www.mobilize.us/indivisible/',
+    description:
+      'Find upcoming local meetings, rallies, text banks, and phone banks organized by Indivisible chapters across California.',
+  },
+  {
+    name: 'California Online Voter Registration',
+    category: 'Voter Resources',
+    url: 'https://registertovote.ca.gov',
+    description:
+      'Register to vote online or update your address and party registration with the California Secretary of State.',
+    badge: 'Official SOS',
+  },
+  {
+    name: "Where's My Ballot? (BallotTrax)",
+    category: 'Voter Resources',
+    url: 'https://wheresmyballot.sos.ca.gov',
+    description:
+      'Track when your vote-by-mail ballot is printed, mailed, received, and counted by your county elections office.',
+  },
+  {
+    name: 'Sacramento County Elections Division',
+    category: 'Voter Resources',
+    url: 'https://elections.saccounty.gov',
+    description:
+      'Official county portal for ballot drop-off locations, Vote Center hours, and official election results.',
+  },
+  {
+    name: 'League of Women Voters of Sacramento County',
+    category: 'Civic Education',
+    url: 'https://www.lwvsacramento.org',
+    description:
+      'Trusted, nonpartisan in-depth analysis of statewide ballot propositions and local candidate debates.',
+  },
+  {
+    name: 'ACLU of Northern California',
+    category: 'Civic Education',
+    url: 'https://www.aclunc.org',
+    description:
+      'Defending civil liberties, constitutional rights, and public protest protections across Northern California.',
+  },
+  {
+    name: 'ActBlue Contribution Portal',
+    category: 'Support',
+    url: 'https://secure.actblue.com/donate/indivisiblefoc1432155925',
+    description:
+      'Direct contribution portal to support Indivisible Fair Oaks-Carmichael grassroots organizing.',
+    badge: 'Support Our Work',
+  },
+];
+
+export default function LinksPage() {
+  const categories = Array.from(new Set(LINKS_DATA.map((l) => l.category)));
+
+  return (
+    <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
+      {/* Header Banner */}
+      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
+            <Compass size={14} className="text-amber-400" />
+            <span>Civic Directory</span>
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
+            Coalition & Action Links
+          </h1>
+          <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
+            Essential websites, nonpartisan voter tools, grassroots allies, and democracy defense resources vetted by our chapter.
+          </p>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
+        {categories.map((category) => {
+          const items = LINKS_DATA.filter((l) => l.category === category);
+          return (
+            <div key={category} className="space-y-4">
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
+                <Layers className="text-amber-400" size={20} />
+                <span>{category}</span>
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {items.map((item) => (
+                  <a
+                    key={item.name}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-blue-500/50 hover:bg-slate-900 transition-all group flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <h3 className="font-bold text-white text-base group-hover:text-blue-400 transition-colors">
+                          {item.name}
+                        </h3>
+                        {item.badge && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase shrink-0">
+                            {item.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        {item.description}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 mt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
+                      <span className="text-[11px] text-blue-400/90 font-mono truncate max-w-[240px]">
+                        {item.url.replace(/^https?:\/\//, '')}
+                      </span>
+                      <ExternalLink size={14} className="text-slate-400 group-hover:text-amber-400 transition-colors shrink-0" />
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
