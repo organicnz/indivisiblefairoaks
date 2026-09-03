@@ -106,14 +106,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 interface VgpuChoirHarmonicsProps {
   className?: string;
   intensity?: number;
-  showBadge?: boolean;
 }
 
-export function VgpuChoirHarmonics({
-  className = '',
-  intensity = 1.0,
-  showBadge = true,
-}: VgpuChoirHarmonicsProps) {
+export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoirHarmonicsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isWebGPUActive, setIsWebGPUActive] = useState(false);
@@ -270,22 +265,6 @@ export function VgpuChoirHarmonics({
         <div className="absolute top-[10%] left-[10%] w-[60vw] h-[25vw] rounded-full bg-blue-600/15 blur-[100px] animate-pulse duration-[7000ms]" />
         <div className="absolute bottom-[10%] right-[10%] w-[50vw] h-[25vw] rounded-full bg-amber-500/10 blur-[110px] animate-pulse duration-[9000ms]" />
       </div>
-
-      {/* Hardware Acceleration Indicator Badge */}
-      {showBadge && (
-        <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-slate-700/60 text-[10px] font-mono font-medium text-slate-300 shadow-lg">
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isWebGPUActive
-                  ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)] animate-pulse'
-                  : 'bg-blue-400'
-              }`}
-            />
-            <span>{isWebGPUActive ? 'VGPU Harmonics 60fps' : 'Harmonic Hall'}</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

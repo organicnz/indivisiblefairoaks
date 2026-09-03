@@ -42,7 +42,7 @@ export default function HomePage() {
       {/* Hero Section with VGPU Dynamic Civic Atmosphere */}
       <section className="relative overflow-hidden bg-slate-950 text-white pt-28 pb-20 md:pt-36 md:pb-28">
         {/* VGPU WebGPU Background Atmosphere */}
-        <VgpuCivicAtmosphere intensity={1.0} showBadge={true} />
+        <VgpuCivicAtmosphere intensity={1.0} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl">
