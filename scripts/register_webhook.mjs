@@ -21,7 +21,7 @@ const stripe = new Stripe(stripeKey, { apiVersion: '2025-01-27.acacia' });
 
 async function registerWebhook() {
   const webhookUrl = `${appUrl.replace(/\/$/, '')}/api/webhooks/stripe`;
-  
+
   if (webhookUrl.includes('localhost')) {
     console.log('\n⚠️ Localhost detected. Stripe cannot register webhooks to local URLs.');
     console.log('To test locally, use the Stripe CLI:');
@@ -50,7 +50,7 @@ async function registerWebhook() {
         'payment_intent.payment_failed',
         'charge.refunded',
       ],
-      description: 'Main Webhook for Catch-22 Order Fulfillment',
+      description: 'Main Webhook for Indivisible Fair Oaks-Carmichael Order Fulfillment',
     });
 
     console.log('\n✅ Webhook Registered Successfully!');

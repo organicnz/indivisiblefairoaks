@@ -1,3 +1,6 @@
+// @deno-types="npm:@hono/hono@^5.0.0"
+// @deno-types="npm:@stripe/stripe-js@^9.0.0"
+// @deno-types="npm:@supabase/supabase-js@^2.0.0"
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { Hono } from 'jsr:@hono/hono'
 import { cors } from 'jsr:@hono/hono/cors'

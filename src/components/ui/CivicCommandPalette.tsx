@@ -119,8 +119,16 @@ const PALETTE_ITEMS: PaletteItem[] = [
   },
 ];
 
-export function CivicCommandPalette() {
-  const [isOpen, setIsOpen] = useState(false);
+export function CivicCommandPalette({
+  isOpen: controlledOpen,
+  setIsOpen: setControlledOpen,
+}: {
+  isOpen?: boolean;
+  setIsOpen?: (open: boolean) => void;
+} = {}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = controlledOpen ?? internalOpen;
+  const setIsOpen: (open: boolean) => void = setControlledOpen ?? setInternalOpen;
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const router = useRouter();
@@ -129,7 +137,7 @@ export function CivicCommandPalette() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setIsOpen((prev) => !prev);
+        setIsOpen(!isOpen);
       } else if (e.key === 'Escape' && isOpen) {
         setIsOpen(false);
       }
@@ -137,7 +145,7 @@ export function CivicCommandPalette() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, setIsOpen]);
 
   const filteredItems = PALETTE_ITEMS.filter(
     (item) =>

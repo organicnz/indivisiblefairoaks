@@ -47,7 +47,7 @@ if (keep.length > 0) {
 const created = await stripe.webhookEndpoints.create({
   url: FUNCTION_URL,
   enabled_events: EVENTS,
-  description: 'Main Webhook for Catch-22 Order Fulfillment',
+  description: 'Main Webhook for Indivisible Fair Oaks-Carmichael Order Fulfillment',
 });
 console.log(`Created endpoint ${created.id}`);
 console.log(`\n🔑 New STRIPE_WEBHOOK_SECRET=${created.secret}`);

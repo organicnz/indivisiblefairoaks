@@ -1,5 +1,3 @@
-'use client';
-
 export default function TermsPage() {
   return (
     <div className="bg-white min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">

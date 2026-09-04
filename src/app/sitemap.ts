@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import { cacheLife } from 'next/cache';
 import { env } from '@/lib/env';
+import { buildVisibilityFilter } from '@/lib/queries/content';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   'use cache';
@@ -22,7 +23,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const { data: pages } = await supabase
       .from('content')
       .select('slug, updated_at')
-      .eq('status', 'publish');
+      .eq('status', 'publish')
+      .or(buildVisibilityFilter(new Date().toISOString()));
 
     if (pages) {
       pageUrls = pages.map((page) => ({

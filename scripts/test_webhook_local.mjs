@@ -14,8 +14,8 @@ const mockEvent = {
         email: 'test@example.com',
         address: {
           line1: '123 Test St',
-          city: 'Auckland',
-          country: 'NZ'
+          city: 'Carmichael',
+          country: 'US'
         }
       },
       collected_information: {
@@ -23,16 +23,16 @@ const mockEvent = {
           email: 'test@example.com',
           address: {
             line1: '123 Test St',
-            city: 'Auckland',
-            country: 'NZ'
+            city: 'Carmichael',
+            country: 'US'
           }
         },
         shipping_details: {
           name: 'Test User',
           address: {
             line1: '456 Shipping Rd',
-            city: 'Wellington',
-            country: 'NZ'
+            city: 'Sacramento',
+            country: 'US'
           }
         }
       },

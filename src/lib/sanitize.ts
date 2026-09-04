@@ -56,7 +56,6 @@ export const SPAM_KEYWORDS = [
 
 export const TRUSTED_DOMAINS = [
   'indivisiblefairoaks.org',
-  'indivisiblefairoaks.org',
   'i0.wp.com',
   'i1.wp.com',
   'i2.wp.com',
@@ -191,7 +190,7 @@ export function sanitizeWPContent(html: string): string {
     clean = clean.replace(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi, (match, src) => {
       if (!src) return match;
       // If it's already a full URL to a different domain, leave it
-      // If it's a relative path or an old Catch-22 path, transform it
+      // If it's a relative path or a legacy WordPress path, transform it
       const storageUrl = getStorageUrl(src);
       return match.replace(src, storageUrl);
     });

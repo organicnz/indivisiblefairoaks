@@ -41,6 +41,7 @@ export async function POST(req: Request) {
     stack: report.stack ?? null,
     component_stack: report.componentStack ?? null,
     path: report.path ?? null,
+    category: report.category ?? 'other',
     user_agent: req.headers.get('user-agent')?.slice(0, 300) ?? null,
   };
 
