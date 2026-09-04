@@ -2,6 +2,8 @@
 
 import { Calendar, Heart, Music, PhoneCall, Sparkles, Vote } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { getTickerEvents } from '@/lib/queries/civic-client';
 
 interface TickerItem {
   icon: React.ReactNode;
@@ -11,7 +13,7 @@ interface TickerItem {
   badge: string;
 }
 
-const TICKER_ITEMS: TickerItem[] = [
+const DEFAULT_TICKER_ITEMS: TickerItem[] = [
   {
     icon: <Calendar size={14} className="text-amber-400" />,
     label: 'Next Chapter Assembly',
@@ -50,6 +52,20 @@ const TICKER_ITEMS: TickerItem[] = [
 ];
 
 export function CivicActionTicker() {
+  const [items, setItems] = useState<TickerItem[]>([]);
+
+  useEffect(() => {
+    getTickerEvents().then((rows) => {
+      if (rows.length > 0) {
+        setItems(
+          rows.map((r) => ({ ...r, icon: <Sparkles size={14} className="text-amber-400" /> }))
+        );
+      }
+    });
+  }, []);
+
+  const TICKER_ITEMS = items.length > 0 ? items : DEFAULT_TICKER_ITEMS;
+
   return (
     <div className="w-full bg-slate-950/90 border-y border-white/10 overflow-hidden py-3 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">

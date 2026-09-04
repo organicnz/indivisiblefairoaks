@@ -122,7 +122,7 @@ export function HeroPhotoFrame() {
   return (
     // Outer wrapper — decorative, hidden from AT. Gallery link is outside.
     // Visible on all breakpoints: stacked below copy on mobile, right column on lg+.
-    <div className="flex flex-col gap-3 select-none w-full max-w-xl mx-auto lg:max-w-none lg:mx-0">
+    <div className="flex flex-col gap-3 select-none w-full max-w-full md:max-w-2xl lg:max-w-3xl mx-auto">
       <div aria-hidden="true" className="flex flex-col gap-3">
         {/* ── Row 1: crossfading large photo ── */}
         <motion.div
