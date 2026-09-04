@@ -6,24 +6,6 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
-import { getStorageUrl } from '@/lib/supabase';
-
-interface CivicPhoto {
-  id: string;
-  url: string;
-  caption: string;
-  location: string;
-  category:
-    | 'No Kings Sacramento'
-    | 'NorCal Resist'
-    | 'Sacramento Unity'
-    | 'Witty & Funny Signs'
-    | 'Resistance Choir'
-    | 'Legacy Site Archives';
-  date: string;
-  photographer: string;
-  signQuote?: string;
-}
 
 export default function GalleryPage() {
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);

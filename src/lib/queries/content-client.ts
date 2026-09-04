@@ -87,7 +87,6 @@ export async function getGalleryPhotos(): Promise<GalleryPhoto[]> {
     // Cast needed until gallery_photos appears in auto-generated types.
     // The table exists in the DB (migration 20260904120000_gallery_photos.sql)
     // but has not been picked up by `types:generate` yet.
-    // biome-ignore lint/suspicious/noExplicitAny: gallery_photos not in generated types yet
     const client = supabase as unknown as {
       from(t: string): {
         select(s: string): {
