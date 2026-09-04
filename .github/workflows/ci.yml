@@ -11,20 +11,22 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Public vars needed for next build — add matching secrets in repo Settings → Secrets
+  # Public vars needed for next build / e2e
   NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
   NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
-  # Private vars (server-only, not exposed to client bundle)
+  # Private server-only vars
   SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-  # Supabase Access Token for edge function deployment (required for GitHub Actions)
+  # Supabase access token for edge-function deployment
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  # Canonical Supabase project reference (hosted dashboard project)
+  SUPABASE_PROJECT_REF: mojsubkqjdruhpxbzgme
 
 jobs:
-  # ── 1. Lint & types ──────────────────────────────────────────────────────────
+  # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
-    runs-on: self-hosted
+    runs-on: [self-hosted, frontend-runner]
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +38,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Biome lint
-        run: bunx biome lint ./src
+        run: bunx biome ci ./src
 
       - name: Oxlint
         run: bunx oxlint ./src
@@ -44,10 +46,10 @@ jobs:
       - name: TypeScript
         run: bunx tsc --noEmit
 
-  # ── 2. Unit tests + coverage ─────────────────────────────────────────────────
+  # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
     name: Tests & Coverage
-    runs-on: self-hosted
+    runs-on: [self-hosted, frontend-runner]
     steps:
       - uses: actions/checkout@v4
 
@@ -64,7 +66,7 @@ jobs:
   # ── 3. Build ─────────────────────────────────────────────────────────────────
   build:
     name: Next.js Build
-    runs-on: self-hosted
+    runs-on: [self-hosted, frontend-runner]
     needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
@@ -79,13 +81,62 @@ jobs:
       - name: Build
         run: bun run build
 
-  # ── 4. Deploy to Vercel (mainDeploy → production, PRs → preview) ─────────────
-  deploy:
-    name: Deploy → Vercel
-    runs-on: self-hosted
+      # Upload the build artefact so the E2E job and the deploy job reuse it
+      # instead of building a second time.
+      - name: Upload build artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: |
+            .next/
+            public/
+          retention-days: 1
+
+  # ── 4. E2E Tests ─────────────────────────────────────────────────────────────
+  e2e:
+    name: E2E Tests
+    runs-on: [self-hosted, frontend-runner]
     needs: [build]
-    # Only deploy on push (not on PRs from forks), and only for main/mainDeploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Download build artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: bunx playwright test
+        env:
+          CI: "true"
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  # ── 5. Deploy to Vercel ───────────────────────────────────────────────────────
+  deploy-vercel:
+    name: Deploy → Vercel
+    runs-on: [self-hosted, frontend-runner]
+    needs: [build]
+    # Only deploy on push (not on PR) for main/mainDeploy
     if: github.event_name == 'push'
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
     environment:
       name: ${{ github.ref_name == 'mainDeploy' && 'production' || 'preview' }}
       url: ${{ steps.deploy.outputs.url }}
@@ -95,6 +146,14 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Download build artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
 
       - name: Install Vercel CLI
         run: bun add -g vercel@latest
@@ -109,52 +168,112 @@ jobs:
         id: deploy
         run: |
           URL=$(vercel deploy --prebuilt ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "✅ Deployed: $URL"
 
-      - name: Deploy Edge Functions to Supabase
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy notify-contact --project-ref indivisible-fairoaks
-          supabase functions deploy checkout --project-ref indivisible-fairoaks
-          supabase functions deploy search --project-ref indivisible-fairoaks
-          supabase functions deploy webhook --project-ref indivisible-fairoaks
-          supabase migrate up --project-ref indivisible-fairoaks
-
-  # ── 5. E2E Tests ────────────────────────────────────────────────────────────
-  e2e-tests:
-    name: End-to-End Tests
-    runs-on: self-hosted
+  # ── 6. Deploy Edge Functions + Migrations to Supabase ────────────────────────
+  deploy-supabase:
+    name: Deploy → Supabase
+    runs-on: [self-hosted, backend-runner]
+    needs: [build]
+    # Only deploy on push for main/mainDeploy
+    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Install Playwright
-        run: bun add -g playwright && playwright install
-
-      - name: Run E2E tests
+      - name: Install Supabase CLI
         run: |
-          # Start the dev server in background
-          bun run dev &
-          DEV_PID=$!
-          sleep 5
+          # Install the Supabase CLI if not already present on the runner
+          if ! command -v supabase &>/dev/null; then
+            curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_arm64.tar.gz \
+              | tar -xz -C /usr/local/bin supabase
+          fi
+          supabase --version
 
-          # Run playwright tests
-          npx playwright test
+      - name: Deploy Edge Function — notify-contact
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy notify-contact \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt
 
-          # Kill the dev server
-          kill $DEV_PID 2>/dev/null || true
+      - name: Deploy Edge Function — checkout
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy checkout \
+            --project-ref "$SUPABASE_PROJECT_REF"
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-results
-          path: playwright-report/
-          retention-days: 30
+      - name: Deploy Edge Function — search
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy search \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt
+
+      - name: Deploy Edge Function — webhook
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy webhook \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt
+
+      - name: Deploy Edge Function — health
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy health \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt
+
+      - name: Push Database Migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase db push \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+
+  # ── 7. Live Health Probe ──────────────────────────────────────────────────────
+  health-probe:
+    name: Live Health Probe
+    runs-on: [self-hosted, backend-runner]
+    needs: [deploy-supabase, deploy-vercel]
+    if: github.event_name == 'push'
+    steps:
+      - name: Probe Vercel deployment
+        run: |
+          URL="${{ needs.deploy-vercel.outputs.url }}"
+          if [ -z "$URL" ]; then
+            echo "No deployment URL — skipping probe"
+            exit 0
+          fi
+          # Allow up to 90 s for the deployment to warm up
+          for i in $(seq 1 9); do
+            STATUS=$(curl -o /dev/null -sw '%{http_code}' "${URL}/api/health" || echo 000)
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ Health check failed after 90 s"
+          exit 1
+
+      - name: Probe Supabase Edge Function — health
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: |
+          EDGE_URL="${NEXT_PUBLIC_SUPABASE_URL}/functions/v1/health"
+          STATUS=$(curl -o /dev/null -sw '%{http_code}' "$EDGE_URL" || echo 000)
+          echo "Edge health status: HTTP $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Edge function health OK"
+          else
+            echo "⚠️  Edge function returned HTTP $STATUS (non-blocking)"
+          fi

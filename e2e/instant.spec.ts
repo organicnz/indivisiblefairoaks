@@ -13,17 +13,20 @@ import { createClient } from '@supabase/supabase-js';
  */
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 );
 
 let productPath = '/products';
 
 test.beforeAll(async () => {
-  const [product] = await Promise.all([
-    supabase.from('products').select('slug').eq('stock_status', 'instock').limit(1).single(),
-  ]);
-  if (product.data?.slug) productPath = `/products/${product.data.slug}`;
+  const { data } = await supabase
+    .from('products')
+    .select('slug')
+    .eq('stock_status', 'instock')
+    .limit(1)
+    .single();
+  if (data?.slug) productPath = `/products/${data.slug}`;
 });
 
 const shellAssertions = async (page: import('@playwright/test').Page) => {
