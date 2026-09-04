@@ -1,5 +1,3 @@
-'use client';
-
 import { Clock, RotateCcw, ShieldCheck, Truck } from 'lucide-react';
 import { SHIPPING_RATES } from '@/config/shipping';
 
@@ -115,7 +113,7 @@ export default function ShippingReturnsPage() {
           </p>
           <a
             href="mailto:contact@indivisiblefairoaks.org"
-            className="inline-block bg-primary hover:bg-white hover:text-secondary text-secondary font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm"
+            className="inline-block bg-primary hover:bg-white hover:text-secondary text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm"
           >
             Contact Organizing Team
           </a>

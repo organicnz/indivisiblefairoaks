@@ -18,11 +18,11 @@ const supabaseHost = (() => {
 // JSON-LD + framework bootstrap scripts, which cannot carry per-request nonces.
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.network.com",
+  "script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.com",
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://${supabaseHost} https://images.unsplash.com https://*.googleusercontent.com https://i.ytimg.com https://indivisiblefairoaks.org https://i0.wp.com https://i1.wp.com https://i2.wp.com`,
   "font-src 'self' data:",
-  `connect-src 'self' https://${supabaseHost} https://api.stripe.com https://m.stripe.network.com`,
+  `connect-src 'self' https://${supabaseHost} https://api.stripe.com https://m.stripe.com`,
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://js.stripe.com https://hooks.stripe.com https://secure.actblue.com https://www.mobilize.us",
   "worker-src 'self' blob:",
   "object-src 'none'",
@@ -107,15 +107,6 @@ const nextConfig: NextConfig = {
         as: '*.js',
       },
     },
-  },
-  webpack(config) {
-    config.module = config.module || {};
-    config.module.rules = config.module.rules || [];
-    config.module.rules.push({
-      test: /\.wgsl$/,
-      loader: '@vgpu/wgsl/loader-webpack',
-    });
-    return config;
   },
 };
 

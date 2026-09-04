@@ -122,7 +122,7 @@ export default async function ProductsPage({
 
   if (error) {
     console.error('Error fetching products:', error);
-    return <div className="p-8 text-center text-red-500">Failed to load products.</div>;
+    return <div className="p-8 text-center text-red-600">Failed to load products.</div>;
   }
 
   // Map nulls to undefined for ProductCard compatibility
@@ -184,7 +184,7 @@ export default async function ProductsPage({
               <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">
                 {categorySlug
                   ? categories?.find((c) => c.slug === categorySlug)?.name || 'Gear'
-                  : 'All Catch-22 Gear'}
+                  : 'All Gear'}
               </h1>
               <div className="h-1.5 w-24 bg-primary mt-3" />
             </div>

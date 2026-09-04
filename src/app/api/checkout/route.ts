@@ -48,8 +48,24 @@ export async function POST(req: Request) {
       apiVersion: STRIPE_API_VERSION,
     });
 
-    const body = await req.json();
-    const { items: rawItems, promoCode } = body;
+    // Malformed JSON must fail fast with a 400 — letting req.json() throw
+    // would fall through to the 500 handler and misreport a client error.
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    // Envelope shape check before destructuring: null, arrays, and primitives
+    // would otherwise throw a TypeError into the 500 path.
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 });
+    }
+    const { items: rawItems, promoCode } = body as {
+      items?: unknown;
+      promoCode?: unknown;
+    };
 
     const cartCheck = validateCartItems(rawItems);
     if (!cartCheck.ok) {
@@ -61,6 +77,9 @@ export async function POST(req: Request) {
     if (!promoCheck.ok) {
       return NextResponse.json({ error: promoCheck.failure.message }, { status: 400 });
     }
+    // validatePromoCode accepts only undefined, empty, or a short string —
+    // narrow the unknown envelope value to what Stripe metadata requires.
+    const promoCodeValue = typeof promoCode === 'string' ? promoCode : '';
 
     const supabase = await createServerClient();
     const {
@@ -139,15 +158,16 @@ export async function POST(req: Request) {
       client_reference_id: user?.id,
       customer_email: user?.email || undefined,
       metadata: {
-        promoCode: promoCode || '',
+        promoCode: promoCodeValue,
         userId: user?.id || '',
       },
     });
 
     return NextResponse.json({ url: session.url });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal Server Error';
+    // Log the full error server-side, but return a generic message: Stripe
+    // SDK errors can contain account internals that must never reach clients.
     console.error('Checkout error:', error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Checkout failed. Please try again.' }, { status: 500 });
   }
 }

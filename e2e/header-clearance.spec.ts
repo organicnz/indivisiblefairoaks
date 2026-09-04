@@ -14,7 +14,7 @@ import { expect, test } from '@playwright/test';
 type Route = { path: string; heading: RegExp };
 
 const guardedRoutes: Route[] = [
-  { path: '/products', heading: /All Catch-22 Gear|Gear/ },
+  { path: '/products', heading: /All Gear|Gear/ },
   { path: '/faqs', heading: /Frequently Asked Questions/i },
   { path: '/partners', heading: /Partner/i },
   { path: '/contact', heading: /Contact/i },

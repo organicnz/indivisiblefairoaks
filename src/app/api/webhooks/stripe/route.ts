@@ -37,8 +37,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Webhook Error: ${message}` }, { status: 400 });
   }
 
-  // Handle the event
-  console.log(`🔔 Stripe Webhook Received: ${event.type}`);
+  // Handle the event — receipt is visible in platform request logs,
+  // so no per-event trace line here (keeps log volume down on free tier).
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
@@ -73,11 +73,11 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
       .select('id', { count: 'exact', head: true })
       .eq('order_id', existing.id);
     if (count && count > 0) {
-      console.log(`⏭️ Order for session ${session.id} already exists — skipping duplicate delivery`);
+      console.warn(`Duplicate webhook delivery skipped for session ${session.id}`);
       return;
     }
     // Orphan order from a partially-failed earlier delivery — backfill items.
-    console.log(`⏭️ Order #${existing.id} exists without items — backfilling`);
+    console.warn(`Order #${existing.id} exists without items — backfilling`);
     const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
       expand: ['data.price.product'],
     });
@@ -165,7 +165,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
           if (itemsError) throw itemsError;
         }
       }
-      console.log(`⏭️ Order for session ${session.id} already exists (unique index) — skipping`);
+      console.warn(`Order for session ${session.id} already exists (unique index) — skipping`);
       return;
     }
     throw orderError;

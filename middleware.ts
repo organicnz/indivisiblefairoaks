@@ -1,6 +1,16 @@
 import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
 
+// Safe origins for the `next` redirect param — prevents open-redirect abuse.
+// Only paths on this same origin are allowed; absolute URLs are rejected.
+function safeNextUrl(request: NextRequest): string {
+  const next = request.nextUrl.searchParams.get('next');
+  if (!next) return '/account';
+  // Must be a relative path starting with / and not //  (protocol-relative)
+  if (/^\/(?!\/)/.test(next)) return next;
+  return '/account';
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -23,9 +33,7 @@ export async function middleware(request: NextRequest) {
         cookiesToSet.forEach(({ name, value }) => {
           request.cookies.set(name, value);
         });
-        response = NextResponse.next({
-          request,
-        });
+        response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
         });
@@ -37,19 +45,25 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protect /account route
-  if (request.nextUrl.pathname.startsWith('/account') && !user) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  const { pathname } = request.nextUrl;
+
+  // Protect /account — redirect to /login?next=<original-path>
+  if (pathname.startsWith('/account') && !user) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  // Protect /admin route — must be logged in (is_admin check happens in the page)
-  if (request.nextUrl.pathname.startsWith('/admin') && !user) {
-    return NextResponse.redirect(new URL('/login', request.url));
+  // Protect /admin — redirect to /login?next=<original-path>
+  if (pathname.startsWith('/admin') && !user) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  // Redirect /login if already logged in
-  if (request.nextUrl.pathname.startsWith('/login') && user) {
-    return NextResponse.redirect(new URL('/account', request.url));
+  // Already logged in — honour ?next= or fall back to /account
+  if (pathname.startsWith('/login') && user) {
+    return NextResponse.redirect(new URL(safeNextUrl(request), request.url));
   }
 
   return response;

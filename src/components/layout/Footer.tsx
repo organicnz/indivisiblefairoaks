@@ -141,7 +141,7 @@ export function Footer() {
                 Have a question or want to get involved with our local organizing team?
               </p>
               <div>
-                <span className="text-slate-500 text-[11px] block uppercase tracking-wider">
+                <span className="text-slate-400 text-[11px] block uppercase tracking-wider">
                   General Inquiries:
                 </span>
                 <a
@@ -152,7 +152,7 @@ export function Footer() {
                 </a>
               </div>
               <div>
-                <span className="text-slate-500 text-[11px] block uppercase tracking-wider">
+                <span className="text-slate-400 text-[11px] block uppercase tracking-wider">
                   Mailing List:
                 </span>
                 <a
@@ -167,16 +167,16 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+        <div className="mt-12 pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <p>
             © <CopyrightYear /> Indivisible Fair Oaks-Carmichael. All rights reserved. Grassroots
             volunteer organization.
           </p>
           <div className="flex items-center gap-6">
-            <Link href="/about" className="hover:text-slate-400 transition-colors">
+            <Link href="/about" className="hover:text-slate-200 transition-colors">
               About
             </Link>
-            <Link href="/contact" className="hover:text-slate-400 transition-colors">
+            <Link href="/contact" className="hover:text-slate-200 transition-colors">
               Contact
             </Link>
             <a

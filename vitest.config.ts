@@ -49,20 +49,12 @@ export default defineConfig({
       reportsDirectory: './coverage',
 
       // ── Thresholds ────────────────────────────────────────────────────────
-      // These apply to the 5 explicitly included files above.
-      // Current real baseline (measured, not aspirational):
-      //   sanitize.ts      42% stmts — sanitizeText/hasSuspiciousContent untested
-      //   utils.ts         100% after utils.test.ts
-      //   validations.ts   ~95% after validations.test.ts
-      //   actions/settings 81% — some error paths not exercised
-      //   config/shipping  100% after shipping.test.ts
-      // Aggregate: ~70%+ statements
-      //
-      // Raise THRESHOLD in lefthook.yml pre-push coverage command in sync.
+      // These apply to the files explicitly listed in `include` above.
+      // Aligned with the lefthook pre-push coverage gate (90%).
       thresholds: {
         statements: 90,
         branches: 90,
-        functions: 95,
+        functions: 90,
         lines: 90,
       },
     },

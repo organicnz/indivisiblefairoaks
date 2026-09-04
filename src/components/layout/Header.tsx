@@ -258,7 +258,7 @@ function HeaderInner() {
                 contact@indivisiblefairoaks.org
               </a>
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-400">
               Grassroots community organizing for democracy.
             </p>
           </div>
