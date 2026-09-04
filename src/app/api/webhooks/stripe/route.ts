@@ -12,7 +12,7 @@ function getStripe() {
     throw new Error('STRIPE_SECRET_KEY is not configured');
   }
   return new Stripe(env.STRIPE_SECRET_KEY, {
-    apiVersion: STRIPE_API_VERSION,
+    apiVersion: '2026-08-26.dahlia' as const,
   });
 }
 
