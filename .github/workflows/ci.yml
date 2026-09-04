@@ -17,12 +17,14 @@ env:
   NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
   # Private vars (server-only, not exposed to client bundle)
   SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+  # Supabase Access Token for edge function deployment (required for GitHub Actions)
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
 jobs:
   # ── 1. Lint & types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +47,7 @@ jobs:
   # ── 2. Unit tests + coverage ─────────────────────────────────────────────────
   test:
     name: Tests & Coverage
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -62,7 +64,7 @@ jobs:
   # ── 3. Build ─────────────────────────────────────────────────────────────────
   build:
     name: Next.js Build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
@@ -80,7 +82,7 @@ jobs:
   # ── 4. Deploy to Vercel (mainDeploy → production, PRs → preview) ─────────────
   deploy:
     name: Deploy → Vercel
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [build]
     # Only deploy on push (not on PRs from forks), and only for main/mainDeploy
     if: github.event_name == 'push'
@@ -93,9 +95,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
 
       - name: Install Vercel CLI
         run: bun add -g vercel@latest
@@ -112,3 +111,47 @@ jobs:
           URL=$(vercel deploy --prebuilt ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "✅ Deployed: $URL"
+
+      - name: Deploy Edge Functions to Supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy search --project-ref indivisible-fairoaks
+          supabase migrate up --project-ref indivisible-fairoaks
+
+  # ── 5. E2E Tests ────────────────────────────────────────────────────────────
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright
+        run: bun add -g playwright && playwright install
+
+      - name: Run E2E tests
+        run: |
+          # Start the dev server in background
+          bun run dev &
+          DEV_PID=$!
+          sleep 5
+
+          # Run playwright tests
+          npx playwright test
+
+          # Kill the dev server
+          kill $DEV_PID 2>/dev/null || true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: playwright-report/
+          retention-days: 30

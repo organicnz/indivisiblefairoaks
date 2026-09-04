@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { getGalleryPhotos } from '@/lib/queries/content-client';
 import { getStorageUrl } from '@/lib/supabase';
 
 interface Photo {
@@ -13,49 +14,57 @@ interface Photo {
   label: string;
 }
 
-// Row 1 — crossfading hero (full-width) — all sourced from Supabase storage
-const HERO_PHOTOS: Photo[] = [
-  {
-    id: 'no-kings-banner',
-    src: getStorageUrl('gallery/no-kings-constitution-banner.jpg'),
-    alt: 'Chapter members with handcrafted constitutional rights banner',
-    label: 'No Kings In America',
-  },
-  {
-    id: 'unity-brave',
-    src: getStorageUrl('gallery/unity-be-brave-with-us.jpg'),
-    alt: 'Be Brave With Us solidarity stand-out',
-    label: 'Be Brave With Us',
-  },
-  {
-    id: 'witty-grandfather',
-    src: getStorageUrl('gallery/witty-grandfather-ww2-antifa.jpg'),
-    alt: 'Witty WW2 antifa protest sign',
-    label: 'Witty Signs',
-  },
-  {
-    id: 'highway-good-trouble',
-    src: getStorageUrl('gallery/highway-overpass-good-trouble.jpg'),
-    alt: 'Good Trouble banner drop on Highway 50 overpass',
-    label: 'Good Trouble',
-  },
-];
+// Hero crossfade photos (top 4 by sort_order, is_hero=true)
+const useHeroPhotos = (): Photo[] => {
+  const [heroPhotos, setHeroPhotos] = useState<Photo[]>([]);
+  useEffect(() => {
+    getGalleryPhotos().then((photos) => {
+      // GalleryPhoto has: id, url, alt, caption, location, category, signQuote, date, photographer, is_hero, is_pair, sort_order
+      // Type 'category' is string, not the union type — filter by known categories
+      const knownCategories = [
+        'No Kings Sacramento',
+        'NorCal Resist',
+        'Sacramento Unity',
+        'Witty Signs',
+        'Resistance Choir',
+        'Legacy Archives',
+      ] as const;
+      const heroes = photos
+        .filter((p) => p.is_hero === true && knownCategories.includes(p.category as any))
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+      setHeroPhotos(
+        heroes.slice(0, 4).map((p) => ({
+          id: p.id,
+          src: p.url,
+          alt: p.alt || p.caption || '',
+          label: p.label || p.caption || '',
+        }))
+      );
+    });
+  }, []);
 
-// Row 2 — fixed pair — sourced from Supabase storage
-const PAIR_PHOTOS: Photo[] = [
-  {
-    id: 'choir-outdoor',
-    src: getStorageUrl('gallery/choir-outdoor-rehearsal.jpg'),
-    alt: 'Carmichael Resistance Choir outdoor rehearsal',
-    label: 'Resistance Choir',
-  },
-  {
-    id: 'voter-registration',
-    src: getStorageUrl('gallery/voter-registration-homeless-vote.jpg'),
-    alt: 'Grassroots voter registration action',
-    label: 'Voter Registration',
-  },
-];
+  return heroPhotos;
+};
+
+// Pair photos (is_pair=true)
+const usePairPhotos = (): Photo[] => {
+  const [pairPhotos, setPairPhotos] = useState<Photo[]>([]);
+  useEffect(() => {
+    getGalleryPhotos().then((photos) => {
+      const pairs = photos.filter((p) => p.is_pair === true);
+      setPairPhotos(
+        pairs.map((p) => ({
+          id: p.id,
+          src: p.url,
+          alt: p.alt || p.caption || '',
+          label: p.label || p.caption || '',
+        }))
+      );
+    });
+  }, []);
+
+  return pairPhotos;
+};
 
 const HERO_INTERVAL = 6000; // ms between hero crossfades
 
@@ -72,20 +81,19 @@ const rowVariants: Variants = {
 
 export function HeroPhotoFrame() {
   const reduced = useReducedMotion();
+  const heroPhotos = useHeroPhotos();
+  const pairPhotos = usePairPhotos();
   const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {
     if (reduced !== false) return;
-    const t = setInterval(() => setHeroIndex((p) => (p + 1) % HERO_PHOTOS.length), HERO_INTERVAL);
+    const t = setInterval(() => setHeroIndex((p) => (p + 1) % heroPhotos.length), HERO_INTERVAL);
     return () => clearInterval(t);
-  }, [reduced]);
+  }, [reduced, heroPhotos.length]);
 
-  const heroPhoto = HERO_PHOTOS[heroIndex];
   const dur = reduced !== false ? 0 : undefined;
 
   return (
-    // Outer wrapper — decorative, hidden from AT. Gallery link is outside.
-    // Visible on all breakpoints: stacked below copy on mobile, right column on lg+.
     <div className="flex flex-col gap-3 select-none w-full max-w-full md:max-w-2xl lg:max-w-3xl mx-auto">
       <div aria-hidden="true" className="flex flex-col gap-3">
         {/* ── Row 1: crossfading large photo ── */}
@@ -98,7 +106,7 @@ export function HeroPhotoFrame() {
         >
           <AnimatePresence mode="sync">
             <motion.div
-              key={heroPhoto.id}
+              key={heroPhotos[heroIndex]?.id}
               className="absolute inset-0"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -106,8 +114,8 @@ export function HeroPhotoFrame() {
               transition={{ duration: dur ?? 1.1, ease: EASE_STD }}
             >
               <Image
-                src={heroPhoto.src}
-                alt={heroPhoto.alt}
+                src={heroPhotos[heroIndex]?.src}
+                alt={heroPhotos[heroIndex]?.alt}
                 fill
                 className="object-cover"
                 sizes="(min-width: 1024px) 44vw, 100vw"
@@ -121,7 +129,7 @@ export function HeroPhotoFrame() {
           <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
             <AnimatePresence mode="wait">
               <motion.span
-                key={heroPhoto.id}
+                key={heroPhotos[heroIndex]?.id}
                 initial={{ opacity: 0, x: -5 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 5 }}
@@ -129,12 +137,12 @@ export function HeroPhotoFrame() {
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-sm border border-white/10 text-[10px] font-bold uppercase tracking-wider text-slate-300"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                {heroPhoto.label}
+                {heroPhotos[heroIndex]?.label}
               </motion.span>
             </AnimatePresence>
 
             <div className="flex items-center gap-1.5">
-              {HERO_PHOTOS.map((p, i) => (
+              {heroPhotos.map((p, i) => (
                 <span
                   key={p.id}
                   className={`block rounded-full transition-all duration-300 ${
@@ -154,7 +162,7 @@ export function HeroPhotoFrame() {
           animate="visible"
           className="grid grid-cols-2 gap-3"
         >
-          {PAIR_PHOTOS.map((photo) => (
+          {pairPhotos.map((photo) => (
             <div
               key={photo.id}
               className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg aspect-square"
