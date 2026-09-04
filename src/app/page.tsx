@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { HeroPhotoFrame } from '@/components/home/HeroPhotoFrame';
 import { HomeGalleryPreview } from '@/components/home/HomeGalleryPreview';
 import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
 import { CivicActionTicker } from '@/components/ui/CivicActionTicker';
@@ -45,77 +46,83 @@ export default function HomePage() {
         <VgpuCivicAtmosphere intensity={1.0} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-md">
-              <Sparkles size={14} className="text-amber-400" />
-              <span>Sacramento County Grassroots Action</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-16 items-center">
+            {/* Left — copy & CTAs */}
+            <div className="max-w-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-md">
+                <Sparkles size={14} className="text-amber-400" />
+                <span>Sacramento County Grassroots Action</span>
+              </div>
+
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] mb-6 drop-shadow-sm">
+                Democracy is not a spectator sport.
+              </h1>
+
+              <p className="text-lg sm:text-xl text-slate-200 leading-relaxed mb-8 drop-shadow-sm">
+                We are{' '}
+                <strong className="text-white font-extrabold">
+                  Indivisible Fair Oaks-Carmichael
+                </strong>
+                . We organize residents in and near Fair Oaks and Carmichael, California, to
+                cultivate a disciplined, non-violent grassroots movement that defends democratic
+                norms and builds progressive power.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-4">
+                <Link
+                  href="/events"
+                  className="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-blue-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <span>Upcoming Actions</span>
+                  <ArrowRight size={16} />
+                </Link>
+                <Link
+                  href="/donate"
+                  className="px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-amber-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <Heart size={16} className="fill-slate-950" />
+                  <span>Support Our Chapter</span>
+                </Link>
+                <Link
+                  href="/choir"
+                  className="px-6 py-3.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/80 backdrop-blur-md font-semibold text-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <Music size={16} className="text-blue-400" />
+                  <span>Resistance Choir</span>
+                </Link>
+              </div>
+
+              {/* 10x Pro Chapter Impact Metrics */}
+              <div className="mt-14 pt-8 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-6 backdrop-blur-sm">
+                <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
+                  <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    500+
+                  </div>
+                  <div className="text-xs text-slate-400 font-medium mt-0.5">Active Neighbors</div>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
+                  <div className="text-2xl sm:text-3xl font-black text-blue-400 tracking-tight">
+                    4,200+
+                  </div>
+                  <div className="text-xs text-slate-400 font-medium mt-0.5">Postcards Written</div>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
+                  <div className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight">
+                    100%
+                  </div>
+                  <div className="text-xs text-slate-400 font-medium mt-0.5">Grassroots Funded</div>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
+                  <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
+                    CA-03 / 06
+                  </div>
+                  <div className="text-xs text-slate-400 font-medium mt-0.5">Sacramento Region</div>
+                </div>
+              </div>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] mb-6 drop-shadow-sm">
-              Democracy is not a spectator sport.
-            </h1>
-
-            <p className="text-lg sm:text-xl text-slate-200 leading-relaxed mb-8 drop-shadow-sm">
-              We are{' '}
-              <strong className="text-white font-extrabold">
-                Indivisible Fair Oaks-Carmichael
-              </strong>
-              . We organize residents in and near Fair Oaks and Carmichael, California, to cultivate
-              a disciplined, non-violent grassroots movement that defends democratic norms and
-              builds progressive power.
-            </p>
-
-            <div className="flex flex-wrap items-center gap-4">
-              <Link
-                href="/events"
-                className="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-blue-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <span>Upcoming Actions</span>
-                <ArrowRight size={16} />
-              </Link>
-              <Link
-                href="/donate"
-                className="px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-amber-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <Heart size={16} className="fill-slate-950" />
-                <span>Support Our Chapter</span>
-              </Link>
-              <Link
-                href="/choir"
-                className="px-6 py-3.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700/80 backdrop-blur-md font-semibold text-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <Music size={16} className="text-blue-400" />
-                <span>Resistance Choir</span>
-              </Link>
-            </div>
-
-            {/* 10x Pro Chapter Impact Metrics */}
-            <div className="mt-14 pt-8 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-6 backdrop-blur-sm">
-              <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
-                <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                  500+
-                </div>
-                <div className="text-xs text-slate-400 font-medium mt-0.5">Active Neighbors</div>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
-                <div className="text-2xl sm:text-3xl font-black text-blue-400 tracking-tight">
-                  4,200+
-                </div>
-                <div className="text-xs text-slate-400 font-medium mt-0.5">Postcards Written</div>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
-                <div className="text-2xl sm:text-3xl font-black text-amber-400 tracking-tight">
-                  100%
-                </div>
-                <div className="text-xs text-slate-400 font-medium mt-0.5">Grassroots Funded</div>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-950/40 border border-white/5">
-                <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
-                  CA-03 / 06
-                </div>
-                <div className="text-xs text-slate-400 font-medium mt-0.5">Sacramento Region</div>
-              </div>
-            </div>
+            {/* Right — community photo frame */}
+            <HeroPhotoFrame />
           </div>
         </div>
       </section>

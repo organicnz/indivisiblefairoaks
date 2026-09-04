@@ -1,6 +1,6 @@
 'use client';
 
-import { Heart, Menu, X } from 'lucide-react';
+import { Heart, Menu, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -68,6 +68,7 @@ function HeaderFallback() {
 
 function HeaderInner() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname();
 
@@ -134,7 +135,17 @@ function HeaderInner() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <CivicCommandPalette />
+            <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
+
+            {/* Mobile search icon — visible only on small screens */}
+            <button
+              type="button"
+              className="md:hidden p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              onClick={() => setIsSearchOpen(true)}
+              aria-label="Search site"
+            >
+              <Search size={20} />
+            </button>
 
             <Link
               href="/donate"
@@ -195,6 +206,22 @@ function HeaderInner() {
         </div>
 
         <nav className="flex flex-col gap-4 py-8 overflow-y-auto">
+          {/* Search shortcut in mobile drawer */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsMenuOpen(false);
+              setIsSearchOpen(true);
+            }}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition-colors text-sm font-medium"
+          >
+            <Search size={18} className="text-blue-400" />
+            <span>Quick Search…</span>
+            <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-[10px] font-mono text-slate-400">
+              ⌘K
+            </kbd>
+          </button>
+
           {NAV_LINKS.map((link) => {
             const isActive = pathname === link.href;
             return (
