@@ -1,5 +1,6 @@
 import { Compass, ExternalLink, Layers } from 'lucide-react';
 import type { Metadata } from 'next';
+import { getCoalitionLinks } from '@/lib/queries/civic';
 
 export const metadata: Metadata = {
   title: 'Coalition & Action Links | Indivisible Fair Oaks-Carmichael',
@@ -84,8 +85,24 @@ const LINKS_DATA: LinkItem[] = [
   },
 ];
 
-export default function LinksPage() {
-  const categories = Array.from(new Set(LINKS_DATA.map((l) => l.category)));
+export default async function LinksPage() {
+  // Supabase is the source of truth; the inline directory above is a fallback
+  // for pre-migration deploys and DB outages.
+  let items = LINKS_DATA;
+  try {
+    const rows = await getCoalitionLinks();
+    if (rows.length > 0)
+      items = rows.map((r) => ({
+        name: r.name,
+        category: r.category,
+        url: r.url,
+        description: r.description,
+        badge: r.badge ?? undefined,
+      }));
+  } catch {
+    // fall through to LINKS_DATA
+  }
+  const categories = Array.from(new Set(items.map((l) => l.category)));
 
   return (
     <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
@@ -108,7 +125,7 @@ export default function LinksPage() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
         {categories.map((category) => {
-          const items = LINKS_DATA.filter((l) => l.category === category);
+          const categoryItems = items.filter((l) => l.category === category);
           return (
             <div key={category} className="space-y-4">
               <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
@@ -117,7 +134,7 @@ export default function LinksPage() {
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {items.map((item) => (
+                {categoryItems.map((item) => (
                   <a
                     key={item.name}
                     href={item.url}

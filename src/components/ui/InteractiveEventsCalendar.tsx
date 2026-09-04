@@ -115,11 +115,17 @@ const CATEGORIES = [
   'Rallies & Street Action',
 ] as const;
 
-export function InteractiveEventsCalendar() {
+export function InteractiveEventsCalendar({
+  initialEvents,
+}: {
+  initialEvents?: CivicEvent[];
+} = {}) {
   const [activeCategory, setActiveCategory] = useState<string>('All Actions');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredEvents = EVENTS.filter((event) => {
+  // Supabase rows when provided; inline rows keep pre-migration deploys working.
+  const base = initialEvents && initialEvents.length > 0 ? initialEvents : EVENTS;
+  const filteredEvents = base.filter((event) => {
     const matchesCategory = activeCategory === 'All Actions' || event.category === activeCategory;
     const matchesSearch =
       event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -1,9 +1,10 @@
-import { cacheLife } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { createPublicClient } from '@/lib/supabase-server';
 
 export async function getAllProductSlugs() {
   'use cache';
   cacheLife('hours');
+  cacheTag('products');
   try {
     const supabase = createPublicClient();
     const { data } = await supabase.from('products').select('slug').eq('stock_status', 'instock');
@@ -17,6 +18,7 @@ export async function getAllProductSlugs() {
 export async function getProductMeta(slug: string) {
   'use cache';
   cacheLife('hours');
+  cacheTag('products', `product-${slug}`);
   const supabase = createPublicClient();
   const { data } = await supabase
     .from('products')
@@ -29,6 +31,7 @@ export async function getProductMeta(slug: string) {
 export async function getProductDetail(slug: string) {
   'use cache';
   cacheLife('hours');
+  cacheTag('products', `product-${slug}`);
   const supabase = createPublicClient();
   const { data, error } = await supabase
     .from('products')
@@ -49,6 +52,7 @@ export async function getProductDetail(slug: string) {
 export async function getRelatedProducts(productId: number, categoryIds: number[]) {
   'use cache';
   cacheLife('hours');
+  cacheTag('products');
   const supabase = createPublicClient();
   const { data: related } = await supabase
     .from('products')

@@ -1,5 +1,6 @@
 import { ArrowRight, BookOpen, Mail, Megaphone, Newspaper, Send } from 'lucide-react';
 import type { Metadata } from 'next';
+import { getNewsletters } from '@/lib/queries/civic';
 
 export const metadata: Metadata = {
   title: 'Newsletters & Bulletins | Indivisible Fair Oaks-Carmichael',
@@ -38,7 +39,23 @@ const NEWSLETTERS = [
   },
 ];
 
-export default function NewsPage() {
+export default async function NewsPage() {
+  // Supabase is the source of truth; the inline archive below is a fallback so
+  // pre-migration deploys and DB outages still render.
+  let items = NEWSLETTERS;
+  try {
+    const rows = await getNewsletters();
+    if (rows.length > 0) {
+      items = rows.map((r) => ({
+        title: r.title,
+        date: r.date_label,
+        description: r.description,
+        topics: r.topics,
+      }));
+    }
+  } catch {
+    // fall through to NEWSLETTERS
+  }
   return (
     <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
       {/* Header Banner */}
@@ -91,7 +108,7 @@ export default function NewsPage() {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {NEWSLETTERS.map((newsletter) => (
+            {items.map((newsletter) => (
               <div
                 key={newsletter.title}
                 className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between"

@@ -2,6 +2,7 @@ import { AlertCircle, Calendar, ExternalLink, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { getEvents } from '@/lib/queries/civic';
 
 export const metadata: Metadata = {
   title: 'Events & Actions | Indivisible Fair Oaks-Carmichael',
@@ -9,7 +10,14 @@ export const metadata: Metadata = {
     'Join our upcoming chapter meetings, singing protests with the Carmichael Resistance Choir, weekly rallies, and voter mobilization events in Sacramento County.',
 };
 
-export default function EventsPage() {
+export default async function EventsPage() {
+  let initialEvents: Awaited<ReturnType<typeof getEvents>> | undefined;
+  try {
+    const rows = await getEvents();
+    if (rows.length > 0) initialEvents = rows;
+  } catch {
+    // calendar falls back to inline rows
+  }
   return (
     <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
       {/* Header Banner with VGPU Constellation Network */}
@@ -31,7 +39,7 @@ export default function EventsPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
-        <InteractiveEventsCalendar />
+        <InteractiveEventsCalendar initialEvents={initialEvents} />
 
         {/* Trainings & Campaign Initiatives */}
         <div className="space-y-6 pt-6 border-t border-slate-800">

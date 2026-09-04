@@ -1,4 +1,4 @@
-import { cacheLife } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { createPublicClient } from '@/lib/supabase-server';
 
 /**
@@ -37,6 +37,7 @@ export function buildTextSearchOr(textConditions: string[], nowISO: string): str
 export async function getAllPublishedSlugs() {
   'use cache';
   cacheLife('hours');
+  cacheTag('content');
   try {
     const supabase = createPublicClient();
     const { data } = await supabase
@@ -54,6 +55,7 @@ export async function getAllPublishedSlugs() {
 export async function getPublishedContent(slug: string) {
   'use cache';
   cacheLife('hours');
+  cacheTag('content', `content-${slug}`);
   const supabase = createPublicClient();
   const { data } = await supabase
     .from('content')
