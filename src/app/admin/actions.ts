@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { getStorageUrl } from '@/lib/supabase';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 
@@ -146,6 +146,7 @@ export async function updateProduct(payload: {
     .update({ ...fields, name: fields.name?.trim() })
     .eq('id', id);
   if (error) throw new Error(error.message);
+  updateTag('products');
   revalidatePath('/admin/products');
   revalidatePath(`/admin/products/${id}`);
   revalidatePath('/products');
@@ -167,6 +168,7 @@ export async function bulkUpdateProductStock(productIds: number[], stockStatus: 
     .update({ stock_status: stockStatus })
     .in('id', productIds);
   if (error) throw new Error(error.message);
+  updateTag('products');
   revalidatePath('/admin/products');
   revalidatePath('/products');
 }
@@ -225,6 +227,7 @@ export async function createProduct(payload: {
     .select('id')
     .single();
   if (error) throw new Error(error.message);
+  updateTag('products');
   revalidatePath('/admin/products');
   revalidatePath('/products');
   return data.id;
@@ -269,6 +272,7 @@ export async function uploadProductImage(formData: FormData): Promise<{ url: str
   if (error) throw new Error(error.message);
 
   await deleteStoredImage(storagePathFromUrl(product.image_url));
+  updateTag('products');
   revalidatePath('/admin/products');
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath('/products');
@@ -292,6 +296,7 @@ export async function removeProductImage(productId: number) {
   if (error) throw new Error(error.message);
 
   await deleteStoredImage(storagePathFromUrl(product.image_url));
+  updateTag('products');
   revalidatePath('/admin/products');
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath('/products');

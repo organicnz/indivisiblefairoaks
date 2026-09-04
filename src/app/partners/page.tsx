@@ -2,6 +2,7 @@ import { ExternalLink, Handshake } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { getPartners } from '@/lib/queries/civic';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/partners' },
@@ -19,8 +20,10 @@ export const metadata: Metadata = {
   },
 };
 
-export default function PartnersPage() {
-  const partners = [
+export default async function PartnersPage() {
+  // Supabase is the source of truth; inline rows are a fallback for
+  // pre-migration deploys and DB outages.
+  let partners = [
     {
       name: 'National Indivisible Project',
       category: 'National Movement',
@@ -64,6 +67,12 @@ export default function PartnersPage() {
       url: 'https://www.aclunc.org',
     },
   ];
+  try {
+    const rows = await getPartners();
+    if (rows.length > 0) partners = rows;
+  } catch {
+    // fall through to inline rows
+  }
 
   return (
     <main className="bg-slate-950 text-white min-h-screen">

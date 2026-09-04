@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
-import { cacheLife } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
 import { env } from '@/lib/env';
 import { buildVisibilityFilter } from '@/lib/queries/content';
 
@@ -9,6 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Sitemaps are fetched repeatedly by crawlers; cache the generated XML for
   // an hour so each crawl wave costs one Supabase query instead of N.
   cacheLife('hours');
+  cacheTag('content', 'sitemap');
   const baseUrl = env.NEXT_PUBLIC_SITE_URL;
 
   // Use anon key for public data
