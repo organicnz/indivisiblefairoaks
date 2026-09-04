@@ -4,6 +4,7 @@ import { ArrowRight, Camera, Filter, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
+import { getGalleryPhotos } from '@/lib/queries/content-client';
 import { getStorageUrl } from '@/lib/supabase';
 
 interface PreviewPhoto {
@@ -22,119 +23,25 @@ interface PreviewPhoto {
   date: string;
 }
 
-const PREVIEW_PHOTOS: PreviewPhoto[] = [
-  {
-    id: 'no-kings-constitution',
-    title: 'No Kings in America: Constitution Banner',
-    location: 'Fair Oaks Boulevard Demonstration',
-    category: 'No Kings Sacramento',
-    signQuote: 'No Kings In America — The Constitution',
-    date: 'Community Stand-Out',
-    image: getStorageUrl('gallery/no-kings-constitution-banner.jpg'),
-  },
-  {
-    id: 'no-kings-standout',
-    title: 'Gold Country Blvd Grassroots Mobilization',
-    location: 'Gold Country Blvd, Fair Oaks',
-    category: 'No Kings Sacramento',
-    signQuote: 'No ICE, No War, No King',
-    date: 'Weekend Stand-Out',
-    image: getStorageUrl('gallery/no-kings-roadside-standout.jpg'),
-  },
-  {
-    id: 'norcal-mutual-aid',
-    title: 'Indivisible Mutual Aid & Food Drive',
-    location: 'Fair Oaks Park Pavilion',
-    category: 'NorCal Resist',
-    signQuote: 'Mutual Aid Across Every Neighborhood',
-    date: 'Community Food Drive',
-    image: getStorageUrl('gallery/mutual-aid-fair-oaks-park.jpg'),
-  },
-  {
-    id: 'norcal-voter-rights',
-    title: 'Grassroots Voter Registration Action',
-    location: 'Sacramento Community Hub',
-    category: 'NorCal Resist',
-    signQuote: 'Homeless Does Not Mean Voteless',
-    date: 'Civic Engagement Drive',
-    image: getStorageUrl('gallery/voter-registration-homeless-vote.jpg'),
-  },
-  {
-    id: 'unity-be-brave',
-    title: 'Be Brave With Us! Solidarity Line',
-    location: 'Fair Oaks Blvd & Sunrise Blvd',
-    category: 'Sacramento Unity',
-    signQuote: 'Be Brave With Us! Indivisible Fair Oaks',
-    date: 'Boulevard Stand-Out',
-    image: getStorageUrl('gallery/unity-be-brave-with-us.jpg'),
-  },
-  {
-    id: 'unity-one-voice',
-    title: 'Sacramento Grassroots Democracy Stand-Out',
-    location: 'Fair Oaks Village Center',
-    category: 'Sacramento Unity',
-    signQuote: 'One Voice — Your Vote Counts In CA',
-    date: 'Community Gathering',
-    image: getStorageUrl('gallery/unity-one-voice-vote-counts.jpg'),
-  },
-  {
-    id: 'witty-grandfather',
-    title: 'Historical Truth On Cardboard',
-    location: 'Fair Oaks Boulevard',
-    category: 'Witty Signs',
-    signQuote: 'If Your Grandfather Fought In WW2 He Was Anti-Fascist!',
-    date: 'Sidewalk Action',
-    image: getStorageUrl('gallery/witty-grandfather-ww2-antifa.jpg'),
-  },
-  {
-    id: 'witty-cat-nope',
-    title: 'Satirical Grassroots Wit',
-    location: 'Carmichael Community Sidewalk',
-    category: 'Witty Signs',
-    signQuote: 'Democracy Needs Your Courage (NOPE Since 1776)',
-    date: 'Grassroots Rally',
-    image: getStorageUrl('gallery/witty-cat-nope-since-1776.jpg'),
-  },
-  {
-    id: 'choir-outdoor',
-    title: 'Carmichael Resistance Choir Outdoor Rehearsal',
-    location: 'Carmichael Community Park',
-    category: 'Resistance Choir',
-    signQuote: 'Singing For Democracy Under The Trees',
-    date: 'Vocal Resistance Rehearsal',
-    image: getStorageUrl('gallery/choir-outdoor-rehearsal.jpg'),
-  },
-  {
-    id: 'legacy-highway-banner',
-    title: 'Highway 50 Good Trouble Banner Drop',
-    location: 'Highway 50 Pedestrian Overpass',
-    category: 'Legacy Archives',
-    signQuote: 'Good Trouble Lives On! Honoring John Lewis',
-    date: 'Annual Highway Action',
-    image: getStorageUrl('gallery/highway-overpass-good-trouble.jpg'),
-  },
-  {
-    id: 'legacy-foam-hands',
-    title: 'Overpass Waves to Highway 50 Commuters',
-    location: 'Highway 50 Overpass, Sacramento',
-    category: 'Legacy Archives',
-    signQuote: 'Waving For Democracy & Justice',
-    date: 'Overpass Action',
-    image: getStorageUrl('gallery/highway-overpass-foam-hands.jpg'),
-  },
-  {
-    id: 'legacy-official-banner',
-    title: 'Official Chapter Welcome Banner',
-    location: 'Fair Oaks & Carmichael, CA',
-    category: 'Legacy Archives',
-    signQuote: 'Indivisible Fair Oaks - Carmichael',
-    date: 'Historic Chapter Archive',
-    image: getStorageUrl('gallery/legacy-chapter-official-banner.jpg'),
-  },
-];
-
 export function HomeGalleryPreview() {
   const [selectedFilter, setSelectedFilter] = useState<string>('All');
+  const [previewPhotos, setPreviewPhotos] = useState<PreviewPhoto[]>([]);
+
+  useEffect(() => {
+    getGalleryPhotos().then((photos) => {
+      // Map gallery_photos rows to PreviewPhoto format
+      const mapped = photos.map((p) => ({
+        id: p.id,
+        title: p.caption || p.alt || '',
+        location: p.location || '',
+        category: p.category || 'Other',
+        image: p.url || '',
+        signQuote: p.signQuote ?? null,
+        date: p.date || '',
+      }));
+      setPreviewPhotos(mapped);
+    });
+  }, []);
 
   const filterOptions = [
     'All',
@@ -148,8 +55,8 @@ export function HomeGalleryPreview() {
 
   const displayedPhotos =
     selectedFilter === 'All'
-      ? PREVIEW_PHOTOS.slice(0, 6)
-      : PREVIEW_PHOTOS.filter((p) => p.category === selectedFilter);
+      ? previewPhotos.slice(0, 6)
+      : previewPhotos.filter((p) => p.category === selectedFilter);
 
   return (
     <section className="py-16 md:py-24 bg-slate-950 text-white border-t border-slate-800">
@@ -247,24 +154,6 @@ export function HomeGalleryPreview() {
               </div>
             </Link>
           ))}
-        </div>
-
-        {/* Community Callout Strip */}
-        <div className="mt-12 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-center sm:text-left">
-            <p className="text-sm font-bold text-white">
-              Have grassroots protest photos, witty signs, or choir snapshots from Sacramento?
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Zero politicians, zero corporate branding — 100% neighbor-to-neighbor solidarity.
-            </p>
-          </div>
-          <Link
-            href="/gallery"
-            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-blue-500/20 shrink-0"
-          >
-            View All Archives
-          </Link>
         </div>
       </div>
     </section>

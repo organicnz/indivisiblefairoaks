@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
-import { getGalleryPhotos } from '@/lib/queries/content-client';
+import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
 import { getStorageUrl } from '@/lib/supabase';
 
 interface CivicPhoto {
@@ -25,130 +25,6 @@ interface CivicPhoto {
   signQuote?: string;
 }
 
-// Static fallback gallery photos (13 originals from HomeGalleryPreview)
-const STATIC_GALLERY: CivicPhoto[] = [
-  {
-    id: 'no-kings-constitution-banner',
-    url: getStorageUrl('gallery/no-kings-constitution-banner.jpg'),
-    caption: 'No Kings in America: Chapter Members with Handcrafted Constitutional Rights Banner',
-    location: 'Fair Oaks Blvd & Sunrise Blvd, Fair Oaks',
-    category: 'No Kings Sacramento',
-    date: 'Chapter Stand-Out',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'No Kings In America — The Constitution',
-  },
-  {
-    id: 'no-kings-standout',
-    url: getStorageUrl('gallery/no-kings-roadside-standout.jpg'),
-    caption: 'Gold Country Blvd Grassroots Mobilization',
-    location: 'Gold Country Blvd, Fair Oaks',
-    category: 'No Kings Sacramento',
-    date: 'Weekend Stand-Out',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'No ICE, No War, No King',
-  },
-  {
-    id: 'norcal-mutual-aid',
-    url: getStorageUrl('gallery/mutual-aid-fair-oaks-park.jpg'),
-    caption: 'Indivisible Mutual Aid & Food Drive',
-    location: 'Fair Oaks Park Pavilion',
-    category: 'NorCal Resist',
-    date: 'Community Food Drive',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'Mutual Aid Across Every Neighborhood',
-  },
-  {
-    id: 'norcal-voter-rights',
-    url: getStorageUrl('gallery/voter-registration-homeless-vote.jpg'),
-    caption: 'Grassroots Voter Registration Action',
-    location: 'Sacramento Community Hub',
-    category: 'NorCal Resist',
-    date: 'Civic Engagement Drive',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'Homeless Does Not Mean Voteless',
-  },
-  {
-    id: 'unity-be-brave',
-    url: getStorageUrl('gallery/unity-be-brave-with-us.jpg'),
-    caption: 'Be Brave With Us! Solidarity Line',
-    location: 'Fair Oaks Blvd & Sunrise Blvd',
-    category: 'Sacramento Unity',
-    date: 'Boulevard Stand-Out',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'Be Brave With Us! Indivisible Fair Oaks',
-  },
-  {
-    id: 'unity-one-voice',
-    url: getStorageUrl('gallery/unity-one-voice-vote-counts.jpg'),
-    caption: 'Sacramento Grassroots Democracy Stand-Out',
-    location: 'Fair Oaks Village Center',
-    category: 'Sacramento Unity',
-    date: 'Community Gathering',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'One Voice — Your Vote Counts In CA',
-  },
-  {
-    id: 'witty-grandfather',
-    url: getStorageUrl('gallery/witty-grandfather-ww2-antifa.jpg'),
-    caption: 'Historical Truth On Cardboard',
-    location: 'Fair Oaks Boulevard',
-    category: 'Witty & Funny Signs',
-    date: 'Sidewalk Action',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'If Your Grandfather Fought In WW2 He Was Anti-Fascist!',
-  },
-  {
-    id: 'witty-cat-nope',
-    url: getStorageUrl('gallery/witty-cat-nope-since-1776.jpg'),
-    caption: 'Satirical Grassroots Wit',
-    location: 'Carmichael Community Sidewalk',
-    category: 'Witty & Funny Signs',
-    date: 'Grassroots Rally',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'Democracy Needs Your Courage (NOPE Since 1776)',
-  },
-  {
-    id: 'choir-outdoor',
-    url: getStorageUrl('gallery/choir-outdoor-rehearsal.jpg'),
-    caption: 'Carmichael Resistance Choir Outdoor Rehearsal',
-    location: 'Carmichael Community Park',
-    category: 'Resistance Choir',
-    date: 'Vocal Resistance Rehearsal',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'Singing For Democracy Under The Trees',
-  },
-  {
-    id: 'legacy-highway-banner',
-    url: getStorageUrl('gallery/highway-overpass-good-trouble.jpg'),
-    caption: 'Highway 50 Good Trouble Banner Drop',
-    location: 'Highway 50 Pedestrian Overpass',
-    category: 'Legacy Site Archives',
-    date: 'Annual Highway Action',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'Good Trouble Lives On! Honoring John Lewis',
-  },
-  {
-    id: 'legacy-foam-hands',
-    url: getStorageUrl('gallery/highway-overpass-foam-hands.jpg'),
-    caption: 'Overpass Waves to Highway 50 Commuters',
-    location: 'Highway 50 Overpass, Sacramento',
-    category: 'Legacy Site Archives',
-    date: 'Overpass Action',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'Waving For Democracy & Justice',
-  },
-  {
-    id: 'legacy-official-banner',
-    url: getStorageUrl('gallery/legacy-chapter-official-banner.jpg'),
-    caption: 'Official Chapter Welcome Banner',
-    location: 'Fair Oaks & Carmichael, CA',
-    category: 'Legacy Site Archives',
-    date: 'Historic Chapter Archive',
-    photographer: 'Indivisible Fair Oaks Archive',
-    signQuote: 'Indivisible Fair Oaks - Carmichael',
-  },
-];
-
 export default function GalleryPage() {
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -156,7 +32,7 @@ export default function GalleryPage() {
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Fetch gallery photos from Supabase on mount
-  const [dbPhotos, setDbPhotos] = useState<CivicPhoto[]>([]);
+  const [dbPhotos, setDbPhotos] = useState<GalleryPhoto[]>([]);
 
   useEffect(() => {
     getGalleryPhotos().then((photos) => {
@@ -165,7 +41,7 @@ export default function GalleryPage() {
   }, []);
 
   // Use dynamic photos if available, otherwise fall back to static gallery
-  const allPhotos = dbPhotos.length > 0 ? dbPhotos : STATIC_GALLERY;
+  const allPhotos = dbPhotos.length > 0 ? dbPhotos : [];
 
   const categories = useMemo(() => {
     const categoriesSet = new Set<string>('All');
