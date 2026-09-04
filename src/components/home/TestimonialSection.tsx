@@ -1,37 +1,55 @@
+'use client';
+
 import { Quote, Star } from 'lucide-react';
 import Image from 'next/image';
-import { getStorageUrl } from '@/lib/supabase';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { getTestimonials } from '@/lib/queries/content';
+import { sanitizeWPContent } from '@/lib/sanitize';
 
 const STAR_POSITIONS = ['first', 'second', 'third', 'fourth', 'fifth'] as const;
 
-const testimonials = [
-  {
-    name: 'Capt. Charles',
-    role: 'Thunder Charter',
-    content:
-      'There you go mate! 40.1kg Kingfish, we got 4 yesterday. Your braid doing the business!',
-    stars: 5,
-    image: 'site/charles-kingfish.png',
-  },
-  {
-    name: 'Ham & Cheese',
-    role: 'Local NZ Fishing Celebrities',
-    content:
-      "She's like rope, it's bloody good stuff. Bay of Plenty Boat Hire use this stuff on their rods when they're catching the big stuff – This is the braid we use on all our gear.",
-    stars: 5,
-    image: 'site/ham-cheese-kingfish.png',
-  },
-  {
-    name: 'Mike Thompson',
-    role: 'Weekend Warrior',
-    content:
-      "What impressed me most is how well it holds up over time. No fraying, no colour bleed like I've had with other brands, it's super sensitive, you can feel every little nibble.",
-    stars: 5,
-    image: 'site/mike-fish.png',
-  },
-];
-
 export function TestimonialSection() {
+  const [testimonials, setTestimonials] = useState<
+    { name: string; role: string; content: string; image: string; stars: number }[]
+  >([]);
+
+  useEffect(() => {
+    getTestimonials().then((data) => {
+      if (data) setTestimonials(data);
+    });
+  }, []);
+
+  const displayTestimonials =
+    testimonials.length > 0
+      ? testimonials
+      : [
+          {
+            name: 'Capt. Charles',
+            role: 'Thunder Charter',
+            content:
+              'There you go mate! 40.1kg Kingfish, we got 4 yesterday. Your braid doing the business!',
+            stars: 5,
+            image: 'site/charles-kingfish.png',
+          },
+          {
+            name: 'Ham & Cheese',
+            role: 'Local NZ Fishing Celebrities',
+            content:
+              "She's like rope, it's bloody good stuff. Bay of Plenty Boat Hire use this stuff on their rods when they're catching the big stuff – This is the braid we use on all our gear.",
+            stars: 5,
+            image: 'site/ham-cheese-kingfish.png',
+          },
+          {
+            name: 'Mike Thompson',
+            role: 'Weekend Warrior',
+            content:
+              "What impressed me most is how well it holds up over time. No fraying, no colour bleed like I've had with other brands, it's super sensitive, you can feel every little nibble.",
+            stars: 5,
+            image: 'site/mike-fish.png',
+          },
+        ];
+
   return (
     <section className="py-40 bg-white relative overflow-hidden">
       <div className="container mx-auto px-4 relative z-10">
@@ -45,7 +63,7 @@ export function TestimonialSection() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
-          {testimonials.map((t) => (
+          {displayTestimonials.map((t) => (
             <div
               key={t.name}
               className="group p-10 lg:p-12 rounded-[3.5rem] bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-[0_80px_100px_-30px_rgba(0,0,0,0.1)] hover:-translate-y-3 transition-all duration-700 ease-out"
@@ -62,7 +80,7 @@ export function TestimonialSection() {
               {t.image && (
                 <div className="relative w-full aspect-4/3 rounded-2xl overflow-hidden mb-10 border border-slate-100 shadow-inner">
                   <Image
-                    src={getStorageUrl(t.image)}
+                    src={t.image}
                     alt={t.name}
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
@@ -74,7 +92,7 @@ export function TestimonialSection() {
               <div className="relative mb-10">
                 <Quote className="w-12 h-12 text-primary/10 absolute -top-4 -left-4 group-hover:text-primary/20 transition-colors duration-500" />
                 <p className="text-slate-600 font-medium text-lg lg:text-xl leading-relaxed relative z-10 italic">
-                  &ldquo;{t.content}&rdquo;
+                  &ldquo;{sanitizeWPContent(t.content)}&rdquo;
                 </p>
               </div>
 

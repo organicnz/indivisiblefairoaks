@@ -97,6 +97,81 @@ export async function getEvents(): Promise<CivicEvent[]> {
   }
 }
 
+/**
+ * Returns upcoming events suitable for the home page ticker.
+ * Filters to events that are not highlighted as past and have a future start date.
+ */
+export async function getTickerEvents(): Promise<
+  { label: string; detail: string; href: string; badge: string }[]
+> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('ticker-events');
+  try {
+    const supabase = publicClient();
+    const now = new Date().toISOString();
+    const { data } = await supabase
+      .from('events')
+      .select(
+        'slug, title, category, date_label, time_label, starts_at, ends_at, rsvp_url, highlight, sort_order'
+      )
+      .lte('ends_at', now)
+      .order('sort_order', { ascending: true });
+    const rows = (data ?? []) as {
+      slug: string;
+      title: string;
+      category: string;
+      date_label: string;
+      time_label: string;
+      starts_at: string | null;
+      ends_at: string | null;
+      rsvp_url: string;
+      highlight: boolean;
+      sort_order: number;
+    }[];
+    return rows.map((row) => {
+      const detail = row.ends_at ? `${row.date_label} • ${row.time_label}` : row.date_label;
+      const badge = row.category;
+      const href = `/${row.slug}`;
+      return { label: row.title, detail, href, badge };
+    });
+  } catch {
+    // Fallback to static ticker items so the page still renders
+    return [
+      {
+        label: 'Next Chapter Assembly',
+        detail: "1st Tuesday of the month • St. Michael's Carmichael",
+        href: '/events',
+        badge: 'Meeting',
+      },
+      {
+        label: 'Resistance Choir Rehearsal',
+        detail: 'Every other Wednesday • 6:30 PM • All Voices Welcome',
+        href: '/choir',
+        badge: 'Choir',
+      },
+      {
+        label: 'Sacramento Rep Directory & 5 Calls Scripts',
+        detail: 'Lookup CA-03 / CA-06 elected officials in seconds',
+        href: '/voter-info',
+        badge: 'Advocacy',
+      },
+      {
+        label: 'Grassroots Postcard Blitz',
+        detail: 'Writing swing voter cards across Sacramento County',
+        href: '/events',
+        badge: 'Voter Turnout',
+      },
+      {
+        label: 'Community Food Bank Drive',
+        detail: 'Bring non-perishable cans to our monthly gathering',
+        href: '/events',
+        badge: 'Mutual Aid',
+      },
+    ];
+  }
+}
+
 export async function getPartners(): Promise<PartnerRow[]> {
   'use cache';
   cacheLife('hours');

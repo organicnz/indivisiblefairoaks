@@ -1,13 +1,13 @@
 import Image from 'next/image';
-import { getStorageUrl } from '@/lib/supabase';
+import Link from 'next/link';
 
 const partners = [
-  { name: 'Sea Cleaners', logo: getStorageUrl('site/partner-seacleaners.jpg') },
-  { name: 'Bay of Plenty Boat Hire', logo: getStorageUrl('site/partner-bop.jpg') },
-  { name: 'Thunder Charter', logo: getStorageUrl('site/partner-thunder.jpg') },
-  { name: 'Shimano', logo: getStorageUrl('site/partner-shimano.png') },
-  { name: 'Yamaha', logo: getStorageUrl('site/partner-yamaha.png') },
-  { name: 'Garmin', logo: getStorageUrl('site/partner-garmin.png') },
+  { name: 'National Indivisible Project', logo: '/images/partners/indivisible-national.png' },
+  { name: 'ACLU NorCal', logo: '/images/partners/aclu-norcal.png' },
+  { name: 'Planned Parenthood', logo: '/images/partners/planned-parenthood.png' },
+  { name: 'Sacramento DSA', logo: '/images/partners/sacramento-dsa.png' },
+  { name: 'NorCal Resist', logo: '/images/partners/norcal-resist.png' },
+  { name: 'Courage California', logo: '/images/partners/courage-california.png' },
 ];
 
 export function PartnerSection() {
