@@ -11,7 +11,8 @@ export default defineConfig({
       '**/dist/**',
       '**/.trunk/**',
       '**/.next/**',
-      'e2e/**', // Playwright instant-navigation guards run via `playwright test`, not vitest
+      'e2e/**',
+      'playwright/tests/**', // Playwright E2E tests run via `playwright test`, not vitest
     ],
     coverage: {
       provider: 'v8',
