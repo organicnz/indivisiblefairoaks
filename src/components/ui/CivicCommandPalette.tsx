@@ -180,18 +180,15 @@ export function CivicCommandPalette({
 
   return (
     <>
-      {/* Trigger Button in Header */}
+      {/* Trigger Button in Header — single icon-only entry, fits all breakpoints */}
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/80 text-xs font-medium transition-all shadow-sm"
+        className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
         aria-label="Search site (Cmd+K)"
+        title="Search site (⌘K)"
       >
-        <Search size={14} className="text-slate-400" />
-        <span>Quick Search...</span>
-        <kbd className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-[10px] font-mono text-slate-400">
-          ⌘K
-        </kbd>
+        <Search size={20} />
       </button>
 
       {/* Modal Dialog */}

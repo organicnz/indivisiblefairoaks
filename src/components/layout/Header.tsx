@@ -137,16 +137,6 @@ function HeaderInner() {
           <div className="flex items-center gap-2.5 sm:gap-3">
             <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
 
-            {/* Mobile search icon — visible only on small screens */}
-            <button
-              type="button"
-              className="md:hidden p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-              onClick={() => setIsSearchOpen(true)}
-              aria-label="Search site"
-            >
-              <Search size={20} />
-            </button>
-
             <Link
               href="/donate"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg hover:scale-105 transition-all"
