@@ -1,3 +1,6 @@
+// @deno-types="npm:@hono/hono@^5.0.0"
+// @deno-types="npm:@stripe/stripe-js@^9.0.0"
+// @deno-types="npm:@supabase/supabase-js@^2.0.0"
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { Hono } from 'jsr:@hono/hono'
 import { HTTPException } from 'jsr:@hono/hono/http-exception'
@@ -529,7 +532,7 @@ async function sendAdminNotification(
       <table width="560" cellpadding="0" cellspacing="0" style="background:#0A472E;border-radius:16px;overflow:hidden;max-width:560px;width:100%;">
         <tr>
           <td style="padding:32px 40px;text-align:center;border-bottom:1px solid rgba(209,255,0,0.2);">
-            <img src="https://${SUPABASE_HOST}/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png" alt="Catch-22" width="160" style="display:block;margin:0 auto;" />
+            <img src="https://${SUPABASE_HOST}/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png" alt="Indivisible Fair Oaks-Carmichael" width="160" style="display:block;margin:0 auto;" />
           </td>
         </tr>
         <tr>
@@ -572,7 +575,7 @@ async function sendAdminNotification(
         </tr>
         <tr>
           <td style="padding:20px 40px;border-top:1px solid rgba(209,255,0,0.2);text-align:center;">
-            <p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Catch-22 &middot; Premium Fishing Gear &middot; New Zealand</p>
+            <p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Indivisible Fair Oaks-Carmichael &middot; Grassroots Democracy &middot; Sacramento County</p>
           </td>
         </tr>
       </table>

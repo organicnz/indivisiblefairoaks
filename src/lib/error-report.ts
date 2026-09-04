@@ -15,6 +15,23 @@ export const ERROR_STACK_MAX = 2000;
 export const ERROR_COMPONENT_STACK_MAX = 1000;
 export const ERROR_DIGEST_MAX = 64;
 export const ERROR_PATH_MAX = 300;
+export const ERROR_CATEGORY_MAX = 50;
+
+export const VALID_ERROR_CATEGORIES = [
+  'runtime',
+  'build',
+  'deploy',
+  'ui',
+  'api',
+  'database',
+  'network',
+  'auth',
+  'stripe',
+  'supabase',
+  'other',
+] as const;
+
+export type ValidErrorCategory = (typeof VALID_ERROR_CATEGORIES)[number];
 
 export const errorReportSchema = z.object({
   message: z.string().trim().min(1).max(ERROR_MESSAGE_MAX),
@@ -22,6 +39,7 @@ export const errorReportSchema = z.object({
   componentStack: z.string().max(ERROR_COMPONENT_STACK_MAX).optional(),
   digest: z.string().max(ERROR_DIGEST_MAX).optional(),
   path: z.string().max(ERROR_PATH_MAX).optional(),
+  category: z.enum(VALID_ERROR_CATEGORIES).default('other').optional(),
 });
 
 export type ErrorReportInput = z.infer<typeof errorReportSchema>;

@@ -28,14 +28,14 @@ test.beforeAll(async () => {
 
 const shellAssertions = async (page: import('@playwright/test').Page) => {
   const banner = page.getByRole('banner');
-  await expect(banner.locator('img[alt="CATCH-22"]')).toBeVisible();
-  await expect(banner.getByRole('link', { name: 'Shop' })).toBeVisible();
-  await expect(page.getByText('Never Out of a Catch')).toBeVisible();
+  await expect(banner.locator('a[href="/"]')).toBeVisible();
+  await expect(banner.getByRole('link', { name: 'Events & Actions' })).toBeVisible();
+  await expect(page.getByText('Indivisible')).toBeVisible();
 };
 
 test('shell paints instantly: home → faqs', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('header img[alt="CATCH-22"]')).toBeVisible();
+  await expect(page.locator('header a[href="/"]')).toBeVisible();
 
   await instant(
     page,

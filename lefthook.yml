@@ -1,4 +1,4 @@
-# Lefthook – Git hooks for Catch-22
+# Lefthook – Git hooks for Indivisible Fair Oaks-Carmichael
 # Docs: https://github.com/evilmartians/lefthook
 #
 # Skip a hook entirely : LEFTHOOK=0 git commit
@@ -227,10 +227,13 @@ pre-commit:
           exit 1
         fi
 
-    # ── 8. New page.tsx files must export metadata or generateMetadata ────────
-    # 13 existing pages lack metadata — this guard prevents the count growing.
-    # Every new page.tsx must define a title/description for SEO and social sharing.
-    # The AGENTS.md spec explicitly requires: "Every dynamic page MUST implement
+    # ── 8. New pages must be covered by metadata (page or route layout) ────────
+    # Client pages ('use client') cannot export metadata — metadata is
+    # server-only and silently ignored there. The codebase pattern is metadata
+    # in the route's layout.tsx for client routes, page-level metadata for
+    # server routes. Every route is currently covered one way or the other;
+    # this guard keeps it that way for new routes.
+    # The AGENTS.md spec requires: "Every dynamic page MUST implement
     # generateMetadata for unique titles and descriptions."
     metadata-coverage:
       priority: 8
@@ -242,28 +245,38 @@ pre-commit:
           # Only check newly added files (A) — not modified existing ones
           status=$(git diff --cached --name-status -- "$f" 2>/dev/null | cut -f1)
           [ "$status" = "A" ] || continue
-          if ! grep -q "generateMetadata\|export const metadata" "$f" 2>/dev/null; then
-            VIOLATIONS="$VIOLATIONS\n  $f"
+          if grep -q "generateMetadata\|export const metadata" "$f" 2>/dev/null; then
+            continue
           fi
+          # A colocated route layout covers client pages, where a page-level
+          # metadata export would be silently ignored by Next.js.
+          layout="$(dirname "$f")/layout.tsx"
+          if [ -f "$layout" ] && grep -q "generateMetadata\|export const metadata" "$layout" 2>/dev/null; then
+            continue
+          fi
+          VIOLATIONS="$VIOLATIONS\n  $f"
         done
         if [ -n "$VIOLATIONS" ]; then
           echo ""
-          echo "✖  New page.tsx files missing metadata export:"
+          echo "✖  New page(s) with no metadata coverage (page or route layout):"
           printf "$VIOLATIONS"
           echo ""
           echo ""
-          echo "   Add to each new page:"
+          echo "   Server pages — export from page.tsx:"
           echo ""
           echo "   // Static metadata:"
           echo "   export const metadata: Metadata = {"
-          echo "     title: 'Page Title — Catch-22',"
+          echo "     title: 'Page Title — Indivisible Fair Oaks-Carmichael',"
           echo "     description: 'Description for SEO and social sharing.',"
           echo "   };"
           echo ""
           echo "   // Dynamic metadata (for pages with params):"
           echo "   export async function generateMetadata({ params }) {"
-          echo "     return { title: \`\${item.name} — Catch-22\` };"
+          echo "     return { title: \`\${item.name} — Indivisible Fair Oaks-Carmichael\` };"
           echo "   }"
+          echo ""
+          echo "   Client pages ('use client') — export from the route layout.tsx"
+          echo "   instead. A page-level export there is silently ignored."
           echo ""
           exit 1
         fi

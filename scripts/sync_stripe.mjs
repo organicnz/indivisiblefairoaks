@@ -14,7 +14,7 @@ const stripeKey = process.env.STRIPE_SECRET_KEY;
 
 if (!stripeKey || stripeKey.includes('placeholder') || stripeKey === 'sk_test_...') {
   console.error('\n❌ Missing Valid Stripe Secret Key!');
-  console.error('Please add your STRIPE_SECRET_KEY (starting with sk_test_ or sk_live_) to catch-22-next/.env.local');
+  console.error('Please add your STRIPE_SECRET_KEY (starting with sk_test_ or sk_live_) to indivisible-fairoaks/.env.local');
   console.error('You can find this in your Stripe Dashboard -> Developers -> API keys.\n');
   process.exit(1);
 }
@@ -25,7 +25,7 @@ async function syncStripe() {
   console.log('🚀 Starting Stripe Synchronization...');
 
   const { data: products, error } = await supabase.from('products').select('*');
-  
+
   if (error) {
     console.error('Failed to fetch products:', error.message);
     process.exit(1);

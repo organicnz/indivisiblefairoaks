@@ -36,6 +36,19 @@ describe('errorReportSchema', () => {
     expect(parsed.message).toBe('Boom');
     expect(parsed.stack).toBeUndefined();
   });
+
+  it('accepts a valid category and defaults to other when absent', () => {
+    expect(errorReportSchema.parse({ message: 'Boom', category: 'stripe' }).category).toBe(
+      'stripe'
+    );
+    expect(errorReportSchema.parse({ message: 'Boom' }).category).toBe('other');
+  });
+
+  it('rejects an unknown category', () => {
+    expect(
+      errorReportSchema.safeParse({ message: 'Boom', category: 'not-a-category' }).success
+    ).toBe(false);
+  });
 });
 
 describe('errorFingerprint', () => {

@@ -1,5 +1,21 @@
 import { XCircle } from 'lucide-react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Checkout Cancelled | Indivisible Fair Oaks-Carmichael',
+  description:
+    'Your checkout session was cancelled. No charges were made. Your items are still saved in your cart for your next purchase.',
+  openGraph: {
+    title: 'Checkout Cancelled | Indivisible Fair Oaks-Carmichael',
+    description:
+      'Your checkout session was cancelled. No charges were made. Your items are still saved in your cart for your next purchase.',
+    url: 'https://indivisiblefairoaks.org/cancel',
+    siteName: 'Indivisible Fair Oaks-Carmichael',
+    locale: 'en_US',
+    type: 'website',
+  },
+};
 
 export default function CancelPage() {
   return (

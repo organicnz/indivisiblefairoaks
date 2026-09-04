@@ -98,6 +98,7 @@ export type Database = {
           body: string | null
           created_at: string | null
           id: number
+          published_at: string | null
           search_vector: unknown
           slug: string
           status: string | null
@@ -109,6 +110,7 @@ export type Database = {
           body?: string | null
           created_at?: string | null
           id?: number
+          published_at?: string | null
           search_vector?: unknown
           slug: string
           status?: string | null
@@ -120,6 +122,7 @@ export type Database = {
           body?: string | null
           created_at?: string | null
           id?: number
+          published_at?: string | null
           search_vector?: unknown
           slug?: string
           status?: string | null
@@ -161,6 +164,7 @@ export type Database = {
       }
       error_reports: {
         Row: {
+          category: string
           component_stack: string | null
           created_at: string
           digest: string | null
@@ -172,6 +176,7 @@ export type Database = {
           user_agent: string | null
         }
         Insert: {
+          category?: string
           component_stack?: string | null
           created_at?: string
           digest?: string | null
@@ -183,6 +188,7 @@ export type Database = {
           user_agent?: string | null
         }
         Update: {
+          category?: string
           component_stack?: string | null
           created_at?: string
           digest?: string | null

@@ -58,7 +58,7 @@ export function formatDate(
   opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }
 ): string {
   if (!iso) return 'N/A';
-  return new Date(iso).toLocaleDateString('en-NZ', opts);
+  return new Date(iso).toLocaleDateString('en-US', opts);
 }
 
 export const STATUS_STYLES: Record<string, string> = {

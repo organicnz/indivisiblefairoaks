@@ -238,7 +238,7 @@ export default function ContactPage() {
                 Monthly Gatherings
               </span>
               <p>First Tuesday of the month (6:30 – 8:00 PM)</p>
-              <p className="text-slate-500">St. Michael&apos;s Episcopal Church, Carmichael, CA</p>
+              <p className="text-slate-400">St. Michael&apos;s Episcopal Church, Carmichael, CA</p>
             </div>
           </div>
         </div>
