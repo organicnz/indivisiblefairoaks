@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { getStorageUrl } from '@/lib/supabase';
 
 interface Photo {
   id: string;
@@ -12,47 +13,47 @@ interface Photo {
   label: string;
 }
 
-// Row 1 — crossfading hero (full-width)
+// Row 1 — crossfading hero (full-width) — all sourced from Supabase storage
 const HERO_PHOTOS: Photo[] = [
   {
-    id: 'bridge-march',
-    src: '/images/gallery/sacramento-tower-bridge-march.jpg',
-    alt: 'Sacramento Tower Bridge march',
-    label: 'Sacramento Bridge March',
+    id: 'no-kings-banner',
+    src: getStorageUrl('gallery/no-kings-constitution-banner.jpg'),
+    alt: 'Chapter members with handcrafted constitutional rights banner',
+    label: 'No Kings In America',
   },
   {
-    id: 'no-kings',
-    src: '/images/gallery/sacramento-capitol-no-kings.jpg',
-    alt: 'Sacramento Capitol No Kings rally',
-    label: 'No Kings Rally',
+    id: 'unity-brave',
+    src: getStorageUrl('gallery/unity-be-brave-with-us.jpg'),
+    alt: 'Be Brave With Us solidarity stand-out',
+    label: 'Be Brave With Us',
   },
   {
-    id: 'witty-ikea',
-    src: '/images/gallery/witty-ikea-sign.jpg',
-    alt: 'Witty IKEA-style protest sign',
+    id: 'witty-grandfather',
+    src: getStorageUrl('gallery/witty-grandfather-ww2-antifa.jpg'),
+    alt: 'Witty WW2 antifa protest sign',
     label: 'Witty Signs',
   },
   {
-    id: 'good-trouble',
-    src: '/images/legacy/legacy-good-trouble-1.jpg',
-    alt: 'Good Trouble action',
+    id: 'highway-good-trouble',
+    src: getStorageUrl('gallery/highway-overpass-good-trouble.jpg'),
+    alt: 'Good Trouble banner drop on Highway 50 overpass',
     label: 'Good Trouble',
   },
 ];
 
-// Row 2 — fixed pair
+// Row 2 — fixed pair — sourced from Supabase storage
 const PAIR_PHOTOS: Photo[] = [
   {
-    id: 'choir',
-    src: '/images/gallery/carmichael-resistance-choir.jpg',
-    alt: 'Carmichael Resistance Choir',
+    id: 'choir-outdoor',
+    src: getStorageUrl('gallery/choir-outdoor-rehearsal.jpg'),
+    alt: 'Carmichael Resistance Choir outdoor rehearsal',
     label: 'Resistance Choir',
   },
   {
-    id: 'brake-light',
-    src: '/images/gallery/norcal-resist-brake-light-clinic.jpg',
-    alt: 'NorCal Resist brake light clinic',
-    label: 'Brake Light Clinic',
+    id: 'voter-registration',
+    src: getStorageUrl('gallery/voter-registration-homeless-vote.jpg'),
+    alt: 'Grassroots voter registration action',
+    label: 'Voter Registration',
   },
 ];
 
