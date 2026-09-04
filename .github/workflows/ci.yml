@@ -26,7 +26,7 @@ jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
-    runs-on: [self-hosted, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64]
     steps:
       - uses: actions/checkout@v4
 
@@ -49,7 +49,7 @@ jobs:
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
     name: Tests & Coverage
-    runs-on: [self-hosted, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64]
     steps:
       - uses: actions/checkout@v4
 
@@ -66,7 +66,7 @@ jobs:
   # ── 3. Build ─────────────────────────────────────────────────────────────────
   build:
     name: Next.js Build
-    runs-on: [self-hosted, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64]
     needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +95,7 @@ jobs:
   # ── 4. E2E Tests ─────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
-    runs-on: [self-hosted, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64]
     needs: [build]
     steps:
       - uses: actions/checkout@v4
@@ -131,7 +131,7 @@ jobs:
   # ── 5. Deploy to Vercel ───────────────────────────────────────────────────────
   deploy-vercel:
     name: Deploy → Vercel
-    runs-on: [self-hosted, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64]
     needs: [build]
     # Only deploy on push (not on PR) for main/mainDeploy
     if: github.event_name == 'push'
@@ -174,7 +174,7 @@ jobs:
   # ── 6. Deploy Edge Functions + Migrations to Supabase ────────────────────────
   deploy-supabase:
     name: Deploy → Supabase
-    runs-on: [self-hosted, backend-runner]
+    runs-on: [self-hosted, linux, ARM64]
     needs: [build]
     # Only deploy on push for main/mainDeploy
     if: github.event_name == 'push'
@@ -241,7 +241,7 @@ jobs:
   # ── 7. Live Health Probe ──────────────────────────────────────────────────────
   health-probe:
     name: Live Health Probe
-    runs-on: [self-hosted, backend-runner]
+    runs-on: [self-hosted, linux, ARM64]
     needs: [deploy-supabase, deploy-vercel]
     if: github.event_name == 'push'
     steps:
