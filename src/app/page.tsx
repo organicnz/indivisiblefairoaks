@@ -41,11 +41,11 @@ export default function HomePage() {
   return (
     <div className="flex flex-col w-full">
       {/* Hero Section with VGPU Dynamic Civic Atmosphere */}
-      <section className="relative overflow-hidden bg-slate-950 text-white pt-28 pb-20 md:pt-36 md:pb-28">
+      <section className="relative overflow-hidden bg-slate-950 text-white w-full min-h-screen pt-28 pb-20 md:pt-36 md:pb-28">
         {/* VGPU WebGPU Background Atmosphere */}
         <VgpuCivicAtmosphere intensity={1.0} />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="px-4 sm:px-6 lg:px-8 lg:max-w-7xl mx-auto relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-16 items-center">
             {/* Left — copy & CTAs */}
             <div className="max-w-xl">

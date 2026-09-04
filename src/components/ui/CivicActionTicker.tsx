@@ -3,7 +3,7 @@
 import { Calendar, Heart, Music, PhoneCall, Sparkles, Vote } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { getTickerEvents } from '@/lib/queries/civic';
+import { getTickerEvents } from '@/lib/queries/civic-client';
 
 interface TickerItem {
   icon: React.ReactNode;

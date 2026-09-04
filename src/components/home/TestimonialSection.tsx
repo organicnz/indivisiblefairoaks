@@ -4,7 +4,7 @@ import { Quote, Star } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { getTestimonials } from '@/lib/queries/content';
+import { getTestimonials } from '@/lib/queries/content-client';
 import { sanitizeWPContent } from '@/lib/sanitize';
 
 const STAR_POSITIONS = ['first', 'second', 'third', 'fourth', 'fifth'] as const;
