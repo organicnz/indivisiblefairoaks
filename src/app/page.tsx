@@ -48,7 +48,7 @@ export default function HomePage() {
         <div className="px-4 sm:px-6 lg:px-8 lg:max-w-7xl mx-auto relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 xl:gap-16 items-center">
             {/* Left — copy & CTAs */}
-            <div className="max-w-xl">
+            <div className="max-w-full md:max-w-2xl lg:max-w-3xl">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-md">
                 <Sparkles size={14} className="text-amber-400" />
                 <span>Sacramento County Grassroots Action</span>
