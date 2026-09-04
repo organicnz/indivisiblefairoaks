@@ -5,6 +5,7 @@ import { Hono } from 'jsr:@hono/hono'
 import { cors } from 'jsr:@hono/hono/cors'
 import { HTTPException } from 'jsr:@hono/hono/http-exception'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { isSpamContent } from '../_shared/spam.ts'
 
 // ---------------------------------------------------------------------------
 // Search edge function — production-ready search API.
@@ -163,13 +164,13 @@ async function checkRateLimit(supabase: ReturnType<typeof supabaseAdmin>, ip: st
 
 // Ensure the rate-limit table exists (best‑effort, migration should already be applied).
 const admin = supabaseAdmin()
-;(async () => {
-  try {
-    await admin.from('search_rate_limit').insert({ ip: '__ensure__', created_at: new Date().toISOString() })
-  } catch {
-    // table may already exist or be missing — either way proceed
-  }
-})()
+  ; (async () => {
+    try {
+      await admin.from('search_rate_limit').insert({ ip: '__ensure__', created_at: new Date().toISOString() })
+    } catch {
+      // table may already exist or be missing — either way proceed
+    }
+  })()
 
 // ---------------------------------------------------------------------------
 // Log a search to error_reports analytics table
@@ -269,11 +270,8 @@ app.post('*', async (c) => {
   const MAX_QUERY_LENGTH = 100
   const cleanQuery = query.slice(0, MAX_QUERY_LENGTH)
 
-  // Spam keyword detection on the query itself (using shared sanitize helper)
-  // isSpamContent returns false for empty/indivisible‑safe strings, so we
-  // treat a positive result as a rejection.
-  const fromLib = await import('@/lib/sanitize')
-  const isSpam = fromLib.isSpamContent(cleanQuery)
+  // Spam keyword detection on the query itself
+  const isSpam = isSpamContent(cleanQuery)
   if (isSpam) {
     console.warn(`[search] spam query rejected from IP: ${c.req.header('x-forwarded-for') ?? 'unknown'} — query: "${cleanQuery}"`)
     await logSearchAnalytics(admin, 'unknown', cleanQuery, false, 'spam_query')
@@ -344,7 +342,7 @@ app.post('*', async (c) => {
   let posts: { id: number; title: string; slug: string; type: string | null; created_at: string | null }[] = []
 
   if (productsResult.data && Array.isArray(productsResult.data)) {
-    ;(products as any[]).push(
+    ; (products as any[]).push(
       ...(productsResult.data as any[]).map((row: any) => ({
         id: row.id,
         name: row.name,
@@ -359,7 +357,7 @@ app.post('*', async (c) => {
   }
 
   if (contentResult.data && Array.isArray(contentResult.data)) {
-    ;(posts as any[]).push(
+    ; (posts as any[]).push(
       ...(contentResult.data as any[]).map((row: any) => ({
         id: row.id,
         title: row.title,
@@ -371,7 +369,7 @@ app.post('*', async (c) => {
   }
 
   // Post‑process: filter posts whose title contains spam keywords
-  const filteredPosts = posts.filter((item) => !fromLib.isSpamContent(item.title))
+  const filteredPosts = posts.filter((item) => !isSpamContent(item.title))
 
   // ---- Build response ----
   const total = {

@@ -39,11 +39,13 @@ async function expectHeadingClearOfHeader(page: import('@playwright/test').Page)
   expect(header, 'header must render').toBeTruthy();
   expect(h1Box, 'page must have an h1').toBeTruthy();
 
+  if (!header || !h1Box) return;
+
   // Allow 2px tolerance for sub-pixel rounding.
   expect(
-    h1Box!.y,
-    `h1 at y=${h1Box!.y} overlaps fixed header ending at y=${header!.y + header!.height}`
-  ).toBeGreaterThanOrEqual(header!.y + header!.height - 2);
+    h1Box.y,
+    `h1 at y=${h1Box.y} overlaps fixed header ending at y=${header.y + header.height}`
+  ).toBeGreaterThanOrEqual(header.y + header.height - 2);
 }
 
 test.describe('desktop clearance (144px header)', () => {
