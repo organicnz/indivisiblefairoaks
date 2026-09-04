@@ -121,7 +121,8 @@ export function HeroPhotoFrame() {
 
   return (
     // Outer wrapper — decorative, hidden from AT. Gallery link is outside.
-    <div className="hidden lg:flex flex-col gap-3 select-none">
+    // Visible on all breakpoints: stacked below copy on mobile, right column on lg+.
+    <div className="flex flex-col gap-3 select-none w-full max-w-xl mx-auto lg:max-w-none lg:mx-0">
       <div aria-hidden="true" className="flex flex-col gap-3">
         {/* ── Row 1: crossfading large photo ── */}
         <motion.div
@@ -145,7 +146,7 @@ export function HeroPhotoFrame() {
                 alt={heroPhoto.alt}
                 fill
                 className="object-cover"
-                sizes="(min-width: 1024px) 44vw, 0px"
+                sizes="(min-width: 1024px) 44vw, 100vw"
                 priority
               />
             </motion.div>
@@ -199,7 +200,7 @@ export function HeroPhotoFrame() {
                 alt={photo.alt}
                 fill
                 className="object-cover"
-                sizes="(min-width: 1024px) 22vw, 0px"
+                sizes="(min-width: 1024px) 22vw, 50vw"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 to-transparent" />
               <div className="absolute bottom-2 left-2 right-2">
@@ -236,7 +237,7 @@ export function HeroPhotoFrame() {
                     alt={photo.alt}
                     fill
                     className="object-cover"
-                    sizes="(min-width: 1024px) 14vw, 0px"
+                    sizes="(min-width: 1024px) 14vw, 33vw"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent" />
                   <div className="absolute bottom-1.5 left-1.5 right-1.5">
