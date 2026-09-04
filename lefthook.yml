@@ -716,6 +716,16 @@ post-commit:
         if [ -z "$CHANGED" ]; then
           exit 0
         fi
+        # Guard: only regenerate if .env.local points at the canonical project.
+        CANONICAL="wcoaqlglwxwceqktpckt"
+        SUPABASE_URL=$(grep -E "^NEXT_PUBLIC_SUPABASE_URL=" .env.local 2>/dev/null | cut -d= -f2- | tr -d '"'"'" | tr -d ' ')
+        if [ -n "$SUPABASE_URL" ]; then
+          DERIVED=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)
+          if [ "$DERIVED" != "$CANONICAL" ]; then
+            echo "⚠️   Skipping type regen — .env.local points to a different project ($DERIVED ≠ $CANONICAL)."
+            exit 0
+          fi
+        fi
         echo ""
         echo "🗄️   Migration committed — regenerating TypeScript types..."
         if bun run types:generate 2>/dev/null; then
@@ -908,6 +918,19 @@ post-merge:
       run: |
         changed=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD -- "supabase/migrations/*.sql" 2>/dev/null || true)
         if [ -n "$changed" ]; then
+          # Guard: only regenerate if the Supabase URL resolves to the correct
+          # project ref. If .env.local points at a different project (e.g. a
+          # personal workspace), skip silently to avoid clobbering committed types.
+          CANONICAL="wcoaqlglwxwceqktpckt"
+          SUPABASE_URL=$(grep -E "^NEXT_PUBLIC_SUPABASE_URL=" .env.local 2>/dev/null | cut -d= -f2- | tr -d '"'"'" | tr -d ' ')
+          if [ -n "$SUPABASE_URL" ]; then
+            DERIVED=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)
+            if [ "$DERIVED" != "$CANONICAL" ]; then
+              echo "⚠️   Skipping type regen — .env.local points to a different project ($DERIVED ≠ $CANONICAL)."
+              echo "    Run manually if needed: bun run types:generate"
+              exit 0
+            fi
+          fi
           echo "🗄️   Migrations pulled — regenerating TypeScript types..."
           bun run types:generate 2>/dev/null && \
             echo "✔   src/types/supabase.ts updated." || \
