@@ -86,7 +86,8 @@ describe('sanitizeText()', () => {
   });
 
   it('handles text with no spam gracefully', () => {
-    expect(sanitizeText('Catch-22 premium lures')).toBe('Catch-22 premium lures');
+    const clean = 'Indivisible Fair Oaks community update';
+    expect(sanitizeText(clean)).toBe(clean);
   });
 });
 
@@ -132,11 +133,11 @@ describe('hasSuspiciousContent()', () => {
     expect(hasSuspiciousContent(html)).toBe(false);
   });
 
-  it('returns false for normal product description HTML', () => {
+  it('returns false for normal content HTML', () => {
     const html = `
-      <p>The Catch-22 Kingfish Rig is hand-tied with 80lb mono leader.</p>
-      <ul><li>Hook size 6/0</li><li>Swivel included</li></ul>
-      <a href="/products/kingfish-rig">Buy now</a>
+      <p>The Indivisible Fair Oaks chapter meets monthly to organize advocacy.</p>
+      <ul><li>Voter registration drives</li><li>Town halls</li></ul>
+      <a href="/events">View events</a>
     `;
     expect(hasSuspiciousContent(html)).toBe(false);
   });

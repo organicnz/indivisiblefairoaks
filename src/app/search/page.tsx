@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ProductCard } from '@/components/products/ProductCard';
+import { buildTextSearchOr } from '@/lib/queries/content';
 import {
   normalizeSearchQuery,
   type RankedContentRow,
@@ -59,8 +60,10 @@ export default async function SearchPage({
       const { data: contentData } = await supabase
         .from('content')
         .select('id, title, slug, type, created_at')
-        .or(`title.ilike.%${q}%,body.ilike.%${q}%`)
         .eq('status', 'publish')
+        .or(
+          buildTextSearchOr([`title.ilike.%${q}%`, `body.ilike.%${q}%`], new Date().toISOString())
+        )
         .limit(10);
 
       products = prodData || [];

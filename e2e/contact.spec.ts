@@ -72,7 +72,9 @@ test.describe('contact form delivery status', () => {
 
     const banner = page.getByRole('status');
     await expect(banner).toContainText(/notification email failed/i);
-    await expect(banner.getByRole('link', { name: /Catch-22NZ@hotmail.com/i })).toBeVisible();
+    await expect(
+      banner.getByRole('link', { name: /contact@indivisiblefairoaks\.org/i })
+    ).toBeVisible();
 
     // The message was still stored — exactly one notification attempt made.
     expect((await getMockState(request)).calls).toBe(1);

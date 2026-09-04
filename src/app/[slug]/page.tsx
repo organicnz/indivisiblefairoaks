@@ -109,7 +109,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
               className="mt-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em]"
             >
               Published{' '}
-              {new Date(content.created_at).toLocaleDateString('en-NZ', {
+              {new Date(content.created_at).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',

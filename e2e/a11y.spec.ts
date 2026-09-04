@@ -22,6 +22,10 @@ const PAGES: { path: string; name?: string }[] = [
   { path: '/contact' },
   { path: '/shipping-returns' },
   { path: '/gallery' },
+  { path: '/news', name: 'Newsletters' },
+  { path: '/events', name: 'Events' },
+  { path: '/voter-info', name: 'Voter Information' },
+  { path: '/choir', name: 'Resistance Choir' },
 ];
 
 for (const { path, name } of PAGES) {
@@ -38,6 +42,10 @@ for (const { path, name } of PAGES) {
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      // YouTube's player DOM is third-party code served inside a cross-origin
+      // iframe — its internal aria/button markup is Google's to fix, not ours.
+      // Exclude the frame so the gate judges first-party markup only.
+      .exclude('iframe[src*="youtube.com"], iframe[src*="youtube-nocookie.com"]')
       .analyze();
 
     const serious = results.violations.filter((violation) =>

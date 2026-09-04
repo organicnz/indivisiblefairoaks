@@ -62,10 +62,12 @@ CREATE TABLE IF NOT EXISTS public.content (
     excerpt TEXT,
     type VARCHAR(50) DEFAULT 'page', -- 'page', 'post', 'action', 'event'
     status VARCHAR(50) DEFAULT 'publish',
+    published_at TIMESTAMPTZ, -- NULL = visible immediately when status is 'publish'
     featured_image TEXT,
     metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT content_status_check CHECK (status IN ('publish', 'draft'))
 );
 
 ALTER TABLE public.content ENABLE ROW LEVEL SECURITY;
@@ -106,7 +108,8 @@ CREATE TABLE IF NOT EXISTS public.error_reports (
     stack TEXT,
     component_stack TEXT,
     path TEXT,
-    user_agent TEXT
+    user_agent TEXT,
+    category TEXT NOT NULL DEFAULT 'other'
 );
 
 ALTER TABLE public.error_reports ENABLE ROW LEVEL SECURITY;

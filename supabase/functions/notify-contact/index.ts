@@ -1,3 +1,5 @@
+// @deno-types="npm:@hono/hono@^5.0.0"
+// @deno-types="npm:@supabase/supabase-js@^2.0.0"
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { Hono } from 'jsr:@hono/hono'
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -82,7 +84,7 @@ function buildEmail(name: string, email: string, message: string, receivedAt: st
 <p style="margin:0;"><span style="display:block;color:rgba(255,255,255,0.45);font-size:10px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:4px;">Message</span>${safeMessage}</p>
 </td></tr>
 <tr><td style="padding:20px 40px;border-top:1px solid rgba(209,255,0,0.2);text-align:center;">
-<p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Received ${receivedAt} NZT &middot; Reply directly to this email</p></td></tr>
+<p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Received ${receivedAt} PT &middot; Reply directly to this email</p></td></tr>
 </table></td></tr></table></body></html>`
 }
 
@@ -104,7 +106,7 @@ function buildCustomerCopy(name: string, email: string, message: string, receive
 <p style="margin:0;">Our team will get back to you at ${safeEmail} as soon as possible. No need to reply to this email.</p>
 </td></tr>
 <tr><td style="padding:20px 40px;border-top:1px solid rgba(209,255,0,0.2);text-align:center;">
-<p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Sent ${receivedAt} NZT &middot; Indivisible Fair Oaks &middot; Civic Action &middot; Sacramento County</p></td></tr>
+<p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Sent ${receivedAt} PT &middot; Indivisible Fair Oaks &middot; Civic Action &middot; Sacramento County</p></td></tr>
 </table></td></tr></table></body></html>`
 }
 
@@ -166,8 +168,8 @@ app.post('*', async (c) => {
   const contactName = stripControls(claimed.name)
   const contactEmail = stripControls(claimed.email)
 
-  const receivedNzt = new Date(claimed.created_at).toLocaleString('en-NZ', {
-    timeZone: 'Pacific/Auckland',
+  const receivedPt = new Date(claimed.created_at).toLocaleString('en-US', {
+    timeZone: 'America/Los_Angeles',
     day: '2-digit',
     month: 'short',
     hour: 'numeric',
@@ -186,7 +188,7 @@ app.post('*', async (c) => {
       to: [TO_EMAIL],
       reply_to: contactEmail,
       subject: `New message from ${contactName} — indivisiblefairoaks.org`,
-      html: buildEmail(contactName, contactEmail, claimed.message, receivedNzt),
+      html: buildEmail(contactName, contactEmail, claimed.message, receivedPt),
     }),
   })
 
@@ -219,7 +221,7 @@ app.post('*', async (c) => {
           contactName,
           contactEmail,
           claimed.message,
-          receivedNzt
+          receivedPt
         ),
       }),
     })

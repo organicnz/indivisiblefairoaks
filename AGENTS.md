@@ -1,126 +1,162 @@
-# Indivisible Fair Oaks-Carmichael: Migration Architectural Guide
+# Indivisible Fair Oaks-Carmichael — Agent & Contributor Guide
 
-## Project Objective
-Transform the legacy WordPress/Elementor ecosystem (catch-22.co.nz) into a modern, high-performance headless platform. The goal is to achieve feature parity while introducing a "Sensory Luxury" design language and a robust, secure infrastructure.
-
----
-
-## 🏗 Architectural Blueprint
-
-### 1. Headless E-commerce (Next.js 16)
-- **App Router Architecture**: Leveraging Server Components for data fetching and Client Components for interactivity (Cart, Wishlist).
-- **Dynamic Routing**: Implementation of `[slug]` patterns for products, categories, and dynamic content pages.
-- **Sanitization Layer**: A dedicated utility in `src/app/[slug]/page.tsx` for scrubbing legacy WordPress artifacts and preventing malicious spam injections.
-
-### 2. Backend & Security (Supabase)
-- **PostgreSQL Database**: Relational schema for products, categories, content, and coupons.
-- **Supabase Auth & MFA**: Secure user management with Multi-Factor Authentication support for account protection.
-- **Edge Functions**: Specialized logic for data synchronization, complex server-side operations, and secure Stripe webhook handling.
-
-### 3. "Sensory Luxury" Design System
-- **Design Tokens**: Defined directly in `src/app/globals.css` using Tailwind 4 `@theme` (no legacy config file).
-- **Core Componentry**: Reusable, high-fidelity components like `ProductCard`, `WishlistButton`, and `Header`.
-- **Aesthetic Principles**:
-  - **High-Contrast**: Primary Lime (#D1FF00) against Deep Secondary (#0F172A).
-  - **Fluidity**: 500ms-700ms ease-out transitions for interactive elements.
-  - **Clarity**: Heavy use of tracking (letter-spacing) and black-weight typography for a premium feel.
+> **Scope**: Architectural decisions, coding rules, active constraints, and agent skill index.
+> Treat everything in this file as authoritative. See README.md for setup and CLI commands.
 
 ---
 
-## 🛠 Working Stack (Simplified)
-- **Runtime**: Bun (Package management & scripts)
-- **Frontend**: Next.js 16 (App Router + React 19)
-- **Backend**: Supabase (Database, Auth, Storage via REST client)
-- **Payments**: Stripe (Express Checkout & Webhooks)
-- **Styling**: Tailwind CSS 4 (Native CSS variables)
-- **State**: Zustand (Persistent cart & wishlist)
-- **Agent Skills**: Vercel agent skills installed via `skills` CLI (see `.agents/skills/`, pinned in `skills-lock.json`)
+## Architecture
+
+### App Router structure
+- **Server Components** handle all data fetching via `createClient` from `@supabase/ssr`.
+- **Client Components** are scoped to interactive leaves: Cart, Wishlist, command palette, Stripe checkout.
+- Dynamic pages use `[slug]` routing; `generateMetadata` is mandatory on every dynamic route.
+- `cacheLife` profiles are set to `"hours"` across all catalog and content fetches — do not change to `"minutes"` until the project moves to Vercel Pro (see Conservation Mode below).
+
+### Supabase backend
+- PostgreSQL with RLS on every user-facing table. Anon key = read-only + insert on allowlisted tables only.
+- Auth includes MFA support. Middleware enforces session checks on `/account`, `/admin`, `/login` **only** — do not expand middleware scope without checking Fluid CPU budget.
+- Edge Functions: `notify-contact`, `stripe-webhook`, `health`. Invoked directly from Server Actions; never call Edge Functions from Client Components.
+- **RLS role-repair pattern**: after project restore/re-provisioning, policy→role OID references can orphan (`pg_policies` shows `{public}` but matches nobody). Playbook: `DROP POLICY … ; CREATE POLICY … TO authenticated …`. Reference: `20260825160000_contact_rls_role_repair.sql`.
+
+### Sanitization layer
+`sanitizeWPContent` in `src/lib/` must wrap **all** HTML from the `content` table before render. It:
+1. Removes legacy WPForms shortcodes (replaces with native contact component).
+2. Strips spam keywords (Casino, Slot, Betting, etc.) and their parent elements.
+3. Drops outbound links not matching trusted domains (supabase.co, stripe.com, indivisiblefairoaks.org).
+
+Never render raw Supabase HTML without this helper — treat it as a security boundary.
 
 ---
 
-## 🧠 Agent Skills (Vercel)
-Installed from `vercel-labs/agent-skills` via `npx skills add`. Load on demand; do not re-install.
+## Design System — "Sensory Luxury"
 
-| Skill | Use when |
-| --- | --- |
-| `vercel-react-best-practices` | Writing/refactoring React or Next.js code (performance patterns). |
-| `vercel-composition-patterns` | Component architecture, compound components, provider APIs. |
-| `web-design-guidelines` | UI/accessibility audits ("review my UI"). |
-| `vercel-react-view-transitions` | Page/route animations via the View Transition API. |
-| `deploy-to-vercel` | Deploying the app or creating preview deployments. |
-| `vercel-cli-with-tokens` | Vercel CLI automation with access tokens (CI). |
-| `vercel-optimize` | Cost/performance optimization of the deployed project. |
-| `react-native-skills` | Not applicable to this web-only project (installed for reference). |
-| `writing-guidelines` | Docs/prose style review. |
+Tokens are defined in `src/app/globals.css` via `@theme`. No `tailwind.config.*` file exists.
 
-Update with `npx skills update`; restore with `npx skills experimental_install`.
+### Active color tokens
+| Token | Hex | Usage |
+|---|---|---|
+| `--primary` | `#1e3a8a` | Primary blue — buttons, links, active states |
+| `--primary-light` | `#2563eb` | Hover/focus variants |
+| `--primary-dark` | `#172554` | Pressed/deep variants |
+| `--primary-ink` | `#1e3a8a` | Text on light surfaces (replaces raw lime) |
+| `--secondary` | `#0f172a` | Page backgrounds, dark surfaces |
+| `--accent` | `#d97706` | Amber — donate CTA, warnings |
+| `--accent-gold` | `#f59e0b` | Active nav indicators |
+| `--accent-red` | `#dc2626` | Destructive actions, errors |
+| `--surface-muted` | `#f8fafc` | Card backgrounds on light pages |
 
----
+Use `text-primary-ink` for any text placed on light/white surfaces. Raw lime (`#D1FF00`) is reserved for dark-surface non-text accents only — do not use it for body or heading text.
 
-## ⏸ Deferred Upgrades
-- **TypeScript 7**: BLOCKED — Next.js 16.3 loads TS via the JS compiler API (`lib/typescript.js`), removed in TS 7.0; support lands ~TS 7.1 (see vercel/next.js#95633). Stay on TS 5.9 until then. tsconfig is already TS7-shaped (`moduleResolution: bundler`).
-- **TypeScript 6**: bridge release only (deprecations); no value while blocked on 7.
-- Revisit after the Next.js 16.3.x line announces native-TS builds.
+### Typography
+- **Headings**: Outfit font, `font-black uppercase tracking-tighter`
+- **Navigation**: `font-bold uppercase tracking-[0.2em]`
+- **Body**: Inter font, `font-medium text-slate-600 leading-relaxed`
 
-### Vercel Free-Tier Conservation Mode
-The team shares one Fluid Active CPU pool (4 hrs / rolling 30 days) across all projects. Deliberate posture — do not revert without checking the Usage dashboard:
-- All catalog/content `cacheLife` profiles are **`hours`** (not `minutes`) to minimize background renders; price/stock edits propagate within the hour.
-- Middleware runs **only** on `/account`, `/admin`, `/login`.
-- Image transforms: 31-day cache, slim variant grids, logo served unoptimized, qualities locked to 75.
-- Sitemap is fully static (`○`). Fuzzed content OG slugs fail fast with 404.
-- Rate limits: checkout 10/min/IP, contact 3/10min/IP.
-When the store generates revenue, move to Pro and revisit TTLs (`minutes`) for price freshness.
+### Motion
+- Use `motion` (the `motion` npm package, not `framer-motion`) for complex transitions.
+- Tailwind utilities for micro-animations (hover scale, opacity, color transitions).
+- All transitions must be `ease-out`, duration `300ms`–`500ms`. Avoid durations over 500ms for interactive feedback.
 
 ---
 
-## 🗺 Migration Roadmap
+## Coding Rules
 
-### Phase 1: Core Infrastructure (Completed)
-- [x] Supabase project initialization and schema design.
-- [x] Next.js 16 project structure and base styling.
-- [x] Primary Header and Footer navigation mirroring.
-
-### Phase 2: Feature Parity & UI Hardening (Completed)
-- [x] **Home Page**: Hero section and "Best Sellers" grid with hardened design tokens.
-- [x] **Products**: Dynamic category filtering and individual product detail views.
-- [x] **Cart & Checkout**: Persistent cart state and Stripe session integration.
-- [x] **Logbook (Blog)**: Content migration with aggressive spam filtering.
-
-### Phase 3: Content Population & Asset Migration (Completed)
-- [x] **Static Pages**: FAQs, About Us, Partners, and Gallery (Catch-Snaps).
-- [x] **Asset Hardening**: Mapping partner logos, community gallery images, and "Sledger Rigs" content.
-- [x] **Legal**: Terms of Service, Privacy Policy, and Shipping/Returns.
-
-### Phase 4: Production Hardening (Completed)
-- [x] **Documentation**: Finalizing README, AGENTS, and CLAUDE guides.
-- [x] **Sensory Design**: Full hardening of ProductCard and Gallery components.
-- [x] **Final QA**: End-to-end checkout flow validation and cross-device testing.
-- [x] **Stripe Production**: Transitioning from test keys to live environment.
-
-### Phase 5: Stack Hardening Round (Current)
-- [x] **Error Telemetry**: Supabase-native error beacon — `error_reports` table (anon insert-only RLS), rate-limited `/api/report-error`, wired into `error.tsx` / `global-error.tsx`.
-- [x] **Full-Text Search**: Weighted `tsvector` generated columns + GIN indexes + ranked RPCs (`search_products`, `search_content`); `/search` uses ranked FTS with ILIKE fallback for un-migrated previews.
-- [x] **A11y Regression Gate**: `@axe-core/playwright` suite (`e2e/a11y.spec.ts`) over 8 public routes; serious/critical violations fail CI.
-- [x] **Contrast Remediation**: `--primary-ink` (#5c7500) token for lime-on-light text; lime-bg CTAs use dark text; slate-300/400 grays lifted on light surfaces. Raw lime reserved for dark surfaces/non-text accents.
-- [x] **Bundle Hygiene**: Removed dead `mime-types`; React Query devtools dev-only gated; patch bumps.
-- [x] **Cart Route Crash Fix**: `/cart` rendered the error boundary in production — `env.ts` validated `{ ...process.env }`, which bundlers cannot statically inline on the client (empty stub → ZodError at module scope via `StripeExpressCheckout`). Public vars are now picked as dotted accesses (inlined); spreads remain server-only.
-- [x] **Contact Email Delivery**: `contact_submissions` had no consumer (messages invisible). New `20260825140000_contact_notification.sql` + `20260825150000_contact_sender_copy.sql` + `notify-contact` Edge Function: the server action inserts (returning id), invokes the function directly and awaits `{emailed, copied}` — the UI reports real per-email success/failure instead of blanket success. Atomic `email_sent_at` claim = exactly one notification per row ever (replay/double-submit-proof under `--no-verify-jwt`); global 20/10-min volume cap inside the function resists anon-key floods. Opt-in sender copy (`wants_copy`) locked to the row's own address. Tested at every layer: vitest action matrix (13 cases), Playwright e2e over a controllable mock function (`CONTACT_FUNCTION_URL`, `scripts/mock-notify-contact.mjs`) driving all status branches, axe a11y on `/contact`. No secrets in SQL, no Vault step.
-- Migration note: `20260825120000_error_reports.sql` + `20260825130000_fts_search.sql` apply via CI db push on merge to main.
-- [x] **Daily Compatibility Workflow**: `.github/workflows/daily-compat.yml` runs nightly (21:17 UTC) — frozen install, lint/format/types, unit, production build, full mock-backed e2e, live `/api/health` + edge-function boot probes for all three functions. Advisory AI review job (`scripts/ai-review.mjs`, Groq gpt-oss-120b + Z.ai glm-4.6, keys in GH secrets only) reviews the last 24h of diffs with progressive payload truncation for free-tier token caps; model output never gates CI.
-- [x] **RLS Role-Repair Pattern**: project restore/re-provisioning can orphan policy→role OID references (`pg_policies` masks empty polroles as `{public}`) — policies then match nobody and default-deny silently. `20260825160000_contact_rls_role_repair.sql` fixes the incident on `contact_submissions`; recreate-and-rebind is the playbook for any table showing "policy exists but denies everyone".
+1. **Tokens always** — no hardcoded hex, no arbitrary Tailwind values for brand colors.
+2. **generateMetadata everywhere** — every `page.tsx` must export it; title and description must be unique.
+3. **Sanitize all CMS content** — `sanitizeWPContent` before any `dangerouslySetInnerHTML`.
+4. **No console.log in committed code** — enforced by oxlint.
+5. **No layout shift** — always provide width/height on `next/image`; use `aspect-ratio` utilities for unknown-dimension embeds.
+6. **Server-only env reads** — `process.env.SUPABASE_SECRET_KEY` etc. are accessed as dotted properties, never spread into objects, never imported into client modules. Public `NEXT_PUBLIC_*` vars are safe to access anywhere.
+7. **Exact dependency versions** — use `^` only; pin via `overrides` for any package with a known CVE.
+8. **MFA guards** — account-mutating operations must check MFA enrollment status server-side.
 
 ---
 
-## 🛡 Security & Sanitization
-The `sanitizeWPContent` helper is critical for brand integrity. It handles:
-1. **Shortcode Extraction**: Replaces legacy WPForms with native Next.js contact components.
-2. **Spam Blacklist**: Aggressive filtering of keywords (Casino, Slot, Betting) and their surrounding elements.
-3. **Link Hardening**: Strips unauthorized outbound links while preserving trusted domains (Supabase, Stripe).
+## Vercel Free-Tier Conservation Mode
+
+The team shares one Fluid Active CPU pool (4 hrs / rolling 30 days). **Do not revert these settings without checking the Usage dashboard first.**
+
+| Setting | Value | Reason |
+|---|---|---|
+| `cacheLife` for catalog/content | `"hours"` | Minimizes background revalidation renders |
+| Middleware scope | `/account`, `/admin`, `/login` only | Middleware runs on every matched request |
+| Image quality | `75` | Reduces transform CPU |
+| Image cache | 31-day CDN TTL | Avoids repeat transforms |
+| Logo | Served unoptimized | Tiny file; transform cost not worth it |
+| Sitemap | Fully static | No dynamic compute |
+| Checkout rate limit | 10/min/IP | Stripe fraud + CPU protection |
+| Contact rate limit | 3/10min/IP | Anon-key flood protection |
+
+When the project moves to Vercel Pro, revisit `cacheLife: "minutes"` for price and stock freshness.
 
 ---
 
-## 📋 Guidelines for Future Development
-1. **Maintain Aesthetic Consistency**: All new components must use defined design tokens.
-2. **SEO First**: Every dynamic page MUST implement `generateMetadata` for unique titles and descriptions.
-3. **Sanitize Everything**: Any data coming from the `content` table in Supabase MUST pass through the sanitization helper.
-4. **Performance Budgets**: Monitor LCP and keep client-side bundles minimal.
+## Deferred Upgrades
+
+### TypeScript 7 — BLOCKED
+Next.js 16.3 loads TypeScript via the JS compiler API (`lib/typescript.js`), which was removed in TS 7.0. Native-TS builds land ~TS 7.1. Tracking: [vercel/next.js#95633](https://github.com/vercel/next.js/issues/95633).
+
+**Stay on TypeScript 5.9.** The `tsconfig.json` is already shaped for TS 7 (`moduleResolution: bundler`) so the upgrade will be a version bump only.
+
+TypeScript 6 is a bridge release (deprecations only) — skip it.
+
+---
+
+## Agent Skills
+
+Skills are installed in `agent/skills/` (Vercel) and `.agents/skills/` (vgpu), pinned in `skills-lock.json`.
+Load on demand — do not load all skills upfront, do not re-install manually.
+
+Full usage guide with project-specific context for each skill: **[SKILLS.md](./SKILLS.md)**
+
+Quick trigger table:
+
+| Skill | Load when |
+|---|---|
+| `vercel-react-best-practices` | Writing or refactoring any React / Next.js code |
+| `vercel-composition-patterns` | Component API design, compound components, boolean-prop refactors |
+| `web-design-guidelines` | UI or a11y audits |
+| `vercel-react-view-transitions` | Page/route animations, shared element morphs |
+| `deploy-to-vercel` | Deploying or creating preview deployments |
+| `vercel-cli-with-tokens` | Vercel CLI in CI / token-based automation |
+| `vercel-optimize` | Vercel cost or performance investigation |
+| `writing-guidelines` | Docs or copy review |
+| `vgpu` | WebGPU / shader work (`vgpu` package) |
+| `vercel-react-native-skills` | Not applicable — web-only project |
+
+Update: `npx skills update` · Restore: `npx skills experimental_install`
+
+---
+
+## Migration Roadmap
+
+All phases are complete. This section is kept for historical context.
+
+<details>
+<summary>Phase history</summary>
+
+**Phase 1 — Core Infrastructure** ✅
+Supabase schema, Next.js 16 project scaffold, Header/Footer.
+
+**Phase 2 — Feature Parity** ✅
+Home page hero, product catalog + detail pages, cart + Stripe checkout, Logbook (blog) with spam filtering.
+
+**Phase 3 — Content & Assets** ✅
+Static pages (FAQs, About, Partners, Gallery), partner logos, community gallery, Sledger Rigs, legal pages.
+
+**Phase 4 — Production Hardening** ✅
+README/AGENTS/CLAUDE docs, ProductCard + Gallery design hardening, end-to-end QA, Stripe live keys.
+
+**Phase 5 — Stack Hardening** ✅
+- Error telemetry: `error_reports` table (anon insert-only RLS) + rate-limited `/api/report-error` wired into `error.tsx` / `global-error.tsx`.
+- Full-text search: weighted `tsvector` generated columns + GIN indexes + ranked RPCs (`search_products`, `search_content`); `/search` uses FTS with ILIKE fallback.
+- A11y regression gate: `@axe-core/playwright` over 8 public routes; serious/critical violations fail CI.
+- Contrast remediation: `--primary-ink` token for lime-on-light text; lime-bg CTAs use dark text; raw lime reserved for dark non-text accents.
+- Bundle hygiene: removed dead `mime-types`; React Query devtools dev-only gated.
+- Cart crash fix: `env.ts` was spreading `process.env` (empty client stub → ZodError). Public vars now use dotted property access (inlined by bundler); spreads are server-only.
+- Contact email delivery: `notify-contact` Edge Function invoked directly from the server action; atomic `email_sent_at` claim prevents duplicate sends; global 20/10-min volume cap resists anon floods; opt-in sender copy locked to the submitter's own address.
+- Daily compatibility workflow: nightly CI with frozen install, lint/types/unit/build/e2e, live health probes, advisory AI diff review (never gates CI).
+- RLS role-repair: `20260825160000_contact_rls_role_repair.sql` — recreate-and-rebind playbook for orphaned policy→role OID references.
+
+</details>

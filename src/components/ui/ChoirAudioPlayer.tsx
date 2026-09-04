@@ -208,7 +208,7 @@ export function ChoirAudioPlayer() {
         </div>
         <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-2 px-1">
           <span>0:{playbackTime.toString().padStart(2, '0')}</span>
-          <span className="text-slate-500 flex items-center gap-1">
+          <span className="text-slate-400 flex items-center gap-1">
             <Volume2 size={12} className="text-blue-400" />
             Live Choral Harmonics
           </span>
@@ -238,12 +238,12 @@ export function ChoirAudioPlayer() {
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <span className="font-mono text-slate-500 text-[10px]">
+                <span className="font-mono text-slate-400 text-[10px]">
                   {track.id.split('-')[1]}
                 </span>
                 <span>{track.title}</span>
               </div>
-              <span className="font-mono text-[10px] text-slate-500">{track.duration}</span>
+              <span className="font-mono text-[10px] text-slate-400">{track.duration}</span>
             </button>
           );
         })}

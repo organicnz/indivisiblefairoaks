@@ -101,7 +101,7 @@ export default function NewsPage() {
                     <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
                       {newsletter.date}
                     </span>
-                    <span className="text-[11px] text-slate-500 font-semibold uppercase">
+                    <span className="text-[11px] text-slate-400 font-semibold uppercase">
                       Chapter Bulletin
                     </span>
                   </div>
@@ -126,7 +126,7 @@ export default function NewsPage() {
                     <span>Request Full Issue</span>
                     <ArrowRight size={14} />
                   </a>
-                  <span className="text-[11px] text-slate-500">PDF & Email Archive</span>
+                  <span className="text-[11px] text-slate-400">PDF & Email Archive</span>
                 </div>
               </div>
             ))}
