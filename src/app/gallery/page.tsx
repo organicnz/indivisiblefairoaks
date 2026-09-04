@@ -1,22 +1,11 @@
 'use client';
 
-import {
-  ArrowRight,
-  Camera,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  MapPin,
-  Search,
-  Share2,
-  X,
-} from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, Filter, MapPin, Search, Share2, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { getGalleryPhotos } from '@/lib/queries/content-client';
-import { sanitizeWPContent } from '@/lib/sanitize';
 import { getStorageUrl } from '@/lib/supabase';
 
 interface CivicPhoto {
