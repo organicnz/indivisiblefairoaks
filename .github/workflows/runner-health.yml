@@ -1,0 +1,120 @@
+name: Runner Health
+
+# Runs every 10 minutes — catches offline runners before a real CI job queues
+# and sits there forever. Also runs on demand.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: runner-health
+  cancel-in-progress: true
+
+jobs:
+  # ── Check both runners are alive via the GitHub API ─────────────────────────
+  check-runners:
+    name: Verify runners online
+    # This job intentionally uses ubuntu-latest (GitHub-hosted) so it can
+    # run even when the self-hosted runners are the ones being checked.
+    runs-on: ubuntu-latest
+    outputs:
+      frontend_status: ${{ steps.check.outputs.frontend_status }}
+      backend_status: ${{ steps.check.outputs.backend_status }}
+      all_ok: ${{ steps.check.outputs.all_ok }}
+    steps:
+      - name: Check runner registration + status
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUNNERS=$(gh api repos/${{ github.repository }}/actions/runners \
+            --jq '[.runners[] | {name, status, busy, labels: [.labels[].name | select(. != "self-hosted" and . != "linux" and . != "ARM64" and . != "X64")]}]')
+
+          echo "Registered runners:"
+          echo "$RUNNERS" | jq -r '.[] | "  \(.name): \(.status) (busy=\(.busy))"'
+
+          FRONTEND=$(echo "$RUNNERS" | jq -r '.[] | select(.labels[] | test("frontend-runner")) | .status' || echo "missing")
+          BACKEND=$(echo "$RUNNERS"  | jq -r '.[] | select(.labels[] | test("backend-runner"))  | .status' || echo "missing")
+
+          # Fallback: if no labeled runners, check by name
+          [[ -z "$FRONTEND" ]] && FRONTEND=$(echo "$RUNNERS" | jq -r '.[] | select(.name == "frontend-runner") | .status' || echo "missing")
+          [[ -z "$BACKEND"  ]] && BACKEND=$(echo "$RUNNERS"  | jq -r '.[] | select(.name == "backend-runner")  | .status' || echo "missing")
+
+          echo "frontend_status=${FRONTEND:-missing}" >> "$GITHUB_OUTPUT"
+          echo "backend_status=${BACKEND:-missing}"   >> "$GITHUB_OUTPUT"
+
+          if [[ "$FRONTEND" == "online" && "$BACKEND" == "online" ]]; then
+            echo "all_ok=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Both runners online"
+          else
+            echo "all_ok=false" >> "$GITHUB_OUTPUT"
+            echo "❌ Runner problem — frontend=$FRONTEND backend=$BACKEND"
+          fi
+
+      - name: Probe health endpoints (via Tailscale IPs)
+        continue-on-error: true
+        run: |
+          # These only work if this runner can reach the Tailscale network.
+          # On GitHub-hosted runners this will fail silently (continue-on-error).
+          # On self-hosted runners with Tailscale it will surface real health data.
+          for IP in "100.92.38.119" "100.99.241.23"; do
+            RESULT=$(curl -fsSL --max-time 5 "http://${IP}:9100" 2>/dev/null || echo '{"ok":false,"error":"unreachable"}')
+            echo "  ${IP}: $RESULT"
+          done
+
+      - name: Fail if any runner offline
+        if: steps.check.outputs.all_ok != 'true'
+        run: |
+          echo "::error::One or more self-hosted runners are offline or unregistered."
+          echo ""
+          echo "  frontend-runner: ${{ steps.check.outputs.frontend_status }}"
+          echo "  backend-runner:  ${{ steps.check.outputs.backend_status }}"
+          echo ""
+          echo "Fix: SSH into the VPS and run:"
+          echo "  curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/setup-runner.sh | bash -s -- --token <NEW_TOKEN> --name <NAME> --labels <LABELS>"
+          echo ""
+          echo "Get a fresh token:"
+          echo "  gh api -X POST repos/${{ github.repository }}/actions/runners/registration-token --jq '.token'"
+          exit 1
+
+  # ── Smoke-test: queue a real job on each runner ─────────────────────────────
+  smoke-frontend:
+    name: Smoke test — frontend-runner
+    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    needs: check-runners
+    if: needs.check-runners.outputs.all_ok == 'true'
+    timeout-minutes: 3
+    steps:
+      - name: Runner is alive
+        run: |
+          echo "✅ frontend-runner responding"
+          echo "  Host:   $(hostname)"
+          echo "  Kernel: $(uname -r)"
+          echo "  Arch:   $(uname -m)"
+          echo "  CPU:    $(nproc) cores"
+          echo "  RAM:    $(free -h | awk '/Mem:/{print $2}')"
+          echo "  Swap:   $(free -h | awk '/Swap:/{print $2}')"
+          echo "  Disk:   $(df -h / | awk 'NR==2{print $4" free"}')"
+          echo "  Bun:    $(bun --version 2>/dev/null || echo 'not installed')"
+          echo "  Node:   $(node --version 2>/dev/null || echo 'not installed')"
+
+  smoke-backend:
+    name: Smoke test — backend-runner
+    runs-on: [self-hosted, linux, ARM64, backend-runner]
+    needs: check-runners
+    if: needs.check-runners.outputs.all_ok == 'true'
+    timeout-minutes: 3
+    steps:
+      - name: Runner is alive
+        run: |
+          echo "✅ backend-runner responding"
+          echo "  Host:    $(hostname)"
+          echo "  Kernel:  $(uname -r)"
+          echo "  Arch:    $(uname -m)"
+          echo "  CPU:     $(nproc) cores"
+          echo "  RAM:     $(free -h | awk '/Mem:/{print $2}')"
+          echo "  Swap:    $(free -h | awk '/Swap:/{print $2}')"
+          echo "  Disk:    $(df -h / | awk 'NR==2{print $4" free"}')"
+          echo "  Supabase: $(supabase --version 2>/dev/null || echo 'not installed')"
+          echo "  Bun:     $(bun --version 2>/dev/null || echo 'not installed')"
