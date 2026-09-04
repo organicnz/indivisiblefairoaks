@@ -287,7 +287,7 @@ app.post('*', async (c) => {
   const forwardedFor = c.req.header('x-forwarded-for')
   const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
 
-  const { ok, remaining, deduplicated } = await checkRateLimit(admin, ip, cleanQuery)
+  const { ok, remaining, deduplicated: _deduplicated } = await checkRateLimit(admin, ip, cleanQuery)
   if (!ok) {
     await logSearchAnalytics(admin, ip, cleanQuery, false, 'rate_limit_exceeded')
     return c.json({ error: 'Rate limit exceeded. Try again in 10 minutes.' }, 429, {
