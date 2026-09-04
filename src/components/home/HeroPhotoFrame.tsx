@@ -12,7 +12,7 @@ interface Photo {
   label: string;
 }
 
-// Row 1 — crossfading hero (full-width, marches & rallies)
+// Row 1 — crossfading hero (full-width)
 const HERO_PHOTOS: Photo[] = [
   {
     id: 'bridge-march',
@@ -25,6 +25,18 @@ const HERO_PHOTOS: Photo[] = [
     src: '/images/gallery/sacramento-capitol-no-kings.jpg',
     alt: 'Sacramento Capitol No Kings rally',
     label: 'No Kings Rally',
+  },
+  {
+    id: 'witty-ikea',
+    src: '/images/gallery/witty-ikea-sign.jpg',
+    alt: 'Witty IKEA-style protest sign',
+    label: 'Witty Signs',
+  },
+  {
+    id: 'good-trouble',
+    src: '/images/legacy/legacy-good-trouble-1.jpg',
+    alt: 'Good Trouble action',
+    label: 'Good Trouble',
   },
 ];
 
@@ -44,43 +56,7 @@ const PAIR_PHOTOS: Photo[] = [
   },
 ];
 
-// Row 3 — rotating strip (witty signs + legacy shots)
-const STRIP_PHOTOS: Photo[] = [
-  {
-    id: 'witty-ikea',
-    src: '/images/gallery/witty-ikea-sign.jpg',
-    alt: 'Witty IKEA-style protest sign',
-    label: 'Witty Signs',
-  },
-  {
-    id: 'witty-introverts',
-    src: '/images/gallery/witty-introverts-sign.jpg',
-    alt: 'Witty introverts protest sign',
-    label: 'Witty Signs',
-  },
-  {
-    id: 'good-trouble',
-    src: '/images/legacy/legacy-good-trouble-1.jpg',
-    alt: 'Good Trouble action',
-    label: 'Good Trouble',
-  },
-  {
-    id: 'banner',
-    src: '/images/legacy/legacy-banner.jpg',
-    alt: 'Chapter banner action',
-    label: 'Chapter Action',
-  },
-  {
-    id: 'legacy-choir',
-    src: '/images/legacy/legacy-resistance-choir.jpg',
-    alt: 'Resistance Choir legacy photo',
-    label: 'Resistance Choir',
-  },
-];
-
 const HERO_INTERVAL = 6000; // ms between hero crossfades
-const STRIP_INTERVAL = 2800; // ms between strip advances
-const STRIP_START = 2; // offset so strip doesn't sync with hero cycle
 
 const EASE_STD = [0.4, 0, 0.2, 1] as const;
 
@@ -96,27 +72,14 @@ const rowVariants: Variants = {
 export function HeroPhotoFrame() {
   const reduced = useReducedMotion();
   const [heroIndex, setHeroIndex] = useState(0);
-  const [stripIndex, setStripIndex] = useState(STRIP_START);
 
   useEffect(() => {
-    if (reduced !== false) return; // null = preference unknown → treat as reduced
+    if (reduced !== false) return;
     const t = setInterval(() => setHeroIndex((p) => (p + 1) % HERO_PHOTOS.length), HERO_INTERVAL);
     return () => clearInterval(t);
   }, [reduced]);
 
-  useEffect(() => {
-    if (reduced !== false) return;
-    const t = setInterval(
-      () => setStripIndex((p) => (p + 1) % STRIP_PHOTOS.length),
-      STRIP_INTERVAL
-    );
-    return () => clearInterval(t);
-  }, [reduced]);
-
   const heroPhoto = HERO_PHOTOS[heroIndex];
-  // 3-wide sliding window. Key encodes both photo identity and slot position
-  // so AnimatePresence animates each slot independently as the window advances.
-  const stripSlots = [0, 1, 2].map((o) => (stripIndex + o) % STRIP_PHOTOS.length);
   const dur = reduced !== false ? 0 : undefined;
 
   return (
@@ -210,45 +173,6 @@ export function HeroPhotoFrame() {
               </div>
             </div>
           ))}
-        </motion.div>
-
-        {/* ── Row 3: rotating strip (3 visible at a time) ── */}
-        <motion.div
-          custom={2}
-          variants={rowVariants}
-          initial={reduced !== false ? 'visible' : 'hidden'}
-          animate="visible"
-          className="grid grid-cols-3 gap-3"
-        >
-          <AnimatePresence mode="popLayout">
-            {stripSlots.map((sourceIdx) => {
-              const photo = STRIP_PHOTOS[sourceIdx];
-              return (
-                <motion.div
-                  key={`${photo.id}-${sourceIdx}`}
-                  initial={{ opacity: 0, scale: 0.93 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.93 }}
-                  transition={{ duration: dur ?? 0.4, ease: EASE_STD }}
-                  className="relative rounded-xl overflow-hidden border border-white/10 shadow-md aspect-[4/3]"
-                >
-                  <Image
-                    src={photo.src}
-                    alt={photo.alt}
-                    fill
-                    className="object-cover"
-                    sizes="(min-width: 1024px) 14vw, 33vw"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent" />
-                  <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/60 backdrop-blur-sm px-1.5 py-0.5 rounded-full leading-none">
-                      {photo.label}
-                    </span>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
         </motion.div>
       </div>
 
