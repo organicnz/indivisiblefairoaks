@@ -183,21 +183,8 @@ jobs:
           done
 
       - name: Push Database Migrations
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          # Debug: print token env var status
-          echo "SUPABASE_ACCESS_TOKEN length: ${#SUPABASE_ACCESS_TOKEN}"
-          echo "SUPABASE_ACCESS_TOKEN starts with: ${SUPABASE_ACCESS_TOKEN:0:5}..."
-          # Ensure Supabase CLI has access token — write to config dir if needed
-          if [ -n "$SUPABASE_ACCESS_TOKEN" ]; then
-            mkdir -p ~/.supabase
-            echo "$SUPABASE_ACCESS_TOKEN" > ~/.supabase/access
-            echo "✅ Access token written to ~/.supabase/access"
-          else
-            echo "⚠️ SUPABASE_ACCESS_TOKEN is empty — cannot write to config dir"
-          fi
+          # Supabase CLI picks up SUPABASE_ACCESS_TOKEN from job-level env
           supabase db push \
             --project-ref "$SUPABASE_PROJECT_REF" \
             --password "$SUPABASE_DB_PASSWORD"
