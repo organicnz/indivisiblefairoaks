@@ -184,11 +184,9 @@ jobs:
 
       - name: Push Database Migrations
         run: |
-          # Authenticate Supabase CLI by writing access token to config
-          mkdir -p ~/.supabase
-          echo "access_token=$SUPABASE_ACCESS_TOKEN" > ~/.supabase/access
           supabase db push \
             --project-ref "$SUPABASE_PROJECT_REF" \
+            --access-token "${{ secrets.SUPABASE_ACCESS_TOKEN }}" \
             --password "$SUPABASE_DB_PASSWORD"
 
   # ── 2. Post-deploy verification — fail if any function is missing ───────────
