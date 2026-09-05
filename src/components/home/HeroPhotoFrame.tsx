@@ -5,13 +5,16 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getGalleryPhotos } from '@/lib/queries/content-client';
-import { getStorageUrl } from '@/lib/supabase';
 
 interface Photo {
   id: string;
   src: string;
   alt: string;
   label: string;
+  sort_order?: number;
+  is_hero?: boolean;
+  category?: string;
+  url?: string;
 }
 
 // Hero crossfade photos (top 4 by sort_order, is_hero=true)
@@ -30,14 +33,18 @@ const useHeroPhotos = (): Photo[] => {
         'Legacy Archives',
       ] as const;
       const heroes = photos
-        .filter((p) => p.is_hero === true && knownCategories.includes(p.category as any))
+        .filter(
+          (p): p is typeof p & { is_hero: true } =>
+            p.is_hero === true &&
+            knownCategories.includes(p.category as (typeof knownCategories)[number])
+        )
         .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
       setHeroPhotos(
         heroes.slice(0, 4).map((p) => ({
           id: p.id,
           src: p.url,
           alt: p.alt || p.caption || '',
-          label: p.label || p.caption || '',
+          label: (p as { label?: string }).label || p.caption || '',
         }))
       );
     });
@@ -57,7 +64,7 @@ const usePairPhotos = (): Photo[] => {
           id: p.id,
           src: p.url,
           alt: p.alt || p.caption || '',
-          label: p.label || p.caption || '',
+          label: (p as { label?: string }).label || p.caption || '',
         }))
       );
     });
