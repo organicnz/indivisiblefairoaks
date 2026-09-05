@@ -15,14 +15,26 @@ jobs:
   # ── Check both runners are alive via the GitHub API ─────────────────────────
   check-runners:
     name: Verify runners online
-    # This job intentionally uses ubuntu-latest (GitHub-hosted) so it can
-    # run even when the self-hosted runners are the ones being checked.
-    runs-on: ubuntu-latest
+    # Self-hosted ONLY per repo policy (no github-hosted runners anywhere).
+    # Runs on backend-runner; the smoke jobs below prove each runner
+    # independently. If backend-runner itself is down this job queues —
+    # which is itself the alert (visible as "queued" in Actions).
+    runs-on: [self-hosted, linux, ARM64, backend-runner]
     outputs:
       frontend_status: ${{ steps.check.outputs.frontend_status }}
       backend_status: ${{ steps.check.outputs.backend_status }}
       all_ok: ${{ steps.check.outputs.all_ok }}
     steps:
+      - name: Ensure gh + jq available
+        run: |
+          if ! command -v gh &>/dev/null; then
+            echo "gh not found — installing via apt"
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq gh
+          fi
+          gh --version
+          jq --version
+
       - name: Check runner registration + status
         id: check
         env:
@@ -53,11 +65,9 @@ jobs:
           fi
 
       - name: Probe health endpoints (via Tailscale IPs)
-        continue-on-error: true
         run: |
-          # These only work if this runner can reach the Tailscale network.
-          # On GitHub-hosted runners this will fail silently (continue-on-error).
-          # On self-hosted runners with Tailscale it will surface real health data.
+          # Runs on a self-hosted runner inside the Tailscale network, so
+          # these probes return real health data (not silent skips).
           for IP in "100.92.38.119" "100.99.241.23"; do
             RESULT=$(curl -fsSL --max-time 5 "http://${IP}:9100" 2>/dev/null || echo '{"ok":false,"error":"unreachable"}')
             echo "  ${IP}: $RESULT"

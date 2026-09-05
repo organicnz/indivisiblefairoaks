@@ -17,10 +17,6 @@ env:
   NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
   # Private server-only vars
   SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-  # Supabase access token for edge-function deployment
-  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-  # Canonical Supabase project reference (hosted dashboard project)
-  SUPABASE_PROJECT_REF: mojsubkqjdruhpxbzgme
 
 jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
@@ -171,78 +167,13 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "✅ Deployed: $URL"
 
-  # ── 6. Deploy Edge Functions + Migrations to Supabase ────────────────────────
-  deploy-supabase:
-    name: Deploy → Supabase
-    runs-on: [self-hosted, linux, ARM64, backend-runner]
-    needs: [build]
-    # Only deploy on push for main/mainDeploy
-    if: github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Supabase CLI
-        run: |
-          # Install the Supabase CLI if not already present on the runner
-          if ! command -v supabase &>/dev/null; then
-            curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_arm64.tar.gz \
-              | tar -xz -C /usr/local/bin supabase
-          fi
-          supabase --version
-
-      - name: Deploy Edge Function — notify-contact
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy notify-contact \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt
-
-      - name: Deploy Edge Function — checkout
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy checkout \
-            --project-ref "$SUPABASE_PROJECT_REF"
-
-      - name: Deploy Edge Function — search
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy search \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt
-
-      - name: Deploy Edge Function — webhook
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy webhook \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt
-
-      - name: Deploy Edge Function — health
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy health \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt
-
-      - name: Push Database Migrations
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: |
-          supabase db push \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --password "$SUPABASE_DB_PASSWORD"
-
-  # ── 7. Live Health Probe ──────────────────────────────────────────────────────
+  # ── 6. Live Health Probe (Vercel deployment only) ───────────────────────────
+  # Supabase edge-function delivery + verification lives in the dedicated
+  # supabase.yml workflow (backend-runner) — never here.
   health-probe:
     name: Live Health Probe
-    runs-on: [self-hosted, linux, ARM64, backend-runner]
-    needs: [deploy-supabase, deploy-vercel]
+    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    needs: [deploy-vercel]
     if: github.event_name == 'push'
     steps:
       - name: Probe Vercel deployment
@@ -264,16 +195,3 @@ jobs:
           done
           echo "❌ Health check failed after 90 s"
           exit 1
-
-      - name: Probe Supabase Edge Function — health
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-        run: |
-          EDGE_URL="${NEXT_PUBLIC_SUPABASE_URL}/functions/v1/health"
-          STATUS=$(curl -o /dev/null -sw '%{http_code}' "$EDGE_URL" || echo 000)
-          echo "Edge health status: HTTP $STATUS"
-          if [ "$STATUS" = "200" ]; then
-            echo "✅ Edge function health OK"
-          else
-            echo "⚠️  Edge function returned HTTP $STATUS (non-blocking)"
-          fi
