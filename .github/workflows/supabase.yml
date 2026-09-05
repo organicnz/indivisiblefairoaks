@@ -187,8 +187,9 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          # Authenticate Supabase CLI with access token before db push
-          supabase login --token "$SUPABASE_ACCESS_TOKEN" --no-browser
+          # Authenticate Supabase CLI by writing access token to config
+          mkdir -p ~/.supabase
+          echo "access_token=$SUPABASE_ACCESS_TOKEN" > ~/.supabase/access
           supabase db push \
             --project-ref "$SUPABASE_PROJECT_REF" \
             --password "$SUPABASE_DB_PASSWORD"
