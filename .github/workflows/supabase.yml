@@ -183,9 +183,6 @@ jobs:
           done
 
       - name: Push Database Migrations
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           # Authenticate Supabase CLI by writing access token to config
           mkdir -p ~/.supabase
