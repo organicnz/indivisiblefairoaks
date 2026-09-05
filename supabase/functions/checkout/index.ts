@@ -7,7 +7,7 @@ import { cors } from 'jsr:@hono/hono/cors'
 import { HTTPException } from 'jsr:@hono/hono/http-exception'
 import Stripe from 'npm:stripe@17'
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { getStripeShippingOptions } from '../../../src/config/shipping.ts'
+import { getStripeShippingOptions } from '../_shared/shipping.ts'
 
 // ---------------------------------------------------------------------------
 // Boot-time environment validation — fail fast with a clear message

@@ -64,7 +64,7 @@ export async function generateMetadata({
       title,
       description,
       images: [
-        'https://wcoaqlglwxwceqktpckt.supabase.co/storage/v1/object/public/media/site/thunder-charter.jpg',
+        'https://mojsubkqjdruhpxbzgme.supabase.co/storage/v1/object/public/media/site/thunder-charter.jpg',
       ],
     },
   };

@@ -45,7 +45,7 @@ const SUPABASE_HOST = (() => {
   try {
     return new URL(SUPABASE_URL).hostname
   } catch {
-    return 'wcoaqlglwxwceqktpckt.supabase.co'
+    return 'mojsubkqjdruhpxbzgme.supabase.co'
   }
 })()
 
@@ -502,13 +502,13 @@ async function sendAdminNotification(
 
   const addressLine = shippingAddr
     ? [
-        shippingAddr.line1,
-        shippingAddr.line2,
-        shippingAddr.city,
-        shippingAddr.state,
-        shippingAddr.postal_code,
-        shippingAddr.country,
-      ].filter(Boolean).join(', ')
+      shippingAddr.line1,
+      shippingAddr.line2,
+      shippingAddr.city,
+      shippingAddr.state,
+      shippingAddr.postal_code,
+      shippingAddr.country,
+    ].filter(Boolean).join(', ')
     : 'Not provided'
 
   const itemRows = lineItems.map((item) => {

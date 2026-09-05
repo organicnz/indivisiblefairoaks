@@ -457,7 +457,7 @@ pre-commit:
       priority: 14
       glob: "*.{ts,tsx,js,mjs}"
       run: |
-        PROJECT_REF="wcoaqlglwxwceqktpckt"
+        PROJECT_REF="mojsubkqjdruhpxbzgme"
         NEW_FILES=$(git diff --cached --name-only --diff-filter=A -- "*.ts" "*.tsx" "*.js" "*.mjs" 2>/dev/null || true)
         if [ -z "$NEW_FILES" ]; then exit 0; fi
         FOUND=$(echo "$NEW_FILES" | xargs grep -ln "$PROJECT_REF" 2>/dev/null || true)
@@ -717,7 +717,7 @@ post-commit:
           exit 0
         fi
         # Guard: only regenerate if .env.local points at the canonical project.
-        CANONICAL="wcoaqlglwxwceqktpckt"
+        CANONICAL="mojsubkqjdruhpxbzgme"
         SUPABASE_URL=$(grep -E "^NEXT_PUBLIC_SUPABASE_URL=" .env.local 2>/dev/null | cut -d= -f2- | tr -d '"'"'" | tr -d ' ')
         if [ -n "$SUPABASE_URL" ]; then
           DERIVED=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)
@@ -921,7 +921,7 @@ post-merge:
           # Guard: only regenerate if the Supabase URL resolves to the correct
           # project ref. If .env.local points at a different project (e.g. a
           # personal workspace), skip silently to avoid clobbering committed types.
-          CANONICAL="wcoaqlglwxwceqktpckt"
+          CANONICAL="mojsubkqjdruhpxbzgme"
           SUPABASE_URL=$(grep -E "^NEXT_PUBLIC_SUPABASE_URL=" .env.local 2>/dev/null | cut -d= -f2- | tr -d '"'"'" | tr -d ' ')
           if [ -n "$SUPABASE_URL" ]; then
             DERIVED=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)

@@ -4,7 +4,7 @@
  * Content fetchers safe to call from Client Components (useEffect, etc.).
  * Uses the browser Supabase client — no 'use cache', no next/headers.
  */
-import { createClient } from '@/lib/supabase';
+import { createClient, getStorageUrl } from '@/lib/supabase';
 
 /**
  * Represents a gallery photo from the gallery_photos table.
@@ -111,12 +111,9 @@ export async function getGalleryPhotos(): Promise<GalleryPhoto[]> {
 
     if (!data || data.length === 0) return [];
 
-    const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://mojsubkqjdruhpxbzgme.supabase.co';
-
     return data.map((row): GalleryPhoto => {
       const storagePath = row.storage_path || '';
-      const url = storagePath ? `${supabaseUrl}/storage/v1/object/public/media/${storagePath}` : '';
+      const url = getStorageUrl(storagePath, 'media');
 
       return {
         id: row.slug,
