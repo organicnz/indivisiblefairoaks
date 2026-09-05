@@ -1,16 +1,31 @@
 name: Supabase
 
 # ── Dedicated Supabase delivery workflow ─────────────────────────────────────
-# ALL Supabase-project delivery (edge functions + migrations + post-deploy
-# verification) lives HERE — never in ci.yml. Canonical project:
-# https://supabase.com/dashboard/project/mojsubkqjdruhpxbzgme/
+# ALL Supabase-project delivery (migrations + edge functions + verification)
+# lives here — never in ci.yml.
+# Canonical project: https://supabase.com/dashboard/project/mojsubkqjdruhpxbzgme
 #
-# Triggers:
-#   - push to main/mainDeploy touching supabase/** or this workflow
-#   - manual dispatch (e.g. redeploy after a secret rotation)
+# Secret strategy — Vercel is the primary secret store, GitHub Secrets fill gaps:
+#
+#   1. `vercel env pull` writes Vercel's env to a local file (NEXT_PUBLIC_* +
+#      any edge secrets stored there: SUPABASE_SERVICE_ROLE_KEY, STRIPE_*, etc.)
+#   2. A merge step appends edge-function-only secrets from GitHub Actions
+#      secrets that are not in Vercel (e.g. RESEND_API_KEY, SEARCH_* tuning).
+#   3. `supabase secrets set --env-file` pushes the merged file to the edge
+#      runtime in one atomic operation.
+#
+#   Rotating a secret:
+#   - If it lives in Vercel → update in Vercel dashboard, trigger workflow.
+#   - If it lives in GitHub Secrets → update there, trigger workflow.
+#   - Both: one workflow run syncs everything.
+#
+# Job order:
+#   prepare  → merge secrets, push to edge runtime          (once)
+#   migrate  → supabase db push                             (once, after prepare)
+#   deploy   → supabase functions deploy                    (5 parallel matrix legs)
+#   verify   → HTTP probe all 5 functions                   (once, after all deploy legs)
 #
 # Runners: backend-runner ONLY ([self-hosted, linux, ARM64, backend-runner]).
-# Frontend jobs must never land here; see ci.yml (frontend-runner).
 
 on:
   push:
@@ -27,239 +42,263 @@ concurrency:
 env:
   SUPABASE_PROJECT_REF: mojsubkqjdruhpxbzgme
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-  # Retry config — Supabase edge network can have transient propagation delays
+  # Pinned Supabase CLI version — bump deliberately, not on every run.
+  # Check releases: https://github.com/supabase/cli/releases
+  SUPABASE_CLI_VERSION: 2.22.6
   SF_RETRIES: 3
   SF_RETRY_DELAY: 10
 
 jobs:
-  # ── 1. Deploy all edge functions + push migrations ────────────────────────
-  deploy:
-    name: Deploy functions + migrations
+
+  # ── 1. Merge secrets (Vercel + GitHub) → push to Supabase edge runtime ────
+  prepare:
+    name: Sync secrets → edge runtime
     runs-on: [self-hosted, linux, ARM64, backend-runner]
-    timeout-minutes: 30
+    timeout-minutes: 10
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Supabase CLI
+      - name: Install Supabase CLI (pinned)
         run: |
-          if ! command -v supabase &>/dev/null; then
-            curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_arm64.tar.gz \
-              | tar -xz -C /usr/local/bin supabase
+          TARGET="/usr/local/bin/supabase"
+          CURRENT_VER=$(supabase --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "none")
+          if [ "$CURRENT_VER" = "$SUPABASE_CLI_VERSION" ]; then
+            echo "✅ supabase $SUPABASE_CLI_VERSION already installed"
+          else
+            echo "Installing supabase $SUPABASE_CLI_VERSION (was: $CURRENT_VER)..."
+            curl -fsSL \
+              "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_arm64.tar.gz" \
+              | sudo tar -xz -C /usr/local/bin supabase
+            echo "✅ supabase $(supabase --version)"
           fi
-          supabase --version
 
-      - name: Deploy Edge Function — notify-contact (with retry)
-        id: deploy-notify-contact
+      # ── Pull from Vercel (primary source) ──────────────────────────────────
+      # .vercel/project.json carries projectId + orgId — no extra env vars needed.
+      - name: Pull Vercel environment
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        continue-on-error: true
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          set -o pipefail
-          MAX_RETRIES="${SF_RETRIES:-3}"
-          RETRY_DELAY="${SF_RETRY_DELAY:-10}"
-          for attempt in $(seq 1 "$MAX_RETRIES"); do
-            echo "🔁 Attempt $attempt/$MAX_RETRIES: deploying notify-contact..."
-            if supabase functions deploy notify-contact \
-              --project-ref "$SUPABASE_PROJECT_REF" \
-              --no-verify-jwt 2>&1; then
-              echo "✅ notify-contact deployed successfully"
-              exit 0
+          VERCEL_ENV="${{ github.ref_name == 'mainDeploy' && 'production' || 'preview' }}"
+          npx --yes vercel@latest pull --yes \
+            --environment="$VERCEL_ENV" \
+            --token="$VERCEL_TOKEN"
+
+          ENV_SRC=".vercel/.env.${VERCEL_ENV}.local"
+          if [ ! -f "$ENV_SRC" ]; then
+            echo "::error::vercel pull did not produce $ENV_SRC"
+            exit 1
+          fi
+
+          # Extract only the vars the edge runtime consumes.
+          # NEXT_PUBLIC_* and VERCEL_* are framework-only — edge Deno runtime
+          # doesn't need them and supabase secrets set rejects some.
+          grep -E "^(SUPABASE_|STRIPE_|RESEND_|APP_URL=|ADMIN_ORDER_EMAIL=|SEARCH_)" \
+            "$ENV_SRC" > supabase/functions/.env.production || true
+
+          echo "── From Vercel ─────────────────────────────"
+          sed 's/=.*/=<redacted>/' supabase/functions/.env.production
+          echo "────────────────────────────────────────────"
+
+      # ── Merge GitHub Secrets that aren't stored in Vercel ──────────────────
+      # These are edge-function-only secrets (email delivery, search tuning).
+      # If Vercel already carries them the grep dedup below keeps Vercel's value.
+      - name: Merge edge-only secrets from GitHub
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          ADMIN_ORDER_EMAIL: ${{ secrets.ADMIN_ORDER_EMAIL }}
+          APP_URL: ${{ secrets.APP_URL }}
+          SEARCH_RATE_LIMIT_MAX: ${{ secrets.SEARCH_RATE_LIMIT_MAX }}
+          SEARCH_RATE_LIMIT_WINDOW_MIN: ${{ secrets.SEARCH_RATE_LIMIT_WINDOW_MIN }}
+          SEARCH_RPC_TIMEOUT_MS: ${{ secrets.SEARCH_RPC_TIMEOUT_MS }}
+        run: |
+          ENV_FILE="supabase/functions/.env.production"
+
+          # Append only vars not already present from Vercel (Vercel wins on conflict).
+          append_if_missing() {
+            local key="$1" val="$2"
+            if [ -z "$val" ]; then return; fi
+            if ! grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
+              echo "${key}=${val}" >> "$ENV_FILE"
+              echo "  + ${key} (from GitHub Secrets)"
             else
-              if [ "$attempt" -lt "$MAX_RETRIES" ]; then
-                echo "⚠️ Attempt $attempt failed, retrying in ${RETRY_DELAY}s..."
-                sleep "$RETRY_DELAY"
-              else
-                echo "❌ notify-contact failed after $MAX_RETRIES attempts"
-                exit 1
-              fi
+              echo "  ✓ ${key} (from Vercel)"
             fi
-          done
+          }
 
-      - name: Deploy Edge Function — checkout (with retry)
-        id: deploy-checkout
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        continue-on-error: true
+          echo "── Merging GitHub Secrets ──────────────────"
+          append_if_missing "RESEND_API_KEY"              "$RESEND_API_KEY"
+          append_if_missing "RESEND_FROM_EMAIL"           "$RESEND_FROM_EMAIL"
+          append_if_missing "ADMIN_ORDER_EMAIL"           "$ADMIN_ORDER_EMAIL"
+          append_if_missing "APP_URL"                     "$APP_URL"
+          append_if_missing "SEARCH_RATE_LIMIT_MAX"       "$SEARCH_RATE_LIMIT_MAX"
+          append_if_missing "SEARCH_RATE_LIMIT_WINDOW_MIN" "$SEARCH_RATE_LIMIT_WINDOW_MIN"
+          append_if_missing "SEARCH_RPC_TIMEOUT_MS"       "$SEARCH_RPC_TIMEOUT_MS"
+          echo "────────────────────────────────────────────"
+
+          if [ ! -s "$ENV_FILE" ]; then
+            echo "::error::$ENV_FILE is empty after merge — no secrets to push"
+            exit 1
+          fi
+          echo "Total secrets: $(grep -c '=' "$ENV_FILE") vars"
+
+      # ── Push merged secrets to the Supabase edge runtime ───────────────────
+      - name: Push secrets to Supabase edge runtime
         run: |
-          set -o pipefail
-          MAX_RETRIES="${SF_RETRIES:-3}"
-          RETRY_DELAY="${SF_RETRY_DELAY:-10}"
-          for attempt in $(seq 1 "$MAX_RETRIES"); do
-            echo "🔁 Attempt $attempt/$MAX_RETRIES: deploying checkout..."
-            if supabase functions deploy checkout \
-              --project-ref "$SUPABASE_PROJECT_REF" 2>&1; then
-              echo "✅ checkout deployed successfully"
-              exit 0
-            else
-              if [ "$attempt" -lt "$MAX_RETRIES" ]; then
-                echo "⚠️ Attempt $attempt failed, retrying in ${RETRY_DELAY}s..."
-                sleep "$RETRY_DELAY"
-              else
-                echo "❌ checkout failed after $MAX_RETRIES attempts"
-                exit 1
-              fi
+          supabase secrets set \
+            --env-file supabase/functions/.env.production \
+            --project-ref "$SUPABASE_PROJECT_REF"
+          echo "✅ Secrets pushed to project $SUPABASE_PROJECT_REF"
+
+      # Scrub the secrets file immediately — it must never persist on disk.
+      - name: Scrub secrets file
+        if: always()
+        run: rm -f supabase/functions/.env.production
+
+  # ── 2. Push database migrations ───────────────────────────────────────────
+  # Runs after secrets are live. Schema changes land before functions boot.
+  # SUPABASE_ACCESS_TOKEN from global env is used by the CLI for auth —
+  # no --password needed for Management API db push.
+  migrate:
+    name: Push migrations
+    runs-on: [self-hosted, linux, ARM64, backend-runner]
+    needs: [prepare]
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Supabase CLI (pinned)
+        run: |
+          CURRENT_VER=$(supabase --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "none")
+          if [ "$CURRENT_VER" != "$SUPABASE_CLI_VERSION" ]; then
+            curl -fsSL \
+              "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_arm64.tar.gz" \
+              | sudo tar -xz -C /usr/local/bin supabase
+          fi
+
+      - name: Push migrations
+        run: |
+          supabase db push --project-ref "$SUPABASE_PROJECT_REF"
+          echo "✅ Migrations applied to project $SUPABASE_PROJECT_REF"
+
+  # ── 3. Deploy edge functions (5 parallel matrix legs) ─────────────────────
+  # Runs after migrate. fail-fast: false — a single function failure doesn't
+  # cancel others. All 5 legs must succeed for verify to run (needs: [deploy]).
+  deploy:
+    name: Deploy — ${{ matrix.name }}
+    runs-on: [self-hosted, linux, ARM64, backend-runner]
+    needs: [migrate]
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # verify_jwt: checkout validates Supabase session JWTs (user auth).
+          # All others: called by pg_net, Stripe, or public monitors — no JWT.
+          - { name: notify-contact, verify_jwt: false }
+          - { name: checkout,       verify_jwt: true  }
+          - { name: search,         verify_jwt: false }
+          - { name: webhook,        verify_jwt: false }
+          - { name: health,         verify_jwt: false }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Supabase CLI (pinned)
+        run: |
+          CURRENT_VER=$(supabase --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "none")
+          if [ "$CURRENT_VER" != "$SUPABASE_CLI_VERSION" ]; then
+            curl -fsSL \
+              "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_arm64.tar.gz" \
+              | sudo tar -xz -C /usr/local/bin supabase
+          fi
+
+      - name: Deploy ${{ matrix.name }}
+        run: |
+          set -euo pipefail
+          CMD=(supabase functions deploy "${{ matrix.name }}" \
+            --project-ref "$SUPABASE_PROJECT_REF")
+          if [ "${{ matrix.verify_jwt }}" = "false" ]; then
+            CMD+=(--no-verify-jwt)
+          fi
+          attempt=0
+          until "${CMD[@]}"; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge "$SF_RETRIES" ]; then
+              echo "::error::${{ matrix.name }} failed after $SF_RETRIES attempts"
+              exit 1
             fi
+            echo "⚠️  Attempt $attempt failed — retrying in ${SF_RETRY_DELAY}s..."
+            sleep "$SF_RETRY_DELAY"
           done
+          echo "✅ ${{ matrix.name }} deployed"
 
-      - name: Deploy Edge Function — search (with retry)
-        id: deploy-search
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          MAX_RETRIES="${SF_RETRIES:-3}"
-          RETRY_DELAY="${SF_RETRY_DELAY:-10}"
-          for attempt in $(seq 1 "$MAX_RETRIES"); do
-            echo "🔁 Attempt $attempt/$MAX_RETRIES: deploying search..."
-            if supabase functions deploy search \
-              --project-ref "$SUPABASE_PROJECT_REF" \
-              --no-verify-jwt 2>&1; then
-              echo "✅ search deployed successfully"
-              exit 0
-            else
-              if [ "$attempt" -lt "$MAX_RETRIES" ]; then
-                echo "⚠️ Attempt $attempt failed, retrying in ${RETRY_DELAY}s..."
-                sleep "$RETRY_DELAY"
-              else
-                echo "❌ search failed after $MAX_RETRIES attempts"
-                exit 1
-              fi
-            fi
-          done
-
-      - name: Deploy Edge Function — webhook (with retry)
-        id: deploy-webhook
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          MAX_RETRIES="${SF_RETRIES:-3}"
-          RETRY_DELAY="${SF_RETRY_DELAY:-10}"
-          for attempt in $(seq 1 "$MAX_RETRIES"); do
-            echo "🔁 Attempt $attempt/$MAX_RETRIES: deploying webhook..."
-            if supabase functions deploy webhook \
-              --project-ref "$SUPABASE_PROJECT_REF" \
-              --no-verify-jwt 2>&1; then
-              echo "✅ webhook deployed successfully"
-              exit 0
-            else
-              if [ "$attempt" -lt "$MAX_RETRIES" ]; then
-                echo "⚠️ Attempt $attempt failed, retrying in ${RETRY_DELAY}s..."
-                sleep "$RETRY_DELAY"
-              else
-                echo "❌ webhook failed after $MAX_RETRIES attempts"
-                exit 1
-              fi
-            fi
-          done
-
-      - name: Deploy Edge Function — health (with retry)
-        id: deploy-health
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          MAX_RETRIES="${SF_RETRIES:-3}"
-          RETRY_DELAY="${SF_RETRY_DELAY:-10}"
-          for attempt in $(seq 1 "$MAX_RETRIES"); do
-            echo "🔁 Attempt $attempt/$MAX_RETRIES: deploying health..."
-            if supabase functions deploy health \
-              --project-ref "$SUPABASE_PROJECT_REF" \
-              --no-verify-jwt 2>&1; then
-              echo "✅ health deployed successfully"
-              exit 0
-            else
-              if [ "$attempt" -lt "$MAX_RETRIES" ]; then
-                echo "⚠️ Attempt $attempt failed, retrying in ${RETRY_DELAY}s..."
-                sleep "$RETRY_DELAY"
-              else
-                echo "❌ health failed after $MAX_RETRIES attempts"
-                exit 1
-              fi
-            fi
-          done
-
-      - name: Push Database Migrations
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase db push \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --password "$SUPABASE_DB_PASSWORD"
-
-  # ── 2. Post-deploy verification — fail if any function is missing ───────────
+  # ── 4. Verify all functions are live ──────────────────────────────────────
+  # HTTP 404 = not deployed. Any other response (including auth/validation 4xx
+  # from our dummy payloads) = function is live.
   verify:
-    name: Verify live edge functions
+    name: Verify live functions
     runs-on: [self-hosted, linux, ARM64, backend-runner]
     needs: [deploy]
     timeout-minutes: 10
-    steps:
-      - name: Supabase project vars
-        run: |
-          echo "SUPABASE_PROJECT_REF=$SUPABASE_PROJECT_REF"
-          echo "SUPABASE_ACCESS_TOKEN set: ${SUPABASE_ACCESS_TOKEN:+yes}"
 
-      - name: Probe health edge function
-        id: probe-health
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
-            ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+    env:
+      EDGE_BASE: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/functions/v1
+      ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+
+    steps:
+      - name: Probe health
+        run: |
+          STATUS=$(curl -s -o /tmp/health.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${ANON_KEY}" \
+            -H "apikey: ${ANON_KEY}" \
+            "${EDGE_BASE}/health" || echo 000)
+          cat /tmp/health.json 2>/dev/null || true
+          echo "health → HTTP $STATUS"
+          [ "$STATUS" != "404" ] || { echo "::error::health not deployed (404)"; exit 1; }
+          { [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; } \
+            || { echo "::error::health unexpected HTTP $STATUS"; exit 1; }
+
+      - name: Probe remaining functions
         run: |
           set -e
-          EDGE_BASE="${NEXT_PUBLIC_SUPABASE_URL}/functions/v1"
-          AUTH_HEADER="Authorization: Bearer ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}"
-          APIKEY_HEADER="apikey: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}"
-
-          echo "Probing $EDGE_BASE/health ..."
-          STATUS=$(curl -s -o /tmp/health.json -w '%{http_code}' \
-            -H "$AUTH_HEADER" -H "$APIKEY_HEADER" \
-            "$EDGE_BASE/health" || echo 000)
-          cat /tmp/health.json || true
-          echo "health → HTTP $STATUS"
-          if [ "$STATUS" = "404" ]; then
-            echo "::error::health edge function missing (HTTP 404) — deploy failed"
-            exit 1
-          fi
-          if [ "$STATUS" != "200" ] && [ "$STATUS" != "503" ]; then
-            echo "::error::health edge function unexpected HTTP $STATUS"
-            exit 1
-          fi
-
-          # Each function must answer its validation path (4xx = alive,
-          # 404 = not deployed). Any 404 fails the workflow.
-          for FN in "notify-contact:{}" "search:{\"q\":\"\"}" "checkout:{}" "webhook:"; do
-            NAME="${FN%%:*}"
-            BODY="${FN#*:}"
-            if [ -z "$BODY" ]; then
-              CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
-                -H "$AUTH_HEADER" -H "$APIKEY_HEADER" -H 'Content-Type: application/json' \
-                "$EDGE_BASE/$NAME" || echo 000)
+          fail=0
+          probe() {
+            local fn="$1" body="$2" code
+            if [ -z "$body" ]; then
+              code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+                -H "Authorization: Bearer ${ANON_KEY}" \
+                -H "apikey: ${ANON_KEY}" \
+                -H "Content-Type: application/json" \
+                "${EDGE_BASE}/${fn}" || echo 000)
             else
-              CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
-                -H "$AUTH_HEADER" -H "$APIKEY_HEADER" -H 'Content-Type: application/json' \
-                -d "$BODY" "$EDGE_BASE/$NAME" || echo 000)
+              code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+                -H "Authorization: Bearer ${ANON_KEY}" \
+                -H "apikey: ${ANON_KEY}" \
+                -H "Content-Type: application/json" \
+                -d "$body" "${EDGE_BASE}/${fn}" || echo 000)
             fi
-            echo "$NAME → HTTP $CODE"
-            if [ "$CODE" = "404" ]; then
-              echo "::error::$NAME edge function missing (HTTP 404) — deploy failed"
-              exit 1
-            fi
-          done
-          echo "✅ All edge functions answering (project $SUPABASE_PROJECT_REF)"
+            echo "${fn} → HTTP ${code}"
+            [ "$code" != "404" ] || { echo "::error::${fn} not deployed (404)"; fail=1; }
+          }
+          probe "notify-contact" '{}'
+          probe "search"          '{"q":""}'
+          probe "checkout"        '{}'
+          probe "webhook"         ''
+          [ "$fail" -eq 0 ] || exit 1
+          echo "✅ All 5 functions live (project: $SUPABASE_PROJECT_REF)"
 
-      - name: Deployment summary
+      - name: Summary
         if: always()
         run: |
-          echo "==================================="
-          echo "📊 DEPLOYMENT SUMMARY"
-          echo "==================================="
-          echo "Project: $SUPABASE_PROJECT_REF"
-          echo "Attempted functions: notify-contact, checkout, search, webhook, health"
-          echo "Workflow: indivisiblefairoaks/supabase.yml"
-          echo "Runner: backend-runner (self-hosted, linux, ARM64)"
-          if: always()
-          echo "==================================="
+          printf '%s\n' \
+            "=======================================" \
+            "  SUPABASE DEPLOYMENT SUMMARY" \
+            "=======================================" \
+            "  Project  : $SUPABASE_PROJECT_REF" \
+            "  Functions: notify-contact, checkout," \
+            "             search, webhook, health" \
+            "  Time     : $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "======================================="

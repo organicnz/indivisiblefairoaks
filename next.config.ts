@@ -5,11 +5,11 @@ import type { NextConfig } from 'next';
 // the current project when env is not set (e.g. type-check without .env).
 const supabaseHost = (() => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url) return 'wcoaqlglwxwceqktpckt.supabase.co';
+  if (!url) return 'mojsubkqjdruhpxbzgme.supabase.co';
   try {
     return new URL(url).hostname;
   } catch {
-    return 'wcoaqlglwxwceqktpckt.supabase.co';
+    return 'mojsubkqjdruhpxbzgme.supabase.co';
   }
 })();
 
