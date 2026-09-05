@@ -3,9 +3,8 @@
 import { ArrowRight, Camera, Filter, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getGalleryPhotos } from '@/lib/queries/content-client';
-import { getStorageUrl } from '@/lib/supabase';
 
 interface PreviewPhoto {
   id: string;
@@ -34,9 +33,9 @@ export function HomeGalleryPreview() {
         id: p.id,
         title: p.caption || p.alt || '',
         location: p.location || '',
-        category: p.category || 'Other',
+        category: (p.category as PreviewPhoto['category']) || 'No Kings Sacramento',
         image: p.url || '',
-        signQuote: p.signQuote ?? null,
+        signQuote: p.signQuote ?? undefined,
         date: p.date || '',
       }));
       setPreviewPhotos(mapped);
