@@ -109,9 +109,11 @@ jobs:
           fi
 
           # Extract only the vars the edge runtime consumes.
-          # NEXT_PUBLIC_* and VERCEL_* are framework-only — edge Deno runtime
-          # doesn't need them and supabase secrets set rejects some.
-          grep -E "^(SUPABASE_|STRIPE_|RESEND_|APP_URL=|ADMIN_ORDER_EMAIL=|SEARCH_)" \
+          # NEXT_PUBLIC_* and VERCEL_* are framework-only — Deno edge runtime
+          # doesn't use them. SUPABASE_* vars (service role key, secret key)
+          # are rejected by `supabase secrets set` (CLI blocks SUPABASE_ prefix).
+          # Edge functions authenticate via the project JWT — no DB key needed here.
+          grep -E "^(STRIPE_|RESEND_|APP_URL=|ADMIN_ORDER_EMAIL=|SEARCH_)" \
             "$ENV_SRC" > supabase/functions/.env.production || true
 
           echo "── From Vercel ─────────────────────────────"
@@ -156,18 +158,29 @@ jobs:
           echo "────────────────────────────────────────────"
 
           if [ ! -s "$ENV_FILE" ]; then
-            echo "::error::$ENV_FILE is empty after merge — no secrets to push"
-            exit 1
+            echo "::warning::No edge-function secrets to push (STRIPE_*, RESEND_*, etc. not configured)."
+            echo "  SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are injected by Supabase automatically."
+            echo "  Add secrets via: gh secret set <NAME> --body <value>"
+            # Write a dummy comment so the file is non-empty and scrub step works cleanly
+            echo "# no-op" > "$ENV_FILE"
           fi
-          echo "Total secrets: $(grep -c '=' "$ENV_FILE") vars"
+          echo "Total secrets: $(grep -cv '^#' "$ENV_FILE") vars (excluding comments)"
 
       # ── Push merged secrets to the Supabase edge runtime ───────────────────
       - name: Push secrets to Supabase edge runtime
         run: |
+          ENV_FILE="supabase/functions/.env.production"
+          # Count real key=value lines (not comments, not empty)
+          SECRET_COUNT=$(grep -c '^[A-Z]' "$ENV_FILE" 2>/dev/null || echo 0)
+          if [ "$SECRET_COUNT" -eq 0 ]; then
+            echo "⏭️  No app secrets to push — Supabase injects SUPABASE_* vars automatically."
+            echo "   Add secrets (STRIPE_SECRET_KEY, RESEND_API_KEY, etc.) when available."
+            exit 0
+          fi
           supabase secrets set \
-            --env-file supabase/functions/.env.production \
+            --env-file "$ENV_FILE" \
             --project-ref "$SUPABASE_PROJECT_REF"
-          echo "✅ Secrets pushed to project $SUPABASE_PROJECT_REF"
+          echo "✅ $SECRET_COUNT secrets pushed to project $SUPABASE_PROJECT_REF"
 
       # Scrub the secrets file immediately — it must never persist on disk.
       - name: Scrub secrets file
