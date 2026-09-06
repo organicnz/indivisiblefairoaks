@@ -72,7 +72,7 @@ export default function FAQPage() {
             <span>Frequently Asked Questions</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
-            Everything You Need To Know
+            Frequently Asked Questions
           </h1>
           <div className="h-1.5 w-24 bg-amber-400 rounded-full mb-4" />
           <p className="text-slate-300 text-sm sm:text-base max-w-xl">

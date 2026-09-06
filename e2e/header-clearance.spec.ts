@@ -54,7 +54,10 @@ test.describe('desktop clearance (144px header)', () => {
   for (const route of guardedRoutes) {
     test(`h1 clears navbar: ${route.path}`, async ({ page }) => {
       await page.goto(route.path);
-      await expect(page.locator('h1').first()).toHaveText(new RegExp(route.heading.source, 'i'));
+      // Products page streams h1 behind PPR — allow up to 15s for DB-backed routes.
+      await expect(page.locator('h1').first()).toHaveText(new RegExp(route.heading.source, 'i'), {
+        timeout: 15_000,
+      });
       await expectHeadingClearOfHeader(page);
     });
   }
@@ -66,7 +69,9 @@ test.describe('mobile clearance (112px header)', () => {
   for (const route of [guardedRoutes[0], guardedRoutes[1], guardedRoutes[7]]) {
     test(`h1 clears navbar: ${route.path}`, async ({ page }) => {
       await page.goto(route.path);
-      await expect(page.locator('h1').first()).toHaveText(new RegExp(route.heading.source, 'i'));
+      await expect(page.locator('h1').first()).toHaveText(new RegExp(route.heading.source, 'i'), {
+        timeout: 15_000,
+      });
       await expectHeadingClearOfHeader(page);
     });
   }
