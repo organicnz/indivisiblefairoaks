@@ -10,32 +10,25 @@
 --    auth.role() = 'authenticated', letting ANY signed-in account read all
 --    customer messages. Require profiles.is_admin instead.
 
+DROP POLICY IF EXISTS "Users can view their own orders" ON public.orders;
 CREATE POLICY "Users can view their own orders"
   ON public.orders
   FOR SELECT
-  USING (
-    customer_id IS NOT NULL
-    AND EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = customer_id
-        AND (p.user_id = auth.uid() OR p.email = auth.jwt()->>'email')
-    )
-  );
+  USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view their own order items" ON public.order_items;
 CREATE POLICY "Users can view their own order items"
   ON public.order_items
   FOR SELECT
   USING (
     EXISTS (
-      SELECT 1
-      FROM public.orders o
-      JOIN public.profiles p ON p.id = o.customer_id
-      WHERE o.id = order_id
-        AND (p.user_id = auth.uid() OR p.email = auth.jwt()->>'email')
+      SELECT 1 FROM public.orders o
+      WHERE o.id = order_id AND o.user_id = auth.uid()
     )
   );
 
 DROP POLICY IF EXISTS "Admins can view submissions" ON public.contact_submissions;
+DROP POLICY IF EXISTS "Admins can view contact submissions" ON public.contact_submissions;
 CREATE POLICY "Admins can view contact submissions"
   ON public.contact_submissions
   FOR SELECT

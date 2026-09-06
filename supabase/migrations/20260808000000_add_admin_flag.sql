@@ -2,6 +2,7 @@
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- RLS: admins can read all orders
+DROP POLICY IF EXISTS "Admins can read all orders" ON orders;
 CREATE POLICY "Admins can read all orders" ON orders
   FOR SELECT USING (
     EXISTS (
@@ -12,6 +13,7 @@ CREATE POLICY "Admins can read all orders" ON orders
   );
 
 -- RLS: admins can update order status
+DROP POLICY IF EXISTS "Admins can update orders" ON orders;
 CREATE POLICY "Admins can update orders" ON orders
   FOR UPDATE USING (
     EXISTS (
@@ -22,6 +24,7 @@ CREATE POLICY "Admins can update orders" ON orders
   );
 
 -- RLS: admins can read all order_items
+DROP POLICY IF EXISTS "Admins can read all order_items" ON order_items;
 CREATE POLICY "Admins can read all order_items" ON order_items
   FOR SELECT USING (
     EXISTS (
@@ -32,6 +35,7 @@ CREATE POLICY "Admins can read all order_items" ON order_items
   );
 
 -- RLS: admins can read all profiles (extends existing self-read policy)
+DROP POLICY IF EXISTS "Admins can read all profiles" ON profiles;
 CREATE POLICY "Admins can read all profiles" ON profiles
   FOR SELECT USING (
     auth.uid() = user_id
