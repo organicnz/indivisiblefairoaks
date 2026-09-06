@@ -100,6 +100,8 @@ jobs:
       #   .next/        — used by E2E (bunx next start)
       #   .vercel/      — used by deploy (vercel deploy --prebuilt needs .vercel/output/)
       #   public/       — static assets needed by next start
+      # include-hidden-files: true is REQUIRED — .next/ and .vercel/ are hidden
+      # directories (dot-prefix). upload-artifact@v4 skips hidden files by default.
       - name: Upload build artefact
         uses: actions/upload-artifact@v4
         with:
@@ -108,6 +110,7 @@ jobs:
             .next/
             .vercel/
             public/
+          include-hidden-files: true
           retention-days: 1
 
   # ── 4. E2E Tests ─────────────────────────────────────────────────────────────

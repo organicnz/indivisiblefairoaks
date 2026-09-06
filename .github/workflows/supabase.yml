@@ -170,8 +170,13 @@ jobs:
       - name: Push secrets to Supabase edge runtime
         run: |
           ENV_FILE="supabase/functions/.env.production"
-          # Count real key=value lines (not comments, not empty)
-          SECRET_COUNT=$(grep -c '^[A-Z]' "$ENV_FILE" 2>/dev/null || echo 0)
+          # Count real key=value lines (uppercase key, not comments/empty).
+          # Use grep -c safely: on no match grep exits 1, so || true prevents set -e bail.
+          SECRET_COUNT=0
+          if [ -f "$ENV_FILE" ]; then
+            SECRET_COUNT=$(grep -c '^[A-Z][A-Z0-9_]*=' "$ENV_FILE" || true)
+            SECRET_COUNT=${SECRET_COUNT:-0}
+          fi
           if [ "$SECRET_COUNT" -eq 0 ]; then
             echo "⏭️  No app secrets to push — Supabase injects SUPABASE_* vars automatically."
             echo "   Add secrets (STRIPE_SECRET_KEY, RESEND_API_KEY, etc.) when available."
