@@ -265,7 +265,7 @@ jobs:
 
       - name: Assert Supabase CLI version matches pinned version
         env:
-          EXPECTED_CLI_VERSION: "2.22.6"
+          EXPECTED_CLI_VERSION: "2.116.0"
         run: |
           ACTUAL=$(supabase --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "missing")
           echo "Supabase CLI: $ACTUAL (expected: $EXPECTED_CLI_VERSION)"

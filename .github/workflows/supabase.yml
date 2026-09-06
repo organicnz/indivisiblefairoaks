@@ -44,7 +44,7 @@ env:
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
   # Pinned Supabase CLI version — bump deliberately, not on every run.
   # Check releases: https://github.com/supabase/cli/releases
-  SUPABASE_CLI_VERSION: 2.22.6
+  SUPABASE_CLI_VERSION: 2.116.0
   SF_RETRIES: 3
   SF_RETRY_DELAY: 10
 
@@ -216,11 +216,9 @@ jobs:
 
       - name: Push migrations
         run: |
-          # supabase db push does not accept --project-ref. Use supabase link
-          # to bind the project ref (using SUPABASE_ACCESS_TOKEN for auth),
-          # then push with --linked (the default, but explicit is clearer).
-          supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          supabase db push --linked
+          # CLI v2.116+: supabase db push accepts --project-ref directly.
+          # SUPABASE_ACCESS_TOKEN (global env) handles auth — no DB password needed.
+          supabase db push --project-ref "$SUPABASE_PROJECT_REF"
           echo "✅ Migrations applied to project $SUPABASE_PROJECT_REF"
 
   # ── 3. Deploy edge functions (5 parallel matrix legs) ─────────────────────
