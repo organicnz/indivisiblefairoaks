@@ -11,24 +11,25 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Public vars needed for next build / e2e
   NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
   NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
-  # Private server-only vars
   SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+  # Pin bun — bump deliberately. Check: https://github.com/oven-sh/bun/releases
+  BUN_VERSION: "1.2.18"
 
 jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -46,12 +47,13 @@ jobs:
   test:
     name: Tests & Coverage
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -64,12 +66,13 @@ jobs:
     name: Next.js Build
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
     needs: [lint, test]
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -77,8 +80,8 @@ jobs:
       - name: Build
         run: bun run build
 
-      # Upload the build artefact so the E2E job and the deploy job reuse it
-      # instead of building a second time.
+      # Upload .next/ + public/ so E2E and deploy reuse it without rebuilding.
+      # path: . ensures files extract to repo root on download-artifact@v4.
       - name: Upload build artefact
         uses: actions/upload-artifact@v4
         with:
@@ -93,16 +96,19 @@ jobs:
     name: E2E Tests
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
     needs: [build]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # path: . is required — download-artifact@v4 without path extracts
+      # into a subdirectory named after the artifact, not the repo root.
       - name: Download build artefact
         uses: actions/download-artifact@v4
         with:
@@ -126,12 +132,13 @@ jobs:
           retention-days: 14
 
   # ── 5. Deploy to Vercel ───────────────────────────────────────────────────────
+  # Push-only (not PRs). Uses the pre-built .next/ artefact — no double build.
   deploy-vercel:
     name: Deploy → Vercel
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
     needs: [build]
-    # Only deploy on push (not on PR) for main/mainDeploy
     if: github.event_name == 'push'
+    timeout-minutes: 20
     outputs:
       url: ${{ steps.deploy.outputs.url }}
     environment:
@@ -142,58 +149,61 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # path: . required — see note on E2E job above.
       - name: Download build artefact
         uses: actions/download-artifact@v4
         with:
           name: next-build
           path: .
 
-      - name: Install Vercel CLI
-        run: bun add -g vercel@latest
-
+      # npx --yes avoids global install pollution on the runner.
+      # vercel pull syncs env vars; vercel deploy --prebuilt skips the
+      # Next.js build entirely — the artefact is already complete.
       - name: Pull Vercel environment
-        run: vercel pull --yes --environment=${{ github.ref_name == 'mainDeploy' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npx --yes vercel@latest pull --yes \
+            --environment=${{ github.ref_name == 'mainDeploy' && 'production' || 'preview' }} \
+            --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Build for Vercel
-        run: vercel build ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to Vercel
+      - name: Deploy to Vercel (prebuilt)
         id: deploy
         run: |
-          URL=$(vercel deploy --prebuilt ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }})
+          URL=$(npx --yes vercel@latest deploy --prebuilt \
+            ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} \
+            --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "✅ Deployed: $URL"
 
-  # ── 6. Live Health Probe (Vercel deployment only) ───────────────────────────
-  # Supabase edge-function delivery + verification lives in the dedicated
-  # supabase.yml workflow (backend-runner) — never here.
+  # ── 6. Live Health Probe ──────────────────────────────────────────────────────
   health-probe:
     name: Live Health Probe
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
     needs: [deploy-vercel]
     if: github.event_name == 'push'
+    timeout-minutes: 5
     steps:
-      - name: Probe Vercel deployment
+      - name: Wait for deployment to warm up and probe /api/health
         run: |
           URL="${{ needs.deploy-vercel.outputs.url }}"
           if [ -z "$URL" ]; then
             echo "No deployment URL — skipping probe"
             exit 0
           fi
-          # Allow up to 90 s for the deployment to warm up
+          echo "Probing $URL/api/health (up to 90s)..."
           for i in $(seq 1 9); do
-            STATUS=$(curl -o /dev/null -sw '%{http_code}' "${URL}/api/health" || echo 000)
-            echo "Attempt $i: HTTP $STATUS"
+            STATUS=$(curl -fsSL -o /dev/null -w '%{http_code}' \
+              --max-time 10 "${URL}/api/health" || echo 000)
+            echo "  Attempt $i/9: HTTP $STATUS"
             if [ "$STATUS" = "200" ]; then
               echo "✅ Health check passed"
               exit 0
             fi
-            sleep 10
+            [ "$i" -lt 9 ] && sleep 10
           done
-          echo "❌ Health check failed after 90 s"
+          echo "::error::Health check failed after 90s — last status: $STATUS"
           exit 1
