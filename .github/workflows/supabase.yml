@@ -218,7 +218,12 @@ jobs:
         run: |
           # CLI v2.116+: supabase db push accepts --project-ref directly.
           # SUPABASE_ACCESS_TOKEN (global env) handles auth — no DB password needed.
-          supabase db push --project-ref "$SUPABASE_PROJECT_REF"
+          # --include-all: apply all local migrations not yet on the remote,
+          # skipping the history-consistency check (safe for CI — remote may have
+          # baseline migrations that pre-date this repo's migration tracking).
+          supabase db push \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --include-all
           echo "✅ Migrations applied to project $SUPABASE_PROJECT_REF"
 
   # ── 3. Deploy edge functions (5 parallel matrix legs) ─────────────────────
