@@ -216,7 +216,11 @@ jobs:
 
       - name: Push migrations
         run: |
-          supabase db push --project-ref "$SUPABASE_PROJECT_REF"
+          # supabase db push does not accept --project-ref. Use supabase link
+          # to bind the project ref (using SUPABASE_ACCESS_TOKEN for auth),
+          # then push with --linked (the default, but explicit is clearer).
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase db push --linked
           echo "✅ Migrations applied to project $SUPABASE_PROJECT_REF"
 
   # ── 3. Deploy edge functions (5 parallel matrix legs) ─────────────────────
