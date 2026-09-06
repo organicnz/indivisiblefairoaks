@@ -49,12 +49,24 @@ jobs:
       - name: Query runner status via GitHub API
         id: check
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ACTIONS_PAT must be a fine-grained PAT with administration:read.
+          # GITHUB_TOKEN cannot list self-hosted runners (403).
+          # If not set we skip the API check and rely on smoke jobs only.
+          ACTIONS_PAT: ${{ secrets.ACTIONS_PAT }}
         run: |
           set -euo pipefail
 
+          if [ -z "${ACTIONS_PAT:-}" ]; then
+            echo "::warning::ACTIONS_PAT secret not set — skipping runner API check. Smoke jobs still verify runner liveness."
+            echo "frontend_status=unknown" >> "$GITHUB_OUTPUT"
+            echo "backend_status=unknown"  >> "$GITHUB_OUTPUT"
+            echo "all_ok=true"             >> "$GITHUB_OUTPUT"
+            echo "summary=api-check-skipped (no ACTIONS_PAT)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           # Fetch all runners for this repo
-          RUNNERS=$(gh api "repos/${{ github.repository }}/actions/runners" \
+          RUNNERS=$(GH_TOKEN="$ACTIONS_PAT" gh api "repos/${{ github.repository }}/actions/runners" \
             --jq '[.runners[] | {
               name,
               status,
@@ -74,7 +86,6 @@ jobs:
           best_status() {
             local label="$1"
             local s
-            # First try by label, then by name as fallback
             s=$(echo "$RUNNERS" | jq -r \
               --arg lbl "$label" \
               '[.[] | select(.labels[] | test($lbl; "i")) | .status] |
@@ -149,7 +160,7 @@ jobs:
           echo "  2. Check runner service: systemctl status actions.runner.*"
           echo "  3. If stopped: systemctl start actions.runner.*"
           echo "  4. If unregistered, re-register:"
-          echo "     TOKEN=\$(gh api -X POST repos/${{ github.repository }}/actions/runners/registration-token --jq '.token')"
+          echo "     TOKEN=\$(GH_TOKEN=<ACTIONS_PAT> gh api -X POST repos/${{ github.repository }}/actions/runners/registration-token --jq '.token')"
           echo "     curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/setup-runner.sh \\"
           echo "       | bash -s -- --token \$TOKEN --name <NAME> --labels <LABELS>"
           exit 1
@@ -353,12 +364,17 @@ jobs:
 
       - name: Post webhook notification (optional)
         # Set ALERT_WEBHOOK_URL secret to a Slack/Discord/Teams/custom webhook URL.
-        # If not set, this step is a no-op.
-        if: ${{ secrets.ALERT_WEBHOOK_URL != '' }}
+        # If not set, this step is a no-op (shell guard, not if: expression —
+        # secrets cannot be compared in if: conditions).
         env:
           WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          SUMMARY_MSG: ${{ steps.summary.outputs.message }}
         run: |
-          PAYLOAD=$(printf '{"text":"%s"}' "${{ steps.summary.outputs.message }}")
+          if [ -z "${WEBHOOK_URL:-}" ]; then
+            echo "ALERT_WEBHOOK_URL not set — skipping webhook notification"
+            exit 0
+          fi
+          PAYLOAD=$(printf '{"text":"%s"}' "$SUMMARY_MSG")
           HTTP=$(curl -s -o /dev/null -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' \
             -d "$PAYLOAD" "$WEBHOOK_URL" || echo 000)
