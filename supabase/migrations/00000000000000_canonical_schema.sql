@@ -77,14 +77,27 @@ CREATE POLICY "Users can insert their own profile"
     ON public.profiles FOR INSERT
     WITH CHECK (auth.uid() = id OR auth.uid() = user_id);
 
+-- Helper: check if calling user is admin without triggering RLS on profiles.
+-- Runs as the function owner (bypasses RLS via definer security model),
+-- breaking the recursion that would occur if a profiles policy queried profiles.
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE user_id = auth.uid() AND is_admin = true
+  );
+$$;
+-- Grant execute to authenticated users so the policy USING clause can call it.
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
 CREATE POLICY "Admins can read all profiles"
     ON public.profiles FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles p
-            WHERE p.user_id = auth.uid() AND p.is_admin = true
-        )
-    );
+    USING (public.is_admin());
 
 CREATE POLICY "Service role can do anything"
     ON public.profiles FOR ALL
@@ -177,7 +190,7 @@ CREATE POLICY "Public read products"
     ON public.products FOR SELECT USING (true);
 CREATE POLICY "Admins manage products"
     ON public.products FOR ALL
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE user_id = auth.uid() AND is_admin = true));
+    USING (public.is_admin());
 
 -- ── 4. Product ↔ Category join ────────────────────────────────────────────────
 
@@ -235,7 +248,7 @@ DROP POLICY IF EXISTS "Admins manage coupons"  ON public.coupons;
 DROP POLICY IF EXISTS "Anon validate coupon"    ON public.coupons;
 CREATE POLICY "Admins manage coupons"
     ON public.coupons FOR ALL
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE user_id = auth.uid() AND is_admin = true));
+    USING (public.is_admin());
 CREATE POLICY "Anon validate coupon"
     ON public.coupons FOR SELECT
     TO anon, authenticated USING (true);
@@ -282,10 +295,10 @@ CREATE POLICY "Users can view their own orders"
     USING (auth.uid() = user_id);
 CREATE POLICY "Admins can read all orders"
     ON public.orders FOR SELECT
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE user_id = auth.uid() AND is_admin = true));
+    USING (public.is_admin());
 CREATE POLICY "Admins can update all orders"
     ON public.orders FOR UPDATE
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE user_id = auth.uid() AND is_admin = true));
+    USING (public.is_admin());
 
 -- ── 8. Order Items ────────────────────────────────────────────────────────────
 
@@ -308,7 +321,7 @@ CREATE POLICY "Users can view their own order items"
     USING (EXISTS (SELECT 1 FROM public.orders o WHERE o.id = order_id AND o.user_id = auth.uid()));
 CREATE POLICY "Admins can manage order items"
     ON public.order_items FOR ALL
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE user_id = auth.uid() AND is_admin = true));
+    USING (public.is_admin());
 
 -- ── 9. Reviews ────────────────────────────────────────────────────────────────
 
@@ -332,7 +345,7 @@ CREATE POLICY "Public read approved reviews"
     ON public.reviews FOR SELECT USING (status = 'approved');
 CREATE POLICY "Admins manage reviews"
     ON public.reviews FOR ALL
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE user_id = auth.uid() AND is_admin = true));
+    USING (public.is_admin());
 
 -- ── 10. Content ───────────────────────────────────────────────────────────────
 -- Civic pages, actions, announcements, blog posts.
@@ -394,7 +407,7 @@ CREATE POLICY "Anyone can submit contact form"
 CREATE POLICY "Admins can view contact submissions"
     ON public.contact_submissions FOR SELECT
     TO authenticated
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE user_id = auth.uid() AND is_admin = true));
+    USING (public.is_admin());
 
 -- RPC: validated, throttled entry point for anonymous contact form submission.
 -- Runs with elevated privileges so anon can insert without a SELECT policy (INSERT..RETURNING
@@ -485,7 +498,7 @@ CREATE POLICY "Anyone can submit an error report"
     WITH CHECK (true);
 CREATE POLICY "Admins can view error reports"
     ON public.error_reports FOR SELECT
-    USING (EXISTS (SELECT 1 FROM public.profiles WHERE user_id = auth.uid() AND is_admin = true));
+    USING (public.is_admin());
 
 -- 90-day retention via pg_cron
 DO $retention$
