@@ -32,7 +32,7 @@ export default async function AccountPage(props: {
   }
 
   // Profile via admin client (bypasses RLS)
-  let profile: { id: number; user_id: string | null; is_admin: boolean } | null = null;
+  let profile: { id: string; user_id: string | null; is_admin: boolean | null } | null = null;
   try {
     const ac = await createAdminClient();
     const { data } = await ac
@@ -60,9 +60,9 @@ export default async function AccountPage(props: {
       ? createAdminClient().then((ac) =>
           ac
             .from('orders')
-            .select(`id, created_at, status, total_amount, currency, payment_method,
+            .select(`id, created_at, status, total, currency,
               stripe_session_id, shipping_address, billing_address,
-              order_items ( id, product_name, quantity, total ),
+              order_items ( id, product_name, quantity, unit_price ),
               profiles ( first_name, last_name, email )`)
             .order('created_at', { ascending: false })
             .limit(200)
@@ -71,10 +71,8 @@ export default async function AccountPage(props: {
     profile
       ? supabase
           .from('orders')
-          .select(
-            'id, created_at, status, total_amount, order_items(product_name, quantity, total)'
-          )
-          .eq('customer_id', profile.id)
+          .select('id, created_at, status, total, order_items(product_name, quantity, unit_price)')
+          .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [] as MyOrder[] }),
   ]);

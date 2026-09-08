@@ -21,7 +21,7 @@ type Coupon = {
 
 type CouponUsage = {
   coupon_code: string;
-  total_amount: number | null;
+  total: number | null;
 };
 
 export default async function AdminCouponsPage() {
@@ -34,7 +34,7 @@ export default async function AdminCouponsPage() {
       .order('code'),
     adminClient
       .from('orders')
-      .select('coupon_code, total_amount')
+      .select('coupon_code, total')
       .not('coupon_code', 'is', null)
       .limit(500),
   ]);
@@ -48,7 +48,7 @@ export default async function AdminCouponsPage() {
   for (const u of usage) {
     const stat = usageByCode.get(u.coupon_code) || { uses: 0, revenue: 0 };
     stat.uses += 1;
-    stat.revenue += Number(u.total_amount) || 0;
+    stat.revenue += Number(u.total) || 0;
     usageByCode.set(u.coupon_code, stat);
   }
   const maxUses = Math.max(0, ...[...usageByCode.values()].map((s) => s.uses));

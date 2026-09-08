@@ -3,8 +3,8 @@
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { getGalleryPhotos } from '@/lib/queries/content-client';
+import { useEffect, useMemo, useState } from 'react';
+import type { GalleryClientPhoto } from '@/app/gallery/GalleryClient';
 
 interface Photo {
   id: string;
@@ -13,54 +13,11 @@ interface Photo {
   label: string;
 }
 
-// Hero crossfade photos (top 4 by sort_order, is_hero=true)
-const useHeroPhotos = (): Photo[] => {
-  const [heroPhotos, setHeroPhotos] = useState<Photo[]>([]);
-  useEffect(() => {
-    getGalleryPhotos().then((photos) => {
-      // Filter by is_hero flag only — category names are canonical in the DB,
-      // so don't double-filter here. Sort by sort_order and take the top 4.
-      const heroes = photos
-        .filter((p) => p.is_hero === true)
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-      setHeroPhotos(
-        heroes.slice(0, 4).map((p) => ({
-          id: p.id,
-          src: p.url,
-          alt: p.alt || p.caption || '',
-          label: p.caption || '',
-        }))
-      );
-    });
-  }, []);
+interface Props {
+  photos: GalleryClientPhoto[];
+}
 
-  return heroPhotos;
-};
-
-// Pair photos (is_pair=true)
-const usePairPhotos = (): Photo[] => {
-  const [pairPhotos, setPairPhotos] = useState<Photo[]>([]);
-  useEffect(() => {
-    getGalleryPhotos().then((photos) => {
-      const pairs = photos
-        .filter((p) => p.is_pair === true)
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-      setPairPhotos(
-        pairs.map((p) => ({
-          id: p.id,
-          src: p.url,
-          alt: p.alt || p.caption || '',
-          label: p.caption || '',
-        }))
-      );
-    });
-  }, []);
-
-  return pairPhotos;
-};
-
-const HERO_INTERVAL = 6000; // ms between hero crossfades
-
+const HERO_INTERVAL = 6000;
 const EASE_STD = [0.4, 0, 0.2, 1] as const;
 
 const rowVariants: Variants = {
@@ -72,11 +29,25 @@ const rowVariants: Variants = {
   }),
 };
 
-export function HeroPhotoFrame() {
+function toPhoto(p: GalleryClientPhoto): Photo {
+  return { id: String(p.id), src: p.url, alt: p.alt || p.caption, label: p.caption };
+}
+
+export function HeroPhotoFrame({ photos }: Props) {
   const reduced = useReducedMotion();
-  const heroPhotos = useHeroPhotos();
-  const pairPhotos = usePairPhotos();
   const [heroIndex, setHeroIndex] = useState(0);
+
+  // Derive hero and pair sets from the single prop — no extra fetches
+  const heroPhotos = useMemo(
+    () =>
+      photos
+        .filter((p) => p.is_hero)
+        .slice(0, 4)
+        .map(toPhoto),
+    [photos]
+  );
+
+  const pairPhotos = useMemo(() => photos.filter((p) => p.is_pair).map(toPhoto), [photos]);
 
   useEffect(() => {
     if (reduced !== false || heroPhotos.length === 0) return;
@@ -85,8 +56,6 @@ export function HeroPhotoFrame() {
   }, [reduced, heroPhotos.length]);
 
   const dur = reduced !== false ? 0 : undefined;
-
-  // Keep index in bounds while photos are loading in (avoids undefined src)
   const safeIndex = heroPhotos.length > 0 ? heroIndex % heroPhotos.length : 0;
   const currentHero = heroPhotos[safeIndex] ?? null;
 
@@ -101,7 +70,6 @@ export function HeroPhotoFrame() {
           animate="visible"
           className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50 aspect-[4/3]"
         >
-          {/* Skeleton shown while photos are still loading */}
           {currentHero === null && <div className="absolute inset-0 bg-slate-800 animate-pulse" />}
 
           <AnimatePresence mode="sync">
@@ -167,8 +135,7 @@ export function HeroPhotoFrame() {
           className="grid grid-cols-2 gap-3"
         >
           {pairPhotos.length === 0
-            ? // Skeleton pair while loading
-              [0, 1].map((i) => (
+            ? [0, 1].map((i) => (
                 <div
                   key={i}
                   className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg aspect-square bg-slate-800 animate-pulse"
@@ -197,7 +164,7 @@ export function HeroPhotoFrame() {
         </motion.div>
       </div>
 
-      {/* Caption strip — outside aria-hidden so the link is keyboard-reachable */}
+      {/* Caption strip */}
       <div className="flex items-center justify-between px-1">
         <span className="text-[10px] text-slate-500 font-medium" aria-hidden="true">
           Community moments

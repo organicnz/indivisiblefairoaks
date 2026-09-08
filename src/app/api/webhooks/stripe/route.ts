@@ -98,7 +98,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   } | null;
   const email = customerDetails?.email || session.customer_email;
 
-  let profileId: number | null = null;
+  let profileId: string | null = null;
 
   if (userId || email) {
     const query = supabase.from('profiles').select('id');
@@ -122,14 +122,13 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({
-      customer_id: profileId,
+      user_id: profileId,
       status: 'processing',
       currency: session.currency || 'nzd',
-      total_amount: (session.amount_total || 0) / 100,
+      total: (session.amount_total || 0) / 100,
       stripe_session_id: session.id,
       billing_address: customerDetails?.address,
       shipping_address: collectedInfo?.shipping_details?.address,
-      payment_method: 'stripe',
       created_at: new Date().toISOString(),
     })
     .select()
@@ -175,11 +174,12 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
   if (itemsError) throw itemsError;
 
-  // 5. Update profile with stripe_customer_id if available
+  // 5. Update profile with Stripe customer ID if available (metadata only, no schema column)
+  // stripe_customer_id is stored in orders.metadata for reference
   if (profileId && session.customer) {
     await supabase
-      .from('profiles')
-      .update({ stripe_customer_id: session.customer as string })
-      .eq('id', profileId);
+      .from('orders')
+      .update({ metadata: { stripe_customer_id: session.customer as string } })
+      .eq('id', order.id);
   }
 }

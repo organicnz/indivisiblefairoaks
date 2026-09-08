@@ -15,11 +15,15 @@ import {
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import type { GalleryClientPhoto } from '@/app/gallery/GalleryClient';
 import { HeroPhotoFrame } from '@/components/home/HeroPhotoFrame';
 import { HomeGalleryPreview } from '@/components/home/HomeGalleryPreview';
 import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
+import type { TickerItem } from '@/components/ui/CivicActionTicker';
 import { CivicActionTicker } from '@/components/ui/CivicActionTicker';
 import { VgpuCivicAtmosphere } from '@/components/ui/VgpuCivicAtmosphere';
+import { getEvents, getGalleryPhotos } from '@/lib/queries/civic';
+import { getStorageUrl } from '@/lib/supabase';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
@@ -37,7 +41,37 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Single server-side fetch, shared across HeroPhotoFrame and HomeGalleryPreview.
+  // Cached via cacheTag('gallery') / cacheLife('hours') in getGalleryPhotos().
+  const [galleryRows, events] = await Promise.all([getGalleryPhotos(), getEvents()]);
+  const galleryPhotos: GalleryClientPhoto[] = galleryRows.map((row) => ({
+    id: String(row.id),
+    url: getStorageUrl(row.storage_path),
+    alt: row.alt || row.caption,
+    caption: row.caption,
+    location: row.location,
+    category: row.category,
+    signQuote: row.sign_quote,
+    date: row.date_label,
+    photographer: row.photographer,
+    is_hero: row.is_hero,
+    is_pair: row.is_pair,
+  }));
+
+  // Map upcoming events → ticker items. Filter to events that haven't ended yet,
+  // cap at 5 so the ticker doesn't overflow on small screens.
+  const now = new Date().toISOString();
+  const tickerItems: TickerItem[] = events
+    .filter((e) => !e.isoDateEnd || e.isoDateEnd >= now.replace(/[-:]/g, '').slice(0, 15))
+    .slice(0, 5)
+    .map((e) => ({
+      label: e.title,
+      detail: `${e.dateLabel} • ${e.timeLabel}`,
+      href: '/events',
+      badge: e.category,
+    }));
+
   return (
     <div className="flex flex-col w-full">
       {/* Hero Section with VGPU Dynamic Civic Atmosphere */}
@@ -122,13 +156,13 @@ export default function HomePage() {
             </div>
 
             {/* Right — community photo frame */}
-            <HeroPhotoFrame />
+            <HeroPhotoFrame photos={galleryPhotos} />
           </div>
         </div>
       </section>
 
       {/* Live Civic Action Ticker */}
-      <CivicActionTicker />
+      <CivicActionTicker items={tickerItems} />
 
       {/* Urgent Community Gathering Alert Card */}
       <section className="bg-slate-900 border-b border-slate-800 py-8">
@@ -424,7 +458,7 @@ export default function HomePage() {
       </section>
 
       {/* Community Photojournalism / Moments of Resistance Preview */}
-      <HomeGalleryPreview />
+      <HomeGalleryPreview photos={galleryPhotos} />
 
       {/* Non-violent Action Commitment Banner */}
       <section className="bg-slate-950 py-12 border-t border-b border-slate-800">

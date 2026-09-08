@@ -42,16 +42,15 @@ type OrderItem = {
   id: number;
   product_name: string | null;
   quantity: number | null;
-  total: number | null;
+  unit_price: number | null;
 };
 
 type Order = {
   id: number;
   created_at: string | null;
   status: string | null;
-  total_amount: number | null;
+  total: number | null;
   currency: string | null;
-  payment_method: string | null;
   stripe_session_id: string | null;
   coupon_code: string | null;
   shipping_address: ShippingAddress | null;
@@ -74,13 +73,13 @@ const RANGE_DAYS: Record<Exclude<RangeKey, 'all'>, number> = {
 const PAGE_SIZE = 50;
 const EXPORT_LIMIT = 2000;
 
-const ORDER_SELECT = `id, created_at, status, total_amount, currency,
-  payment_method, stripe_session_id, coupon_code,
+const ORDER_SELECT = `id, created_at, status, total, currency,
+  stripe_session_id, coupon_code,
   shipping_address,
-  order_items ( id, product_name, quantity, total ),
+  order_items ( id, product_name, quantity, unit_price ),
   profiles ( first_name, last_name, email )`;
 
-const LIGHT_SELECT = 'id, created_at, status, total_amount';
+const LIGHT_SELECT = 'id, created_at, status, total';
 
 type AdminClient = Awaited<ReturnType<typeof createAdminClient>>;
 
@@ -197,7 +196,7 @@ export default async function AdminOrdersPage({
     id: number;
     created_at: string | null;
     status: string | null;
-    total_amount: number | null;
+    total: number | null;
   }[];
 
   const ids =
@@ -221,7 +220,7 @@ export default async function AdminOrdersPage({
   // Stats over the full filtered set (search included)
   const statsOrders =
     filters.search.length > 0 ? lightOrders.filter((o) => ids.includes(o.id)) : lightOrders;
-  const totalRevenue = statsOrders.reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+  const totalRevenue = statsOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const processing = statsOrders.filter((o) => o.status === 'processing').length;
   const completed = statsOrders.filter((o) => o.status === 'completed').length;
 
@@ -341,7 +340,7 @@ export default async function AdminOrdersPage({
               items: order.order_items
                 .map((i) => `${i.product_name || 'Item'} x${i.quantity || 1}`)
                 .join('; '),
-              total: order.total_amount,
+              total: order.total,
               coupon: order.coupon_code,
             };
           })}
@@ -483,7 +482,7 @@ export default async function AdminOrdersPage({
                         Total
                       </p>
                       <p className="text-lg text-primary font-black">
-                        ${Number(order.total_amount).toFixed(2)}
+                        ${Number(order.total).toFixed(2)}
                         <span className="text-[10px] text-slate-400 font-bold ml-1">
                           {(order.currency || 'NZD').toUpperCase()}
                         </span>
@@ -525,7 +524,7 @@ export default async function AdminOrdersPage({
                             </div>
                           </div>
                           <p className="text-sm font-black text-secondary">
-                            ${Number(item.total).toFixed(2)}
+                            ${Number(item.unit_price).toFixed(2)}
                           </p>
                         </li>
                       ))}

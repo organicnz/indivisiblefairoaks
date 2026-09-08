@@ -38,7 +38,7 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
                   Total
                 </p>
                 <p className="text-sm text-primary font-black tabular-nums">
-                  {formatNZD(order.total_amount)}
+                  {formatNZD(order.total)}
                 </p>
               </div>
               <div>
@@ -80,7 +80,7 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
                     </div>
                   </div>
                   <p className="text-sm font-black text-secondary tabular-nums">
-                    {formatNZD(item.total)}
+                    {formatNZD(item.unit_price)}
                   </p>
                 </li>
               ))}

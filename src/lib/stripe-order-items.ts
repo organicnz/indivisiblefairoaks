@@ -5,7 +5,7 @@ export interface OrderItemRow {
   product_id: number | null;
   product_name: string;
   quantity: number;
-  total: number;
+  unit_price: number;
 }
 
 /**
@@ -27,7 +27,7 @@ export function buildOrderItems(orderId: number, lineItems: Stripe.LineItem[]): 
         typeof metaId === 'string' && /^\d+$/.test(metaId) ? Number.parseInt(metaId, 10) : null,
       product_name: product?.name || item.description || 'Unknown product',
       quantity: item.quantity || 1,
-      total: (item.amount_total || 0) / 100,
+      unit_price: (item.amount_total || 0) / 100,
     };
   });
 }

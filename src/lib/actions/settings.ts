@@ -68,6 +68,7 @@ export async function updateUserSettingsAction(settings: Partial<UserSettings>) 
 
   const { error: upsertError } = await supabase.from('profiles').upsert(
     {
+      id: user.id,
       user_id: user.id,
       email: user.email,
       settings: updatedSettings as Json,
@@ -81,6 +82,7 @@ export async function updateUserSettingsAction(settings: Partial<UserSettings>) 
     // Final fallback by email if user_id conflict occurs or fails
     const { error: emailError } = await supabase.from('profiles').upsert(
       {
+        id: user.id,
         email: user.email,
         user_id: user.id,
         settings: updatedSettings,

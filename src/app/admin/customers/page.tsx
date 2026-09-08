@@ -12,15 +12,15 @@ export const metadata = {
 };
 
 type Customer = {
-  id: number;
+  id: string;
   email: string;
   first_name: string | null;
   last_name: string | null;
-  is_admin: boolean;
+  is_admin: boolean | null;
   created_at: string | null;
   orders: {
     id: number;
-    total_amount: number | null;
+    total: number | null;
     created_at: string | null;
     status: string | null;
   }[];
@@ -38,7 +38,7 @@ export default async function AdminCustomersPage({
   const { data: customers } = await adminClient
     .from('profiles')
     .select(`id, email, first_name, last_name, is_admin, created_at,
-      orders ( id, total_amount, created_at, status )`)
+      orders ( id, total, created_at, status )`)
     .order('created_at', { ascending: false })
     .limit(500);
 
@@ -85,7 +85,7 @@ export default async function AdminCustomersPage({
           </div>
         ) : (
           rows.map((c) => {
-            const spent = c.orders.reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+            const spent = c.orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
             const lastOrder = [...c.orders].sort((a, b) =>
               String(b.created_at || '').localeCompare(String(a.created_at || ''))
             )[0];

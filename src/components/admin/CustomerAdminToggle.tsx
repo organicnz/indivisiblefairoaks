@@ -8,10 +8,10 @@ export function CustomerAdminToggle({
   profileId,
   isAdmin,
 }: {
-  profileId: number;
-  isAdmin: boolean;
+  profileId: string;
+  isAdmin: boolean | null;
 }) {
-  const [admin, setAdmin] = useState(isAdmin);
+  const [admin, setAdmin] = useState(isAdmin ?? false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 

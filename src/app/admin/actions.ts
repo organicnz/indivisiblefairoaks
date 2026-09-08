@@ -141,15 +141,23 @@ export async function updateProduct(payload: {
   }
 
   const adminClient = await requireAdminClient();
+  // Fetch slug before update so we can invalidate the per-slug cache entry.
+  const { data: existing } = await adminClient
+    .from('products')
+    .select('slug')
+    .eq('id', id)
+    .single();
   const { error } = await adminClient
     .from('products')
     .update({ ...fields, name: fields.name?.trim() })
     .eq('id', id);
   if (error) throw new Error(error.message);
   updateTag('products');
+  if (existing?.slug) updateTag(`product-${existing.slug}`);
   revalidatePath('/admin/products');
   revalidatePath(`/admin/products/${id}`);
   revalidatePath('/products');
+  if (existing?.slug) revalidatePath(`/products/${existing.slug}`);
 }
 
 export async function bulkUpdateProductStock(productIds: number[], stockStatus: string) {
@@ -244,7 +252,7 @@ export async function uploadProductImage(formData: FormData): Promise<{ url: str
   const adminClient = await requireAdminClient();
   const { data: product } = await adminClient
     .from('products')
-    .select('image_url')
+    .select('image_url, slug')
     .eq('id', productId)
     .single();
   if (!product) throw new Error('Product not found');
@@ -273,9 +281,11 @@ export async function uploadProductImage(formData: FormData): Promise<{ url: str
 
   await deleteStoredImage(storagePathFromUrl(product.image_url));
   updateTag('products');
+  if (product.slug) updateTag(`product-${product.slug}`);
   revalidatePath('/admin/products');
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath('/products');
+  if (product.slug) revalidatePath(`/products/${product.slug}`);
   return { url };
 }
 
@@ -284,7 +294,7 @@ export async function removeProductImage(productId: number) {
   const adminClient = await requireAdminClient();
   const { data: product } = await adminClient
     .from('products')
-    .select('image_url')
+    .select('image_url, slug')
     .eq('id', productId)
     .single();
   if (!product) throw new Error('Product not found');
@@ -297,9 +307,11 @@ export async function removeProductImage(productId: number) {
 
   await deleteStoredImage(storagePathFromUrl(product.image_url));
   updateTag('products');
+  if (product.slug) updateTag(`product-${product.slug}`);
   revalidatePath('/admin/products');
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath('/products');
+  if (product.slug) revalidatePath(`/products/${product.slug}`);
 }
 
 export async function createCoupon(payload: {
@@ -383,7 +395,7 @@ export async function deleteCoupon(id: number) {
   revalidatePath('/admin/coupons');
 }
 
-export async function markAdminUser(profileId: number, isAdmin: boolean) {
+export async function markAdminUser(profileId: string, isAdmin: boolean) {
   const adminClient = await requireAdminClient();
   const { error } = await adminClient
     .from('profiles')

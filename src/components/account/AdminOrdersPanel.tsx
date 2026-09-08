@@ -98,7 +98,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
             Total
           </p>
           <p className="text-lg text-primary font-black">
-            {formatNZD(order.total_amount)}
+            {formatNZD(order.total)}
             <span className="text-[10px] text-slate-400 font-bold ml-1">
               {(order.currency ?? 'NZD').toUpperCase()}
             </span>
@@ -144,7 +144,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
               </div>
             </div>
             <p className="text-sm font-black text-secondary tabular-nums">
-              {formatNZD(item.total)}
+              {formatNZD(item.unit_price)}
             </p>
           </li>
         ))}
@@ -157,7 +157,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
 // Panel
 // ---------------------------------------------------------------------------
 export function AdminOrdersPanel({ orders }: { orders: AdminOrder[] }) {
-  const totalRevenue = orders.reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+  const totalRevenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const processing = orders.filter((o) => o.status === 'processing').length;
   const completed = orders.filter((o) => o.status === 'completed').length;
 

@@ -47,9 +47,8 @@ type Order = {
   id: number;
   created_at: string | null;
   status: string | null;
-  total_amount: number | null;
+  total: number | null;
   currency: string | null;
-  payment_method: string | null;
   stripe_session_id: string | null;
   coupon_code: string | null;
   shipping_address: {
@@ -66,7 +65,7 @@ type Order = {
     id: number;
     product_name: string | null;
     quantity: number | null;
-    total: number | null;
+    unit_price: number | null;
   }[];
   profiles: {
     first_name: string | null;
@@ -89,17 +88,17 @@ export default async function AdminOrderDetailPage({
   const { data } = await adminClient
     .from('orders')
     .select(
-      `id, created_at, status, total_amount, currency, tracking_number, admin_notes,
-       payment_method, stripe_session_id, coupon_code,
+      `id, created_at, status, total, currency, tracking_number, admin_notes,
+       stripe_session_id, coupon_code,
        shipping_address,
-       order_items ( id, product_name, quantity, total ),
+       order_items ( id, product_name, quantity, unit_price ),
        profiles ( first_name, last_name, email )`
     )
     .eq('id', orderId)
     .single();
 
   if (!data) notFound();
-  const order = data as Order;
+  const order = data as unknown as Order;
 
   const customer = order.profiles;
   const name = customer
@@ -171,7 +170,7 @@ export default async function AdminOrderDetailPage({
                 Order total
               </p>
               <p className="text-3xl font-black text-white mt-0.5">
-                ${Number(order.total_amount).toFixed(2)}
+                ${Number(order.total).toFixed(2)}
                 <span className="text-xs text-white/40 font-bold ml-2">
                   {(order.currency || 'NZD').toUpperCase()}
                 </span>
@@ -185,9 +184,7 @@ export default async function AdminOrderDetailPage({
               </p>
               <p className="text-sm text-white font-black mt-1 flex items-center gap-1.5">
                 <CreditCard size={13} className="text-primary" />
-                {order.payment_method
-                  ? order.payment_method.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-                  : 'Stripe'}
+                {order.stripe_session_id ? 'Stripe' : 'Unknown'}
               </p>
             </div>
             {stripeUrl && (
@@ -310,7 +307,9 @@ export default async function AdminOrderDetailPage({
                   </p>
                 </div>
               </div>
-              <p className="text-sm font-black text-secondary">${Number(item.total).toFixed(2)}</p>
+              <p className="text-sm font-black text-secondary">
+                ${Number(item.unit_price).toFixed(2)}
+              </p>
             </li>
           ))}
         </ul>

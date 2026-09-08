@@ -148,3 +148,37 @@ export async function getNewsletters(): Promise<NewsletterRow[]> {
     return [];
   }
 }
+
+export interface GalleryPhotoRow {
+  id: number;
+  slug: string;
+  storage_path: string;
+  alt: string;
+  caption: string;
+  location: string;
+  category: string;
+  sign_quote: string | null;
+  date_label: string;
+  photographer: string;
+  is_hero: boolean;
+  is_pair: boolean;
+  sort_order: number;
+}
+
+export async function getGalleryPhotos(): Promise<GalleryPhotoRow[]> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('gallery');
+  try {
+    const supabase = publicClient();
+    const { data } = await supabase
+      .from('gallery_photos')
+      .select(
+        'id, slug, storage_path, alt, caption, location, category, sign_quote, date_label, photographer, is_hero, is_pair, sort_order'
+      )
+      .order('sort_order', { ascending: true });
+    return (data ?? []) as GalleryPhotoRow[];
+  } catch {
+    return [];
+  }
+}

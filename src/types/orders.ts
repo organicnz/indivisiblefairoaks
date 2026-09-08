@@ -2,7 +2,7 @@ export type OrderItem = {
   id?: number;
   product_name: string | null;
   quantity: number | null;
-  total: number | null;
+  unit_price: number | null;
 };
 
 export type ShippingAddress = {
@@ -18,9 +18,8 @@ export type AdminOrder = {
   id: number;
   created_at: string | null;
   status: string | null;
-  total_amount: number | null;
+  total: number | null;
   currency: string | null;
-  payment_method: string | null;
   stripe_session_id: string | null;
   shipping_address: ShippingAddress | null;
   billing_address: ShippingAddress | null;
@@ -32,7 +31,7 @@ export type MyOrder = {
   id: number;
   created_at: string | null;
   status: string | null;
-  total_amount: number | null;
+  total: number | null;
   order_items: OrderItem[];
 };
 

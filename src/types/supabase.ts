@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -63,6 +63,39 @@ export type Database = {
         }
         Relationships: []
       }
+      coalition_links: {
+        Row: {
+          badge: string | null
+          category: string
+          created_at: string
+          description: string
+          name: string
+          slug: string
+          sort_order: number
+          url: string
+        }
+        Insert: {
+          badge?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          name: string
+          slug: string
+          sort_order?: number
+          url?: string
+        }
+        Update: {
+          badge?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+          url?: string
+        }
+        Relationships: []
+      }
       contact_submissions: {
         Row: {
           created_at: string | null
@@ -71,7 +104,7 @@ export type Database = {
           id: number
           message: string
           name: string
-          wants_copy: boolean
+          wants_copy: boolean | null
         }
         Insert: {
           created_at?: string | null
@@ -80,7 +113,7 @@ export type Database = {
           id?: number
           message: string
           name: string
-          wants_copy?: boolean
+          wants_copy?: boolean | null
         }
         Update: {
           created_at?: string | null
@@ -89,7 +122,7 @@ export type Database = {
           id?: number
           message?: string
           name?: string
-          wants_copy?: boolean
+          wants_copy?: boolean | null
         }
         Relationships: []
       }
@@ -97,38 +130,47 @@ export type Database = {
         Row: {
           body: string | null
           created_at: string | null
+          excerpt: string | null
+          featured_image: string | null
           id: number
+          metadata: Json | null
           published_at: string | null
           search_vector: unknown
           slug: string
           status: string | null
           title: string
           type: string | null
-          wp_id: number | null
+          updated_at: string | null
         }
         Insert: {
           body?: string | null
           created_at?: string | null
+          excerpt?: string | null
+          featured_image?: string | null
           id?: number
+          metadata?: Json | null
           published_at?: string | null
           search_vector?: unknown
           slug: string
           status?: string | null
           title: string
           type?: string | null
-          wp_id?: number | null
+          updated_at?: string | null
         }
         Update: {
           body?: string | null
           created_at?: string | null
+          excerpt?: string | null
+          featured_image?: string | null
           id?: number
+          metadata?: Json | null
           published_at?: string | null
           search_vector?: unknown
           slug?: string
           status?: string | null
           title?: string
           type?: string | null
-          wp_id?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -136,29 +178,35 @@ export type Database = {
         Row: {
           amount: number | null
           code: string
+          created_at: string | null
           discount_type: string | null
           expiry_date: string | null
           id: number
           stripe_coupon_id: string | null
-          wp_id: number | null
+          times_used: number | null
+          usage_limit: number | null
         }
         Insert: {
           amount?: number | null
           code: string
+          created_at?: string | null
           discount_type?: string | null
           expiry_date?: string | null
           id?: number
           stripe_coupon_id?: string | null
-          wp_id?: number | null
+          times_used?: number | null
+          usage_limit?: number | null
         }
         Update: {
           amount?: number | null
           code?: string
+          created_at?: string | null
           discount_type?: string | null
           expiry_date?: string | null
           id?: number
           stripe_coupon_id?: string | null
-          wp_id?: number | null
+          times_used?: number | null
+          usage_limit?: number | null
         }
         Relationships: []
       }
@@ -201,30 +249,171 @@ export type Database = {
         }
         Relationships: []
       }
+      events: {
+        Row: {
+          address: string
+          category: string
+          created_at: string
+          date_label: string
+          description: string
+          ends_at: string | null
+          highlight: boolean
+          location_name: string
+          rsvp_url: string
+          slug: string
+          sort_order: number
+          starts_at: string | null
+          time_label: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string
+          category: string
+          created_at?: string
+          date_label: string
+          description?: string
+          ends_at?: string | null
+          highlight?: boolean
+          location_name?: string
+          rsvp_url?: string
+          slug: string
+          sort_order?: number
+          starts_at?: string | null
+          time_label: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          category?: string
+          created_at?: string
+          date_label?: string
+          description?: string
+          ends_at?: string | null
+          highlight?: boolean
+          location_name?: string
+          rsvp_url?: string
+          slug?: string
+          sort_order?: number
+          starts_at?: string | null
+          time_label?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gallery_photos: {
+        Row: {
+          alt: string
+          caption: string
+          category: string
+          created_at: string
+          date_label: string
+          id: number
+          is_hero: boolean
+          is_pair: boolean
+          location: string
+          photographer: string
+          sign_quote: string | null
+          slug: string
+          sort_order: number
+          storage_path: string
+        }
+        Insert: {
+          alt?: string
+          caption?: string
+          category?: string
+          created_at?: string
+          date_label?: string
+          id?: number
+          is_hero?: boolean
+          is_pair?: boolean
+          location?: string
+          photographer?: string
+          sign_quote?: string | null
+          slug: string
+          sort_order?: number
+          storage_path: string
+        }
+        Update: {
+          alt?: string
+          caption?: string
+          category?: string
+          created_at?: string
+          date_label?: string
+          id?: number
+          is_hero?: boolean
+          is_pair?: boolean
+          location?: string
+          photographer?: string
+          sign_quote?: string | null
+          slug?: string
+          sort_order?: number
+          storage_path?: string
+        }
+        Relationships: []
+      }
+      newsletters: {
+        Row: {
+          created_at: string
+          date_label: string
+          description: string
+          published_at: string | null
+          slug: string
+          sort_order: number
+          title: string
+          topics: string[]
+        }
+        Insert: {
+          created_at?: string
+          date_label?: string
+          description?: string
+          published_at?: string | null
+          slug: string
+          sort_order?: number
+          title: string
+          topics?: string[]
+        }
+        Update: {
+          created_at?: string
+          date_label?: string
+          description?: string
+          published_at?: string | null
+          slug?: string
+          sort_order?: number
+          title?: string
+          topics?: string[]
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
+          created_at: string | null
           id: number
           order_id: number | null
           product_id: number | null
           product_name: string | null
           quantity: number | null
-          total: number | null
+          unit_price: number | null
         }
         Insert: {
+          created_at?: string | null
           id?: number
           order_id?: number | null
           product_id?: number | null
           product_name?: string | null
           quantity?: number | null
-          total?: number | null
+          unit_price?: number | null
         }
         Update: {
+          created_at?: string | null
           id?: number
           order_id?: number | null
           product_id?: number | null
           product_name?: string | null
           quantity?: number | null
-          total?: number | null
+          unit_price?: number | null
         }
         Relationships: [
           {
@@ -250,16 +439,19 @@ export type Database = {
           coupon_code: string | null
           created_at: string | null
           currency: string | null
-          customer_id: number | null
+          discount_amount: number | null
           id: number
-          payment_method: string | null
+          metadata: Json | null
           shipping_address: Json | null
+          shipping_amount: number | null
           status: string | null
           stripe_payment_intent_id: string | null
           stripe_session_id: string | null
-          total_amount: number | null
+          subtotal: number | null
+          total: number | null
           tracking_number: string | null
-          wp_id: number | null
+          updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           admin_notes?: string | null
@@ -267,16 +459,19 @@ export type Database = {
           coupon_code?: string | null
           created_at?: string | null
           currency?: string | null
-          customer_id?: number | null
+          discount_amount?: number | null
           id?: number
-          payment_method?: string | null
+          metadata?: Json | null
           shipping_address?: Json | null
+          shipping_amount?: number | null
           status?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
-          total_amount?: number | null
+          subtotal?: number | null
+          total?: number | null
           tracking_number?: string | null
-          wp_id?: number | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           admin_notes?: string | null
@@ -284,26 +479,51 @@ export type Database = {
           coupon_code?: string | null
           created_at?: string | null
           currency?: string | null
-          customer_id?: number | null
+          discount_amount?: number | null
           id?: number
-          payment_method?: string | null
+          metadata?: Json | null
           shipping_address?: Json | null
+          shipping_amount?: number | null
           status?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
-          total_amount?: number | null
+          subtotal?: number | null
+          total?: number | null
           tracking_number?: string | null
-          wp_id?: number | null
+          updated_at?: string | null
+          user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "orders_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      partners: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          name: string
+          slug: string
+          sort_order: number
+          url: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string
+          name: string
+          slug: string
+          sort_order?: number
+          url?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+          url?: string
+        }
+        Relationships: []
       }
       product_categories: {
         Row: {
@@ -338,42 +558,42 @@ export type Database = {
       product_variations: {
         Row: {
           attributes: Json | null
+          created_at: string | null
+          dimensions: Json | null
           id: number
           image_url: string | null
+          metadata: Json | null
           price: number | null
           product_id: number | null
-          regular_price: number | null
-          sale_price: number | null
           sku: string | null
           stock_status: string | null
-          weight: string | null
-          wp_id: number | null
+          weight: number | null
         }
         Insert: {
           attributes?: Json | null
+          created_at?: string | null
+          dimensions?: Json | null
           id?: number
           image_url?: string | null
+          metadata?: Json | null
           price?: number | null
           product_id?: number | null
-          regular_price?: number | null
-          sale_price?: number | null
           sku?: string | null
           stock_status?: string | null
-          weight?: string | null
-          wp_id?: number | null
+          weight?: number | null
         }
         Update: {
           attributes?: Json | null
+          created_at?: string | null
+          dimensions?: Json | null
           id?: number
           image_url?: string | null
+          metadata?: Json | null
           price?: number | null
           product_id?: number | null
-          regular_price?: number | null
-          sale_price?: number | null
           sku?: string | null
           stock_status?: string | null
-          weight?: string | null
-          wp_id?: number | null
+          weight?: number | null
         }
         Relationships: [
           {
@@ -387,12 +607,16 @@ export type Database = {
       }
       products: {
         Row: {
+          attributes: Json | null
           created_at: string | null
           date_created: string | null
+          date_modified: string | null
           description: string | null
+          dimensions: Json | null
           gallery_urls: Json | null
           id: number
           image_url: string | null
+          metadata: Json | null
           name: string
           price: number
           regular_price: number | null
@@ -402,20 +626,22 @@ export type Database = {
           sku: string | null
           slug: string
           stock_status: string | null
-          stripe_price_id: string | null
-          stripe_product_id: string | null
-          weight: string | null
+          weight: number | null
           wp_id: number | null
         }
         Insert: {
+          attributes?: Json | null
           created_at?: string | null
           date_created?: string | null
+          date_modified?: string | null
           description?: string | null
+          dimensions?: Json | null
           gallery_urls?: Json | null
           id?: number
           image_url?: string | null
+          metadata?: Json | null
           name: string
-          price: number
+          price?: number
           regular_price?: number | null
           sale_price?: number | null
           search_vector?: unknown
@@ -423,18 +649,20 @@ export type Database = {
           sku?: string | null
           slug: string
           stock_status?: string | null
-          stripe_price_id?: string | null
-          stripe_product_id?: string | null
-          weight?: string | null
+          weight?: number | null
           wp_id?: number | null
         }
         Update: {
+          attributes?: Json | null
           created_at?: string | null
           date_created?: string | null
+          date_modified?: string | null
           description?: string | null
+          dimensions?: Json | null
           gallery_urls?: Json | null
           id?: number
           image_url?: string | null
+          metadata?: Json | null
           name?: string
           price?: number
           regular_price?: number | null
@@ -444,113 +672,126 @@ export type Database = {
           sku?: string | null
           slug?: string
           stock_status?: string | null
-          stripe_price_id?: string | null
-          stripe_product_id?: string | null
-          weight?: string | null
+          weight?: number | null
           wp_id?: number | null
         }
         Relationships: []
       }
       profiles: {
         Row: {
-          created_at: string | null
-          email: string
-          first_name: string | null
-          id: number
-          is_admin: boolean
-          last_name: string | null
-          registered_at: string | null
+          avatar_url: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          is_admin: boolean | null
           settings: Json | null
-          stripe_customer_id: string | null
+          updated_at: string | null
           user_id: string | null
           username: string | null
-          wp_id: number | null
+          website: string | null
         }
         Insert: {
-          created_at?: string | null
-          email: string
-          first_name?: string | null
-          id?: number
-          is_admin?: boolean
-          last_name?: string | null
-          registered_at?: string | null
+          avatar_url?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          is_admin?: boolean | null
           settings?: Json | null
-          stripe_customer_id?: string | null
+          updated_at?: string | null
           user_id?: string | null
           username?: string | null
-          wp_id?: number | null
+          website?: string | null
         }
         Update: {
-          created_at?: string | null
-          email?: string
-          first_name?: string | null
-          id?: number
-          is_admin?: boolean
-          last_name?: string | null
-          registered_at?: string | null
+          avatar_url?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          is_admin?: boolean | null
           settings?: Json | null
-          stripe_customer_id?: string | null
+          updated_at?: string | null
           user_id?: string | null
           username?: string | null
-          wp_id?: number | null
+          website?: string | null
         }
         Relationships: []
       }
       reviews: {
         Row: {
-          author_email: string | null
-          author_name: string | null
-          content: string | null
+          comments: Json | null
           created_at: string | null
-          id: number
-          product_id: number | null
-          rating: number | null
-          wp_id: number | null
+          id: string
+          pr_number: number
+          repo_full_name: string
+          score: number | null
+          status: string | null
+          summary: string | null
         }
         Insert: {
-          author_email?: string | null
-          author_name?: string | null
-          content?: string | null
+          comments?: Json | null
           created_at?: string | null
-          id?: number
-          product_id?: number | null
-          rating?: number | null
-          wp_id?: number | null
+          id?: string
+          pr_number: number
+          repo_full_name: string
+          score?: number | null
+          status?: string | null
+          summary?: string | null
         }
         Update: {
-          author_email?: string | null
-          author_name?: string | null
-          content?: string | null
+          comments?: Json | null
           created_at?: string | null
-          id?: number
-          product_id?: number | null
-          rating?: number | null
-          wp_id?: number | null
+          id?: string
+          pr_number?: number
+          repo_full_name?: string
+          score?: number | null
+          status?: string | null
+          summary?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      search_rate_limit: {
+        Row: {
+          created_at: string
+          id: number
+          ip: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          ip: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          ip?: string
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_audit_logs: { Args: never; Returns: undefined }
       decrement_stock: {
-        Args: { decrement_by: number; p_id: number }
+        Args: { decrement_by?: number; p_id: number }
         Returns: undefined
       }
-      is_admin: { Args: never; Returns: boolean }
-      replace_media_urls: {
-        Args: { new_base: string; old_base: string }
-        Returns: undefined
+      get_user_org_id: { Args: never; Returns: string }
+      is_service_role: { Args: never; Returns: boolean }
+      log_audit: {
+        Args: {
+          p_action: string
+          p_ip_address?: string
+          p_metadata?: Json
+          p_resource_id?: string
+          p_resource_type: string
+          p_user_agent?: string
+          p_user_id: string
+        }
+        Returns: string
       }
+      move_to_dlq: { Args: never; Returns: undefined }
       search_content: {
         Args: { max_rows?: number; search_query: string }
         Returns: {
@@ -603,12 +844,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -632,11 +873,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -657,11 +898,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -682,11 +923,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -699,11 +940,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

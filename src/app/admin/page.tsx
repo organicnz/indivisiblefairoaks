@@ -24,7 +24,7 @@ type Order = {
   id: number;
   created_at: string | null;
   status: string | null;
-  total_amount: number | null;
+  total: number | null;
   currency: string | null;
   coupon_code: string | null;
   order_items: { product_name: string | null; quantity: number | null }[];
@@ -61,7 +61,7 @@ export default async function AdminDashboardPage() {
     adminClient
       .from('orders')
       .select(
-        `id, created_at, status, total_amount, currency, coupon_code,
+        `id, created_at, status, total, currency, coupon_code,
          order_items ( product_name, quantity ),
          profiles ( first_name, last_name, email )`
       )
@@ -70,7 +70,7 @@ export default async function AdminDashboardPage() {
       .limit(200),
     adminClient
       .from('orders')
-      .select('created_at, status, total_amount')
+      .select('created_at, status, total')
       .gte('created_at', sixtyDaysAgo)
       .lt('created_at', thirtyDaysAgo)
       .order('created_at', { ascending: false })
@@ -78,26 +78,23 @@ export default async function AdminDashboardPage() {
     adminClient.from('products').select('id, name, stock_status').order('name'),
     adminClient
       .from('orders')
-      .select('coupon_code, total_amount')
+      .select('coupon_code, total')
       .not('coupon_code', 'is', null)
       .gte('created_at', thirtyDaysAgo)
       .limit(500),
   ]);
 
-  const orders = (recentOrders || []) as Order[];
-  const previousRows = (previousOrders || []) as Pick<
-    Order,
-    'created_at' | 'status' | 'total_amount'
-  >[];
+  const orders = (recentOrders || []) as unknown as Order[];
+  const previousRows = (previousOrders || []) as Pick<Order, 'created_at' | 'status' | 'total'>[];
   const productRows = (products || []) as Product[];
-  const couponRows = (couponUsage || []) as { coupon_code: string; total_amount: number | null }[];
+  const couponRows = (couponUsage || []) as { coupon_code: string; total: number | null }[];
 
   // Previous-period baseline (days 30–60) for deltas
-  const prevRevenue = previousRows.reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+  const prevRevenue = previousRows.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const prevOrdersCount = previousRows.length;
 
   // KPI metrics (last 30 days)
-  const revenue = orders.reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+  const revenue = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const paidOrders = orders.filter((o) => o.status !== 'cancelled' && o.status !== 'refunded');
   const aov = paidOrders.length > 0 ? revenue / paidOrders.length : 0;
   const toShip = orders.filter((o) => o.status === 'processing' || o.status === 'on-hold');
@@ -121,7 +118,7 @@ export default async function AdminDashboardPage() {
     if (!o.created_at) continue;
     const day = o.created_at.slice(0, 10);
     if (dayBuckets.has(day)) {
-      dayBuckets.set(day, (dayBuckets.get(day) ?? 0) + (Number(o.total_amount) || 0));
+      dayBuckets.set(day, (dayBuckets.get(day) ?? 0) + (Number(o.total) || 0));
     }
   }
   const dayLabels = new Map(
@@ -145,10 +142,7 @@ export default async function AdminDashboardPage() {
       .toISOString()
       .slice(0, 10);
     if (prevDayBuckets.has(shifted)) {
-      prevDayBuckets.set(
-        shifted,
-        (prevDayBuckets.get(shifted) ?? 0) + (Number(o.total_amount) || 0)
-      );
+      prevDayBuckets.set(shifted, (prevDayBuckets.get(shifted) ?? 0) + (Number(o.total) || 0));
     }
   }
   const prevDayValues = [...prevDayBuckets.values()];
@@ -169,7 +163,7 @@ export default async function AdminDashboardPage() {
   for (const c of couponRows) {
     const stat = couponStats.get(c.coupon_code) || { uses: 0, revenue: 0 };
     stat.uses += 1;
-    stat.revenue += Number(c.total_amount) || 0;
+    stat.revenue += Number(c.total) || 0;
     couponStats.set(c.coupon_code, stat);
   }
 
@@ -191,7 +185,7 @@ export default async function AdminDashboardPage() {
       const s = o.status || 'unknown';
       const stat = byStatus.get(s) || { count: 0, revenue: 0 };
       stat.count += 1;
-      stat.revenue += Number(o.total_amount) || 0;
+      stat.revenue += Number(o.total) || 0;
       byStatus.set(s, stat);
     }
     for (const s of ['processing', 'on-hold', 'completed', 'refunded', 'cancelled']) {
@@ -448,7 +442,7 @@ export default async function AdminDashboardPage() {
                             })
                           : 'N/A'}
                         {' · '}
-                        {fmtMoney(Number(o.total_amount) || 0)}
+                        {fmtMoney(Number(o.total) || 0)}
                       </p>
                     </Link>
                     <OrderStatusSelect orderId={o.id} currentStatus={o.status || 'processing'} />

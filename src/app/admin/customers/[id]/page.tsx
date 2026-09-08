@@ -37,20 +37,20 @@ type OrderRow = {
   id: number;
   created_at: string | null;
   status: string | null;
-  total_amount: number | null;
+  total: number | null;
   order_items: {
     product_name: string | null;
     quantity: number | null;
-    total: number | null;
+    unit_price: number | null;
   }[];
 };
 
 type Customer = {
-  id: number;
+  id: string;
   email: string;
   first_name: string | null;
   last_name: string | null;
-  is_admin: boolean;
+  is_admin: boolean | null;
   created_at: string | null;
   orders: OrderRow[];
 };
@@ -62,16 +62,16 @@ export default async function AdminCustomerDetailPage({
 }) {
   const { adminClient } = await requireAdmin();
   const { id } = await params;
-  const customerId = Number(id);
+  const customerId = id;
 
-  if (!Number.isInteger(customerId) || customerId <= 0) notFound();
+  if (!customerId) notFound();
 
   const { data } = await adminClient
     .from('profiles')
     .select(
       `id, email, first_name, last_name, is_admin, created_at,
-       orders ( id, created_at, status, total_amount,
-                order_items ( product_name, quantity, total ) )`
+       orders ( id, created_at, status, total,
+                order_items ( product_name, quantity, unit_price ) )`
     )
     .eq('id', customerId)
     .single();
@@ -81,10 +81,10 @@ export default async function AdminCustomerDetailPage({
 
   const name = [customer.first_name, customer.last_name].filter(Boolean).join(' ') || 'Guest';
   const orders = customer.orders || [];
-  const spend = orders.reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+  const spend = orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const fiatSpend = orders
     .filter((o) => o.status !== 'refunded' && o.status !== 'cancelled')
-    .reduce((s, o) => s + (Number(o.total_amount) || 0), 0);
+    .reduce((s, o) => s + (Number(o.total) || 0), 0);
   const aov = orders.length > 0 ? fiatSpend / orders.length : 0;
   const lastOrder = [...orders].sort((a, b) =>
     String(b.created_at || '').localeCompare(String(a.created_at || ''))
@@ -220,7 +220,7 @@ export default async function AdminCustomerDetailPage({
                         : 'N/A'}
                     </span>
                     <span className="ml-auto text-sm font-black text-primary">
-                      ${Number(o.total_amount).toFixed(2)}
+                      ${Number(o.total).toFixed(2)}
                     </span>
                   </li>
                 ))}

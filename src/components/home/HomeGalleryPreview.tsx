@@ -3,59 +3,33 @@
 import { ArrowRight, Camera, Filter, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { getGalleryPhotos } from '@/lib/queries/content-client';
+import { useMemo, useState } from 'react';
+import type { GalleryClientPhoto } from '@/app/gallery/GalleryClient';
 
-interface PreviewPhoto {
-  id: string;
-  title: string;
-  location: string;
-  category:
-    | 'No Kings Sacramento'
-    | 'NorCal Resist'
-    | 'Sacramento Unity'
-    | 'Witty Signs'
-    | 'Resistance Choir'
-    | 'Legacy Archives';
-  image: string;
-  signQuote?: string;
-  date: string;
+interface Props {
+  photos: GalleryClientPhoto[];
 }
 
-export function HomeGalleryPreview() {
+const FILTER_OPTIONS = [
+  'All',
+  'No Kings Sacramento',
+  'NorCal Resist',
+  'Sacramento Unity',
+  'Witty & Funny Signs',
+  'Resistance Choir',
+  'Legacy Site Archives',
+];
+
+export function HomeGalleryPreview({ photos }: Props) {
   const [selectedFilter, setSelectedFilter] = useState<string>('All');
-  const [previewPhotos, setPreviewPhotos] = useState<PreviewPhoto[]>([]);
 
-  useEffect(() => {
-    getGalleryPhotos().then((photos) => {
-      // Map gallery_photos rows to PreviewPhoto format
-      const mapped = photos.map((p) => ({
-        id: p.id,
-        title: p.caption || p.alt || '',
-        location: p.location || '',
-        category: (p.category as PreviewPhoto['category']) || 'No Kings Sacramento',
-        image: p.url || '',
-        signQuote: p.signQuote ?? undefined,
-        date: p.date || '',
-      }));
-      setPreviewPhotos(mapped);
-    });
-  }, []);
-
-  const filterOptions = [
-    'All',
-    'No Kings Sacramento',
-    'NorCal Resist',
-    'Sacramento Unity',
-    'Witty Signs',
-    'Resistance Choir',
-    'Legacy Archives',
-  ];
-
-  const displayedPhotos =
-    selectedFilter === 'All'
-      ? previewPhotos.slice(0, 6)
-      : previewPhotos.filter((p) => p.category === selectedFilter);
+  const displayedPhotos = useMemo(
+    () =>
+      selectedFilter === 'All'
+        ? photos.slice(0, 6)
+        : photos.filter((p) => p.category === selectedFilter),
+    [selectedFilter, photos]
+  );
 
   return (
     <section className="py-16 md:py-24 bg-slate-950 text-white border-t border-slate-800">
@@ -89,7 +63,7 @@ export function HomeGalleryPreview() {
         {/* Interactive Filter Pills */}
         <div className="flex items-center gap-2 flex-wrap mb-8 pb-2">
           <Filter size={14} className="text-slate-500 mr-1 hidden sm:inline-block" />
-          {filterOptions.map((option) => (
+          {FILTER_OPTIONS.map((option) => (
             <button
               key={option}
               type="button"
@@ -114,32 +88,26 @@ export function HomeGalleryPreview() {
               className="group relative h-88 rounded-3xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl hover:border-slate-700 transition-all block text-left"
             >
               <Image
-                src={photo.image}
-                alt={photo.title}
+                src={photo.url}
+                alt={photo.alt}
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 className="object-cover group-hover:scale-105 transition-transform duration-700 brightness-95 group-hover:brightness-100"
               />
-
-              {/* Gradient Scrim */}
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent opacity-90 group-hover:opacity-80 transition-opacity" />
-
-              {/* Top Badges */}
               <div className="absolute top-4 left-4 z-10 flex flex-col items-start gap-1.5 max-w-[85%]">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-slate-900/85 backdrop-blur-md border border-slate-700 text-amber-300">
                   {photo.category}
                 </span>
                 {photo.signQuote && (
                   <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-400 text-slate-950 shadow-md truncate max-w-full">
-                    “{photo.signQuote}”
+                    &ldquo;{photo.signQuote}&rdquo;
                   </span>
                 )}
               </div>
-
-              {/* Bottom Metadata */}
               <div className="absolute bottom-0 inset-x-0 p-5 z-10 space-y-1.5">
                 <h3 className="font-bold text-white text-base sm:text-lg leading-snug group-hover:text-blue-300 transition-colors">
-                  {photo.title}
+                  {photo.caption}
                 </h3>
                 <div className="flex items-center justify-between text-xs text-slate-400">
                   <span className="flex items-center gap-1 truncate max-w-[70%]">
