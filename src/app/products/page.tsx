@@ -106,19 +106,19 @@ export default async function ProductsPage({
   // Fetch Products (with optional category filtering)
   const { data: products, error } = await (categorySlug
     ? supabase
-      .from('products')
-      .select(
-        `id, name, slug, price, regular_price, sale_price, image_url, stock_status,
+        .from('products')
+        .select(
+          `id, name, slug, price, regular_price, sale_price, image_url, stock_status,
           product_categories!inner ( categories!inner (slug) )`
-      )
-      .eq('product_categories.categories.slug', categorySlug)
-      .eq('stock_status', 'instock')
-      .order('created_at', { ascending: false })
+        )
+        .eq('product_categories.categories.slug', categorySlug)
+        .eq('stock_status', 'instock')
+        .order('created_at', { ascending: false })
     : supabase
-      .from('products')
-      .select('id, name, slug, price, regular_price, sale_price, image_url, stock_status')
-      .eq('stock_status', 'instock')
-      .order('created_at', { ascending: false }));
+        .from('products')
+        .select('id, name, slug, price, regular_price, sale_price, image_url, stock_status')
+        .eq('stock_status', 'instock')
+        .order('created_at', { ascending: false }));
 
   if (error) {
     console.error('Error fetching products:', error);

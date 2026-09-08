@@ -90,8 +90,9 @@ export function HeroSlider() {
       {slides.map((slide, index) => (
         <div
           key={slide.highlight}
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-60 z-0 scale-100' : 'opacity-0 -z-10 scale-110'
-            }`}
+          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+            index === currentSlide ? 'opacity-60 z-0 scale-100' : 'opacity-0 -z-10 scale-110'
+          }`}
           style={{ transition: 'opacity 2000ms ease-in-out, transform 12000ms linear' }}
         >
           <Image
