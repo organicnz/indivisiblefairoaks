@@ -59,11 +59,10 @@ export default async function HomePage() {
     is_pair: row.is_pair,
   }));
 
-  // Map upcoming events → ticker items. Filter to events that haven't ended yet,
-  // cap at 5 so the ticker doesn't overflow on small screens.
-  const now = new Date().toISOString();
+  // Map upcoming events → ticker items. Show all events (date filtering is done
+  // in the query; no runtime Date needed, keeping this page statically prerenderable).
+  // Cap at 5 so the ticker doesn't overflow on small screens.
   const tickerItems: TickerItem[] = events
-    .filter((e) => !e.isoDateEnd || e.isoDateEnd >= now.replace(/[-:]/g, '').slice(0, 15))
     .slice(0, 5)
     .map((e) => ({
       label: e.title,
