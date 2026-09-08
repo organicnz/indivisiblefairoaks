@@ -13,7 +13,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : 'button';
 
     const variants = {
-      primary: 'bg-primary text-secondary hover:bg-primary/90 shadow-lg shadow-primary/10',
+      primary: 'bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/10',
       secondary: 'bg-secondary text-white hover:bg-secondary/90 shadow-lg shadow-secondary/10',
       outline:
         'border-2 border-secondary text-secondary hover:bg-secondary hover:text-white bg-transparent',

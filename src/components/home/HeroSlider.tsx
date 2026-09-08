@@ -90,9 +90,8 @@ export function HeroSlider() {
       {slides.map((slide, index) => (
         <div
           key={slide.highlight}
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-            index === currentSlide ? 'opacity-60 z-0 scale-100' : 'opacity-0 -z-10 scale-110'
-          }`}
+          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-60 z-0 scale-100' : 'opacity-0 -z-10 scale-110'
+            }`}
           style={{ transition: 'opacity 2000ms ease-in-out, transform 12000ms linear' }}
         >
           <Image
@@ -137,7 +136,7 @@ export function HeroSlider() {
           >
             <Link
               href={slides[currentSlide].link}
-              className="group relative inline-flex items-center justify-center bg-primary text-secondary font-black py-6 px-16 rounded-full transition-all duration-500 uppercase tracking-[0.3em] text-xs shadow-2xl shadow-primary/20 hover:scale-105"
+              className="group relative inline-flex items-center justify-center bg-primary text-white font-black py-6 px-16 rounded-full transition-all duration-500 uppercase tracking-[0.3em] text-xs shadow-2xl shadow-primary/20 hover:scale-105"
             >
               {slides[currentSlide].cta}
             </Link>

@@ -106,19 +106,19 @@ export default async function ProductsPage({
   // Fetch Products (with optional category filtering)
   const { data: products, error } = await (categorySlug
     ? supabase
-        .from('products')
-        .select(
-          `id, name, slug, price, regular_price, sale_price, image_url, stock_status,
+      .from('products')
+      .select(
+        `id, name, slug, price, regular_price, sale_price, image_url, stock_status,
           product_categories!inner ( categories!inner (slug) )`
-        )
-        .eq('product_categories.categories.slug', categorySlug)
-        .eq('stock_status', 'instock')
-        .order('created_at', { ascending: false })
+      )
+      .eq('product_categories.categories.slug', categorySlug)
+      .eq('stock_status', 'instock')
+      .order('created_at', { ascending: false })
     : supabase
-        .from('products')
-        .select('id, name, slug, price, regular_price, sale_price, image_url, stock_status')
-        .eq('stock_status', 'instock')
-        .order('created_at', { ascending: false }));
+      .from('products')
+      .select('id, name, slug, price, regular_price, sale_price, image_url, stock_status')
+      .eq('stock_status', 'instock')
+      .order('created_at', { ascending: false }));
 
   if (error) {
     console.error('Error fetching products:', error);
@@ -145,7 +145,7 @@ export default async function ProductsPage({
               <li>
                 <Link
                   href="/products"
-                  className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${!categorySlug ? 'bg-primary text-secondary shadow-md' : 'text-secondary hover:bg-slate-50 hover:text-primary'}`}
+                  className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${!categorySlug ? 'bg-primary text-white shadow-md' : 'text-secondary hover:bg-slate-50 hover:text-primary'}`}
                 >
                   All Gear
                 </Link>
@@ -154,7 +154,7 @@ export default async function ProductsPage({
                 <li key={category.id}>
                   <Link
                     href={`/products?category=${category.slug}`}
-                    className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${categorySlug === category.slug ? 'bg-primary text-secondary shadow-md' : 'text-secondary hover:bg-slate-50 hover:text-primary'}`}
+                    className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${categorySlug === category.slug ? 'bg-primary text-white shadow-md' : 'text-secondary hover:bg-slate-50 hover:text-primary'}`}
                   >
                     {category.name}
                   </Link>

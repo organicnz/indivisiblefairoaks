@@ -57,7 +57,7 @@ export function CharitySection() {
                 href="https://givealittle.co.nz/org/SEACLEANERS"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group inline-flex items-center gap-3 bg-primary hover:bg-white text-secondary font-black py-4 px-6 rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px] shadow-lg shadow-primary/25 hover:shadow-white/20 whitespace-nowrap"
+                className="group inline-flex items-center gap-3 bg-primary hover:bg-white text-white hover:text-secondary font-black py-4 px-6 rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px] shadow-lg shadow-primary/25 hover:shadow-white/20 whitespace-nowrap"
               >
                 Make A Donation{' '}
                 <Heart className="w-3.5 h-3.5 text-secondary fill-secondary group-hover:scale-110 transition-transform duration-300" />
