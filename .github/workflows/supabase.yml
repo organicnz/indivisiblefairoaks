@@ -221,6 +221,52 @@ jobs:
           # --include-all: apply all local migrations not yet on the remote,
           # skipping the history-consistency check (safe for CI — remote may have
           # baseline migrations that pre-date this repo's migration tracking).
+
+          # Repair remote history: mark the 33 incremental migrations that were
+          # collapsed into 00000000000000_canonical_schema.sql as reverted so
+          # `db push` doesn't complain about versions in remote not in local.
+          REVERTED_VERSIONS=(
+            20240430000001
+            20240430000003
+            20240430000005
+            20240501000000
+            20260507000000
+            20260807000000
+            20260808000000
+            20260810120000
+            20260810130000
+            20260811000000
+            20260811020000
+            20260811030000
+            20260824000000
+            20260824120000
+            20260825120000
+            20260825130000
+            20260825140000
+            20260825150000
+            20260825155000
+            20260825160000
+            20260825170000
+            20260825180000
+            20260825200000
+            20260825210000
+            20260826110000
+            20260826120000
+            20260826130000
+            20260826140000
+            20260904000000
+            20260904120000
+            20260904130000
+            20260905000000
+            20260906010000
+          )
+          for v in "${REVERTED_VERSIONS[@]}"; do
+            echo "Repairing $v → reverted"
+            supabase migration repair --status reverted "$v" \
+              --project-ref "$SUPABASE_PROJECT_REF" 2>/dev/null || true
+          done
+          echo "✅ Migration history repaired"
+
           supabase db push \
             --project-ref "$SUPABASE_PROJECT_REF" \
             --include-all

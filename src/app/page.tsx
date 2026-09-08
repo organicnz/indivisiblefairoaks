@@ -62,14 +62,12 @@ export default async function HomePage() {
   // Map upcoming events → ticker items. Show all events (date filtering is done
   // in the query; no runtime Date needed, keeping this page statically prerenderable).
   // Cap at 5 so the ticker doesn't overflow on small screens.
-  const tickerItems: TickerItem[] = events
-    .slice(0, 5)
-    .map((e) => ({
-      label: e.title,
-      detail: `${e.dateLabel} • ${e.timeLabel}`,
-      href: '/events',
-      badge: e.category,
-    }));
+  const tickerItems: TickerItem[] = events.slice(0, 5).map((e) => ({
+    label: e.title,
+    detail: `${e.dateLabel} • ${e.timeLabel}`,
+    href: '/events',
+    badge: e.category,
+  }));
 
   return (
     <div className="flex flex-col w-full">
