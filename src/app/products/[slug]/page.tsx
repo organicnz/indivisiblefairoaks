@@ -52,7 +52,16 @@ export async function generateMetadata({
   };
 }
 
-export default function ProductDetails({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ProductDetails({ params }: { params: Promise<{ slug: string }> }) {
+  // Pre-check: validate the slug exists before committing the PPR static shell.
+  // If we let notFound() fire inside the Suspense boundary the initial HTTP
+  // response is already 200 (PPR shell committed). Checking here ensures the
+  // 404 status propagates correctly in the initial response.
+  const slug = (await params).slug;
+  const product = await getProductDetail(slug);
+  if (!product) {
+    notFound();
+  }
   return (
     <Suspense fallback={<ProductSkeleton />}>
       <ProductDetailsBody params={params} />

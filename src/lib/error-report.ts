@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 /**
@@ -47,17 +46,23 @@ export type ErrorReportInput = z.infer<typeof errorReportSchema>;
 /**
  * Groups identical crashes into one triage family: SHA-256 of the message
  * plus the first stack frame (the throw site), hex-truncated to 32 chars.
- * Server-side only (Node runtime): a client-supplied fingerprint would let a
- * bot poison the grouping key with garbage.
+ * Uses Web Crypto (globalThis.crypto) — compatible with both Node 18+ and
+ * edge runtimes. Server-side only: a client-supplied fingerprint would let a
+ * bot poison the grouping key.
  */
-export function errorFingerprint(message: string, stack?: string): string {
+export async function errorFingerprint(message: string, stack?: string): Promise<string> {
   // Prefer the first real frame: V8 prefixes stacks with an "Error: msg"
   // header that just duplicates the message, while V8 frames look like
   // "    at fn (file)" and JSC/SpiderMonkey frames like "fn@file".
   const lines = stack?.split('\n').filter((line) => line.trim().length > 0) ?? [];
   const topFrame =
     lines.find((line) => /^\s*at\s/.test(line) || line.includes('@')) ?? lines[0] ?? '';
-  return createHash('sha256').update(`${message}\n${topFrame}`).digest('hex').slice(0, 32);
+  const input = `${message}\n${topFrame}`;
+  const buf = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 32);
 }
 
 /**

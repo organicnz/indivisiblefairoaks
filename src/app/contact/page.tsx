@@ -133,7 +133,7 @@ export default function ContactPage() {
                 htmlFor="name"
                 className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 ml-1"
               >
-                Your Name
+                Full Name
               </label>
               <input
                 type="text"
