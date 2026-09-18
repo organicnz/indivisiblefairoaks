@@ -3,8 +3,6 @@ import { env } from '@/lib/env';
 import { errorFingerprint, errorReportSchema } from '@/lib/error-report';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 
-export const runtime = 'edge';
-
 /**
  * Error beacon landing zone. Writes one row to error_reports via direct
  * PostgREST (anon insert-only RLS) — no session resolution, no cookies read,

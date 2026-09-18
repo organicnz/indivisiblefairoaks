@@ -1,8 +1,6 @@
 import { connection, NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 
-export const runtime = 'edge';
-
 /**
  * Uptime-monitor anchor. Always evaluated at request time (connection()
  * opts out of prerendering under Cache Components) so the response reflects
