@@ -18,6 +18,7 @@ const MAX_REQUEST_BYTES = 32_000
 type Citation = { title: string; url: string }
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 type Source = { title: string; url: string; text: string }
+type SnapshotRow = { source_key: string; payload: unknown[]; refreshed_at: string }
 
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } })
@@ -93,7 +94,38 @@ async function retrieve(message: string): Promise<Source[]> {
   for (const row of (galleryResult.data ?? []) as Record<string, unknown>[]) {
     if (matches(row, terms)) sources.push({ title: cleanText(row.alt, 120), url: `${APP_URL}/gallery`, text: `Gallery photo: ${cleanText(row.caption, 1_500)}\n${cleanText(row.location)}; ${cleanText(row.category)}; ${cleanText(row.date_label)}\n${cleanText(row.sign_quote)}` })
   }
-  return sources.slice(0, 8)
+  if (sources.length > 0) return sources.slice(0, 8)
+
+  const { data: snapshots } = await client
+    .from('walle_knowledge_snapshots')
+    .select('source_key,payload,refreshed_at')
+    .order('refreshed_at', { ascending: false })
+    .limit(7)
+
+  for (const snapshot of (snapshots ?? []) as SnapshotRow[]) {
+    for (const row of Array.isArray(snapshot.payload) ? snapshot.payload : []) {
+      if (!row || typeof row !== 'object' || !matches(row as Record<string, unknown>, terms)) continue
+      const record = row as Record<string, unknown>
+      const title = cleanText(record.title ?? record.name ?? record.alt, 120)
+      if (!title) continue
+      const slug = cleanText(record.slug, 120)
+      const url = snapshot.source_key === 'content' && slug
+        ? `${APP_URL}/${slug}`
+        : snapshot.source_key === 'products' && slug
+          ? `${APP_URL}/products/${slug}`
+          : `${APP_URL}/${snapshot.source_key === 'newsletters' ? 'news' : snapshot.source_key}`
+      sources.push({
+        title,
+        url,
+        text: `${snapshot.source_key} snapshot (refreshed ${cleanText(snapshot.refreshed_at, 40)}): ${Object.entries(record)
+          .map(([key, value]) => `${key}: ${cleanText(value, 800)}`)
+          .join('\n')}`,
+      })
+      if (sources.length >= 8) return sources
+    }
+  }
+
+  return sources
 }
 
 async function callProvider(apiKey: string, endpoint: string, model: string, messages: ChatMessage[]): Promise<string> {
