@@ -50,6 +50,23 @@ test.describe('home shell', () => {
     await expect(page.getByText('Indivisible').first()).toBeVisible();
   });
 
+  test.describe('Resistance Radio', () => {
+    test('renders station controls and switches broadcasts', async ({ page }) => {
+      await page.goto('/choir');
+      const station = page.getByText('Resistance Radio').first().locator('..').locator('..');
+      await expect(page.getByRole('button', { name: 'Play harmonic audio' })).toBeVisible();
+      await expect(page.getByRole('slider', { name: 'Broadcast volume' })).toBeVisible();
+      await page
+        .getByRole('button', { name: /Ain.t Gonna Let Nobody Turn Me Around/ })
+        .first()
+        .click();
+      await expect(
+        page.getByRole('heading', { name: /Ain.t Gonna Let Nobody Turn Me Around/ }).first()
+      ).toBeVisible();
+      await expect(station).toBeVisible();
+    });
+  });
+
   test('donate page loads with a heading', async ({ page }) => {
     await page.goto('/donate');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });

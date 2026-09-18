@@ -1,6 +1,15 @@
 'use client';
 
-import { Music, Pause, Play, Volume2 } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Music,
+  Pause,
+  Play,
+  Radio,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface SongTrack {
@@ -39,6 +48,7 @@ export function ChoirAudioPlayer() {
   const [activeTrack, setActiveTrack] = useState<SongTrack>(TRACKS[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
+  const [volume, setVolume] = useState(0.12);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const oscNodesRef = useRef<OscillatorNode[]>([]);
@@ -57,7 +67,7 @@ export function ChoirAudioPlayer() {
       audioCtxRef.current = ctx;
 
       const masterGain = ctx.createGain();
-      masterGain.gain.setValueAtTime(0.12, ctx.currentTime);
+      masterGain.gain.setValueAtTime(volume, ctx.currentTime);
       masterGain.connect(ctx.destination);
       gainNodeRef.current = masterGain;
 
@@ -129,6 +139,20 @@ export function ChoirAudioPlayer() {
     }
   };
 
+  const selectTrack = (track: SongTrack) => {
+    setActiveTrack(track);
+    setPlaybackTime(0);
+    if (isPlaying) {
+      stopChoralSynth();
+      window.setTimeout(() => startChoralSynth(), 100);
+    }
+  };
+
+  const selectRelativeTrack = (offset: number) => {
+    const index = TRACKS.findIndex((track) => track.id === activeTrack.id);
+    selectTrack(TRACKS[(index + offset + TRACKS.length) % TRACKS.length]);
+  };
+
   // Animate visualizer bars when playing
   useEffect(() => {
     if (!isPlaying) {
@@ -146,7 +170,7 @@ export function ChoirAudioPlayer() {
           height: Math.floor(Math.random() * 75) + 25,
         }))
       );
-    }, 120);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [isPlaying]);
@@ -167,7 +191,9 @@ export function ChoirAudioPlayer() {
           </div>
           <div>
             <div className="text-xs font-mono font-bold uppercase tracking-wider text-blue-400 flex items-center gap-1.5">
-              <span>Resistance Soundboard</span>
+              <span className="flex items-center gap-1.5">
+                <Radio size={12} /> Resistance Radio
+              </span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
             </div>
             <h3 className="text-base sm:text-lg font-bold text-white leading-snug">
@@ -190,6 +216,11 @@ export function ChoirAudioPlayer() {
           )}
         </button>
       </div>
+
+      <p className="mb-4 max-w-xl text-xs leading-relaxed text-slate-400">
+        A browser-based harmonic broadcast for peaceful organizing. Select a station, press play,
+        and lend your voice to the movement.
+      </p>
 
       {/* Visualizer & Progress */}
       <div className="mb-5">
@@ -214,9 +245,70 @@ export function ChoirAudioPlayer() {
           </span>
           <span>{activeTrack.duration}</span>
         </div>
+        <input
+          type="range"
+          min="0"
+          max="150"
+          value={playbackTime}
+          onChange={(event) => setPlaybackTime(Number(event.target.value))}
+          className="mt-3 w-full accent-cyan-400"
+          aria-label="Seek harmonic broadcast"
+        />
+        <div className="mt-3 flex items-center gap-2">
+          {volume === 0 ? (
+            <VolumeX size={14} className="text-slate-400" />
+          ) : (
+            <Volume2 size={14} className="text-blue-400" />
+          )}
+          <input
+            type="range"
+            min="0"
+            max="0.3"
+            step="0.01"
+            value={volume}
+            onChange={(event) => {
+              const nextVolume = Number(event.target.value);
+              setVolume(nextVolume);
+              if (gainNodeRef.current && audioCtxRef.current) {
+                gainNodeRef.current.gain.setTargetAtTime(
+                  nextVolume,
+                  audioCtxRef.current.currentTime,
+                  0.03
+                );
+              }
+            }}
+            className="w-28 accent-cyan-400"
+            aria-label="Broadcast volume"
+          />
+          <span className="text-[10px] uppercase tracking-wider text-slate-500">
+            Broadcast volume
+          </span>
+        </div>
       </div>
 
       {/* Track Selection */}
+      <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => selectRelativeTrack(-1)}
+          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+          aria-label="Previous station"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-center text-[10px] uppercase tracking-widest text-slate-500">
+          Now broadcasting · {activeTrack.artist}
+        </span>
+        <button
+          type="button"
+          onClick={() => selectRelativeTrack(1)}
+          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+          aria-label="Next station"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <p className="mb-3 text-xs italic text-slate-500">{activeTrack.notes}</p>
       <div className="space-y-1.5">
         {TRACKS.map((track) => {
           const isSelected = track.id === activeTrack.id;
@@ -224,13 +316,7 @@ export function ChoirAudioPlayer() {
             <button
               key={track.id}
               type="button"
-              onClick={() => {
-                setActiveTrack(track);
-                if (isPlaying) {
-                  stopChoralSynth();
-                  setTimeout(() => startChoralSynth(), 100);
-                }
-              }}
+              onClick={() => selectTrack(track)}
               className={`w-full text-left px-3.5 py-2.5 rounded-xl transition-all flex items-center justify-between text-xs ${
                 isSelected
                   ? 'bg-blue-600/15 border border-blue-500/40 text-white font-semibold'
