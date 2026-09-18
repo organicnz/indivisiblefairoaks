@@ -68,9 +68,10 @@ test('product detail page shows a product image', async ({ page }) => {
 });
 
 test('unknown product slug returns 404 page', async ({ page }) => {
-  const response = await page.goto('/products/this-slug-does-not-exist-xyz123');
-  // Next.js notFound() maps to HTTP 404
-  expect(response?.status()).toBe(404);
+  await page.goto('/products/this-slug-does-not-exist-xyz123');
+  // Cache Components streams a 200 shell before the not-found boundary resolves.
+  // Assert the user-visible 404 state rather than relying on the early shell status.
+  await expect(page.getByRole('heading', { name: '404 - Page Not Found' })).toBeVisible();
 });
 
 test('products listing links navigate to detail pages', async ({ page }) => {

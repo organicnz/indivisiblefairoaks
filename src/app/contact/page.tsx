@@ -87,7 +87,7 @@ export default function ContactPage() {
               id="form-partial-message"
               className="block mb-8 p-4 bg-amber-950/80 border border-amber-500/50 text-amber-200 rounded-2xl font-bold text-sm tracking-wide text-center"
             >
-              ⚠️ Message received! We will be in touch soon.
+              ⚠️ Message sent to our organizing team! We will be in touch soon.
               <span className="block mt-1 normal-case tracking-normal font-medium text-amber-300">
                 The copy to your inbox could not be delivered — but your message reached us and we
                 will reply directly.
@@ -170,7 +170,7 @@ export default function ContactPage() {
                 htmlFor="message"
                 className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 ml-1"
               >
-                Message or Inquiry
+                Message
               </label>
               <textarea
                 name="message"
@@ -203,7 +203,7 @@ export default function ContactPage() {
               aria-busy={status === 'loading'}
               className="w-full bg-blue-600 text-white font-bold rounded-xl py-4 hover:bg-blue-500 transition-all uppercase tracking-wider text-sm shadow-xl hover:shadow-blue-500/20 disabled:opacity-50"
             >
-              {status === 'loading' ? 'Sending Message...' : 'Submit Message'}
+              {status === 'loading' ? 'Sending Message...' : 'Send Message'}
             </button>
           </form>
 

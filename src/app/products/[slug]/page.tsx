@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { AddToCartButton } from '@/components/checkout/AddToCartButton';
 import { ProductSlider } from '@/components/products/ProductSlider';
@@ -58,6 +59,7 @@ export default async function ProductDetails({ params }: { params: Promise<{ slu
   // response is already 200 (PPR shell committed). Checking here ensures the
   // 404 status propagates correctly in the initial response.
   const slug = (await params).slug;
+  await connection();
   const product = await getProductDetail(slug);
   if (!product) {
     notFound();

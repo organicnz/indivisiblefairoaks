@@ -31,7 +31,7 @@ export function ProductCard({ product }: ProductCardProps) {
     >
       {/* Sale Badge */}
       {isOnSale && (
-        <div className="absolute top-6 left-6 z-30 bg-primary text-secondary text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-widest shadow-xl shadow-primary/20">
+        <div className="absolute top-6 left-6 z-30 bg-primary text-white text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-widest shadow-xl shadow-primary/20">
           On Sale
         </div>
       )}

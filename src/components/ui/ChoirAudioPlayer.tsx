@@ -280,7 +280,7 @@ export function ChoirAudioPlayer() {
             className="w-28 accent-cyan-400"
             aria-label="Broadcast volume"
           />
-          <span className="text-[10px] uppercase tracking-wider text-slate-500">
+          <span className="text-[10px] uppercase tracking-wider text-slate-400">
             Broadcast volume
           </span>
         </div>
@@ -296,7 +296,7 @@ export function ChoirAudioPlayer() {
         >
           <ChevronLeft size={16} />
         </button>
-        <span className="text-center text-[10px] uppercase tracking-widest text-slate-500">
+        <span className="text-center text-[10px] uppercase tracking-widest text-slate-400">
           Now broadcasting · {activeTrack.artist}
         </span>
         <button
@@ -308,7 +308,7 @@ export function ChoirAudioPlayer() {
           <ChevronRight size={16} />
         </button>
       </div>
-      <p className="mb-3 text-xs italic text-slate-500">{activeTrack.notes}</p>
+      <p className="mb-3 text-xs italic text-slate-400">{activeTrack.notes}</p>
       <div className="space-y-1.5">
         {TRACKS.map((track) => {
           const isSelected = track.id === activeTrack.id;
