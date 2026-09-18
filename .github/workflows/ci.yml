@@ -16,7 +16,9 @@ env:
   NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
   SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
   # Pin bun — bump deliberately. Check: https://github.com/oven-sh/bun/releases
-  BUN_VERSION: "1.2.18"
+  # Must satisfy package.json engines (bun >= 1.4.0).
+  BUN_VERSION: "1.4.2"
+  VERCEL_CLI_VERSION: "59.11.7"
 
 jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
@@ -85,14 +87,14 @@ jobs:
       # env-var injection during build (NEXT_PUBLIC_* get baked in at build time).
       - name: Pull Vercel environment
         run: |
-          npx --yes vercel@latest pull --yes \
+          bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} pull --yes \
             --environment=${{ github.ref_name == 'mainDeploy' && 'production' || 'preview' }} \
             --token=${{ secrets.VERCEL_TOKEN }}
 
       # vercel build = next build + .vercel/output/ generation.
       # --yes skips interactive prompts; env vars come from .vercel/.env.*.local.
       - name: Build (vercel build)
-        run: npx --yes vercel@latest build \
+        run: bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} build \
           ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} \
           --token=${{ secrets.VERCEL_TOKEN }}
 
@@ -205,7 +207,7 @@ jobs:
       - name: Deploy to Vercel (prebuilt)
         id: deploy
         run: |
-          URL=$(npx --yes vercel@latest deploy --prebuilt \
+          URL=$(bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt \
             ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} \
             --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$URL" >> "$GITHUB_OUTPUT"
