@@ -100,7 +100,8 @@ export default function ContactPage() {
               id="form-partial-message"
               className="block mb-8 p-4 bg-amber-950/80 border border-amber-500/50 text-amber-200 rounded-2xl font-bold text-sm tracking-wide text-center"
             >
-              ⚠️ Message saved — for an immediate response, please email us directly at{' '}
+              ⚠️ Message saved, but notification email failed. For an immediate response, please
+              email us directly at{' '}
               <a
                 href="mailto:contact@indivisiblefairoaks.org"
                 className="underline font-bold text-amber-300"
