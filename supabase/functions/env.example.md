@@ -54,6 +54,14 @@ ADMIN_ORDER_EMAIL=indivisible@indivisiblefairoaks.org
 SEARCH_RATE_LIMIT_MAX=30
 SEARCH_RATE_LIMIT_WINDOW_MIN=10
 SEARCH_RPC_TIMEOUT_MS=10000
+
+# ── WALL-E assistant (server-side only) ─────────────────────────────────────
+ZAI_API_KEY=
+GROQ_API_KEY=
+WALLE_ZAI_MODEL=glm-4.5-flash
+WALLE_GROQ_MODEL=llama-3.3-70b-versatile
+WALLE_RATE_LIMIT_MAX=20
+WALLE_RATE_LIMIT_WINDOW_MIN=10
 ```
 
 ---

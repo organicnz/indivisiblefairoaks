@@ -8,6 +8,7 @@ import { Toaster } from 'sonner';
 import { SettingsHydrator } from '@/components/account/SettingsHydrator';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
+import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
 import type { UserSettings } from '@/lib/store/settings';
 import { getSettings } from '@/lib/supabase-server';
 import Providers from './providers';
@@ -87,6 +88,7 @@ export default function RootLayout({
             {children}
           </main>
           <Footer />
+          <WallEChatWidget />
         </Providers>
         <Toaster position="bottom-right" richColors theme="light" />
         <Analytics />
