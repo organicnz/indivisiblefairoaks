@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, mainDeploy]
+    branches: [main]
   pull_request:
-    branches: [main, mainDeploy]
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -88,7 +88,7 @@ jobs:
       - name: Pull Vercel environment
         run: |
           bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} pull --yes \
-            --environment=${{ github.ref_name == 'mainDeploy' && 'production' || 'preview' }} \
+            --environment=${{ github.ref_name == 'main' && 'production' || 'preview' }} \
             --token=${{ secrets.VERCEL_TOKEN }}
 
       # vercel build = next build + .vercel/output/ generation.
@@ -97,7 +97,7 @@ jobs:
         run: bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} build \
           --yes \
           --debug \
-          ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} \
+          ${{ github.ref_name == 'main' && '--prod' || '' }} \
           --token=${{ secrets.VERCEL_TOKEN }}
 
       # Upload both outputs:
@@ -173,13 +173,13 @@ jobs:
   deploy-vercel:
     name: Deploy → Vercel
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
-    needs: [build]
+    needs: [build, e2e]
     if: github.event_name == 'push'
     timeout-minutes: 20
     outputs:
       url: ${{ steps.deploy.outputs.url }}
     environment:
-      name: ${{ github.ref_name == 'mainDeploy' && 'production' || 'preview' }}
+      name: ${{ github.ref_name == 'main' && 'production' || 'preview' }}
       url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
@@ -210,7 +210,9 @@ jobs:
         id: deploy
         run: |
           URL=$(bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt \
-            ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} \
+            ${{ github.ref_name == 'main' && '--prod' || '' }} \
+            --yes \
+            --scope=team_G8IMZRRSHw7ti3HLUs3aWmPS \
             --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "✅ Deployed: $URL"
