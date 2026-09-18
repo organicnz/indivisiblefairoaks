@@ -96,6 +96,7 @@ jobs:
       - name: Build (vercel build)
         run: bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} build \
           --yes \
+          --debug \
           ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} \
           --token=${{ secrets.VERCEL_TOKEN }}
 
