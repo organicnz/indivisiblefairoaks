@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 type Citation = { title: string; url: string };
@@ -12,16 +13,14 @@ function WallEAvatar({ small = false }: { small?: boolean }) {
       data-testid="walle-avatar"
       className={`inline-flex shrink-0 items-center justify-center rounded-2xl bg-primary shadow-lg ring-2 ring-white ${small ? 'size-9' : 'size-12'}`}
     >
-      <svg viewBox="0 0 48 48" className={small ? 'size-7' : 'size-9'} fill="none">
-        <title>WALL-E avatar</title>
-        <rect x="8" y="13" width="32" height="24" rx="7" fill="#F8FAFC" />
-        <path d="M15 20h18v10H15z" fill="#1E293B" />
-        <circle cx="20" cy="25" r="2.5" fill="#FBBF24" />
-        <circle cx="28" cy="25" r="2.5" fill="#FBBF24" />
-        <path d="M20 34h8" stroke="#1E293B" strokeWidth="2" strokeLinecap="round" />
-        <path d="M24 13V8M21 8h6" stroke="#F8FAFC" strokeWidth="2" strokeLinecap="round" />
-        <path d="M8 23H5M43 23h-3" stroke="#F8FAFC" strokeWidth="2" strokeLinecap="round" />
-      </svg>
+      <Image
+        src="/walle-avatar.png"
+        alt=""
+        width={271}
+        height={237}
+        className={`object-cover ${small ? 'size-8' : 'size-10'}`}
+        priority={!small}
+      />
     </span>
   );
 }
