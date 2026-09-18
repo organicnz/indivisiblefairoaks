@@ -25,6 +25,7 @@ test.describe('WALL-E assistant', () => {
     await openButton.click();
 
     await expect(page.getByRole('region', { name: 'WALL-E site assistant' })).toBeVisible();
+    await expect(page.getByTestId('walle-avatar').first()).toBeVisible();
     await page
       .getByRole('textbox', { name: 'Message WALL-E' })
       .fill('Where can I find voter information?');
@@ -34,7 +35,9 @@ test.describe('WALL-E assistant', () => {
       page.getByText('Visit the voter information page for registration and election resources.')
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Voter Information', exact: true })
+      page
+        .getByRole('region', { name: 'WALL-E site assistant' })
+        .getByRole('link', { name: /Voter Information/ })
     ).toHaveAttribute('href', '/voter-info');
   });
 });

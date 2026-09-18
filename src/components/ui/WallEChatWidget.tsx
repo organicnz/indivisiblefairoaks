@@ -5,6 +5,27 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 type Citation = { title: string; url: string };
 type Message = { id: string; role: 'user' | 'assistant'; content: string; citations?: Citation[] };
 
+function WallEAvatar({ small = false }: { small?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-testid="walle-avatar"
+      className={`inline-flex shrink-0 items-center justify-center rounded-2xl bg-primary shadow-lg ring-2 ring-white ${small ? 'size-9' : 'size-12'}`}
+    >
+      <svg viewBox="0 0 48 48" className={small ? 'size-7' : 'size-9'} fill="none">
+        <title>WALL-E avatar</title>
+        <rect x="8" y="13" width="32" height="24" rx="7" fill="#F8FAFC" />
+        <path d="M15 20h18v10H15z" fill="#1E293B" />
+        <circle cx="20" cy="25" r="2.5" fill="#FBBF24" />
+        <circle cx="28" cy="25" r="2.5" fill="#FBBF24" />
+        <path d="M20 34h8" stroke="#1E293B" strokeWidth="2" strokeLinecap="round" />
+        <path d="M24 13V8M21 8h6" stroke="#F8FAFC" strokeWidth="2" strokeLinecap="round" />
+        <path d="M8 23H5M43 23h-3" stroke="#F8FAFC" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
 const starter: Message = {
   id: 'starter',
   role: 'assistant',
@@ -73,40 +94,60 @@ export function WallEChatWidget() {
       {open && (
         <section
           aria-label="WALL-E site assistant"
-          className="mb-3 flex h-[min(34rem,calc(100vh-7rem))] w-[min(23rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border border-primary/20 bg-white shadow-2xl"
+          className="mb-3 flex h-[min(38rem,calc(100vh-7rem))] w-[min(25rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-[1.75rem] border border-primary/20 bg-white shadow-2xl shadow-secondary/20"
         >
-          <header className="flex items-center justify-between bg-secondary px-5 py-4 text-white">
-            <div>
-              <p className="font-outfit text-lg font-black">WALL-E</p>
-              <p className="text-xs text-white/60">Your Fair Oaks guide</p>
+          <header className="relative overflow-hidden bg-secondary px-5 py-4 text-white">
+            <div className="absolute -right-8 -top-10 size-28 rounded-full bg-primary/20 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <WallEAvatar />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-outfit text-lg font-black">WALL-E</p>
+                  <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-200">
+                    Online
+                  </span>
+                </div>
+                <p className="text-xs text-white/65">Your Fair Oaks guide · grounded in our site</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close WALL-E"
+                className="ml-auto rounded-full p-1 text-2xl leading-none text-white/70 transition hover:bg-white/10 hover:text-white"
+              >
+                ×
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close WALL-E"
-              className="text-2xl text-white/70 hover:text-white"
-            >
-              ×
-            </button>
+            <div className="relative mt-4 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/75">
+              Ask about events, voter resources, partners, or gear.
+            </div>
           </header>
-          <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4" aria-live="polite">
+          <div
+            className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-white p-4"
+            aria-live="polite"
+          >
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
+                {message.role === 'assistant' && <WallEAvatar small />}
                 <div
-                  className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${message.role === 'user' ? 'bg-primary text-white' : 'bg-white text-secondary shadow-sm'}`}
+                  className={`max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${message.role === 'user' ? 'rounded-br-md bg-primary text-white shadow-md shadow-primary/15' : 'rounded-bl-md border border-slate-100 bg-white text-secondary shadow-sm'}`}
                 >
                   <p className="whitespace-pre-wrap">{message.content}</p>
                   {message.citations?.length ? (
-                    <div className="mt-2 space-y-1 border-t border-slate-200 pt-2 text-xs">
+                    <div className="mt-3 space-y-1.5 border-t border-slate-200 pt-2.5 text-xs">
+                      <p className="font-bold uppercase tracking-wider text-slate-400">
+                        Explore the source
+                      </p>
                       {message.citations.map((citation) => (
                         <a
                           key={citation.url}
                           href={citation.url}
-                          className="block text-primary underline"
+                          className="block rounded-lg bg-slate-50 px-2 py-1.5 font-semibold text-primary transition hover:bg-primary/10"
                         >
+                          <span className="mr-1">↗</span>
                           {citation.title}
                         </a>
                       ))}
@@ -115,7 +156,14 @@ export function WallEChatWidget() {
                 </div>
               </div>
             ))}
-            {loading && <p className="text-xs text-slate-500">WALL-E is checking the site…</p>}
+            {loading && (
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <WallEAvatar small />
+                <span className="rounded-full bg-white px-3 py-2 shadow-sm">
+                  WALL-E is checking the site…
+                </span>
+              </div>
+            )}
             <div ref={endRef} />
           </div>
           <form onSubmit={submit} className="flex gap-2 border-t border-slate-200 bg-white p-3">
@@ -125,12 +173,12 @@ export function WallEChatWidget() {
               maxLength={600}
               placeholder="Ask WALL-E…"
               aria-label="Message WALL-E"
-              className="min-w-0 flex-1 rounded-full border border-slate-300 px-4 py-2 text-sm outline-none focus:border-primary"
+              className="min-w-0 flex-1 rounded-full border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15"
             />
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className="rounded-full bg-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+              className="rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition hover:brightness-105 disabled:opacity-40"
             >
               Send
             </button>
@@ -141,9 +189,13 @@ export function WallEChatWidget() {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-label={open ? 'Close WALL-E assistant' : 'Open WALL-E assistant'}
-        className="ml-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl shadow-xl ring-4 ring-white transition-transform hover:scale-105"
+        className="group relative ml-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary shadow-xl shadow-primary/30 ring-4 ring-white transition-transform hover:scale-105"
       >
-        🤖
+        <WallEAvatar />
+        <span className="absolute -right-1 -top-1 size-4 rounded-full border-2 border-white bg-emerald-400" />
+        <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full bg-secondary px-3 py-1.5 text-xs font-bold text-white opacity-0 shadow-lg transition group-hover:opacity-100">
+          Ask WALL-E
+        </span>
       </button>
     </div>
   );

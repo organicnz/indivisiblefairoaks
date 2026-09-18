@@ -291,6 +291,7 @@ jobs:
           - { name: search,         verify_jwt: false }
           - { name: webhook,        verify_jwt: false }
           - { name: health,         verify_jwt: false }
+          - { name: walle-refresh,  verify_jwt: false }
 
     steps:
       - uses: actions/checkout@v4
