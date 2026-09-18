@@ -209,11 +209,17 @@ jobs:
       - name: Deploy to Vercel (prebuilt)
         id: deploy
         run: |
-          URL=$(bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt \
+          set -euo pipefail
+          echo "Verifying Vercel token identity..."
+          bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} whoami \
+            --token=${{ secrets.VERCEL_TOKEN }}
+          bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt \
             ${{ github.ref_name == 'main' && '--prod' || '' }} \
             --yes \
-            --debug \
-            --token=${{ secrets.VERCEL_TOKEN }})
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --json > vercel-deploy.json
+          cat vercel-deploy.json
+          URL=$(node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('vercel-deploy.json','utf8')); if (!d.url) throw new Error('Vercel response did not include a deployment URL'); process.stdout.write(d.url)")
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "✅ Deployed: $URL"
 
