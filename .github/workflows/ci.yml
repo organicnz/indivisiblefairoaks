@@ -212,6 +212,8 @@ jobs:
           URL=$(bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} deploy --prebuilt \
             ${{ github.ref_name == 'main' && '--prod' || '' }} \
             --yes \
+            --debug \
+            --project=prj_8RtMjuARvtBuUnepj9oEVyovXyb5 \
             --scope=team_G8IMZRRSHw7ti3HLUs3aWmPS \
             --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$URL" >> "$GITHUB_OUTPUT"
