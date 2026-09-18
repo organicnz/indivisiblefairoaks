@@ -95,6 +95,7 @@ jobs:
       # --yes skips interactive prompts; env vars come from .vercel/.env.*.local.
       - name: Build (vercel build)
         run: bunx --yes vercel@${{ env.VERCEL_CLI_VERSION }} build \
+          --yes \
           ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} \
           --token=${{ secrets.VERCEL_TOKEN }}
 
