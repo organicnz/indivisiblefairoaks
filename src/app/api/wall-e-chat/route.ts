@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 
+const MAX_REQUEST_BYTES = 32_000;
+const FUNCTION_TIMEOUT_MS = 15_000;
+
 export async function POST(request: Request) {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!base || !key) {
     return NextResponse.json({ error: 'Chat is temporarily unavailable.' }, { status: 503 });
+  }
+  const contentLength = Number(request.headers.get('content-length') ?? '0');
+  if (contentLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: 'Please send a shorter question.' }, { status: 413 });
   }
 
   let body: unknown;
@@ -25,10 +32,14 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify(body),
       cache: 'no-store',
+      signal: AbortSignal.timeout(FUNCTION_TIMEOUT_MS),
     });
     return new NextResponse(await response.text(), {
       status: response.status,
-      headers: { 'content-type': response.headers.get('content-type') ?? 'application/json' },
+      headers: {
+        'cache-control': 'no-store',
+        'content-type': response.headers.get('content-type') ?? 'application/json',
+      },
     });
   } catch {
     return NextResponse.json({ error: 'Chat is temporarily unavailable.' }, { status: 503 });
