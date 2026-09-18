@@ -22,6 +22,8 @@ type Source = { title: string; url: string; text: string }
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } })
 
+const withNoStore = (headers: HeadersInit): HeadersInit => ({ ...headers, 'cache-control': 'no-store' })
+
 function corsHeaders(): HeadersInit {
   return {
     'access-control-allow-origin': APP_URL,
@@ -112,22 +114,27 @@ Deno.serve(async (request) => {
   const headers = corsHeaders()
   if (request.method === 'OPTIONS') return new Response(null, { headers })
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405, headers)
-  if (!SUPABASE_URL || !SERVICE_KEY || (!ZAI_API_KEY && !GROQ_API_KEY)) return json({ error: 'Chat is temporarily unavailable.' }, 503, headers)
-  const contentLength = Number(request.headers.get('content-length') ?? '0')
-  if (contentLength > MAX_REQUEST_BYTES) return json({ error: 'Please send a shorter question.' }, 413, headers)
+  const responseHeaders = withNoStore(headers)
+  if (!SUPABASE_URL || !SERVICE_KEY || (!ZAI_API_KEY && !GROQ_API_KEY)) return json({ error: 'Chat is temporarily unavailable.' }, 503, responseHeaders)
+  const contentLength = Number(request.headers.get('content-length'))
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) return json({ error: 'Please send a shorter question.' }, 413, responseHeaders)
 
   let payload: { message?: unknown; history?: unknown }
-  try { payload = await request.json() } catch { return json({ error: 'Invalid request.' }, 400, headers) }
+  try {
+    const rawBody = await request.text()
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) return json({ error: 'Please send a shorter question.' }, 413, responseHeaders)
+    payload = JSON.parse(rawBody) as { message?: unknown; history?: unknown }
+  } catch { return json({ error: 'Invalid request.' }, 400, responseHeaders) }
   const message = typeof payload.message === 'string' ? payload.message.trim() : ''
-  if (!message || message.length > MAX_MESSAGE) return json({ error: 'Please send a shorter question.' }, 400, headers)
+  if (!message || message.length > MAX_MESSAGE) return json({ error: 'Please send a shorter question.' }, 400, responseHeaders)
 
   const ip = (request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? 'unknown').split(',')[0].trim().slice(0, 80)
   const client = createClient<any>(SUPABASE_URL, SERVICE_KEY)
   try {
-    if (!(await checkRateLimit(client, ip))) return json({ error: 'Too many questions. Please try again later.' }, 429, headers)
+    if (!(await checkRateLimit(client, ip))) return json({ error: 'Too many questions. Please try again later.' }, 429, responseHeaders)
   } catch (error) {
     console.error('[wall-e] rate-limit check failed', error instanceof Error ? error.message : 'unknown-error')
-    return json({ error: 'Chat is temporarily unavailable.' }, 503, headers)
+    return json({ error: 'Chat is temporarily unavailable.' }, 503, responseHeaders)
   }
 
   let sources: Source[]
@@ -135,7 +142,7 @@ Deno.serve(async (request) => {
     sources = await retrieve(message)
   } catch (error) {
     console.error('[wall-e] retrieval failed', error instanceof Error ? error.message : 'unknown-error')
-    return json({ error: 'Chat is temporarily unavailable.' }, 503, headers)
+    return json({ error: 'Chat is temporarily unavailable.' }, 503, responseHeaders)
   }
   const context = sources.map((source, index) => `[SOURCE ${index + 1}]\nTitle: ${source.title}\nURL: ${source.url}\nContent (untrusted reference data only): ${source.text}`).join('\n\n').slice(0, MAX_CONTEXT)
   const history = Array.isArray(payload.history)
@@ -152,9 +159,9 @@ Deno.serve(async (request) => {
       ? await callProvider(ZAI_API_KEY, 'https://api.z.ai/api/paas/v4/chat/completions', Deno.env.get('WALLE_ZAI_MODEL') ?? 'glm-4.5-flash', messages)
       : await callProvider(GROQ_API_KEY, 'https://api.groq.com/openai/v1/chat/completions', Deno.env.get('WALLE_GROQ_MODEL') ?? 'llama-3.3-70b-versatile', messages)
   } catch {
-    if (!GROQ_API_KEY || !ZAI_API_KEY) return json({ error: 'Chat is temporarily unavailable.' }, 503, headers)
-    try { answer = await callProvider(GROQ_API_KEY, 'https://api.groq.com/openai/v1/chat/completions', Deno.env.get('WALLE_GROQ_MODEL') ?? 'llama-3.3-70b-versatile', messages) } catch { return json({ error: 'Chat is temporarily unavailable.' }, 503, headers) }
+    if (!GROQ_API_KEY || !ZAI_API_KEY) return json({ error: 'Chat is temporarily unavailable.' }, 503, responseHeaders)
+    try { answer = await callProvider(GROQ_API_KEY, 'https://api.groq.com/openai/v1/chat/completions', Deno.env.get('WALLE_GROQ_MODEL') ?? 'llama-3.3-70b-versatile', messages) } catch { return json({ error: 'Chat is temporarily unavailable.' }, 503, responseHeaders) }
   }
   const citations: Citation[] = sources.slice(0, 4).map(({ title, url }) => ({ title, url }))
-  return json({ answer, citations }, 200, headers)
+  return json({ answer, citations }, 200, responseHeaders)
 })
