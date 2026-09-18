@@ -11,16 +11,18 @@ function WallEAvatar({ small = false }: { small?: boolean }) {
     <span
       aria-hidden="true"
       data-testid="walle-avatar"
-      className={`inline-flex shrink-0 items-center justify-center rounded-2xl bg-primary shadow-lg ring-2 ring-white ${small ? 'size-9' : 'size-12'}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-2xl bg-primary p-1 shadow-lg ring-2 ring-white ${small ? 'size-9' : 'size-12'}`}
     >
-      <Image
-        src="/walle-avatar.png"
-        alt=""
-        width={271}
-        height={237}
-        className={`object-cover ${small ? 'size-8' : 'size-10'}`}
-        priority={!small}
-      />
+      <span className="relative block aspect-[271/237] w-full overflow-hidden rounded-xl bg-white p-0.5">
+        <Image
+          src="/walle-avatar.png"
+          alt=""
+          fill
+          sizes={small ? '28px' : '40px'}
+          className="object-cover"
+          priority={!small}
+        />
+      </span>
     </span>
   );
 }
