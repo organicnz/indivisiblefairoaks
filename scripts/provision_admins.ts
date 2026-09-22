@@ -1,8 +1,11 @@
+import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
-import { config } from 'dotenv';
-import { resolve } from 'path';
 
-config({ path: resolve(process.cwd(), '.env.local') });
+if (typeof process.loadEnvFile === 'function') {
+  try {
+    process.loadEnvFile(resolve(process.cwd(), '.env.local'));
+  } catch {}
+}
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY!;
