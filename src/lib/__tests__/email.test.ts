@@ -8,7 +8,7 @@ vi.mock('@/lib/env', () => ({
     NEXT_PUBLIC_SITE_URL: 'https://test.example.com',
     RESEND_API_KEY: '',
     RESEND_FROM_EMAIL: 'contact@indivisiblefairoaks.org',
-    ADMIN_ORDER_EMAIL: 'admin@indivisiblefairoaks.org',
+    ADMIN_ORDER_EMAIL: 'contact@indivisiblefairoaks.org',
   },
 }));
 
@@ -50,7 +50,7 @@ describe('Resend email utilities', () => {
 
     beforeEach(() => {
       mockEnv.RESEND_API_KEY = 're_test_dummy_key_for_testing';
-      mockEnv.RESEND_FROM_EMAIL = 'orders@indivisiblefairoaks.org';
+      mockEnv.RESEND_FROM_EMAIL = 'contact@indivisiblefairoaks.org';
     });
 
     afterEach(() => {
@@ -92,10 +92,14 @@ describe('Resend email utilities', () => {
     });
 
     it('successfully calls Resend API and returns email ID on success', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ id: 'email_12345' }),
-      } as Response);
+      let requestBody: Record<string, unknown> = {};
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return {
+          ok: true,
+          json: async () => ({ id: 'email_12345' }),
+        } as Response;
+      });
 
       const result = await sendEmail({
         to: 'member@example.com',
@@ -110,6 +114,7 @@ describe('Resend email utilities', () => {
         expect(result.id).toBe('email_12345');
       }
 
+      expect(requestBody.from).toBe('contact@indivisiblefairoaks.org');
       expect(global.fetch).toHaveBeenCalledWith(
         'https://api.resend.com/emails',
         expect.objectContaining({
@@ -165,7 +170,7 @@ describe('Resend email utilities', () => {
 
     beforeEach(() => {
       mockEnv.RESEND_API_KEY = 're_test_dummy_key_for_testing';
-      mockEnv.ADMIN_ORDER_EMAIL = 'admin@indivisiblefairoaks.org';
+      mockEnv.ADMIN_ORDER_EMAIL = 'contact@indivisiblefairoaks.org';
     });
 
     afterEach(() => {
@@ -191,7 +196,7 @@ describe('Resend email utilities', () => {
       });
 
       expect(result.ok).toBe(true);
-      expect(requestBody.to).toEqual(['admin@indivisiblefairoaks.org']);
+      expect(requestBody.to).toEqual(['contact@indivisiblefairoaks.org']);
       expect(requestBody.subject).toBe('[Contact Form #99] Message from Jane Doe');
       expect(requestBody.reply_to).toBe('jane@example.com');
       expect(String(requestBody.html)).toContain('Jane Doe');

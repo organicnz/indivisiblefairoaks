@@ -17,8 +17,8 @@ APP_URL=https://indivisiblefairoaks.org
 
 # ── Email delivery (notify-contact + webhook order notification) ─────────────
 RESEND_API_KEY=re_...
-RESEND_FROM_EMAIL=orders@indivisiblefairoaks.org
-ADMIN_ORDER_EMAIL=indivisible@indivisiblefairoaks.org
+RESEND_FROM_EMAIL=contact@indivisiblefairoaks.org
+ADMIN_ORDER_EMAIL=contact@indivisiblefairoaks.org
 
 # ── Search rate-limiting (search function) ───────────────────────────────────
 SEARCH_RATE_LIMIT_MAX=30

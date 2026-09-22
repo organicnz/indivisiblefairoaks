@@ -22,6 +22,7 @@ const _REF_FALLBACK = ['mojsubkq', 'jdruhpxbzgme'].join('');
 const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || _REF_FALLBACK;
 const SUPABASE_HOST = process.env.NEXT_PUBLIC_SUPABASE_URL || `https://${PROJECT_REF}.supabase.co`;
 const LOGO_URL = `${SUPABASE_HOST}/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png`;
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://indivisiblefairoaks.org';
 
 function generateEmailTemplate({ eyebrow, title, description, buttonText, buttonUrl, note }) {
   return `<!DOCTYPE html>
@@ -40,7 +41,7 @@ function generateEmailTemplate({ eyebrow, title, description, buttonText, button
           <!-- Header with Logo & Brand Eyebrow -->
           <tr>
             <td style="padding:36px 40px 28px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,#172554 0%,#1E293B 100%);">
-              <a href="https://indivisiblefairoaks.org" target="_blank" style="text-decoration:none;display:inline-block;">
+              <a href="${SITE_URL}" target="_blank" style="text-decoration:none;display:inline-block;">
                 <img src="${LOGO_URL}" alt="Indivisible Fair Oaks-Carmichael" width="180" style="display:block;margin:0 auto 16px;max-width:180px;height:auto;" />
               </a>
               <div style="display:inline-block;padding:5px 14px;background:rgba(37,99,235,0.2);border:1px solid rgba(59,130,246,0.35);color:#93C5FD;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.2em;border-radius:9999px;">
