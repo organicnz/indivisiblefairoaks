@@ -1,0 +1,551 @@
+'use client';
+
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  Eye,
+  Mail,
+  Megaphone,
+  Radio,
+  Send,
+  Sparkles,
+  Users,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, useTransition } from 'react';
+import { toast } from 'sonner';
+import { type CRMBroadcast, getBroadcastRecipientCount, sendCRMBroadcast } from '@/lib/actions/crm';
+
+interface Props {
+  initialBroadcasts: CRMBroadcast[];
+}
+
+const AVAILABLE_STATUSES = [
+  { id: 'active_volunteer', label: 'Active Volunteers' },
+  { id: 'choir', label: 'Resistance Choir' },
+  { id: 'donor', label: 'Donors' },
+  { id: 'organizer', label: 'Organizers' },
+  { id: 'supporter', label: 'Supporters' },
+  { id: 'inactive', label: 'Inactive' },
+];
+
+const AVAILABLE_DISTRICTS = [
+  { id: 'CA-06', label: 'CA-06 (Sacramento/Carmichael)' },
+  { id: 'CA-03', label: 'CA-03 (Fair Oaks/Sierra)' },
+  { id: 'CA-07', label: 'CA-07' },
+];
+
+const COMMON_TAGS = ['newsletter', 'postcards', 'canvassing', 'donor', 'choir', 'mobilize'];
+
+export function CRMBroadcastComposer({ initialBroadcasts }: Props) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+
+  // Filters
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Content
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [previewMode, setPreviewMode] = useState(false);
+
+  // Audience size
+  const [recipientCount, setRecipientCount] = useState<number | null>(null);
+  const [calculatingCount, setCalculatingCount] = useState(false);
+
+  // Sending status
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
+  // Update recipient count when targeting changes
+  useEffect(() => {
+    let active = true;
+    const fetchCount = async () => {
+      setCalculatingCount(true);
+      try {
+        const count = await getBroadcastRecipientCount({
+          targetStatus: selectedStatuses,
+          targetDistricts: selectedDistricts,
+          targetTags: selectedTags,
+        });
+        if (active) {
+          setRecipientCount(count);
+        }
+      } catch {
+        if (active) setRecipientCount(0);
+      } finally {
+        if (active) setCalculatingCount(false);
+      }
+    };
+
+    fetchCount();
+    return () => {
+      active = false;
+    };
+  }, [selectedStatuses, selectedDistricts, selectedTags]);
+
+  const toggleStatus = (id: string) => {
+    setSelectedStatuses((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  };
+
+  const toggleDistrict = (id: string) => {
+    setSelectedDistricts((prev) =>
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+    );
+  };
+
+  const toggleTag = (t: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(t) ? prev.filter((item) => item !== t) : [...prev, t]
+    );
+  };
+
+  const handleSend = async () => {
+    if (!subject.trim() || !body.trim()) {
+      toast.error('Please provide both subject and message body');
+      return;
+    }
+
+    if (!recipientCount || recipientCount === 0) {
+      toast.error('Cannot dispatch to 0 recipients');
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const res = await sendCRMBroadcast({
+        subject,
+        body,
+        targetStatus: selectedStatuses,
+        targetDistricts: selectedDistricts,
+        targetTags: selectedTags,
+      });
+
+      if (res.success) {
+        toast.success(`Broadcast successfully sent to ${res.recipientCount ?? 0} constituents!`);
+        setSubject('');
+        setBody('');
+        setSelectedStatuses([]);
+        setSelectedDistricts([]);
+        setSelectedTags([]);
+        setIsConfirmOpen(false);
+        startTransition(() => {
+          router.refresh();
+        });
+      } else {
+        toast.error(`Broadcast failed: ${res.error}`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(`Broadcast error: ${msg}`);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <div className="space-y-12">
+      {/* Header & Breadcrumb */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+        <div>
+          <Link
+            href="/admin/crm"
+            className="inline-flex items-center gap-2 text-xs font-black text-slate-500 hover:text-primary uppercase tracking-widest transition-colors mb-2"
+          >
+            <ArrowLeft size={14} /> Back to Constituent Directory
+          </Link>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-xs">
+              <Megaphone size={20} />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black text-secondary uppercase tracking-tight">
+                Campaign Broadcasts
+              </h1>
+              <p className="text-xs font-bold text-slate-500">
+                Segment and dispatch branded chapter email broadcasts via Resend.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Audience Badge */}
+        <div className="bg-slate-900 text-white px-5 py-3 rounded-2xl flex items-center gap-3 border border-slate-800 shadow-sm self-start sm:self-auto">
+          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary-light">
+            <Users size={16} />
+          </div>
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Matched Audience
+            </div>
+            <div className="text-lg font-black text-white">
+              {calculatingCount ? (
+                <span className="text-slate-400 text-sm">Calculating...</span>
+              ) : (
+                <span>{recipientCount ?? 0} constituents</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Grid: Targeting & Composer */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Column: Audience Targeting (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+            <div className="flex items-center gap-2">
+              <Radio size={16} className="text-primary" />
+              <h2 className="text-xs font-black uppercase tracking-widest text-secondary">
+                1. Audience Segmentation
+              </h2>
+            </div>
+
+            {/* Engagement Statuses */}
+            <div>
+              <div className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">
+                By Engagement Status (Leave empty for all)
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {AVAILABLE_STATUSES.map((st) => {
+                  const isSelected = selectedStatuses.includes(st.id);
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => toggleStatus(st.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                        isSelected
+                          ? 'bg-primary text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Districts */}
+            <div>
+              <div className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">
+                By Congressional District (Leave empty for all)
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {AVAILABLE_DISTRICTS.map((d) => {
+                  const isSelected = selectedDistricts.includes(d.id);
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => toggleDistrict(d.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                        isSelected
+                          ? 'bg-primary text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div>
+              <div className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">
+                By Interest Tags (Must match all selected)
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {COMMON_TAGS.map((t) => {
+                  const isSelected = selectedTags.includes(t);
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => toggleTag(t)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
+                        isSelected
+                          ? 'bg-primary text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      #{t}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Filter Summary */}
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 space-y-1">
+              <div className="font-bold text-slate-700">Targeting Rules Applied:</div>
+              <div>
+                Status: {selectedStatuses.length > 0 ? selectedStatuses.join(', ') : 'All Statuses'}
+              </div>
+              <div>
+                Districts:{' '}
+                {selectedDistricts.length > 0 ? selectedDistricts.join(', ') : 'All Districts'}
+              </div>
+              <div>Tags: {selectedTags.length > 0 ? selectedTags.join(', ') : 'None'}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Message Composer & Live Preview (7 cols) */}
+        <div className="lg:col-span-7 space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mail size={16} className="text-primary" />
+                <h2 className="text-xs font-black uppercase tracking-widest text-secondary">
+                  2. Message Content
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewMode(!previewMode)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                <Eye size={14} />
+                {previewMode ? 'Edit Draft' : 'Sensory Preview'}
+              </button>
+            </div>
+
+            {!previewMode ? (
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="broadcast-subject"
+                    className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5"
+                  >
+                    Subject Line
+                  </label>
+                  <input
+                    id="broadcast-subject"
+                    type="text"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="e.g. Urgent Action: Stop H.R. 1 Rally at Carmichael Park"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm font-bold text-secondary placeholder:font-normal placeholder:text-slate-400"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="broadcast-body"
+                    className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5"
+                  >
+                    Message Body (HTML/Markdown Paragraphs supported)
+                  </label>
+                  <textarea
+                    id="broadcast-body"
+                    rows={10}
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder="Dear Neighbor,&#10;&#10;Join us this Saturday at Carmichael Park as we rally for democracy...&#10;&#10;Here are the three ways to take immediate action..."
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm text-slate-800 leading-relaxed font-sans placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+            ) : (
+              /* Sensory Luxury Email Shell Preview */
+              <div className="p-6 bg-slate-950 rounded-2xl border border-slate-800 text-slate-100 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <Sparkles size={14} className="text-amber-400" />
+                    <span>Branded Email Preview</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-500">
+                    From: contact@indivisiblefairoaks.org
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  <div className="text-xs uppercase tracking-widest text-blue-400 font-bold">
+                    Chapter Broadcast
+                  </div>
+                  <h3 className="text-lg font-bold text-white">
+                    {subject || '(Subject line placeholder)'}
+                  </h3>
+                  <div className="p-4 bg-slate-900 rounded-xl border-l-4 border-blue-600 text-sm leading-relaxed text-slate-200 whitespace-pre-line">
+                    {body ||
+                      'Message content will be formatted inside this branded card container.'}
+                  </div>
+                  <div className="text-xs text-slate-500 pt-3 border-t border-slate-800">
+                    Indivisible Fair Oaks-Carmichael Organizing Team · indivisiblefairoaks.org
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Dispatch Action Bar */}
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+              <div className="text-xs text-slate-500">
+                Will be delivered to{' '}
+                <strong className="text-secondary">{recipientCount ?? 0}</strong> constituents.
+              </div>
+              <button
+                type="button"
+                disabled={
+                  !subject.trim() || !body.trim() || !recipientCount || recipientCount === 0
+                }
+                onClick={() => setIsConfirmOpen(true)}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-slate-200 disabled:text-slate-400 text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
+              >
+                <Send size={14} /> Send Broadcast Now
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Modal */}
+      {isConfirmOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <AlertCircle size={24} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-secondary uppercase tracking-tight">
+                Confirm Broadcast Dispatch
+              </h3>
+              <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                You are about to send this email blast to{' '}
+                <strong className="text-secondary">{recipientCount} constituents</strong> using
+                Resend. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1">
+              <div>
+                <span className="font-bold text-slate-500">Subject:</span> {subject}
+              </div>
+              <div>
+                <span className="font-bold text-slate-500">Sender:</span>{' '}
+                contact@indivisiblefairoaks.org
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isSending}
+                onClick={() => setIsConfirmOpen(false)}
+                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSending}
+                onClick={handleSend}
+                className="flex-1 px-4 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-slate-300 rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-xs flex items-center justify-center gap-2"
+              >
+                {isSending ? (
+                  <>
+                    <Clock size={14} className="animate-spin" /> Dispatching...
+                  </>
+                ) : (
+                  <>
+                    <Send size={14} /> Confirm & Blast
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Broadcast History Table */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Clock size={16} className="text-slate-400" />
+          <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">
+            Past Campaigns & Dispatch History ({initialBroadcasts.length})
+          </h2>
+        </div>
+
+        {initialBroadcasts.length === 0 ? (
+          <div className="bg-slate-50 p-12 rounded-2xl border border-dashed border-slate-200 text-center text-xs text-slate-500">
+            No broadcast campaigns sent yet. Compose your first campaign above!
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    <th className="px-6 py-3">Campaign Subject</th>
+                    <th className="px-6 py-3">Audience Filters</th>
+                    <th className="px-6 py-3">Recipients</th>
+                    <th className="px-6 py-3">Status</th>
+                    <th className="px-6 py-3">Sent Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {initialBroadcasts.map((b) => (
+                    <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-6 py-4 font-bold text-secondary max-w-xs truncate">
+                        {b.subject}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500">
+                        {b.target_status.length > 0 && `Status: ${b.target_status.join(', ')} `}
+                        {b.target_districts.length > 0 &&
+                          `Districts: ${b.target_districts.join(', ')} `}
+                        {b.target_tags.length > 0 && `Tags: ${b.target_tags.join(', ')}`}
+                        {b.target_status.length === 0 &&
+                          b.target_districts.length === 0 &&
+                          b.target_tags.length === 0 &&
+                          'All Constituents'}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-secondary">{b.recipient_count}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            b.status === 'sent'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : b.status === 'sending'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          {b.status === 'sent' && <CheckCircle2 size={10} />}
+                          {b.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-400">
+                        {b.sent_at
+                          ? new Date(b.sent_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : new Date(b.created_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

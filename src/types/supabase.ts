@@ -210,6 +210,146 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_activities: {
+        Row: {
+          contact_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          metadata: Json
+          title: string
+          type: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json
+          title: string
+          type: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_activities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_broadcasts: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          recipient_count: number
+          sent_at: string | null
+          status: string
+          subject: string
+          target_districts: string[]
+          target_status: string[]
+          target_tags: string[]
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          recipient_count?: number
+          sent_at?: string | null
+          status?: string
+          subject: string
+          target_districts?: string[]
+          target_status?: string[]
+          target_tags?: string[]
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          recipient_count?: number
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          target_districts?: string[]
+          target_status?: string[]
+          target_tags?: string[]
+        }
+        Relationships: []
+      }
+      crm_contacts: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          district: string | null
+          email: string
+          first_name: string | null
+          id: string
+          last_contacted_at: string | null
+          last_name: string | null
+          notes: string | null
+          phone: string | null
+          source: string
+          status: string
+          tags: string[]
+          total_donated_cents: number
+          updated_at: string
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          district?: string | null
+          email: string
+          first_name?: string | null
+          id?: string
+          last_contacted_at?: string | null
+          last_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          source?: string
+          status?: string
+          tags?: string[]
+          total_donated_cents?: number
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          district?: string | null
+          email?: string
+          first_name?: string | null
+          id?: string
+          last_contacted_at?: string | null
+          last_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          source?: string
+          status?: string
+          tags?: string[]
+          total_donated_cents?: number
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
       error_reports: {
         Row: {
           category: string
@@ -797,6 +937,7 @@ export type Database = {
     }
     Functions: {
       cleanup_old_audit_logs: { Args: never; Returns: undefined }
+      crm_sync_historical_records: { Args: never; Returns: Json }
       decrement_stock: {
         Args: { decrement_by?: number; p_id: number }
         Returns: undefined
