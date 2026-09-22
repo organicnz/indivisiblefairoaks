@@ -4,6 +4,10 @@ import { cacheLife, cacheTag } from 'next/cache';
 import { env } from '@/lib/env';
 import { buildVisibilityFilter } from '@/lib/queries/content';
 
+// Sitemap is hour-cached (one DB query per crawl wave) rather than truly static
+// (zero compute). Use cacheLife('hours') + cacheTag('content','sitemap') to bound
+// revalidation cost. A Vercel Pro move to cacheLife:"minutes" would enable
+// finer freshness; for now this is the conservation-mode compromise.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   'use cache';
   // Sitemaps are fetched repeatedly by crawlers; cache the generated XML for

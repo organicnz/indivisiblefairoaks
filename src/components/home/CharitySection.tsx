@@ -15,7 +15,7 @@ export function CharitySection() {
                   alt="Sea Cleaners NZ"
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-contain group-hover:scale-105 transition-transform duration-[2000ms] ease-out"
+                  className="object-contain group-hover:scale-105 transition-transform duration-500 ease-out"
                 />
               </div>
               <div className="absolute inset-0 bg-linear-to-t from-secondary/40 via-transparent to-transparent opacity-60 pointer-events-none" />

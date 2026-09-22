@@ -23,7 +23,7 @@ export function UserSettings() {
   }
 
   return (
-    <div className="space-y-12 mt-16 animate-in fade-in duration-700">
+    <div className="space-y-12 mt-16 animate-in fade-in duration-300 ease-out">
       <div className="flex flex-col mb-8">
         <h2 className="text-2xl font-black text-secondary uppercase tracking-widest mb-2 inline-block">
           Preferences

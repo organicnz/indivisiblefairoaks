@@ -47,7 +47,7 @@ export function ProductCard({ product }: ProductCardProps) {
             alt={product.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="w-full h-full object-center object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+            className="w-full h-full object-center object-cover group-hover:scale-110 transition-transform duration-300 ease-out"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-slate-500 font-black uppercase tracking-widest text-[10px]">
@@ -99,7 +99,7 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
 
       {/* Bottom accent line */}
-      <div className="absolute bottom-0 left-0 h-1 w-0 bg-primary group-hover:w-full transition-all duration-700 ease-in-out" />
+      <div className="absolute bottom-0 left-0 h-1 w-0 bg-primary group-hover:w-full transition-all duration-300 ease-out" />
     </motion.div>
   );
 }

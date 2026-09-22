@@ -90,10 +90,10 @@ export function HeroSlider() {
       {slides.map((slide, index) => (
         <div
           key={slide.highlight}
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+          className={`absolute inset-0 transition-opacity duration-300 ease-out ${
             index === currentSlide ? 'opacity-60 z-0 scale-100' : 'opacity-0 -z-10 scale-110'
           }`}
-          style={{ transition: 'opacity 2000ms ease-in-out, transform 12000ms linear' }}
+          style={{ transition: 'opacity 300ms ease-out, transform 500ms ease-out' }}
         >
           <Image
             src={slide.image.startsWith('/') ? slide.image : getStorageUrl(slide.image)}
@@ -120,7 +120,7 @@ export function HeroSlider() {
           </span>
           <h1
             key={`title-${currentSlide}`}
-            className="text-6xl md:text-8xl lg:text-[10rem] font-black tracking-tight text-white uppercase leading-[0.8] mb-12 animate-fade-in transition-all duration-700"
+            className="text-6xl md:text-8xl lg:text-[10rem] font-black tracking-tight text-white uppercase leading-[0.8] mb-12 animate-fade-in transition-all duration-300 ease-out"
           >
             {slides[currentSlide].title} <br />
             <span className="text-primary italic">{slides[currentSlide].highlight}</span>

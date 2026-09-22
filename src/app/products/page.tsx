@@ -5,7 +5,7 @@ import { createPublicClient } from '@/lib/supabase-server';
 export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }): Promise<Metadata> {
   const resolvedParams = await searchParams;
   const categorySlug = typeof resolvedParams.category === 'string' ? resolvedParams.category : null;
@@ -80,7 +80,7 @@ export const instant = false;
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const supabase = createPublicClient();
 

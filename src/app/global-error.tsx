@@ -29,7 +29,10 @@ export default function GlobalError({
         <div style={{ textAlign: 'center', padding: '2rem', maxWidth: '28rem' }}>
           <h1
             style={{
-              color: '#D1FF00',
+              // Surface-muted heading on the dark shell — raw lime is
+              // reserved for non-text accents only. The retry button below
+              // keeps the compliant lime-bg + dark-text CTA pattern.
+              color: '#F8FAFC',
               fontSize: '2rem',
               fontWeight: 900,
               textTransform: 'uppercase',

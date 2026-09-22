@@ -165,7 +165,7 @@ function LoginForm() {
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 py-32 selection:bg-primary selection:text-secondary">
       <div className="max-w-xl w-full">
         {/* Header */}
-        <div className="text-center mb-12 animate-in fade-in slide-in-from-top-8 duration-700">
+        <div className="text-center mb-12 animate-in fade-in slide-in-from-top-8 duration-300 ease-out">
           <div className="inline-flex items-center gap-3 px-6 py-2.5 bg-secondary/5 rounded-full mb-8 border border-secondary/5">
             <Shield className="w-3.5 h-3.5 text-secondary" />
             <span className="text-secondary font-black uppercase tracking-[0.4em] text-[10px]">
@@ -187,7 +187,7 @@ function LoginForm() {
 
         {/* Admin Gateway Notice Banner */}
         {isAdminTarget && (
-          <div className="mb-8 p-4 rounded-2xl bg-blue-50 border border-blue-200/80 text-blue-950 text-center animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
+          <div className="mb-8 p-4 rounded-2xl bg-blue-50 border border-blue-200/80 text-blue-950 text-center animate-in fade-in slide-in-from-top-4 duration-300 ease-out shadow-sm">
             <div className="flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider text-blue-900 mb-1">
               <Shield className="w-4 h-4 text-blue-600" />
               Chapter Administration
@@ -199,7 +199,7 @@ function LoginForm() {
           </div>
         )}
 
-        <div className="bg-white border border-slate-100 rounded-[4rem] shadow-[0_40px_100px_-20px_rgba(15,23,42,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-1000 delay-200">
+        <div className="bg-white border border-slate-100 rounded-[4rem] shadow-[0_40px_100px_-20px_rgba(15,23,42,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-300 ease-out">
           {/* Method Tabs */}
           <div className="flex p-3 bg-slate-50/50">
             <button

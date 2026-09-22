@@ -1001,6 +1001,15 @@ export type Database = {
         }
         Returns: number
       }
+      validate_coupon: {
+        Args: { p_code: string }
+        Returns: {
+          valid: boolean
+          discount_type: string
+          amount: number
+          expiry_date: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

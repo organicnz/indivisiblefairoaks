@@ -4,7 +4,7 @@ import { Quote, Star } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { getTestimonials } from '@/lib/queries/content-client';
-import { sanitizeWPContent } from '@/lib/sanitize';
+import { sanitizeText } from '@/lib/sanitize';
 
 const STAR_POSITIONS = ['first', 'second', 'third', 'fourth', 'fifth'] as const;
 
@@ -65,7 +65,7 @@ export function TestimonialSection() {
           {displayTestimonials.map((t) => (
             <div
               key={t.name}
-              className="group p-10 lg:p-12 rounded-[3.5rem] bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-[0_80px_100px_-30px_rgba(0,0,0,0.1)] hover:-translate-y-3 transition-all duration-700 ease-out"
+              className="group p-10 lg:p-12 rounded-[3.5rem] bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-[0_80px_100px_-30px_rgba(0,0,0,0.1)] hover:-translate-y-3 transition-all duration-300 ease-out"
             >
               <div className="flex gap-1 mb-10">
                 {STAR_POSITIONS.slice(0, t.stars).map((position) => (
@@ -83,7 +83,7 @@ export function TestimonialSection() {
                     alt={t.name}
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-700"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 </div>
               )}
@@ -91,7 +91,7 @@ export function TestimonialSection() {
               <div className="relative mb-10">
                 <Quote className="w-12 h-12 text-primary/10 absolute -top-4 -left-4 group-hover:text-primary/20 transition-colors duration-500" />
                 <p className="text-slate-600 font-medium text-lg lg:text-xl leading-relaxed relative z-10 italic">
-                  &ldquo;{sanitizeWPContent(t.content)}&rdquo;
+                  &ldquo;{sanitizeText(t.content)}&rdquo;
                 </p>
               </div>
 

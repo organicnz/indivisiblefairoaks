@@ -40,6 +40,7 @@ function HeaderFallback() {
               height={40}
               className="w-full h-full object-contain"
               priority
+              unoptimized
             />
           </div>
           <div>
@@ -100,6 +101,7 @@ function HeaderInner() {
                 height={40}
                 className="w-full h-full object-contain"
                 priority
+                unoptimized
               />
             </div>
             <div>
@@ -161,7 +163,7 @@ function HeaderInner() {
 
       {/* Mobile Drawer */}
       <div
-        className={`fixed inset-0 z-[100] bg-slate-950/98 flex flex-col p-6 sm:p-8 lg:hidden transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-0 z-[100] bg-slate-950/98 flex flex-col p-6 sm:p-8 lg:hidden transition-transform duration-300 ease-out ${
           isMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -174,6 +176,7 @@ function HeaderInner() {
                 width={40}
                 height={40}
                 className="w-full h-full object-contain"
+                unoptimized
               />
             </div>
             <div>
