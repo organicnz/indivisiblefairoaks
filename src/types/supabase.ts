@@ -820,10 +820,13 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          created_at: string
           email: string | null
+          first_name: string | null
           full_name: string | null
           id: string
           is_admin: boolean | null
+          last_name: string | null
           settings: Json | null
           updated_at: string | null
           user_id: string | null
@@ -832,10 +835,13 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          created_at?: string
           email?: string | null
+          first_name?: string | null
           full_name?: string | null
           id: string
           is_admin?: boolean | null
+          last_name?: string | null
           settings?: Json | null
           updated_at?: string | null
           user_id?: string | null
@@ -844,10 +850,13 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          created_at?: string
           email?: string | null
+          first_name?: string | null
           full_name?: string | null
           id?: string
           is_admin?: boolean | null
+          last_name?: string | null
           settings?: Json | null
           updated_at?: string | null
           user_id?: string | null
