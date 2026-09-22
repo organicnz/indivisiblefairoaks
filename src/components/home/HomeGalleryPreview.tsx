@@ -4,6 +4,7 @@ import { ArrowRight, Camera, Filter, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import type { GalleryClientPhoto } from '@/app/gallery/GalleryClient';
 import { getGalleryPhotos } from '@/lib/queries/content-client';
 
 interface PreviewPhoto {
@@ -22,11 +23,29 @@ interface PreviewPhoto {
   date: string;
 }
 
-export function HomeGalleryPreview() {
+export function HomeGalleryPreview({
+  photos: initialPhotos,
+}: {
+  photos?: GalleryClientPhoto[];
+} = {}) {
   const [selectedFilter, setSelectedFilter] = useState<string>('All');
-  const [previewPhotos, setPreviewPhotos] = useState<PreviewPhoto[]>([]);
+  const [previewPhotos, setPreviewPhotos] = useState<PreviewPhoto[]>(() => {
+    if (initialPhotos && initialPhotos.length > 0) {
+      return initialPhotos.map((p) => ({
+        id: p.id,
+        title: p.caption || p.alt || '',
+        location: p.location || '',
+        category: (p.category as PreviewPhoto['category']) || 'No Kings Sacramento',
+        image: p.url || '',
+        signQuote: p.signQuote ?? undefined,
+        date: p.date || '',
+      }));
+    }
+    return [];
+  });
 
   useEffect(() => {
+    if (initialPhotos && initialPhotos.length > 0) return;
     getGalleryPhotos().then((photos) => {
       // Map gallery_photos rows to PreviewPhoto format
       const mapped = photos.map((p) => ({
@@ -40,7 +59,7 @@ export function HomeGalleryPreview() {
       }));
       setPreviewPhotos(mapped);
     });
-  }, []);
+  }, [initialPhotos]);
 
   const filterOptions = [
     'All',

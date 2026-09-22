@@ -86,6 +86,7 @@ jobs:
           path: |
             .next/
             public/
+          include-hidden-files: true
           retention-days: 1
 
   # ── 4. E2E Tests ─────────────────────────────────────────────────────────────

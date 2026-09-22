@@ -11,11 +11,21 @@ import {
   Lock,
   Shield,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 
-export default function LoginPage() {
+function getSafeNext(param: string | null): string | null {
+  if (!param) return null;
+  if (/^\/(?!\/)/.test(param)) return param;
+  return null;
+}
+
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const targetNext = getSafeNext(searchParams.get('next'));
+  const isAdminTarget = Boolean(targetNext?.startsWith('/admin'));
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authMethod, setAuthMethod] = useState<'otp' | 'password'>('otp');
@@ -27,34 +37,65 @@ export default function LoginPage() {
   const supabase = createClient();
   const router = useRouter();
 
+  // Check URL error parameters on mount
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'Invalid_Token') {
+      setMessage({
+        type: 'error',
+        text: '❌ Sign-in link is invalid or expired. Please request a new magic link below.',
+      });
+    } else if (errorParam === 'admin_required') {
+      setMessage({
+        type: 'error',
+        text: '❌ Administrator credentials required. Please sign in with an authorized chapter administrator email.',
+      });
+    } else if (errorParam) {
+      setMessage({
+        type: 'error',
+        text: `❌ ${errorParam.replace(/_/g, ' ')}`,
+      });
+    }
+  }, [searchParams]);
+
+  // If already authenticated, redirect to destination
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.push('/account');
+      if (session) {
+        router.push(targetNext || '/account');
+      }
     });
-  }, [supabase, router]);
+  }, [supabase, router, targetNext]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
 
+    const callbackUrl = targetNext
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(targetNext)}`
+      : `${window.location.origin}/auth/callback`;
+
     try {
       if (authMethod === 'otp') {
         const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: callbackUrl,
           },
         });
         if (error) throw error;
-        setMessage({ type: 'success', text: '✅ A magic link has been sent to your inbox.' });
+        setMessage({
+          type: 'success',
+          text: `✅ A secure sign-in link has been sent to ${email}. Click the button in your email to authenticate.`,
+        });
       } else {
         if (isSignUp) {
           const { error } = await supabase.auth.signUp({
             email,
             password,
             options: {
-              emailRedirectTo: `${window.location.origin}/auth/callback`,
+              emailRedirectTo: callbackUrl,
             },
           });
           if (error) throw error;
@@ -68,7 +109,7 @@ export default function LoginPage() {
             password,
           });
           if (error) throw error;
-          router.push('/account');
+          router.push(targetNext || '/account');
           router.refresh();
         }
       }
@@ -85,10 +126,14 @@ export default function LoginPage() {
 
   const handleOAuth = async (provider: 'google' | 'github') => {
     setLoading(true);
+    const callbackUrl = targetNext
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(targetNext)}`
+      : `${window.location.origin}/auth/callback`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl,
       },
     });
     if (error) {
@@ -124,7 +169,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center gap-3 px-6 py-2.5 bg-secondary/5 rounded-full mb-8 border border-secondary/5">
             <Shield className="w-3.5 h-3.5 text-secondary" />
             <span className="text-secondary font-black uppercase tracking-[0.4em] text-[10px]">
-              Secure Gateway
+              {isAdminTarget ? 'Administrative Gateway' : 'Secure Gateway'}
             </span>
           </div>
           <h1 className="text-6xl md:text-8xl font-black text-secondary uppercase tracking-tighter leading-none mb-6">
@@ -132,11 +177,27 @@ export default function LoginPage() {
             <span className="text-primary italic">{isSignUp ? 'The Crew' : 'Back'}</span>
           </h1>
           <p className="text-slate-400 font-bold uppercase tracking-[0.15em] text-[10px] max-w-sm mx-auto">
-            {isSignUp
-              ? 'Join the elite community of explorers'
-              : 'Authorized access for returning personnel only'}
+            {isAdminTarget
+              ? 'Authorized access for chapter administrators and organizers'
+              : isSignUp
+                ? 'Join the community of grassroots organizers'
+                : 'Authorized access for returning personnel only'}
           </p>
         </div>
+
+        {/* Admin Gateway Notice Banner */}
+        {isAdminTarget && (
+          <div className="mb-8 p-4 rounded-2xl bg-blue-50 border border-blue-200/80 text-blue-950 text-center animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
+            <div className="flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider text-blue-900 mb-1">
+              <Shield className="w-4 h-4 text-blue-600" />
+              Chapter Administration
+            </div>
+            <p className="text-xs text-blue-800 font-medium">
+              You are accessing an administrative section ({targetNext}). Please authenticate with
+              your authorized chapter credentials.
+            </p>
+          </div>
+        )}
 
         <div className="bg-white border border-slate-100 rounded-[4rem] shadow-[0_40px_100px_-20px_rgba(15,23,42,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-1000 delay-200">
           {/* Method Tabs */}
@@ -257,10 +318,10 @@ export default function LoginPage() {
 
             {message && (
               <div
-                className={`mt-10 p-6 rounded-[2rem] border text-[10px] font-black uppercase tracking-[0.2em] text-center animate-in zoom-in-95 duration-500 ${
+                className={`mt-10 p-6 rounded-[2rem] border text-[11px] font-bold tracking-wide text-center leading-relaxed animate-in zoom-in-95 duration-500 ${
                   message.type === 'success'
-                    ? 'bg-emerald-50 border-emerald-100 text-emerald-600'
-                    : 'bg-rose-50 border-rose-100 text-rose-600'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-rose-50 border-rose-200 text-rose-800'
                 }`}
               >
                 {message.text}
@@ -310,7 +371,7 @@ export default function LoginPage() {
         </div>
 
         {/* Security Badges */}
-        <div className="mt-16 flex items-center justify-center gap-8 opacity-30">
+        <div className="mt-16 flex items-center justify-center gap-8 opacity-40">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
             <span className="text-[9px] font-black uppercase tracking-[0.3em] text-secondary">
@@ -326,5 +387,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-secondary" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

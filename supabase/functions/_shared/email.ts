@@ -17,8 +17,8 @@
 
 export const RESEND_API_URL = 'https://api.resend.com/emails'
 
-const DEFAULT_FROM = 'orders@indivisiblefairoaks.org'
-const DEFAULT_ADMIN = 'indivisible@indivisiblefairoaks.org'
+const DEFAULT_FROM = 'contact@indivisiblefairoaks.org'
+const DEFAULT_ADMIN = 'contact@indivisiblefairoaks.org'
 
 // Resend caps subjects around 998 chars per RFC; keep well under with room
 // for prefixes like "New message from …".
@@ -133,21 +133,29 @@ export async function sendResendEmail(
 // non-text decoration only; body copy stays high-contrast slate/white.
 // ---------------------------------------------------------------------------
 
+const LOGO_URL =
+  'https://mojsubkqjdruhpxbzgme.supabase.co/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png'
+
 export function brandShell(opts: {
   eyebrow: string
   body: string
   footer: string
 }): string {
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0F172A;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0F172A;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;">
-<tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#1E293B;border-radius:24px;overflow:hidden;border:1px solid rgba(209,255,0,0.2);">
-<tr><td style="padding:28px 40px;border-bottom:1px solid rgba(209,255,0,0.15);">
-<span style="color:#D1FF00;font-weight:900;font-size:18px;letter-spacing:0.2em;text-transform:uppercase;">Indivisible Fair Oaks</span>
-<span style="color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-left:12px;">${opts.eyebrow}</span></td></tr>
-<tr><td style="padding:32px 40px;color:#E2E8F0;font-size:14px;line-height:1.7;">${opts.body}</td></tr>
-<tr><td style="padding:20px 40px;border-top:1px solid rgba(209,255,0,0.2);text-align:center;">
-<p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">${opts.footer}</p></td></tr>
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0F172A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0F172A;padding:40px 16px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#1E293B;border-radius:24px;overflow:hidden;border:1px solid rgba(37,99,235,0.25);box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
+<tr><td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,#172554 0%,#1E293B 100%);">
+<a href="https://indivisiblefairoaks.org" target="_blank" style="text-decoration:none;display:inline-block;">
+<img src="${LOGO_URL}" alt="Indivisible Fair Oaks-Carmichael" width="170" style="display:block;margin:0 auto 12px;max-width:170px;height:auto;" />
+</a>
+<div style="display:inline-block;padding:5px 14px;background:rgba(37,99,235,0.2);border:1px solid rgba(59,130,246,0.35);color:#93C5FD;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.2em;border-radius:9999px;">${opts.eyebrow}</div>
+</td></tr>
+<tr><td style="padding:36px 40px 28px;color:#E2E8F0;font-size:14px;line-height:1.7;">${opts.body}</td></tr>
+<tr><td style="padding:24px 40px;border-top:1px solid rgba(255,255,255,0.08);background:#0F172A;text-align:center;">
+<p style="margin:0;color:#94A3B8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;">${opts.footer}</p>
+<p style="margin:6px 0 0;color:#64748B;font-size:11px;">Indivisible Fair Oaks-Carmichael &middot; Sacramento County</p>
+</td></tr>
 </table></td></tr></table></body></html>`
 }
 

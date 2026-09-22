@@ -187,6 +187,9 @@ export function Footer() {
             >
               ActBlue
             </a>
+            <Link href="/login" className="hover:text-slate-200 transition-colors">
+              Organizer Access
+            </Link>
           </div>
         </div>
       </div>

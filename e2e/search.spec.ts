@@ -37,10 +37,12 @@ test.describe('search page', () => {
       timeout: 10_000,
     });
 
-    // Either products or "No matches" is shown — both are acceptable
+    // Either products, content, or "No matches" is shown — all are acceptable
     const hasProducts = (await page.getByRole('link', { name: /view gear/i }).count()) > 0;
+    const hasContent =
+      (await page.getByRole('heading', { name: /from the logbook & pages/i }).count()) > 0;
     const hasNoResults = (await page.getByText(/no matches found/i).count()) > 0;
-    expect(hasProducts || hasNoResults).toBe(true);
+    expect(hasProducts || hasContent || hasNoResults).toBe(true);
   });
 
   test('search page returns 200 for any non-spam query string', async ({ request }) => {

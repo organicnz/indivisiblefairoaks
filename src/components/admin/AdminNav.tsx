@@ -1,11 +1,19 @@
 'use client';
 
-import { BadgePercent, LayoutDashboard, Package, ShoppingBag, Users } from 'lucide-react';
+import {
+  BadgePercent,
+  LayoutDashboard,
+  Package,
+  ShoppingBag,
+  Users,
+  UsersRound,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/crm', label: 'Civic CRM', icon: UsersRound },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/customers', label: 'Customers', icon: Users },

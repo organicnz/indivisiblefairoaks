@@ -12,7 +12,7 @@ export async function requireAdmin(): Promise<AdminSession> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) redirect('/login?next=/admin');
 
   const adminClient = await createAdminClient();
   const { data: profile } = await adminClient
@@ -22,7 +22,7 @@ export async function requireAdmin(): Promise<AdminSession> {
     .single();
 
   if (!profile?.is_admin) {
-    redirect('/account');
+    redirect('/account?error=admin_required');
   }
 
   return {

@@ -1,3 +1,5 @@
+import { AlertTriangle, ArrowRight, Shield, Users } from 'lucide-react';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AccountTabShell } from '@/components/account/AccountTabShell';
 import { AdminOrdersPanel } from '@/components/account/AdminOrdersPanel';
@@ -113,6 +115,66 @@ export default async function AccountPage(props: {
   return (
     <div className="bg-white min-h-screen pt-(--header-h) pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Admin Restricted Notice */}
+        {sp.error === 'admin_required' && (
+          <div className="mb-8 p-5 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-4 text-amber-950 animate-in fade-in">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-amber-900 mb-1">
+                Administrator Privileges Required
+              </h3>
+              <p className="text-xs text-amber-800">
+                The administrative panel is strictly restricted to verified chapter organizers. If
+                you are a chapter lead, please ensure you are signed in with your authorized
+                administrator email.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Administrator Portal Bridge */}
+        {isAdmin && (
+          <div className="mb-10 p-6 rounded-3xl bg-slate-900 text-white shadow-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in fade-in">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0">
+                <Shield className="w-6 h-6 text-blue-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-400">
+                    Chapter Leadership
+                  </span>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                </div>
+                <h2 className="text-lg font-black uppercase tracking-tight text-white">
+                  Admin Control & Civic CRM
+                </h2>
+                <p className="text-xs text-slate-400 font-medium">
+                  Manage chapter constituents, target volunteer rings, and dispatch Resend
+                  broadcasts.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              <Link
+                href="/admin/crm"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-blue-500/25 transition-all"
+              >
+                <Users className="w-4 h-4" />
+                <span>Open CRM</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs uppercase tracking-wider border border-slate-700 transition-all"
+              >
+                <span>Control Center</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col mb-10">
           <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">
             {isAdmin ? 'Dashboard' : 'My Account'}

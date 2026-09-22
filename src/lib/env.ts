@@ -26,6 +26,10 @@ const serverSchema = publicSchema.extend({
   // Contact notifications: test/ops overrides (defaults are derived in-code).
   CONTACT_FUNCTION_URL: z.string().url().optional(),
   CONTACT_RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
+  // Resend email delivery
+  RESEND_API_KEY: z.string().min(1).optional().catch(undefined),
+  RESEND_FROM_EMAIL: z.string().min(1).optional().default('contact@indivisiblefairoaks.org'),
+  ADMIN_ORDER_EMAIL: z.string().email().optional().catch(undefined),
 });
 
 const schema = isClient ? publicSchema : serverSchema;

@@ -490,10 +490,11 @@ async function sendAdminNotification(
     return
   }
 
-  const adminEmail = Deno.env.get('ADMIN_ORDER_EMAIL') ?? 'indivisible@indivisiblefairoaks.org'
-  const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'orders@indivisiblefairoaks.org'
+  const adminEmail = Deno.env.get('ADMIN_ORDER_EMAIL') ?? 'contact@indivisiblefairoaks.org'
+  const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'contact@indivisiblefairoaks.org'
   const customer = session.customer_details
-  const totalNZD = ((session.amount_total ?? 0) / 100).toFixed(2)
+  const currency = (session.currency ?? 'usd').toUpperCase()
+  const totalAmount = ((session.amount_total ?? 0) / 100).toFixed(2)
   const orderLabel = `#${orderId}`
 
   const shippingAddr = (session as Stripe.Checkout.Session & {
@@ -516,9 +517,9 @@ async function sendAdminNotification(
     const qty = item.quantity ?? 1
     const itemTotal = ((item.amount_total ?? 0) / 100).toFixed(2)
     return `<tr>
-      <td style="padding:8px 12px;border-bottom:1px solid rgba(209,255,0,0.15);color:#fff;font-size:14px;">${name}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid rgba(209,255,0,0.15);color:#fff;font-size:14px;text-align:center;">${qty}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid rgba(209,255,0,0.15);color:#D1FF00;font-size:14px;text-align:right;">$${itemTotal}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.08);color:#F1F5F9;font-size:14px;">${name}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.08);color:#94A3B8;font-size:14px;text-align:center;">${qty}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.08);color:#60A5FA;font-size:14px;font-weight:700;text-align:right;">$${itemTotal}</td>
     </tr>`
   }).join('')
 
@@ -526,56 +527,59 @@ async function sendAdminNotification(
 
   const html = `<!DOCTYPE html>
 <html>
-<body style="margin:0;padding:0;background:#0F172A;font-family:-apple-system,BlinkMacSystemFont,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px;">
+<body style="margin:0;padding:0;background:#0F172A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="padding:40px 16px;background:#0F172A;">
     <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="background:#0A472E;border-radius:16px;overflow:hidden;max-width:560px;width:100%;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#1E293B;border-radius:24px;overflow:hidden;max-width:580px;border:1px solid rgba(37,99,235,0.25);box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
         <tr>
-          <td style="padding:32px 40px;text-align:center;border-bottom:1px solid rgba(209,255,0,0.2);">
-            <img src="https://${SUPABASE_HOST}/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png" alt="Indivisible Fair Oaks-Carmichael" width="160" style="display:block;margin:0 auto;" />
+          <td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,#172554 0%,#1E293B 100%);">
+            <a href="https://indivisiblefairoaks.org" target="_blank" style="text-decoration:none;display:inline-block;">
+              <img src="https://${SUPABASE_HOST}/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png" alt="Indivisible Fair Oaks-Carmichael" width="170" style="display:block;margin:0 auto 12px;max-width:170px;height:auto;" />
+            </a>
+            <div style="display:inline-block;padding:5px 14px;background:rgba(37,99,235,0.2);border:1px solid rgba(59,130,246,0.35);color:#93C5FD;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.2em;border-radius:9999px;">Store Order Notification</div>
           </td>
         </tr>
         <tr>
-          <td style="padding:32px 40px;">
-            <p style="margin:0 0 4px;color:#D1FF00;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.2em;">New Order Received</p>
-            <h2 style="margin:0 0 24px;color:#fff;font-size:22px;font-weight:900;">Order ${orderLabel} — $${totalNZD} NZD</h2>
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;background:rgba(0,0,0,0.25);border-radius:8px;">
-              <tr><td style="padding:16px 20px;">
-                <p style="margin:0 0 8px;color:#D1FF00;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.15em;">Customer</p>
-                <p style="margin:0 0 4px;color:#fff;font-size:14px;">${customer?.name ?? 'Guest'}</p>
-                <p style="margin:0 0 4px;color:rgba(255,255,255,0.6);font-size:13px;">${customer?.email ?? 'No email'}</p>
-                <p style="margin:0;color:rgba(255,255,255,0.6);font-size:13px;">${customer?.phone ?? ''}</p>
-              </td></tr>
-            </table>
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;background:rgba(0,0,0,0.25);border-radius:8px;">
-              <tr><td style="padding:16px 20px;">
-                <p style="margin:0 0 8px;color:#D1FF00;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.15em;">Ship To</p>
-                <p style="margin:0;color:#fff;font-size:14px;line-height:1.6;">${addressLine}</p>
-              </td></tr>
-            </table>
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;background:rgba(0,0,0,0.25);border-radius:8px;">
-              <tr>
-                <td style="padding:12px 12px 4px;color:#D1FF00;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.15em;">Item</td>
-                <td style="padding:12px 12px 4px;color:#D1FF00;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.15em;text-align:center;">Qty</td>
-                <td style="padding:12px 12px 4px;color:#D1FF00;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.15em;text-align:right;">Total</td>
+          <td style="padding:36px 40px 28px;">
+            <h2 style="margin:0 0 20px;color:#FFFFFF;font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:-0.01em;">Order ${orderLabel} — $${totalAmount} ${currency}</h2>
+            
+            <div style="margin-bottom:18px;background:#0F172A;border-radius:14px;border:1px solid rgba(37,99,235,0.2);padding:18px 20px;">
+              <p style="margin:0 0 8px;color:#93C5FD;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.18em;">Customer</p>
+              <p style="margin:0 0 4px;color:#FFFFFF;font-size:15px;font-weight:600;">${customer?.name ?? 'Guest'}</p>
+              <p style="margin:0 0 4px;color:#CBD5E1;font-size:13px;">${customer?.email ?? 'No email'}</p>
+              <p style="margin:0;color:#94A3B8;font-size:13px;">${customer?.phone ?? ''}</p>
+            </div>
+
+            <div style="margin-bottom:20px;background:#0F172A;border-radius:14px;border:1px solid rgba(37,99,235,0.2);padding:18px 20px;">
+              <p style="margin:0 0 8px;color:#93C5FD;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.18em;">Shipping Address</p>
+              <p style="margin:0;color:#CBD5E1;font-size:14px;line-height:1.6;">${addressLine}</p>
+            </div>
+
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:24px;background:#0F172A;border-radius:14px;border:1px solid rgba(37,99,235,0.2);overflow:hidden;">
+              <tr style="background:rgba(37,99,235,0.12);">
+                <td style="padding:12px 14px;color:#93C5FD;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.15em;">Item</td>
+                <td style="padding:12px 14px;color:#93C5FD;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.15em;text-align:center;">Qty</td>
+                <td style="padding:12px 14px;color:#93C5FD;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.15em;text-align:right;">Total</td>
               </tr>
               ${itemRows}
               <tr>
-                <td colspan="2" style="padding:12px;color:rgba(255,255,255,0.6);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Order Total</td>
-                <td style="padding:12px;color:#D1FF00;font-size:16px;font-weight:900;text-align:right;">$${totalNZD} NZD</td>
+                <td colspan="2" style="padding:14px;color:#94A3B8;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;">Order Total</td>
+                <td style="padding:14px;color:#60A5FA;font-size:17px;font-weight:900;text-align:right;">$${totalAmount} ${currency}</td>
               </tr>
             </table>
-            <table cellpadding="0" cellspacing="0" width="100%">
-              <tr><td align="center">
-                <a href="https://dashboard.stripe.com/payments/${paymentIntent}" style="display:inline-block;background:#D1FF00;color:#0A472E;font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:0.15em;text-decoration:none;padding:14px 32px;border-radius:9999px;">View in Stripe Dashboard</a>
+
+            <table cellpadding="0" cellspacing="0" width="100%" role="presentation">
+              <tr><td align="center" style="padding-top:6px;">
+                <a href="https://dashboard.stripe.com/payments/${paymentIntent}" target="_blank" style="display:inline-block;background:#2563EB;color:#FFFFFF;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.16em;text-decoration:none;padding:15px 34px;border-radius:9999px;box-shadow:0 4px 14px rgba(37,99,235,0.4);border:1px solid rgba(255,255,255,0.15);">View in Stripe Dashboard</a>
               </td></tr>
             </table>
-            <p style="margin:20px 0 0;color:rgba(255,255,255,0.3);font-size:11px;text-align:center;">Session: ${session.id}</p>
+            <p style="margin:18px 0 0;color:#64748B;font-size:11px;text-align:center;">Stripe Session: ${session.id}</p>
           </td>
         </tr>
         <tr>
-          <td style="padding:20px 40px;border-top:1px solid rgba(209,255,0,0.2);text-align:center;">
-            <p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Indivisible Fair Oaks-Carmichael &middot; Grassroots Democracy &middot; Sacramento County</p>
+          <td style="padding:22px 40px;border-top:1px solid rgba(255,255,255,0.08);background:#0F172A;text-align:center;">
+            <p style="margin:0;color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Indivisible Fair Oaks-Carmichael &middot; Grassroots Democracy</p>
+            <p style="margin:6px 0 0;color:#64748B;font-size:11px;">Sacramento County, California</p>
           </td>
         </tr>
       </table>
@@ -593,7 +597,7 @@ async function sendAdminNotification(
     body: JSON.stringify({
       from: fromEmail,
       to: adminEmail,
-      subject: `🎣 New Order ${orderLabel} — $${totalNZD} NZD from ${customer?.name ?? 'Guest'}`,
+      subject: `New Order ${orderLabel} — $${totalAmount} ${currency} from ${customer?.name ?? 'Guest'}`,
       html,
     }),
   })

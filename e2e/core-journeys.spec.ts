@@ -45,9 +45,9 @@ test.describe('home shell', () => {
   test('header logo, primary nav and footer render', async ({ page }) => {
     await page.goto('/');
     const banner = page.getByRole('banner');
-    await expect(banner.locator('a[href="/"]')).toBeVisible();
+    await expect(banner.locator('a[href="/"]').first()).toBeVisible();
     await expect(banner.getByRole('link', { name: 'Events & Actions' })).toBeVisible();
-    await expect(page.getByText('Indivisible')).toBeVisible();
+    await expect(page.getByRole('contentinfo')).toBeVisible();
   });
 
   test('donate page loads with a heading', async ({ page }) => {

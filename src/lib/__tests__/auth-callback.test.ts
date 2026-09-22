@@ -11,13 +11,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const mockExchangeCodeForSession = vi.fn();
+const mockGetUser = vi.fn();
+const mockFrom = vi.fn();
 
 vi.mock('@/lib/supabase-server', () => ({
   createServerClient: vi.fn(() =>
     Promise.resolve({
       auth: {
         exchangeCodeForSession: mockExchangeCodeForSession,
+        getUser: mockGetUser,
       },
+      from: mockFrom,
     })
   ),
 }));
@@ -51,8 +55,18 @@ afterEach(() => {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('GET /auth/callback', () => {
-  it('exchanges code and redirects to /account by default', async () => {
+  it('exchanges code and redirects to /account by default for non-admin', async () => {
     mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-123', email: 'regular@example.com' } },
+    });
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({ data: { is_admin: false } }),
+        }),
+      }),
+    });
 
     const req = makeRequest({ code: 'valid-code-123' });
     const res = await GET(req);
@@ -62,6 +76,26 @@ describe('GET /auth/callback', () => {
     expect(res.headers.get('location')).toBe('https://indivisiblefairoaks.org/account');
   });
 
+  it('exchanges code and redirects to /admin by default for admin user', async () => {
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'admin-456', email: 'erin@indivisiblefairoaks.org' } },
+    });
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        or: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({ data: { is_admin: true } }),
+        }),
+      }),
+    });
+
+    const req = makeRequest({ code: 'valid-admin-code' });
+    const res = await GET(req);
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe('https://indivisiblefairoaks.org/admin');
+  });
+
   it('redirects to custom `next` param on success', async () => {
     mockExchangeCodeForSession.mockResolvedValue({ error: null });
 
@@ -69,6 +103,25 @@ describe('GET /auth/callback', () => {
     const res = await GET(req);
 
     expect(res.headers.get('location')).toBe('https://indivisiblefairoaks.org/account/orders');
+  });
+
+  it('redirects to custom admin route when specified in `next`', async () => {
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+
+    const req = makeRequest({ code: 'valid-code-789', next: '/admin/crm' });
+    const res = await GET(req);
+
+    expect(res.headers.get('location')).toBe('https://indivisiblefairoaks.org/admin/crm');
+  });
+
+  it('rejects protocol-relative open-redirect payloads and falls back to account', async () => {
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+
+    const req = makeRequest({ code: 'valid-code', next: '//evil.com' });
+    const res = await GET(req);
+
+    expect(res.headers.get('location')).toBe('https://indivisiblefairoaks.org/account');
   });
 
   it('redirects to /login?error=Invalid_Token when exchange fails', async () => {
