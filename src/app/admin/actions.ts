@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath, updateTag } from 'next/cache';
+import { assertMfaVerified } from '@/lib/mfa-guard';
 import { getStorageUrl } from '@/lib/supabase';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 
@@ -42,6 +43,9 @@ async function requireAdminClient() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
+
+  const mfa = await assertMfaVerified(supabase);
+  if (!mfa.ok) throw new Error(mfa.error);
 
   const adminClient = await createAdminClient();
   const { data: profile } = await adminClient
@@ -245,7 +249,12 @@ export async function uploadProductImage(formData: FormData): Promise<{ url: str
   const file = formData.get('file');
   const productId = Number(formData.get('productId'));
   if (!(file instanceof File)) throw new Error('No file provided');
-  if (!file.type.startsWith('image/')) throw new Error('File must be an image');
+  // Raster allowlist only: SVG is active content and executes on the
+  // storefront/storage origin (stored XSS). Reject it explicitly.
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    throw new Error('File must be JPEG, PNG, WebP, or GIF (SVG not allowed)');
+  }
   if (file.size > MAX_IMAGE_SIZE) throw new Error('Image must be 5MB or smaller');
   if (!Number.isInteger(productId) || productId <= 0) throw new Error('Invalid product');
 

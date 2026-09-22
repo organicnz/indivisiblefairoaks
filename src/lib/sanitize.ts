@@ -65,9 +65,7 @@ export const TRUSTED_DOMAINS = [
   'actblue.com',
   'indivisible.org',
   'indivisibleca.org',
-  'hamandtys.com',
-  'bayofplentyboathire.co.nz',
-  'nzangler.co.nz',
+  // Sea Cleaners mission partner (donation links live in CharitySection and CMS content).
   'seacleaners.org.nz',
   'givealittle.co.nz',
 ] as const;
@@ -94,6 +92,10 @@ export function isSpamContent(text: string): boolean {
 /**
  * Removes WordPress artifacts, spam content, and XSS vectors from HTML strings.
  * Safe to call on any user-generated or legacy-migrated content.
+ *
+ * Hardened: handles quoted AND unquoted attributes, style vectors,
+ * active-content elements (svg/math/video/etc), protocol-relative links,
+ * and subdomain-aware trusted-domain checks.
  */
 export function sanitizeWPContent(html: string): string {
   if (!html) return '';
@@ -101,16 +103,20 @@ export function sanitizeWPContent(html: string): string {
   try {
     let clean = html;
 
-    // 0. Strip active-content vectors BEFORE anything else. Callers inject
-    // this output as raw HTML into the page, so script/iframe/plugin/embed
-    // elements and script-scheme URLs must never survive sanitization.
-    clean = clean.replace(/<script[\s\S]*?<\/script>/gi, '');
+    // 0. Strip active-content elements WITH their bodies first. Callers inject
+    // this output as raw HTML, so script/style/iframe/plugin content must go.
+    clean = clean.replace(/<script[\s\S]*?<\/script\s*>/gi, '');
+    clean = clean.replace(/<style[\s\S]*?<\/style\s*>/gi, '');
+    clean = clean.replace(/<iframe[\s\S]*?<\/iframe\s*>/gi, '');
     clean = clean.replace(
-      /<\/?(?:script|iframe|object|embed|form|input|select|textarea|button|link|meta|base)\b[^>]*>/gi,
+      /<\/?(?:script|iframe|object|embed|applet|frame|frameset|form|input|select|textarea|button|link|meta|base|svg|math|style|video|audio|source|track|marquee|blink|body|html|canvas)\b[^>]*>/gi,
       ''
     );
+    // Strip lone opening tags that survived without a close (e.g. <svg onload=...>)
+    clean = clean.replace(/<(?:svg|math|iframe|object|embed|script|style|video|audio)[^>]*$/gi, '');
+    // Neutralize script-scheme URLs in href/src/xlink:href — quoted, single-quoted AND unquoted.
     clean = clean.replace(
-      /(\s(?:href|src|xlink:href)\s*=\s*)(?:"\s*(?:javascript|data|vbscript):[^"]*"|'\s*(?:javascript|data|vbscript):[^']*')/gi,
+      /(\s(?:href|src|xlink:href)\s*=\s*)(?:"\s*(?:javascript|data|vbscript)[^"]*"|'\s*(?:javascript|data|vbscript)[^']*'|[^\s>]*?(?:javascript|data|vbscript):[^\s>]*)/gi,
       '$1"#"'
     );
 
@@ -123,22 +129,51 @@ export function sanitizeWPContent(html: string): string {
       '<div class="p-4 bg-slate-50 border border-slate-100 rounded-2xl my-8 text-secondary font-bold uppercase tracking-widest text-xs text-center">Please use our official <a href="/contact" class="text-primary underline">Contact Page</a> to reach out.</div>'
     );
 
-    // 3. Remove untrusted external links (http/https links not matching trusted domains)
-    const trustedDomainsPattern = TRUSTED_DOMAINS.map((d) =>
-      d.replace(/\./g, '\\.').replace(/-/g, '\\-')
-    ).join('|');
-    const untrustedLinkRegex = new RegExp(
-      `<a\\s[^>]*?href=["'](https?:\\/\\/(?!(${trustedDomainsPattern}))[^"']+)["'][^>]*?>[\\s\\S]*?<\\/a>`,
-      'gi'
-    );
-    clean = clean.replace(untrustedLinkRegex, '');
+    // 3. Remove untrusted external links. Relative (/contact, #anchor),
+    // mailto:/tel: and trusted-domain (incl. subdomains) links are kept.
+    // Everything else (incl. unquoted, protocol-relative //evil, ftp:) is dropped.
+    clean = clean.replace(/<a\s[^>]*?>[\s\S]*?<\/a\s*>/gi, (match) => {
+      const hrefMatch = match.match(/\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      if (!hrefMatch) return match;
+      const rawHref = (hrefMatch[1] ?? hrefMatch[2] ?? hrefMatch[3] ?? '').trim();
+      if (!rawHref) return '';
+      const lower = rawHref.toLowerCase();
+      // Protocol-relative //evil.com must NOT be treated as a relative path.
+      if (lower.startsWith('//')) {
+        const hostMatchProto = lower.match(/^\/\/([^/:?#\s]+)/);
+        const hostProto = hostMatchProto?.[1] ?? '';
+        const trustedProto = TRUSTED_DOMAINS.some(
+          (d) => hostProto === d || hostProto.endsWith(`.${d}`)
+        );
+        return trustedProto ? match : '';
+      }
+      if (
+        lower.startsWith('/') ||
+        lower.startsWith('#') ||
+        lower.startsWith('mailto:') ||
+        lower.startsWith('tel:')
+      ) {
+        return match;
+      }
+      // Protocol-relative or absolute URL — extract host.
+      const hostMatch = lower.match(/^(?:https?:)?\/\/([^/:?#\s]+)/);
+      if (!hostMatch) {
+        // Bare scheme (javascript:/data: already neutralized) or junk — drop.
+        if (/^(?:javascript|data|vbscript|file|blob):/.test(lower)) return '';
+        return match;
+      }
+      const host = hostMatch[1];
+      const trusted = TRUSTED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+      return trusted ? match : '';
+    });
 
-    // 4. Remove entire <p>, <div>, and <a> elements whose text contains spam keywords
+    // 4. Remove entire <p>, <div>, and <a> elements whose text contains spam keywords.
+    // Use [\s\S]*? so nested markup (<b>, <span>) before the keyword can't bypass.
     for (const keyword of SPAM_KEYWORDS) {
       const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const pRegex = new RegExp(`<p>[^<]*${escaped}[\\s\\S]*?<\\/p>`, 'gi');
-      const divRegex = new RegExp(`<div[^>]*>[^<]*${escaped}[\\s\\S]*?<\\/div>`, 'gi');
-      const aRegex = new RegExp(`<a[^>]*>[^<]*${escaped}[\\s\\S]*?<\\/a>`, 'gi');
+      const pRegex = new RegExp(`<p\\b[^>]*>[\\s\\S]*?${escaped}[\\s\\S]*?<\\/p\\s*>`, 'gi');
+      const divRegex = new RegExp(`<div\\b[^>]*>[\\s\\S]*?${escaped}[\\s\\S]*?<\\/div\\s*>`, 'gi');
+      const aRegex = new RegExp(`<a\\b[^>]*>[\\s\\S]*?${escaped}[\\s\\S]*?<\\/a\\s*>`, 'gi');
       clean = clean.replace(pRegex, '');
       clean = clean.replace(divRegex, '');
       clean = clean.replace(aRegex, '');
@@ -147,8 +182,10 @@ export function sanitizeWPContent(html: string): string {
     // 5. Remove blocks of 3+ consecutive links
     clean = clean.replace(/(<a\s[^>]*?>[\s\S]*?<\/a>\s*){3,}/gi, '');
 
-    // 6. Remove JavaScript event handler attributes: on[a-z]+="..." or on[a-z]+='...'
-    clean = clean.replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
+    // 6. Remove JavaScript event handlers and style attributes: quoted AND unquoted.
+    // Unquoted (onload=alert(1), onload=`alert(1)`) previously bypassed the filter.
+    clean = clean.replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|[^\s>]+)/gi, '');
+    clean = clean.replace(/\sstyle\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|[^\s>]+)/gi, '');
 
     // 7. Remove WordPress class names (wp-, elementor-, freshio-, woocommerce, yith-)
     clean = clean.replace(/\bclass\s*=\s*"([^"]*)"/gi, (_match, classValue: string) => {

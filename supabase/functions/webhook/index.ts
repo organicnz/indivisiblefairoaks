@@ -479,6 +479,15 @@ function buildAddresses(session: Stripe.Checkout.Session) {
 // ---------------------------------------------------------------------------
 // Admin order notification email via Resend
 // ---------------------------------------------------------------------------
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 async function sendAdminNotification(
   session: Stripe.Checkout.Session,
   lineItems: Stripe.LineItem[],
@@ -502,19 +511,23 @@ async function sendAdminNotification(
   }).shipping_details?.address ?? customer?.address
 
   const addressLine = shippingAddr
-    ? [
-      shippingAddr.line1,
-      shippingAddr.line2,
-      shippingAddr.city,
-      shippingAddr.state,
-      shippingAddr.postal_code,
-      shippingAddr.country,
-    ].filter(Boolean).join(', ')
+    ? escapeHtml(
+        [
+          shippingAddr.line1,
+          shippingAddr.line2,
+          shippingAddr.city,
+          shippingAddr.state,
+          shippingAddr.postal_code,
+          shippingAddr.country,
+        ]
+          .filter(Boolean)
+          .join(', ')
+      )
     : 'Not provided'
 
   const itemRows = lineItems.map((item) => {
-    const name = item.description ?? 'Unknown item'
-    const qty = item.quantity ?? 1
+    const name = escapeHtml(item.description ?? 'Unknown item')
+    const qty = Number(item.quantity ?? 1)
     const itemTotal = ((item.amount_total ?? 0) / 100).toFixed(2)
     return `<tr>
       <td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.08);color:#F1F5F9;font-size:14px;">${name}</td>
@@ -545,9 +558,9 @@ async function sendAdminNotification(
             
             <div style="margin-bottom:18px;background:#0F172A;border-radius:14px;border:1px solid rgba(37,99,235,0.2);padding:18px 20px;">
               <p style="margin:0 0 8px;color:#93C5FD;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.18em;">Customer</p>
-              <p style="margin:0 0 4px;color:#FFFFFF;font-size:15px;font-weight:600;">${customer?.name ?? 'Guest'}</p>
-              <p style="margin:0 0 4px;color:#CBD5E1;font-size:13px;">${customer?.email ?? 'No email'}</p>
-              <p style="margin:0;color:#94A3B8;font-size:13px;">${customer?.phone ?? ''}</p>
+              <p style="margin:0 0 4px;color:#FFFFFF;font-size:15px;font-weight:600;">${escapeHtml(customer?.name ?? 'Guest')}</p>
+              <p style="margin:0 0 4px;color:#CBD5E1;font-size:13px;">${escapeHtml(customer?.email ?? 'No email')}</p>
+              <p style="margin:0;color:#94A3B8;font-size:13px;">${escapeHtml(customer?.phone ?? '')}</p>
             </div>
 
             <div style="margin-bottom:20px;background:#0F172A;border-radius:14px;border:1px solid rgba(37,99,235,0.2);padding:18px 20px;">
@@ -570,10 +583,10 @@ async function sendAdminNotification(
 
             <table cellpadding="0" cellspacing="0" width="100%" role="presentation">
               <tr><td align="center" style="padding-top:6px;">
-                <a href="https://dashboard.stripe.com/payments/${paymentIntent}" target="_blank" style="display:inline-block;background:#2563EB;color:#FFFFFF;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.16em;text-decoration:none;padding:15px 34px;border-radius:9999px;box-shadow:0 4px 14px rgba(37,99,235,0.4);border:1px solid rgba(255,255,255,0.15);">View in Stripe Dashboard</a>
+                <a href="https://dashboard.stripe.com/payments/${encodeURIComponent(paymentIntent)}" target="_blank" style="display:inline-block;background:#2563EB;color:#FFFFFF;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.16em;text-decoration:none;padding:15px 34px;border-radius:9999px;box-shadow:0 4px 14px rgba(37,99,235,0.4);border:1px solid rgba(255,255,255,0.15);">View in Stripe Dashboard</a>
               </td></tr>
             </table>
-            <p style="margin:18px 0 0;color:#64748B;font-size:11px;text-align:center;">Stripe Session: ${session.id}</p>
+            <p style="margin:18px 0 0;color:#64748B;font-size:11px;text-align:center;">Stripe Session: ${escapeHtml(session.id)}</p>
           </td>
         </tr>
         <tr>
@@ -597,7 +610,7 @@ async function sendAdminNotification(
     body: JSON.stringify({
       from: fromEmail,
       to: adminEmail,
-      subject: `New Order ${orderLabel} — $${totalAmount} ${currency} from ${customer?.name ?? 'Guest'}`,
+      subject: `New Order ${orderLabel} — $${totalAmount} ${currency} from ${escapeHtml(customer?.name ?? 'Guest')}`,
       html,
     }),
   })

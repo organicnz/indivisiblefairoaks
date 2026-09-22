@@ -36,7 +36,6 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${key}`,
         apikey: key,
         'Content-Type': 'application/json',
-        'x-forwarded-for': request.headers.get('x-forwarded-for') ?? '',
       },
       body: JSON.stringify(body),
       cache: 'no-store',

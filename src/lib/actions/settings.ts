@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { assertMfaVerified } from '@/lib/mfa-guard';
 import type { UserSettings } from '@/lib/store/settings';
 import { createServerClient } from '@/lib/supabase-server';
 import type { Json } from '@/types/supabase';
@@ -19,6 +20,10 @@ export async function updateUserSettingsAction(settings: Partial<UserSettings>) 
   if (authError || !user || !user.email) {
     return { error: 'Unauthorized or missing email' };
   }
+
+  // Step-up: MFA-enrolled sessions must be AAL2 before mutating account data.
+  const mfa = await assertMfaVerified(supabase);
+  if (!mfa.ok) return { error: mfa.error };
 
   // Simple validation
   const allowedKeys: (keyof UserSettings)[] = [

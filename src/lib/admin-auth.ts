@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { assertMfaVerified } from '@/lib/mfa-guard';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 
 export type AdminSession = {
@@ -13,6 +14,10 @@ export async function requireAdmin(): Promise<AdminSession> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login?next=/admin');
+
+  // Step-up: admins with MFA enrolled must hold an AAL2 session.
+  const mfa = await assertMfaVerified(supabase);
+  if (!mfa.ok) redirect('/auth/mfa');
 
   const adminClient = await createAdminClient();
   const { data: profile } = await adminClient

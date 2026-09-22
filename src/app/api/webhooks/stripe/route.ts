@@ -40,6 +40,17 @@ export async function POST(req: Request) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
+    // Parity with the Edge primary (supabase/functions/webhook): only fulfil
+    // paid payment-mode sessions. Unpaid/expired sessions must never create orders.
+    if (session.mode !== 'payment' || session.payment_status !== 'paid') {
+      console.warn(`Ignoring unpaid checkout session ${session.id}`);
+      return NextResponse.json({ received: true });
+    }
+    if (!session.amount_total || session.amount_total <= 0) {
+      console.warn(`Ignoring zero-amount checkout session ${session.id}`);
+      return NextResponse.json({ received: true });
+    }
+
     try {
       await handleCheckoutSessionCompleted(session, stripe);
     } catch (error: unknown) {
