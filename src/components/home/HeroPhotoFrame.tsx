@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import type { GalleryClientPhoto } from '@/app/gallery/GalleryClient';
 import { getGalleryPhotos } from '@/lib/queries/content-client';
 
 interface Photo {
@@ -18,9 +19,36 @@ interface Photo {
 }
 
 // Hero crossfade photos (top 4 by sort_order, is_hero=true)
-const useHeroPhotos = (): Photo[] => {
-  const [heroPhotos, setHeroPhotos] = useState<Photo[]>([]);
+const useHeroPhotos = (initialPhotos?: GalleryClientPhoto[]): Photo[] => {
+  const [heroPhotos, setHeroPhotos] = useState<Photo[]>(() => {
+    if (initialPhotos && initialPhotos.length > 0) {
+      const knownCategories = [
+        'No Kings Sacramento',
+        'NorCal Resist',
+        'Sacramento Unity',
+        'Witty Signs',
+        'Resistance Choir',
+        'Legacy Archives',
+      ] as const;
+      return initialPhotos
+        .filter(
+          (p) =>
+            p.is_hero === true &&
+            knownCategories.includes(p.category as (typeof knownCategories)[number])
+        )
+        .slice(0, 4)
+        .map((p) => ({
+          id: p.id,
+          src: p.url,
+          alt: p.alt || p.caption || '',
+          label: (p as { label?: string }).label || p.caption || '',
+        }));
+    }
+    return [];
+  });
+
   useEffect(() => {
+    if (initialPhotos && initialPhotos.length > 0) return;
     getGalleryPhotos().then((photos) => {
       // GalleryPhoto has: id, url, alt, caption, location, category, signQuote, date, photographer, is_hero, is_pair, sort_order
       // Type 'category' is string, not the union type — filter by known categories
@@ -48,15 +76,29 @@ const useHeroPhotos = (): Photo[] => {
         }))
       );
     });
-  }, []);
+  }, [initialPhotos]);
 
   return heroPhotos;
 };
 
 // Pair photos (is_pair=true)
-const usePairPhotos = (): Photo[] => {
-  const [pairPhotos, setPairPhotos] = useState<Photo[]>([]);
+const usePairPhotos = (initialPhotos?: GalleryClientPhoto[]): Photo[] => {
+  const [pairPhotos, setPairPhotos] = useState<Photo[]>(() => {
+    if (initialPhotos && initialPhotos.length > 0) {
+      return initialPhotos
+        .filter((p) => p.is_pair === true)
+        .map((p) => ({
+          id: p.id,
+          src: p.url,
+          alt: p.alt || p.caption || '',
+          label: (p as { label?: string }).label || p.caption || '',
+        }));
+    }
+    return [];
+  });
+
   useEffect(() => {
+    if (initialPhotos && initialPhotos.length > 0) return;
     getGalleryPhotos().then((photos) => {
       const pairs = photos.filter((p) => p.is_pair === true);
       setPairPhotos(
@@ -68,7 +110,7 @@ const usePairPhotos = (): Photo[] => {
         }))
       );
     });
-  }, []);
+  }, [initialPhotos]);
 
   return pairPhotos;
 };
@@ -86,10 +128,10 @@ const rowVariants: Variants = {
   }),
 };
 
-export function HeroPhotoFrame() {
+export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryClientPhoto[] } = {}) {
   const reduced = useReducedMotion();
-  const heroPhotos = useHeroPhotos();
-  const pairPhotos = usePairPhotos();
+  const heroPhotos = useHeroPhotos(initialPhotos);
+  const pairPhotos = usePairPhotos(initialPhotos);
   const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {

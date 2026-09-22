@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getTickerEvents } from '@/lib/queries/civic-client';
 
-interface TickerItem {
-  icon: React.ReactNode;
+export interface TickerItem {
+  icon?: React.ReactNode;
   label: string;
   detail: string;
   href: string;
@@ -51,10 +51,11 @@ const DEFAULT_TICKER_ITEMS: TickerItem[] = [
   },
 ];
 
-export function CivicActionTicker() {
-  const [items, setItems] = useState<TickerItem[]>([]);
+export function CivicActionTicker({ items: initialItems }: { items?: TickerItem[] } = {}) {
+  const [items, setItems] = useState<TickerItem[]>(initialItems ?? []);
 
   useEffect(() => {
+    if (initialItems && initialItems.length > 0) return;
     getTickerEvents().then((rows) => {
       if (rows.length > 0) {
         setItems(
@@ -62,7 +63,7 @@ export function CivicActionTicker() {
         );
       }
     });
-  }, []);
+  }, [initialItems]);
 
   const TICKER_ITEMS = items.length > 0 ? items : DEFAULT_TICKER_ITEMS;
 
@@ -84,7 +85,7 @@ export function CivicActionTicker() {
               className="flex items-center gap-2.5 whitespace-nowrap text-slate-300 hover:text-white group transition-colors"
             >
               <span className="p-1 rounded-md bg-slate-900 border border-slate-800 group-hover:border-slate-700">
-                {item.icon}
+                {item.icon ?? <Sparkles size={14} className="text-amber-400" />}
               </span>
               <span className="font-bold text-white group-hover:text-blue-300 transition-colors">
                 {item.label}:

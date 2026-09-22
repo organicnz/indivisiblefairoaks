@@ -767,6 +767,30 @@ export type Database = {
         }
         Relationships: []
       }
+      walle_knowledge_snapshots: {
+        Row: {
+          content_hash: string
+          payload: Json
+          record_count: number
+          refreshed_at: string
+          source_key: string
+        }
+        Insert: {
+          content_hash: string
+          payload?: Json
+          record_count?: number
+          refreshed_at?: string
+          source_key: string
+        }
+        Update: {
+          content_hash?: string
+          payload?: Json
+          record_count?: number
+          refreshed_at?: string
+          source_key?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -778,6 +802,7 @@ export type Database = {
         Returns: undefined
       }
       get_user_org_id: { Args: never; Returns: string }
+      is_admin: { Args: never; Returns: boolean }
       is_service_role: { Args: never; Returns: boolean }
       log_audit: {
         Args: {
