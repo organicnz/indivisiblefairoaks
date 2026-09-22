@@ -27,9 +27,6 @@ import { isSpamContent } from '../_shared/spam.ts'
 const REQUIRED_ENV: [string, string | undefined][] = [
   ['SUPABASE_URL', Deno.env.get('SUPABASE_URL')],
   ['SUPABASE_SERVICE_ROLE_KEY', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')],
-  ['SEARCH_RATE_LIMIT_MAX', Deno.env.get('SEARCH_RATE_LIMIT_MAX')],
-  ['SEARCH_RATE_LIMIT_WINDOW_MIN', Deno.env.get('SEARCH_RATE_LIMIT_WINDOW_MIN')],
-  ['SEARCH_RPC_TIMEOUT_MS', Deno.env.get('SEARCH_RPC_TIMEOUT_MS')],
 ]
 
 for (const [name, value] of REQUIRED_ENV) {
