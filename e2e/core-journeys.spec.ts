@@ -47,7 +47,7 @@ test.describe('home shell', () => {
     const banner = page.getByRole('banner');
     await expect(banner.locator('a[href="/"]').first()).toBeVisible();
     await expect(banner.getByRole('link', { name: 'Events & Actions' })).toBeVisible();
-    await expect(page.getByText('Indivisible')).toBeVisible();
+    await expect(page.getByRole('contentinfo')).toBeVisible();
   });
 
   test('donate page loads with a heading', async ({ page }) => {
