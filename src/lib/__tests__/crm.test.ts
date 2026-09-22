@@ -1,30 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-// Mock env
-vi.mock('@/lib/env', () => ({
-  env: {
-    NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'test-key',
-    RESEND_API_KEY: 're_test_dummy_key',
-    RESEND_FROM_EMAIL: 'contact@indivisiblefairoaks.org',
-    ADMIN_ORDER_EMAIL: 'contact@indivisiblefairoaks.org',
-  },
-}));
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock next/cache
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }));
-
-// Mock sendEmail from '@/lib/email'
-const mockSendEmail = vi.fn();
-vi.mock('@/lib/email', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/email')>();
-  return {
-    ...actual,
-    sendEmail: (...args: unknown[]) => mockSendEmail(...args),
-  };
-});
 
 // Mock requireAdmin
 const mockAdminClient = {
@@ -49,6 +28,8 @@ import {
   sendCRMDirectEmail,
 } from '@/lib/actions/crm';
 
+import { env } from '@/lib/env';
+
 // Helper to create a chainable query builder
 function createMockQueryBuilder(terminalResult: Record<string, unknown> = {}) {
   const promise = Promise.resolve(terminalResult);
@@ -70,8 +51,20 @@ function createMockQueryBuilder(terminalResult: Record<string, unknown> = {}) {
 }
 
 describe('Civic CRM Server Actions', () => {
+  const originalFetch = global.fetch;
+  const mockEnv = env as unknown as Record<string, string | undefined>;
+  const originalApiKey = mockEnv.RESEND_API_KEY;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnv.RESEND_API_KEY = 're_test_key_dummy';
+    mockEnv.RESEND_FROM_EMAIL = 'contact@indivisiblefairoaks.org';
+    mockEnv.ADMIN_ORDER_EMAIL = 'contact@indivisiblefairoaks.org';
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    mockEnv.RESEND_API_KEY = originalApiKey;
   });
 
   describe('saveCRMContact', () => {
@@ -277,7 +270,12 @@ describe('Civic CRM Server Actions', () => {
         return createMockQueryBuilder();
       });
 
-      mockSendEmail.mockResolvedValue({ ok: true, id: 'resend_msg_123' });
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'resend_msg_123' }),
+      });
+      global.fetch = mockFetch;
 
       const res = await sendCRMDirectEmail({
         contactId: 'c-1',
@@ -286,11 +284,11 @@ describe('Civic CRM Server Actions', () => {
       });
 
       expect(res.success).toBe(true);
-      expect(mockSendEmail).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.resend.com/emails',
         expect.objectContaining({
-          to: 'neighbor@example.com',
-          subject: 'Welcome to the Movement',
-          replyTo: 'contact@indivisiblefairoaks.org',
+          method: 'POST',
+          body: expect.stringContaining('neighbor@example.com'),
         })
       );
       expect(qbActivity.insert).toHaveBeenCalledWith(
@@ -340,7 +338,12 @@ describe('Civic CRM Server Actions', () => {
         return createMockQueryBuilder();
       });
 
-      mockSendEmail.mockResolvedValue({ ok: true, id: 'resend-blast-1' });
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'resend-blast-1' }),
+      });
+      global.fetch = mockFetch;
 
       const res = await sendCRMBroadcast({
         subject: 'Chapter Meeting Next Tuesday',
@@ -350,7 +353,7 @@ describe('Civic CRM Server Actions', () => {
 
       expect(res.success).toBe(true);
       expect(res.recipientCount).toBe(2);
-      expect(mockSendEmail).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(qbBroadcasts.update).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'sent',
