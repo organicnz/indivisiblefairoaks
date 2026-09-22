@@ -33,8 +33,8 @@ const SUPABASE_URL = REQUIRED_ENV[0][1]!
 const SUPABASE_SERVICE_ROLE_KEY = REQUIRED_ENV[1][1]!
 const RESEND_API_KEY = REQUIRED_ENV[2][1]!
 
-const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'orders@indivisiblefairoaks.org'
-const TO_EMAIL = Deno.env.get('ADMIN_ORDER_EMAIL')
+const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'contact@indivisiblefairoaks.org'
+const TO_EMAIL = Deno.env.get('ADMIN_ORDER_EMAIL') ?? 'contact@indivisiblefairoaks.org'
 
 // Max notifications per rolling 10 minutes, globally.
 const NOTIFY_VOLUME_CAP = 20
@@ -66,25 +66,34 @@ function stripControls(value: string): string {
   return value.replace(/\p{C}/gu, '')
 }
 
+const LOGO_URL =
+  'https://mojsubkqjdruhpxbzgme.supabase.co/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png'
+
 function buildEmail(name: string, email: string, message: string, receivedAt: string): string {
   const safeName = escapeHtml(name)
   const safeEmail = escapeHtml(email)
   const safeMessage = escapeHtml(message)
 
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0F172A;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0F172A;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;">
-<tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#1E293B;border-radius:24px;overflow:hidden;border:1px solid rgba(209,255,0,0.2);">
-<tr><td style="padding:28px 40px;border-bottom:1px solid rgba(209,255,0,0.15);">
-<span style="color:#D1FF00;font-weight:900;font-size:18px;letter-spacing:0.2em;text-transform:uppercase;">Indivisible Fair Oaks</span>
-<span style="color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-left:12px;">Contact Form</span></td></tr>
-<tr><td style="padding:32px 40px;color:#E2E8F0;font-size:14px;line-height:1.7;">
-<p style="margin:0 0 18px;"><span style="display:block;color:rgba(255,255,255,0.45);font-size:10px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:4px;">From</span><strong style="font-size:16px;">${safeName}</strong></p>
-<p style="margin:0 0 18px;"><span style="display:block;color:rgba(255,255,255,0.45);font-size:10px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:4px;">Email</span><a href="mailto:${safeEmail}" style="color:#D1FF00;text-decoration:none;">${safeEmail}</a></p>
-<p style="margin:0;"><span style="display:block;color:rgba(255,255,255,0.45);font-size:10px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:4px;">Message</span>${safeMessage}</p>
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0F172A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0F172A;padding:40px 16px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#1E293B;border-radius:24px;overflow:hidden;border:1px solid rgba(37,99,235,0.25);box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
+<tr><td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,#172554 0%,#1E293B 100%);">
+<a href="https://indivisiblefairoaks.org" target="_blank" style="text-decoration:none;display:inline-block;">
+<img src="${LOGO_URL}" alt="Indivisible Fair Oaks-Carmichael" width="170" style="display:block;margin:0 auto 12px;max-width:170px;height:auto;" />
+</a>
+<div style="display:inline-block;padding:5px 14px;background:rgba(37,99,235,0.2);border:1px solid rgba(59,130,246,0.35);color:#93C5FD;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.2em;border-radius:9999px;">Contact Form Submission</div>
 </td></tr>
-<tr><td style="padding:20px 40px;border-top:1px solid rgba(209,255,0,0.2);text-align:center;">
-<p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Received ${receivedAt} PT &middot; Reply directly to this email</p></td></tr>
+<tr><td style="padding:36px 40px 28px;color:#E2E8F0;font-size:14px;line-height:1.7;">
+<p style="margin:0 0 16px;"><span style="display:block;color:#94A3B8;font-size:10px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:4px;">From</span><strong style="font-size:16px;color:#FFFFFF;">${safeName}</strong></p>
+<p style="margin:0 0 16px;"><span style="display:block;color:#94A3B8;font-size:10px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:4px;">Email</span><a href="mailto:${safeEmail}" style="color:#60A5FA;text-decoration:none;font-weight:600;">${safeEmail}</a></p>
+<div style="margin:0 0 8px;"><span style="display:block;color:#94A3B8;font-size:10px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:6px;">Message</span></div>
+<div style="margin:0;padding:18px 20px;background:#0F172A;border-radius:12px;border-left:3px solid #2563EB;color:#F1F5F9;font-size:14px;line-height:1.6;">${safeMessage}</div>
+</td></tr>
+<tr><td style="padding:24px 40px;border-top:1px solid rgba(255,255,255,0.08);background:#0F172A;text-align:center;">
+<p style="margin:0;color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Received ${receivedAt} PT &middot; Reply directly to this email</p>
+<p style="margin:6px 0 0;color:#64748B;font-size:11px;">Indivisible Fair Oaks-Carmichael &middot; Sacramento County</p>
+</td></tr>
 </table></td></tr></table></body></html>`
 }
 
@@ -93,20 +102,26 @@ function buildCustomerCopy(name: string, email: string, message: string, receive
   const safeEmail = escapeHtml(email)
   const safeMessage = escapeHtml(message)
 
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0F172A;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0F172A;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;">
-<tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#1E293B;border-radius:24px;overflow:hidden;border:1px solid rgba(209,255,0,0.2);">
-<tr><td style="padding:28px 40px;border-bottom:1px solid rgba(209,255,0,0.15);">
-<span style="color:#D1FF00;font-weight:900;font-size:18px;letter-spacing:0.2em;text-transform:uppercase;">Indivisible Fair Oaks</span>
-<span style="color:rgba(255,255,255,0.4);font-weight:700;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-left:12px;">Message Received</span></td></tr>
-<tr><td style="padding:32px 40px;color:#E2E8F0;font-size:14px;line-height:1.7;">
-<p style="margin:0 0 18px;">Hi ${safeName}, thanks for getting in touch — this is a copy of the message you sent us via indivisiblefairoaks.org:</p>
-<p style="margin:0 0 18px;padding:16px 20px;background:#0F172A;border-radius:12px;border-left:3px solid #D1FF00;">${safeMessage}</p>
-<p style="margin:0;">Our team will get back to you at ${safeEmail} as soon as possible. No need to reply to this email.</p>
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0F172A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0F172A;padding:40px 16px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#1E293B;border-radius:24px;overflow:hidden;border:1px solid rgba(37,99,235,0.25);box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
+<tr><td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,#172554 0%,#1E293B 100%);">
+<a href="https://indivisiblefairoaks.org" target="_blank" style="text-decoration:none;display:inline-block;">
+<img src="${LOGO_URL}" alt="Indivisible Fair Oaks-Carmichael" width="170" style="display:block;margin:0 auto 12px;max-width:170px;height:auto;" />
+</a>
+<div style="display:inline-block;padding:5px 14px;background:rgba(37,99,235,0.2);border:1px solid rgba(59,130,246,0.35);color:#93C5FD;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.2em;border-radius:9999px;">Message Received</div>
 </td></tr>
-<tr><td style="padding:20px 40px;border-top:1px solid rgba(209,255,0,0.2);text-align:center;">
-<p style="margin:0;color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Sent ${receivedAt} PT &middot; Indivisible Fair Oaks &middot; Civic Action &middot; Sacramento County</p></td></tr>
+<tr><td style="padding:36px 40px 28px;color:#E2E8F0;font-size:14px;line-height:1.7;">
+<p style="margin:0 0 16px;color:#FFFFFF;font-weight:600;font-size:15px;">Hi ${safeName}, thanks for getting in touch with Indivisible Fair Oaks-Carmichael.</p>
+<p style="margin:0 0 16px;color:#CBD5E1;">This is a confirmation copy of the message you submitted:</p>
+<div style="margin:0 0 20px;padding:18px 20px;background:#0F172A;border-radius:12px;border-left:3px solid #2563EB;color:#F1F5F9;font-size:14px;line-height:1.6;">${safeMessage}</div>
+<p style="margin:0;color:#94A3B8;font-size:13px;">Our organizing team will get back to you at <a href="mailto:${safeEmail}" style="color:#60A5FA;text-decoration:none;">${safeEmail}</a> as soon as possible.</p>
+</td></tr>
+<tr><td style="padding:24px 40px;border-top:1px solid rgba(255,255,255,0.08);background:#0F172A;text-align:center;">
+<p style="margin:0;color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;">Sent ${receivedAt} PT &middot; Indivisible Fair Oaks-Carmichael</p>
+<p style="margin:6px 0 0;color:#64748B;font-size:11px;">Grassroots Democracy &middot; Sacramento County</p>
+</td></tr>
 </table></td></tr></table></body></html>`
 }
 
