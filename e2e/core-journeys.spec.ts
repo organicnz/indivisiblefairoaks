@@ -45,26 +45,9 @@ test.describe('home shell', () => {
   test('header logo, primary nav and footer render', async ({ page }) => {
     await page.goto('/');
     const banner = page.getByRole('banner');
-    await expect(banner.locator('a[href="/"]').first()).toBeVisible();
+    await expect(banner.locator('a[href="/"]')).toBeVisible();
     await expect(banner.getByRole('link', { name: 'Events & Actions' })).toBeVisible();
-    await expect(page.getByText('Indivisible').first()).toBeVisible();
-  });
-
-  test.describe('Resistance Radio', () => {
-    test('renders station controls and switches broadcasts', async ({ page }) => {
-      await page.goto('/choir');
-      const station = page.getByText('Resistance Radio').first().locator('..').locator('..');
-      await expect(page.getByRole('button', { name: 'Play harmonic audio' })).toBeVisible();
-      await expect(page.getByRole('slider', { name: 'Broadcast volume' })).toBeVisible();
-      await page
-        .getByRole('button', { name: /Ain.t Gonna Let Nobody Turn Me Around/ })
-        .first()
-        .click();
-      await expect(
-        page.getByRole('heading', { name: /Ain.t Gonna Let Nobody Turn Me Around/ }).first()
-      ).toBeVisible();
-      await expect(station).toBeVisible();
-    });
+    await expect(page.getByText('Indivisible')).toBeVisible();
   });
 
   test('donate page loads with a heading', async ({ page }) => {

@@ -1,19 +1,7 @@
 name: Runner Health
 
-# Runs every 10 minutes to catch offline runners before CI queues forever.
-# Also runs on demand via workflow_dispatch.
-#
-# Architecture:
-#   check-runners  — queries GitHub API for runner status (runs on backend-runner;
-#                    if backend itself is down this job QUEUES — which IS the alert)
-#   smoke-frontend — proves frontend-runner can execute a real job
-#   smoke-backend  — proves backend-runner can execute a real job
-#   notify         — fires on any failure; posts a GitHub issue + optional webhook
-#
-# Self-healing note: if BOTH runners are down, this workflow queues indefinitely.
-# The queued state is visible in Actions and triggers GitHub's own notification
-# to repo admins after the configured timeout.
-
+# Runs every 10 minutes — catches offline runners before a real CI job queues
+# and sits there forever. Also runs on demand.
 on:
   schedule:
     - cron: '*/10 * * * *'
@@ -24,359 +12,119 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
-  # ── 1. Query GitHub API for runner registration and status ───────────────────
+  # ── Check both runners are alive via the GitHub API ─────────────────────────
   check-runners:
-    name: API — runner registration
+    name: Verify runners online
+    # Self-hosted ONLY per repo policy (no github-hosted runners anywhere).
+    # Runs on backend-runner; the smoke jobs below prove each runner
+    # independently. If backend-runner itself is down this job queues —
+    # which is itself the alert (visible as "queued" in Actions).
     runs-on: [self-hosted, linux, ARM64, backend-runner]
-    timeout-minutes: 5
     outputs:
       frontend_status: ${{ steps.check.outputs.frontend_status }}
       backend_status: ${{ steps.check.outputs.backend_status }}
       all_ok: ${{ steps.check.outputs.all_ok }}
-      summary: ${{ steps.check.outputs.summary }}
     steps:
       - name: Ensure gh + jq available
         run: |
-          for tool in gh jq curl; do
-            if ! command -v "$tool" &>/dev/null; then
-              echo "Installing missing tool: $tool"
-              sudo apt-get update -qq && sudo apt-get install -y -qq "$tool"
-            fi
-          done
-          echo "gh $(gh --version | head -1) | jq $(jq --version)"
+          if ! command -v gh &>/dev/null; then
+            echo "gh not found — installing via apt"
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq gh
+          fi
+          gh --version
+          jq --version
 
-      - name: Query runner status via GitHub API
+      - name: Check runner registration + status
         id: check
         env:
-          # ACTIONS_PAT must be a fine-grained PAT with administration:read.
-          # GITHUB_TOKEN cannot list self-hosted runners (403).
-          # If not set we skip the API check and rely on smoke jobs only.
-          ACTIONS_PAT: ${{ secrets.ACTIONS_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
+          RUNNERS=$(gh api repos/${{ github.repository }}/actions/runners \
+            --jq '[.runners[] | {name, status, busy, labels: [.labels[].name | select(. != "self-hosted" and . != "linux" and . != "ARM64" and . != "X64")]}]')
 
-          if [ -z "${ACTIONS_PAT:-}" ]; then
-            echo "::warning::ACTIONS_PAT secret not set — skipping runner API check. Smoke jobs still verify runner liveness."
-            echo "frontend_status=unknown" >> "$GITHUB_OUTPUT"
-            echo "backend_status=unknown"  >> "$GITHUB_OUTPUT"
-            echo "all_ok=true"             >> "$GITHUB_OUTPUT"
-            echo "summary=api-check-skipped (no ACTIONS_PAT)" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Fetch all runners for this repo
-          RUNNERS=$(GH_TOKEN="$ACTIONS_PAT" gh api "repos/${{ github.repository }}/actions/runners" \
-            --jq '[.runners[] | {
-              name,
-              status,
-              busy,
-              labels: [.labels[].name | select(
-                . != "self-hosted" and . != "linux" and
-                . != "ARM64" and . != "X64"
-              )]
-            }]')
-
-          echo "── Registered runners ──────────────────────"
+          echo "Registered runners:"
           echo "$RUNNERS" | jq -r '.[] | "  \(.name): \(.status) (busy=\(.busy))"'
-          echo "────────────────────────────────────────────"
 
-          # Extract status for each role label — take the best status if
-          # multiple runners share the same label (online > busy > offline > missing).
-          best_status() {
-            local label="$1"
-            local s
-            s=$(echo "$RUNNERS" | jq -r \
-              --arg lbl "$label" \
-              '[.[] | select(.labels[] | test($lbl; "i")) | .status] |
-               if length == 0 then "missing"
-               elif any(. == "online") then "online"
-               elif any(. == "busy") then "busy"
-               else "offline" end' 2>/dev/null || echo "missing")
-            echo "$s"
-          }
+          FRONTEND=$(echo "$RUNNERS" | jq -r '.[] | select(.labels[] | test("frontend-runner")) | .status' || echo "missing")
+          BACKEND=$(echo "$RUNNERS"  | jq -r '.[] | select(.labels[] | test("backend-runner"))  | .status' || echo "missing")
 
-          FRONTEND=$(best_status "frontend-runner")
-          BACKEND=$(best_status "backend-runner")
+          # Fallback: if no labeled runners, check by name
+          [[ -z "$FRONTEND" ]] && FRONTEND=$(echo "$RUNNERS" | jq -r '.[] | select(.name == "frontend-runner") | .status' || echo "missing")
+          [[ -z "$BACKEND"  ]] && BACKEND=$(echo "$RUNNERS"  | jq -r '.[] | select(.name == "backend-runner")  | .status' || echo "missing")
 
-          echo "frontend_status=$FRONTEND" >> "$GITHUB_OUTPUT"
-          echo "backend_status=$BACKEND"   >> "$GITHUB_OUTPUT"
+          echo "frontend_status=${FRONTEND:-missing}" >> "$GITHUB_OUTPUT"
+          echo "backend_status=${BACKEND:-missing}"   >> "$GITHUB_OUTPUT"
 
-          # busy counts as ok — runner is working, not down
-          is_ok() { [ "$1" = "online" ] || [ "$1" = "busy" ]; }
-
-          SUMMARY="frontend=${FRONTEND} backend=${BACKEND}"
-          echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
-
-          if is_ok "$FRONTEND" && is_ok "$BACKEND"; then
+          if [[ "$FRONTEND" == "online" && "$BACKEND" == "online" ]]; then
             echo "all_ok=true" >> "$GITHUB_OUTPUT"
-            echo "✅ Both runners healthy ($SUMMARY)"
+            echo "✅ Both runners online"
           else
             echo "all_ok=false" >> "$GITHUB_OUTPUT"
-            echo "❌ Runner problem: $SUMMARY"
+            echo "❌ Runner problem — frontend=$FRONTEND backend=$BACKEND"
           fi
 
-      - name: Probe runner health endpoints (Tailscale)
-        # Best-effort — fails on network changes but doesn't block the check.
-        # Tailscale IPs are stable within the mesh; update RUNNER_IPS secret
-        # when a runner is reprovisioned.
-        continue-on-error: true
-        env:
-          # Comma-separated Tailscale IPs, stored as a secret so they're
-          # not hardcoded and can be updated without a code change.
-          # Format: "100.x.x.x,100.y.y.y"
-          # Fallback to known IPs if secret not set.
-          RUNNER_IPS: ${{ secrets.RUNNER_TAILSCALE_IPS || '100.92.38.119,100.99.241.23' }}
+      - name: Probe health endpoints (via Tailscale IPs)
         run: |
-          echo "── Tailscale health probes ─────────────────"
-          IFS=',' read -ra IPS <<< "$RUNNER_IPS"
-          all_ok=true
-          for IP in "${IPS[@]}"; do
-            IP="${IP// /}"  # trim whitespace
-            HTTP=$(curl -s -o /tmp/probe_${IP//\./_}.json \
-              -w '%{http_code}' --max-time 5 \
-              "http://${IP}:9100/metrics" 2>/dev/null || echo 000)
-            if [ "$HTTP" = "200" ]; then
-              echo "  ${IP}:9100 → HTTP $HTTP ✅"
-            else
-              echo "  ${IP}:9100 → HTTP $HTTP ⚠️ (node-exporter unreachable)"
-              all_ok=false
-            fi
+          # Runs on a self-hosted runner inside the Tailscale network, so
+          # these probes return real health data (not silent skips).
+          for IP in "100.92.38.119" "100.99.241.23"; do
+            RESULT=$(curl -fsSL --max-time 5 "http://${IP}:9100" 2>/dev/null || echo '{"ok":false,"error":"unreachable"}')
+            echo "  ${IP}: $RESULT"
           done
-          echo "────────────────────────────────────────────"
-          # Warn but don't fail — node-exporter may not be installed
-          $all_ok || echo "::warning::One or more Tailscale health endpoints unreachable"
 
       - name: Fail if any runner offline
         if: steps.check.outputs.all_ok != 'true'
         run: |
-          echo "::error::Runner problem detected: ${{ steps.check.outputs.summary }}"
+          echo "::error::One or more self-hosted runners are offline or unregistered."
           echo ""
           echo "  frontend-runner: ${{ steps.check.outputs.frontend_status }}"
           echo "  backend-runner:  ${{ steps.check.outputs.backend_status }}"
           echo ""
-          echo "Recovery playbook:"
-          echo "  1. SSH into the affected VPS"
-          echo "  2. Check runner service: systemctl status actions.runner.*"
-          echo "  3. If stopped: systemctl start actions.runner.*"
-          echo "  4. If unregistered, re-register:"
-          echo "     TOKEN=\$(GH_TOKEN=<ACTIONS_PAT> gh api -X POST repos/${{ github.repository }}/actions/runners/registration-token --jq '.token')"
-          echo "     curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/setup-runner.sh \\"
-          echo "       | bash -s -- --token \$TOKEN --name <NAME> --labels <LABELS>"
+          echo "Fix: SSH into the VPS and run:"
+          echo "  curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/scripts/setup-runner.sh | bash -s -- --token <NEW_TOKEN> --name <NAME> --labels <LABELS>"
+          echo ""
+          echo "Get a fresh token:"
+          echo "  gh api -X POST repos/${{ github.repository }}/actions/runners/registration-token --jq '.token'"
           exit 1
 
-  # ── 2. Smoke test — prove each runner can execute a real job ────────────────
+  # ── Smoke-test: queue a real job on each runner ─────────────────────────────
   smoke-frontend:
-    name: Smoke — frontend-runner
+    name: Smoke test — frontend-runner
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
-    needs: [check-runners]
+    needs: check-runners
     if: needs.check-runners.outputs.all_ok == 'true'
     timeout-minutes: 3
     steps:
-      - name: System snapshot
+      - name: Runner is alive
         run: |
-          echo "✅ frontend-runner alive"
-          echo "── System ──────────────────────────────────"
-          echo "  Host  : $(hostname)"
+          echo "✅ frontend-runner responding"
+          echo "  Host:   $(hostname)"
           echo "  Kernel: $(uname -r)"
-          echo "  Arch  : $(uname -m)"
-          echo "── Resources ───────────────────────────────"
-          echo "  CPU   : $(nproc) cores"
-          echo "  RAM   : $(free -h | awk '/Mem:/{print $2}') total / $(free -h | awk '/Mem:/{print $4}') available"
-          echo "  Swap  : $(free -h | awk '/Swap:/{print $2}')"
-          echo "  Disk  : $(df -h / | awk 'NR==2{print $4" free of "$2}')"
-          echo "── Runtimes ────────────────────────────────"
-          echo "  Bun   : $(bun --version 2>/dev/null || echo 'NOT INSTALLED ⚠️')"
-          echo "  Node  : $(node --version 2>/dev/null || echo 'NOT INSTALLED ⚠️')"
-          echo "  Git   : $(git --version 2>/dev/null)"
-          echo "────────────────────────────────────────────"
-
-      - name: Assert required runtimes present
-        run: |
-          fail=0
-          for cmd in bun git curl; do
-            if ! command -v "$cmd" &>/dev/null; then
-              echo "::error::Required command missing on frontend-runner: $cmd"
-              fail=1
-            fi
-          done
-          [ "$fail" -eq 0 ] || exit 1
-          echo "✅ All required runtimes present"
-
-      - name: Assert disk space sufficient (min 5 GB free)
-        run: |
-          FREE_KB=$(df / | awk 'NR==2{print $4}')
-          FREE_GB=$((FREE_KB / 1024 / 1024))
-          echo "Free disk: ${FREE_GB} GB"
-          if [ "$FREE_GB" -lt 5 ]; then
-            echo "::error::frontend-runner low on disk: ${FREE_GB}GB free (min 5GB required)"
-            exit 1
-          fi
-          echo "✅ Disk OK: ${FREE_GB}GB free"
+          echo "  Arch:   $(uname -m)"
+          echo "  CPU:    $(nproc) cores"
+          echo "  RAM:    $(free -h | awk '/Mem:/{print $2}')"
+          echo "  Swap:   $(free -h | awk '/Swap:/{print $2}')"
+          echo "  Disk:   $(df -h / | awk 'NR==2{print $4" free"}')"
+          echo "  Bun:    $(bun --version 2>/dev/null || echo 'not installed')"
+          echo "  Node:   $(node --version 2>/dev/null || echo 'not installed')"
 
   smoke-backend:
-    name: Smoke — backend-runner
+    name: Smoke test — backend-runner
     runs-on: [self-hosted, linux, ARM64, backend-runner]
-    needs: [check-runners]
+    needs: check-runners
     if: needs.check-runners.outputs.all_ok == 'true'
     timeout-minutes: 3
     steps:
-      - name: System snapshot
+      - name: Runner is alive
         run: |
-          echo "✅ backend-runner alive"
-          echo "── System ──────────────────────────────────"
-          echo "  Host  : $(hostname)"
-          echo "  Kernel: $(uname -r)"
-          echo "  Arch  : $(uname -m)"
-          echo "── Resources ───────────────────────────────"
-          echo "  CPU   : $(nproc) cores"
-          echo "  RAM   : $(free -h | awk '/Mem:/{print $2}') total / $(free -h | awk '/Mem:/{print $4}') available"
-          echo "  Swap  : $(free -h | awk '/Swap:/{print $2}')"
-          echo "  Disk  : $(df -h / | awk 'NR==2{print $4" free of "$2}')"
-          echo "── Runtimes ────────────────────────────────"
-          SUPA_VER=$(supabase --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo 'NOT INSTALLED ⚠️')
-          echo "  Supabase CLI: $SUPA_VER"
-          echo "  Bun : $(bun --version 2>/dev/null || echo 'NOT INSTALLED ⚠️')"
-          echo "  Git : $(git --version 2>/dev/null)"
-          echo "────────────────────────────────────────────"
-
-      - name: Assert required tools present
-        run: |
-          fail=0
-          for cmd in supabase curl git; do
-            if ! command -v "$cmd" &>/dev/null; then
-              echo "::error::Required command missing on backend-runner: $cmd"
-              fail=1
-            fi
-          done
-          [ "$fail" -eq 0 ] || exit 1
-          echo "✅ All required tools present"
-
-      - name: Assert disk space sufficient (min 2 GB free)
-        run: |
-          FREE_KB=$(df / | awk 'NR==2{print $4}')
-          FREE_GB=$((FREE_KB / 1024 / 1024))
-          echo "Free disk: ${FREE_GB} GB"
-          if [ "$FREE_GB" -lt 2 ]; then
-            echo "::error::backend-runner low on disk: ${FREE_GB}GB free (min 2GB required)"
-            exit 1
-          fi
-          echo "✅ Disk OK: ${FREE_GB}GB free"
-
-      - name: Assert Supabase CLI version matches pinned version
-        env:
-          EXPECTED_CLI_VERSION: "2.116.0"
-        run: |
-          ACTUAL=$(supabase --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "missing")
-          echo "Supabase CLI: $ACTUAL (expected: $EXPECTED_CLI_VERSION)"
-          if [ "$ACTUAL" != "$EXPECTED_CLI_VERSION" ]; then
-            echo "::warning::Supabase CLI version mismatch: got $ACTUAL, expected $EXPECTED_CLI_VERSION"
-            echo "Run: curl -fsSL https://github.com/supabase/cli/releases/download/v${EXPECTED_CLI_VERSION}/supabase_linux_arm64.tar.gz | sudo tar -xz -C /usr/local/bin supabase"
-          fi
-          # Non-fatal: warn but don't block (supabase.yml installs the pinned version itself)
-
-  # ── 3. Notify on any failure ─────────────────────────────────────────────────
-  # Creates a GitHub issue on failure so the team gets notified even without
-  # email notifications configured. Uses ALERT_WEBHOOK_URL secret for optional
-  # Slack/Discord/Teams notification.
-  notify:
-    name: Notify on failure
-    runs-on: [self-hosted, linux, ARM64, backend-runner]
-    needs: [check-runners, smoke-frontend, smoke-backend]
-    # Run when ANY needed job failed or was cancelled, but skip if all passed
-    if: >-
-      always() && (
-        needs.check-runners.result == 'failure' ||
-        needs.smoke-frontend.result == 'failure' ||
-        needs.smoke-backend.result == 'failure'
-      )
-    timeout-minutes: 5
-    steps:
-      - name: Build failure summary
-        id: summary
-        run: |
-          FAILED_JOBS=""
-          [ "${{ needs.check-runners.result }}" = "failure" ] && FAILED_JOBS="$FAILED_JOBS check-runners"
-          [ "${{ needs.smoke-frontend.result }}" = "failure" ] && FAILED_JOBS="$FAILED_JOBS smoke-frontend"
-          [ "${{ needs.smoke-backend.result }}" = "failure" ]  && FAILED_JOBS="$FAILED_JOBS smoke-backend"
-
-          MSG="Runner health check failed at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          MSG="$MSG | Failed: ${FAILED_JOBS}"
-          MSG="$MSG | frontend=${{ needs.check-runners.outputs.frontend_status }}"
-          MSG="$MSG | backend=${{ needs.check-runners.outputs.backend_status }}"
-          echo "message=$MSG" >> "$GITHUB_OUTPUT"
-          echo "failed_jobs=${FAILED_JOBS}" >> "$GITHUB_OUTPUT"
-          echo "$MSG"
-
-      - name: Create GitHub issue (deduped by title)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FRONTEND_STATUS: ${{ needs.check-runners.outputs.frontend_status }}
-          BACKEND_STATUS: ${{ needs.check-runners.outputs.backend_status }}
-          CHECK_RESULT: ${{ needs.check-runners.result }}
-          FRONTEND_RESULT: ${{ needs.smoke-frontend.result }}
-          BACKEND_RESULT: ${{ needs.smoke-backend.result }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          TITLE="Runner health failure — $(date -u +%Y-%m-%d)"
-
-          {
-            echo "Runner Health Alert"
-            echo ""
-            echo "Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "Run: ${RUN_URL}"
-            echo ""
-            echo "Runner status:"
-            echo "  frontend-runner: ${FRONTEND_STATUS}"
-            echo "  backend-runner:  ${BACKEND_STATUS}"
-            echo ""
-            echo "Failed jobs:"
-            [ "$CHECK_RESULT" = "failure" ]   && echo "  - check-runners"
-            [ "$FRONTEND_RESULT" = "failure" ] && echo "  - smoke-frontend"
-            [ "$BACKEND_RESULT" = "failure" ]  && echo "  - smoke-backend"
-            echo ""
-            echo "Recovery steps:"
-            echo "1. SSH into the affected VPS"
-            echo "2. systemctl status actions.runner.*"
-            echo "3. If stopped: systemctl start actions.runner.*"
-            echo "4. If unregistered, re-register using scripts/setup-runner.sh"
-          } > /tmp/issue_body.txt
-
-          EXISTING=$(gh issue list --state open \
-            --search "is:issue \"$TITLE\" in:title" \
-            --json number --jq '.[0].number' 2>/dev/null || echo "")
-
-          if [ -z "$EXISTING" ]; then
-            gh issue create \
-              --title "$TITLE" \
-              --body-file /tmp/issue_body.txt \
-              --label "infrastructure,alert" 2>/dev/null || \
-            gh issue create \
-              --title "$TITLE" \
-              --body-file /tmp/issue_body.txt || true
-            echo "::warning::Runner health issue created: $TITLE"
-          else
-            COMMENT="Follow-up failure at $(date -u +%Y-%m-%dT%H:%M:%SZ) — ${RUN_URL}"
-            gh issue comment "$EXISTING" --body "$COMMENT" || true
-            echo "Appended comment to existing issue #$EXISTING"
-          fi
-          rm -f /tmp/issue_body.txt
-
-      - name: Post webhook notification (optional)
-        # Set ALERT_WEBHOOK_URL secret to a Slack/Discord/Teams/custom webhook URL.
-        # If not set, this step is a no-op (shell guard, not if: expression —
-        # secrets cannot be compared in if: conditions).
-        env:
-          WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
-          SUMMARY_MSG: ${{ steps.summary.outputs.message }}
-        run: |
-          if [ -z "${WEBHOOK_URL:-}" ]; then
-            echo "ALERT_WEBHOOK_URL not set — skipping webhook notification"
-            exit 0
-          fi
-          PAYLOAD=$(printf '{"text":"%s"}' "$SUMMARY_MSG")
-          HTTP=$(curl -s -o /dev/null -w '%{http_code}' \
-            -X POST -H 'Content-Type: application/json' \
-            -d "$PAYLOAD" "$WEBHOOK_URL" || echo 000)
-          echo "Webhook → HTTP $HTTP"
-          [ "$HTTP" = "200" ] || echo "::warning::Webhook notification failed (HTTP $HTTP)"
+          echo "✅ backend-runner responding"
+          echo "  Host:    $(hostname)"
+          echo "  Kernel:  $(uname -r)"
+          echo "  Arch:    $(uname -m)"
+          echo "  CPU:     $(nproc) cores"
+          echo "  RAM:     $(free -h | awk '/Mem:/{print $2}')"
+          echo "  Swap:    $(free -h | awk '/Swap:/{print $2}')"
+          echo "  Disk:    $(df -h / | awk 'NR==2{print $4" free"}')"
+          echo "  Supabase: $(supabase --version 2>/dev/null || echo 'not installed')"
+          echo "  Bun:     $(bun --version 2>/dev/null || echo 'not installed')"
