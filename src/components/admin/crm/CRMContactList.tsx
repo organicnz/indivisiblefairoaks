@@ -1,6 +1,6 @@
 'use client';
 
-import { Edit2, ExternalLink, Mail, Plus, RefreshCw, Search, Users } from 'lucide-react';
+import { Download, Edit2, ExternalLink, Mail, Plus, RefreshCw, Search, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -73,6 +73,64 @@ export function CRMContactList({
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleExportCSV = () => {
+    if (!initialContacts.length) {
+      toast.error('No constituents to export');
+      return;
+    }
+
+    const headers = [
+      'ID',
+      'First Name',
+      'Last Name',
+      'Email',
+      'Phone',
+      'District',
+      'City',
+      'Zip Code',
+      'Status',
+      'Tags',
+      'Lifetime Giving ($)',
+      'Source',
+      'Created At',
+    ];
+
+    const rows = initialContacts.map((c) => [
+      c.id,
+      c.first_name || '',
+      c.last_name || '',
+      c.email,
+      c.phone || '',
+      c.district || '',
+      c.city || '',
+      c.zip_code || '',
+      c.status,
+      (c.tags || []).join('; '),
+      ((c.total_donated_cents || 0) / 100).toFixed(2),
+      c.source || '',
+      new Date(c.created_at).toISOString().split('T')[0],
+    ]);
+
+    const csvContent = [
+      headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(','),
+      ...rows.map((r) => r.map((field) => `"${String(field).replace(/"/g, '""')}"`).join(',')),
+    ].join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute(
+      'download',
+      `indivisible-crm-constituents-${new Date().toISOString().split('T')[0]}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${initialContacts.length} constituents to CSV`);
   };
 
   return (
@@ -155,6 +213,53 @@ export function CRMContactList({
           </div>
         </form>
 
+        {/* Quick Segment Filter Pills */}
+        <div className="flex items-center gap-1.5 flex-wrap pt-2">
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">
+            Quick Segments:
+          </span>
+          {[
+            { label: 'All', s: 'all', d: 'all' },
+            { label: 'Volunteers', s: 'active_volunteer', d: 'all' },
+            { label: 'Resistance Choir', s: 'choir', d: 'all' },
+            { label: 'Donors', s: 'donor', d: 'all' },
+            { label: 'Organizers', s: 'organizer', d: 'all' },
+            { label: 'CA-06 Local', s: 'all', d: 'CA-06' },
+            { label: 'CA-03 Local', s: 'all', d: 'CA-03' },
+          ].map((pill) => {
+            const isActive =
+              (pill.s === 'all' || status === pill.s) &&
+              (pill.d === 'all' || district === pill.d) &&
+              (pill.s !== 'all' || pill.d !== 'all' || (status === 'all' && district === 'all'));
+
+            return (
+              <button
+                key={pill.label}
+                type="button"
+                onClick={() => {
+                  setStatus(pill.s);
+                  setDistrict(pill.d);
+                  const params = new URLSearchParams();
+                  if (query.trim()) params.set('q', query.trim());
+                  if (pill.s !== 'all') params.set('status', pill.s);
+                  if (pill.d !== 'all') params.set('district', pill.d);
+                  if (tag !== 'all') params.set('tag', tag);
+                  startTransition(() => {
+                    router.push(`/admin/crm?${params.toString()}`);
+                  });
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {pill.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Action Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 text-xs">
           <div className="text-slate-500 font-bold">
@@ -163,6 +268,16 @@ export function CRMContactList({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              title="Export filtered constituents to CSV"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors"
+            >
+              <Download size={13} />
+              Export CSV
+            </button>
+
             <button
               type="button"
               onClick={handleSyncData}
