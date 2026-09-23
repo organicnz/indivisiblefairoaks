@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { AccountButton } from '@/components/layout/AccountButton';
 import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
 
 const NAV_LINKS = [
@@ -147,6 +148,10 @@ function HeaderInner() {
               <span>Donate</span>
             </Link>
 
+            <div className="hidden lg:block">
+              <AccountButton />
+            </div>
+
             {/* Mobile Menu Button */}
             <button
               type="button"
@@ -233,6 +238,13 @@ function HeaderInner() {
         </nav>
 
         <div className="mt-auto pt-6 border-t border-white/10 flex flex-col gap-4">
+          <Link
+            href="/account"
+            onClick={() => setIsMenuOpen(false)}
+            className="w-full py-3 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 text-slate-200 hover:text-white font-bold text-center text-sm uppercase tracking-wider transition-colors"
+          >
+            My Account / Sign In
+          </Link>
           <Link
             href="/donate"
             onClick={() => setIsMenuOpen(false)}
