@@ -122,6 +122,18 @@ jobs:
           fi
           supabase --version
 
+      - name: Dry-run migration push (diagnostic)
+        # Read-only: compares local vs remote history without applying.
+        # dry-run ✓ + push ✗ ⇒ secret and network are fine, fault is
+        # apply-phase migration state. dry-run ✗ ⇒ auth or connectivity.
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase db push --dry-run \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+
       - name: Push Database Migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
