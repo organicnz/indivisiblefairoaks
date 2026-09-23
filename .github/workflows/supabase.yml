@@ -29,6 +29,8 @@ concurrency:
 env:
   SUPABASE_PROJECT_REF: mojsubkqjdruhpxbzgme
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  # Pinned bun for the Management-API applier — same line as ci.yml.
+  BUN_VERSION: "1.4.2"
 
 jobs:
   # ── 1. Deploy all edge functions ─────────────────────────────────────────
@@ -139,14 +141,19 @@ jobs:
             echo "Direct DB unreachable (IPv6-only host) — pushing via pooler --db-url"
             echo "route=pooler" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::Direct DB unreachable (host is IPv6-only, runner has no route) and SUPABASE_POOLER_URL is not set. Fix runner IPv6 egress, or enable Connection Pooling in Supabase dashboard and store its pooler URL (percent-encoded) as SUPABASE_POOLER_URL."
-            exit 1
+            # No CLI route — the Management-API applier below still converges
+            # the schema, so warn (visible) instead of failing. route=none
+            # skips the CLI steps via their `if:` gates.
+            echo "::warning::Direct DB unreachable (host is IPv6-only, runner has no route) and SUPABASE_POOLER_URL is not set — CLI push skipped, Management-API applier takes over."
+            echo "route=none" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Dry-run migration push (diagnostic)
         # Read-only: compares local vs remote history without applying.
         # dry-run ✓ + push ✗ ⇒ secret and network are fine, fault is
         # apply-phase migration state. dry-run ✗ ⇒ auth fault.
+        # Skipped entirely when no CLI route exists (see route step).
+        if: steps.route.outputs.route != 'none'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -161,6 +168,8 @@ jobs:
           fi
 
       - name: Push Database Migrations
+        # Skipped when no CLI route exists — the API applier below converges.
+        if: steps.route.outputs.route != 'none'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -177,6 +186,23 @@ jobs:
           supabase db push \
             --project-ref "$SUPABASE_PROJECT_REF" \
             --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Setup bun (for API applier)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Apply migrations via Management API (fallback)
+        # Authoritative converger: runs whenever earlier steps are skipped
+        # or soft-failed, no-ops when nothing is pending, hard-fails on any
+        # real discrepancy. Runs on `always()` so a dead CLI route never
+        # blocks schema delivery. Needs only HTTPS egress + the existing
+        # SUPABASE_ACCESS_TOKEN.
+        if: always()
+        env:
+          SUPABASE_PROJECT_REF: ${{ env.SUPABASE_PROJECT_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: bun scripts/apply-migrations.mjs
 
   # ── 3. Post-deploy verification (fail loudly if a function is missing) ─────
   verify:
