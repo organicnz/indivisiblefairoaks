@@ -105,7 +105,7 @@ TypeScript 6 is a bridge release (deprecations only) — skip it.
 
 ## Agent Skills
 
-Skills are installed in `agent/skills/` (Vercel) and `.agents/skills/` (vgpu), pinned in `skills-lock.json`.
+Skills are installed in `.agents/skills/` (symlinked for discovery at `.claude/skills/`), pinned in `skills-lock.json`.
 Load on demand — do not load all skills upfront, do not re-install manually.
 
 Full usage guide with project-specific context for each skill: **[SKILLS.md](./SKILLS.md)**
