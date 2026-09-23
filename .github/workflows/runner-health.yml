@@ -135,6 +135,12 @@ jobs:
           echo "  RAM:    $(free -h | awk '/Mem:/{print $2}')"
           echo "  Swap:   $(free -h | awk '/Swap:/{print $2}')"
           echo "  Disk:   $(df -h / | awk 'NR==2{print $4" free"}')"
+          FREE_GB=$(df -m / | awk 'NR==2{printf "%d", $4/1024}')
+          if [ "$FREE_GB" -lt 2 ]; then
+            echo "::error::frontend-runner disk critically low (${FREE_GB} GB free) — builds, browser installs, and log uploads will fail. Free space on the host."
+            exit 1
+          fi
+          [ "$FREE_GB" -lt 5 ] && echo "::warning::frontend-runner disk getting low (${FREE_GB} GB free)"
           echo "  Bun:    $(bun --version 2>/dev/null || echo 'not installed')"
           echo "  Node:   $(node --version 2>/dev/null || echo 'not installed')"
 
@@ -152,6 +158,12 @@ jobs:
           echo "  CPU:     $(nproc) cores"
           echo "  RAM:     $(free -h | awk '/Mem:/{print $2}')"
           echo "  Swap:    $(free -h | awk '/Swap:/{print $2}')"
-          echo "  Disk:    $(df -h / | awk 'NR==2{print $4" free"}')"
+          echo "  Disk:   $(df -h / | awk 'NR==2{print $4" free"}')"
+          FREE_GB=$(df -m / | awk 'NR==2{printf "%d", $4/1024}')
+          if [ "$FREE_GB" -lt 2 ]; then
+            echo "::error::backend-runner disk critically low (${FREE_GB} GB free) — deploys and log uploads will fail. Free space on the host."
+            exit 1
+          fi
+          [ "$FREE_GB" -lt 5 ] && echo "::warning::backend-runner disk getting low (${FREE_GB} GB free)"
           echo "  Supabase: $(supabase --version 2>/dev/null || echo 'not installed')"
           echo "  Bun:     $(bun --version 2>/dev/null || echo 'not installed')"

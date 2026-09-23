@@ -82,7 +82,7 @@ jobs:
       - name: Build
         run: bun run build
 
-      # Upload the build artefact so the E2E job and the deploy job reuse it
+      # Upload the build artefact so the E2E job reuses it
       # instead of building a second time.
       - name: Upload build artefact
         uses: actions/upload-artifact@v4
@@ -177,9 +177,11 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "✅ Deployed: $URL"
 
-  # ── 6. Live Health Probe (Vercel deployment only) ───────────────────────────
-  # Supabase edge-function delivery + verification lives in the dedicated
-  # supabase.yml workflow (backend-runner) — never here.
+  # ── 6. Live Health Probe (production) ───────────────────────────────────────
+  # Production deploys natively via Vercel Git integration on every main
+  # push (the deploy-vercel job above only yields a spare preview). So verify
+  # what users actually hit. Custom domains are excluded from Deployment
+  # Protection — a 302/401 here IS a real failure, no bypass handling.
   health-probe:
     name: Live Health Probe
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
@@ -187,47 +189,26 @@ jobs:
     if: github.event_name == 'push'
     timeout-minutes: 5
     steps:
-      - name: Probe Vercel deployment
+      - name: Probe production deployment
         env:
-          # Optional: Vercel "Protection Bypass for Automation" secret.
-          # Without it, protection-gated preview deployments cannot be
-          # probed unauthenticated — the step skips instead of failing.
-          VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
+          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
         run: |
-          URL="${{ needs.deploy-vercel.outputs.url }}"
-          if [ -z "$URL" ]; then
-            echo "No deployment URL — skipping probe"
-            exit 0
-          fi
-          EXTRA_ARGS=()
-          if [ -n "$VERCEL_PROTECTION_BYPASS" ]; then
-            EXTRA_ARGS=(-H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS")
-          fi
-          # Allow up to 90 s for the deployment to warm up
+          URL="${SITE_URL:-https://indivisiblefairoaks.org}"
+          URL="${URL%/}"
+          # Allow up to 90 s for the Git-driven production deploy to settle
           for i in $(seq 1 9); do
-            STATUS=$(curl -o /dev/null -sw '%{http_code}' "${EXTRA_ARGS[@]}" "${URL}/api/health" || echo 000)
+            STATUS=$(curl -o /dev/null -sw '%{http_code}' "${URL}/api/health" || echo 000)
             echo "Attempt $i: HTTP $STATUS"
             # 200 = healthy. 503 = serving but degraded (DB blip) — the
             # deploy is up, so that passes; the warning flags the DB side.
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
-              echo "✅ Deployment is serving (HTTP $STATUS)"
+              echo "✅ Production is serving (HTTP $STATUS)"
               if [ "$STATUS" = "503" ]; then
                 echo "::warning::/api/health reports degraded — check Supabase, not the deploy"
               fi
               exit 0
             fi
-            # Vercel Deployment Protection (preview): unauthenticated probes
-            # get 302/401/403 by design. Without a bypass secret there is
-            # nothing to verify — skip instead of failing every push.
-            if [ -z "$VERCEL_PROTECTION_BYPASS" ]; then
-              case "$STATUS" in
-                302|401|403)
-                  echo "::warning::Preview deployment is protection-gated (HTTP $STATUS) and no VERCEL_PROTECTION_BYPASS secret is set — skipping probe. Add the Protection Bypass secret (Vercel dashboard → Settings → Deployment Protection) to verify previews."
-                  exit 0
-                  ;;
-              esac
-            fi
             sleep 10
           done
-          echo "❌ Health check failed after 90 s (last HTTP $STATUS)"
+          echo "❌ Production health check failed after 90 s (last HTTP $STATUS)"
           exit 1
