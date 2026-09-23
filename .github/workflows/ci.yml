@@ -173,7 +173,13 @@ jobs:
       - name: Deploy to Vercel
         id: deploy
         run: |
-          URL=$(vercel deploy --prebuilt ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }})
+          # stderr goes to a file: success path stays byte-identical, and on
+          # failure the CLI's message is surfaced via ::error:: (readable in
+          # run annotations) instead of vanishing with the log.
+          if ! URL=$(vercel deploy --prebuilt ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }} 2>/tmp/vercel-deploy.stderr); then
+            echo "::error::vercel deploy --prebuilt failed: $(cat /tmp/vercel-deploy.stderr)"
+            exit 1
+          fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "✅ Deployed: $URL"
 
