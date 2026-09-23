@@ -31,9 +31,9 @@ env:
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
 jobs:
-  # ── 1. Deploy all edge functions + push migrations ─────────────────────────
+  # ── 1. Deploy all edge functions ─────────────────────────────────────────
   deploy:
-    name: Deploy functions + migrations
+    name: Deploy edge functions
     runs-on: [self-hosted, linux, ARM64, backend-runner]
     timeout-minutes: 20
     steps:
@@ -103,6 +103,25 @@ jobs:
           supabase functions deploy walle-refresh \
             --project-ref "$SUPABASE_PROJECT_REF"
 
+  # ── 2. Push migrations (independent job) ─────────────────────────────────
+  # Deliberately NOT a dependency of verification: function delivery must be
+  # verified even when migration push is blocked (e.g. missing DB secret),
+  # and vice versa. Each job reports its own signal.
+  migrate:
+    name: Push database migrations
+    runs-on: [self-hosted, linux, ARM64, backend-runner]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        run: |
+          if ! command -v supabase &>/dev/null; then
+            curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_arm64.tar.gz \
+              | tar -xz -C /usr/local/bin supabase
+          fi
+          supabase --version
+
       - name: Push Database Migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -116,7 +135,7 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --password "$SUPABASE_DB_PASSWORD"
 
-  # ── 2. Post-deploy verification (fail loudly if a function is missing) ─────
+  # ── 3. Post-deploy verification (fail loudly if a function is missing) ─────
   verify:
     name: Verify live edge functions
     runs-on: [self-hosted, linux, ARM64, backend-runner]

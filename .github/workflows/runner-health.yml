@@ -13,15 +13,20 @@ concurrency:
 
 jobs:
   # ── Check both runners are alive via the GitHub API ─────────────────────────
+  # Precision layer only: the smoke jobs below are the primary liveness
+  # signal and run independently (no gate). If this API check cannot run
+  # (e.g. token without Administration:read) it degrades to a warning —
+  # a blind spot, never a false red. If it CAN run and a runner is offline,
+  # it fails loudly by name.
   check-runners:
     name: Verify runners online
     # Self-hosted ONLY per repo policy (no github-hosted runners anywhere).
-    # Runs on backend-runner; the smoke jobs below prove each runner
-    # independently. If backend-runner itself is down this job queues —
+    # Runs on backend-runner; if backend itself is down this job QUEUES —
     # which is itself the alert (visible as "queued" in Actions).
     runs-on: [self-hosted, linux, ARM64, backend-runner]
     timeout-minutes: 5
     outputs:
+      api_ok: ${{ steps.check.outputs.api_ok }}
       frontend_status: ${{ steps.check.outputs.frontend_status }}
       backend_status: ${{ steps.check.outputs.backend_status }}
       all_ok: ${{ steps.check.outputs.all_ok }}
@@ -47,14 +52,18 @@ jobs:
           # Listing runners needs Administration:read, which the default
           # GITHUB_TOKEN lacks. Prefer a fine-grained PAT stored as
           # RUNNERS_TOKEN (Administration → Read-only); fall back to the
-          # default token and fail with instructions if the API refuses.
+          # default token and degrade to a warning if the API refuses —
+          # the smoke jobs remain the source of truth.
           GH_TOKEN: ${{ secrets.RUNNERS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           if ! RUNNERS=$(gh api "repos/${{ github.repository }}/actions/runners" \
             --jq '[.runners[] | {name, status, busy, labels: [.labels[].name | select(. != "self-hosted" and . != "linux" and . != "ARM64" and . != "X64")]}]'); then
-            echo "::error::Cannot list runners — the token lacks Administration:read. Create a fine-grained PAT (Administration → Read-only, this repo only), save it as the RUNNERS_TOKEN secret, and re-run."
-            exit 1
+            echo "::warning::Cannot list runners — token lacks Administration:read. Create a fine-grained PAT (Administration → Read-only, this repo only) as RUNNERS_TOKEN for precise per-runner status; smoke jobs below are the liveness signal meanwhile."
+            echo "api_ok=false" >> "$GITHUB_OUTPUT"
+            echo "all_ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "api_ok=true" >> "$GITHUB_OUTPUT"
 
           echo "Registered runners:"
           echo "$RUNNERS" | jq -r '.[] | "  \(.name): \(.status) (busy=\(.busy))"'
@@ -91,7 +100,9 @@ jobs:
           done
 
       - name: Fail if any runner offline
-        if: steps.check.outputs.all_ok != 'true'
+        # Only when the API actually answered — without data this step must
+        # not fire (the smokes carry the signal instead).
+        if: steps.check.outputs.api_ok == 'true' && steps.check.outputs.all_ok != 'true'
         run: |
           echo "::error::One or more self-hosted runners are offline or unregistered."
           echo ""
@@ -106,11 +117,12 @@ jobs:
           exit 1
 
   # ── Smoke-test: queue a real job on each runner ─────────────────────────────
+  # PRIMARY liveness signal: intentionally independent of check-runners (no
+  # needs-gate). A dead runner shows here as a hung/failing smoke; a healthy
+  # one proves itself even when the registration API is unreachable.
   smoke-frontend:
     name: Smoke test — frontend-runner
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
-    needs: check-runners
-    if: needs.check-runners.outputs.all_ok == 'true'
     timeout-minutes: 3
     steps:
       - name: Runner is alive
@@ -129,8 +141,6 @@ jobs:
   smoke-backend:
     name: Smoke test — backend-runner
     runs-on: [self-hosted, linux, ARM64, backend-runner]
-    needs: check-runners
-    if: needs.check-runners.outputs.all_ok == 'true'
     timeout-minutes: 3
     steps:
       - name: Runner is alive
