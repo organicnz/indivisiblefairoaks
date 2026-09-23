@@ -33,4 +33,24 @@ test.describe('navbar account entry', () => {
     await expect(account).toBeVisible();
     await expect(account).toHaveAttribute('href', '/account');
   });
+
+  test('lg viewport (1024) uses drawer and the header row never overflows', async ({ page }) => {
+    // 9 links + actions measure ~1080px — wider than the 1024 viewport —
+    // so the full nav only renders at xl+. Guard against regressions that
+    // push action buttons off-screen.
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await page.goto('/');
+    await page.waitForLoadState('load');
+
+    await expect(page.getByRole('button', { name: 'Open navigation menu' })).toBeVisible();
+
+    const overflow = await page.evaluate(() => {
+      const row = document.querySelector('header > div > div');
+      if (!row) return 'no-row';
+      return (row as HTMLElement).scrollWidth <= (row as HTMLElement).clientWidth + 1
+        ? 'fits'
+        : `overflow ${(row as HTMLElement).scrollWidth - (row as HTMLElement).clientWidth}px`;
+    });
+    expect(overflow).toBe('fits');
+  });
 });

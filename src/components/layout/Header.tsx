@@ -53,7 +53,7 @@ function HeaderFallback() {
             </span>
           </div>
         </div>
-        <div className="hidden lg:flex items-center gap-8">
+        <div className="hidden xl:flex items-center gap-8">
           {NAV_LINKS.map((link) => (
             <span
               key={link.name}
@@ -115,8 +115,10 @@ function HeaderInner() {
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
+          {/* Desktop Navigation — full link row only fits at xl+ (measured:
+              9 links + actions overflow 1024–1280px). Below xl the drawer
+              serves all links + account. */}
+          <nav className="hidden xl:flex items-center gap-5 2xl:gap-8">
             {NAV_LINKS.map((link) => {
               const isActive = pathname === link.href;
               return (
@@ -148,14 +150,14 @@ function HeaderInner() {
               <span>Donate</span>
             </Link>
 
-            <div className="hidden lg:block">
+            <div className="hidden xl:block">
               <AccountButton />
             </div>
 
             {/* Mobile Menu Button */}
             <button
               type="button"
-              className="lg:hidden p-2 rounded-lg text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+              className="xl:hidden p-2 rounded-lg text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
               onClick={() => setIsMenuOpen(true)}
               aria-label="Open navigation menu"
               aria-expanded={isMenuOpen}
@@ -168,7 +170,7 @@ function HeaderInner() {
 
       {/* Mobile Drawer */}
       <div
-        className={`fixed inset-0 z-[100] bg-slate-950/98 flex flex-col p-6 sm:p-8 lg:hidden transition-transform duration-300 ease-out ${
+        className={`fixed inset-0 z-[100] bg-slate-950/98 flex flex-col p-6 sm:p-8 xl:hidden transition-transform duration-300 ease-out ${
           isMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
