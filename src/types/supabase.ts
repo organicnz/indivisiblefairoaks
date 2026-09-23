@@ -1004,10 +1004,10 @@ export type Database = {
       validate_coupon: {
         Args: { p_code: string }
         Returns: {
-          valid: boolean
-          discount_type: string
           amount: number
+          discount_type: string
           expiry_date: string
+          valid: boolean
         }[]
       }
     }
