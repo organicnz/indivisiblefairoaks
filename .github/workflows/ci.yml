@@ -134,64 +134,23 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-  # ── 5. Deploy to Vercel ───────────────────────────────────────────────────────
-  deploy-vercel:
-    name: Deploy → Vercel
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
-    # Gated on green E2E: nothing ships to Vercel with a red suite.
-    needs: [build, e2e]
-    timeout-minutes: 20
-    # Only deploy on push (not on PR) for main/mainDeploy
-    if: github.event_name == 'push'
-    outputs:
-      url: ${{ steps.deploy.outputs.url }}
-    environment:
-      name: ${{ github.ref_name == 'mainDeploy' && 'production' || 'preview' }}
-      url: ${{ steps.deploy.outputs.url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      # NOTE: the next-build artefact is for the E2E job only. `vercel build`
-      # below always rebuilds from source, so downloading it here would be
-      # pure waste — don't re-add a download step.
-      - name: Install Vercel CLI
-        run: bun add -g vercel@59
-
-      - name: Pull Vercel environment
-        run: vercel pull --yes --environment=${{ github.ref_name == 'mainDeploy' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build for Vercel
-        run: vercel build ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to Vercel
-        id: deploy
-        run: |
-          # stdout stays captured (success path byte-identical), stderr goes to
-          # a file. On failure BOTH are surfaced: vercel prints its banner to
-          # stderr but the actual error may land on either stream.
-          if ! URL=$(vercel deploy --prebuilt ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }} 2>/tmp/vercel-deploy.stderr); then
-            echo "::error::vercel deploy --prebuilt failed. stdout: $URL --- stderr: $(cat /tmp/vercel-deploy.stderr)"
-            exit 1
-          fi
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "✅ Deployed: $URL"
-
-  # ── 6. Live Health Probe (production) ───────────────────────────────────────
+  # ── 5. Live Health Probe (production) ───────────────────────────────────────
   # Production deploys natively via Vercel Git integration on every main
-  # push (the deploy-vercel job above only yields a spare preview). So verify
-  # what users actually hit. Custom domains are excluded from Deployment
-  # Protection — a 302/401 here IS a real failure, no bypass handling.
+  # push (PRs get native previews too), so verify what users actually hit.
+  # Custom domains are excluded from Deployment Protection — a 302/401 here
+  # IS a real failure, no bypass handling.
+  #
+  # NOTE: a CLI deploy-vercel job used to live here. Removed: it only
+  # produced spare preview duplicates while production shipped via git, it
+  # doubled upload consumption, and the free-tier upload API rate-limited
+  # it (api-upload-free) into permanent red. Don't re-add it.
   health-probe:
     name: Live Health Probe
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
-    needs: [deploy-vercel]
+    # CI build completion is the sync point: by then the Git-driven
+    # production deploy (~3-4 min) is settled or nearly so; the 90 s
+    # retry loop below absorbs the remainder.
+    needs: [build]
     if: github.event_name == 'push'
     timeout-minutes: 5
     steps:
