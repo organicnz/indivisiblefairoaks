@@ -122,37 +122,54 @@ jobs:
           fi
           supabase --version
 
-      - name: Check DB TCP reachability (diagnostic)
+      - name: Select DB route (diagnostic)
         # The direct DB host is IPv6-only (no A record). If the runner has
-        # no IPv6 route, db push can never work from here regardless of
-        # credentials. reach ✓ + dry-run ✗ ⇒ wrong password (auth).
-        # reach ✗ ⇒ network fault — fix runner IPv6 egress or switch the
-        # push to a pooler --db-url.
+        # no IPv6 route, direct push can never work — fall back to a pooler
+        # URL when provided, else fail with instructions. One binary signal:
+        # route=direct|pooler ⇒ network OK (auth tested next); this step
+        # red ⇒ network fault, credentials never even tried.
+        id: route
+        env:
+          SUPABASE_POOLER_URL: ${{ secrets.SUPABASE_POOLER_URL }}
         run: |
           if timeout 10 bash -c "cat < /dev/null > /dev/tcp/db.${SUPABASE_PROJECT_REF}.supabase.co/5432"; then
-            echo "✅ TCP 5432 reachable — network path OK"
+            echo "✅ Direct DB reachable — pushing via project-ref"
+            echo "route=direct" >> "$GITHUB_OUTPUT"
+          elif [ -n "$SUPABASE_POOLER_URL" ]; then
+            echo "Direct DB unreachable (IPv6-only host) — pushing via pooler --db-url"
+            echo "route=pooler" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::TCP connect to the direct DB failed — no usable route (host is IPv6-only)."
+            echo "::error::Direct DB unreachable (host is IPv6-only, runner has no route) and SUPABASE_POOLER_URL is not set. Fix runner IPv6 egress, or enable Connection Pooling in Supabase dashboard and store its pooler URL (percent-encoded) as SUPABASE_POOLER_URL."
             exit 1
           fi
 
       - name: Dry-run migration push (diagnostic)
         # Read-only: compares local vs remote history without applying.
         # dry-run ✓ + push ✗ ⇒ secret and network are fine, fault is
-        # apply-phase migration state. dry-run ✗ ⇒ auth or connectivity.
+        # apply-phase migration state. dry-run ✗ ⇒ auth fault.
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_POOLER_URL: ${{ secrets.SUPABASE_POOLER_URL }}
         run: |
-          supabase db push --dry-run \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --password "$SUPABASE_DB_PASSWORD"
+          if [ "${{ steps.route.outputs.route }}" = "pooler" ]; then
+            supabase db push --dry-run --db-url "$SUPABASE_POOLER_URL"
+          else
+            supabase db push --dry-run \
+              --project-ref "$SUPABASE_PROJECT_REF" \
+              --password "$SUPABASE_DB_PASSWORD"
+          fi
 
       - name: Push Database Migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_POOLER_URL: ${{ secrets.SUPABASE_POOLER_URL }}
         run: |
+          if [ "${{ steps.route.outputs.route }}" = "pooler" ]; then
+            supabase db push --db-url "$SUPABASE_POOLER_URL"
+            exit 0
+          fi
           if [ -z "$SUPABASE_DB_PASSWORD" ]; then
             echo "::error::SUPABASE_DB_PASSWORD secret is not set — migrations cannot be pushed. Add it (Supabase dashboard → Project Settings → Database → database password) and re-run."
             exit 1
