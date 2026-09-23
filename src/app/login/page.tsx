@@ -1,16 +1,6 @@
 'use client';
 
-import {
-  ArrowRight,
-  Code,
-  Eye,
-  EyeOff,
-  Fingerprint,
-  Globe,
-  Loader2,
-  Lock,
-  Shield,
-} from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Fingerprint, Globe, Loader2, Lock, Shield } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
@@ -124,7 +114,10 @@ function LoginForm() {
     }
   };
 
-  const handleOAuth = async (provider: 'google' | 'github') => {
+  // NOTE: Google is currently the only enabled OAuth provider server-side
+  // (Supabase Auth settings). Re-add 'github' here AND its button below if
+  // the GitHub provider is ever enabled in the dashboard.
+  const handleOAuth = async (provider: 'google') => {
     setLoading(true);
     const callbackUrl = targetNext
       ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(targetNext)}`
@@ -339,20 +332,13 @@ function LoginForm() {
                 <div className="h-px bg-slate-100 flex-1" />
               </div>
 
-              <div className="grid grid-cols-2 gap-5">
+              <div>
                 <button
                   type="button"
                   onClick={() => handleOAuth('google')}
-                  className="flex items-center justify-center gap-4 py-5 bg-white border border-slate-100 rounded-3xl hover:border-primary hover:bg-slate-50 transition-all text-[10px] font-black text-secondary uppercase tracking-[0.2em] group shadow-sm active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-4 py-5 bg-white border border-slate-100 rounded-3xl hover:border-primary hover:bg-slate-50 transition-all text-[10px] font-black text-secondary uppercase tracking-[0.2em] group shadow-sm active:scale-[0.98]"
                 >
                   <Globe size={18} className="group-hover:text-primary transition-colors" /> Google
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleOAuth('github')}
-                  className="flex items-center justify-center gap-4 py-5 bg-white border border-slate-100 rounded-3xl hover:border-primary hover:bg-slate-50 transition-all text-[10px] font-black text-secondary uppercase tracking-[0.2em] group shadow-sm active:scale-[0.98]"
-                >
-                  <Code size={18} className="group-hover:text-primary transition-colors" /> Github
                 </button>
               </div>
             </div>
