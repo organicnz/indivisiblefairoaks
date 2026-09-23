@@ -17,18 +17,21 @@ env:
   NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
   # Private server-only vars
   SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+  # Pin bun — bump deliberately. Floor is package.json engines (bun >= 1.4.0).
+  BUN_VERSION: "1.4.2"
 
 jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -46,12 +49,13 @@ jobs:
   test:
     name: Tests & Coverage
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -64,12 +68,13 @@ jobs:
     name: Next.js Build
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
     needs: [lint, test]
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -94,12 +99,13 @@ jobs:
     name: E2E Tests
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
     needs: [build]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -110,7 +116,10 @@ jobs:
           name: next-build
 
       - name: Install Playwright browsers
-        run: bunx playwright install --with-deps chromium
+        # No --with-deps: OS dependencies are baked into the runner image and
+        # persist system-wide. Re-add --with-deps after a runner rebuild if
+        # browsers fail to launch with missing shared libraries.
+        run: bunx playwright install chromium
 
       - name: Run E2E tests
         run: bunx playwright test
@@ -129,7 +138,9 @@ jobs:
   deploy-vercel:
     name: Deploy → Vercel
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
-    needs: [build]
+    # Gated on green E2E: nothing ships to Vercel with a red suite.
+    needs: [build, e2e]
+    timeout-minutes: 20
     # Only deploy on push (not on PR) for main/mainDeploy
     if: github.event_name == 'push'
     outputs:
@@ -142,18 +153,16 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Download build artefact
-        uses: actions/download-artifact@v4
-        with:
-          name: next-build
-
+      # NOTE: the next-build artefact is for the E2E job only. `vercel build`
+      # below always rebuilds from source, so downloading it here would be
+      # pure waste — don't re-add a download step.
       - name: Install Vercel CLI
-        run: bun add -g vercel@latest
+        run: bun add -g vercel@59
 
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=${{ github.ref_name == 'mainDeploy' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
@@ -176,23 +185,49 @@ jobs:
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
     needs: [deploy-vercel]
     if: github.event_name == 'push'
+    timeout-minutes: 5
     steps:
       - name: Probe Vercel deployment
+        env:
+          # Optional: Vercel "Protection Bypass for Automation" secret.
+          # Without it, protection-gated preview deployments cannot be
+          # probed unauthenticated — the step skips instead of failing.
+          VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
         run: |
           URL="${{ needs.deploy-vercel.outputs.url }}"
           if [ -z "$URL" ]; then
             echo "No deployment URL — skipping probe"
             exit 0
           fi
+          EXTRA_ARGS=()
+          if [ -n "$VERCEL_PROTECTION_BYPASS" ]; then
+            EXTRA_ARGS=(-H "x-vercel-protection-bypass: $VERCEL_PROTECTION_BYPASS")
+          fi
           # Allow up to 90 s for the deployment to warm up
           for i in $(seq 1 9); do
-            STATUS=$(curl -o /dev/null -sw '%{http_code}' "${URL}/api/health" || echo 000)
+            STATUS=$(curl -o /dev/null -sw '%{http_code}' "${EXTRA_ARGS[@]}" "${URL}/api/health" || echo 000)
             echo "Attempt $i: HTTP $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "✅ Health check passed"
+            # 200 = healthy. 503 = serving but degraded (DB blip) — the
+            # deploy is up, so that passes; the warning flags the DB side.
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
+              echo "✅ Deployment is serving (HTTP $STATUS)"
+              if [ "$STATUS" = "503" ]; then
+                echo "::warning::/api/health reports degraded — check Supabase, not the deploy"
+              fi
               exit 0
+            fi
+            # Vercel Deployment Protection (preview): unauthenticated probes
+            # get 302/401/403 by design. Without a bypass secret there is
+            # nothing to verify — skip instead of failing every push.
+            if [ -z "$VERCEL_PROTECTION_BYPASS" ]; then
+              case "$STATUS" in
+                302|401|403)
+                  echo "::warning::Preview deployment is protection-gated (HTTP $STATUS) and no VERCEL_PROTECTION_BYPASS secret is set — skipping probe. Add the Protection Bypass secret (Vercel dashboard → Settings → Deployment Protection) to verify previews."
+                  exit 0
+                  ;;
+              esac
             fi
             sleep 10
           done
-          echo "❌ Health check failed after 90 s"
+          echo "❌ Health check failed after 90 s (last HTTP $STATUS)"
           exit 1

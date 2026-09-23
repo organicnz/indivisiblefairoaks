@@ -11,17 +11,34 @@ concurrency:
 
 jobs:
   refresh:
-    runs-on: ubuntu-latest
+    # Self-hosted ONLY per repo policy (no github-hosted runners anywhere).
+    runs-on: [self-hosted, linux, ARM64, backend-runner]
     timeout-minutes: 5
     steps:
       - name: Refresh public knowledge snapshot
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # NOTE: there are no SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY repo
+          # secrets — reuse the canonical public URL + service-role secret.
+          # The edge function accepts `Authorization: Bearer <service key>`.
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: |
-          test -n "$SUPABASE_URL"
-          test -n "$SUPABASE_SERVICE_ROLE_KEY"
-          curl --fail-with-body --retry 3 --retry-delay 5 \
+          test -n "$SUPABASE_URL" || { echo "::error::NEXT_PUBLIC_SUPABASE_URL secret is empty"; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::SUPABASE_SECRET_KEY secret is empty"; exit 1; }
+          HTTP=$(curl -s -o /tmp/walle-refresh.json -w '%{http_code}' \
+            --retry 3 --retry-delay 5 \
             -X POST "$SUPABASE_URL/functions/v1/walle-refresh" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Content-Type: application/json"
+            -H 'Content-Type: application/json' \
+            -d '{}' || echo 000)
+          cat /tmp/walle-refresh.json || true
+          echo "walle-refresh → HTTP $HTTP"
+          if [ "$HTTP" = "401" ]; then
+            echo "::error::Unauthorized — the edge function's SUPABASE_SERVICE_ROLE_KEY differs from the SUPABASE_SECRET_KEY repo secret. Sync edge secrets and re-run."
+            exit 1
+          fi
+          if [ "$HTTP" != "200" ]; then
+            echo "::error::Refresh failed with HTTP $HTTP"
+            exit 1
+          fi
+          echo "✅ Knowledge snapshot refreshed"

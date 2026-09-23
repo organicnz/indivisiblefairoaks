@@ -1,10 +1,10 @@
 name: Runner Health
 
-# Runs every 10 minutes — catches offline runners before a real CI job queues
+# Runs every 30 minutes — catches offline runners before a real CI job queues
 # and sits there forever. Also runs on demand.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -20,6 +20,7 @@ jobs:
     # independently. If backend-runner itself is down this job queues —
     # which is itself the alert (visible as "queued" in Actions).
     runs-on: [self-hosted, linux, ARM64, backend-runner]
+    timeout-minutes: 5
     outputs:
       frontend_status: ${{ steps.check.outputs.frontend_status }}
       backend_status: ${{ steps.check.outputs.backend_status }}
@@ -32,16 +33,28 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y -qq gh
           fi
+          if ! command -v jq &>/dev/null; then
+            echo "jq not found — installing via apt"
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq jq
+          fi
           gh --version
           jq --version
 
       - name: Check runner registration + status
         id: check
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Listing runners needs Administration:read, which the default
+          # GITHUB_TOKEN lacks. Prefer a fine-grained PAT stored as
+          # RUNNERS_TOKEN (Administration → Read-only); fall back to the
+          # default token and fail with instructions if the API refuses.
+          GH_TOKEN: ${{ secrets.RUNNERS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          RUNNERS=$(gh api repos/${{ github.repository }}/actions/runners \
-            --jq '[.runners[] | {name, status, busy, labels: [.labels[].name | select(. != "self-hosted" and . != "linux" and . != "ARM64" and . != "X64")]}]')
+          if ! RUNNERS=$(gh api "repos/${{ github.repository }}/actions/runners" \
+            --jq '[.runners[] | {name, status, busy, labels: [.labels[].name | select(. != "self-hosted" and . != "linux" and . != "ARM64" and . != "X64")]}]'); then
+            echo "::error::Cannot list runners — the token lacks Administration:read. Create a fine-grained PAT (Administration → Read-only, this repo only), save it as the RUNNERS_TOKEN secret, and re-run."
+            exit 1
+          fi
 
           echo "Registered runners:"
           echo "$RUNNERS" | jq -r '.[] | "  \(.name): \(.status) (busy=\(.busy))"'
@@ -68,9 +81,13 @@ jobs:
         run: |
           # Runs on a self-hosted runner inside the Tailscale network, so
           # these probes return real health data (not silent skips).
+          # Informational only — a changed Tailscale IP must not fail CI.
           for IP in "100.92.38.119" "100.99.241.23"; do
             RESULT=$(curl -fsSL --max-time 5 "http://${IP}:9100" 2>/dev/null || echo '{"ok":false,"error":"unreachable"}')
             echo "  ${IP}: $RESULT"
+            case "$RESULT" in
+              *unreachable*) echo "::warning::Runner host ${IP}:9100 unreachable — verify the Tailscale IP is current" ;;
+            esac
           done
 
       - name: Fail if any runner offline
