@@ -39,13 +39,20 @@ describe('rateLimit()', () => {
 });
 
 describe('clientKey()', () => {
-  it('prefers the first x-forwarded-for hop', () => {
-    const headers = new Headers({ 'x-forwarded-for': '203.0.113.9, 70.41.3.2' });
-    expect(clientKey(headers, 'checkout')).toBe('checkout:203.0.113.9');
+  it('prefers x-real-ip (unspoofable on Vercel) over forwarded headers', () => {
+    const headers = new Headers({
+      'x-forwarded-for': '203.0.113.9, 70.41.3.2',
+      'x-real-ip': '70.41.3.2',
+    });
+    expect(clientKey(headers, 'checkout')).toBe('checkout:70.41.3.2');
   });
 
-  it('falls back to x-real-ip then unknown', () => {
-    expect(clientKey(new Headers({ 'x-real-ip': '1.2.3.4' }), 'c')).toBe('c:1.2.3.4');
+  it('uses the last forwarded hop, never the spoofable first one', () => {
+    const headers = new Headers({ 'x-forwarded-for': '203.0.113.9, 70.41.3.2' });
+    expect(clientKey(headers, 'checkout')).toBe('checkout:70.41.3.2');
+  });
+
+  it('falls back to unknown', () => {
     expect(clientKey(new Headers(), 'c')).toBe('c:unknown');
   });
 });

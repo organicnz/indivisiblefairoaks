@@ -45,7 +45,16 @@ export function rateLimit(
 
 /** Best-effort client identity for rate-limit keys from request headers. */
 export function clientKey(headers: Headers, scope: string): string {
+  // Vercel overwrites x-real-ip with the true client IP (unspoofable).
+  // x-forwarded-for's FIRST entry is client-controlled — trusting it lets
+  // bots rotate identity per request. Fall back to the LAST forwarded entry
+  // (closest proxy) where x-real-ip is absent (non-Vercel environments).
   const forwarded = headers.get('x-forwarded-for');
-  const ip = forwarded?.split(',')[0]?.trim() || headers.get('x-real-ip') || 'unknown';
+  const entries =
+    forwarded
+      ?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean) ?? [];
+  const ip = headers.get('x-real-ip')?.trim() || entries[entries.length - 1] || 'unknown';
   return `${scope}:${ip}`;
 }

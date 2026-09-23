@@ -95,9 +95,12 @@ export async function submitContact(formData: FormData): Promise<ContactResult> 
     return { error: 'Message flagged as potential spam. Please revise.' };
   }
 
-  // 3 submissions / 10 minutes / IP (on top of the honeypot + keyword filter).
+  // 1 submission / 10 minutes / IP (on top of the honeypot + keyword filter).
+  // Deliberately strict: serverless isolates don't share in-memory counters,
+  // so a low per-instance limit is what actually throttles floods. Humans
+  // essentially never send two contact messages within ten minutes.
   // The cap is env-tunable so test harnesses can raise it without code forks.
-  const maxPerWindow = env.CONTACT_RATE_LIMIT_MAX ?? 3;
+  const maxPerWindow = env.CONTACT_RATE_LIMIT_MAX ?? 1;
   const gate = rateLimit(clientKey(await headers(), 'contact'), maxPerWindow, 10 * 60_000);
   if (!gate.ok) {
     return { error: `Too many messages sent. Please try again in ${gate.retryAfterSec}s.` };

@@ -37,7 +37,13 @@ const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'contact@indivisiblefair
 const TO_EMAIL = Deno.env.get('ADMIN_ORDER_EMAIL') ?? 'contact@indivisiblefairoaks.org'
 
 // Max notifications per rolling 10 minutes, globally.
-const NOTIFY_VOLUME_CAP = 20
+const NOTIFY_VOLUME_CAP = 5
+
+// Max notifications per UTC day, globally. The Resend free tier allows
+// 100 emails/day shared across contact notifications (up to 2 sends each),
+// auth mail, and order mail — cap contact notifications well below that so
+// a form flood can never exhaust the quota alone.
+const NOTIFY_DAILY_CAP = 15
 
 function supabaseAdmin() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -176,6 +182,22 @@ app.post('*', async (c) => {
     console.warn(`[contact:${id}] volume cap reached (${recent}/10min) — releasing claim, skipping sends`)
     await releaseClaim(id)
     return c.json({ ok: true, skipped: 'volume-cap' })
+  }
+
+  // Daily ceiling (see NOTIFY_DAILY_CAP): bot floods arrive faster than any
+  // rolling window throttles, so bound total sends per UTC day. Claimed rows
+  // are released — a later retry still sends nothing until the cap resets.
+  const startOfDay = new Date()
+  startOfDay.setUTCHours(0, 0, 0, 0)
+  const { count: sentToday } = await admin
+    .from('contact_submissions')
+    .select('id', { count: 'exact', head: true })
+    .gte('email_sent_at', startOfDay.toISOString())
+
+  if ((sentToday ?? 0) >= NOTIFY_DAILY_CAP) {
+    console.warn(`[contact:${id}] daily cap reached (${sentToday} sent today) — releasing claim, skipping sends`)
+    await releaseClaim(id)
+    return c.json({ ok: true, skipped: 'daily-cap' })
   }
 
   // Control-char hygiene before user data touches subjects, addresses, or

@@ -173,11 +173,11 @@ jobs:
       - name: Deploy to Vercel
         id: deploy
         run: |
-          # stderr goes to a file: success path stays byte-identical, and on
-          # failure the CLI's message is surfaced via ::error:: (readable in
-          # run annotations) instead of vanishing with the log.
+          # stdout stays captured (success path byte-identical), stderr goes to
+          # a file. On failure BOTH are surfaced: vercel prints its banner to
+          # stderr but the actual error may land on either stream.
           if ! URL=$(vercel deploy --prebuilt ${{ github.ref_name == 'mainDeploy' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }} 2>/tmp/vercel-deploy.stderr); then
-            echo "::error::vercel deploy --prebuilt failed: $(cat /tmp/vercel-deploy.stderr)"
+            echo "::error::vercel deploy --prebuilt failed. stdout: $URL --- stderr: $(cat /tmp/vercel-deploy.stderr)"
             exit 1
           fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
