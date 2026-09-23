@@ -81,6 +81,14 @@ function LoginForm() {
         });
       } else {
         if (isSignUp) {
+          // Match the reset flow's 8-char minimum for new passwords.
+          // Sign-in is deliberately unchecked: existing short passwords
+          // must keep working.
+          if (password.length < 8) {
+            setMessage({ type: 'error', text: '❌ Password must be at least 8 characters.' });
+            setLoading(false);
+            return;
+          }
           const { error } = await supabase.auth.signUp({
             email,
             password,

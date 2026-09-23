@@ -15,6 +15,11 @@ export interface SendEmailInput {
   from?: string;
   replyTo?: string;
   tags?: { name: string; value: string }[];
+  /**
+   * Custom RFC 5322 headers (e.g. List-Unsubscribe for bulk mail).
+   * Passed straight to the Resend API.
+   */
+  headers?: Record<string, string>;
 }
 
 export type SendEmailResult =
@@ -70,6 +75,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         html: input.html,
         text: input.text,
         ...(input.tags ? { tags: input.tags } : {}),
+        ...(input.headers ? { headers: input.headers } : {}),
       }),
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });

@@ -126,6 +126,32 @@ describe('Resend email utilities', () => {
       );
     });
 
+    it('passes custom RFC headers (e.g. List-Unsubscribe) through to Resend', async () => {
+      let requestBody: Record<string, unknown> = {};
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        requestBody = JSON.parse(options.body);
+        return {
+          ok: true,
+          json: async () => ({ id: 'email_headers_1' }),
+        } as Response;
+      });
+
+      const result = await sendEmail({
+        to: 'member@example.com',
+        subject: 'Broadcast',
+        html: '<p>Hi</p>',
+        text: 'Hi',
+        headers: {
+          'List-Unsubscribe': '<mailto:contact@indivisiblefairoaks.org?subject=Unsubscribe>',
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(requestBody.headers).toEqual({
+        'List-Unsubscribe': '<mailto:contact@indivisiblefairoaks.org?subject=Unsubscribe>',
+      });
+    });
+
     it('safely handles Resend API error responses without throwing', async () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,

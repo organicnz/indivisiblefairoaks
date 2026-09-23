@@ -419,19 +419,26 @@ export async function sendCRMBroadcast({
           <a href="https://indivisiblefairoaks.org" style="color:#60A5FA;text-decoration:none;">indivisiblefairoaks.org</a>
         </p>
       `.trim(),
-      footer: 'You received this community broadcast as a registered supporter or volunteer.',
+      footer:
+        'You received this community broadcast as a registered supporter or volunteer. Reply UNSUBSCRIBE to opt out.',
     });
 
     const res = await sendEmail({
       to: recipient.email,
       subject: cleanSubject,
       html,
-      text: `${body.trim()}\n\n--\nIndivisible Fair Oaks-Carmichael\nhttps://indivisiblefairoaks.org`,
+      text: `${body.trim()}\n\n--\nIndivisible Fair Oaks-Carmichael\nhttps://indivisiblefairoaks.org\n\nReply UNSUBSCRIBE to opt out of broadcasts.`,
       replyTo: env.ADMIN_ORDER_EMAIL || 'contact@indivisiblefairoaks.org',
       tags: [
         { name: 'type', value: 'crm-broadcast' },
         { name: 'broadcast_id', value: broadcast.id },
       ],
+      // Bulk-sender compliance (Gmail/Yahoo): List-Unsubscribe header plus
+      // an honest opt-out path in body/footer. Full one-click HTTPS
+      // unsubscribe is the follow-up if broadcast volume ever grows.
+      headers: {
+        'List-Unsubscribe': `<mailto:${env.ADMIN_ORDER_EMAIL || 'contact@indivisiblefairoaks.org'}?subject=${encodeURIComponent('Unsubscribe')}>`,
+      },
     });
 
     if (res.ok) {
