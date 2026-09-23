@@ -35,7 +35,7 @@ export async function getUserSettings(email: string): Promise<UserSettings> {
           return DEFAULT_SETTINGS;
         }
 
-        return { ...DEFAULT_SETTINGS, ...((data.settings as Record<string, unknown>) || {}) };
+        return { ...DEFAULT_SETTINGS, ...(data.settings as Record<string, unknown>) };
       } catch (err) {
         console.error('Error fetching settings from DB:', err);
         return DEFAULT_SETTINGS;

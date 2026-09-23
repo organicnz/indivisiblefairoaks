@@ -67,7 +67,7 @@ export async function updateUserSettingsAction(settings: Partial<UserSettings>) 
   }
 
   const updatedSettings = {
-    ...((profile?.settings as Record<string, unknown>) || {}),
+    ...(profile?.settings as Record<string, unknown>),
     ...filteredSettings,
   };
 

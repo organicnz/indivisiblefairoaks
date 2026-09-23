@@ -71,7 +71,7 @@ export const useSettingsStore = create<SettingsState>()(
               set({
                 settings: {
                   ...DEFAULT_SETTINGS,
-                  ...((emailData.settings as Record<string, unknown>) || {}),
+                  ...(emailData.settings as Record<string, unknown>),
                 },
               });
             }
@@ -79,7 +79,7 @@ export const useSettingsStore = create<SettingsState>()(
             set({
               settings: {
                 ...DEFAULT_SETTINGS,
-                ...((data.settings as Record<string, unknown>) || {}),
+                ...(data.settings as Record<string, unknown>),
               },
             });
           }

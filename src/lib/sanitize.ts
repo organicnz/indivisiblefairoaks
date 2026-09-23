@@ -81,10 +81,10 @@ export function isSpamContent(text: string): boolean {
   // Check for spam keywords
   const hasSpamKeyword = SPAM_KEYWORDS.some((kw) => lowerText.includes(kw));
 
-  // Check for non-Latin characters (strict ASCII check)
-  const hasNonLatin =
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional ASCII range check
-    /[^\x00-\x7F]/.test(text) && !lowerText.includes('indivisible');
+  // Check for non-ASCII characters (spam payloads often use homoglyph alphabets).
+  // \p{ASCII} covers U+0000–U+007F, identical to the old [^\x00-\x7F] range
+  // but written without control escapes so linters stay quiet.
+  const hasNonLatin = /[^\p{ASCII}]/u.test(text) && !lowerText.includes('indivisible');
 
   return hasSpamKeyword || hasNonLatin;
 }

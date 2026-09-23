@@ -139,6 +139,7 @@ export default function UpdatePasswordPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                   className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-secondary transition-colors"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -171,6 +172,9 @@ export default function UpdatePasswordPage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
+                  aria-label={
+                    showConfirm ? 'Hide password confirmation' : 'Show password confirmation'
+                  }
                   className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-secondary transition-colors"
                 >
                   {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
