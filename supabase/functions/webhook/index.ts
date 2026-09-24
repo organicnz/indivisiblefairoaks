@@ -416,15 +416,15 @@ function buildAddresses(session: Stripe.Checkout.Session) {
   const shipName = splitName(ship?.name)
 
   const billing = {
-    ...(cust?.address ?? {}),
+    ...cust?.address,
     ...custName,
-    ...(cust?.phone ? { phone: cust.phone } : {}),
-    ...(cust?.email ? { email: cust.email } : {}),
+    ...(cust?.phone && { phone: cust.phone }),
+    ...(cust?.email && { email: cust.email }),
   }
   const shipping = {
-    ...(ship?.address ?? {}),
+    ...ship?.address,
     ...shipName,
-    ...(cust?.email && !cust?.name && !ship?.name ? { email: cust.email } : {}),
+    ...(cust?.email && !cust?.name && !ship?.name && { email: cust.email }),
   }
 
   return [billing, shipping] as const
