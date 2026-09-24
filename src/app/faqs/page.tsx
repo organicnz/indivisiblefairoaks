@@ -65,7 +65,7 @@ export default function FAQPage() {
   ];
 
   return (
-    <main className="bg-slate-950 text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
+    <div className="bg-slate-950 text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
       <div className="max-w-3xl mx-auto">
         <div className="flex flex-col items-center text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
@@ -82,28 +82,33 @@ export default function FAQPage() {
         </div>
 
         <div className="space-y-12">
-          {faqs.map((group) => (
-            <section key={group.category} aria-labelledby={`faq-category-${group.category}`}>
-              <h2
-                id={`faq-category-${group.category}`}
-                className="text-xl font-bold text-amber-400 uppercase tracking-wider mb-6 flex items-center gap-3"
-              >
-                <span>{group.category}</span>
-                <div className="h-px bg-slate-800 flex-1" />
-              </h2>
-              <div className="space-y-4">
-                {group.questions.map((faq) => (
-                  <div
-                    key={faq.q}
-                    className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-2"
-                  >
-                    <h3 className="text-base sm:text-lg font-bold text-white">{faq.q}</h3>
-                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{faq.a}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
+          {faqs.map((group) => {
+            const categoryId = `faq-category-${group.category
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')}`;
+            return (
+              <section key={group.category} aria-labelledby={categoryId}>
+                <h2
+                  id={categoryId}
+                  className="text-xl font-bold text-amber-400 uppercase tracking-wider mb-6 flex items-center gap-3"
+                >
+                  <span>{group.category}</span>
+                  <div className="h-px bg-slate-800 flex-1" />
+                </h2>
+                <div className="space-y-4">
+                  {group.questions.map((faq) => (
+                    <div
+                      key={faq.q}
+                      className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-2"
+                    >
+                      <h3 className="text-base sm:text-lg font-bold text-white">{faq.q}</h3>
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{faq.a}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
 
         <div className="mt-16 text-center p-8 rounded-3xl bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-blue-500/30 space-y-4">
@@ -119,6 +124,6 @@ export default function FAQPage() {
           </Link>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

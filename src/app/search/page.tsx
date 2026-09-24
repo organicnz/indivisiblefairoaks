@@ -27,7 +27,7 @@ export const instant = false;
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const supabase = createPublicClient();
   const resolvedParams = await searchParams;
@@ -49,25 +49,26 @@ export default async function SearchPage({
     } else {
       // Fallback for schemas whose migrations have not applied yet
       // (fresh preview environments): the legacy ILIKE scan.
-      const { data: prodData } = await supabase
-        .from('products')
-        .select('id, name, slug, price, regular_price, sale_price, image_url, stock_status')
-        .ilike('name', `%${q}%`)
-        .eq('stock_status', 'instock')
-        .order('created_at', { ascending: false })
-        .limit(24);
+      const [prodResult, contentResult] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, name, slug, price, regular_price, sale_price, image_url, stock_status')
+          .ilike('name', `%${q}%`)
+          .eq('stock_status', 'instock')
+          .order('created_at', { ascending: false })
+          .limit(24),
+        supabase
+          .from('content')
+          .select('id, title, slug, type, created_at')
+          .eq('status', 'publish')
+          .or(
+            buildTextSearchOr([`title.ilike.%${q}%`, `body.ilike.%${q}%`], new Date().toISOString())
+          )
+          .limit(10),
+      ]);
 
-      const { data: contentData } = await supabase
-        .from('content')
-        .select('id, title, slug, type, created_at')
-        .eq('status', 'publish')
-        .or(
-          buildTextSearchOr([`title.ilike.%${q}%`, `body.ilike.%${q}%`], new Date().toISOString())
-        )
-        .limit(10);
-
-      products = prodData || [];
-      posts = contentData || [];
+      products = prodResult.data || [];
+      posts = contentResult.data || [];
     }
 
     posts = posts.filter((item) => !isSpamContent(item.title));

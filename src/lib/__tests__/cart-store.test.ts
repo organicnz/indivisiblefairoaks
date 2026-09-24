@@ -33,6 +33,20 @@ describe('useCartStore clamps', () => {
     expect(useCartStore.getState().items).toEqual([]);
   });
 
+  it('keeps different variations of the same product as separate lines', () => {
+    useCartStore.getState().addItem({ ...item(5, 1), productId: 5, variationId: 1 });
+    useCartStore.getState().addItem({ ...item(5, 1), productId: 5, variationId: 2 });
+    expect(useCartStore.getState().items).toHaveLength(2);
+  });
+
+  it('removes only the selected variation', () => {
+    useCartStore.getState().addItem({ ...item(6, 1), productId: 6, variationId: 1 });
+    useCartStore.getState().addItem({ ...item(6, 1), productId: 6, variationId: 2 });
+    useCartStore.getState().removeItem(6, 1);
+    expect(useCartStore.getState().items).toHaveLength(1);
+    expect(useCartStore.getState().items[0].variationId).toBe(2);
+  });
+
   it('updateQuantity never exceeds the cap', () => {
     useCartStore.getState().addItem(item(4, 5));
     useCartStore.getState().updateQuantity(4, 99999);

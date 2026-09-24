@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 
 export interface CartItem {
   id: number;
+  productId?: number;
+  variationId?: number | null;
   name: string;
   price: number;
   quantity: number;
@@ -13,8 +15,8 @@ export interface CartItem {
 interface CartState {
   items: CartItem[];
   addItem: (item: CartItem) => void;
-  removeItem: (id: number) => void;
-  updateQuantity: (id: number, quantity: number) => void;
+  removeItem: (id: number, variationId?: number | null) => void;
+  updateQuantity: (id: number, quantity: number, variationId?: number | null) => void;
   clearCart: () => void;
   totalItems: () => number;
   totalPrice: () => number;
@@ -22,18 +24,24 @@ interface CartState {
 
 export const MAX_ITEM_QUANTITY = 999;
 
+function sameLine(a: CartItem, id: number, variationId: number | null = null) {
+  return (a.productId ?? a.id) === id && (a.variationId ?? null) === variationId;
+}
+
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
       addItem: (item) => {
         const items = get().items;
-        const existingItem = items.find((i) => i.id === item.id);
+        const existingItem = items.find((i) =>
+          sameLine(i, item.productId ?? item.id, item.variationId ?? null)
+        );
 
         if (existingItem) {
           set({
             items: items.map((i) =>
-              i.id === item.id
+              sameLine(i, item.productId ?? item.id, item.variationId ?? null)
                 ? { ...i, quantity: Math.min(i.quantity + item.quantity, MAX_ITEM_QUANTITY) }
                 : i
             ),
@@ -44,15 +52,18 @@ export const useCartStore = create<CartState>()(
           });
         }
       },
-      removeItem: (id) => set({ items: get().items.filter((i) => i.id !== id) }),
-      updateQuantity: (id, quantity) => {
+      removeItem: (id, variationId = null) =>
+        set({ items: get().items.filter((i) => !sameLine(i, id, variationId)) }),
+      updateQuantity: (id, quantity, variationId = null) => {
         if (quantity < 1) {
-          set({ items: get().items.filter((i) => i.id !== id) });
+          set({ items: get().items.filter((i) => !sameLine(i, id, variationId)) });
           return;
         }
         set({
           items: get().items.map((i) =>
-            i.id === id ? { ...i, quantity: Math.min(quantity, MAX_ITEM_QUANTITY) } : i
+            sameLine(i, id, variationId)
+              ? { ...i, quantity: Math.min(quantity, MAX_ITEM_QUANTITY) }
+              : i
           ),
         });
       },

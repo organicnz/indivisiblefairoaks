@@ -14,6 +14,12 @@ function getStripe() {
   });
 }
 
+function getVerifiedUserId(session: Stripe.Checkout.Session): string | null {
+  const userId = session.client_reference_id || session.metadata?.userId;
+  if (!userId || userId === 'guest' || !/^[0-9a-f-]{36}$/i.test(userId)) return null;
+  return userId;
+}
+
 export async function POST(req: Request) {
   const stripe = getStripe();
   const endpointSecret = env.STRIPE_WEBHOOK_SECRET;
@@ -101,31 +107,13 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     expand: ['data.price.product'],
   });
 
-  // 2. Find or create the customer profile
-  const userId = session.client_reference_id || session.metadata?.userId;
+  const userId = getVerifiedUserId(session);
   const customerDetails = session.customer_details as {
     email?: string;
     address?: Record<string, string>;
   } | null;
-  const email = customerDetails?.email || session.customer_email;
 
-  let profileId: string | null = null;
-
-  if (userId || email) {
-    const query = supabase.from('profiles').select('id');
-    if (userId) {
-      query.eq('user_id', userId);
-    } else if (email) {
-      query.eq('email', email);
-    }
-
-    const { data: profile } = await query.maybeSingle();
-    if (profile) {
-      profileId = profile.id;
-    }
-  }
-
-  // 3. Create the order
+  // 2. Create the order
   const collectedInfo = session.collected_information as {
     shipping_details?: { address?: Record<string, string> };
   } | null;
@@ -133,11 +121,13 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({
-      user_id: profileId,
+      user_id: userId,
       status: 'processing',
-      currency: session.currency || 'nzd',
+      currency: session.currency || 'usd',
       total: (session.amount_total || 0) / 100,
       stripe_session_id: session.id,
+      metadata:
+        typeof session.customer === 'string' ? { stripe_customer_id: session.customer } : {},
       billing_address: customerDetails?.address,
       shipping_address: collectedInfo?.shipping_details?.address,
       created_at: new Date().toISOString(),
@@ -179,18 +169,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     throw orderError;
   }
 
-  // 4. Create order items
+  // 3. Create order items
   const orderItems = buildOrderItems(order.id, lineItems.data);
 
   const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
   if (itemsError) throw itemsError;
-
-  // 5. Update profile with Stripe customer ID if available (metadata only, no schema column)
-  // stripe_customer_id is stored in orders.metadata for reference
-  if (profileId && session.customer) {
-    await supabase
-      .from('orders')
-      .update({ metadata: { stripe_customer_id: session.customer as string } })
-      .eq('id', order.id);
-  }
 }

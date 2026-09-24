@@ -1,12 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SECRET_KEY;
@@ -28,7 +20,19 @@ const tablesToVerify = [
   'product_variations',
   'coupons',
   'content',
-  'reviews'
+  'reviews',
+  'gallery_photos',
+  'events',
+  'partners',
+  'coalition_links',
+  'newsletters',
+  'search_rate_limit',
+  'crm_contacts',
+  'crm_activities',
+  'crm_broadcasts',
+  'crm_tasks',
+  'crm_segments',
+  'walle_knowledge_snapshots'
 ];
 
 async function verifyMigration() {
@@ -53,12 +57,16 @@ async function verifyMigration() {
   }
 
   console.log('-'.repeat(40));
-  
+
   if (allSuccess) {
     console.log('\n🎉 Verification Complete: All tables successfully queried.');
   } else {
-    console.log('\n⚠️ Verification Complete: Some errors occurred during querying.');
+    console.error('\n⚠️ Verification Complete: Some errors occurred during querying.');
+    process.exitCode = 1;
   }
 }
 
-verifyMigration().catch(console.error);
+verifyMigration().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

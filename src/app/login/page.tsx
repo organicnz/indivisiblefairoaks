@@ -3,17 +3,12 @@
 import { ArrowRight, Eye, EyeOff, Fingerprint, Globe, Loader2, Lock, Shield } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase';
-
-function getSafeNext(param: string | null): string | null {
-  if (!param) return null;
-  if (/^\/(?!\/)/.test(param)) return param;
-  return null;
-}
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const targetNext = getSafeNext(searchParams.get('next'));
+  const targetNext = getSafeNextPath(searchParams.get('next'));
   const isAdminTarget = Boolean(targetNext?.startsWith('/admin'));
 
   const [email, setEmail] = useState('');

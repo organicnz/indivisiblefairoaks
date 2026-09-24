@@ -843,7 +843,7 @@ pre-push:
         fi
         echo "✔  Suppression count: ${COUNT}/${BASELINE}"
 
-    # ── 5. CI parity – mirrors .github/workflows/deploy.yml exactly ──────────
+     # ── 5. CI parity – mirrors the lint and build gates in .github/workflows/ci.yml ──
     lint-ci:
       priority: 5
       run: bun run lint:check
@@ -880,44 +880,25 @@ pre-push:
 
     tests:
       priority: 7
-      run: bun test
+      run: bun run test
 
     typecheck:
       priority: 8
       run: bun tsc --noEmit
 
     # ── 6. Coverage threshold ─────────────────────────────────────────────────
-    # Statement coverage ≥90% against the measurable lib/ + config/ files.
-    # Current baseline: ~94% statements, 97% branches, 100% functions.
+    # Vitest enforces the configured statement, branch, function, and line gates.
     coverage:
       priority: 9
-      run: |
-        OUTPUT=$(bun vitest run --coverage --coverage.reporter=text-summary 2>&1 || true)
-        echo "$OUTPUT"
-        STMTS=$(echo "$OUTPUT" | grep "Statements" | grep -oE "[0-9]+\.[0-9]+" | head -1)
-        if [ -z "$STMTS" ]; then
-          echo "ℹ️   Could not parse coverage output — skipping threshold check."; exit 0
-        fi
-        THRESHOLD=90
-        BELOW=$(awk -v val="$STMTS" -v thr="$THRESHOLD" 'BEGIN { print (val+0 < thr+0) ? "yes" : "no" }')
-        if [ "$BELOW" = "yes" ]; then
-          echo ""
-          echo "✖  Statement coverage ${STMTS}% is below the ${THRESHOLD}% threshold."
-          echo "   Add tests for new code before pushing."
-          echo "   Run: bun run test:coverage  to see per-file breakdown."
-          exit 1
-        fi
-        echo "✔  Coverage: ${STMTS}% (threshold: ${THRESHOLD}%)"
+      run: bun run test:coverage
 
     # ── 7. Build smoke-test ───────────────────────────────────────────────────
     build-check:
       priority: 10
-      run: NEXT_SKIP_ENV_VALIDATION=1 bun run build
+      run: NEXT_E2E_BUILD=true NEXT_SKIP_ENV_VALIDATION=1 bun run build
 
     # ── 8. Peer-dependency compatibility ──────────────────────────────────────
-    # Mirrors the nightly deps.yml gate: a dependency update can pass install,
-    # audits, and tests while still violating a peer range that only breaks at
-    # build/deploy time. Cheap to run locally (node_modules is present).
+     # Checks the installed dependency graph before a build can reach deployment.
     peer-deps:
       priority: 11
       run: bun scripts/check-peer-deps.mjs --all

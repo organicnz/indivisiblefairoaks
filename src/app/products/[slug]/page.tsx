@@ -15,6 +15,7 @@ import {
 } from '@/lib/queries/products';
 import { sanitizeWPContent } from '@/lib/sanitize';
 import { getStorageUrl } from '@/lib/supabase';
+import { serializeJsonLd } from '@/lib/utils';
 import type { Json } from '@/types/supabase';
 
 export async function generateStaticParams() {
@@ -163,7 +164,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
       <script
         type="application/ld+json"
         // Structured data, not WP content: sanitizeWPContent intentionally not applied
-        dangerouslySetInnerHTML={{ __html: JSON.stringify([jsonLd, breadcrumbLd]) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd([jsonLd, breadcrumbLd]) }}
       />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12 sm:py-20">
         <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">

@@ -7,6 +7,16 @@ describe('validateCartItems()', () => {
     expect(result).toEqual({ ok: true, items: [{ id: 16, quantity: 2 }] });
   });
 
+  it('accepts a product variation while keeping the product id separate', () => {
+    const result = validateCartItems([{ id: 16, variationId: 4, quantity: 2 }]);
+    expect(result).toEqual({ ok: true, items: [{ id: 16, variationId: 4, quantity: 2 }] });
+  });
+
+  it('rejects invalid variation ids', () => {
+    expect(validateCartItems([{ id: 16, variationId: 0, quantity: 1 }]).ok).toBe(false);
+    expect(validateCartItems([{ id: 16, variationId: 1.5, quantity: 1 }]).ok).toBe(false);
+  });
+
   it('rejects an empty or missing cart', () => {
     expect(validateCartItems([]).ok).toBe(false);
     expect(validateCartItems(undefined).ok).toBe(false);

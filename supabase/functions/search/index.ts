@@ -64,7 +64,7 @@ app.use(
 // ---------------------------------------------------------------------------
 
 // Dedup map: track recent queries per IP to avoid double-counting same query
-const recentQueryDedup = new Map<string, Set<string>>()
+const recentQueryDedup = new Map<string, Map<string, number>>()
 const DEDUP_WINDOW_MIN = 1 // 1-minute dedup window
 
 // Circuit breaker state for RPC calls
@@ -72,8 +72,8 @@ interface CircuitBreaker {
   failures: number
   lastFailure: number
   open(): boolean
-  recordError()
-  reset()
+  recordError(): void
+  reset(): void
 }
 const rpcBreaker: CircuitBreaker = {
   failures: 0,
@@ -98,23 +98,18 @@ async function checkRateLimit(supabase: ReturnType<typeof supabaseAdmin>, ip: st
   remaining: number
   deduplicated: boolean
 }> {
-  // --- Same‑query dedup: if this exact query was searched by this IP in the
-  //     dedup window, skip the count (return deduplicated=true) so the client
-  //     doesn't get rate‑limited for repeating themselves. ---
-  const dedupKey = `${ip}:${query}`
+  const dedupKey = query
   let querySet = recentQueryDedup.get(ip)
   if (!querySet) {
-    querySet = new Set()
+    querySet = new Map()
     recentQueryDedup.set(ip, querySet)
   }
-  const alreadySeen = querySet.has(query)
-  // Purge entries older than the dedup window
-  const purgeCutoff = new Date(Date.now() - DEDUP_WINDOW_MIN * 60_000).toISOString()
-  for (const k of querySet.keys()) {
-    if (k < purgeCutoff) {
-      querySet.delete(k)
-    }
+  const now = Date.now()
+  const dedupWindowMs = DEDUP_WINDOW_MIN * 60_000
+  for (const [key, seenAt] of querySet) {
+    if (now - seenAt >= dedupWindowMs) querySet.delete(key)
   }
+  const alreadySeen = (querySet.get(dedupKey) ?? 0) > now - dedupWindowMs
   if (alreadySeen) {
     // Still insert the new row so the table stays fresh, but don't count it
     const { error: insertError } = await supabase
@@ -125,7 +120,7 @@ async function checkRateLimit(supabase: ReturnType<typeof supabaseAdmin>, ip: st
     }
     return { ok: true, remaining: RATE_LIMIT_MAX, deduplicated: true }
   }
-  querySet.add(dedupKey)
+  querySet.set(dedupKey, now)
 
   // --- Insert new rate-limit row ---
   const { error: insertError } = await supabase
@@ -152,7 +147,9 @@ async function checkRateLimit(supabase: ReturnType<typeof supabaseAdmin>, ip: st
 
   const remaining = RATE_LIMIT_MAX - (count ?? 0)
   if ((count ?? 0) > RATE_LIMIT_MAX) {
-    console.warn(`[search] rate-limit exceeded for IP ${ip}: ${count}/${RATE_LIMIT_MAX} in ${RATE_LIMIT_WINDOW_MIN}min`)
+    console.warn(
+      `[search] rate limit exceeded: ${count}/${RATE_LIMIT_MAX} in ${RATE_LIMIT_WINDOW_MIN}min`
+    )
     return { ok: false, remaining: 0, deduplicated: false }
   }
 
@@ -172,18 +169,20 @@ const admin = supabaseAdmin()
 // ---------------------------------------------------------------------------
 // Log a search to error_reports analytics table
 // ---------------------------------------------------------------------------
-async function logSearchAnalytics(supabase: ReturnType<typeof supabaseAdmin>, ip: string, query: string, success: boolean, error?: string) {
+async function logSearchError(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  message: string
+) {
   try {
-    await supabase
-      .from('error_reports')
-      .insert({
-        ip,
-        query,
-        error: success ? null : error || 'search_failed',
-        created_at: new Date().toISOString(),
-      })
-  } catch {
-    // Best‑effort — never break the search flow due to analytics failure
+    const { error } = await supabase.from('error_reports').insert({
+      fingerprint: `search-${crypto.randomUUID()}`,
+      message: message.slice(0, 500),
+      category: 'api',
+      path: 'edge/search',
+    })
+    if (error) console.error('[search] error logging failed:', error.message)
+  } catch (error) {
+    console.error('[search] error logging failed:', error)
   }
 }
 
@@ -202,26 +201,26 @@ async function rpcWithProtection<T>(
     return { data: null, error: null, breakerOpen: true }
   }
 
-  // Execute with timeout
-  const abortController = new AbortController()
+  let timeoutReject: ((reason?: unknown) => void) | undefined
   const timeoutId = setTimeout(() => {
-    abortController.abort()
+    timeoutReject?.(new DOMException('RPC timeout', 'AbortError'))
   }, RPC_TIMEOUT_MS)
 
   let result: { data: T | null; error: Error | null }
   try {
-    result = await supabase.rpc(name, {}).catch((err: Error) => ({
-      data: null,
-      error: err,
-    }))
-    clearTimeout(timeoutId)
-  } catch (err: any) {
-    if (err.name === 'AbortError') {
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutReject = reject
+    })
+    result = await Promise.race([rpcFn(), timeout])
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err))
+    if (error.name === 'AbortError') {
       console.warn(`[search] RPC timeout (${RPC_TIMEOUT_MS}ms): ${name}`)
     } else {
-      console.error(`[search] RPC error (${name}):`, err.message)
+      console.error(`[search] RPC error (${name}):`, error)
     }
-    result = { data: null, error: err }
+    result = { data: null, error }
+  } finally {
     clearTimeout(timeoutId)
   }
 
@@ -270,8 +269,8 @@ app.post('*', async (c) => {
   // Spam keyword detection on the query itself
   const isSpam = isSpamContent(cleanQuery)
   if (isSpam) {
-    console.warn(`[search] spam query rejected from IP: ${c.req.header('x-forwarded-for') ?? 'unknown'} — query: "${cleanQuery}"`)
-    await logSearchAnalytics(admin, 'unknown', cleanQuery, false, 'spam_query')
+    console.warn('[search] spam query rejected')
+    await logSearchError(admin, 'Search query rejected by spam filter')
     return c.json({ error: 'Search query contains restricted terms' }, 403, {
       'request-id': crypto.randomUUID(),
       'x-rate-limit-remaining': String(RATE_LIMIT_MAX),
@@ -284,7 +283,7 @@ app.post('*', async (c) => {
 
   const { ok, remaining, deduplicated: _deduplicated } = await checkRateLimit(admin, ip, cleanQuery)
   if (!ok) {
-    await logSearchAnalytics(admin, ip, cleanQuery, false, 'rate_limit_exceeded')
+    await logSearchError(admin, 'Search rate limit exceeded')
     return c.json({ error: 'Rate limit exceeded. Try again in 10 minutes.' }, 429, {
       'request-id': crypto.randomUUID(),
       'x-rate-limit-remaining': '0',
@@ -295,16 +294,20 @@ app.post('*', async (c) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   const productRpc = () =>
-    supabase.rpc('search_products', {
-      search_query: cleanQuery,
-      max_rows: 24,
-    })
+    Promise.resolve(
+      supabase.rpc('search_products', {
+        search_query: cleanQuery,
+        max_rows: 24,
+      })
+    )
 
   const contentRpc = () =>
-    supabase.rpc('search_content', {
-      search_query: cleanQuery,
-      max_rows: 10,
-    })
+    Promise.resolve(
+      supabase.rpc('search_content', {
+        search_query: cleanQuery,
+        max_rows: 10,
+      })
+    )
 
   const [productsResult, contentResult] = await Promise.all([
     rpcWithProtection(supabase, productRpc, 'search_products'),
@@ -313,7 +316,7 @@ app.post('*', async (c) => {
 
   // If circuit breaker is open, return graceful degradation
   if (productsResult.breakerOpen || contentResult.breakerOpen) {
-    await logSearchAnalytics(admin, ip, cleanQuery, true, 'circuit_breaker_open')
+    await logSearchError(admin, 'Search circuit breaker opened')
     // Return whatever we can — empty results rather than error
     // But still include the query and remaining info
     return c.json(
@@ -373,8 +376,6 @@ app.post('*', async (c) => {
     products: products.length,
     posts: filteredPosts.length,
   }
-
-  await logSearchAnalytics(admin, ip, cleanQuery, true)
 
   return c.json({ products, posts: filteredPosts, query: cleanQuery, total, remaining, requestId: crypto.randomUUID() }, 200, {
     'request-id': crypto.randomUUID(),

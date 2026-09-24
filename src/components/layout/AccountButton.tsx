@@ -164,7 +164,13 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
       </DropdownMenuItem>
 
       {user.email?.endsWith('@indivisiblefairoaks.org') ? (
-        <DropdownMenuItem className="flex items-center gap-3 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-900/50 transition-colors cursor-pointer">
+        <DropdownMenuItem
+          className="flex items-center gap-3 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-900/50 transition-colors cursor-pointer"
+          onClick={() => {
+            onNavigate?.();
+            window.location.href = '/account?tab=settings';
+          }}
+        >
           <span className="flex-shrink-0 w-3.5 h-3.5">
             <Shield size={14} />
           </span>

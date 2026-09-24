@@ -80,6 +80,8 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build
+        env:
+          NEXT_E2E_BUILD: "true"
         run: bun run build
 
       # Upload the build artefact so the E2E job reuses it

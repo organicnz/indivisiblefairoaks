@@ -158,12 +158,7 @@ async function handleCheckoutCompleted(
   //    attempt converges to a complete order on retry.
   await ensureOrderItems(supabase, orderId, session, log)
 
-  // 3. Link the Stripe customer id back to the profile when we can.
-  if (session.customer) {
-    await updateStripeCustomerId(supabase, session, log)
-  }
-
-  // 4. Fire the admin notification email (non-blocking — never fail the event).
+  // 3. Fire the admin notification email (non-blocking — never fail the event).
   stripe.checkout.sessions
     .listLineItems(session.id, { limit: 100 })
     .then((items) =>
@@ -180,7 +175,7 @@ async function handleCheckoutCompleted(
 // Fulfillment primitives
 // ---------------------------------------------------------------------------
 async function ensureOrder(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof supabaseAdmin>,
   session: Stripe.Checkout.Session,
   log: Logger,
 ): Promise<number> {
@@ -195,7 +190,7 @@ async function ensureOrder(
     return existing.id as number
   }
 
-  const customerId = await resolveCustomerId(supabase, session)
+  const userId = await resolveUserId(session)
   const [billing, shipping] = buildAddresses(session)
 
   // The discount may be expanded to a full Coupon object (webhook payload) or
@@ -207,16 +202,17 @@ async function ensureOrder(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({
-      customer_id: customerId,
+      user_id: userId,
       stripe_session_id: session.id,
       coupon_code: couponCode,
       stripe_payment_intent_id: typeof session.payment_intent === 'string'
         ? session.payment_intent
         : (session.payment_intent?.id ?? null),
       status: 'processing',
-      total_amount: (session.amount_total ?? 0) / 100,
-      currency: session.currency?.toUpperCase() ?? 'NZD',
-      payment_method: 'stripe',
+      total: (session.amount_total ?? 0) / 100,
+      currency: session.currency?.toLowerCase() ?? 'usd',
+      metadata:
+        typeof session.customer === 'string' ? { stripe_customer_id: session.customer } : {},
       billing_address: billing,
       shipping_address: shipping,
       created_at: new Date(session.created * 1000).toISOString(),
@@ -253,7 +249,7 @@ async function ensureOrder(
 }
 
 async function ensureOrderItems(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof supabaseAdmin>,
   orderId: number,
   session: Stripe.Checkout.Session,
   log: Logger,
@@ -279,7 +275,7 @@ async function ensureOrderItems(
     order_id: orderId,
     product_name: item.description ?? 'Unknown item',
     quantity: item.quantity ?? 1,
-    total: (item.amount_total ?? 0) / 100,
+    unit_price: (item.amount_total ?? 0) / 100 / (item.quantity ?? 1),
   }))
 
   const { error } = await supabase.from('order_items').insert(rows)
@@ -288,23 +284,6 @@ async function ensureOrderItems(
     throw new Error(`Order items insert failed: ${error.message}`)
   }
   log(`Inserted ${rows.length} items for order #${orderId}`)
-}
-
-async function updateStripeCustomerId(
-  supabase: ReturnType<typeof createClient>,
-  session: Stripe.Checkout.Session,
-  log: Logger,
-) {
-  const customerId = await resolveCustomerId(supabase, session)
-  if (!customerId || typeof session.customer !== 'string') return
-
-  const { error } = await supabase
-    .from('profiles')
-    .update({ stripe_customer_id: session.customer })
-    .eq('id', customerId)
-
-  if (error) log(`Failed to link Stripe customer to profile: ${error.message}`)
-  else log(`Linked Stripe customer ${session.customer} to profile ${customerId}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -362,7 +341,7 @@ async function handleChargeRefunded(
 }
 
 async function findOrderBySession(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof supabaseAdmin>,
   sessionId: string,
   log: Logger,
 ) {
@@ -380,7 +359,7 @@ async function findOrderBySession(
 }
 
 async function findOrderByPaymentIntent(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof supabaseAdmin>,
   paymentIntentId: string,
   log: Logger,
 ) {
@@ -398,7 +377,7 @@ async function findOrderByPaymentIntent(
 }
 
 async function setOrderStatus(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof supabaseAdmin>,
   orderId: number,
   status: string,
   reason: string,
@@ -415,35 +394,10 @@ async function setOrderStatus(
 // ---------------------------------------------------------------------------
 // Customer resolution + address shaping
 // ---------------------------------------------------------------------------
-async function resolveCustomerId(
-  supabase: ReturnType<typeof createClient>,
-  session: Stripe.Checkout.Session,
-): Promise<number | null> {
-  const userId = session.metadata?.userId
-  if (userId && userId !== 'guest') {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle()
-
-    // DB failures must surface so the event retries rather than silently
-    // creating a guest order for a registered customer.
-    if (error) throw new Error(`Profile lookup by user_id failed: ${error.message}`)
-    if (data) return data.id as number
-  }
-
-  const email = session.customer_details?.email
-  if (!email) return null
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('email', email)
-    .maybeSingle()
-
-  if (error) throw new Error(`Profile lookup by email failed: ${error.message}`)
-  return (data?.id as number | undefined) ?? null
+async function resolveUserId(session: Stripe.Checkout.Session): Promise<string | null> {
+  const userId = session.metadata?.userId || session.client_reference_id
+  if (!userId || userId === 'guest' || !/^[0-9a-f-]{36}$/i.test(userId)) return null
+  return userId
 }
 
 // Split "First Last" into first_name/last_name, preserving the legacy shape

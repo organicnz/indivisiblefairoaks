@@ -26,11 +26,11 @@ export default function GalleryPage() {
   const allPhotos = dbPhotos.length > 0 ? dbPhotos : [];
 
   const categories = useMemo(() => {
-    const categoriesSet = new Set<string>('All');
+    const categoriesSet = new Set<string>(['All']);
     for (const photo of allPhotos) {
       categoriesSet.add(photo.category);
     }
-    return ['All', ...Array.from(categoriesSet)];
+    return Array.from(categoriesSet);
   }, [allPhotos]);
 
   // Filter and search
@@ -160,6 +160,7 @@ export default function GalleryPage() {
               />
               <input
                 type="text"
+                aria-label="Search gallery"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by quote, slogan, location (e.g. 'IKEA', 'Tower Bridge', 'Brake Light')..."
@@ -187,6 +188,7 @@ export default function GalleryPage() {
                   <button
                     key={category}
                     type="button"
+                    aria-pressed={isSelected}
                     onClick={() => setSelectedCategory(category)}
                     className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                       isSelected
@@ -231,9 +233,11 @@ export default function GalleryPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPhotos.map((photo) => (
-              <Link
+              <button
                 key={photo.id}
-                href="/gallery"
+                type="button"
+                data-gallery-photo={photo.id}
+                onClick={() => setSelectedPhotoId(photo.id)}
                 className="group relative h-88 rounded-3xl overflow-hidden border border-slate-800/80 bg-slate-900 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-700 transition-all shadow-xl"
               >
                 <Image
@@ -274,7 +278,7 @@ export default function GalleryPage() {
                     </span>
                   </div>
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
         )}
@@ -305,6 +309,7 @@ export default function GalleryPage() {
         <div
           role="dialog"
           aria-modal="true"
+          aria-label={selectedPhoto.caption}
           className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 md:p-10"
           onClick={(e) => {
             if (e.target === e.currentTarget) setSelectedPhotoId(null);
@@ -351,6 +356,7 @@ export default function GalleryPage() {
                 src={selectedPhoto.url}
                 alt={selectedPhoto.caption}
                 fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1024px"
                 priority
                 className="object-contain"
               />

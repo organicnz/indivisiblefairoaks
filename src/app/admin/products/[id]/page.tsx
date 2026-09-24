@@ -45,7 +45,7 @@ type Product = {
   product_categories: { categories: { name: string }[] }[];
   order_items: {
     quantity: number | null;
-    total: number | null;
+    unit_price: number | null;
     orders: { id: number; created_at: string | null; status: string | null };
   }[];
 };
@@ -67,7 +67,7 @@ export default async function AdminProductDetailPage({
       `id, name, slug, price, regular_price, stock_status,
        short_description, description, image_url, gallery_urls, created_at,
        product_categories ( categories ( name ) ),
-       order_items ( quantity, total, orders ( id, created_at, status ) )`
+        order_items ( quantity, unit_price, orders ( id, created_at, status ) )`
     )
     .eq('id', productId)
     .single();
@@ -85,7 +85,10 @@ export default async function AdminProductDetailPage({
   const NO_SALE_STATUSES = new Set(['cancelled', 'refunded']);
   const activeItems = items.filter((i) => !NO_SALE_STATUSES.has(i.orders?.status ?? ''));
   const unitsSold = activeItems.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
-  const revenue = activeItems.reduce((s, i) => s + (Number(i.total) || 0), 0);
+  const revenue = activeItems.reduce(
+    (s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0),
+    0
+  );
   const ordersByProduct = new Map<number, (typeof items)[number]>();
   for (const item of activeItems) {
     const order = item.orders;
@@ -288,7 +291,10 @@ export default async function AdminProductDetailPage({
                 </span>
                 <span className="text-[11px] text-slate-400 font-bold">Qty: {item.quantity}</span>
                 <span className="ml-auto text-sm font-black text-primary">
-                  ${Number(item.total).toFixed(2)}
+                  $
+                  {(Number(item.unit_price) || 0) * (Number(item.quantity) || 0) === 0
+                    ? '0.00'
+                    : ((Number(item.unit_price) || 0) * (Number(item.quantity) || 0)).toFixed(2)}
                 </span>
               </li>
             ))}

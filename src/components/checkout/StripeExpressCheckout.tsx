@@ -32,10 +32,9 @@ export function StripeExpressCheckout() {
         },
         body: JSON.stringify({
           items: items.map((item) => ({
-            id: item.id,
+            id: item.productId ?? item.id,
+            variationId: item.variationId ?? undefined,
             quantity: item.quantity,
-            name: item.name,
-            price: item.price,
           })),
         }),
       });

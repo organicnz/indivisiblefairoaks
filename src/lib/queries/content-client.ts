@@ -126,7 +126,14 @@ export async function getGalleryPhotos(): Promise<GalleryPhoto[]> {
         location: row.location ?? '',
         category: row.category ?? 'Other',
         signQuote: row.sign_quote ?? null,
-        date: row.date_label ? new Date(row.date_label).toLocaleDateString('en-US') : '',
+        date: row.date_label
+          ? (() => {
+              const parsedDate = new Date(row.date_label);
+              return Number.isNaN(parsedDate.getTime())
+                ? row.date_label
+                : parsedDate.toLocaleDateString('en-US');
+            })()
+          : '',
         photographer: row.photographer ?? 'Indivisible Fair Oaks Archive',
         is_hero: row.is_hero ?? false,
         is_pair: row.is_pair ?? false,
