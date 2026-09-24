@@ -98,6 +98,7 @@ export function GalleryClient({ photos }: Props) {
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
+            aria-label="Search gallery"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by quote, slogan, location…"
@@ -125,6 +126,7 @@ export function GalleryClient({ photos }: Props) {
               <button
                 key={category}
                 type="button"
+                aria-pressed={isSelected}
                 onClick={() => setSelectedCategory(category)}
                 className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   isSelected

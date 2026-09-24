@@ -86,13 +86,22 @@ test.describe('gallery journey', () => {
   test('gallery search filters without crashing on nonsense', async ({ page }) => {
     await page.goto('/gallery');
     await page.getByPlaceholder(/search by quote/i).fill('zzzznothingherezzzz');
-    // Either photos or the empty-filter message — both prove no crash.
     const empty = page.getByText(/no photos match/i);
-    const photos = page.locator('a[href="/gallery"]');
+    const photos = page.locator('[data-gallery-photo]');
     await expect(async () => {
       const emptyCount = await empty.count();
       const photoCount = await photos.count();
       expect(emptyCount + photoCount).toBeGreaterThan(0);
     }).toPass({ timeout: 10_000 });
+  });
+
+  test('gallery photo opens the lightbox and closes cleanly', async ({ page }) => {
+    await page.goto('/gallery');
+    const photos = page.locator('[data-gallery-photo]');
+    await expect.poll(() => photos.count(), { timeout: 10_000 }).toBeGreaterThan(0);
+    await photos.first().click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByRole('button', { name: 'Close image modal' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 });

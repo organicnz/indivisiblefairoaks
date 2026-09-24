@@ -1,15 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
-
-// Safe origins for the `next` redirect param — prevents open-redirect abuse.
-// Only paths on this same origin are allowed; absolute URLs are rejected.
-function safeNextUrl(request: NextRequest): string {
-  const next = request.nextUrl.searchParams.get('next');
-  if (!next) return '/account';
-  // Must be a relative path starting with / and not //  (protocol-relative)
-  if (/^\/(?!\/)/.test(next)) return next;
-  return '/account';
-}
+import { getSafeNextPath } from '@/lib/safe-redirect';
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -63,7 +54,12 @@ export async function middleware(request: NextRequest) {
 
   // Already logged in — honour ?next= or fall back to /account
   if (pathname.startsWith('/login') && user) {
-    return NextResponse.redirect(new URL(safeNextUrl(request), request.url));
+    return NextResponse.redirect(
+      new URL(
+        getSafeNextPath(request.nextUrl.searchParams.get('next'), '/account') ?? '/account',
+        request.url
+      )
+    );
   }
 
   return response;

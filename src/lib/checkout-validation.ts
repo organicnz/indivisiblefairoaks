@@ -5,6 +5,7 @@
 
 export interface CartItemInput {
   id: number;
+  variationId?: number;
   quantity: number;
 }
 
@@ -19,12 +20,27 @@ export function validateCartItems(
 
   const items: CartItemInput[] = [];
   for (const entry of raw) {
-    const candidate = entry as { id?: unknown; quantity?: unknown };
+    const candidate = entry as { id?: unknown; variationId?: unknown; quantity?: unknown };
 
     if (typeof candidate?.id !== 'number' || !Number.isInteger(candidate.id)) {
       return {
         ok: false,
         failure: { field: 'items', message: 'Invalid item: id must be a number' },
+      };
+    }
+
+    if (
+      candidate.variationId !== undefined &&
+      (typeof candidate.variationId !== 'number' ||
+        !Number.isInteger(candidate.variationId) ||
+        candidate.variationId <= 0)
+    ) {
+      return {
+        ok: false,
+        failure: {
+          field: 'items',
+          message: 'Invalid item: variationId must be a positive integer',
+        },
       };
     }
 
@@ -43,7 +59,11 @@ export function validateCartItems(
       };
     }
 
-    items.push({ id: candidate.id, quantity: candidate.quantity });
+    items.push({
+      id: candidate.id,
+      ...(candidate.variationId === undefined ? {} : { variationId: candidate.variationId }),
+      quantity: candidate.quantity,
+    });
   }
 
   return { ok: true, items };

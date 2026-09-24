@@ -124,6 +124,16 @@ describe('GET /auth/callback', () => {
     expect(res.headers.get('location')).toBe('https://indivisiblefairoaks.org/account');
   });
 
+  it('rejects backslash-normalized open redirects', async () => {
+    mockExchangeCodeForSession.mockResolvedValue({ error: null });
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+
+    const req = makeRequest({ code: 'valid-code', next: '/\\evil.example' });
+    const res = await GET(req);
+
+    expect(res.headers.get('location')).toBe('https://indivisiblefairoaks.org/account');
+  });
+
   it('redirects to /login?error=Invalid_Token when exchange fails', async () => {
     mockExchangeCodeForSession.mockResolvedValue({
       error: { message: 'invalid JWT' },

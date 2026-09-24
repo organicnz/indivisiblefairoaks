@@ -9,8 +9,9 @@ export default function SuccessPage() {
   const clearCart = useCartStore((state) => state.clearCart);
 
   useEffect(() => {
-    // Clear the cart when the user successfully checks out
-    clearCart();
+    if (new URLSearchParams(window.location.search).has('session_id')) {
+      clearCart();
+    }
   }, [clearCart]);
 
   return (

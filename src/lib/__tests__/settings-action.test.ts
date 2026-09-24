@@ -76,9 +76,15 @@ const mockFrom = vi.fn((table: string) => {
 });
 
 const mockGetUser = vi.fn();
+const mockListFactors = vi.fn().mockResolvedValue({ data: { all: [] }, error: null });
 
 const mockSupabase = {
-  auth: { getUser: mockGetUser },
+  auth: {
+    getUser: mockGetUser,
+    mfa: {
+      listFactors: mockListFactors,
+    },
+  },
   from: mockFrom,
 };
 

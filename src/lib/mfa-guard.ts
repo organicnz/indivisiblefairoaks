@@ -7,9 +7,7 @@ type ServerClient = Awaited<ReturnType<typeof createServerClient>>;
  * If the user has no verified MFA factors, this is a no-op (pass).
  * If they do have verified factors, the session must already be AAL2 —
  * otherwise the caller must redirect to /auth/mfa instead of performing the write.
- * Fails closed only when we can definitively determine AAL1 without AAL2;
- * otherwise passes (guard is advisory, not blocking) to avoid false positives
- * in environments where MFA state is incomplete (test mocks, older SDKs).
+ * Fails closed when MFA state or the current assurance level cannot be read.
  */
 export async function assertMfaVerified(
   supabase: ServerClient
@@ -20,10 +18,14 @@ export async function assertMfaVerified(
     } = await supabase.auth.getUser();
     if (!user) return { ok: false, error: 'Not authenticated' };
 
-    // Guard: if MFA API is unavailable, pass through (test mocks / older SDKs).
-    if (!supabase.auth?.mfa) return { ok: true };
+    if (!supabase.auth?.mfa) {
+      return { ok: false, error: 'MFA verification is unavailable.' };
+    }
 
-    const { data: factors } = await supabase.auth.mfa.listFactors();
+    const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+    if (factorsError || !factors) {
+      return { ok: false, error: 'Unable to verify MFA enrollment.' };
+    }
     // Gather factor statuses across all modality buckets.
     const all: { status?: string }[] = [
       ...((factors?.totp as { status?: string }[]) ?? []),
@@ -33,13 +35,16 @@ export async function assertMfaVerified(
     const hasVerified = all.some((f) => f.status === 'verified');
     if (!hasVerified) return { ok: true }; // no MFA enrolled → pass through
 
-    // Only enforce AAL2 when we can read the assurance level.
-    let aalCurrent = 'aal1'; // assume lowest for safe-guard default
+    let aalCurrent: string | null = null;
     try {
-      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      aalCurrent = aal?.currentLevel ?? 'aal1';
+      const { data: aal, error: aalError } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalError || !aal?.currentLevel) {
+        return { ok: false, error: 'Unable to verify MFA status.' };
+      }
+      aalCurrent = aal.currentLevel;
     } catch {
-      // If we can't read AAL, assume the conservative pass path.
+      return { ok: false, error: 'Unable to verify MFA status.' };
     }
     if (aalCurrent === 'aal2') return { ok: true };
 

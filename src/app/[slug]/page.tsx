@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getAllPublishedSlugs, getPublishedContent } from '@/lib/queries/content';
 import { sanitizeWPContent } from '@/lib/sanitize';
+import { serializeJsonLd } from '@/lib/utils';
 
 export async function generateStaticParams() {
   return getAllPublishedSlugs();
@@ -82,7 +83,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           '@type': 'Article',
           headline: content.title,
           datePublished: content.created_at ?? undefined,
-          dateModified: content.created_at ?? undefined,
+          dateModified: content.updated_at ?? content.created_at ?? undefined,
           author: { '@type': 'Organization', name: 'Indivisible Fair Oaks-Carmichael' },
           publisher: { '@type': 'Organization', name: 'Indivisible Fair Oaks-Carmichael' },
         }
@@ -94,7 +95,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
         <script
           type="application/ld+json"
           // Structured data, not WP content: sanitizeWPContent intentionally not applied
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
       )}
       <div className="max-w-4xl mx-auto">

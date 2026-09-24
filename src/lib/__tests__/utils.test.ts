@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cn } from '@/lib/utils';
+import { cn, serializeJsonLd } from '@/lib/utils';
 
 // ─── cn() – Tailwind class merger ────────────────────────────────────────────
 // cn() is used in ~40 components. If it regresses, visual breakage is widespread
@@ -43,5 +43,22 @@ describe('cn()', () => {
   it('handles deeply conflicting responsive variants', () => {
     // tailwind-merge understands breakpoint prefixes
     expect(cn('md:px-4', 'md:px-8')).toBe('md:px-8');
+  });
+});
+
+describe('serializeJsonLd', () => {
+  it('escapes characters that can terminate a script element', () => {
+    const serialized = serializeJsonLd({
+      name: '</script><script>alert(1)</script>',
+      description: 'A & B',
+    });
+
+    expect(serialized).not.toContain('</script>');
+    expect(serialized).toContain('\\u003c');
+    expect(serialized).toContain('\\u0026');
+  });
+
+  it('serializes null for unsupported top-level values', () => {
+    expect(serializeJsonLd(undefined)).toBe('null');
   });
 });

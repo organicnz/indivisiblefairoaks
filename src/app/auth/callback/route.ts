@@ -1,17 +1,11 @@
 import { NextResponse } from 'next/server';
+import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createServerClient } from '@/lib/supabase-server';
-
-function getSafeNext(param: string | null): string | null {
-  if (!param) return null;
-  // Must be a relative path starting with / and not // (protocol-relative)
-  if (/^\/(?!\/)/.test(param)) return param;
-  return null;
-}
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const explicitNext = getSafeNext(searchParams.get('next'));
+  const explicitNext = getSafeNextPath(searchParams.get('next'));
 
   if (code) {
     const supabase = await createServerClient();

@@ -37,6 +37,7 @@ export default defineConfig({
         // Route contact notifications at the controllable mock so e2e can
         // assert real delivery-status UI without sending actual email.
         CONTACT_FUNCTION_URL: `http://127.0.0.1:${MOCK_PORT}/notify-contact`,
+        CONTACT_SUBMISSION_TEST_MODE: '1',
         // The suite submits the form many times from one IP; keep prod's 3/10min out of the way.
         CONTACT_RATE_LIMIT_MAX: '1000',
       },

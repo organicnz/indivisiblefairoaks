@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import LoginPage from '@/app/login/page';
+import { getSafeNextPath } from '@/lib/safe-redirect';
 
 describe('Login Page & Auth Experience', () => {
   it('exports LoginPage as a valid React component wrapped in Suspense', () => {
@@ -8,32 +9,26 @@ describe('Login Page & Auth Experience', () => {
   });
 
   describe('Redirect URL & Safe Next computation', () => {
-    function getSafeNext(param: string | null): string | null {
-      if (!param) return null;
-      if (/^\/(?!\/)/.test(param)) return param;
-      return null;
-    }
-
     function buildCallbackUrl(origin: string, next: string | null): string {
-      const safeNext = getSafeNext(next);
+      const safeNext = getSafeNextPath(next);
       return safeNext
         ? `${origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
         : `${origin}/auth/callback`;
     }
 
     it('preserves valid internal paths for admin portal and CRM', () => {
-      expect(getSafeNext('/admin')).toBe('/admin');
-      expect(getSafeNext('/admin/crm')).toBe('/admin/crm');
-      expect(getSafeNext('/admin/crm/broadcasts')).toBe('/admin/crm/broadcasts');
-      expect(getSafeNext('/account')).toBe('/account');
+      expect(getSafeNextPath('/admin')).toBe('/admin');
+      expect(getSafeNextPath('/admin/crm')).toBe('/admin/crm');
+      expect(getSafeNextPath('/admin/crm/broadcasts')).toBe('/admin/crm/broadcasts');
+      expect(getSafeNextPath('/account')).toBe('/account');
     });
 
     it('rejects protocol-relative and external URLs to prevent open-redirect attacks', () => {
-      expect(getSafeNext('//attacker.com')).toBeNull();
-      expect(getSafeNext('https://evil.com')).toBeNull();
-      expect(getSafeNext('javascript:alert(1)')).toBeNull();
-      expect(getSafeNext('')).toBeNull();
-      expect(getSafeNext(null)).toBeNull();
+      expect(getSafeNextPath('//attacker.com')).toBeNull();
+      expect(getSafeNextPath('https://evil.com')).toBeNull();
+      expect(getSafeNextPath('javascript:alert(1)')).toBeNull();
+      expect(getSafeNextPath('')).toBeNull();
+      expect(getSafeNextPath(null)).toBeNull();
     });
 
     it('builds proper emailRedirectTo for magic link dispatch', () => {

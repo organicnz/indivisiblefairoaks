@@ -41,6 +41,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.6
+
+      - name: Type-check Edge Functions
+        run: deno check --node-modules-dir=auto supabase/functions/*/index.ts
+
       - name: Install Supabase CLI
         run: |
           if ! command -v supabase &>/dev/null; then

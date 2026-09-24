@@ -35,6 +35,9 @@ let rateLimitResult: { ok: boolean; retryAfterSec: number } = rateLimitOk;
 let fetchResponse: { ok: boolean; status?: number; json: () => Promise<unknown> } | null = null;
 let fetchShouldReject = false;
 const fetchCalls: { url: string; init: RequestInit | undefined }[] = [];
+const testEnv = vi.hoisted(() => ({
+  submissionTestMode: undefined as '1' | undefined,
+}));
 
 vi.mock('next/headers', () => ({
   headers: async () => new Headers({ 'x-forwarded-for': '203.0.113.9' }),
@@ -48,6 +51,9 @@ vi.mock('@/lib/env', () => ({
   env: {
     NEXT_PUBLIC_SUPABASE_URL: 'https://stub.supabase.co',
     CONTACT_FUNCTION_URL: undefined,
+    get CONTACT_SUBMISSION_TEST_MODE() {
+      return testEnv.submissionTestMode;
+    },
     CONTACT_RATE_LIMIT_MAX: undefined,
   },
 }));
@@ -89,6 +95,7 @@ beforeEach(async () => {
   rateLimitResult = rateLimitOk;
   fetchCalls.length = 0;
   fetchShouldReject = false;
+  testEnv.submissionTestMode = undefined;
   fetchResponse = {
     ok: true,
     json: () => Promise.resolve({ ok: true, emailed: true, copied: true }),
@@ -185,6 +192,15 @@ describeSuite('submitContact() delivery status propagation', () => {
     expect(capturedRpcArgs?.p_wants_copy).toBe(false);
     expect(fetchCalls).toHaveLength(1);
     expect(JSON.parse(String(fetchCalls[0].init?.body))).toEqual({ id: 42 });
+    expect(r).toEqual({ success: true, emailStatus: 'sent', copyStatus: 'not-requested' });
+  });
+
+  it('uses deterministic test mode without touching the database', async () => {
+    testEnv.submissionTestMode = '1';
+    const r = await submitContact(makeForm());
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(fetchCalls).toHaveLength(1);
+    expect(JSON.parse(String(fetchCalls[0].init?.body))).toEqual({ id: 1 });
     expect(r).toEqual({ success: true, emailStatus: 'sent', copyStatus: 'not-requested' });
   });
 

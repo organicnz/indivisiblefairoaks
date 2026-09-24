@@ -59,6 +59,9 @@ const routeHeaders = [
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    exposeTestingApiInProductionBuild: process.env.NEXT_E2E_BUILD === 'true',
+  },
   async headers() {
     return routeHeaders;
   },

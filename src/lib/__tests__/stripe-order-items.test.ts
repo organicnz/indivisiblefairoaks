@@ -44,7 +44,7 @@ describe('buildOrderItems()', () => {
         product_id: 46,
         product_name: '300m 10lb',
         quantity: 2,
-        unit_price: 99.8,
+        unit_price: 49.9,
       },
     ]);
   });

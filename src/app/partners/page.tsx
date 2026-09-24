@@ -75,7 +75,7 @@ export default async function PartnersPage() {
   }
 
   return (
-    <main className="bg-slate-950 text-white min-h-screen">
+    <div className="bg-slate-950 text-white min-h-screen">
       {/* Header Banner with VGPU Constellation Network */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />
@@ -142,6 +142,6 @@ export default async function PartnersPage() {
           </Link>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

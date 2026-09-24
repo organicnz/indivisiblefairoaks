@@ -30,6 +30,10 @@ const SUPABASE_URL = REQUIRED_ENV[1][1]!
 const SUPABASE_SERVICE_ROLE_KEY = REQUIRED_ENV[2][1]!
 const SUPABASE_ANON_KEY = REQUIRED_ENV[3][1]!
 
+function supabaseAdmin() {
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+}
+
 // ---------------------------------------------------------------------------
 // Stripe client — module-level, reused across invocations
 // ---------------------------------------------------------------------------
@@ -44,7 +48,7 @@ const stripe = new Stripe(STRIPE_SECRET_KEY, {
 const MAX_LINE_ITEMS = 50
 const MAX_QUANTITY_PER_ITEM = 50
 
-type NormalizedItem = { id: number; quantity: number }
+type NormalizedItem = { id: number; variationId?: number; quantity: number }
 
 const app = new Hono()
 
@@ -71,38 +75,49 @@ app.post('*', async (c) => {
   // 2. Validate the promo code shape up front
   const promoCode = normalizePromoCode(body.promoCode)
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  const supabase = supabaseAdmin()
 
-  // 3. Resolve auth + fetch DB products in parallel
-  const authHeader = c.req.header('Authorization')
-  const [userResult, dbResult] = await Promise.all([
-    resolveUser(authHeader),
-    supabase
-      .from('products')
-      .select('id, name, price, stripe_price_id')
-      .in('id', items.map((i) => i.id)),
+  const variationIds = items
+    .map((item) => item.variationId)
+    .filter((variationId): variationId is number => variationId !== undefined)
+  const [userResult, productResult, variationResult] = await Promise.all([
+    resolveUser(c.req.header('Authorization')),
+    supabase.from('products').select('id, name, price, stock_status').in('id', items.map((i) => i.id)),
+    variationIds.length > 0
+      ? supabase
+          .from('product_variations')
+          .select('id, product_id, price, stock_status')
+          .in('id', variationIds)
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   const { userEmail, userId } = userResult
-  const { data: dbProducts, error: dbError } = dbResult
+  const { data: dbProducts, error: dbError } = productResult
+  const { data: dbVariations, error: variationError } = variationResult
 
-  if (dbError || !dbProducts) {
+  if (dbError || variationError || !dbProducts) {
     throw new HTTPException(500, { message: 'Failed to validate cart items' })
   }
 
-  // 4. Every item MUST resolve to a real product with a valid server-side price
-  const productMap = new Map(dbProducts.map((p) => [p.id, p]))
-  const lineItems = items.map(({ id, quantity }) => {
+  const productMap = new Map(dbProducts.map((product) => [product.id, product]))
+  const variationMap = new Map((dbVariations ?? []).map((variation) => [variation.id, variation]))
+  const lineItems = items.map(({ id, variationId, quantity }) => {
     const dbProduct = productMap.get(id)
     if (!dbProduct) {
       throw new HTTPException(400, { message: `Product not found: ${id}` })
     }
 
-    if (dbProduct.stripe_price_id) {
-      return { price: dbProduct.stripe_price_id, quantity }
+    const variation = variationId === undefined ? null : variationMap.get(variationId)
+    if (variationId !== undefined && (!variation || variation.product_id !== id)) {
+      throw new HTTPException(400, { message: `Variation not found: ${variationId}` })
     }
 
-    const serverPrice = Number(dbProduct.price)
+    const stockStatus = variation?.stock_status ?? dbProduct.stock_status
+    if (stockStatus !== 'instock') {
+      throw new HTTPException(409, { message: `Product is out of stock: ${id}` })
+    }
+
+    const serverPrice = Number(variation?.price ?? dbProduct.price)
     if (!Number.isFinite(serverPrice) || serverPrice <= 0) {
       throw new HTTPException(400, { message: `Product has no valid price: ${id}` })
     }
@@ -168,17 +183,24 @@ function normalizeCart(raw: unknown): NormalizedItem[] {
     throw new HTTPException(400, { message: `Cart exceeds ${MAX_LINE_ITEMS} line items` })
   }
 
-  const merged = new Map<number, number>()
+  const merged = new Map<string, NormalizedItem>()
   for (const rawItem of raw) {
     if (typeof rawItem !== 'object' || rawItem === null) {
       throw new HTTPException(400, { message: 'Invalid item entry' })
     }
     const item = rawItem as Record<string, unknown>
     const id = item.id
+    const variationId = item.variationId
     const quantity = item.quantity
 
     if (!Number.isInteger(id) || (id as number) <= 0) {
       throw new HTTPException(400, { message: 'Invalid item id' })
+    }
+    if (
+      variationId !== undefined &&
+      (!Number.isInteger(variationId) || (variationId as number) <= 0)
+    ) {
+      throw new HTTPException(400, { message: 'Invalid item variation' })
     }
     if (
       !Number.isInteger(quantity) ||
@@ -190,12 +212,17 @@ function normalizeCart(raw: unknown): NormalizedItem[] {
       })
     }
 
-    // Dedupe repeated product ids by summing quantities
-    const previous = merged.get(id as number) ?? 0
-    merged.set(id as number, Math.min(previous + (quantity as number), MAX_QUANTITY_PER_ITEM))
+    const key = `${id as number}:${(variationId as number | undefined) ?? ''}`
+    const previous = merged.get(key)
+    const normalized: NormalizedItem = {
+      id: id as number,
+      ...(variationId === undefined ? {} : { variationId: variationId as number }),
+      quantity: Math.min((previous?.quantity ?? 0) + (quantity as number), MAX_QUANTITY_PER_ITEM),
+    }
+    merged.set(key, normalized)
   }
 
-  return Array.from(merged, ([id, quantity]) => ({ id, quantity }))
+  return Array.from(merged.values())
 }
 
 function normalizePromoCode(raw: unknown): string | undefined {
@@ -210,7 +237,7 @@ function normalizePromoCode(raw: unknown): string | undefined {
 // Promo code -> reusable Stripe coupon
 // ---------------------------------------------------------------------------
 async function resolveStripeCoupon(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof supabaseAdmin>,
   code: string,
 ): Promise<string> {
   const { data: coupon, error: lookupError } = await supabase

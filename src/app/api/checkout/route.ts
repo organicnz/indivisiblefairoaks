@@ -86,28 +86,58 @@ export async function POST(req: Request) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // Fetch product details from Supabase to ensure price integrity
     const productIds = items.map((item) => item.id);
-    const { data: dbProducts, error: dbError } = await supabase
-      .from('products')
-      .select('id, name, price, slug, stock_status')
-      .in('id', productIds);
+    const variationIds = items
+      .map((item) => item.variationId)
+      .filter((variationId): variationId is number => variationId !== undefined);
+    const [productResult, variationResult] = await Promise.all([
+      supabase.from('products').select('id, name, price, slug, stock_status').in('id', productIds),
+      variationIds.length > 0
+        ? supabase
+            .from('product_variations')
+            .select('id, product_id, price, stock_status')
+            .in('id', variationIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
-    if (dbError || !dbProducts) {
-      console.error('Database error:', dbError);
+    const { data: dbProducts, error: dbError } = productResult;
+    const { data: dbVariations, error: variationError } = variationResult;
+
+    if (dbError || variationError || !dbProducts) {
+      console.error('Database error:', dbError || variationError);
       return NextResponse.json({ error: 'Failed to verify products' }, { status: 500 });
     }
 
-    // Map database products for easy lookup
     const productMap = new Map(dbProducts.map((p) => [p.id, p]));
+    const variationMap = new Map(
+      (dbVariations ?? []).map((variation) => [variation.id, variation])
+    );
 
-    // Validate all requested products exist and are purchasable
     for (const item of items) {
       const dbProduct = productMap.get(item.id);
       if (!dbProduct) {
         return NextResponse.json({ error: `Product not found: ${item.id}` }, { status: 400 });
       }
-      if (dbProduct.stock_status !== 'instock') {
+
+      if (item.variationId !== undefined) {
+        const variation = variationMap.get(item.variationId);
+        if (!variation || variation.product_id !== item.id) {
+          return NextResponse.json(
+            { error: `Variation not found: ${item.variationId}` },
+            { status: 400 }
+          );
+        }
+        if (variation.stock_status !== 'instock') {
+          return NextResponse.json(
+            {
+              error: `Out of stock: ${dbProduct.name}`,
+              productId: item.id,
+              ...(item.variationId === undefined ? {} : { variationId: item.variationId }),
+            },
+            { status: 409 }
+          );
+        }
+      } else if (dbProduct.stock_status !== 'instock') {
         return NextResponse.json(
           { error: `Out of stock: ${dbProduct.name}`, productId: item.id },
           { status: 409 }
@@ -119,6 +149,11 @@ export async function POST(req: Request) {
     const lineItems = items.map((item) => {
       const dbProduct = productMap.get(item.id);
       if (!dbProduct) throw new Error(`Product not found: ${item.id}`);
+      const variation = item.variationId === undefined ? null : variationMap.get(item.variationId);
+      const unitPrice = Number(variation?.price ?? dbProduct.price);
+      if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+        throw new Error(`Product has no valid price: ${item.id}`);
+      }
 
       return {
         price_data: {
@@ -127,11 +162,10 @@ export async function POST(req: Request) {
             name: dbProduct.name,
             metadata: {
               slug: dbProduct.slug,
-              // The webhook maps line items back to catalog rows via this id.
               id: String(dbProduct.id),
             },
           },
-          unit_amount: Math.round(dbProduct.price * 100), // Convert to cents
+          unit_amount: Math.round(unitPrice * 100),
         },
         quantity: item.quantity,
       };

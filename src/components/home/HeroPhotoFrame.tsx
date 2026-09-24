@@ -21,21 +21,9 @@ interface Photo {
 // Hero crossfade photos (top 4 by sort_order, is_hero=true)
 const useHeroPhotos = (initialPhotos?: GalleryClientPhoto[]): Photo[] => {
   const [heroPhotos, setHeroPhotos] = useState<Photo[]>(() => {
-    if (initialPhotos && initialPhotos.length > 0) {
-      const knownCategories = [
-        'No Kings Sacramento',
-        'NorCal Resist',
-        'Sacramento Unity',
-        'Witty Signs',
-        'Resistance Choir',
-        'Legacy Archives',
-      ] as const;
+    if (initialPhotos?.some((p) => p.is_hero === true)) {
       return initialPhotos
-        .filter(
-          (p) =>
-            p.is_hero === true &&
-            knownCategories.includes(p.category as (typeof knownCategories)[number])
-        )
+        .filter((p) => p.is_hero === true)
         .slice(0, 4)
         .map((p) => ({
           id: p.id,
@@ -48,24 +36,10 @@ const useHeroPhotos = (initialPhotos?: GalleryClientPhoto[]): Photo[] => {
   });
 
   useEffect(() => {
-    if (initialPhotos && initialPhotos.length > 0) return;
+    if (initialPhotos?.some((p) => p.is_hero === true)) return;
     getGalleryPhotos().then((photos) => {
-      // GalleryPhoto has: id, url, alt, caption, location, category, signQuote, date, photographer, is_hero, is_pair, sort_order
-      // Type 'category' is string, not the union type — filter by known categories
-      const knownCategories = [
-        'No Kings Sacramento',
-        'NorCal Resist',
-        'Sacramento Unity',
-        'Witty Signs',
-        'Resistance Choir',
-        'Legacy Archives',
-      ] as const;
       const heroes = photos
-        .filter(
-          (p): p is typeof p & { is_hero: true } =>
-            p.is_hero === true &&
-            knownCategories.includes(p.category as (typeof knownCategories)[number])
-        )
+        .filter((p): p is typeof p & { is_hero: true } => p.is_hero === true)
         .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
       setHeroPhotos(
         heroes.slice(0, 4).map((p) => ({
@@ -98,7 +72,7 @@ const usePairPhotos = (initialPhotos?: GalleryClientPhoto[]): Photo[] => {
   });
 
   useEffect(() => {
-    if (initialPhotos && initialPhotos.length > 0) return;
+    if (initialPhotos?.some((p) => p.is_pair === true)) return;
     getGalleryPhotos().then((photos) => {
       const pairs = photos.filter((p) => p.is_pair === true);
       setPairPhotos(
@@ -135,7 +109,7 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryClie
   const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {
-    if (reduced !== false) return;
+    if (reduced !== false || heroPhotos.length === 0) return;
     const t = setInterval(() => setHeroIndex((p) => (p + 1) % heroPhotos.length), HERO_INTERVAL);
     return () => clearInterval(t);
   }, [reduced, heroPhotos.length]);
@@ -153,54 +127,65 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryClie
           animate="visible"
           className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50 aspect-[4/3]"
         >
-          <AnimatePresence mode="sync">
-            <motion.div
-              key={heroPhotos[heroIndex]?.id}
-              className="absolute inset-0"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: dur ?? 1.1, ease: EASE_STD }}
-            >
-              <Image
-                src={heroPhotos[heroIndex]?.src}
-                alt={heroPhotos[heroIndex]?.alt}
-                fill
-                className="object-cover"
-                sizes="(min-width: 1024px) 44vw, 100vw"
-                priority
-              />
-            </motion.div>
-          </AnimatePresence>
+          {heroPhotos.length > 0 && (
+            <AnimatePresence mode="sync">
+              <motion.div
+                key={heroPhotos[heroIndex]?.id}
+                className="absolute inset-0"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: dur ?? 1.1, ease: EASE_STD }}
+              >
+                <Image
+                  src={heroPhotos[heroIndex]?.src}
+                  alt={heroPhotos[heroIndex]?.alt}
+                  fill
+                  className="object-cover"
+                  sizes="(min-width: 1024px) 44vw, 100vw"
+                  priority
+                />
+              </motion.div>
+            </AnimatePresence>
+          )}
+          {heroPhotos.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 px-6 text-center">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+                Community moments
+              </span>
+            </div>
+          )}
 
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-transparent pointer-events-none" />
 
-          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={heroPhotos[heroIndex]?.id}
-                initial={{ opacity: 0, x: -5 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 5 }}
-                transition={{ duration: dur ?? 0.3 }}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-sm border border-white/10 text-[10px] font-bold uppercase tracking-wider text-slate-300"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                {heroPhotos[heroIndex]?.label}
-              </motion.span>
-            </AnimatePresence>
+          {heroPhotos.length > 0 && (
+            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={heroPhotos[heroIndex]?.id}
+                  initial={{ opacity: 0, x: -5 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 5 }}
+                  transition={{ duration: dur ?? 0.3 }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-sm border border-white/10 text-[10px] font-bold uppercase tracking-wider text-slate-300"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  {heroPhotos[heroIndex]?.label}
+                </motion.span>
+              </AnimatePresence>
 
-            <div className="flex items-center gap-1.5">
-              {heroPhotos.map((p, i) => (
-                <span
-                  key={p.id}
-                  className={`block rounded-full transition-all duration-300 ${
-                    i === heroIndex ? 'w-4 h-1.5 bg-amber-400' : 'w-1.5 h-1.5 bg-white/25'
-                  }`}
-                />
-              ))}
+              <div className="flex items-center gap-1.5">
+                {heroPhotos.map((p, i) => (
+                  <span
+                    key={p.id}
+                    className={`block rounded-full transition-all duration-300 ${
+                      i === heroIndex ? 'w-4 h-1.5 bg-amber-400' : 'w-1.5 h-1.5 bg-white/25'
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </motion.div>
 
         {/* ── Row 2: fixed pair ── */}

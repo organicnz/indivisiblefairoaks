@@ -32,7 +32,9 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
 
   const handleAddToCart = () => {
     addItem({
-      id: selectedVariation ? selectedVariation.id : product.id,
+      id: product.id,
+      productId: product.id,
+      variationId: selectedVariation?.id ?? null,
       name: selectedVariation
         ? `${product.name} - ${Object.values(selectedVariation.attributes).join(', ')}`
         : product.name,

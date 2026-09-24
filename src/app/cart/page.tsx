@@ -35,7 +35,8 @@ export default function CartPage() {
         },
         body: JSON.stringify({
           items: items.map((item) => ({
-            id: item.id,
+            id: item.productId ?? item.id,
+            variationId: item.variationId ?? undefined,
             quantity: item.quantity,
           })),
           promoCode: promoCode.trim(),
@@ -50,7 +51,7 @@ export default function CartPage() {
 
       // Out-of-stock (409): drop the dead line from the cart so retry works.
       if (response.status === 409 && data.productId) {
-        removeItem(data.productId);
+        removeItem(data.productId, data.variationId ?? null);
         toast.error(data.error || 'An item sold out and was removed from your cart.');
         return;
       }
@@ -156,8 +157,15 @@ export default function CartPage() {
                         <div className="flex items-center bg-slate-50 border border-slate-200 rounded-full w-min p-1 shadow-inner">
                           <button
                             type="button"
-                            onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                            className="p-2 text-secondary hover:text-primary transition-colors"
+                            onClick={() =>
+                              updateQuantity(
+                                item.productId ?? item.id,
+                                Math.max(1, item.quantity - 1),
+                                item.variationId ?? null
+                              )
+                            }
+                            disabled={item.quantity <= 1}
+                            className="p-2 text-secondary hover:text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                             aria-label="Decrease quantity"
                           >
                             <Minus size={16} strokeWidth={3} />
@@ -169,8 +177,9 @@ export default function CartPage() {
                             type="button"
                             onClick={() =>
                               updateQuantity(
-                                item.id,
-                                Math.min(item.quantity + 1, MAX_ITEM_QUANTITY)
+                                item.productId ?? item.id,
+                                Math.min(item.quantity + 1, MAX_ITEM_QUANTITY),
+                                item.variationId ?? null
                               )
                             }
                             disabled={item.quantity >= MAX_ITEM_QUANTITY}
@@ -185,7 +194,9 @@ export default function CartPage() {
                           <button
                             type="button"
                             className="-m-2 p-2 inline-flex text-slate-300 hover:text-rose-500 transition-colors"
-                            onClick={() => removeItem(item.id)}
+                            onClick={() =>
+                              removeItem(item.productId ?? item.id, item.variationId ?? null)
+                            }
                             aria-label={`Remove ${item.name} from cart`}
                           >
                             <span className="sr-only">Remove</span>
