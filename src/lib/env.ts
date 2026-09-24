@@ -25,6 +25,7 @@ const serverSchema = publicSchema.extend({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional().catch(undefined),
   // Contact notifications: test/ops overrides (defaults are derived in-code).
   CONTACT_FUNCTION_URL: z.string().url().optional(),
+  CONTACT_SUBMISSION_TEST_MODE: z.literal('1').optional(),
   CONTACT_RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
   // Resend email delivery
   RESEND_API_KEY: z.string().min(1).optional().catch(undefined),

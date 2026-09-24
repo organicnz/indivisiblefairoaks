@@ -37,10 +37,12 @@ async function expectHeadingClearOfHeader(page: import('@playwright/test').Page)
   // when the a11y tree already lists the banner.
   const banner = page.getByRole('banner');
   await expect(banner).toBeVisible();
+  await expect.poll(() => banner.boundingBox(), { timeout: 10_000 }).not.toBeNull();
   const header = await banner.boundingBox();
 
   const h1 = page.locator('h1').first();
   await expect(h1).toBeVisible();
+  await expect.poll(() => h1.boundingBox(), { timeout: 10_000 }).not.toBeNull();
   const h1Box = await h1.boundingBox();
 
   expect(header, 'header must render').toBeTruthy();

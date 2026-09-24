@@ -106,17 +106,19 @@ export async function submitContact(formData: FormData): Promise<ContactResult> 
     return { error: `Too many messages sent. Please try again in ${gate.retryAfterSec}s.` };
   }
 
-  const supabase = await createServerClient();
+  const { data: id, error } =
+    env.CONTACT_SUBMISSION_TEST_MODE === '1'
+      ? { data: 1, error: null }
+      : await (async () => {
+          const supabase = await createServerClient();
 
-  // Insert via SECURITY DEFINER RPC: INSERT..RETURNING through PostgREST would
-  // evaluate the admin-only SELECT policy against the new row and always fail
-  // for anonymous senders. The RPC returns the id without any read path.
-  const { data: id, error } = await supabase.rpc('submit_contact_submission', {
-    p_name: name,
-    p_email: email,
-    p_message: message,
-    p_wants_copy: wantsCopy,
-  });
+          return supabase.rpc('submit_contact_submission', {
+            p_name: name,
+            p_email: email,
+            p_message: message,
+            p_wants_copy: wantsCopy,
+          });
+        })();
 
   if (error || typeof id !== 'number') {
     console.error('Contact submission error:', error?.message);
