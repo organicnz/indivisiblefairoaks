@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from '@radix-ui/react-dropdown-menu';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
-import { ChevronDown, LogOut, Shield, User } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, LogOut, Shield, User, UserRound } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -59,9 +59,9 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
 
   if (loading) {
     return variant === 'block' ? (
-      <span aria-hidden="true" className="block w-full h-12 rounded-xl bg-white/10" />
+      <span aria-hidden="true" className="block w-full h-[60px] rounded-2xl bg-white/10" />
     ) : (
-      <span aria-hidden="true" className="inline-block w-28 h-9 rounded-full bg-white/10" />
+      <span aria-hidden="true" className="inline-block h-10 w-28 rounded-full bg-white/10" />
     );
   }
 
@@ -69,9 +69,14 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     const placeholder = (
       <span
         aria-hidden="true"
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-light to-primary-dark text-white ring-2 ring-white/15"
+        className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary-light via-primary to-primary-dark p-px shadow-md shadow-primary/20 ring-1 ring-white/25"
       >
-        <User size={14} strokeWidth={2.5} />
+        <span className="absolute inset-0 rounded-full bg-white/10" />
+        <UserRound
+          size={17}
+          strokeWidth={1.8}
+          className="relative text-white transition-transform duration-300 ease-out group-hover:scale-110"
+        />
       </span>
     );
 
@@ -80,11 +85,20 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
         <Link
           href="/login"
           onClick={onNavigate}
-          className="flex w-full items-center justify-center gap-3 py-3 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 text-slate-200 hover:text-white font-bold text-sm uppercase tracking-wider transition-colors"
+          className="group flex w-full items-center gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/60 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
           aria-label="Sign in to your account"
         >
           {placeholder}
-          Sign In
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold uppercase tracking-wider">Sign In</span>
+            <span className="mt-0.5 block text-[11px] font-medium normal-case tracking-normal text-slate-400">
+              Access your account
+            </span>
+          </span>
+          <ArrowUpRight
+            size={16}
+            className="shrink-0 text-slate-500 transition-transform duration-300 ease-out group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent-gold"
+          />
         </Link>
       );
     }
@@ -92,11 +106,11 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     return (
       <Link
         href="/login"
-        className="inline-flex shrink-0 items-center gap-2 rounded-full border border-white/20 bg-white/5 py-1 pl-1 pr-4 hover:border-amber-400/50 hover:bg-white/10 transition-colors duration-300 ease-out"
+        className="group inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/15 bg-white/5 py-1 pl-1.5 pr-4 shadow-md shadow-slate-950/10 transition-all duration-300 ease-out hover:border-accent-gold/50 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
         aria-label="Sign in to your account"
       >
         {placeholder}
-        <span className="text-xs font-bold uppercase tracking-wider text-white whitespace-nowrap">
+        <span className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-white">
           Sign In
         </span>
       </Link>
@@ -180,10 +194,10 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     return (
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex w-full items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 text-slate-200 hover:text-white transition-colors"
+          className="flex w-full items-center gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/60 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
           aria-label="User menu"
         >
-          {renderAvatar('h-8 w-8 shrink-0', 'text-[11px]')}
+          {renderAvatar('h-9 w-9 shrink-0', 'text-[11px]')}
           <span className="flex-1 min-w-0 text-left text-sm font-bold uppercase tracking-wider truncate">
             {displayName}
           </span>
