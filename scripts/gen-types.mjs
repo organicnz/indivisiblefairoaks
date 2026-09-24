@@ -46,6 +46,8 @@ const APP_TABLES = new Set([
   'crm_activities',
   'crm_broadcasts',
   'crm_contacts',
+  'crm_segments',
+  'crm_tasks',
   'error_reports',
   'events',
   'gallery_photos',

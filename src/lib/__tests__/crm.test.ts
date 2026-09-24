@@ -20,12 +20,21 @@ vi.mock('@/lib/admin-auth', () => ({
 
 import {
   addCRMNote,
+  addCRMTask,
+  deleteCRMTask,
+  exportCRMContacts,
   getBroadcastRecipientCount,
   getCRMContacts,
   getCRMStats,
+  getCRMTasks,
+  importCRMContacts,
+  mergeCRMContacts,
   saveCRMContact,
+  saveCRMSegment,
   sendCRMBroadcast,
   sendCRMDirectEmail,
+  setCRMEmailConsent,
+  setCRMTaskStatus,
 } from '@/lib/actions/crm';
 
 import { env } from '@/lib/env';
@@ -39,15 +48,26 @@ function createMockQueryBuilder(terminalResult: Record<string, unknown> = {}) {
     update: vi.fn(() => qb),
     delete: vi.fn(() => qb),
     eq: vi.fn(() => qb),
+    neq: vi.fn(() => qb),
     in: vi.fn(() => qb),
+    lt: vi.fn(() => qb),
+    gt: vi.fn(() => qb),
+    gte: vi.fn(() => qb),
+    lte: vi.fn(() => qb),
     contains: vi.fn(() => qb),
     or: vi.fn(() => qb),
+    textSearch: vi.fn(() => qb),
     order: vi.fn(() => qb),
+    limit: vi.fn(() => qb),
     range: vi.fn(() => Promise.resolve(terminalResult)),
     single: vi.fn(() => Promise.resolve(terminalResult)),
-    gt: vi.fn(() => Promise.resolve(terminalResult)),
+    maybeSingle: vi.fn(() => Promise.resolve(terminalResult)),
   });
   return qb;
+}
+
+function firstMockArg<T>(fn: { mock: { calls: unknown[][] } }): T {
+  return fn.mock.calls[0]?.[0] as T;
 }
 
 describe('Civic CRM Server Actions', () => {
@@ -211,8 +231,456 @@ describe('Civic CRM Server Actions', () => {
       expect(qb.eq).toHaveBeenCalledWith('status', 'active_volunteer');
       expect(qb.eq).toHaveBeenCalledWith('district', 'CA-06');
       expect(qb.contains).toHaveBeenCalledWith('tags', ['choir']);
+      expect(qb.textSearch).toHaveBeenCalledWith(
+        'search_vector',
+        'jane',
+        expect.objectContaining({ type: 'websearch', config: 'simple' })
+      );
       expect(qb.range).toHaveBeenCalledWith(10, 19);
       expect(res.contacts).toHaveLength(1);
+    });
+
+    it('falls back to ILIKE when FTS returns no rows', async () => {
+      const qbEmpty = createMockQueryBuilder({ data: [], count: 0, error: null });
+      const qbIlike = createMockQueryBuilder({
+        data: [{ id: '1', email: 'jane@example.com' }],
+        count: 1,
+        error: null,
+      });
+      let call = 0;
+      mockAdminClient.from.mockImplementation(() => {
+        call += 1;
+        return call === 1 ? qbEmpty : qbIlike;
+      });
+
+      const res = await getCRMContacts({ query: 'jane', pageSize: 10 });
+
+      expect(qbEmpty.textSearch).toHaveBeenCalled();
+      expect(qbIlike.or).toHaveBeenCalledWith(expect.stringContaining('email.ilike'));
+      expect(res.contacts).toHaveLength(1);
+      expect(res.totalCount).toBe(1);
+    });
+
+    it('strips PostgREST .or() structural characters from the ILIKE fallback query', async () => {
+      const qbEmpty = createMockQueryBuilder({ data: [], count: 0, error: null });
+      const qbIlike = createMockQueryBuilder({ data: [], count: 0, error: null });
+      let call = 0;
+      mockAdminClient.from.mockImplementation(() => {
+        call += 1;
+        return call === 1 ? qbEmpty : qbIlike;
+      });
+
+      await getCRMContacts({ query: 'foo (bar), baz', pageSize: 10 });
+
+      const orFilter = firstMockArg<string>(qbIlike.or);
+      expect(orFilter).not.toContain('(');
+      expect(orFilter).not.toContain(')');
+      // Commas only appear as .or() separators between column filters.
+      expect(orFilter.split(',').length).toBeGreaterThanOrEqual(5);
+      expect(orFilter).toContain('foo bar baz');
+    });
+  });
+
+  describe('exportCRMContacts', () => {
+    it('returns a CSV covering the full filtered set', async () => {
+      const qb = createMockQueryBuilder({
+        data: [
+          {
+            id: 'c1',
+            email: 'a@example.com',
+            first_name: 'A',
+            last_name: null,
+            phone: null,
+            district: 'CA-06',
+            city: null,
+            zip_code: null,
+            status: 'supporter',
+            tags: ['choir'],
+            do_not_email: true,
+            total_donated_cents: 1000,
+            source: 'import',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+        count: 1,
+        error: null,
+      });
+      mockAdminClient.from.mockReturnValue(qb);
+
+      const res = await exportCRMContacts({ status: 'supporter' });
+      expect(res.error).toBeUndefined();
+      expect(res.count).toBe(1);
+      expect(res.csv).toContain('Do Not Email');
+      expect(res.csv).toContain('a@example.com');
+      expect(res.csv).toContain('yes');
+      expect(qb.range).toHaveBeenCalledWith(0, 9999);
+    });
+  });
+
+  describe('tasks', () => {
+    it('adds an open task for a contact', async () => {
+      const qb = createMockQueryBuilder({ data: { id: 'task-1' }, error: null });
+      mockAdminClient.from.mockReturnValue(qb);
+
+      const res = await addCRMTask({
+        contactId: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        title: 'Call about canvass',
+        dueAt: '2026-10-01',
+      });
+
+      expect(res.success).toBe(true);
+      expect(qb.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contact_id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+          title: 'Call about canvass',
+          due_at: '2026-10-01',
+          created_by: 'admin-user-uuid-1234',
+        })
+      );
+    });
+
+    it('rejects an empty task title', async () => {
+      const res = await addCRMTask({
+        contactId: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        title: '   ',
+      });
+      expect(res.success).toBe(false);
+    });
+
+    it('marks a task done with completed_at', async () => {
+      const qb = createMockQueryBuilder({ error: null });
+      mockAdminClient.from.mockReturnValue(qb);
+
+      const res = await setCRMTaskStatus({ id: 'task-1', status: 'done' });
+      expect(res.success).toBe(true);
+      expect(qb.update).toHaveBeenCalledWith(expect.objectContaining({ status: 'done' }));
+      const payload = firstMockArg<{ completed_at: string | null }>(qb.update);
+      expect(payload.completed_at).toBeTruthy();
+    });
+
+    it('reopening a task clears completed_at', async () => {
+      const qb = createMockQueryBuilder({ error: null });
+      mockAdminClient.from.mockReturnValue(qb);
+
+      const res = await setCRMTaskStatus({ id: 'task-1', status: 'open' });
+      expect(res.success).toBe(true);
+      const payload = firstMockArg<{ completed_at: string | null }>(qb.update);
+      expect(payload.completed_at).toBeNull();
+    });
+
+    it('deletes a task by id', async () => {
+      const qb = createMockQueryBuilder({ error: null });
+      mockAdminClient.from.mockReturnValue(qb);
+
+      const res = await deleteCRMTask('task-1');
+      expect(res.success).toBe(true);
+      expect(qb.delete).toHaveBeenCalled();
+      expect(qb.eq).toHaveBeenCalledWith('id', 'task-1');
+    });
+
+    it('lists open tasks scoped with status filter', async () => {
+      const qb = createMockQueryBuilder({ data: [], count: 0, error: null });
+      mockAdminClient.from.mockReturnValue(qb);
+
+      const res = await getCRMTasks({ scope: 'open' });
+      expect(res.totalCount).toBe(0);
+      expect(qb.eq).toHaveBeenCalledWith('status', 'open');
+    });
+  });
+
+  describe('segments', () => {
+    it('saves a new named segment', async () => {
+      const qb = createMockQueryBuilder({ data: { id: 'seg-1' }, error: null });
+      mockAdminClient.from.mockReturnValue(qb);
+
+      const res = await saveCRMSegment({
+        name: 'CA-06 choir',
+        query: '',
+        statuses: ['choir'],
+        districts: ['CA-06'],
+        tags: [],
+      });
+
+      expect(res.success).toBe(true);
+      expect(qb.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'CA-06 choir',
+          statuses: ['choir'],
+          districts: ['CA-06'],
+        })
+      );
+    });
+
+    it('rejects an empty segment name', async () => {
+      const res = await saveCRMSegment({ name: '  ' });
+      expect(res.success).toBe(false);
+    });
+  });
+
+  describe('consent', () => {
+    it('marks do-not-email and logs an activity', async () => {
+      const qbContact = createMockQueryBuilder({ error: null });
+      const qbActivity = createMockQueryBuilder({ error: null });
+      mockAdminClient.from.mockImplementation((table: string) => {
+        if (table === 'crm_contacts') return qbContact;
+        if (table === 'crm_activities') return qbActivity;
+        return createMockQueryBuilder();
+      });
+
+      const res = await setCRMEmailConsent({
+        contactId: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        doNotEmail: true,
+      });
+
+      expect(res.success).toBe(true);
+      expect(qbContact.update).toHaveBeenCalledWith(
+        expect.objectContaining({ do_not_email: true })
+      );
+      const payload = firstMockArg<{ unsubscribed_at: string | null }>(qbContact.update);
+      expect(payload.unsubscribed_at).toBeTruthy();
+      expect(qbActivity.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Email Consent Revoked' })
+      );
+    });
+
+    it('blocks direct email when contact is opted out', async () => {
+      const qbContact = createMockQueryBuilder({
+        data: {
+          id: 'c-1',
+          email: 'x@example.com',
+          first_name: 'X',
+          last_name: null,
+          do_not_email: true,
+          unsubscribe_token: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        },
+        error: null,
+      });
+      mockAdminClient.from.mockReturnValue(qbContact);
+
+      const res = await sendCRMDirectEmail({
+        contactId: 'c-1',
+        subject: 'Hello',
+        message: 'Hi there',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/unsubscribed/i);
+    });
+  });
+
+  describe('importCRMContacts', () => {
+    it('parses CSV, skips existing emails, inserts new rows', async () => {
+      // First call: .or(email.ilike…) lookup → { data: [{email}] }
+      // Second call: insert → { data: [{id}] }
+      let contactCall = 0;
+      const existingQb = createMockQueryBuilder({
+        data: [{ email: 'taken@example.com' }],
+        error: null,
+      });
+      const insertQb = createMockQueryBuilder({ data: [{ id: 'new-1' }], error: null });
+      // Case-insensitive pre-check uses .or(email.ilike…), not .in().
+      existingQb.or = vi.fn(() => existingQb);
+      insertQb.insert = vi.fn(() => insertQb);
+      insertQb.select = vi.fn(() => insertQb);
+
+      const qbActivity = createMockQueryBuilder({ error: null });
+
+      mockAdminClient.from.mockImplementation((table: string) => {
+        if (table === 'crm_contacts') {
+          contactCall += 1;
+          // First crm_contacts call is the existing-email check (.or)
+          // Second is the insert. We detect by which method is used after.
+          return contactCall === 1 ? existingQb : insertQb;
+        }
+        if (table === 'crm_activities') return qbActivity;
+        return createMockQueryBuilder();
+      });
+
+      const csv = [
+        'email,first_name,last_name,status,tags',
+        'taken@example.com,Taken,User,supporter,',
+        'brand-new@example.com,New,Person,choir,postcards;canvass',
+      ].join('\n');
+
+      const res = await importCRMContacts({ csv });
+
+      expect(res.success).toBe(true);
+      expect(res.skipped).toBe(1);
+      expect(res.imported).toBe(1);
+      expect(existingQb.or).toHaveBeenCalledWith(
+        expect.stringContaining('email.ilike.taken@example.com')
+      );
+      expect(insertQb.insert).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            email: 'brand-new@example.com',
+            status: 'choir',
+            tags: ['postcards', 'canvass'],
+            source: 'import',
+          }),
+        ])
+      );
+    });
+
+    it('treats mixed-case DB emails as already imported (case-insensitive pre-check)', async () => {
+      let contactCall = 0;
+      const existingQb = createMockQueryBuilder({
+        // DB retained mixed case; CSV parser lowercases input.
+        data: [{ email: 'Taken@Example.COM' }],
+        error: null,
+      });
+      const insertQb = createMockQueryBuilder({ data: [{ id: 'should-not-run' }], error: null });
+      existingQb.or = vi.fn(() => existingQb);
+      insertQb.insert = vi.fn(() => insertQb);
+      insertQb.select = vi.fn(() => insertQb);
+
+      mockAdminClient.from.mockImplementation((table: string) => {
+        if (table === 'crm_contacts') {
+          contactCall += 1;
+          return contactCall === 1 ? existingQb : insertQb;
+        }
+        return createMockQueryBuilder();
+      });
+
+      const res = await importCRMContacts({
+        csv: 'email,first_name\nTaken@Example.COM,Ada',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.imported).toBe(0);
+      expect(res.skipped).toBe(1);
+      expect(insertQb.insert).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when the existing-email lookup errors', async () => {
+      const existingQb = createMockQueryBuilder({
+        data: null,
+        error: { message: 'permission denied for table crm_contacts' },
+      });
+      existingQb.or = vi.fn(() => existingQb);
+
+      mockAdminClient.from.mockImplementation((table: string) => {
+        if (table === 'crm_contacts') return existingQb;
+        return createMockQueryBuilder();
+      });
+
+      const res = await importCRMContacts({ csv: 'email\na@example.com' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/lookup failed/i);
+    });
+
+    it('rejects empty CSV', async () => {
+      const res = await importCRMContacts({ csv: '   ' });
+      expect(res.success).toBe(false);
+    });
+
+    it('reports error when header lacks email column', async () => {
+      const res = await importCRMContacts({ csv: 'name,city\nJane,Fair Oaks' });
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/valid rows|email/i);
+    });
+
+    it('does not report success when every insert fails', async () => {
+      const existingQb = createMockQueryBuilder({ data: [], error: null });
+      existingQb.or = vi.fn(() => existingQb);
+      const insertQb = createMockQueryBuilder({
+        data: null,
+        error: { message: 'violates check constraint "crm_contacts_source_check"' },
+      });
+      insertQb.insert = vi.fn(() => insertQb);
+      insertQb.select = vi.fn(() => insertQb);
+
+      let contactCall = 0;
+      mockAdminClient.from.mockImplementation((table: string) => {
+        if (table === 'crm_contacts') {
+          contactCall += 1;
+          return contactCall === 1 ? existingQb : insertQb;
+        }
+        return createMockQueryBuilder();
+      });
+
+      const csv = 'email\nnew-person@example.com';
+      const res = await importCRMContacts({ csv });
+
+      expect(res.success).toBe(false);
+      expect(res.imported).toBe(0);
+      expect(res.error).toMatch(/inserts failed/i);
+      expect(res.errors?.some((e) => e.message.startsWith('Insert failed'))).toBe(true);
+    });
+  });
+
+  describe('mergeCRMContacts', () => {
+    it('refuses to merge a contact into itself', async () => {
+      const res = await mergeCRMContacts({ keepId: 'same-id', removeId: 'same-id' });
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/itself/);
+    });
+
+    it('moves activities, combines tags/donations, deletes duplicate', async () => {
+      const keepContact = {
+        id: 'keep-uuid',
+        email: 'keep@example.com',
+        first_name: 'Keep',
+        last_name: null,
+        tags: ['choir'],
+        notes: 'keep note',
+        total_donated_cents: 500,
+        last_contacted_at: '2026-02-01T00:00:00Z',
+        do_not_email: false,
+        unsubscribed_at: null,
+      };
+      const removeContact = {
+        id: 'remove-uuid',
+        email: 'remove@example.com',
+        first_name: 'Remove',
+        last_name: null,
+        tags: ['donor'],
+        notes: 'remove note',
+        total_donated_cents: 250,
+        last_contacted_at: '2026-03-01T00:00:00Z',
+        do_not_email: true,
+        unsubscribed_at: '2026-03-05T00:00:00Z',
+      };
+
+      const qbKeep = createMockQueryBuilder({ data: keepContact, error: null });
+      const qbRemove = createMockQueryBuilder({ data: removeContact, error: null });
+      const qbActs = createMockQueryBuilder({ error: null });
+      const qbTasks = createMockQueryBuilder({ error: null });
+      const qbDelete = createMockQueryBuilder({ error: null });
+
+      let fetchCount = 0;
+      mockAdminClient.from.mockImplementation((table: string) => {
+        if (table === 'crm_contacts') {
+          // fetch keep, fetch remove, update keep, delete remove
+          fetchCount += 1;
+          if (fetchCount === 1) return qbKeep;
+          if (fetchCount === 2) return qbRemove;
+          if (fetchCount === 3) return qbKeep; // update
+          return qbDelete;
+        }
+        if (table === 'crm_activities') return qbActs;
+        if (table === 'crm_tasks') return qbTasks;
+        return createMockQueryBuilder();
+      });
+
+      const res = await mergeCRMContacts({
+        keepId: 'keep-uuid',
+        removeId: 'remove-uuid',
+      });
+
+      expect(res.success).toBe(true);
+      expect(qbActs.update).toHaveBeenCalledWith({ contact_id: 'keep-uuid' });
+      expect(qbTasks.update).toHaveBeenCalledWith({ contact_id: 'keep-uuid' });
+      expect(qbKeep.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tags: expect.arrayContaining(['choir', 'donor']),
+          total_donated_cents: 750,
+          do_not_email: true,
+        })
+      );
+      expect(qbDelete.delete).toHaveBeenCalled();
+      expect(qbDelete.eq).toHaveBeenCalledWith('id', 'remove-uuid');
     });
   });
 

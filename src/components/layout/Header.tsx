@@ -83,90 +83,95 @@ function HeaderInner() {
   }, []);
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? 'bg-slate-950/95 backdrop-blur-md py-3 shadow-xl border-b border-white/10'
-          : 'bg-slate-900/90 backdrop-blur-sm py-4 border-b border-white/10'
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center">
-          {/* Logo / Chapter Identity */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative w-10 h-10 shrink-0 group-hover:scale-105 transition-transform">
-              <Image
-                src="/images/logo/indivisible-emblem.png"
-                alt="Indivisible Fair Oaks & Carmichael"
-                width={40}
-                height={40}
-                className="w-full h-full object-contain"
-                priority
-                unoptimized
-              />
-            </div>
-            <div>
-              <span className="text-white font-black text-base sm:text-lg tracking-tight uppercase group-hover:text-blue-400 transition-colors block leading-tight">
-                Indivisible
-              </span>
-              <span className="text-blue-300 text-[11px] sm:text-xs font-semibold tracking-wider uppercase block leading-tight">
-                Fair Oaks & Carmichael
-              </span>
-            </div>
-          </Link>
-
-          {/* Desktop Navigation — full link row only fits at xl+ (measured:
-              9 links + actions overflow 1024–1280px). Below xl the drawer
-              serves all links + account. */}
-          <nav className="hidden xl:flex items-center gap-5 2xl:gap-8">
-            {NAV_LINKS.map((link) => {
-              const isActive = pathname === link.href;
-              return (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  className={`text-xs font-bold uppercase tracking-wider transition-all relative py-1 ${
-                    isActive ? 'text-amber-400 font-extrabold' : 'text-slate-200 hover:text-white'
-                  }`}
-                >
-                  {link.name}
-                  {isActive && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-full" />
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
-
-            <Link
-              href="/donate"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg hover:scale-105 transition-all"
-            >
-              <Heart size={14} className="fill-slate-950" />
-              <span>Donate</span>
+    <>
+      {/* NOTE: the mobile drawer must be a sibling of <header>, not a child —
+          the header's backdrop-blur creates a containing block that would
+          trap the drawer's `fixed inset-0` at header height. */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          isScrolled
+            ? 'bg-slate-950/95 backdrop-blur-md py-3 shadow-xl border-b border-white/10'
+            : 'bg-slate-900/90 backdrop-blur-sm py-4 border-b border-white/10'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center">
+            {/* Logo / Chapter Identity */}
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="relative w-10 h-10 shrink-0 group-hover:scale-105 transition-transform">
+                <Image
+                  src="/images/logo/indivisible-emblem.png"
+                  alt="Indivisible Fair Oaks & Carmichael"
+                  width={40}
+                  height={40}
+                  className="w-full h-full object-contain"
+                  priority
+                  unoptimized
+                />
+              </div>
+              <div>
+                <span className="text-white font-black text-base sm:text-lg tracking-tight uppercase group-hover:text-blue-400 transition-colors block leading-tight">
+                  Indivisible
+                </span>
+                <span className="text-blue-300 text-[11px] sm:text-xs font-semibold tracking-wider uppercase block leading-tight">
+                  Fair Oaks & Carmichael
+                </span>
+              </div>
             </Link>
 
-            <div className="hidden xl:block">
-              <AccountButton />
-            </div>
+            {/* Desktop Navigation — full link row only fits at xl+ (measured:
+              9 links + actions overflow 1024–1280px). Below xl the drawer
+              serves all links + account. */}
+            <nav className="hidden xl:flex items-center gap-5 2xl:gap-8">
+              {NAV_LINKS.map((link) => {
+                const isActive = pathname === link.href;
+                return (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    className={`text-xs font-bold uppercase tracking-wider transition-all relative py-1 ${
+                      isActive ? 'text-amber-400 font-extrabold' : 'text-slate-200 hover:text-white'
+                    }`}
+                  >
+                    {link.name}
+                    {isActive && (
+                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-full" />
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
 
-            {/* Mobile Menu Button */}
-            <button
-              type="button"
-              className="xl:hidden p-2 rounded-lg text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
-              onClick={() => setIsMenuOpen(true)}
-              aria-label="Open navigation menu"
-              aria-expanded={isMenuOpen}
-            >
-              <Menu size={24} />
-            </button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
+
+              <Link
+                href="/donate"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg hover:scale-105 transition-all"
+              >
+                <Heart size={14} className="fill-slate-950" />
+                <span>Donate</span>
+              </Link>
+
+              <div className="hidden xl:block">
+                <AccountButton />
+              </div>
+
+              {/* Mobile Menu Button */}
+              <button
+                type="button"
+                className="xl:hidden p-2 rounded-lg text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+                onClick={() => setIsMenuOpen(true)}
+                aria-label="Open navigation menu"
+                aria-expanded={isMenuOpen}
+              >
+                <Menu size={24} />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Mobile Drawer */}
       <div
@@ -240,13 +245,7 @@ function HeaderInner() {
         </nav>
 
         <div className="mt-auto pt-6 border-t border-white/10 flex flex-col gap-4">
-          <Link
-            href="/account"
-            onClick={() => setIsMenuOpen(false)}
-            className="w-full py-3 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 text-slate-200 hover:text-white font-bold text-center text-sm uppercase tracking-wider transition-colors"
-          >
-            My Account / Sign In
-          </Link>
+          <AccountButton variant="block" onNavigate={() => setIsMenuOpen(false)} />
           <Link
             href="/donate"
             onClick={() => setIsMenuOpen(false)}
@@ -271,6 +270,6 @@ function HeaderInner() {
           </div>
         </div>
       </div>
-    </header>
+    </>
   );
 }

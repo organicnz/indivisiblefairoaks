@@ -1,11 +1,15 @@
 'use client';
 
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
+  CalendarCheck,
+  CheckCircle2,
   DollarSign,
   Edit2,
   FileText,
+  GitMerge,
   Mail,
   MapPin,
   MessageSquare,
@@ -21,24 +25,34 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
+import { CRMMergeModal } from '@/components/admin/crm/CRMMergeModal';
 import {
   addCRMNote,
+  addCRMTask,
   type CRMActivity,
   type CRMContact,
+  type CRMTask,
   deleteCRMContact,
   sendCRMDirectEmail,
+  setCRMEmailConsent,
+  setCRMTaskStatus,
 } from '@/lib/actions/crm';
 
 interface Props {
   contact: CRMContact;
   activities: CRMActivity[];
+  tasks: CRMTask[];
 }
 
-export function CRMDetailClient({ contact, activities }: Props) {
+type TabId = 'timeline' | 'tasks' | 'email' | 'note';
+
+export function CRMDetailClient({ contact, activities, tasks }: Props) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'timeline' | 'email' | 'note'>('timeline');
+  const [activeTab, setActiveTab] = useState<TabId>('timeline');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [consentBusy, setConsentBusy] = useState(false);
 
   // Email form state
   const [emailSubject, setEmailSubject] = useState('');
@@ -49,6 +63,14 @@ export function CRMDetailClient({ contact, activities }: Props) {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteDesc, setNoteDesc] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+
+  // Task form state
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDetails, setTaskDetails] = useState('');
+  const [taskDue, setTaskDue] = useState('');
+  const [savingTask, setSavingTask] = useState(false);
+
+  const openTasks = tasks.filter((t) => t.status === 'open');
 
   const fullName =
     [contact.first_name, contact.last_name].filter(Boolean).join(' ') ||
@@ -71,6 +93,28 @@ export function CRMDetailClient({ contact, activities }: Props) {
       toast.error('Deletion failed');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleConsentToggle = async () => {
+    const next = !contact.do_not_email;
+    const confirmMsg = next
+      ? `Opt ${fullName} out of all chapter email broadcasts?`
+      : `Re-subscribe ${fullName} for chapter broadcasts?`;
+    if (!confirm(confirmMsg)) return;
+    setConsentBusy(true);
+    try {
+      const res = await setCRMEmailConsent({ contactId: contact.id, doNotEmail: next });
+      if (res.success) {
+        toast.success(next ? 'Marked do-not-email' : 'Email consent restored');
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update consent');
+      }
+    } catch {
+      toast.error('Failed to update consent');
+    } finally {
+      setConsentBusy(false);
     }
   };
 
@@ -136,6 +180,54 @@ export function CRMDetailClient({ contact, activities }: Props) {
     }
   };
 
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskTitle.trim()) {
+      toast.error('Task title is required');
+      return;
+    }
+    setSavingTask(true);
+    try {
+      const res = await addCRMTask({
+        contactId: contact.id,
+        title: taskTitle,
+        details: taskDetails || null,
+        dueAt: taskDue || null,
+      });
+      if (res.success) {
+        toast.success('Follow-up scheduled');
+        setTaskTitle('');
+        setTaskDetails('');
+        setTaskDue('');
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to add follow-up');
+      }
+    } catch {
+      toast.error('Failed to add follow-up');
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
+  const handleTaskToggle = async (task: CRMTask) => {
+    const next = task.status === 'done' ? 'open' : 'done';
+    const res = await setCRMTaskStatus({ id: task.id, status: next });
+    if (res.success) {
+      toast.success(next === 'done' ? 'Follow-up completed' : 'Follow-up reopened');
+      router.refresh();
+    } else {
+      toast.error(res.error || 'Failed to update follow-up');
+    }
+  };
+
+  const tabClass = (id: TabId) =>
+    `inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors ${
+      activeTab === id
+        ? 'bg-primary text-white shadow-xs'
+        : 'bg-white text-slate-600 hover:bg-slate-100'
+    }`;
+
   return (
     <div className="space-y-6">
       {/* Back link */}
@@ -165,6 +257,39 @@ export function CRMDetailClient({ contact, activities }: Props) {
               <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-800 border border-blue-200 shrink-0">
                 {contact.status.replace('_', ' ')}
               </span>
+            </div>
+
+            {/* Consent badge */}
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl border">
+              {contact.do_not_email ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-red-700">
+                    <AlertTriangle size={13} /> Do Not Email
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleConsentToggle}
+                    disabled={consentBusy}
+                    className="text-[11px] font-bold text-slate-500 hover:text-emerald-700 transition-colors disabled:opacity-50"
+                  >
+                    {consentBusy ? '…' : 'Re-subscribe'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-700">
+                    <CheckCircle2 size={13} /> Email Opted-In
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleConsentToggle}
+                    disabled={consentBusy}
+                    className="text-[11px] font-bold text-slate-500 hover:text-red-600 transition-colors disabled:opacity-50"
+                  >
+                    {consentBusy ? '…' : 'Opt out'}
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Quick Metadata */}
@@ -205,6 +330,16 @@ export function CRMDetailClient({ contact, activities }: Props) {
                   </strong>
                 </span>
               </div>
+
+              {openTasks.length > 0 && (
+                <div className="flex items-center gap-2.5 text-slate-600">
+                  <CalendarCheck size={15} className="text-amber-500 shrink-0" />
+                  <span>
+                    <strong className="text-secondary">{openTasks.length}</strong> open follow-up
+                    {openTasks.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Tags section */}
@@ -242,13 +377,23 @@ export function CRMDetailClient({ contact, activities }: Props) {
 
             {/* Actions */}
             <div className="flex items-center justify-between gap-2 pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setIsEditorOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-secondary text-xs font-bold rounded-xl transition-colors"
-              >
-                <Edit2 size={13} /> Edit Profile
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsEditorOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-secondary text-xs font-bold rounded-xl transition-colors"
+                >
+                  <Edit2 size={13} /> Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsMergeOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-secondary text-xs font-bold rounded-xl transition-colors"
+                  title="Merge a duplicate contact into this profile"
+                >
+                  <GitMerge size={13} /> Merge
+                </button>
+              </div>
 
               <button
                 type="button"
@@ -262,46 +407,37 @@ export function CRMDetailClient({ contact, activities }: Props) {
           </div>
         </div>
 
-        {/* Right Column — Tabbed Activities, Email Sender, and Note Composer */}
+        {/* Right Column — Tabbed Activities, Tasks, Email Sender, and Note Composer */}
         <div className="lg:col-span-2 space-y-6">
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab('timeline')}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors ${
-                activeTab === 'timeline'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:bg-slate-100'
-              }`}
+              className={tabClass('timeline')}
             >
-              <FileText size={14} /> Activity Timeline ({activities.length})
+              <FileText size={14} /> Timeline ({activities.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('tasks')}
+              className={tabClass('tasks')}
+            >
+              <CalendarCheck size={14} /> Follow-ups ({openTasks.length})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('email')}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors ${
-                activeTab === 'email'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:bg-slate-100'
-              }`}
+              className={tabClass('email')}
             >
-              <Mail size={14} /> Send Direct Email
+              <Mail size={14} /> Email
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('note')}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors ${
-                activeTab === 'note'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'bg-white text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <MessageSquare size={14} /> Log Organizer Note
+            <button type="button" onClick={() => setActiveTab('note')} className={tabClass('note')}>
+              <MessageSquare size={14} /> Note
             </button>
           </div>
 
-          {/* Tab 1: Timeline */}
+          {/* Tab: Timeline */}
           {activeTab === 'timeline' && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
               <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">
@@ -330,6 +466,12 @@ export function CRMDetailClient({ contact, activities }: Props) {
                     } else if (act.type === 'status_change') {
                       icon = <User size={12} />;
                       badgeClass = 'bg-purple-100 text-purple-800';
+                    } else if (act.type === 'import') {
+                      icon = <FileText size={12} />;
+                      badgeClass = 'bg-cyan-100 text-cyan-800';
+                    } else if (act.type === 'merge') {
+                      icon = <GitMerge size={12} />;
+                      badgeClass = 'bg-rose-100 text-rose-800';
                     }
 
                     return (
@@ -365,7 +507,140 @@ export function CRMDetailClient({ contact, activities }: Props) {
             </div>
           )}
 
-          {/* Tab 2: Send Direct Email */}
+          {/* Tab: Follow-ups */}
+          {activeTab === 'tasks' && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                  Organizer Follow-ups
+                </span>
+                <h2 className="text-lg font-black uppercase tracking-tight text-secondary">
+                  Schedule & Track Tasks
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Due-dated commitments for this constituent.{' '}
+                  <Link href="/admin/crm/tasks" className="text-primary font-bold hover:underline">
+                    Open the full board →
+                  </Link>
+                </p>
+              </div>
+
+              <form onSubmit={handleAddTask} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="task-title"
+                      className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                    >
+                      Task *
+                    </label>
+                    <input
+                      id="task-title"
+                      type="text"
+                      required
+                      maxLength={200}
+                      value={taskTitle}
+                      onChange={(e) => setTaskTitle(e.target.value)}
+                      placeholder="e.g. Call about Saturday canvass"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="task-due"
+                      className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                    >
+                      Due date
+                    </label>
+                    <input
+                      id="task-due"
+                      type="date"
+                      value={taskDue}
+                      onChange={(e) => setTaskDue(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label
+                    htmlFor="task-details"
+                    className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                  >
+                    Details
+                  </label>
+                  <textarea
+                    id="task-details"
+                    rows={2}
+                    value={taskDetails}
+                    onChange={(e) => setTaskDetails(e.target.value)}
+                    placeholder="Context, phone number, promised deliverable…"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={savingTask}
+                    className="inline-flex items-center gap-2 px-5 py-2 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-widest rounded-xl transition-colors shadow-xs disabled:opacity-50"
+                  >
+                    <Plus size={14} />
+                    {savingTask ? 'Saving…' : 'Add Follow-up'}
+                  </button>
+                </div>
+              </form>
+
+              {tasks.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-xs border-t border-slate-100">
+                  No follow-ups yet.
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-100 border-t border-slate-100">
+                  {tasks.map((task) => (
+                    <li key={task.id} className="flex items-start gap-3 py-3">
+                      <button
+                        type="button"
+                        onClick={() => handleTaskToggle(task)}
+                        className="mt-0.5 text-slate-400 hover:text-emerald-600 transition-colors"
+                        aria-label={task.status === 'done' ? 'Reopen task' : 'Complete task'}
+                      >
+                        {task.status === 'done' ? (
+                          <CheckCircle2 size={16} className="text-emerald-500" />
+                        ) : (
+                          <FileText size={16} />
+                        )}
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className={`text-xs font-bold text-secondary ${
+                            task.status === 'done' ? 'line-through opacity-60' : ''
+                          }`}
+                        >
+                          {task.title}
+                        </div>
+                        {task.details && (
+                          <p className="text-[11px] text-slate-500 mt-0.5">{task.details}</p>
+                        )}
+                      </div>
+                      <span
+                        className={`text-[11px] shrink-0 ${
+                          task.due_at ? 'text-slate-500 font-bold' : 'text-slate-300'
+                        }`}
+                      >
+                        {task.due_at
+                          ? new Date(`${task.due_at}T00:00:00`).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                            })
+                          : '—'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* Tab: Send Direct Email */}
           {activeTab === 'email' && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div>
@@ -380,6 +655,12 @@ export function CRMDetailClient({ contact, activities }: Props) {
                   using the Sensory Luxury email template from{' '}
                   <code className="text-primary font-bold">contact@indivisiblefairoaks.org</code>.
                 </p>
+                {contact.do_not_email && (
+                  <p className="mt-2 text-xs font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                    This contact is marked do-not-email — sending is blocked until consent is
+                    restored.
+                  </p>
+                )}
               </div>
 
               <form onSubmit={handleSendEmail} className="space-y-4">
@@ -394,10 +675,11 @@ export function CRMDetailClient({ contact, activities }: Props) {
                     id="email-subject"
                     type="text"
                     required
+                    disabled={contact.do_not_email}
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
                     placeholder="e.g. Next steps for our Postcard Blitz campaign"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm disabled:bg-slate-50 disabled:text-slate-400"
                   />
                 </div>
 
@@ -412,10 +694,11 @@ export function CRMDetailClient({ contact, activities }: Props) {
                     id="email-message"
                     required
                     rows={8}
+                    disabled={contact.do_not_email}
                     value={emailMessage}
                     onChange={(e) => setEmailMessage(e.target.value)}
                     placeholder="Type your message to this constituent..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm leading-relaxed"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm leading-relaxed disabled:bg-slate-50 disabled:text-slate-400"
                   />
                 </div>
 
@@ -426,7 +709,7 @@ export function CRMDetailClient({ contact, activities }: Props) {
                   </span>
                   <button
                     type="submit"
-                    disabled={sendingEmail}
+                    disabled={sendingEmail || contact.do_not_email}
                     className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-widest rounded-xl transition-colors shadow-md disabled:opacity-50"
                   >
                     <Send size={14} />
@@ -437,7 +720,7 @@ export function CRMDetailClient({ contact, activities }: Props) {
             </div>
           )}
 
-          {/* Tab 3: Log Organizer Note */}
+          {/* Tab: Log Organizer Note */}
           {activeTab === 'note' && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
               <div>
@@ -511,6 +794,11 @@ export function CRMDetailClient({ contact, activities }: Props) {
           isOpen={isEditorOpen}
           onClose={() => setIsEditorOpen(false)}
         />
+      )}
+
+      {/* Merge Modal */}
+      {isMergeOpen && (
+        <CRMMergeModal keep={contact} isOpen={isMergeOpen} onClose={() => setIsMergeOpen(false)} />
       )}
     </div>
   );

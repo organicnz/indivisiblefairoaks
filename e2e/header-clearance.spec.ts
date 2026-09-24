@@ -31,7 +31,14 @@ async function expectHeadingClearOfHeader(page: import('@playwright/test').Page)
   // networkidle hangs on hosted runners (persistent sockets); load suffices.
   await page.waitForLoadState('load');
 
-  const header = await page.locator('header').first().boundingBox();
+  // Site chrome is the landmark <header> (banner). Prefer the role over a bare
+  // `header` tag so we never pick WALL-E's panel header, and wait until it is
+  // actually laid out — boundingBox() is null during Suspense/stream races even
+  // when the a11y tree already lists the banner.
+  const banner = page.getByRole('banner');
+  await expect(banner).toBeVisible();
+  const header = await banner.boundingBox();
+
   const h1 = page.locator('h1').first();
   await expect(h1).toBeVisible();
   const h1Box = await h1.boundingBox();

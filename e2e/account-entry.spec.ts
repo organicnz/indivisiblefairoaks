@@ -23,15 +23,15 @@ test.describe('navbar account entry', () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test('mobile drawer offers My Account / Sign In', async ({ page }) => {
+  test('mobile drawer offers Sign In linking to /login', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
     await page.waitForLoadState('load');
 
     await page.getByRole('button', { name: 'Open navigation menu' }).click();
-    const account = page.getByRole('link', { name: 'My Account / Sign In' });
+    const account = page.getByRole('link', { name: 'Sign in to your account' });
     await expect(account).toBeVisible();
-    await expect(account).toHaveAttribute('href', '/account');
+    await expect(account).toHaveAttribute('href', '/login');
   });
 
   test('lg viewport (1024) uses drawer and the header row never overflows', async ({ page }) => {

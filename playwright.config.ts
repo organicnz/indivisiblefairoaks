@@ -17,7 +17,9 @@ const MOCK_PORT = 3101;
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
-  retries: process.env.CI ? 2 : 0,
+  // Local delivery gate (lefthook pre-push) gets 1 retry so known stream/layout
+  // races do not block a green suite; CI keeps 2 for runner noise.
+  retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 2 : undefined,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {

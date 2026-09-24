@@ -30,8 +30,8 @@ export default async function AdminCRMDetailPage({ params }: { params: Promise<{
   const { id } = await params;
 
   try {
-    const { contact, activities } = await getCRMContactDetail(id);
-    return <CRMDetailClient contact={contact} activities={activities} />;
+    const { contact, activities, tasks } = await getCRMContactDetail(id);
+    return <CRMDetailClient contact={contact} activities={activities} tasks={tasks} />;
   } catch {
     notFound();
   }

@@ -4,6 +4,13 @@ import { Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { type CRMContact, saveCRMContact } from '@/lib/actions/crm';
 
 interface Props {
@@ -30,8 +37,6 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
     tags: contact?.tags || [],
     notes: contact?.notes || '',
   });
-
-  if (!isOpen) return null;
 
   const handleAddTag = () => {
     const trimmed = tagInput.trim().toLowerCase();
@@ -94,33 +99,24 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-8"
-      >
-        <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">
-              Constituent Directory
-            </span>
-            <h2
-              id="modal-title"
-              className="text-xl font-black uppercase tracking-tight text-secondary"
-            >
-              {contact ? 'Edit Constituent' : 'Add New Constituent'}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-secondary rounded-full hover:bg-slate-100 transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8">
+        <DialogHeader>
+          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">
+            Constituent Directory
+          </span>
+          <DialogTitle id="modal-title">
+            {contact ? 'Edit Constituent' : 'Add New Constituent'}
+          </DialogTitle>
+          <DialogDescription>
+            Contact details, district, engagement status, and organizer tags.
+          </DialogDescription>
+        </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -192,6 +188,23 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
               />
             </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="address"
+              className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+            >
+              Street Address
+            </label>
+            <input
+              id="address"
+              type="text"
+              value={formData.address}
+              onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))}
+              placeholder="123 Main St"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -310,6 +323,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                   <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}
+                    aria-label={`Remove tag ${tag}`}
                     className="hover:text-red-600 transition-colors"
                   >
                     <X size={12} />
@@ -353,7 +367,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

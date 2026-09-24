@@ -37,6 +37,7 @@ export default defineConfig({
         'src/lib/validations.ts',
         'src/lib/actions/settings.ts',
         'src/lib/error-report.ts',
+        'src/lib/crm-unsubscribe.ts',
         'src/config/shipping.ts',
         'src/app/auth/callback/route.ts',
       ],

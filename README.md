@@ -68,7 +68,8 @@ bun run types:generate  # regenerate Supabase types
 - **Runner**: self-hosted ARM64 Linux with preflight disk guard and workspace cleanup.
 - **On push to `main`**: lint → types → unit → build → e2e → Supabase migrations → Vercel production deploy.
 - **Nightly** (`daily-compat.yml`): frozen install, full lint/types/unit/build/e2e, live health probes for `/api/health` and all three Edge Functions, advisory AI diff review (output never gates CI).
-- **Pre-commit**: lefthook runs `biome check --write` + `oxlint`.
+- **Pre-commit**: lefthook runs `biome check --write` + `oxlint`, typecheck, and `playwright test --list` (spec parse only — no browsers).
+- **Pre-push**: lefthook runs lint, unit tests, typecheck, coverage ≥90%, production build, peer-deps, then the **Playwright e2e delivery gate** when the push range touches runtime surfaces (`src/`, `e2e/`, `public/`, `supabase/`, configs, lockfile). Docs-only pushes skip e2e. Bypass: `LEFTHOOK_EXCLUDE=e2e git push`.
 
 ---
 

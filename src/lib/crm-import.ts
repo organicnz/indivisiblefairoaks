@@ -1,0 +1,213 @@
+// Pure CSV parsing + row validation for CRM constituent import.
+// Kept out of the 'use server' actions module so it stays sync and unit-testable.
+
+export interface CRMImportRow {
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  city: string | null;
+  zip_code: string | null;
+  district: string;
+  status: string;
+  tags: string[];
+  notes: string | null;
+}
+
+export interface CRMImportError {
+  line: number;
+  message: string;
+}
+
+export interface CRMImportParseResult {
+  rows: CRMImportRow[];
+  errors: CRMImportError[];
+}
+
+const VALID_STATUSES = new Set([
+  'active_volunteer',
+  'supporter',
+  'donor',
+  'choir',
+  'organizer',
+  'inactive',
+]);
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** RFC 4180-ish CSV parser: handles quoted fields, escaped quotes, CRLF/LF. */
+export function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+  let i = 0;
+  const input = text.replace(/^﻿/, '');
+
+  while (i < input.length) {
+    const ch = input[i];
+
+    if (inQuotes) {
+      if (ch === '"') {
+        if (input[i + 1] === '"') {
+          field += '"';
+          i += 2;
+          continue;
+        }
+        inQuotes = false;
+        i += 1;
+        continue;
+      }
+      field += ch;
+      i += 1;
+      continue;
+    }
+
+    if (ch === '"') {
+      inQuotes = true;
+      i += 1;
+      continue;
+    }
+    if (ch === ',') {
+      row.push(field);
+      field = '';
+      i += 1;
+      continue;
+    }
+    if (ch === '\r') {
+      i += 1;
+      continue;
+    }
+    if (ch === '\n') {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+      i += 1;
+      continue;
+    }
+    field += ch;
+    i += 1;
+  }
+
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+
+  return rows.filter((r) => r.some((cell) => cell.trim() !== ''));
+}
+
+function normHeader(h: string): string {
+  return h
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+function splitTags(raw: string): string[] {
+  return raw
+    .split(/[;|]/)
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+function cell(row: string[], index: number): string {
+  return (row[index] ?? '').trim();
+}
+
+/**
+ * Parse a CRM import CSV. Requires an `email` header column (order-insensitive).
+ * Optional: first_name, last_name, phone, city, zip_code, district, status, tags, notes.
+ */
+export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
+  const parsed = parseCsv(csvText);
+  if (parsed.length < 2) {
+    return {
+      rows: [],
+      errors: [{ line: 0, message: 'CSV must include a header row and at least one data row' }],
+    };
+  }
+
+  const header = parsed[0].map(normHeader);
+  const emailIdx = header.indexOf('email');
+  if (emailIdx === -1) {
+    return {
+      rows: [],
+      errors: [{ line: 1, message: 'CSV header must include an "email" column' }],
+    };
+  }
+
+  const idx = (name: string) => header.indexOf(name);
+  const firstNameIdx = idx('first_name');
+  const lastNameIdx = idx('last_name');
+  const phoneIdx = idx('phone');
+  const cityIdx = idx('city');
+  const zipIdx = idx('zip_code');
+  const districtIdx = idx('district');
+  const statusIdx = idx('status');
+  const tagsIdx = idx('tags');
+  const notesIdx = idx('notes');
+
+  const rows: CRMImportRow[] = [];
+  const errors: CRMImportError[] = [];
+  const seen = new Set<string>();
+
+  for (let r = 1; r < parsed.length; r++) {
+    const line = r + 1;
+    const raw = parsed[r];
+    const email = cell(raw, emailIdx).toLowerCase();
+
+    if (!email) {
+      errors.push({ line, message: 'Missing email address' });
+      continue;
+    }
+    if (!EMAIL_RE.test(email)) {
+      errors.push({ line, message: `Invalid email address: ${email}` });
+      continue;
+    }
+    if (seen.has(email)) {
+      errors.push({ line, message: `Duplicate email in file: ${email}` });
+      continue;
+    }
+    seen.add(email);
+
+    let status = statusIdx >= 0 ? cell(raw, statusIdx).toLowerCase().replace(/\s+/g, '_') : '';
+    if (status && !VALID_STATUSES.has(status)) {
+      errors.push({
+        line,
+        message: `Unknown status "${status}" for ${email} — defaulting to supporter`,
+      });
+      status = 'supporter';
+    }
+    if (!status) status = 'supporter';
+
+    const district = (districtIdx >= 0 && cell(raw, districtIdx)) || 'CA-06';
+
+    rows.push({
+      email,
+      first_name: firstNameIdx >= 0 ? cell(raw, firstNameIdx) || null : null,
+      last_name: lastNameIdx >= 0 ? cell(raw, lastNameIdx) || null : null,
+      phone: phoneIdx >= 0 ? cell(raw, phoneIdx) || null : null,
+      city: cityIdx >= 0 ? cell(raw, cityIdx) || null : null,
+      zip_code: zipIdx >= 0 ? cell(raw, zipIdx) || null : null,
+      district,
+      status,
+      tags: tagsIdx >= 0 ? splitTags(cell(raw, tagsIdx)) : [],
+      notes: notesIdx >= 0 ? cell(raw, notesIdx) || null : null,
+    });
+  }
+
+  return { rows, errors };
+}
+
+/** Serialize a row array to CSV with quoted fields (RFC 4180). */
+export function toCsvRow(fields: (string | number | null | undefined)[]): string {
+  return fields
+    .map((f) => {
+      const s = f === null || f === undefined ? '' : String(f);
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    })
+    .join(',');
+}

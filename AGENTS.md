@@ -87,8 +87,17 @@ The team shares one Fluid Active CPU pool (4 hrs / rolling 30 days). **Do not re
 | Sitemap | Fully static | No dynamic compute |
 | Checkout rate limit | 10/min/IP | Stripe fraud + CPU protection |
 | Contact rate limit | 3/10min/IP | Anon-key flood protection |
+| Pre-push e2e | Playwright when push touches runtime surfaces | Delivery gate without punishing docs-only pushes |
 
 When the project moves to Vercel Pro, revisit `cacheLife: "minutes"` for price and stock freshness.
+
+---
+
+## Delivery Gates (lefthook)
+
+- **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts, lockfile pairing, and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
+- **pre-push**: lint → unit → typecheck → coverage ≥90% → production build → peer-deps → **Playwright e2e delivery gate** (full suite, `workers=2`) when the push range touches `src/`, `e2e/`, `public/`, `supabase/`, app configs, or the lockfile. Docs-only pushes skip e2e with an explicit note.
+- Bypasses (documented in `lefthook.yml`): `LEFTHOOK=0`, `LEFTHOOK_EXCLUDE=<command>`.
 
 ---
 

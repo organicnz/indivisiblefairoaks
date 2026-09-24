@@ -1,7 +1,14 @@
-import { DollarSign, HeartHandshake, MapPin, Megaphone, UsersRound } from 'lucide-react';
+import {
+  CalendarCheck,
+  DollarSign,
+  HeartHandshake,
+  MapPin,
+  Megaphone,
+  UsersRound,
+} from 'lucide-react';
 import Link from 'next/link';
 import { CRMContactList } from '@/components/admin/crm/CRMContactList';
-import { getCRMContacts, getCRMStats } from '@/lib/actions/crm';
+import { getCRMContacts, getCRMExistingTags, getCRMSegments, getCRMStats } from '@/lib/actions/crm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
@@ -34,9 +41,10 @@ export default async function AdminCRMPage({
   const currentStatus = params.status || 'all';
   const currentDistrict = params.district || 'all';
   const currentTag = params.tag || 'all';
-  const page = parseInt(params.page || '1', 10) || 1;
+  const page = Math.max(1, parseInt(params.page || '1', 10) || 1);
+  const pageSize = 50;
 
-  const [stats, { contacts, totalCount }] = await Promise.all([
+  const [stats, { contacts, totalCount }, segments, existingTags] = await Promise.all([
     getCRMStats(),
     getCRMContacts({
       query: currentQuery,
@@ -44,8 +52,10 @@ export default async function AdminCRMPage({
       district: currentDistrict,
       tag: currentTag,
       page,
-      pageSize: 50,
+      pageSize,
     }),
+    getCRMSegments(),
+    getCRMExistingTags(),
   ]);
 
   return (
@@ -72,7 +82,14 @@ export default async function AdminCRMPage({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3 self-start md:self-auto">
+        <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+          <Link
+            href="/admin/crm/tasks"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-secondary hover:bg-slate-50 border border-slate-200 text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
+          >
+            <CalendarCheck size={14} className="text-amber-600" />
+            Follow-ups{stats.openTasks > 0 ? ` (${stats.openTasks})` : ''}
+          </Link>
           <Link
             href="/admin/crm/broadcasts"
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white hover:bg-slate-800 text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
@@ -154,6 +171,10 @@ export default async function AdminCRMPage({
         currentStatus={currentStatus}
         currentDistrict={currentDistrict}
         currentTag={currentTag}
+        currentPage={page}
+        pageSize={pageSize}
+        existingTags={existingTags}
+        segments={segments}
       />
     </div>
   );

@@ -10,6 +10,9 @@
 # env contract           : every code-referenced env var exists in .env.example
 # lockfile contract      : package.json and bun.lock must move together
 # deps contract          : all non-optional peerDependencies must be satisfied
+# e2e gate               : pre-push runs Playwright when the push range touches
+#                          runtime/e2e surfaces (src, e2e, public, supabase, configs);
+#                          docs-only pushes skip. Pre-commit only list-parses specs.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─── pre-commit ───────────────────────────────────────────────────────────────
@@ -528,7 +531,7 @@ pre-commit:
     # correctly. Importing app code (src/lib, src/components…) from a function
     # breaks the bundle (this caused BOOT_ERROR on earlier deployments).
     edge-import-scope:
-      priority: 17.5
+      priority: 17
       glob: "supabase/functions/**/*.ts"
       run: |
         VIOLATIONS=""
@@ -570,7 +573,7 @@ pre-commit:
     # A leftover conflict marker compiles fine in most grammars but ships
     # broken code. Fail the commit if any staged file contains one.
     no-conflict-markers:
-      priority: 17.6
+      priority: 18
       run: |
         FOUND=$(grep -rn "^<<<<<<< \|^=======$\|^>>>>>>> " {staged_files} 2>/dev/null || true)
         if [ -n "$FOUND" ]; then
@@ -588,7 +591,7 @@ pre-commit:
     # (GitHub drops invalid workflow files). Parse-check any staged workflow
     # so a broken pipeline never ships.
     workflow-yaml:
-      priority: 17.7
+      priority: 19
       glob: ".github/workflows/*.{yml,yaml}"
       run: |
         ERRORS=""
@@ -612,22 +615,42 @@ pre-commit:
 
     # ── 17. Biome – format + lint staged files ────────────────────────────────
     biome-check:
-      priority: 17
+      priority: 20
       glob: "*.{js,jsx,ts,tsx,json,css}"
       run: bun biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
 
     # ── 18. oxlint – React / hooks / Next.js rules ───────────────────────────
     oxlint:
-      priority: 18
+      priority: 21
       glob: "*.{ts,tsx}"
       run: bun oxlint {staged_files}
 
     # ── 19. TypeScript – type-check without full build ────────────────────────
     typecheck:
-      priority: 19
+      priority: 22
       glob: "*.{ts,tsx}"
       run: bun tsc --noEmit --incremental false
+
+    # ── 19b. E2E spec list check (no browsers) ────────────────────────────────
+    # Cheap commit-time guard: `playwright test --list` parses every spec and
+    # fails on import/syntax errors without launching a browser. The full
+    # suite is the pre-push delivery gate (see `e2e` under pre-push).
+    e2e-spec-list:
+      priority: 23
+      glob: "e2e/**/*.spec.ts"
+      run: |
+        if bunx playwright test --list >/tmp/ifo-e2e-list.out 2>/tmp/ifo-e2e-list.err; then
+          exit 0
+        fi
+        echo ""
+        echo "✖  Playwright specs failed to list (import/syntax error):"
+        cat /tmp/ifo-e2e-list.err 2>/dev/null || true
+        echo ""
+        echo "   Fix the spec before committing."
+        echo "   Full suite runs as the pre-push e2e delivery gate."
+        echo ""
+        exit 1
 
     # ── 20. Env usage coverage ────────────────────────────────────────────────
     # Every env var referenced in code must be declared in .env.example.
@@ -637,7 +660,7 @@ pre-commit:
     # Allowed raw-access files (env.ts, supabase init) are already exempted
     # by no-raw-env-access; this closes the NEXT_PUBLIC + declaration gap.
     env-usage-coverage:
-      priority: 20
+      priority: 24
       glob: "src/**/*.{ts,tsx}"
       run: |
         VIOLATIONS=""
@@ -673,7 +696,7 @@ pre-commit:
     # A package.json change without a bun.lock change ships a frozen-lockfile
     # CI failure (or worse, drift). Require them to move together on commit.
     lockfile-pair:
-      priority: 21
+      priority: 25
       run: |
         STAGED=$(git diff --cached --name-only 2>/dev/null || true)
         if echo "$STAGED" | grep -qx "package.json" && ! echo "$STAGED" | grep -qx "bun.lock"; then
@@ -825,8 +848,12 @@ pre-push:
     # Just-in-time migration dry-run — mirrors the CI token-only flow:
     # supabase link + db push --linked --dry-run. Skips silently when the
     # local machine has no link state / token (CI covers it there).
+    # ── 5b. Just-in-time migration dry-run ────────────────────────────────────
+    # Mirrors the CI token-only flow: supabase link + db push --linked
+    # --dry-run. Skips silently when the local machine has no link state /
+    # token (CI covers it there).
     migration-dryrun:
-      priority: 5.5
+      priority: 6
       glob: "supabase/migrations/*.sql"
       run: |
         if [ ! -f "supabase/.temp/linked-project.json" ]; then
@@ -847,18 +874,18 @@ pre-push:
           }
 
     tests:
-      priority: 6
+      priority: 7
       run: bun test
 
     typecheck:
-      priority: 7
+      priority: 8
       run: bun tsc --noEmit
 
     # ── 6. Coverage threshold ─────────────────────────────────────────────────
     # Statement coverage ≥90% against the measurable lib/ + config/ files.
     # Current baseline: ~94% statements, 97% branches, 100% functions.
     coverage:
-      priority: 8
+      priority: 9
       run: |
         OUTPUT=$(bun vitest run --coverage --coverage.reporter=text-summary 2>&1 || true)
         echo "$OUTPUT"
@@ -879,7 +906,7 @@ pre-push:
 
     # ── 7. Build smoke-test ───────────────────────────────────────────────────
     build-check:
-      priority: 9
+      priority: 10
       run: NEXT_SKIP_ENV_VALIDATION=1 bun run build
 
     # ── 8. Peer-dependency compatibility ──────────────────────────────────────
@@ -887,8 +914,63 @@ pre-push:
     # audits, and tests while still violating a peer range that only breaks at
     # build/deploy time. Cheap to run locally (node_modules is present).
     peer-deps:
-      priority: 10
+      priority: 11
       run: bun scripts/check-peer-deps.mjs --all
+
+    # ── 9. Playwright e2e delivery gate ───────────────────────────────────────
+    # Runs last so build-check has already produced a warm .next; Playwright's
+    # webServer starts `next start` against that build (reuseExistingServer).
+    # Change-aware: full suite only when the push range can affect runtime.
+    # Bypass (emergency only): LEFTHOOK_EXCLUDE=e2e git push
+    e2e:
+      priority: 12
+      run: |
+        # Push range: upstream when available, otherwise the tip commit.
+        if git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+          RANGE_DIFF=$(git diff --name-only '@{u}...HEAD' 2>/dev/null || true)
+        else
+          RANGE_DIFF=$(git diff --name-only 'HEAD~1...HEAD' 2>/dev/null || true)
+        fi
+        if [ -z "$RANGE_DIFF" ]; then
+          RANGE_DIFF=$(git show --name-only --format= HEAD 2>/dev/null || true)
+        fi
+
+        # Anything that can change served behaviour or the suite itself forces
+        # a full run. Docs-only pushes skip cleanly (README, AGENTS, comments).
+        if echo "$RANGE_DIFF" | grep -qE '^(src/|e2e/|public/|supabase/|scripts/mock-notify-contact\.mjs|playwright\.config\.ts|next\.config\.ts|middleware\.ts|package\.json|bun\.lock)'; then
+          RUN_E2E=1
+        else
+          RUN_E2E=0
+        fi
+
+        if [ "$RUN_E2E" != "1" ]; then
+          echo "ℹ️   No runtime/e2e changes in push range — skipping Playwright."
+          echo "    Range touched: $(echo "$RANGE_DIFF" | tr '\n' ' ' | head -c 240)"
+          exit 0
+        fi
+
+        if [ ! -f ".next/BUILD_ID" ]; then
+          echo ""
+          echo "✖  No production build at .next/BUILD_ID — e2e cannot run."
+          echo "   Run: NEXT_SKIP_ENV_VALIDATION=1 bun run build"
+          echo ""
+          exit 1
+        fi
+
+        echo "🎭  Playwright e2e delivery gate (workers=2)..."
+        # workers=2: higher parallelism caused intermittent header-clearance
+        # flakes under load; CI keeps CI=true → retries + 2 workers in config.
+        if bunx playwright test --workers=2; then
+          echo "✔   E2E suite passed."
+        else
+          echo ""
+          echo "✖  E2E suite failed."
+          echo "   Report : npx playwright show-report"
+          echo "   Single : bunx playwright test e2e/<spec>.spec.ts --headed --debug"
+          echo "   Bypass : LEFTHOOK_EXCLUDE=e2e git push"
+          echo ""
+          exit 1
+        fi
 
 # ─── post-checkout ────────────────────────────────────────────────────────────
 post-checkout:

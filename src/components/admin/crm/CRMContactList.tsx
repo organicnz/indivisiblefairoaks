@@ -1,12 +1,33 @@
 'use client';
 
-import { Download, Edit2, ExternalLink, Mail, Plus, RefreshCw, Search, Users } from 'lucide-react';
+import {
+  BookmarkPlus,
+  Download,
+  Edit2,
+  ExternalLink,
+  Mail,
+  Plus,
+  RefreshCw,
+  Search,
+  Upload,
+  Users,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
-import { type CRMContact, triggerHistoricalCRMSync } from '@/lib/actions/crm';
+import { CRMImportModal } from '@/components/admin/crm/CRMImportModal';
+import { CRMPager } from '@/components/admin/crm/CRMPager';
+import {
+  type CRMContact,
+  type CRMSegment,
+  deleteCRMSegment,
+  exportCRMContacts,
+  saveCRMSegment,
+  triggerHistoricalCRMSync,
+} from '@/lib/actions/crm';
 
 interface Props {
   initialContacts: CRMContact[];
@@ -15,6 +36,10 @@ interface Props {
   currentStatus: string;
   currentDistrict: string;
   currentTag: string;
+  currentPage: number;
+  pageSize: number;
+  existingTags: string[];
+  segments: CRMSegment[];
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -26,6 +51,26 @@ const STATUS_COLORS: Record<string, string> = {
   inactive: 'bg-rose-100 text-rose-700 border-rose-300',
 };
 
+function downloadCsv(csv: string, filename: string) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function splitActiveTags(raw: string): string[] {
+  if (!raw || raw === 'all') return [];
+  return raw
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
 export function CRMContactList({
   initialContacts,
   totalCount,
@@ -33,26 +78,44 @@ export function CRMContactList({
   currentStatus,
   currentDistrict,
   currentTag,
+  currentPage,
+  pageSize,
+  existingTags,
+  segments,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [editingContact, setEditingContact] = useState<CRMContact | null>(null);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [savingSegment, setSavingSegment] = useState(false);
+  const [showSaveSegment, setShowSaveSegment] = useState(false);
+  const [segmentName, setSegmentName] = useState('');
 
   const [query, setQuery] = useState(currentQuery);
   const [status, setStatus] = useState(currentStatus || 'all');
   const [district, setDistrict] = useState(currentDistrict || 'all');
   const [tag, setTag] = useState(currentTag || 'all');
 
-  const handleFilterSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  // Tags to offer in the filter: schema-known tags plus whatever is active now.
+  const tagOptions = [...new Set([...existingTags, ...splitActiveTags(currentTag)])].sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  const currentFilters = () => {
     const params = new URLSearchParams();
     if (query.trim()) params.set('q', query.trim());
     if (status && status !== 'all') params.set('status', status);
     if (district && district !== 'all') params.set('district', district);
     if (tag && tag !== 'all') params.set('tag', tag);
+    return params;
+  };
 
+  const handleFilterSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const params = currentFilters();
     startTransition(() => {
       router.push(`/admin/crm?${params.toString()}`);
     });
@@ -75,63 +138,100 @@ export function CRMContactList({
     }
   };
 
-  const handleExportCSV = () => {
-    if (!initialContacts.length) {
+  const handleExportCSV = async () => {
+    if (!totalCount) {
       toast.error('No constituents to export');
       return;
     }
-
-    const headers = [
-      'ID',
-      'First Name',
-      'Last Name',
-      'Email',
-      'Phone',
-      'District',
-      'City',
-      'Zip Code',
-      'Status',
-      'Tags',
-      'Lifetime Giving ($)',
-      'Source',
-      'Created At',
-    ];
-
-    const rows = initialContacts.map((c) => [
-      c.id,
-      c.first_name || '',
-      c.last_name || '',
-      c.email,
-      c.phone || '',
-      c.district || '',
-      c.city || '',
-      c.zip_code || '',
-      c.status,
-      (c.tags || []).join('; '),
-      ((c.total_donated_cents || 0) / 100).toFixed(2),
-      c.source || '',
-      new Date(c.created_at).toISOString().split('T')[0],
-    ]);
-
-    const csvContent = [
-      headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(','),
-      ...rows.map((r) => r.map((field) => `"${String(field).replace(/"/g, '""')}"`).join(',')),
-    ].join('\r\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute(
-      'download',
-      `indivisible-crm-constituents-${new Date().toISOString().split('T')[0]}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${initialContacts.length} constituents to CSV`);
+    setExporting(true);
+    try {
+      const res = await exportCRMContacts({
+        query: currentQuery,
+        status: currentStatus,
+        district: currentDistrict,
+        tag: currentTag,
+      });
+      if (res.error || !res.csv) {
+        toast.error(res.error || 'Export failed');
+        return;
+      }
+      downloadCsv(
+        res.csv,
+        `indivisible-crm-constituents-${new Date().toISOString().split('T')[0]}.csv`
+      );
+      toast.success(`Exported ${res.count} constituents to CSV`);
+    } catch {
+      toast.error('Export failed');
+    } finally {
+      setExporting(false);
+    }
   };
+
+  const handleSaveSegment = async () => {
+    const name = segmentName.trim();
+    if (!name) {
+      toast.error('Segment name is required');
+      return;
+    }
+    setSavingSegment(true);
+    try {
+      const res = await saveCRMSegment({
+        name,
+        query: query.trim(),
+        statuses: status && status !== 'all' ? [status] : [],
+        districts: district && district !== 'all' ? [district] : [],
+        tags: tag && tag !== 'all' ? [tag] : [],
+      });
+      if (res.success) {
+        toast.success(`Segment "${name}" saved`);
+        setSegmentName('');
+        setShowSaveSegment(false);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to save segment');
+      }
+    } catch {
+      toast.error('Failed to save segment');
+    } finally {
+      setSavingSegment(false);
+    }
+  };
+
+  const handleApplySegment = (segment: CRMSegment) => {
+    const params = new URLSearchParams();
+    if (segment.query) params.set('q', segment.query);
+    if (segment.statuses.length) params.set('status', segment.statuses.join(','));
+    if (segment.districts.length) params.set('district', segment.districts.join(','));
+    if (segment.tags.length) params.set('tag', segment.tags.join(','));
+    setQuery(segment.query);
+    setStatus(segment.statuses.join(',') || 'all');
+    setDistrict(segment.districts.join(',') || 'all');
+    setTag(segment.tags.join(',') || 'all');
+    startTransition(() => {
+      router.push(`/admin/crm?${params.toString()}`);
+    });
+  };
+
+  const handleDeleteSegment = async (segment: CRMSegment) => {
+    if (!confirm(`Delete saved segment "${segment.name}"?`)) return;
+    const res = await deleteCRMSegment(segment.id);
+    if (res.success) {
+      toast.success('Segment deleted');
+      router.refresh();
+    } else {
+      toast.error(res.error || 'Failed to delete segment');
+    }
+  };
+
+  const hasActiveFilters =
+    (query.trim() && query.trim() !== currentQuery) ||
+    (status !== 'all' && status !== currentStatus) ||
+    (district !== 'all' && district !== currentDistrict) ||
+    (tag !== 'all' && tag !== currentTag) ||
+    currentQuery ||
+    (currentStatus && currentStatus !== 'all') ||
+    (currentDistrict && currentDistrict !== 'all') ||
+    (currentTag && currentTag !== 'all');
 
   return (
     <div className="space-y-6">
@@ -139,7 +239,7 @@ export function CRMContactList({
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
         <form
           onSubmit={handleFilterSubmit}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3"
         >
           {/* Search Query */}
           <div className="lg:col-span-2 relative">
@@ -188,6 +288,24 @@ export function CRMContactList({
             </select>
           </div>
 
+          {/* Tag Filter */}
+          <div>
+            <select
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+              aria-label="Filter by tag"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary bg-slate-50/50"
+            >
+              <option value="all">All Tags</option>
+              {tagOptions.map((t) => (
+                <option key={t} value={t}>
+                  #{t}
+                </option>
+              ))}
+              {tag !== 'all' && !tagOptions.includes(tag) && <option value={tag}>#{tag}</option>}
+            </select>
+          </div>
+
           {/* Apply Button */}
           <div className="flex gap-2">
             <button
@@ -213,7 +331,7 @@ export function CRMContactList({
           </div>
         </form>
 
-        {/* Quick Segment Filter Pills */}
+        {/* Quick Segment Filter Pills + saved segments */}
         <div className="flex items-center gap-1.5 flex-wrap pt-2">
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">
             Quick Segments:
@@ -260,22 +378,113 @@ export function CRMContactList({
           })}
         </div>
 
+        {/* Saved segments */}
+        {segments.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">
+              Saved:
+            </span>
+            {segments.map((seg) => (
+              <span
+                key={seg.id}
+                className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-bold"
+              >
+                <button
+                  type="button"
+                  onClick={() => handleApplySegment(seg)}
+                  className="hover:underline"
+                  title="Apply this segment filter"
+                >
+                  {seg.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteSegment(seg)}
+                  className="p-0.5 hover:text-red-600 transition-colors"
+                  aria-label={`Delete segment ${seg.name}`}
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Save current filter as segment */}
+        {showSaveSegment ? (
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="text"
+              value={segmentName}
+              onChange={(e) => setSegmentName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSaveSegment();
+                }
+                if (e.key === 'Escape') setShowSaveSegment(false);
+              }}
+              placeholder="Segment name (e.g. CA-06 choir)"
+              maxLength={60}
+              autoFocus
+              className="px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:border-primary text-xs w-56"
+            />
+            <button
+              type="button"
+              onClick={handleSaveSegment}
+              disabled={savingSegment}
+              className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary-light transition-colors disabled:opacity-50"
+            >
+              {savingSegment ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSaveSegment(false)}
+              className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-700"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowSaveSegment(true)}
+            disabled={!hasActiveFilters}
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-primary transition-colors disabled:opacity-40 disabled:hover:text-slate-400"
+            title="Save the current filter combination as a reusable segment"
+          >
+            <BookmarkPlus size={12} /> Save current filter as segment
+          </button>
+        )}
+
         {/* Action Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 text-xs">
           <div className="text-slate-500 font-bold">
             Showing <span className="text-secondary font-black">{initialContacts.length}</span> of{' '}
             <span className="text-secondary font-black">{totalCount}</span> constituents
+            {currentPage > 1 && <span className="text-slate-400"> · page {currentPage}</span>}
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleExportCSV}
-              title="Export filtered constituents to CSV"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors"
+              disabled={exporting || !totalCount}
+              title="Export ALL filtered constituents to CSV (not just this page)"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors disabled:opacity-50"
             >
               <Download size={13} />
-              Export CSV
+              {exporting ? 'Exporting…' : 'Export CSV'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              title="Import constituents from CSV (existing emails are skipped)"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors"
+            >
+              <Upload size={13} />
+              Import CSV
             </button>
 
             <button
@@ -357,7 +566,17 @@ export function CRMContactList({
                             className="opacity-0 group-hover:opacity-60 transition-opacity"
                           />
                         </Link>
-                        <div className="text-[11px] text-slate-400 mt-0.5">{contact.email}</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                          <span className="truncate">{contact.email}</span>
+                          {contact.do_not_email && (
+                            <span
+                              className="shrink-0 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[9px] font-black uppercase"
+                              title="Do not email — excluded from broadcasts"
+                            >
+                              opt-out
+                            </span>
+                          )}
+                        </div>
                         {contact.phone && (
                           <div className="text-[10px] text-slate-400 font-mono mt-0.5">
                             {contact.phone}
@@ -458,11 +677,25 @@ export function CRMContactList({
             </tbody>
           </table>
         </div>
+
+        <div className="px-6 pb-6">
+          <CRMPager
+            page={currentPage}
+            totalCount={totalCount}
+            pageSize={pageSize}
+            basePath="/admin/crm"
+            params={currentFilters()}
+          />
+        </div>
       </div>
 
       {/* Modals */}
       {isNewModalOpen && (
         <CRMContactEditorModal isOpen={isNewModalOpen} onClose={() => setIsNewModalOpen(false)} />
+      )}
+
+      {isImportOpen && (
+        <CRMImportModal isOpen={isImportOpen} onClose={() => setIsImportOpen(false)} />
       )}
 
       {editingContact && (

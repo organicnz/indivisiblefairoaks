@@ -4,6 +4,8 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Eye,
   Mail,
@@ -15,12 +17,26 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { Fragment, useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
-import { type CRMBroadcast, getBroadcastRecipientCount, sendCRMBroadcast } from '@/lib/actions/crm';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
+import {
+  type CRMBroadcast,
+  type CRMSegment,
+  getBroadcastRecipientCount,
+  sendCRMBroadcast,
+} from '@/lib/actions/crm';
 
 interface Props {
   initialBroadcasts: CRMBroadcast[];
+  segments: CRMSegment[];
+  existingTags: string[];
 }
 
 const AVAILABLE_STATUSES = [
@@ -38,9 +54,10 @@ const AVAILABLE_DISTRICTS = [
   { id: 'CA-07', label: 'CA-07' },
 ];
 
-const COMMON_TAGS = ['newsletter', 'postcards', 'canvassing', 'donor', 'choir', 'mobilize'];
+// Fallback when the directory has no tags yet (fresh install / empty CRM).
+const FALLBACK_TAGS = ['contact-form', 'registered-member', 'donor', 'organizer'];
 
-export function CRMBroadcastComposer({ initialBroadcasts }: Props) {
+export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -61,6 +78,19 @@ export function CRMBroadcastComposer({ initialBroadcasts }: Props) {
   // Sending status
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
+  // Expandable history rows
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Real tags from the directory, plus any currently selected (may be stale).
+  const tagChips = [
+    ...new Set([
+      ...existingTags,
+      ...FALLBACK_TAGS,
+      ...selectedTags,
+      ...(segments.flatMap((s) => s.tags) || []),
+    ]),
+  ].slice(0, 40);
 
   // Update recipient count when targeting changes
   useEffect(() => {
@@ -129,7 +159,14 @@ export function CRMBroadcastComposer({ initialBroadcasts }: Props) {
       });
 
       if (res.success) {
-        toast.success(`Broadcast successfully sent to ${res.recipientCount ?? 0} constituents!`);
+        const failed = res.failedCount ?? 0;
+        if (failed > 0) {
+          toast.warning(
+            `Sent to ${res.recipientCount ?? 0} — ${failed} delivery failure${failed === 1 ? '' : 's'}`
+          );
+        } else {
+          toast.success(`Broadcast successfully sent to ${res.recipientCount ?? 0} constituents!`);
+        }
         setSubject('');
         setBody('');
         setSelectedStatuses([]);
@@ -208,6 +245,38 @@ export function CRMBroadcastComposer({ initialBroadcasts }: Props) {
               </h2>
             </div>
 
+            {/* Saved segment prefill */}
+            {segments.length > 0 && (
+              <div>
+                <label
+                  htmlFor="segment-prefill"
+                  className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2"
+                >
+                  Apply Saved Segment
+                </label>
+                <select
+                  id="segment-prefill"
+                  value=""
+                  onChange={(e) => {
+                    const seg = segments.find((s) => s.id === e.target.value);
+                    if (!seg) return;
+                    setSelectedStatuses(seg.statuses);
+                    setSelectedDistricts(seg.districts);
+                    setSelectedTags(seg.tags);
+                    if (seg.query) toast.message(`Segment "${seg.name}" applied`);
+                  }}
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary bg-slate-50/50"
+                >
+                  <option value="">Choose a saved segment…</option>
+                  {segments.map((seg) => (
+                    <option key={seg.id} value={seg.id}>
+                      {seg.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Engagement Statuses */}
             <div>
               <div className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">
@@ -266,7 +335,7 @@ export function CRMBroadcastComposer({ initialBroadcasts }: Props) {
                 By Interest Tags (Must match all selected)
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {COMMON_TAGS.map((t) => {
+                {tagChips.map((t) => {
                   const isSelected = selectedTags.includes(t);
                   return (
                     <button
@@ -392,6 +461,10 @@ export function CRMBroadcastComposer({ initialBroadcasts }: Props) {
               <div className="text-xs text-slate-500">
                 Will be delivered to{' '}
                 <strong className="text-secondary">{recipientCount ?? 0}</strong> constituents.
+                <span className="block text-[11px] text-slate-400 mt-0.5">
+                  Opted-out contacts are excluded automatically. Every email includes a one-click
+                  unsubscribe link.
+                </span>
               </div>
               <button
                 type="button"
@@ -409,62 +482,63 @@ export function CRMBroadcastComposer({ initialBroadcasts }: Props) {
       </div>
 
       {/* Confirmation Modal */}
-      {isConfirmOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in duration-200">
+      <Dialog
+        open={isConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) setIsConfirmOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-md p-6 sm:p-8">
+          <DialogHeader>
             <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <AlertCircle size={24} />
             </div>
+            <DialogTitle>Confirm Broadcast Dispatch</DialogTitle>
+            <DialogDescription>
+              You are about to send this email blast to{' '}
+              <strong className="text-secondary">{recipientCount} constituents</strong> using
+              Resend. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1">
             <div>
-              <h3 className="text-lg font-black text-secondary uppercase tracking-tight">
-                Confirm Broadcast Dispatch
-              </h3>
-              <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                You are about to send this email blast to{' '}
-                <strong className="text-secondary">{recipientCount} constituents</strong> using
-                Resend. This action cannot be undone.
-              </p>
+              <span className="font-bold text-slate-500">Subject:</span> {subject}
             </div>
-
-            <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1">
-              <div>
-                <span className="font-bold text-slate-500">Subject:</span> {subject}
-              </div>
-              <div>
-                <span className="font-bold text-slate-500">Sender:</span>{' '}
-                contact@indivisiblefairoaks.org
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                disabled={isSending}
-                onClick={() => setIsConfirmOpen(false)}
-                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isSending}
-                onClick={handleSend}
-                className="flex-1 px-4 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-slate-300 rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-xs flex items-center justify-center gap-2"
-              >
-                {isSending ? (
-                  <>
-                    <Clock size={14} className="animate-spin" /> Dispatching...
-                  </>
-                ) : (
-                  <>
-                    <Send size={14} /> Confirm & Blast
-                  </>
-                )}
-              </button>
+            <div>
+              <span className="font-bold text-slate-500">Sender:</span>{' '}
+              contact@indivisiblefairoaks.org
             </div>
           </div>
-        </div>
-      )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              disabled={isSending}
+              onClick={() => setIsConfirmOpen(false)}
+              className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isSending}
+              onClick={handleSend}
+              className="flex-1 px-4 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-slate-300 rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-xs flex items-center justify-center gap-2"
+            >
+              {isSending ? (
+                <>
+                  <Clock size={14} className="animate-spin" /> Dispatching...
+                </>
+              ) : (
+                <>
+                  <Send size={14} /> Confirm & Blast
+                </>
+              )}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Broadcast History Table */}
       <div className="space-y-4">
@@ -493,53 +567,91 @@ export function CRMBroadcastComposer({ initialBroadcasts }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {initialBroadcasts.map((b) => (
-                    <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-6 py-4 font-bold text-secondary max-w-xs truncate">
-                        {b.subject}
-                      </td>
-                      <td className="px-6 py-4 text-slate-500">
-                        {b.target_status.length > 0 && `Status: ${b.target_status.join(', ')} `}
-                        {b.target_districts.length > 0 &&
-                          `Districts: ${b.target_districts.join(', ')} `}
-                        {b.target_tags.length > 0 && `Tags: ${b.target_tags.join(', ')}`}
-                        {b.target_status.length === 0 &&
-                          b.target_districts.length === 0 &&
-                          b.target_tags.length === 0 &&
-                          'All Constituents'}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-secondary">{b.recipient_count}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            b.status === 'sent'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : b.status === 'sending'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-rose-100 text-rose-800'
-                          }`}
+                  {initialBroadcasts.map((b) => {
+                    const isExpanded = expandedId === b.id;
+                    return (
+                      <Fragment key={b.id}>
+                        <tr
+                          className="hover:bg-slate-50/70 transition-colors cursor-pointer"
+                          onClick={() => setExpandedId(isExpanded ? null : b.id)}
                         >
-                          {b.status === 'sent' && <CheckCircle2 size={10} />}
-                          {b.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-slate-400">
-                        {b.sent_at
-                          ? new Date(b.sent_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : new Date(b.created_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })}
-                      </td>
-                    </tr>
-                  ))}
+                          <td className="px-6 py-4 font-bold text-secondary max-w-xs">
+                            <span className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="p-0.5 text-slate-400 hover:text-secondary shrink-0"
+                                aria-label={isExpanded ? 'Collapse message' : 'Expand message'}
+                                aria-expanded={isExpanded}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedId(isExpanded ? null : b.id);
+                                }}
+                              >
+                                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              </button>
+                              <span className="truncate">{b.subject}</span>
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-500">
+                            {b.target_status.length > 0 && `Status: ${b.target_status.join(', ')} `}
+                            {b.target_districts.length > 0 &&
+                              `Districts: ${b.target_districts.join(', ')} `}
+                            {b.target_tags.length > 0 && `Tags: ${b.target_tags.join(', ')}`}
+                            {b.target_status.length === 0 &&
+                              b.target_districts.length === 0 &&
+                              b.target_tags.length === 0 &&
+                              'All Constituents'}
+                          </td>
+                          <td className="px-6 py-4 font-bold text-secondary">
+                            {b.recipient_count}
+                            {b.failed_count > 0 && (
+                              <span className="ml-1.5 text-[10px] font-black text-red-600">
+                                {b.failed_count} failed
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                b.status === 'sent'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : b.status === 'sending'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {b.status === 'sent' && <CheckCircle2 size={10} />}
+                              {b.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-400">
+                            {b.sent_at
+                              ? new Date(b.sent_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : new Date(b.created_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })}
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="bg-slate-50/60">
+                            <td colSpan={5} className="px-6 py-4">
+                              <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-line max-w-3xl border-l-2 border-primary pl-4">
+                                {b.body || '(no message body stored)'}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

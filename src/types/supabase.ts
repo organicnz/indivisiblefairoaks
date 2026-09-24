@@ -255,6 +255,7 @@ export type Database = {
         Row: {
           body: string
           created_at: string
+          failed_count: number
           id: string
           recipient_count: number
           sent_at: string | null
@@ -267,6 +268,7 @@ export type Database = {
         Insert: {
           body: string
           created_at?: string
+          failed_count?: number
           id?: string
           recipient_count?: number
           sent_at?: string | null
@@ -279,6 +281,7 @@ export type Database = {
         Update: {
           body?: string
           created_at?: string
+          failed_count?: number
           id?: string
           recipient_count?: number
           sent_at?: string | null
@@ -296,6 +299,7 @@ export type Database = {
           city: string | null
           created_at: string
           district: string | null
+          do_not_email: boolean
           email: string
           first_name: string | null
           id: string
@@ -303,10 +307,13 @@ export type Database = {
           last_name: string | null
           notes: string | null
           phone: string | null
+          search_vector: unknown
           source: string
           status: string
           tags: string[]
           total_donated_cents: number
+          unsubscribe_token: string
+          unsubscribed_at: string | null
           updated_at: string
           zip_code: string | null
         }
@@ -315,6 +322,7 @@ export type Database = {
           city?: string | null
           created_at?: string
           district?: string | null
+          do_not_email?: boolean
           email: string
           first_name?: string | null
           id?: string
@@ -322,10 +330,13 @@ export type Database = {
           last_name?: string | null
           notes?: string | null
           phone?: string | null
+          search_vector?: unknown
           source?: string
           status?: string
           tags?: string[]
           total_donated_cents?: number
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
           updated_at?: string
           zip_code?: string | null
         }
@@ -334,6 +345,7 @@ export type Database = {
           city?: string | null
           created_at?: string
           district?: string | null
+          do_not_email?: boolean
           email?: string
           first_name?: string | null
           id?: string
@@ -341,14 +353,94 @@ export type Database = {
           last_name?: string | null
           notes?: string | null
           phone?: string | null
+          search_vector?: unknown
           source?: string
           status?: string
           tags?: string[]
           total_donated_cents?: number
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
           updated_at?: string
           zip_code?: string | null
         }
         Relationships: []
+      }
+      crm_segments: {
+        Row: {
+          created_at: string
+          districts: string[]
+          id: string
+          name: string
+          query: string
+          statuses: string[]
+          tags: string[]
+        }
+        Insert: {
+          created_at?: string
+          districts?: string[]
+          id?: string
+          name: string
+          query?: string
+          statuses?: string[]
+          tags?: string[]
+        }
+        Update: {
+          created_at?: string
+          districts?: string[]
+          id?: string
+          name?: string
+          query?: string
+          statuses?: string[]
+          tags?: string[]
+        }
+        Relationships: []
+      }
+      crm_tasks: {
+        Row: {
+          completed_at: string | null
+          contact_id: string
+          created_at: string
+          created_by: string | null
+          details: string | null
+          due_at: string | null
+          id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          contact_id: string
+          created_at?: string
+          created_by?: string | null
+          details?: string | null
+          due_at?: string | null
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          contact_id?: string
+          created_at?: string
+          created_by?: string | null
+          details?: string | null
+          due_at?: string | null
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_tasks_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       error_reports: {
         Row: {
