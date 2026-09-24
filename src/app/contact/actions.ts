@@ -107,7 +107,7 @@ export async function submitContact(formData: FormData): Promise<ContactResult> 
   }
 
   const { data: id, error } =
-    env.CONTACT_SUBMISSION_TEST_MODE === '1'
+    env.CONTACT_SUBMISSION_TEST_MODE === '1' && env.NEXT_E2E_BUILD === 'true'
       ? { data: 1, error: null }
       : await (async () => {
           const supabase = await createServerClient();

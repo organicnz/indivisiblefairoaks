@@ -26,14 +26,16 @@ const headers = {
 const edge = (name: string) => `${SUPABASE_URL}/functions/v1/${name}`;
 
 test.beforeEach(() => {
+  if (!LIVE && process.env.CI) {
+    throw new Error('Supabase env is required for the CI edge-function gate.');
+  }
   test.skip(!LIVE, 'Supabase env not configured');
 });
 
 test.describe('edge function liveness', () => {
-  test('health answers with service envelope (never 404)', async ({ request }) => {
+  test('health answers with a ready service envelope', async ({ request }) => {
     const res = await request.get(edge('health'), { headers });
-    expect(res.status(), 'health function missing — not deployed?').not.toBe(404);
-    expect([200, 503]).toContain(res.status());
+    expect(res.status(), 'health function must be ready').toBe(200);
 
     const body = (await res.json()) as {
       service?: unknown;
@@ -45,30 +47,33 @@ test.describe('edge function liveness', () => {
     expect(body.checks).toBeDefined();
   });
 
-  test('notify-contact rejects empty body with 400 (never 404)', async ({ request }) => {
+  test('notify-contact rejects empty body with 400', async ({ request }) => {
     const res = await request.post(edge('notify-contact'), { headers, data: {} });
-    expect(res.status(), 'notify-contact missing — not deployed?').not.toBe(404);
-    expect([400, 500]).toContain(res.status());
+    expect(res.status(), 'notify-contact must run its validation path').toBe(400);
   });
 
-  test('search rejects empty query with 400 (never 404)', async ({ request }) => {
+  test('search rejects empty query with 400', async ({ request }) => {
     const res = await request.post(edge('search'), { headers, data: { q: '' } });
-    expect(res.status(), 'search function missing — not deployed?').not.toBe(404);
-    expect([400, 500]).toContain(res.status());
+    expect(res.status(), 'search must run its validation path').toBe(400);
   });
 
-  test('checkout answers its gateway (never 404)', async ({ request }) => {
-    // Deployed WITH jwt verification, so an anonymous probe may get 401
-    // from the gateway — that still proves the function exists.
+  test('checkout answers its gateway or validation path', async ({ request }) => {
     const res = await request.post(edge('checkout'), { headers, data: {} });
     expect(res.status(), 'checkout function missing — not deployed?').not.toBe(404);
   });
 
-  test('webhook answers its gateway (never 404)', async ({ request }) => {
+  test('webhook answers its gateway or validation path', async ({ request }) => {
     const res = await request.post(edge('webhook'), {
       headers,
       data: 'probe',
     });
     expect(res.status(), 'webhook function missing — not deployed?').not.toBe(404);
   });
+
+  for (const name of ['wall-e-chat', 'walle-refresh']) {
+    test(`${name} rejects non-POST requests with 405`, async ({ request }) => {
+      const res = await request.get(edge(name), { headers });
+      expect(res.status()).toBe(405);
+    });
+  }
 });

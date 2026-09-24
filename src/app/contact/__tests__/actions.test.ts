@@ -37,6 +37,7 @@ let fetchShouldReject = false;
 const fetchCalls: { url: string; init: RequestInit | undefined }[] = [];
 const testEnv = vi.hoisted(() => ({
   submissionTestMode: undefined as '1' | undefined,
+  e2eBuild: false,
 }));
 
 vi.mock('next/headers', () => ({
@@ -53,6 +54,9 @@ vi.mock('@/lib/env', () => ({
     CONTACT_FUNCTION_URL: undefined,
     get CONTACT_SUBMISSION_TEST_MODE() {
       return testEnv.submissionTestMode;
+    },
+    get NEXT_E2E_BUILD() {
+      return testEnv.e2eBuild ? 'true' : undefined;
     },
     CONTACT_RATE_LIMIT_MAX: undefined,
   },
@@ -96,6 +100,7 @@ beforeEach(async () => {
   fetchCalls.length = 0;
   fetchShouldReject = false;
   testEnv.submissionTestMode = undefined;
+  testEnv.e2eBuild = false;
   fetchResponse = {
     ok: true,
     json: () => Promise.resolve({ ok: true, emailed: true, copied: true }),
@@ -197,10 +202,18 @@ describeSuite('submitContact() delivery status propagation', () => {
 
   it('uses deterministic test mode without touching the database', async () => {
     testEnv.submissionTestMode = '1';
+    testEnv.e2eBuild = true;
     const r = await submitContact(makeForm());
     expect(rpcMock).not.toHaveBeenCalled();
     expect(fetchCalls).toHaveLength(1);
     expect(JSON.parse(String(fetchCalls[0].init?.body))).toEqual({ id: 1 });
+    expect(r).toEqual({ success: true, emailStatus: 'sent', copyStatus: 'not-requested' });
+  });
+
+  it('does not bypass persistence outside the E2E build', async () => {
+    testEnv.submissionTestMode = '1';
+    const r = await submitContact(makeForm());
+    expect(rpcMock).toHaveBeenCalledWith('submit_contact_submission', expect.any(Object));
     expect(r).toEqual({ success: true, emailStatus: 'sent', copyStatus: 'not-requested' });
   });
 

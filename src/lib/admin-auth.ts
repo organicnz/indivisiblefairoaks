@@ -23,7 +23,7 @@ export async function requireAdmin(): Promise<AdminSession> {
   const { data: profile } = await adminClient
     .from('profiles')
     .select('is_admin, email')
-    .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+    .or(`id.eq.${user.id},user_id.eq.${user.id}`)
     .single();
 
   if (!profile?.is_admin) {
@@ -48,7 +48,7 @@ export async function isAdminUser(): Promise<boolean> {
   const { data: profile } = await adminClient
     .from('profiles')
     .select('is_admin')
-    .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+    .or(`id.eq.${user.id},user_id.eq.${user.id}`)
     .single();
 
   return Boolean(profile?.is_admin);

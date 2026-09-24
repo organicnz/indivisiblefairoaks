@@ -39,6 +39,18 @@ async function readTable(client: SupabaseClient<any>, table: string, columns: st
   return data ?? []
 }
 
+async function readPublishedContent(client: SupabaseClient<any>): Promise<unknown[]> {
+  const now = new Date().toISOString()
+  const { data, error } = await client
+    .from('content')
+    .select('title,slug,type,body,excerpt,status,published_at')
+    .eq('status', 'publish')
+    .or(`published_at.is.null,published_at.lte.${now}`)
+    .limit(MAX_ROWS)
+  if (error) throw new Error(`content:${error.message}`)
+  return data ?? []
+}
+
 Deno.serve(async (request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405)
   if (!SUPABASE_URL || !SERVICE_KEY || !isAuthorized(request)) return json({ error: 'Unauthorized.' }, 401)
@@ -46,14 +58,14 @@ Deno.serve(async (request) => {
   try {
     const client = createClient<any>(SUPABASE_URL, SERVICE_KEY)
     const publicData = await Promise.all([
-      ['content', 'title,slug,type,body,excerpt,status,published_at'],
-      ['products', 'name,slug,description,short_description,price,stock_status'],
-      ['events', 'slug,title,date_label,time_label,location_name,address,description,rsvp_url'],
-      ['partners', 'slug,name,category,description,url'],
-      ['coalition_links', 'slug,name,category,description,url,badge'],
-      ['newsletters', 'slug,title,date_label,description,topics,published_at'],
-      ['gallery_photos', 'slug,alt,caption,location,category,sign_quote,date_label,photographer'],
-    ].map(async ([table, columns]) => [table, await readTable(client, table, columns)] as const))
+      (async () => ['content', await readPublishedContent(client)] as const)(),
+      (async () => ['products', await readTable(client, 'products', 'name,slug,description,short_description,price,stock_status')] as const)(),
+      (async () => ['events', await readTable(client, 'events', 'slug,title,date_label,time_label,location_name,address,description,rsvp_url')] as const)(),
+      (async () => ['partners', await readTable(client, 'partners', 'slug,name,category,description,url')] as const)(),
+      (async () => ['coalition_links', await readTable(client, 'coalition_links', 'slug,name,category,description,url,badge')] as const)(),
+      (async () => ['newsletters', await readTable(client, 'newsletters', 'slug,title,date_label,description,topics,published_at')] as const)(),
+      (async () => ['gallery_photos', await readTable(client, 'gallery_photos', 'slug,alt,caption,location,category,sign_quote,date_label,photographer')] as const)(),
+    ])
 
     const refreshedAt = new Date().toISOString()
     const snapshots: Snapshot[] = []

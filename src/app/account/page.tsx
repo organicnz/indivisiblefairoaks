@@ -40,7 +40,7 @@ export default async function AccountPage(props: {
     const { data } = await ac
       .from('profiles')
       .select('id, user_id, is_admin')
-      .or(`email.eq.${user.email},user_id.eq.${user.id}`)
+      .or(`id.eq.${user.id},user_id.eq.${user.id}`)
       .single();
     profile = data;
     if (profile && !profile.user_id) {
