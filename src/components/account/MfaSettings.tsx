@@ -12,11 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import { getTotpEnrollmentUri } from '@/lib/mfa';
 import { createClient } from '@/lib/supabase';
 
 export function MfaSettings() {
   const [enrolling, setEnrolling] = useState(false);
-  const [qrCode, setQrCode] = useState('');
+  const [totpUri, setTotpUri] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
   const [factorId, setFactorId] = useState('');
   const [error, setError] = useState('');
@@ -55,8 +56,14 @@ export function MfaSettings() {
         setError(error.message);
         setEnrolling(false);
       } else if (data) {
+        const uri = getTotpEnrollmentUri(data.totp);
+        if (!uri) {
+          setError('The authenticator enrollment URI was missing. Please try again.');
+          setEnrolling(false);
+          return;
+        }
         setFactorId(data.id);
-        setQrCode(data.totp.qr_code);
+        setTotpUri(uri);
       }
     } catch (err) {
       console.error('MFA Enrollment error:', err);
@@ -168,8 +175,8 @@ export function MfaSettings() {
           <div className="space-y-8 py-4">
             <div className="flex flex-col items-center gap-6 p-6 bg-slate-50 rounded-4xl border border-slate-100">
               <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 min-h-[212px] flex items-center justify-center">
-                {qrCode ? (
-                  <QRCodeSVG value={qrCode} size={180} />
+                {totpUri ? (
+                  <QRCodeSVG value={totpUri} size={180} title="Authenticator enrollment QR code" />
                 ) : (
                   <Loader2 className="animate-spin text-slate-300" size={32} />
                 )}

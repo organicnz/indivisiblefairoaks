@@ -29,6 +29,23 @@ describe('sanitizeWPContent() — unquoted attribute bypasses', () => {
     expect(out).toContain('href="#"');
   });
 
+  it('neutralizes entity-encoded script URLs and backslash-prefixed external paths', () => {
+    const encoded = sanitizeWPContent('<a href="java&#x73;cript:alert(1)">click</a>');
+    expect(encoded.toLowerCase()).not.toContain('javascript:');
+
+    expect(sanitizeWPContent('<a href="/\\evil.example">click</a>')).toBe('');
+  });
+
+  it('normalizes named, decimal, and malformed URL entities', () => {
+    expect(sanitizeWPContent('<a href="java&colon;script:alert(1)">named</a>')).toBe(
+      '<a>named</a>'
+    );
+    expect(sanitizeWPContent('<a href="java&#115;cript:alert(1)">decimal</a>')).toBe('');
+    expect(sanitizeWPContent('<a href="java&#x110000;cript:alert(1)">malformed</a>')).not.toContain(
+      'href='
+    );
+  });
+
   it('strips unquoted style attributes', () => {
     expect(sanitizeWPContent('<p style=position:fixed>hi</p>')).toBe('<p>hi</p>');
     expect(sanitizeWPContent('<div style="position:fixed;inset:0">x</div>')).toBe('<div>x</div>');
@@ -68,13 +85,17 @@ describe('sanitizeWPContent() — trust decisions', () => {
     expect(out).toContain('files.supabase.co/x');
   });
 
+  it('adds safe rel attributes to new-window links', () => {
+    const out = sanitizeWPContent('<a href="https://stripe.com/x" target="_blank">open</a>');
+    expect(out).toContain('rel="noopener noreferrer"');
+  });
+
   it('drops bare file: scheme links', () => {
     expect(sanitizeWPContent('<a href="file:///etc/passwd">x</a>')).toBe('');
   });
 
-  it('keeps unknown scheme links without host syntax', () => {
-    // No //host to evaluate and not a script scheme — nothing to enforce.
-    expect(sanitizeWPContent('<a href="custom:thing">x</a>')).toContain('custom:thing');
+  it('drops unknown scheme links without host syntax', () => {
+    expect(sanitizeWPContent('<a href="custom:thing">x</a>')).toBe('<a>x</a>');
   });
 });
 

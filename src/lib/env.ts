@@ -26,6 +26,7 @@ const serverSchema = publicSchema.extend({
   // Contact notifications: test/ops overrides (defaults are derived in-code).
   CONTACT_FUNCTION_URL: z.string().url().optional(),
   CONTACT_SUBMISSION_TEST_MODE: z.literal('1').optional(),
+  NEXT_E2E_BUILD: z.literal('true').optional(),
   CONTACT_RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
   // Resend email delivery
   RESEND_API_KEY: z.string().min(1).optional().catch(undefined),

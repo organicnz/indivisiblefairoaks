@@ -7,34 +7,38 @@ import { HTTPException } from 'jsr:@hono/hono/http-exception'
 import Stripe from 'npm:stripe@17'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
-// ---------------------------------------------------------------------------
-// Boot-time environment validation — fail fast instead of crashing mid-request
-// ---------------------------------------------------------------------------
-const REQUIRED_ENV: [string, string | undefined][] = [
-  ['STRIPE_SECRET_KEY', Deno.env.get('STRIPE_SECRET_KEY')],
-  ['STRIPE_WEBHOOK_SECRET', Deno.env.get('STRIPE_WEBHOOK_SECRET')],
-  ['SUPABASE_URL', Deno.env.get('SUPABASE_URL')],
-  ['SUPABASE_SERVICE_ROLE_KEY', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')],
+declare const EdgeRuntime: {
+  waitUntil(promise: Promise<unknown>): void
+}
+
+const REQUIRED_ENV: [string, string][] = [
+  ['STRIPE_SECRET_KEY', Deno.env.get('STRIPE_SECRET_KEY') ?? ''],
+  ['STRIPE_WEBHOOK_SECRET', Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? ''],
+  ['SUPABASE_URL', Deno.env.get('SUPABASE_URL') ?? ''],
+  ['SUPABASE_SERVICE_ROLE_KEY', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''],
 ]
 
-for (const [name, value] of REQUIRED_ENV) {
-  if (!value) {
-    throw new Error(`Webhook function is missing required environment variable: ${name}`)
+const STRIPE_SECRET_KEY = REQUIRED_ENV[0][1]
+const STRIPE_WEBHOOK_SECRET = REQUIRED_ENV[1][1]
+const SUPABASE_URL = REQUIRED_ENV[2][1]
+const SUPABASE_SERVICE_ROLE_KEY = REQUIRED_ENV[3][1]
+let stripeClient: Stripe | undefined
+
+function assertRuntimeConfig(): void {
+  const missing = REQUIRED_ENV.filter(([, value]) => !value).map(([name]) => name)
+  if (missing.length > 0) {
+    throw new HTTPException(503, { message: `Webhook is not configured: ${missing.join(', ')}` })
   }
 }
 
-const STRIPE_SECRET_KEY = REQUIRED_ENV[0][1]!
-const STRIPE_WEBHOOK_SECRET = REQUIRED_ENV[1][1]!
-const SUPABASE_URL = REQUIRED_ENV[2][1]!
-const SUPABASE_SERVICE_ROLE_KEY = REQUIRED_ENV[3][1]!
-
-// ---------------------------------------------------------------------------
-// Stripe client — module-level, reused across invocations
-// ---------------------------------------------------------------------------
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  // @ts-ignore — acacia is a valid API version
-  apiVersion: '2025-02-24.acacia',
-})
+function getStripe(): Stripe {
+  if (!STRIPE_SECRET_KEY) throw new HTTPException(503, { message: 'Webhook is not configured' })
+  stripeClient ??= new Stripe(STRIPE_SECRET_KEY, {
+    // @ts-ignore — acacia is a valid API version
+    apiVersion: '2025-02-24.acacia',
+  })
+  return stripeClient
+}
 
 function supabaseAdmin() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -76,9 +80,10 @@ app.post('*', async (c) => {
     throw new HTTPException(400, { message: 'Missing stripe-signature header' })
   }
 
+  assertRuntimeConfig()
   let event: Stripe.Event
   try {
-    event = await stripe.webhooks.constructEventAsync(body, signature, STRIPE_WEBHOOK_SECRET)
+    event = await getStripe().webhooks.constructEventAsync(body, signature, STRIPE_WEBHOOK_SECRET)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error(`Webhook signature verification failed: ${message}`)
@@ -159,7 +164,7 @@ async function handleCheckoutCompleted(
   await ensureOrderItems(supabase, orderId, session, log)
 
   // 3. Fire the admin notification email (non-blocking — never fail the event).
-  stripe.checkout.sessions
+  const notification = getStripe().checkout.sessions
     .listLineItems(session.id, { limit: 100 })
     .then((items) =>
       sendAdminNotification(session, items.data, orderId).catch((err) =>
@@ -169,6 +174,7 @@ async function handleCheckoutCompleted(
     .catch((err) =>
       console.error(`[webhook:${session.id}] Line item fetch for email failed:`, err)
     )
+  EdgeRuntime.waitUntil(notification)
 }
 
 // ---------------------------------------------------------------------------
@@ -267,7 +273,7 @@ async function ensureOrderItems(
     return
   }
 
-  const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+  const lineItems = await getStripe().checkout.sessions.listLineItems(session.id, {
     limit: 100,
   })
 

@@ -2,6 +2,7 @@
  * Shared sanitization utilities for WordPress-migrated and user-generated content.
  * All functions are fail-safe: they never throw and return '' on error.
  */
+import sanitizeHtml, { type IOptions } from 'sanitize-html';
 import { getStorageUrl } from './supabase';
 
 export const SPAM_KEYWORDS = [
@@ -70,6 +71,63 @@ export const TRUSTED_DOMAINS = [
   'givealittle.co.nz',
 ] as const;
 
+const HTML_SANITIZE_OPTIONS: IOptions = {
+  allowedTags: [
+    'a',
+    'abbr',
+    'b',
+    'blockquote',
+    'br',
+    'code',
+    'del',
+    'div',
+    'em',
+    'figcaption',
+    'figure',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'hr',
+    'i',
+    'img',
+    'li',
+    'ol',
+    'p',
+    'pre',
+    's',
+    'span',
+    'strong',
+    'sub',
+    'sup',
+    'table',
+    'tbody',
+    'td',
+    'th',
+    'thead',
+    'tr',
+    'u',
+    'ul',
+  ],
+  allowedAttributes: {
+    '*': ['class', 'id', 'title', 'aria-label', 'aria-describedby', 'role'],
+    a: ['href', 'name', 'target', 'rel'],
+    img: ['src', 'alt', 'width', 'height', 'loading'],
+  },
+  allowedSchemes: ['http', 'https', 'mailto', 'tel'],
+  allowedSchemesByTag: { img: ['http', 'https'] },
+  allowProtocolRelative: false,
+  disallowedTagsMode: 'discard',
+  transformTags: {
+    a: (_tagName, attribs) => ({
+      tagName: 'a',
+      attribs: attribs.target === '_blank' ? { ...attribs, rel: 'noopener noreferrer' } : attribs,
+    }),
+  },
+};
+
 /**
  * Utility to check if a given string contains spam keywords or non-latin characters.
  * Used for aggressively filtering out malicious injections or spam pages.
@@ -87,6 +145,43 @@ export function isSpamContent(text: string): boolean {
   const hasNonLatin = /[^\p{ASCII}]/u.test(text) && !lowerText.includes('indivisible');
 
   return hasSpamKeyword || hasNonLatin;
+}
+
+const INVALID_URL_ENTITY = '__invalid_url_entity__';
+
+function decodeUrlEntities(value: string): string {
+  const namedEntities: Record<string, string> = {
+    amp: '&',
+    apos: "'",
+    colon: ':',
+    gt: '>',
+    lt: '<',
+    quot: '"',
+  };
+
+  return value.replace(
+    /&#(x[0-9a-f]+|[0-9]+);?|&(amp|apos|colon|gt|lt|quot);/gi,
+    (match, numeric: string | undefined, named: string | undefined) => {
+      if (numeric) {
+        const code = numeric.toLowerCase().startsWith('x')
+          ? Number.parseInt(numeric.slice(1), 16)
+          : Number.parseInt(numeric, 10);
+        return Number.isInteger(code) && code <= 0x10ffff
+          ? String.fromCodePoint(code)
+          : INVALID_URL_ENTITY;
+      }
+      return named ? namedEntities[named.toLowerCase() as keyof typeof namedEntities] : match;
+    }
+  );
+}
+
+function normalizeUrlForSafety(value: string): string {
+  return [...value]
+    .filter((character) => {
+      const code = character.charCodeAt(0);
+      return code > 0x20 && code !== 0x7f;
+    })
+    .join('');
 }
 
 /**
@@ -137,7 +232,11 @@ export function sanitizeWPContent(html: string): string {
       if (!hrefMatch) return match;
       const rawHref = (hrefMatch[1] ?? hrefMatch[2] ?? hrefMatch[3] ?? '').trim();
       if (!rawHref) return '';
-      const lower = rawHref.toLowerCase();
+      const decodedHref = decodeUrlEntities(rawHref);
+      if (decodedHref.includes(INVALID_URL_ENTITY)) return '';
+      const normalizedHref = normalizeUrlForSafety(decodedHref);
+      if (normalizedHref.includes('\\')) return '';
+      const lower = normalizedHref.toLowerCase();
       // Protocol-relative //evil.com must NOT be treated as a relative path.
       if (lower.startsWith('//')) {
         const hostMatchProto = lower.match(/^\/\/([^/:?#\s]+)/);
@@ -145,7 +244,7 @@ export function sanitizeWPContent(html: string): string {
         const trustedProto = TRUSTED_DOMAINS.some(
           (d) => hostProto === d || hostProto.endsWith(`.${d}`)
         );
-        return trustedProto ? match : '';
+        return trustedProto ? match.replace(rawHref, `https:${rawHref}`) : '';
       }
       if (
         lower.startsWith('/') ||
@@ -232,7 +331,7 @@ export function sanitizeWPContent(html: string): string {
       return match.replace(src, storageUrl);
     });
 
-    return clean;
+    return sanitizeHtml(clean, HTML_SANITIZE_OPTIONS);
   } catch (err) {
     console.error('[sanitizeWPContent] Error:', err);
     return '';

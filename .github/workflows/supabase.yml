@@ -26,6 +26,9 @@ concurrency:
   group: supabase-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 env:
   SUPABASE_PROJECT_REF: mojsubkqjdruhpxbzgme
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -40,6 +43,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: denoland/setup-deno@v2
         with:
@@ -122,6 +127,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install Supabase CLI
         run: |
@@ -234,46 +241,54 @@ jobs:
             "$EDGE_BASE/health" || echo 000)
           cat /tmp/health.json || true
           echo "health → HTTP $STATUS"
-          if [ "$STATUS" = "404" ]; then
-            echo "::error::health edge function missing (HTTP 404) — deploy failed"
-            exit 1
-          fi
-          if [ "$STATUS" != "200" ] && [ "$STATUS" != "503" ]; then
-            echo "::error::health edge function unexpected HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::health edge function is not ready (HTTP $STATUS)"
             exit 1
           fi
 
-          # Each function must answer its validation path (4xx = alive,
-          # 404 = not deployed). Any 404 fails the workflow.
-          for FN in "notify-contact:{}" "search:{\"q\":\"\"}" "checkout:{}" "webhook:"; do
-            NAME="${FN%%:*}"
-            BODY="${FN#*:}"
-            if [ -z "$BODY" ]; then
-              CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+          check_post() {
+            local name="$1"
+            local expected="$2"
+            local body="$3"
+            local code
+            if [ -n "$body" ]; then
+              code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
                 -H "$AUTH_HEADER" -H "$APIKEY_HEADER" -H 'Content-Type: application/json' \
-                "$EDGE_BASE/$NAME" || echo 000)
+                -d "$body" "$EDGE_BASE/$name" || echo 000)
             else
-              CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+              code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
                 -H "$AUTH_HEADER" -H "$APIKEY_HEADER" -H 'Content-Type: application/json' \
-                -d "$BODY" "$EDGE_BASE/$NAME" || echo 000)
+                "$EDGE_BASE/$name" || echo 000)
             fi
-            echo "$NAME → HTTP $CODE"
-            if [ "$CODE" = "404" ]; then
-              echo "::error::$NAME edge function missing (HTTP 404) — deploy failed"
+            echo "$name → HTTP $code"
+            if [ "$expected" = "400|401" ]; then
+              if [ "$code" != "400" ] && [ "$code" != "401" ]; then
+                echo "::error::$name returned unexpected HTTP $code"
+                exit 1
+              fi
+            elif [ "$code" != "$expected" ]; then
+              echo "::error::$name returned unexpected HTTP $code (expected $expected)"
               exit 1
             fi
-          done
-          # wall-e-chat + walle-refresh reject non-POST with 405 (alive) —
-          # never POST here: wall-e-chat would spend an AI call, walle-refresh
-          # would rewrite snapshots. GET 404 = not deployed.
-          for FN in wall-e-chat walle-refresh; do
-            CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+          }
+
+          check_get() {
+            local name="$1"
+            local code
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
               -H "$AUTH_HEADER" -H "$APIKEY_HEADER" \
-              "$EDGE_BASE/$FN" || echo 000)
-            echo "$FN → HTTP $CODE (GET)"
-            if [ "$CODE" = "404" ]; then
-              echo "::error::$FN edge function missing (HTTP 404) — deploy failed"
+              "$EDGE_BASE/$name" || echo 000)
+            echo "$name → HTTP $code (GET)"
+            if [ "$code" != "405" ]; then
+              echo "::error::$name returned unexpected HTTP $code (expected 405)"
               exit 1
             fi
-          done
+          }
+
+          check_post notify-contact 400 '{}'
+          check_post search 400 '{"q":""}'
+          check_post checkout '400|401' '{}'
+          check_post webhook 400 ''
+          check_get wall-e-chat
+          check_get walle-refresh
           echo "✅ All edge functions answering (project $SUPABASE_PROJECT_REF)"

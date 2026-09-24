@@ -9,38 +9,38 @@ import Stripe from 'npm:stripe@17'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { getStripeShippingOptions } from '../_shared/shipping.ts'
 
-// ---------------------------------------------------------------------------
-// Boot-time environment validation — fail fast with a clear message
-// ---------------------------------------------------------------------------
-const REQUIRED_ENV: [string, string | undefined][] = [
-  ['STRIPE_SECRET_KEY', Deno.env.get('STRIPE_SECRET_KEY')],
-  ['SUPABASE_URL', Deno.env.get('SUPABASE_URL')],
-  ['SUPABASE_SERVICE_ROLE_KEY', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')],
-  ['SUPABASE_ANON_KEY', Deno.env.get('SUPABASE_ANON_KEY')],
+const REQUIRED_ENV: [string, string][] = [
+  ['STRIPE_SECRET_KEY', Deno.env.get('STRIPE_SECRET_KEY') ?? ''],
+  ['SUPABASE_URL', Deno.env.get('SUPABASE_URL') ?? ''],
+  ['SUPABASE_SERVICE_ROLE_KEY', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''],
+  ['SUPABASE_ANON_KEY', Deno.env.get('SUPABASE_ANON_KEY') ?? ''],
 ]
 
-for (const [name, value] of REQUIRED_ENV) {
-  if (!value) {
-    throw new Error(`Checkout function is missing required environment variable: ${name}`)
+const STRIPE_SECRET_KEY = REQUIRED_ENV[0][1]
+const SUPABASE_URL = REQUIRED_ENV[1][1]
+const SUPABASE_SERVICE_ROLE_KEY = REQUIRED_ENV[2][1]
+const SUPABASE_ANON_KEY = REQUIRED_ENV[3][1]
+let stripeClient: Stripe | undefined
+
+function assertRuntimeConfig(): void {
+  const missing = REQUIRED_ENV.filter(([, value]) => !value).map(([name]) => name)
+  if (missing.length > 0) {
+    throw new HTTPException(503, { message: `Checkout is not configured: ${missing.join(', ')}` })
   }
 }
 
-const STRIPE_SECRET_KEY = REQUIRED_ENV[0][1]!
-const SUPABASE_URL = REQUIRED_ENV[1][1]!
-const SUPABASE_SERVICE_ROLE_KEY = REQUIRED_ENV[2][1]!
-const SUPABASE_ANON_KEY = REQUIRED_ENV[3][1]!
+function getStripe(): Stripe {
+  if (!STRIPE_SECRET_KEY) throw new HTTPException(503, { message: 'Checkout is not configured' })
+  stripeClient ??= new Stripe(STRIPE_SECRET_KEY, {
+    // @ts-ignore — acacia is a valid API version
+    apiVersion: '2025-02-24.acacia',
+  })
+  return stripeClient
+}
 
 function supabaseAdmin() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 }
-
-// ---------------------------------------------------------------------------
-// Stripe client — module-level, reused across invocations
-// ---------------------------------------------------------------------------
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  // @ts-ignore — acacia is a valid API version
-  apiVersion: '2025-02-24.acacia',
-})
 
 // ---------------------------------------------------------------------------
 // Limits — defence in depth against abuse / API abuse
@@ -64,10 +64,12 @@ app.use(
 )
 
 app.post('*', async (c) => {
-  const body = await c.req.json<{
-    items?: unknown
-    promoCode?: unknown
-  }>()
+  let body: { items?: unknown; promoCode?: unknown }
+  try {
+    body = await c.req.json<{ items?: unknown; promoCode?: unknown }>()
+  } catch {
+    throw new HTTPException(400, { message: 'Invalid JSON payload' })
+  }
 
   // 1. Normalize + validate the cart strictly (no client-supplied prices/names)
   const items = normalizeCart(body.items)
@@ -75,6 +77,7 @@ app.post('*', async (c) => {
   // 2. Validate the promo code shape up front
   const promoCode = normalizePromoCode(body.promoCode)
 
+  assertRuntimeConfig()
   const supabase = supabaseAdmin()
 
   const variationIds = items
@@ -138,7 +141,7 @@ app.post('*', async (c) => {
     : undefined
 
   // 6. Create the Checkout Session
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     payment_method_types: ['card', 'link'],
     line_items: lineItems,
     mode: 'payment',
@@ -272,7 +275,7 @@ async function resolveStripeCoupon(
 
   // Idempotent creation — a retried request reuses the same coupon, never
   // proliferates new ones per checkout.
-  const stripeCoupon = await stripe.coupons.create(
+  const stripeCoupon = await getStripe().coupons.create(
     {
       ...(isPercent
         ? { percent_off: amount }
