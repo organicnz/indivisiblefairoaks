@@ -332,11 +332,16 @@ pre-commit:
     #   src/lib/admin-auth.ts     — admin-only chokepoint: verifies is_admin
     #                              BEFORE issuing the admin client, then hands
     #                              it only to /admin routes and actions.
+    #   src/app/api/crm/unsubscribe/ — public RFC 8058 landing zone: no user
+    #                              session exists; token is an unguessable
+    #                              per-contact UUID, update is idempotent and
+    #                              rate-limited (20/10min/IP). Read + opt-out
+    #                              write only — cannot escalate or exfiltrate.
     admin-client-scope:
       priority: 10
       glob: "src/**/*.{ts,tsx}"
       run: |
-        ALLOWLIST="src/app/admin/|src/app/api/webhooks/|src/app/products/page.tsx|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts"
+        ALLOWLIST="src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/products/page.tsx|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts"
         VIOLATIONS=""
         for f in {staged_files}; do
           [ -f "$f" ] || continue
