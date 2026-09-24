@@ -134,11 +134,11 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-  # ── 5. Live Health Probe (production) ───────────────────────────────────────
-  # Production deploys natively via Vercel Git integration on every main
-  # push (PRs get native previews too), so verify what users actually hit.
-  # Custom domains are excluded from Deployment Protection — a 302/401 here
-  # IS a real failure, no bypass handling.
+  # ── 5. Live Health Probe (Next.js app) ──────────────────────────────────────
+  # The Next.js app lives on test.indivisiblefairoaks.org (see
+  # docs/infrastructure-and-email-recovery-log.md). The apex + www deliberately
+  # 302 to a Google Site — probing them would always fail. Verify the host
+  # that actually serves this codebase.
   #
   # NOTE: a CLI deploy-vercel job used to live here. Removed: it only
   # produced spare preview duplicates while production shipped via git, it
@@ -148,32 +148,39 @@ jobs:
     name: Live Health Probe
     runs-on: [self-hosted, linux, ARM64, frontend-runner]
     # CI build completion is the sync point: by then the Git-driven
-    # production deploy (~3-4 min) is settled or nearly so; the 90 s
+    # Vercel deploy (~3-4 min) is settled or nearly so; the 90 s
     # retry loop below absorbs the remainder.
     needs: [build]
     if: github.event_name == 'push'
     timeout-minutes: 5
     steps:
-      - name: Probe production deployment
+      - name: Probe app deployment
         env:
           SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
         run: |
-          URL="${SITE_URL:-https://indivisiblefairoaks.org}"
+          # Fallback is the staging host that serves this app — NOT the apex
+          # (apex intentionally redirects to Google Sites).
+          URL="${SITE_URL:-https://test.indivisiblefairoaks.org}"
           URL="${URL%/}"
-          # Allow up to 90 s for the Git-driven production deploy to settle
+          # Allow up to 90 s for the Git-driven Vercel deploy to settle
           for i in $(seq 1 9); do
             STATUS=$(curl -o /dev/null -sw '%{http_code}' "${URL}/api/health" || echo 000)
-            echo "Attempt $i: HTTP $STATUS"
+            echo "Attempt $i: HTTP $STATUS ($URL)"
             # 200 = healthy. 503 = serving but degraded (DB blip) — the
             # deploy is up, so that passes; the warning flags the DB side.
+            # 302 = hit the apex Google-Sites redirect (wrong host).
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
-              echo "✅ Production is serving (HTTP $STATUS)"
+              echo "✅ App is serving (HTTP $STATUS)"
               if [ "$STATUS" = "503" ]; then
                 echo "::warning::/api/health reports degraded — check Supabase, not the deploy"
               fi
               exit 0
             fi
+            if [ "$STATUS" = "302" ] || [ "$STATUS" = "301" ]; then
+              echo "::error::Redirect (HTTP $STATUS) — probe host is not the Next.js app (apex points at Google Sites). Check NEXT_PUBLIC_SITE_URL."
+              exit 1
+            fi
             sleep 10
           done
-          echo "❌ Production health check failed after 90 s (last HTTP $STATUS)"
+          echo "❌ App health check failed after 90 s (last HTTP $STATUS from $URL)"
           exit 1
