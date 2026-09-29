@@ -912,7 +912,25 @@ pre-push:
     suppress-count:
       priority: 30
       run: |
-        BASELINE=7
+        # Baseline 7 → 9. Both additions are in the content block editor and
+        # neither is a workaround for a real defect:
+        #
+        #   4x noArrayIndexKey — table cells and list items. The rule exists to
+        #      catch state being mis-associated when the order changes, and it
+        #      does not model these: the table inputs are fully controlled
+        #      (value and onChange both come from the block model, so React holds
+        #      no per-cell state), and the list items' content is owned by the
+        #      DOM by design, since React never renders it. The index is the
+        #      identity. Adding stable ids to the model to satisfy the lint
+        #      would change the serialized block format and the app/edge parity
+        #      surface for no behavioural gain.
+        #   1x noImgElement   — the editor previews the image URL the admin just
+        #      typed. next.config's remotePatterns is scoped to the Supabase
+        #      storage host, so next/image cannot render an arbitrary host
+        #      without a config entry per origin, and would 400 on the first
+        #      external image. This is admin chrome; the public page still uses
+        #      next/image.
+        BASELINE=9
         COUNT=$(grep -rn "@ts-ignore\|@ts-nocheck\|biome-ignore\|eslint-disable" \
           src --include="*.ts" --include="*.tsx" 2>/dev/null \
           | grep -v "__tests__" | wc -l | tr -d ' ')
