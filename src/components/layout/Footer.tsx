@@ -9,7 +9,7 @@ async function CopyrightYear() {
 
 export function Footer() {
   return (
-    <footer className="bg-slate-950 text-slate-300 border-t border-slate-800 mt-auto">
+    <footer className="bg-secondary text-ink-on-dark border-t border-white/10 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-10 lg:gap-12">
           {/* Brand & Mission Column */}
@@ -26,20 +26,20 @@ export function Footer() {
                 />
               </div>
               <div>
-                <span className="text-white font-black text-lg tracking-tight uppercase block leading-tight group-hover:text-blue-400 transition-colors">
+                <span className="text-white font-black text-lg tracking-tight uppercase block leading-tight group-hover:text-primary-on-dark-muted transition-colors">
                   Indivisible
                 </span>
-                <span className="text-blue-400 text-xs font-semibold uppercase block leading-tight">
+                <span className="text-primary-on-dark-muted text-xs font-semibold uppercase block leading-tight">
                   Fair Oaks & Carmichael
                 </span>
               </div>
             </Link>
-            <p className="mt-4 text-xs sm:text-sm text-slate-400 leading-relaxed">
+            <p className="mt-4 text-xs sm:text-sm text-ink-muted-on-dark leading-relaxed">
               A grassroots movement dedicated to defending democracy, resisting authoritarianism,
               electing progressive leaders, and taking direct non-violent action for our community.
             </p>
-            <div className="mt-5 p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-start gap-2.5">
-              <MapPin className="text-amber-400 shrink-0 mt-0.5" size={16} />
+            <div className="mt-5 p-3 rounded-xl bg-secondary border border-white/10 text-xs text-ink-on-dark flex items-start gap-2.5">
+              <MapPin className="text-accent-gold shrink-0 mt-0.5" size={16} />
               <span>
                 Meetings held monthly in Carmichael, CA. Bring a non-perishable food item for local
                 food banks!
@@ -49,7 +49,7 @@ export function Footer() {
 
           {/* Site Navigation */}
           <div className="col-span-1">
-            <h3 className="text-amber-400 text-xs font-black uppercase tracking-widest mb-4">
+            <h3 className="text-accent-gold text-xs font-black uppercase tracking-widest mb-4">
               Explore
             </h3>
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium">
@@ -88,7 +88,7 @@ export function Footer() {
 
           {/* Action & Engagement */}
           <div className="col-span-1">
-            <h3 className="text-amber-400 text-xs font-black uppercase tracking-widest mb-4">
+            <h3 className="text-accent-gold text-xs font-black uppercase tracking-widest mb-4">
               Get Involved
             </h3>
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium">
@@ -107,7 +107,7 @@ export function Footer() {
                   href="/choir"
                   className="hover:text-white transition-colors flex items-center gap-1.5"
                 >
-                  <Music size={14} className="text-blue-400" />
+                  <Music size={14} className="text-primary-on-dark-muted" />
                   Sing in the Choir
                 </Link>
               </li>
@@ -116,16 +116,16 @@ export function Footer() {
                   href="mailto:subscribe@indivisiblefairoaks.org"
                   className="hover:text-white transition-colors flex items-center gap-1.5"
                 >
-                  <Mail size={14} className="text-blue-400" />
+                  <Mail size={14} className="text-primary-on-dark-muted" />
                   Subscribe to Newsletter
                 </a>
               </li>
               <li>
                 <Link
                   href="/donate"
-                  className="inline-flex items-center gap-1.5 text-amber-400 hover:text-amber-300 font-bold transition-colors"
+                  className="inline-flex items-center gap-1.5 text-accent-gold hover:text-accent-gold font-bold transition-colors"
                 >
-                  <Heart size={14} className="fill-amber-400" />
+                  <Heart size={14} className="fill-accent-gold" />
                   Donate via ActBlue
                 </Link>
               </li>
@@ -134,31 +134,31 @@ export function Footer() {
 
           {/* Contact & Transparency */}
           <div className="col-span-1">
-            <h3 className="text-amber-400 text-xs font-black uppercase tracking-widest mb-4">
+            <h3 className="text-accent-gold text-xs font-black uppercase tracking-widest mb-4">
               Connect With Us
             </h3>
             <div className="space-y-3 text-xs sm:text-sm">
-              <p className="text-slate-400">
+              <p className="text-ink-muted-on-dark">
                 Have a question or want to get involved with our local organizing team?
               </p>
               <div>
-                <span className="text-slate-400 text-[11px] block uppercase tracking-wider">
+                <span className="text-ink-muted-on-dark text-[11px] block uppercase tracking-wider">
                   General Inquiries:
                 </span>
                 <a
                   href="mailto:contact@indivisiblefairoaks.org"
-                  className="text-blue-400 hover:text-blue-300 font-semibold break-all"
+                  className="text-primary-on-dark-muted hover:text-primary-on-dark font-semibold break-all"
                 >
                   contact@indivisiblefairoaks.org
                 </a>
               </div>
               <div>
-                <span className="text-slate-400 text-[11px] block uppercase tracking-wider">
+                <span className="text-ink-muted-on-dark text-[11px] block uppercase tracking-wider">
                   Mailing List:
                 </span>
                 <a
                   href="mailto:subscribe@indivisiblefairoaks.org"
-                  className="text-blue-400 hover:text-blue-300 font-semibold break-all"
+                  className="text-primary-on-dark-muted hover:text-primary-on-dark font-semibold break-all"
                 >
                   subscribe@indivisiblefairoaks.org
                 </a>
@@ -168,7 +168,7 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+        <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-muted-on-dark">
           <p>
             © <CopyrightYear /> Indivisible Fair Oaks-Carmichael. All rights reserved. Grassroots
             volunteer organization.
@@ -184,7 +184,7 @@ export function Footer() {
               href="https://secure.actblue.com/donate/indivisiblefoc1432155925"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-amber-400 hover:text-amber-300 transition-colors"
+              className="text-accent-gold hover:text-accent-gold transition-colors"
             >
               ActBlue
             </a>

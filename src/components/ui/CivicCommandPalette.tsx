@@ -1,5 +1,6 @@
 'use client';
 
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   Calendar,
   ExternalLink,
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
 interface PaletteItem {
   id: string;
@@ -119,6 +120,9 @@ const PALETTE_ITEMS: PaletteItem[] = [
   },
 ];
 
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary';
+
 export function CivicCommandPalette({
   isOpen: controlledOpen,
   setIsOpen: setControlledOpen,
@@ -132,14 +136,13 @@ export function CivicCommandPalette({
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const router = useRouter();
+  const listboxId = useId();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsOpen(!isOpen);
-      } else if (e.key === 'Escape' && isOpen) {
-        setIsOpen(false);
       }
     };
 
@@ -147,123 +150,179 @@ export function CivicCommandPalette({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, setIsOpen]);
 
-  const filteredItems = PALETTE_ITEMS.filter(
-    (item) =>
-      item.title.toLowerCase().includes(query.toLowerCase()) ||
-      item.description.toLowerCase().includes(query.toLowerCase()) ||
-      item.category.toLowerCase().includes(query.toLowerCase())
+  const filteredItems = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return PALETTE_ITEMS;
+    return PALETTE_ITEMS.filter(
+      (item) =>
+        item.title.toLowerCase().includes(needle) ||
+        item.description.toLowerCase().includes(needle) ||
+        item.category.toLowerCase().includes(needle)
+    );
+  }, [query]);
+
+  // The highlight must stay inside the result set: shrinking the list while the
+  // last index was selected left the palette with no active option and Enter did
+  // nothing.
+  const activeIndex =
+    filteredItems.length === 0 ? -1 : Math.min(selectedIndex, filteredItems.length - 1);
+  const activeItem = filteredItems[activeIndex];
+
+  const handleSelect = useCallback(
+    (item: PaletteItem) => {
+      setIsOpen(false);
+      setQuery('');
+      setSelectedIndex(0);
+      if (item.isExternal) {
+        window.open(item.href, '_blank', 'noopener,noreferrer');
+      } else {
+        router.push(item.href);
+      }
+    },
+    [router, setIsOpen]
   );
 
-  const handleSelect = (item: PaletteItem) => {
-    setIsOpen(false);
-    setQuery('');
-    if (item.isExternal) {
-      window.open(item.href, '_blank', 'noopener,noreferrer');
-    } else {
-      router.push(item.href);
-    }
-  };
-
-  const handleListKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev + 1) % Math.max(1, filteredItems.length));
+      setSelectedIndex(filteredItems.length === 0 ? 0 : (activeIndex + 1) % filteredItems.length);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev === 0 ? Math.max(0, filteredItems.length - 1) : prev - 1));
-    } else if (e.key === 'Enter') {
+      setSelectedIndex(
+        filteredItems.length === 0
+          ? 0
+          : (activeIndex - 1 + filteredItems.length) % filteredItems.length
+      );
+    } else if (e.key === 'Enter' && activeItem) {
       e.preventDefault();
-      const current = filteredItems[selectedIndex];
-      if (current) handleSelect(current);
+      handleSelect(activeItem);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setSelectedIndex(0);
+    } else if (e.key === 'End' && filteredItems.length > 0) {
+      e.preventDefault();
+      setSelectedIndex(filteredItems.length - 1);
     }
   };
 
   return (
     <>
-      {/* Trigger Button in Header — single icon-only entry, fits all breakpoints */}
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-        aria-label="Search site (Cmd+K)"
+        // p-2 plus a 20px glyph is 36px — under the 44px minimum target.
+        className={`inline-flex items-center justify-center size-11 -mr-1 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
+        aria-label="Search site (Command K)"
         title="Search site (⌘K)"
       >
-        <Search size={20} />
+        <Search size={20} aria-hidden="true" />
       </button>
 
-      {/* Modal Dialog */}
-      {isOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Civic Quick Search"
-          className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-28 px-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
-        >
-          {/* Backdrop button to dismiss */}
-          <button
-            type="button"
-            className="absolute inset-0 w-full h-full cursor-default bg-transparent -z-10 border-0"
-            onClick={() => setIsOpen(false)}
-            aria-label="Close search modal"
-          />
+      {/*
+        This was a hand-rolled `role="dialog" aria-modal="true"` div. It had no
+        focus trap, no `inert` on the page behind it, no scroll lock, and no focus
+        restoration — so tabbing walked straight out of the "modal" into the page
+        underneath. Radix supplies all of it and is already a dependency.
 
-          <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 relative z-10">
-            {/* Search Input Bar */}
-            <div className="flex items-center px-4 py-3.5 border-b border-slate-800 gap-3">
-              <Search size={18} className="text-blue-400 shrink-0" />
+        The result list was also semantically broken: a `<button>` with its role
+        overridden to `option`, inside a `role="listbox"`, with focus never
+        entering the listbox. `aria-selected` was therefore never announced and
+        the entire selection model was unreachable non-visually. It is now a
+        proper combobox: focus stays in the input and `aria-activedescendant`
+        points at the active option.
+
+        The two Biome a11y rules disabled for this file in biome.json
+        (`noNoninteractiveElementToInteractiveRole`, `useFocusableInteractive`)
+        assume a listbox that takes DOM focus. This one does not — options are
+        intentionally unfocusable because `aria-activedescendant` is what conveys
+        the active option, and `ul`/`li` are the elements ARIA-in-HTML designates
+        for `listbox`/`option`.
+      */}
+      <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[120] bg-secondary/80 backdrop-blur-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+          <Dialog.Content
+            className="fixed left-1/2 top-20 sm:top-28 z-[130] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 bg-secondary border border-white/10 rounded-2xl shadow-float overflow-hidden data-[state=open]:animate-in data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:duration-200 data-[state=closed]:duration-150"
+            aria-describedby={undefined}
+          >
+            <Dialog.Title className="sr-only">Civic quick search</Dialog.Title>
+
+            <div className="flex items-center px-4 py-3.5 border-b border-white/10 gap-3">
+              <Search size={18} className="text-primary-light shrink-0" aria-hidden="true" />
               <input
                 type="text"
+                role="combobox"
+                aria-expanded={filteredItems.length > 0}
+                aria-controls={listboxId}
+                aria-activedescendant={activeItem ? `${listboxId}-${activeItem.id}` : undefined}
+                aria-autocomplete="list"
+                aria-label="Search pages and actions"
                 autoFocus
-                placeholder="Type a page, action, or civic topic..."
+                placeholder="Type a page, action, or civic topic…"
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
                   setSelectedIndex(0);
                 }}
-                onKeyDown={handleListKeyDown}
-                className="w-full bg-transparent text-white placeholder-slate-400 text-sm focus:outline-none"
+                onKeyDown={handleInputKeyDown}
+                className="w-full bg-transparent text-white placeholder-ink-muted-on-dark text-sm focus:outline-none"
               />
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              <Dialog.Close
+                className={`inline-flex items-center justify-center size-9 rounded-md text-ink-muted-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
                 aria-label="Close search dialog"
               >
-                <X size={16} />
-              </button>
+                <X size={16} aria-hidden="true" />
+              </Dialog.Close>
             </div>
 
-            {/* Results List */}
-            <div
+            {/*
+              Result count is announced: without it, filtering to zero results is
+              completely silent.
+            */}
+            <p role="status" aria-live="polite" className="sr-only">
+              {filteredItems.length} result{filteredItems.length === 1 ? '' : 's'} available
+            </p>
+
+            <ul
+              id={listboxId}
               role="listbox"
-              className="max-h-80 overflow-y-auto p-2 divide-y divide-slate-800/50"
+              aria-label="Search results"
+              className="max-h-80 overflow-y-auto p-2 divide-y divide-white/5 list-none"
             >
               {filteredItems.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-xs">
+                <li className="py-8 text-center text-ink-muted-on-dark text-xs">
                   No matching civic actions or pages found.
-                </div>
+                </li>
               ) : (
                 filteredItems.map((item, index) => {
                   const Icon = item.icon;
-                  const isSelected = index === selectedIndex;
+                  const isSelected = index === activeIndex;
                   return (
-                    <button
+                    <li
                       key={item.id}
-                      type="button"
+                      id={`${listboxId}-${item.id}`}
                       role="option"
                       aria-selected={isSelected}
-                      onClick={() => handleSelect(item)}
+                      // `onMouseDown` fires before the input's blur, so a click
+                      // both selects and keeps focus in the combobox.
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelect(item);
+                      }}
                       onMouseEnter={() => setSelectedIndex(index)}
-                      className={`w-full text-left flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors ${
+                      className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors duration-300 ease-out list-none ${
                         isSelected
-                          ? 'bg-blue-600/20 text-white border border-blue-500/30'
-                          : 'text-slate-300 hover:bg-slate-800/60 border border-transparent'
+                          ? 'bg-primary/20 text-white border border-primary-light/30'
+                          : 'text-ink-on-dark border border-transparent'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <div
+                          aria-hidden="true"
                           className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                            isSelected ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'
+                            isSelected
+                              ? 'bg-primary text-white'
+                              : 'bg-white/10 text-ink-muted-on-dark'
                           }`}
                         >
                           <Icon size={16} />
@@ -272,48 +331,47 @@ export function CivicCommandPalette({
                           <div className="text-sm font-semibold text-white flex items-center gap-2">
                             <span>{item.title}</span>
                             {item.isExternal && (
-                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-ink-muted-on-dark font-mono">
                                 external
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-slate-400">{item.description}</div>
+                          <div className="text-xs text-ink-muted-on-dark">{item.description}</div>
                         </div>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400 px-2 py-0.5 rounded bg-slate-800/80">
+                      <span className="text-xs font-mono text-ink-muted-on-dark px-2 py-0.5 rounded bg-white/5">
                         {item.category}
                       </span>
-                    </button>
+                    </li>
                   );
                 })
               )}
-            </div>
+            </ul>
 
-            {/* Footer / Shortcuts */}
-            <div className="px-4 py-2 bg-slate-950/60 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="px-4 py-2 bg-secondary/60 border-t border-white/10 flex items-center justify-between text-xs text-ink-muted-on-dark">
               <div className="flex items-center gap-2">
                 <span>Navigate</span>
-                <kbd className="px-1 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono">
+                <kbd className="px-1 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono">
                   ↑
                 </kbd>
-                <kbd className="px-1 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono">
+                <kbd className="px-1 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono">
                   ↓
                 </kbd>
                 <span className="ml-2">Select</span>
-                <kbd className="px-1 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono">
+                <kbd className="px-1 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono">
                   ↵
                 </kbd>
               </div>
               <div>
                 <span>Close</span>
-                <kbd className="ml-1.5 px-1 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono">
+                <kbd className="ml-1.5 px-1 py-0.5 rounded bg-white/5 border border-white/10 text-xs font-mono">
                   esc
                 </kbd>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </>
   );
 }

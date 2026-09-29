@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckSquare, Square, X } from 'lucide-react';
+import { AlertCircle, CheckSquare, Square, X } from 'lucide-react';
 import { createContext, type ReactNode, useContext, useState, useTransition } from 'react';
 import { bulkUpdateProductStock } from '@/app/admin/actions';
 
@@ -146,7 +146,12 @@ export function BulkStockBar({ productIds }: { productIds: number[] }) {
           >
             <X size={11} /> Clear
           </button>
-          {error && <p className="text-[11px] font-bold text-rose-400">{error}</p>}
+          {error && (
+            <div role="alert" className="flex items-start gap-2 text-xs font-bold text-rose-400">
+              <AlertCircle size={14} aria-hidden="true" className="shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
         </>
       )}
     </nav>

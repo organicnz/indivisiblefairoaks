@@ -6,7 +6,6 @@ import { updateUserSettingsAction } from '../actions/settings';
 export interface UserSettings {
   marketing_emails: boolean;
   order_updates: boolean;
-  preferred_currency: string;
 }
 
 interface SettingsState {
@@ -22,7 +21,6 @@ interface SettingsState {
 const DEFAULT_SETTINGS: UserSettings = {
   marketing_emails: false,
   order_updates: true,
-  preferred_currency: 'NZD',
 };
 
 export const useSettingsStore = create<SettingsState>()(

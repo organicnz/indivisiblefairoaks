@@ -2,23 +2,15 @@ import { ExternalLink, Handshake } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { pageMetadata } from '@/lib/metadata';
 import { getPartners } from '@/lib/queries/civic';
 
-export const metadata: Metadata = {
-  alternates: { canonical: '/partners' },
-  title: 'Coalition Partners & Allies | Indivisible Fair Oaks-Carmichael',
+export const metadata: Metadata = pageMetadata({
+  title: 'Coalition Partners & Allies',
   description:
     'Meet the national and California grassroots partners, voting rights organizations, and local coalitions working alongside Indivisible Fair Oaks-Carmichael.',
-  openGraph: {
-    title: 'Coalition Partners & Allies | Indivisible Fair Oaks-Carmichael',
-    description:
-      'Meet the national and California grassroots partners, voting rights organizations, and local coalitions working alongside Indivisible Fair Oaks-Carmichael.',
-    url: 'https://indivisiblefairoaks.org/partners',
-    siteName: 'Indivisible Fair Oaks-Carmichael',
-    locale: 'en_US',
-    type: 'website',
-  },
-};
+  path: '/partners',
+});
 
 export default async function PartnersPage() {
   // Supabase is the source of truth; inline rows are a fallback for
@@ -75,20 +67,20 @@ export default async function PartnersPage() {
   }
 
   return (
-    <div className="bg-slate-950 text-white min-h-screen">
+    <div className="bg-secondary text-white min-h-screen">
       {/* Header Banner with VGPU Constellation Network */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
+      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
-            <Handshake size={14} className="text-amber-400" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+            <Handshake size={14} className="text-accent-gold" />
             <span>Grassroots Solidarity</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
             Our Coalition Partners & Allies
           </h1>
-          <div className="h-1.5 w-24 bg-amber-400 rounded-full mb-4" />
-          <p className="text-slate-300 text-sm sm:text-base max-w-2xl leading-relaxed">
+          <div className="h-1.5 w-24 bg-accent-gold rounded-full mb-4" />
+          <p className="text-ink-on-dark text-sm sm:text-base max-w-2xl leading-relaxed">
             We believe democracy is a team sport. Indivisible Fair Oaks-Carmichael works in close
             partnership with national organizations, California coalitions, and Sacramento community
             advocates.
@@ -101,24 +93,24 @@ export default async function PartnersPage() {
           {partners.map((partner) => (
             <div
               key={partner.name}
-              className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-blue-500/40 transition-all flex flex-col justify-between group"
+              className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/40 transition-all flex flex-col justify-between group"
             >
               <div className="space-y-3">
-                <span className="text-[11px] font-mono text-amber-400 font-bold uppercase tracking-wider block">
+                <span className="text-[11px] font-mono text-accent-gold font-bold uppercase tracking-wider block">
                   {partner.category}
                 </span>
-                <h2 className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors">
+                <h2 className="text-xl font-bold text-white group-hover:text-primary-on-dark transition-colors">
                   {partner.name}
                 </h2>
-                <p className="text-xs text-slate-300 leading-relaxed">{partner.description}</p>
+                <p className="text-xs text-ink-on-dark leading-relaxed">{partner.description}</p>
               </div>
 
-              <div className="pt-6 border-t border-slate-800/80">
+              <div className="pt-6 border-t border-white/10/80">
                 <a
                   href={partner.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-primary-on-dark-muted hover:text-primary-on-dark transition-colors"
                 >
                   <span>Visit Partner Website</span>
                   <ExternalLink size={13} />
@@ -128,15 +120,15 @@ export default async function PartnersPage() {
           ))}
         </div>
 
-        <div className="p-8 rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-4">
+        <div className="p-8 rounded-3xl bg-secondary border border-white/10 text-center space-y-4">
           <h3 className="text-xl font-bold text-white">Looking to Partner with Our Chapter?</h3>
-          <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto">
+          <p className="text-xs sm:text-sm text-ink-on-dark max-w-xl mx-auto">
             If your organization shares our dedication to civil rights, progressive governance, and
             democratic defense, we’d love to collaborate on upcoming actions.
           </p>
           <Link
             href="/contact"
-            className="inline-block px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all"
+            className="inline-block px-6 py-3 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
           >
             Connect With Our Coalition Team
           </Link>

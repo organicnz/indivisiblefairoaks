@@ -105,7 +105,6 @@ import { updateUserSettingsAction } from '@/lib/actions/settings';
 const EXISTING_PROFILE_SETTINGS = {
   marketing_emails: false,
   order_updates: true,
-  preferred_currency: 'NZD',
 };
 
 function setupAuthenticatedUser() {
@@ -148,7 +147,6 @@ describe('Property 1: Bug Condition — upsert payload includes updated_at', () 
     await fc.assert(
       fc.asyncProperty(
         fc.record({
-          preferred_currency: fc.constantFrom('NZD', 'AUD', 'USD'),
           marketing_emails: fc.boolean(),
           order_updates: fc.boolean(),
         }),
@@ -195,7 +193,7 @@ describe('Property 2: Preservation — existing action behaviour is unchanged', 
       error: null,
     });
 
-    const result = await updateUserSettingsAction({ preferred_currency: 'AUD' });
+    const result = await updateUserSettingsAction({ order_updates: false });
 
     expect(result).toEqual({ error: 'Unauthorized or missing email' });
     expect(mockUpsert).not.toHaveBeenCalled();
@@ -213,7 +211,6 @@ describe('Property 2: Preservation — existing action behaviour is unchanged', 
     await fc.assert(
       fc.asyncProperty(
         fc.record({
-          preferred_currency: fc.constantFrom('NZD', 'AUD', 'USD'),
           marketing_emails: fc.boolean(),
           order_updates: fc.boolean(),
           unknownKey: fc.string(),
@@ -252,11 +249,8 @@ describe('Property 2: Preservation — existing action behaviour is unchanged', 
         fc.record({
           marketing_emails: fc.boolean(),
           order_updates: fc.boolean(),
-          preferred_currency: fc.constantFrom('NZD', 'AUD', 'USD'),
         }),
-        fc.record({
-          preferred_currency: fc.constantFrom('NZD', 'AUD', 'USD'),
-        }),
+        fc.record({}),
         async (existingSettings, partialUpdate) => {
           vi.clearAllMocks();
           capturedUpsertPayload = {};
@@ -284,7 +278,7 @@ describe('Property 2: Preservation — existing action behaviour is unchanged', 
 
   // ── d) Cache revalidation ────────────────────────────────────────────────────
   it('calls revalidatePath("/", "layout") exactly once on successful upsert', async () => {
-    await updateUserSettingsAction({ preferred_currency: 'AUD' });
+    await updateUserSettingsAction({ order_updates: false });
 
     expect(revalidatePath).toHaveBeenCalledTimes(1);
     expect(revalidatePath).toHaveBeenCalledWith('/', 'layout');
@@ -292,11 +286,11 @@ describe('Property 2: Preservation — existing action behaviour is unchanged', 
 
   // ── e) Return shape on success ───────────────────────────────────────────────
   it('returns { success: true, settings: mergedSettings } on successful upsert', async () => {
-    const result = await updateUserSettingsAction({ preferred_currency: 'AUD' });
+    const result = await updateUserSettingsAction({ order_updates: false });
 
     const expectedMergedSettings = {
       ...EXISTING_PROFILE_SETTINGS,
-      preferred_currency: 'AUD',
+      order_updates: false,
     };
 
     expect(result).toEqual({ success: true, settings: expectedMergedSettings });
@@ -306,7 +300,7 @@ describe('Property 2: Preservation — existing action behaviour is unchanged', 
   it('returns { error: string } when upsert fails with a non-updated_at error', async () => {
     upsertErrorOverride = { message: 'Some other DB error' };
 
-    const result = await updateUserSettingsAction({ preferred_currency: 'AUD' });
+    const result = await updateUserSettingsAction({ order_updates: false });
 
     expect(result).toEqual({ error: 'Some other DB error' });
   });
@@ -339,12 +333,12 @@ describe('Property 3: Email fallback — profile lookup by email when user_id mi
         error: null,
       });
 
-    const result = await updateUserSettingsAction({ preferred_currency: 'AUD' });
+    const result = await updateUserSettingsAction({ order_updates: false });
 
     // Action should succeed using email-fetched settings as base
     expect(result).toMatchObject({ success: true });
     const writtenSettings = capturedUpsertPayload.settings as Record<string, unknown>;
-    expect(writtenSettings.preferred_currency).toBe('AUD');
+    expect(writtenSettings.marketing_emails).toBe(EXISTING_PROFILE_SETTINGS.marketing_emails);
   });
 
   it('proceeds with empty settings when both user_id and email lookups miss', async () => {
@@ -354,11 +348,11 @@ describe('Property 3: Email fallback — profile lookup by email when user_id mi
       error: { code: 'PGRST116', message: 'Row not found' },
     });
 
-    const result = await updateUserSettingsAction({ preferred_currency: 'USD' });
+    const result = await updateUserSettingsAction({ marketing_emails: true });
 
     expect(result).toMatchObject({ success: true });
     const writtenSettings = capturedUpsertPayload.settings as Record<string, unknown>;
-    expect(writtenSettings.preferred_currency).toBe('USD');
+    expect(writtenSettings.marketing_emails).toBe(true);
   });
 
   it('proceeds when a non-PGRST116 fetch error occurs (resilient path)', async () => {
@@ -368,7 +362,7 @@ describe('Property 3: Email fallback — profile lookup by email when user_id mi
       error: { code: '08006', message: 'Connection failure' },
     });
 
-    const result = await updateUserSettingsAction({ preferred_currency: 'AUD' });
+    const result = await updateUserSettingsAction({ order_updates: false });
 
     // Should still succeed — the upsert proceeds with just the new settings
     expect(result).toMatchObject({ success: true });
@@ -400,7 +394,7 @@ describe('Property 4: Email-fallback upsert error path', () => {
       return Promise.resolve({ data: null, error: { message: 'email upsert also failed' } });
     });
 
-    const result = await updateUserSettingsAction({ preferred_currency: 'AUD' });
+    const result = await updateUserSettingsAction({ order_updates: false });
 
     expect(result).toEqual({ error: 'email upsert also failed' });
   });

@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { LEGACY_REDIRECTS } from './src/config/legacy-redirects';
 
 // Supabase hostname is derived from the build-time env so a project restore
 // or fork only needs a secret rotation — no code change. Fallback preserves
@@ -13,6 +14,16 @@ const supabaseHost = (() => {
   }
 })();
 
+// Hosts that may serve first-party imagery. All three apex spellings are listed
+// because CMS content migrated from Google Sites still references the bare apex
+// while newer entries use the `www` and staging hosts — omitting one silently
+// CSP-blocks those images in the browser.
+const firstPartyHosts = [
+  'indivisiblefairoaks.org',
+  'www.indivisiblefairoaks.org',
+  'test.indivisiblefairoaks.org',
+];
+
 // Content-Security-Policy allowlist: everything the storefront actually talks to.
 // 'unsafe-inline' on script-src is required because the static shell bakes inline
 // JSON-LD + framework bootstrap scripts, which cannot carry per-request nonces.
@@ -20,8 +31,9 @@ const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.com",
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: https://${supabaseHost} https://images.unsplash.com https://*.googleusercontent.com https://i.ytimg.com https://indivisiblefairoaks.org https://i0.wp.com https://i1.wp.com https://i2.wp.com`,
+  `img-src 'self' data: blob: https://${supabaseHost} https://images.unsplash.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`,
   "font-src 'self' data:",
+  // Same-origin `/_vercel/*` covers the RUM beacons, so no extra origins needed.
   `connect-src 'self' https://${supabaseHost} https://api.stripe.com https://m.stripe.com`,
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://js.stripe.com https://hooks.stripe.com https://secure.actblue.com https://www.mobilize.us",
   "worker-src 'self' blob:",
@@ -44,9 +56,26 @@ const securityHeaders = [
   },
 ];
 
-// Keep crawlers out of non-content surfaces entirely — fewer index-driven
-// crawl requests means fewer function invocations to pay for.
-const noIndexPaths = ['/success', '/cancel', '/account', '/admin', '/wishlist'];
+// Keep crawlers out of surfaces that have nothing to index. Matchers use `:path*`
+// so nested routes are covered — a bare `/admin` source only matches the exact
+// segment, so `/admin/orders` and `/admin/products` were never actually tagged.
+//
+// Deliberately NOT disallowed in robots.txt: blocking a URL and noindexing it are
+// mutually defeating (a blocked URL is never fetched, so its noindex is never read,
+// and the URL is retained as a bare search result). These surfaces are marked
+// noindex via the header below and a page-level `robots` directive, which is the
+// combination that actually works.
+const noIndexPaths = [
+  '/success',
+  '/cancel',
+  '/cart',
+  '/login',
+  '/wishlist',
+  '/search',
+  '/account/:path*',
+  '/admin/:path*',
+  '/auth/:path*',
+];
 
 const routeHeaders = [
   { source: '/(.*)', headers: securityHeaders },
@@ -56,14 +85,31 @@ const routeHeaders = [
   })),
 ];
 
+// Legacy Google Sites URLs. The chapter's site ran on Google Sites before this app;
+// those paths are still linked from newsletters, printed flyers and search results.
+// Each maps to its real equivalent here as a 301 so link equity transfers instead of
+// landing the visitor on one of six near-duplicate CMS pages. The map lives in
+// `src/config/legacy-redirects.ts` so runtime code can consult the same list when
+// enumerating CMS slugs — the two cannot drift.
+const legacyRedirects = LEGACY_REDIRECTS.map(({ source, destination, permanent }) => ({
+  source,
+  destination,
+  permanent,
+}));
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  // Fingerprinting aid, and one less header on every cached response.
+  poweredByHeader: false,
   experimental: {
     exposeTestingApiInProductionBuild: process.env.NEXT_E2E_BUILD === 'true',
   },
   async headers() {
     return routeHeaders;
+  },
+  async redirects() {
+    return legacyRedirects;
   },
   images: {
     // Cache transforms for 31 days — product photos rarely change, so repeat
@@ -81,10 +127,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/storage/v1/object/public/**',
       },
-      {
-        protocol: 'https',
-        hostname: 'indivisiblefairoaks.org',
-      },
+      // First-party media only. Previously a wide-open pattern on the bare apex
+      // hostname with no pathname restriction, which let any path on the domain
+      // be pulled through the image proxy.
+      ...firstPartyHosts.flatMap((hostname) => [
+        { protocol: 'https' as const, hostname, port: '', pathname: '/**' },
+      ]),
       {
         protocol: 'https',
         hostname: 'i0.wp.com',

@@ -68,9 +68,11 @@ test('product listing page renders products', async ({ page }) => {
     timeout: 10_000,
   });
 
-  // At least one product link (View Gear) must be present when products are seeded
-  const viewGearLinks = page.getByRole('link', { name: /view gear/i });
-  const count = await viewGearLinks.count();
+  // Each card exposes exactly one link — the product title. The card image is
+  // `aria-hidden` + `tabIndex={-1}` and the "View Gear" pill is decorative, so
+  // three tab stops per card became one.
+  const productLinks = page.locator('a[href^="/products/"]');
+  const count = await productLinks.count();
   // If the store has products, assert at least one is shown. If empty, just
   // verify the "No gear found" message renders (not an error).
   if (count === 0) {

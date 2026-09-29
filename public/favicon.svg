@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Indivisible Fair Oaks-Carmichael">
+  <!--
+    Vector rendition of the chapter mark, reconstructed from the 512px PNG.
+
+    Why this file exists: the icon set was three byte-identical PNG pairs
+    (public/favicon.ico == src/app/favicon.ico, public/apple-touch-icon.png ==
+    src/app/apple-icon.png, public/icon-512.png == src/app/icon.png). Two of those
+    pairs collided on the same served path, so /favicon.ico resolved to two routes
+    and two cache entries. The PNGs stay for Safari/Android; this carries every
+    modern browser, costs ~1KB instead of ~7-38KB, and scales to any density.
+
+    Colours sampled directly from the source artwork.
+  -->
+  <title>Indivisible Fair Oaks-Carmichael</title>
+  <g fill="#54C6D6">
+    <!-- row 1, left: half-disc, flat edge left, bulge right -->
+    <path d="M48 64a88 88 0 0 1 0 176z" />
+    <!-- row 1, centre: right half of the split disc -->
+    <path d="M256 64a88 88 0 0 1 0 176z" />
+    <!-- row 2, left: arch, rounded top, flat bottom -->
+    <path d="M48 448V320a48 48 0 0 1 96 0v128z" />
+    <!-- row 2, centre: right half of the split arch -->
+    <path d="M256 272a72 72 0 0 1 72 72v104h-72z" />
+  </g>
+  <g fill="#ED2224">
+    <!-- row 1, centre: left half of the split disc -->
+    <path d="M256 64a88 88 0 0 0 0 176z" />
+    <!-- row 2, centre: left half of the split arch -->
+    <path d="M184 448V344a72 72 0 0 1 72-72v176z" />
+  </g>
+  <g fill="#14447A">
+    <!-- row 1, right: half-disc, flat edge right, bulge left -->
+    <path d="M464 64a88 88 0 0 0 0 176z" />
+    <!-- row 2, right: arch, rounded top, flat bottom -->
+    <path d="M368 448V320a48 48 0 0 1 96 0v128z" />
+  </g>
+</svg>

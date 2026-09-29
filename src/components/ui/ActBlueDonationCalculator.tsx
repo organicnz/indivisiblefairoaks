@@ -98,28 +98,28 @@ export function ActBlueDonationCalculator() {
   };
 
   return (
-    <div className="rounded-3xl bg-slate-900/90 border border-amber-500/30 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl space-y-8">
+    <div className="rounded-3xl bg-secondary/90 border border-accent-gold/30 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl space-y-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-white/10">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
-            <Heart size={14} className="fill-amber-300 text-amber-300" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/20 text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
+            <Heart size={14} className="fill-amber-300 text-accent-gold" />
             <span>Interactive Grassroots Calculator</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white">Choose Your Contribution</h2>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">
+          <p className="text-xs sm:text-sm text-ink-on-dark mt-1">
             See the concrete civic impact of your grassroots investment before you give.
           </p>
         </div>
 
         {/* Recurring / One-time Frequency Toggle */}
-        <div className="flex items-center p-1 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-semibold">
+        <div className="flex items-center p-1 bg-secondary rounded-2xl border border-white/10 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setIsMonthly(false)}
             className={`px-4 py-2 rounded-xl transition-all ${
               !isMonthly
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-accent-gold text-slate-950 font-bold shadow-md'
+                : 'text-ink-muted-on-dark hover:text-white'
             }`}
           >
             One-Time
@@ -129,8 +129,8 @@ export function ActBlueDonationCalculator() {
             onClick={() => setIsMonthly(true)}
             className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
               isMonthly
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-accent-gold text-slate-950 font-bold shadow-md'
+                : 'text-ink-muted-on-dark hover:text-white'
             }`}
           >
             <Sparkles size={13} />
@@ -139,49 +139,59 @@ export function ActBlueDonationCalculator() {
         </div>
       </div>
 
-      {/* Amount Preset Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-        {[10, 25, 50, 100, 250].map((amt) => {
-          const isSelected = !customAmount && selectedAmount === amt;
-          return (
-            <button
-              key={amt}
-              type="button"
-              onClick={() => {
-                setSelectedAmount(amt);
-                setCustomAmount('');
-              }}
-              className={`p-4 rounded-2xl border text-center transition-all relative ${
-                isSelected
-                  ? 'bg-amber-500/10 border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
-                  : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
-              }`}
-            >
-              <span
-                className={`text-2xl sm:text-3xl font-black block transition-colors ${
-                  isSelected ? 'text-amber-400' : 'text-white'
+      {/*
+        A group of mutually-exclusive amount choices. `<fieldset>`/`<legend>` plus
+        `aria-pressed` is what makes it legible as a group with a known selection;
+        five bare buttons with an amber background conveyed "which one" by colour
+        alone. The glow is a token now — it was an arbitrary rgba shadow, which is
+        the one thing coding rule 1 exists to prevent.
+      */}
+      <fieldset>
+        <legend className="sr-only">Choose a donation amount</legend>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {[10, 25, 50, 100, 250].map((amt) => {
+            const isSelected = !customAmount && selectedAmount === amt;
+            return (
+              <button
+                key={amt}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => {
+                  setSelectedAmount(amt);
+                  setCustomAmount('');
+                }}
+                className={`min-h-11 p-4 rounded-2xl border text-center transition-colors duration-300 ease-out relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary ${
+                  isSelected
+                    ? 'bg-accent-gold/10 border-accent-gold shadow-[0_0_20px_rgba(245,158,11,0.2)]'
+                    : 'bg-secondary/60 border-white/10 hover:border-slate-700'
                 }`}
               >
-                ${amt}
-              </span>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mt-1 block">
-                {isMonthly ? 'Per Month' : 'One-Time'}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                <span
+                  className={`text-2xl sm:text-3xl font-black block transition-colors ${
+                    isSelected ? 'text-accent-gold' : 'text-white'
+                  }`}
+                >
+                  ${amt}
+                </span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-ink-muted-on-dark mt-1 block">
+                  {isMonthly ? 'Per Month' : 'One-Time'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
 
       {/* Custom Amount Input */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-slate-950/70 border border-slate-800">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-secondary/70 border border-white/10">
         <label
           htmlFor="custom-amount"
-          className="text-xs font-mono text-slate-300 whitespace-nowrap"
+          className="text-xs font-mono text-ink-on-dark whitespace-nowrap"
         >
           Or Enter Custom Amount:
         </label>
         <div className="relative flex-1">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark font-bold">
             $
           </span>
           <input
@@ -192,19 +202,19 @@ export function ActBlueDonationCalculator() {
             placeholder="e.g. 75"
             value={customAmount}
             onChange={(e) => setCustomAmount(e.target.value)}
-            className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm font-bold focus:outline-none focus:border-amber-400 transition-colors"
+            className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-500 text-sm font-bold focus:outline-none focus:border-amber-400 transition-colors"
           />
         </div>
       </div>
 
       {/* Dynamic Impact Display Box */}
-      <div className="rounded-2xl bg-gradient-to-r from-blue-950/50 via-slate-900 to-indigo-950/50 border border-blue-500/30 p-6 sm:p-8 space-y-4">
+      <div className="rounded-2xl bg-gradient-to-r from-blue-950/50 via-slate-900 to-indigo-950/50 border border-primary-bright/30 p-6 sm:p-8 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="inline-flex items-center gap-2 text-xs font-mono text-amber-400 uppercase tracking-wide">
+          <div className="inline-flex items-center gap-2 text-xs font-mono text-accent-gold uppercase tracking-wide">
             <Sparkles size={14} />
             <span>Grassroots Impact Breakdown</span>
           </div>
-          <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold">
+          <span className="px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-semibold">
             {impact.badge}
           </span>
         </div>
@@ -213,7 +223,7 @@ export function ActBlueDonationCalculator() {
           <h3 className="text-xl sm:text-2xl font-black text-white mb-2">
             Your ${currentAmount} {isMonthly ? '/ month' : ''} enables: {impact.impactTitle}
           </h3>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <p className="text-xs sm:text-sm text-ink-on-dark leading-relaxed">
             {impact.impactDescription}
           </p>
         </div>
@@ -222,7 +232,7 @@ export function ActBlueDonationCalculator() {
           {impact.tangibleMetrics.map((metric) => (
             <div
               key={metric}
-              className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs font-medium text-slate-200 flex items-center gap-2"
+              className="p-3 rounded-xl bg-secondary/70 border border-white/10 text-xs font-medium text-slate-200 flex items-center gap-2"
             >
               <Check size={14} className="text-emerald-400 shrink-0" />
               <span>{metric}</span>
@@ -237,7 +247,7 @@ export function ActBlueDonationCalculator() {
           href={getActBlueUrl()}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-base uppercase tracking-wider shadow-xl hover:shadow-amber-500/25 transition-all flex items-center justify-center gap-3 group hover:scale-[1.01]"
+          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-accent-gold hover:to-amber-300 text-slate-950 font-black text-base uppercase tracking-wider shadow-xl hover:shadow-amber-500/25 transition-all flex items-center justify-center gap-3 group hover:scale-[1.01]"
         >
           <CreditCard size={20} className="group-hover:rotate-6 transition-transform" />
           <span>
@@ -246,7 +256,7 @@ export function ActBlueDonationCalculator() {
           <ExternalLink size={18} />
         </a>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-slate-400 text-center">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-ink-muted-on-dark text-center">
           <span className="flex items-center gap-1">
             <ShieldCheck size={14} className="text-emerald-400" />
             <span>Encrypted 256-bit Secure ActBlue Processing</span>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Loader2, Truck } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Truck } from 'lucide-react';
 import { useRef, useState, useTransition } from 'react';
 import { updateFulfillment } from '@/app/admin/actions';
 
@@ -92,7 +92,12 @@ export function FulfilmentEditor({
             `Save fulfilment${hasChanges ? '' : ' (no changes)'}`
           )}
         </button>
-        {error && <span className="text-[11px] font-bold text-rose-500">{error}</span>}
+        {error && (
+          <div role="alert" className="flex items-start gap-2 text-xs font-bold text-accent-red">
+            <AlertCircle size={14} aria-hidden="true" className="shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
       </div>
     </form>
   );

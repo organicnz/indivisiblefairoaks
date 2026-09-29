@@ -1,6 +1,6 @@
 'use client';
 
-import { Edit3 } from 'lucide-react';
+import { AlertCircle, Edit3 } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { updateCoupon } from '@/app/admin/actions';
 
@@ -98,7 +98,12 @@ export function CouponEditor({
           Cancel
         </button>
       </div>
-      {error && <p className="text-[11px] font-bold text-rose-500">{error}</p>}
+      {error && (
+        <div role="alert" className="flex items-start gap-2 text-xs font-bold text-rose-500">
+          <AlertCircle size={14} aria-hidden="true" className="shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
     </div>
   );
 }

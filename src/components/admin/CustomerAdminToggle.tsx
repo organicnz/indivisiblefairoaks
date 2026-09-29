@@ -1,6 +1,6 @@
 'use client';
 
-import { ShieldCheck } from 'lucide-react';
+import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { markAdminUser } from '@/app/admin/actions';
 
@@ -42,7 +42,12 @@ export function CustomerAdminToggle({
         <ShieldCheck size={11} />
         {admin ? 'Admin access' : 'Promote to admin'}
       </button>
-      {error && <p className="text-[11px] font-bold text-rose-600">{error}</p>}
+      {error && (
+        <div role="alert" className="flex items-start gap-2 text-xs font-bold text-rose-600">
+          <AlertCircle size={14} aria-hidden="true" className="shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
     </div>
   );
 }

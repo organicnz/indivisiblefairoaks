@@ -93,6 +93,9 @@ scripts/          # Node/mjs utilities (gen-types, ai-review, etc.)
 
 - **[AGENTS.md](./AGENTS.md)** — architecture guide, coding rules, deferred upgrades, and agent skill index. Primary reference for AI agents and new contributors.
 - **[SKILLS.md](./SKILLS.md)** — project-specific usage guide for each installed agent skill.
+- **[docs/secrets-and-config.md](./docs/secrets-and-config.md)** — all four configuration stores (Vercel, Supabase edge secrets, GitHub Actions, Vault) and which value belongs in each.
+- **[docs/ci-secrets.md](./docs/ci-secrets.md)** — GitHub Actions inventory, and why `NEXT_PUBLIC_*` is a variable not a secret.
+- **[docs/apex-cutover-runbook.md](./docs/apex-cutover-runbook.md)** — moving from `test.` to the apex, with verification and rollback.
 
 ---
 

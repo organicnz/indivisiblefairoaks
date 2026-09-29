@@ -152,9 +152,24 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+#
+# Apex first: this is the value Supabase bakes into magic-link and password-reset
+# emails, so it must be the canonical host the visitor will land on. The staging
+# host is kept as a fallback until the cutover is signed off.
+site_url = "https://indivisiblefairoaks.org"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+#
+# Magic links and OAuth callbacks fail closed: a host that is not listed here
+# produces a "redirect URL not allowed" error and the user is stranded. All three
+# apex spellings are listed because DNS may be pointed at any of them during the
+# cutover window. Remove the staging entry once test.indivisiblefairoaks.org is
+# decommissioned.
+additional_redirect_urls = [
+  "https://indivisiblefairoaks.org",
+  "https://www.indivisiblefairoaks.org",
+  "https://test.indivisiblefairoaks.org",
+  "http://localhost:3000",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).

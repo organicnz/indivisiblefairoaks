@@ -173,16 +173,19 @@ export function InteractiveEventsCalendar({
   return (
     <div className="space-y-8">
       {/* Controls: Search and Filter Chips */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/90 border border-slate-800 backdrop-blur-md">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary/90 border border-white/10 backdrop-blur-md">
         {/* Search Bar */}
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <Search
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark"
+            size={16}
+          />
           <input
             type="text"
             placeholder="Search actions, meetings, or locations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-500 transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-500 transition-colors"
           />
         </div>
 
@@ -195,8 +198,8 @@ export function InteractiveEventsCalendar({
               onClick={() => setActiveCategory(cat)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeCategory === cat
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  ? 'bg-primary-bright text-white shadow-md'
+                  : 'bg-secondary/60 text-ink-muted-on-dark hover:text-slate-200 hover:bg-white/5'
               }`}
             >
               {cat}
@@ -208,98 +211,108 @@ export function InteractiveEventsCalendar({
       {/* Events Grid */}
       <div className="grid grid-cols-1 gap-6">
         {filteredEvents.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-slate-900 border border-slate-800 text-slate-400">
+          <div className="p-12 text-center rounded-2xl bg-secondary border border-white/10 text-ink-muted-on-dark">
             No events found matching your criteria. Try selecting &ldquo;All Actions&rdquo; or
             clearing the search query.
           </div>
         ) : (
-          filteredEvents.map((event) => (
-            <div
-              key={event.id}
-              className={`rounded-2xl p-6 sm:p-8 transition-all relative overflow-hidden flex flex-col justify-between ${
-                event.highlight
-                  ? 'bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-blue-500/40 shadow-xl'
-                  : 'bg-slate-900/80 border border-slate-800/80 hover:border-slate-700'
-              }`}
-            >
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 text-blue-300 text-xs font-mono font-semibold">
-                    {event.category === 'Resistance Choir' && <Music size={12} />}
-                    {event.category}
-                  </span>
-                  {event.highlight && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold uppercase tracking-wider">
-                      Featured Gathering
+          // A live region on the *list container*, not on each result: a
+          // screen reader should hear "6 events" once, not six announcements as
+          // the grid renders. The count is the information a sighted user gets
+          // from the list reflowing under them.
+          <>
+            <p role="status" aria-live="polite" className="sr-only">
+              {filteredEvents.length} event{filteredEvents.length === 1 ? '' : 's'} shown
+            </p>
+            {filteredEvents.map((event) => (
+              <div
+                key={event.id}
+                className={`rounded-2xl p-6 sm:p-8 transition-all relative overflow-hidden flex flex-col justify-between ${
+                  event.highlight
+                    ? 'bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-primary-bright/40 shadow-xl'
+                    : 'bg-secondary/80 border border-white/10/80 hover:border-slate-700'
+                }`}
+              >
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-primary-on-dark text-xs font-mono font-semibold">
+                      {event.category === 'Resistance Choir' && <Music size={12} />}
+                      {event.category}
                     </span>
-                  )}
-                </div>
+                    {event.highlight && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-accent-gold text-[11px] font-bold uppercase tracking-wider">
+                        Featured Gathering
+                      </span>
+                    )}
+                  </div>
 
-                <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-4">
-                  {event.title}
-                </h3>
+                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-4">
+                    {event.title}
+                  </h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm text-slate-300 mb-5">
-                  <div className="flex items-center gap-2.5">
-                    <Clock size={16} className="text-blue-400 shrink-0" />
-                    <div>
-                      <span className="font-semibold text-white block">{event.dateLabel}</span>
-                      <span className="text-slate-400 text-xs">{event.timeLabel}</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm text-ink-on-dark mb-5">
+                    <div className="flex items-center gap-2.5">
+                      <Clock size={16} className="text-primary-on-dark-muted shrink-0" />
+                      <div>
+                        <span className="font-semibold text-white block">{event.dateLabel}</span>
+                        <span className="text-ink-muted-on-dark text-xs">{event.timeLabel}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <MapPin size={16} className="text-accent-gold shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-white block">{event.locationName}</span>
+                        <span className="text-ink-muted-on-dark text-xs">{event.address}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-2.5">
-                    <MapPin size={16} className="text-amber-400 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-white block">{event.locationName}</span>
-                      <span className="text-slate-400 text-xs">{event.address}</span>
-                    </div>
-                  </div>
+
+                  <p className="text-xs sm:text-sm text-ink-on-dark leading-relaxed mb-6">
+                    {event.description}
+                  </p>
                 </div>
 
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-6">
-                  {event.description}
-                </p>
-              </div>
+                {/* Action Buttons */}
+                <div className="pt-4 border-t border-white/10/80 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {/* Google Calendar Link */}
+                    <a
+                      href={generateGoogleCalendarUrl(event)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
+                      title="Add event to Google Calendar"
+                    >
+                      <CalendarPlus size={14} className="text-primary-on-dark-muted" />
+                      <span>Google Cal</span>
+                    </a>
 
-              {/* Action Buttons */}
-              <div className="pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  {/* Google Calendar Link */}
+                    {/* iCal / Outlook .ics Download */}
+                    <button
+                      type="button"
+                      onClick={() => downloadIcsFile(event)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
+                      title="Download iCal .ics for Apple Calendar & Outlook"
+                    >
+                      <Download size={14} className="text-accent-gold" />
+                      <span>.ics Export</span>
+                    </button>
+                  </div>
+
                   <a
-                    href={generateGoogleCalendarUrl(event)}
+                    href={event.rsvpUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
-                    title="Add event to Google Calendar"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary transition-colors duration-300 ease-out"
                   >
-                    <CalendarPlus size={14} className="text-blue-400" />
-                    <span>Google Cal</span>
+                    <span>RSVP for Event</span>
+                    <ExternalLink size={13} aria-hidden="true" />
+                    <span className="sr-only"> (opens in a new tab)</span>
                   </a>
-
-                  {/* iCal / Outlook .ics Download */}
-                  <button
-                    type="button"
-                    onClick={() => downloadIcsFile(event)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
-                    title="Download iCal .ics for Apple Calendar & Outlook"
-                  >
-                    <Download size={14} className="text-amber-400" />
-                    <span>.ics Export</span>
-                  </button>
                 </div>
-
-                <a
-                  href={event.rsvpUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-blue-500/30 transition-all hover:scale-[1.02]"
-                >
-                  <span>RSVP for Event</span>
-                  <ExternalLink size={13} />
-                </a>
               </div>
-            </div>
-          ))
+            ))}
+          </>
         )}
       </div>
     </div>

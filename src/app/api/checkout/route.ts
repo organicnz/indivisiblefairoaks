@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { getStripeShippingOptions } from '@/config/shipping';
+import { CURRENCY, getStripeShippingOptions } from '@/config/commerce';
 import { validateCartItems, validatePromoCode } from '@/lib/checkout-validation';
 import { env } from '@/lib/env';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
 
       return {
         price_data: {
-          currency: 'nzd',
+          currency: CURRENCY,
           product_data: {
             name: dbProduct.name,
             metadata: {
@@ -176,7 +176,7 @@ export async function POST(req: Request) {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      currency: 'nzd',
+      currency: CURRENCY,
       locale: 'en',
       adaptive_pricing: {
         enabled: false,
@@ -184,7 +184,7 @@ export async function POST(req: Request) {
       success_url: `${resolveReturnOrigin(req)}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${resolveReturnOrigin(req)}/cart`,
       shipping_address_collection: {
-        allowed_countries: ['NZ'],
+        allowed_countries: ['US'],
       },
       shipping_options: getStripeShippingOptions(),
       // Allow promo codes if needed

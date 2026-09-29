@@ -66,7 +66,7 @@ describe('profileSchema', () => {
     last_name: 'Fisher',
     username: 'mikef',
     stripe_customer_id: 'cus_abc123',
-    settings: { preferred_currency: 'NZD' },
+    settings: { order_updates: true },
   };
 
   it('parses a fully valid profile', () => {

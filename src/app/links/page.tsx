@@ -1,12 +1,14 @@
 import { Compass, ExternalLink, Layers } from 'lucide-react';
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/metadata';
 import { getCoalitionLinks } from '@/lib/queries/civic';
 
-export const metadata: Metadata = {
-  title: 'Coalition & Action Links | Indivisible Fair Oaks-Carmichael',
+export const metadata: Metadata = pageMetadata({
+  title: 'Coalition & Action Links',
   description:
     'Recommended civic resources, grassroots coalition partners, voter registration links, and democracy defense organizations in California.',
-};
+  path: '/links',
+});
 
 interface LinkItem {
   name: string;
@@ -105,18 +107,18 @@ export default async function LinksPage() {
   const categories = Array.from(new Set(items.map((l) => l.category)));
 
   return (
-    <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
+    <div className="w-full bg-secondary text-white min-h-screen pt-24 pb-20">
       {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
+      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
-            <Compass size={14} className="text-amber-400" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+            <Compass size={14} className="text-accent-gold" />
             <span>Civic Directory</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
             Coalition & Action Links
           </h1>
-          <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed">
             Essential websites, nonpartisan voter tools, grassroots allies, and democracy defense
             resources vetted by our chapter.
           </p>
@@ -129,7 +131,7 @@ export default async function LinksPage() {
           return (
             <div key={category} className="space-y-4">
               <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
-                <Layers className="text-amber-400" size={20} />
+                <Layers className="text-accent-gold" size={20} />
                 <span>{category}</span>
               </h2>
 
@@ -140,29 +142,31 @@ export default async function LinksPage() {
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-blue-500/50 hover:bg-slate-900 transition-all group flex flex-col justify-between"
+                    className="p-5 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/50 hover:bg-secondary transition-all group flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-3 mb-2">
-                        <h3 className="font-bold text-white text-base group-hover:text-blue-400 transition-colors">
+                        <h3 className="font-bold text-white text-base group-hover:text-primary-on-dark-muted transition-colors">
                           {item.name}
                         </h3>
                         {item.badge && (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase shrink-0">
+                          <span className="px-2 py-0.5 rounded-full bg-accent-gold/20 text-accent-gold text-[10px] font-bold uppercase shrink-0">
                             {item.badge}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-400 leading-relaxed">{item.description}</p>
+                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                        {item.description}
+                      </p>
                     </div>
 
-                    <div className="pt-4 mt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-                      <span className="text-[11px] text-blue-400/90 font-mono truncate max-w-[240px]">
+                    <div className="pt-4 mt-4 border-t border-white/10/80 flex items-center justify-between text-xs text-slate-500">
+                      <span className="text-[11px] text-primary-on-dark-muted/90 font-mono truncate max-w-[240px]">
                         {item.url.replace(/^https?:\/\//, '')}
                       </span>
                       <ExternalLink
                         size={14}
-                        className="text-slate-400 group-hover:text-amber-400 transition-colors shrink-0"
+                        className="text-ink-muted-on-dark group-hover:text-accent-gold transition-colors shrink-0"
                       />
                     </div>
                   </a>

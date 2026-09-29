@@ -1,17 +1,14 @@
 import { unstable_cache } from 'next/cache';
-import { cookies } from 'next/headers';
 import { createServerClient } from '@/lib/supabase-server';
 
 export interface UserSettings {
   marketing_emails: boolean;
   order_updates: boolean;
-  preferred_currency: string;
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
   marketing_emails: false,
   order_updates: true,
-  preferred_currency: 'NZD',
 };
 
 /**
@@ -19,7 +16,6 @@ const DEFAULT_SETTINGS: UserSettings = {
  * Optionally merges with cookies for critical SSR settings.
  */
 export async function getUserSettings(email: string): Promise<UserSettings> {
-  const cookieStore = await cookies();
   const cachedSettings = await unstable_cache(
     async (userEmail: string) => {
       const supabase = await createServerClient();
@@ -47,12 +43,5 @@ export async function getUserSettings(email: string): Promise<UserSettings> {
       revalidate: 3600,
     }
   )(email);
-
-  // Merge with cookie-based settings for immediate SSR sync
-  const preferredCurrency = cookieStore.get('preferred_currency')?.value;
-
-  return {
-    ...cachedSettings,
-    preferred_currency: preferredCurrency || cachedSettings.preferred_currency,
-  };
+  return cachedSettings;
 }

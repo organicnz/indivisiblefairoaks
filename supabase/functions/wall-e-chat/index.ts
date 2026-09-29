@@ -77,7 +77,7 @@ async function retrieve(message: string): Promise<Source[]> {
     if (matches(row, terms)) sources.push({ title: cleanText(row.title, 120), url: `${APP_URL}/${cleanText(row.slug, 120)}`, text: `Page: ${cleanText(row.title)}\n${cleanText(row.excerpt)}\n${cleanText(row.body, 4_000)}` })
   }
   for (const row of (productsResult.data ?? []) as Record<string, unknown>[]) {
-    if (matches(row, terms)) sources.push({ title: cleanText(row.name, 120), url: `${APP_URL}/products/${cleanText(row.slug, 120)}`, text: `Product: ${cleanText(row.name)}\n${cleanText(row.short_description)}\n${cleanText(row.description, 3_000)}\nPrice: ${cleanText(row.price)} NZD. Stock: ${cleanText(row.stock_status)}.` })
+    if (matches(row, terms)) sources.push({ title: cleanText(row.name, 120), url: `${APP_URL}/products/${cleanText(row.slug, 120)}`, text: `Product: ${cleanText(row.name)}\n${cleanText(row.short_description)}\n${cleanText(row.description, 3_000)}\nPrice: ${cleanText(row.price)} USD. Stock: ${cleanText(row.stock_status)}.` })
   }
   for (const row of (eventsResult.data ?? []) as Record<string, unknown>[]) {
     if (matches(row, terms)) sources.push({ title: cleanText(row.title, 120), url: `${APP_URL}/events`, text: `Event: ${cleanText(row.title)}\n${cleanText(row.date_label)} ${cleanText(row.time_label)}\n${cleanText(row.location_name)}, ${cleanText(row.address)}\n${cleanText(row.description, 2_000)}\nRSVP: ${cleanText(row.rsvp_url, 300)}` })

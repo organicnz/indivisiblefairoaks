@@ -1,9 +1,10 @@
 'use client';
 
+import * as Dialog from '@radix-ui/react-dialog';
 import { Camera, ChevronLeft, ChevronRight, Filter, MapPin, Search, Share2, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
 
@@ -72,11 +73,11 @@ export default function GalleryPage() {
     }
   }, [currentIndex, filteredPhotos]);
 
-  // Keyboard navigation
+  // Arrow-key paging. Escape is Radix Dialog's job — handling it here as well
+  // meant two listeners racing to close the same surface.
   useEffect(() => {
+    if (!selectedPhotoId) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!selectedPhotoId) return;
-      if (e.key === 'Escape') setSelectedPhotoId(null);
       if (e.key === 'ArrowRight') handleNext();
       if (e.key === 'ArrowLeft') handlePrev();
     };
@@ -85,33 +86,48 @@ export default function GalleryPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedPhotoId, handleNext, handlePrev]);
 
+  // The clipboard confirmation timer used to be a bare setTimeout with no
+  // cleanup, so closing the lightbox inside those two seconds set state on an
+  // unmounted component.
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    },
+    []
+  );
+
   const handleShare = () => {
-    if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(window.location.href);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    }
+    if (typeof window === 'undefined') return;
+    navigator.clipboard.writeText(window.location.href).catch(() => {
+      // Clipboard access can be denied; failing silently would look like the
+      // button does nothing.
+      setCopiedLink(false);
+    });
+    setCopiedLink(true);
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopiedLink(false), 3000);
   };
 
   return (
-    <div className="bg-slate-950 text-white min-h-screen pt-24 pb-20">
+    <div className="bg-secondary text-white min-h-screen pt-24 pb-20">
       {/* Hero Header with VGPU Constellation Network */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16 px-4 sm:px-6 lg:px-8">
+      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center text-center space-y-4 pointer-events-auto">
           {/* Eyebrow Pill */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
-            <Camera size={14} className="text-amber-400" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary-bright/15 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+            <Camera size={14} className="text-accent-gold" />
             <span>Photojournalism In Action • Moments of Peaceful Resistance</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.08]">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black uppercase tracking-tighter leading-[1.08]">
             Democracy In Full View
           </h1>
 
-          <div className="h-1.5 w-24 bg-amber-400 rounded-full" />
+          <div className="h-1.5 w-24 bg-accent-gold rounded-full" />
 
-          <p className="text-base sm:text-lg text-slate-300 leading-relaxed max-w-3xl">
+          <p className="text-base sm:text-lg text-ink-on-dark leading-relaxed max-w-3xl">
             Snapshots of our neighbors gathering, singing, holding signs, and speaking truth to
             power across Sacramento County. Curated from our legacy site archives, Sacramento No
             Kings mobilizations, NorCal Resist community defense, Carmichael Resistance Choir, and
@@ -121,31 +137,33 @@ export default function GalleryPage() {
 
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
-              <span className="text-2xl font-black text-amber-400 block font-mono">No Kings</span>
-              <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+            <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
+              <span className="text-2xl font-black text-accent-gold block font-mono">No Kings</span>
+              <span className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold">
                 Sacramento Actions
               </span>
             </div>
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
+            <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
               <span className="text-2xl font-black text-emerald-400 block font-mono">
                 NorCal Resist
               </span>
-              <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+              <span className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold">
                 Direct Solidarity
               </span>
             </div>
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
-              <span className="text-2xl font-black text-blue-400 block font-mono">Witty Signs</span>
-              <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+            <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
+              <span className="text-2xl font-black text-primary-on-dark-muted block font-mono">
+                Witty Signs
+              </span>
+              <span className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold">
                 Grassroots Humor
               </span>
             </div>
-            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
+            <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
               <span className="text-2xl font-black text-purple-400 block font-mono">
                 0 Politicians
               </span>
-              <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+              <span className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold">
                 100% People Power
               </span>
             </div>
@@ -156,7 +174,8 @@ export default function GalleryPage() {
             <div className="relative">
               <Search
                 size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                aria-hidden="true"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted-on-dark"
               />
               <input
                 type="text"
@@ -164,13 +183,13 @@ export default function GalleryPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by quote, slogan, location (e.g. 'IKEA', 'Tower Bridge', 'Brake Light')..."
-                className="w-full pl-12 pr-10 py-3 rounded-2xl bg-slate-900/90 border border-slate-700 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-md shadow-lg"
+                className="w-full pl-12 pr-10 py-3 rounded-2xl bg-secondary/90 border border-slate-700 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-md shadow-lg"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark hover:text-white"
                   aria-label="Clear search"
                 >
                   <X size={16} />
@@ -180,7 +199,7 @@ export default function GalleryPage() {
 
             {/* Category Filter Chips */}
             <div className="flex items-center justify-center gap-2 flex-wrap">
-              <Filter size={15} className="text-slate-400 mr-1 hidden sm:inline-block" />
+              <Filter size={15} className="text-ink-muted-on-dark mr-1 hidden sm:inline-block" />
               {categories.map((category) => {
                 const count = allPhotos.filter((p) => p.category === category).length;
                 const isSelected = selectedCategory === category;
@@ -190,16 +209,16 @@ export default function GalleryPage() {
                     type="button"
                     aria-pressed={isSelected}
                     onClick={() => setSelectedCategory(category)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`px-3.5 min-h-11 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-300 ease-out cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
                       isSelected
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20 scale-105'
-                        : 'bg-slate-900/90 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+                        ? 'bg-primary text-white shadow-raised'
+                        : 'bg-secondary/90 text-ink-on-dark hover:text-white hover:bg-white/5 border border-white/10'
                     }`}
                   >
                     <span>{category}</span>
                     <span
                       className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                        isSelected ? 'bg-blue-800 text-white' : 'bg-slate-800 text-slate-400'
+                        isSelected ? 'bg-blue-800 text-white' : 'bg-white/5 text-ink-muted-on-dark'
                       }`}
                     >
                       {count}
@@ -212,11 +231,16 @@ export default function GalleryPage() {
         </div>
       </div>
 
+      {/* Filtering and searching produced a silently-changing grid. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {filteredPhotos.length} photo{filteredPhotos.length === 1 ? '' : 's'} shown
+      </p>
+
       {/* Gallery Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
         {filteredPhotos.length === 0 ? (
           <div className="py-20 text-center space-y-4">
-            <p className="text-slate-400 text-base">
+            <p className="text-ink-muted-on-dark text-base">
               No photos match your current search or category filter.
             </p>
             <button
@@ -225,7 +249,7 @@ export default function GalleryPage() {
                 setSelectedCategory('All');
                 setSearchQuery('');
               }}
-              className="px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold uppercase tracking-wider"
+              className="px-5 py-2 rounded-xl bg-primary-bright text-white text-xs font-bold uppercase tracking-wider"
             >
               Reset Filters
             </button>
@@ -238,7 +262,7 @@ export default function GalleryPage() {
                 type="button"
                 data-gallery-photo={photo.id}
                 onClick={() => setSelectedPhotoId(photo.id)}
-                className="group relative h-88 rounded-3xl overflow-hidden border border-slate-800/80 bg-slate-900 cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-700 transition-all shadow-xl"
+                className="group relative h-88 rounded-3xl overflow-hidden border border-white/10/80 bg-secondary cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-700 transition-all shadow-xl"
               >
                 <Image
                   src={photo.url}
@@ -253,11 +277,11 @@ export default function GalleryPage() {
 
                 {/* Top Tag & Witty Sign Badge */}
                 <div className="absolute top-4 left-4 z-10 flex flex-col items-start gap-1.5 max-w-[85%]">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-slate-900/85 backdrop-blur-md border border-slate-700 text-amber-300">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-secondary/85 backdrop-blur-md border border-slate-700 text-accent-gold">
                     {photo.category}
                   </span>
                   {photo.signQuote && (
-                    <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-400 text-slate-950 shadow-md truncate max-w-full">
+                    <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-accent-gold text-slate-950 shadow-md truncate max-w-full">
                       “{photo.signQuote}”
                     </span>
                   )}
@@ -265,12 +289,12 @@ export default function GalleryPage() {
 
                 {/* Bottom Caption */}
                 <div className="absolute bottom-0 inset-x-0 p-5 z-10 space-y-1.5">
-                  <h3 className="font-bold text-white text-base sm:text-lg leading-snug group-hover:text-blue-300 transition-colors line-clamp-2">
+                  <h2 className="font-bold text-white text-base sm:text-lg leading-snug group-hover:text-primary-light transition-colors duration-300 ease-out line-clamp-2">
                     {photo.caption}
-                  </h3>
-                  <div className="flex items-center justify-between text-xs text-slate-400">
+                  </h2>
+                  <div className="flex items-center justify-between text-xs text-ink-muted-on-dark">
                     <span className="flex items-center gap-1 truncate max-w-[70%]">
-                      <MapPin size={12} className="text-amber-400 shrink-0" />
+                      <MapPin size={12} className="text-accent-gold shrink-0" />
                       <span className="truncate">{photo.location}</span>
                     </span>
                     <span className="font-mono text-[10px] text-slate-500 shrink-0">
@@ -284,11 +308,11 @@ export default function GalleryPage() {
         )}
 
         {/* Submit Photo CTA */}
-        <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-slate-800 text-center space-y-4 max-w-3xl mx-auto">
-          <h3 className="text-2xl font-black text-white">
+        <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-white/10 text-center space-y-4 max-w-3xl mx-auto">
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
             Have Sacramento Resistance Pics, Unity Shots, or Funny Signs?
-          </h3>
-          <p className="text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
+          </h2>
+          <p className="text-sm text-ink-on-dark max-w-xl mx-auto leading-relaxed">
             Did you snap a brilliant, witty cardboard sign, an uplifting choir moment, or neighbors
             standing in solidarity? Strictly grassroots (zero politicians, zero corporate imagery) —
             send your photos to our media circle to be included!
@@ -296,7 +320,7 @@ export default function GalleryPage() {
           <div className="pt-2">
             <a
               href="mailto:contact@indivisiblefairoaks.org?subject=Community%20Photo%20Submission"
-              className="inline-block px-8 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25"
+              className="inline-block px-8 py-3.5 rounded-2xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25"
             >
               Submit Grassroots Photos
             </a>
@@ -304,109 +328,116 @@ export default function GalleryPage() {
         </div>
       </div>
 
-      {/* Lightbox Modal */}
-      {selectedPhoto && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={selectedPhoto.caption}
-          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 md:p-10"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedPhotoId(null);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setSelectedPhotoId(null);
-          }}
-        >
-          {/* Close Button */}
-          <button
-            type="button"
-            onClick={() => setSelectedPhotoId(null)}
-            className="absolute top-6 right-6 z-50 p-3 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-            aria-label="Close image modal"
-          >
-            <X size={20} />
-          </button>
+      {/*
+        The lightbox was a `role="dialog" aria-modal="true"` div with no focus
+        trap, no initial focus move, no focus restoration, no scroll lock, and no
+        `inert` on the ~200-photo grid behind it. The `onKeyDown` handler on the
+        outer div was dead code — a div without tabindex never receives key
+        events. Radix Dialog supplies the whole set.
 
-          {/* Prev Button */}
-          <button
-            type="button"
-            onClick={() => handlePrev()}
-            className="absolute left-4 sm:left-6 z-50 p-3 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-            aria-label="Previous image"
-          >
-            <ChevronLeft size={24} />
-          </button>
+        Note the grid thumbnails are no longer `priority`: preloading a modal
+        image steals LCP budget from the page the visitor actually landed on.
+      */}
+      <Dialog.Root
+        open={Boolean(selectedPhoto)}
+        onOpenChange={(open) => !open && setSelectedPhotoId(null)}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[150] bg-black/95 backdrop-blur-xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+          {/* The null check is the type guard: `open` alone does not narrow. */}
+          {selectedPhoto && (
+            <Dialog.Content
+              aria-describedby={undefined}
+              className="fixed inset-0 z-[160] flex items-center justify-center p-4 sm:p-6 md:p-10 focus:outline-none"
+            >
+              <Dialog.Title className="sr-only">Photo viewer</Dialog.Title>
 
-          {/* Next Button */}
-          <button
-            type="button"
-            onClick={() => handleNext()}
-            className="absolute right-4 sm:right-6 z-50 p-3 rounded-full bg-slate-900/80 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-            aria-label="Next image"
-          >
-            <ChevronRight size={24} />
-          </button>
+              <Dialog.Close className="absolute top-6 right-6 z-50 inline-flex size-11 items-center justify-center rounded-full bg-secondary/80 border border-slate-700 text-ink-on-dark hover:text-white hover:bg-white/5 transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold">
+                <X size={20} aria-hidden="true" />
+                <span className="sr-only">Close image viewer</span>
+              </Dialog.Close>
 
-          {/* Modal Content Box */}
-          <div className="relative max-w-5xl w-full max-h-[90vh] bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
-            {/* Image Container */}
-            <div className="relative w-full h-[55vh] sm:h-[65vh] bg-black">
-              <Image
-                src={selectedPhoto.url}
-                alt={selectedPhoto.caption}
-                fill
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1024px"
-                priority
-                className="object-contain"
-              />
-            </div>
+              <button
+                type="button"
+                onClick={() => handlePrev()}
+                className="absolute left-4 sm:left-6 z-50 inline-flex size-11 items-center justify-center rounded-full bg-secondary/80 border border-slate-700 text-ink-on-dark hover:text-white hover:bg-white/5 transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                <ChevronLeft size={24} aria-hidden="true" />
+                <span className="sr-only">Previous image</span>
+              </button>
 
-            {/* Modal Info Bar */}
-            <div className="p-6 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-blue-500/20 text-[10px] font-mono uppercase font-bold">
-                    {selectedPhoto.category}
-                  </span>
-                  <span className="text-xs text-slate-400 font-mono">{selectedPhoto.date}</span>
+              <button
+                type="button"
+                onClick={() => handleNext()}
+                className="absolute right-4 sm:right-6 z-50 inline-flex size-11 items-center justify-center rounded-full bg-secondary/80 border border-slate-700 text-ink-on-dark hover:text-white hover:bg-white/5 transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                <ChevronRight size={24} aria-hidden="true" />
+                <span className="sr-only">Next image</span>
+              </button>
+
+              <div className="relative max-w-5xl w-full max-h-[90vh] bg-secondary border border-white/10 rounded-3xl overflow-hidden shadow-float flex flex-col">
+                {/* Image Container */}
+                <div className="relative w-full h-[55vh] sm:h-[65vh] bg-black">
+                  <Image
+                    src={selectedPhoto.url}
+                    alt={selectedPhoto.caption}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1024px"
+                    className="object-contain"
+                  />
                 </div>
-                <h2 className="text-lg sm:text-xl font-bold text-white">{selectedPhoto.caption}</h2>
-                {selectedPhoto.signQuote && (
-                  <div className="inline-block my-1 px-3 py-1 rounded-lg bg-amber-400 text-slate-950 text-xs font-black tracking-tight">
-                    Featured Sign: “{selectedPhoto.signQuote}”
+
+                {/* Modal Info Bar */}
+                <div className="p-6 bg-secondary border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-primary-light/40 text-[10px] font-mono uppercase font-bold">
+                        {selectedPhoto.category}
+                      </span>
+                      <span className="text-xs text-ink-muted-on-dark font-mono">
+                        {selectedPhoto.date}
+                      </span>
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-bold text-white">
+                      {selectedPhoto.caption}
+                    </h2>
+                    {selectedPhoto.signQuote && (
+                      <div className="inline-block my-1 px-3 py-1 rounded-lg bg-accent-gold text-slate-950 text-xs font-black tracking-tight">
+                        Featured Sign: “{selectedPhoto.signQuote}”
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 text-xs text-ink-muted-on-dark pt-0.5">
+                      <span className="flex items-center gap-1">
+                        <MapPin size={12} className="text-accent-gold" />
+                        <span>{selectedPhoto.location}</span>
+                      </span>
+                      <span>•</span>
+                      <span>Photo: {selectedPhoto.photographer}</span>
+                    </div>
                   </div>
-                )}
-                <div className="flex items-center gap-3 text-xs text-slate-400 pt-0.5">
-                  <span className="flex items-center gap-1">
-                    <MapPin size={12} className="text-amber-400" />
-                    <span>{selectedPhoto.location}</span>
-                  </span>
-                  <span>•</span>
-                  <span>Photo: {selectedPhoto.photographer}</span>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      className="px-4 py-2 rounded-xl bg-secondary hover:bg-white/5 border border-slate-700 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Share2 size={14} />
+                      <span>{copiedLink ? 'Link Copied!' : 'Share'}</span>
+                    </button>
+                    <Link
+                      href="/events"
+                      className="px-4 py-2 rounded-xl bg-primary-bright hover:bg-primary-light text-white text-xs font-bold uppercase tracking-wider transition-all"
+                    >
+                      Attend Next Action
+                    </Link>
+                  </div>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Share2 size={14} />
-                  <span>{copiedLink ? 'Link Copied!' : 'Share'}</span>
-                </button>
-                <Link
-                  href="/events"
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wider transition-all"
-                >
-                  Attend Next Action
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </Dialog.Content>
+          )}
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

@@ -30,7 +30,9 @@ permissions:
   contents: read
 
 env:
-  SUPABASE_PROJECT_REF: mojsubkqjdruhpxbzgme
+  # Public Supabase identity. Kept in the variables store so all Supabase
+  # configuration lives in one place and can be changed without a code review.
+  SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
   # Pinned bun for the Management-API applier — same line as ci.yml.
   BUN_VERSION: "1.4.2"
@@ -116,6 +118,49 @@ jobs:
         run: |
           supabase functions deploy walle-refresh \
             --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Assert required edge secrets are set in the hosted project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          # `supabase functions deploy` ships code only, so nothing in this
+          # workflow has ever verified that the secrets the code reads actually
+          # exist in the project. The live probes in the verify job all fail on a
+          # validation or method check that runs BEFORE any secret is read, so a
+          # missing STRIPE_SECRET_KEY or RESEND_API_KEY deployed green and broke
+          # silently for users at runtime. This is the gate that closes that.
+          #
+          # Platform-injected names (SUPABASE_URL, SUPABASE_ANON_KEY,
+          # SUPABASE_SERVICE_ROLE_KEY) are absent from `secrets list` by design and
+          # are therefore not required here.
+          # Parsed as JSON rather than grepped. `supabase secrets list -o json`
+          # emits compact JSON ("name":"X", no space after the colon), so a
+          # `grep '"name": "X"'` pattern silently matches nothing and reports
+          # every secret missing — which would fail this pipeline permanently.
+          # Comparing parsed names is immune to the exact spacing.
+          supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" -o json > /tmp/secrets.json || {
+            echo "::error::Could not read secrets list for project $SUPABASE_PROJECT_REF"
+            echo "   Check SUPABASE_ACCESS_TOKEN (needs the 'secrets read' scope)."
+            exit 1
+          }
+
+          bun -e "
+            import { REQUIRED_IN_PROJECT } from './supabase/functions/secrets.manifest.mjs';
+            const listed = JSON.parse(require('node:fs').readFileSync('/tmp/secrets.json', 'utf8'));
+            const names = new Set(listed.map((s) => s.name));
+            const missing = REQUIRED_IN_PROJECT.filter((n) => !names.has(n));
+            console.log('Present:', [...names].sort().join(' ') || '(none)');
+            if (missing.length) {
+              console.error('::error::Required edge secret(s) not set in the hosted project:');
+              for (const n of missing) console.error('  - ' + n);
+              console.error('');
+              console.error('   Set them with:');
+              console.error('     supabase secrets set --project-ref ' + process.env.SUPABASE_PROJECT_REF + ' <NAME>=<VALUE>');
+              console.error('   or Dashboard -> Project Settings -> Edge Functions -> Secrets.');
+              process.exit(1);
+            }
+            console.log('All required edge secrets are present.');
+          "
 
   # ── 2. Push migrations (independent job) ─────────────────────────────────
   # Deliberately NOT a dependency of verification: function delivery must be
@@ -227,9 +272,9 @@ jobs:
     steps:
       - name: Probe health edge function
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
-            ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+            ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
         run: |
           EDGE_BASE="${NEXT_PUBLIC_SUPABASE_URL}/functions/v1"
           AUTH_HEADER="Authorization: Bearer ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}"

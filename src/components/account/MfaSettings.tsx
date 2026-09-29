@@ -211,17 +211,25 @@ export function MfaSettings() {
         </DialogContent>
       </Dialog>
 
+      {/* Both MFA outcomes were silent: a failed code produced no announcement
+          at all. `role="alert"` interrupts, `role="status"` is polite. */}
       {error && (
-        <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600">
-          <ShieldAlert size={18} />
-          <p className="text-xs font-black uppercase tracking-widest">{error}</p>
+        <div
+          role="alert"
+          className="mt-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-accent-red"
+        >
+          <ShieldAlert size={18} aria-hidden="true" />
+          <p className="text-sm font-medium">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="mt-6 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-600">
-          <ShieldCheck size={18} />
-          <p className="text-xs font-black uppercase tracking-widest">{success}</p>
+        <div
+          role="status"
+          className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-700"
+        >
+          <ShieldCheck size={18} aria-hidden="true" />
+          <p className="text-sm font-medium">{success}</p>
         </div>
       )}
     </div>

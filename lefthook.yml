@@ -413,6 +413,14 @@ pre-commit:
             [ "$start" -lt 1 ] && start=1
             end=$((lineno + 2))
             context=$(sed -n "${start},${end}p" "$f" 2>/dev/null || true)
+            # JSON-LD is not CMS content: it is a structure we build and escape
+            # ourselves via serializeJsonLd, so it must not be wrapped in
+            # sanitizeWPContent (which would mangle the markup). Allow it only
+            # when the same block declares the ld+json script type — so a CMS
+            # body injected into a real <div> is still caught.
+            if echo "$context" | grep -q "application/ld+json"; then
+              continue
+            fi
             if ! echo "$context" | grep -q "sanitizeWPContent"; then
               VIOLATIONS="$VIOLATIONS\n  $f:$lineno"
             fi
@@ -426,6 +434,8 @@ pre-commit:
           echo ""
           echo ""
           echo "   Wrap with: sanitizeWPContent(yourContent)"
+          echo "   (JSON-LD <script type=\"application/ld+json\"> is exempt — it is"
+          echo "    escaped by serializeJsonLd, not CMS content.)"
           echo ""
           exit 1
         fi
@@ -479,9 +489,55 @@ pre-commit:
           exit 1
         fi
 
-    # ── 15. Large file guard ──────────────────────────────────────────────────
-    no-large-files:
+    # ── 15. GitHub Actions env contract ───────────────────────────────────────
+    # Catches a workflow referencing a secret/variable that does not exist, a
+    # half-applied rename, a NEXT_PUBLIC_* value parked in the secrets store
+    # (public by construction, and withheld from fork PRs), and a credentialed
+    # workflow with no explicit least-privilege `permissions:` block.
+    # ── 16. Vercel environment contract ───────────────────────────────────────
+    # Catches a var the app reads but nothing declares, a declared var no code
+    # reads, a NEXT_PUBLIC_* value marked as a secret (it ships to the browser),
+    # a CI-only test switch sitting in the local-dev template, and a required var
+    # missing from .env.example.
+    vercel-env-contract:
+      glob: "{src/**/*.ts,src/**/*.tsx,.env.example,scripts/vercel-env.mjs,scripts/check-vercel-env.mjs}"
+      run: bun scripts/check-vercel-env.mjs
+      stage_fixed: false
+
+    # ── 17. Supabase edge function secret contract ────────────────────────────
+    # Catches a secret the edge code reads but neither the manifest nor
+    # env.example.md documents, a manifest entry no function reads, a deployed
+    # function missing from the manifest, and stale entries in the example file.
+    # The hosted-project side of this (are they actually SET?) needs network and
+    # the Supabase CLI, so it is asserted in .github/workflows/supabase.yml.
+    edge-secret-contract:
+      glob: "{supabase/functions/**/*.ts,supabase/functions/*.md,supabase/functions/*.mjs,scripts/check-edge-secrets.mjs}"
+      run: bun scripts/check-edge-secrets.mjs
+      stage_fixed: false
+
+    ci-env-contract:
       priority: 15
+      glob: "{.github/workflows/*.yml,scripts/ci-env.mjs,scripts/check-ci-env.mjs}"
+      run: bun scripts/check-ci-env.mjs
+      stage_fixed: false
+
+    # ── 18. Secrets registry consistency ─────────────────────────────────────
+    # The three gates above are all offline: each proves a manifest agrees with
+    # the source, and none can see a dashboard. This one asserts the layer they
+    # cannot express — that every credential has an owner, a blast radius, and
+    # an expected store. It runs in --offline mode so it needs no CLI, no token
+    # and no network, because a hook that needs credentials is a hook that gets
+    # bypassed. The live reconciliation runs on a schedule in
+    # .github/workflows/secret-audit.yml, where a token actually exists.
+    secrets-registry:
+      priority: 15
+      glob: "{scripts/secrets-registry.mjs,scripts/secrets-audit.mjs,scripts/ci-env.mjs,scripts/vercel-env.mjs,supabase/functions/secrets.manifest.mjs}"
+      run: bun scripts/secrets-audit.mjs --offline
+      stage_fixed: false
+
+    # ── 19. Large file guard ──────────────────────────────────────────────────
+    no-large-files:
+      priority: 16
       run: |
         LIMIT_KB=500
         OVERSIZED=""
@@ -504,9 +560,9 @@ pre-commit:
           exit 1
         fi
 
-    # ── 16. Empty API route directory guard ──────────────────────────────────
+    # ── 17. Empty API route directory guard ──────────────────────────────────
     no-empty-api-routes:
-      priority: 16
+      priority: 17
       glob: "src/app/api/**"
       run: |
         EMPTY_DIRS=""
@@ -536,7 +592,7 @@ pre-commit:
     # correctly. Importing app code (src/lib, src/components…) from a function
     # breaks the bundle (this caused BOOT_ERROR on earlier deployments).
     edge-import-scope:
-      priority: 17
+      priority: 18
       glob: "supabase/functions/**/*.ts"
       run: |
         VIOLATIONS=""
@@ -578,7 +634,7 @@ pre-commit:
     # A leftover conflict marker compiles fine in most grammars but ships
     # broken code. Fail the commit if any staged file contains one.
     no-conflict-markers:
-      priority: 18
+      priority: 19
       run: |
         FOUND=$(grep -rn "^<<<<<<< \|^=======$\|^>>>>>>> " {staged_files} 2>/dev/null || true)
         if [ -n "$FOUND" ]; then
@@ -596,7 +652,7 @@ pre-commit:
     # (GitHub drops invalid workflow files). Parse-check any staged workflow
     # so a broken pipeline never ships.
     workflow-yaml:
-      priority: 19
+      priority: 20
       glob: ".github/workflows/*.{yml,yaml}"
       run: |
         ERRORS=""
@@ -620,20 +676,20 @@ pre-commit:
 
     # ── 17. Biome – format + lint staged files ────────────────────────────────
     biome-check:
-      priority: 20
+      priority: 21
       glob: "*.{js,jsx,ts,tsx,json,css}"
       run: bun biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
 
     # ── 18. oxlint – React / hooks / Next.js rules ───────────────────────────
     oxlint:
-      priority: 21
+      priority: 22
       glob: "*.{ts,tsx}"
       run: bun oxlint {staged_files}
 
     # ── 19. TypeScript – type-check without full build ────────────────────────
     typecheck:
-      priority: 22
+      priority: 23
       glob: "*.{ts,tsx}"
       run: bun tsc --noEmit --incremental false
 
@@ -642,10 +698,10 @@ pre-commit:
     # fails on import/syntax errors without launching a browser. The full
     # suite is the pre-push delivery gate (see `e2e` under pre-push).
     e2e-spec-list:
-      priority: 23
+      priority: 24
       glob: "e2e/**/*.spec.ts"
       run: |
-        if bunx playwright test --list >/tmp/ifo-e2e-list.out 2>/tmp/ifo-e2e-list.err; then
+        if ./node_modules/.bin/playwright test --list >/tmp/ifo-e2e-list.out 2>/tmp/ifo-e2e-list.err; then
           exit 0
         fi
         echo ""
@@ -665,7 +721,7 @@ pre-commit:
     # Allowed raw-access files (env.ts, supabase init) are already exempted
     # by no-raw-env-access; this closes the NEXT_PUBLIC + declaration gap.
     env-usage-coverage:
-      priority: 24
+      priority: 25
       glob: "src/**/*.{ts,tsx}"
       run: |
         VIOLATIONS=""
@@ -701,17 +757,46 @@ pre-commit:
     # A package.json change without a bun.lock change ships a frozen-lockfile
     # CI failure (or worse, drift). Require them to move together on commit.
     lockfile-pair:
-      priority: 25
+      priority: 26
       run: |
         STAGED=$(git diff --cached --name-only 2>/dev/null || true)
-        if echo "$STAGED" | grep -qx "package.json" && ! echo "$STAGED" | grep -qx "bun.lock"; then
-          echo ""
-          echo "✖  package.json staged without bun.lock."
-          echo "   Run: bun install   (updates the lockfile) then re-stage bun.lock."
-          echo "   CI installs with --frozen-lockfile and will fail otherwise."
-          echo ""
-          exit 1
-        fi
+        if ! echo "$STAGED" | grep -qx "package.json"; then exit 0; fi
+        if echo "$STAGED" | grep -qx "bun.lock"; then exit 0; fi
+
+        # Only DEPENDENCY changes affect `bun install --frozen-lockfile`, which is
+        # the failure this hook exists to prevent. Adding a script leaves the
+        # resolved graph identical, and `git add bun.lock` then stages nothing — so
+        # the naive "both files present" check could never pass for a script-only
+        # commit.
+        #
+        # Compared by parsing both versions rather than grepping the diff: the diff
+        # contains the changed version line, not the `"dependencies": {` header, so
+        # a line-based check matches nothing and silently passes a real bump.
+        DEP_CHANGE=$(bun -e "
+          const { execSync } = require('node:child_process');
+          const read = (ref) => JSON.parse(execSync('git show ' + ref + ':package.json', { encoding: 'utf8' }));
+          const staged = read('');
+          const base = read('HEAD');
+          const keys = [
+            'dependencies', 'devDependencies', 'peerDependencies',
+            'optionalDependencies', 'overrides', 'resolutions',
+            'trustedDependencies', 'patchedDependencies',
+          ];
+          const differs = keys.some(
+            (k) => JSON.stringify(staged[k] ?? null) !== JSON.stringify(base[k] ?? null)
+          );
+          console.log(differs ? 'yes' : 'no');
+        " 2>/dev/null || echo "yes")
+        # If the comparison could not run, fail closed: a broken check must not
+        # become a silently skipped one.
+        if [ "$DEP_CHANGE" != "yes" ]; then exit 0; fi
+
+        echo ""
+        echo "✖  package.json dependency changes staged without bun.lock."
+        echo "   Run: bun install   (updates the lockfile) then re-stage bun.lock."
+        echo "   CI installs with --frozen-lockfile and will fail otherwise."
+        echo ""
+        exit 1
 
 # ─── commit-msg ───────────────────────────────────────────────────────────────
 commit-msg:
@@ -769,7 +854,7 @@ pre-push:
 
     # ── 1. Block direct pushes to main ───────────────────────────────────────
     no-direct-main-push:
-      priority: 1
+      priority: 27
       run: |
         if [ "${CI:-}" = "true" ]; then exit 0; fi
         current_branch=$(git rev-parse --abbrev-ref HEAD)
@@ -784,7 +869,7 @@ pre-push:
 
     # ── 2. Lock file sync check ───────────────────────────────────────────────
     lockfile-sync:
-      priority: 2
+      priority: 28
       run: |
         if git diff --name-only HEAD..@{u} 2>/dev/null | grep -q "package.json"; then
           if ! git diff --name-only HEAD..@{u} 2>/dev/null | grep -q "bun.lock"; then
@@ -801,7 +886,7 @@ pre-push:
 
     # ── 3. Migration verify script ────────────────────────────────────────────
     migration-verify:
-      priority: 3
+      priority: 29
       glob: "supabase/migrations/*.sql"
       run: |
         if [ ! -f ".env.local" ]; then
@@ -825,7 +910,7 @@ pre-push:
     # To raise the baseline: update the BASELINE value here AND in the comment
     # at the top of this file with a chore commit explaining why.
     suppress-count:
-      priority: 4
+      priority: 30
       run: |
         BASELINE=7
         COUNT=$(grep -rn "@ts-ignore\|@ts-nocheck\|biome-ignore\|eslint-disable" \
@@ -845,7 +930,7 @@ pre-push:
 
      # ── 5. CI parity – mirrors the lint and build gates in .github/workflows/ci.yml ──
     lint-ci:
-      priority: 5
+      priority: 31
       run: bun run lint:check
 
     # oxlint already runs via lint:check above; kept separate for fast
@@ -858,7 +943,7 @@ pre-push:
     # --dry-run. Skips silently when the local machine has no link state /
     # token (CI covers it there).
     migration-dryrun:
-      priority: 6
+      priority: 32
       glob: "supabase/migrations/*.sql"
       run: |
         if [ ! -f "supabase/.temp/linked-project.json" ]; then
@@ -879,28 +964,28 @@ pre-push:
           }
 
     tests:
-      priority: 7
+      priority: 33
       run: bun run test
 
     typecheck:
-      priority: 8
+      priority: 34
       run: bun tsc --noEmit
 
     # ── 6. Coverage threshold ─────────────────────────────────────────────────
     # Vitest enforces the configured statement, branch, function, and line gates.
     coverage:
-      priority: 9
+      priority: 35
       run: bun run test:coverage
 
     # ── 7. Build smoke-test ───────────────────────────────────────────────────
     build-check:
-      priority: 10
+      priority: 36
       run: NEXT_E2E_BUILD=true NEXT_SKIP_ENV_VALIDATION=1 bun run build
 
     # ── 8. Peer-dependency compatibility ──────────────────────────────────────
      # Checks the installed dependency graph before a build can reach deployment.
     peer-deps:
-      priority: 11
+      priority: 37
       run: bun scripts/check-peer-deps.mjs --all
 
     # ── 9. Playwright e2e delivery gate ───────────────────────────────────────
@@ -909,7 +994,7 @@ pre-push:
     # Change-aware: full suite only when the push range can affect runtime.
     # Bypass (emergency only): LEFTHOOK_EXCLUDE=e2e git push
     e2e:
-      priority: 12
+      priority: 38
       run: |
         # Push range: upstream when available, otherwise the tip commit.
         if git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
@@ -946,13 +1031,13 @@ pre-push:
         echo "🎭  Playwright e2e delivery gate (workers=2)..."
         # workers=2: higher parallelism caused intermittent header-clearance
         # flakes under load; CI keeps CI=true → retries + 2 workers in config.
-        if bunx playwright test --workers=2; then
+        if ./node_modules/.bin/playwright test --workers=2; then
           echo "✔   E2E suite passed."
         else
           echo ""
           echo "✖  E2E suite failed."
           echo "   Report : npx playwright show-report"
-          echo "   Single : bunx playwright test e2e/<spec>.spec.ts --headed --debug"
+          echo "   Single : ./node_modules/.bin/playwright test e2e/<spec>.spec.ts --headed --debug"
           echo "   Bypass : LEFTHOOK_EXCLUDE=e2e git push"
           echo ""
           exit 1

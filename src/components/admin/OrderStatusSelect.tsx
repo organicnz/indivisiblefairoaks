@@ -34,7 +34,13 @@ export function OrderStatusSelect({
       defaultValue={currentStatus}
       onChange={handleChange}
       disabled={isPending}
-      className={`text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 border-0 outline-none cursor-pointer transition-opacity ${colours[currentStatus] || colours.processing} ${isPending ? 'opacity-50' : ''}`}
+      // No accessible name: the control is a bare status pill, so a screen reader
+      // announced "combo box" with no indication of which order it belongs to.
+      aria-label={`Order status${isPending ? ', saving' : ''}`}
+      aria-busy={isPending}
+      className={`min-h-9 text-xs font-black uppercase tracking-wider rounded-full px-3 py-1.5 border-0 cursor-pointer transition-opacity ${colours[currentStatus] || colours.processing} ${
+        isPending ? 'opacity-50' : ''
+      } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
     >
       {STATUSES.map((s) => (
         <option key={s} value={s} className="bg-white text-secondary normal-case">

@@ -24,7 +24,11 @@ test.describe('WALL-E assistant', () => {
     await expect(openButton).toBeVisible();
     await openButton.click();
 
-    await expect(page.getByRole('region', { name: 'WALL-E site assistant' })).toBeVisible();
+    // The panel is a Radix dialog (focus trap, Escape, scroll lock, focus restore)
+    // rather than a bare labelled <section>, so its role is `dialog` and the
+    // accessible name comes from the visually-hidden DialogTitle.
+    const panel = page.getByRole('dialog', { name: 'WALL-E site assistant' });
+    await expect(panel).toBeVisible();
     await expect(page.getByTestId('walle-avatar').first()).toBeVisible();
     await page
       .getByRole('textbox', { name: 'Message WALL-E' })
@@ -34,10 +38,9 @@ test.describe('WALL-E assistant', () => {
     await expect(
       page.getByText('Visit the voter information page for registration and election resources.')
     ).toBeVisible();
-    await expect(
-      page
-        .getByRole('region', { name: 'WALL-E site assistant' })
-        .getByRole('link', { name: /Voter Information/ })
-    ).toHaveAttribute('href', '/voter-info');
+    await expect(panel.getByRole('link', { name: /Voter Information/ })).toHaveAttribute(
+      'href',
+      '/voter-info'
+    );
   });
 });

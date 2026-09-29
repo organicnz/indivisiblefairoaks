@@ -113,6 +113,36 @@ export async function getPartners(): Promise<PartnerRow[]> {
   }
 }
 
+export interface CategoryRow {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+/**
+ * Product categories for the storefront sidebar.
+ *
+ * This was an uncached, untagged `createPublicClient()` call inlined in
+ * `app/products/page.tsx`. Because the page awaits `searchParams` (it is
+ * `export const instant = false` for per-category SEO titles), that fetch ran
+ * during the prerender phase and was then rejected — logging a
+ * "Categories query failed" warning on every build and re-querying on every
+ * request. Caching it here matches the rest of this module, gives it a tag so a
+ * category edit can revalidate it, and lets the prerender resolve it cleanly.
+ */
+export async function getCategories(): Promise<CategoryRow[]> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('categories');
+  try {
+    const supabase = publicClient();
+    const { data } = await supabase.from('categories').select('id, name, slug').order('name');
+    return (data ?? []) as CategoryRow[];
+  } catch {
+    return [];
+  }
+}
+
 export async function getCoalitionLinks(): Promise<CoalitionLinkRow[]> {
   'use cache';
   cacheLife('hours');

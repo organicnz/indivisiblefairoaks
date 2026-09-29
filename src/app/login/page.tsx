@@ -196,36 +196,56 @@ function LoginForm() {
         )}
 
         <div className="bg-white border border-slate-100 rounded-[4rem] shadow-[0_40px_100px_-20px_rgba(15,23,42,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-300 ease-out">
-          {/* Method Tabs */}
-          <div className="flex p-3 bg-slate-50/50">
+          {/*
+            These were two plain buttons with no role and no selected state, so
+            the active auth method was conveyed by background colour alone. They
+            now form a tablist, matching the pattern already implemented in
+            AccountTabs.tsx.
+          */}
+          <div role="tablist" aria-label="Sign-in method" className="flex p-3 bg-slate-50/50">
             <button
               type="button"
+              role="tab"
+              id="auth-tab-otp"
+              aria-selected={authMethod === 'otp'}
+              aria-controls="auth-panel"
+              tabIndex={authMethod === 'otp' ? 0 : -1}
               onClick={() => {
                 setAuthMethod('otp');
                 setIsSignUp(false);
               }}
-              className={`flex-1 py-5 text-[10px] font-black uppercase tracking-[0.3em] transition-all rounded-[2rem] flex items-center justify-center gap-3 ${
+              className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'otp'
                   ? 'bg-secondary text-white shadow-xl shadow-secondary/20'
-                  : 'text-slate-400 hover:text-secondary'
+                  : 'text-slate-600 hover:text-secondary'
               }`}
             >
-              <Fingerprint size={16} /> Magic Link
+              <Fingerprint size={16} aria-hidden="true" /> Magic Link
             </button>
             <button
               type="button"
+              role="tab"
+              id="auth-tab-password"
+              aria-selected={authMethod === 'password'}
+              aria-controls="auth-panel"
+              tabIndex={authMethod === 'password' ? 0 : -1}
               onClick={() => setAuthMethod('password')}
-              className={`flex-1 py-5 text-[10px] font-black uppercase tracking-[0.3em] transition-all rounded-[2rem] flex items-center justify-center gap-3 ${
+              className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'password'
                   ? 'bg-secondary text-white shadow-xl shadow-secondary/20'
-                  : 'text-slate-400 hover:text-secondary'
+                  : 'text-slate-600 hover:text-secondary'
               }`}
             >
-              <Lock size={16} /> Password
+              <Lock size={16} aria-hidden="true" /> Password
             </button>
           </div>
 
-          <div className="p-10 md:p-16">
+          <div
+            id="auth-panel"
+            role="tabpanel"
+            aria-labelledby={authMethod === 'otp' ? 'auth-tab-otp' : 'auth-tab-password'}
+            className="p-10 md:p-16"
+          >
             <form onSubmit={handleAuth} className="space-y-8">
               <div className="space-y-6">
                 <div className="group">
@@ -242,7 +262,7 @@ function LoginForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full px-8 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-white focus:border-primary outline-none transition-all font-black text-secondary uppercase tracking-[0.2em] text-xs placeholder:text-slate-300"
+                    className="w-full px-8 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-white focus:border-primary outline-none transition-all font-black text-secondary uppercase tracking-[0.2em] text-xs placeholder:text-slate-500"
                   />
                 </div>
 
@@ -273,13 +293,13 @@ function LoginForm() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
-                        className="w-full px-8 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-white focus:border-primary outline-none transition-all font-black text-secondary tracking-[0.3em] text-xs placeholder:text-slate-300 pr-16"
+                        className="w-full px-8 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-white focus:border-primary outline-none transition-all font-black text-secondary tracking-[0.3em] text-xs placeholder:text-slate-500 pr-16"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 hover:text-secondary transition-colors"
+                        className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 hover:text-secondary transition-colors"
                       >
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
@@ -313,12 +333,15 @@ function LoginForm() {
               </button>
             </form>
 
+            {/* `role="alert"` for failures, `role="status"` for success: without
+                one of these the sign-in result was announced to nobody. */}
             {message && (
               <div
-                className={`mt-10 p-6 rounded-[2rem] border text-[11px] font-bold tracking-wide text-center leading-relaxed animate-in zoom-in-95 duration-500 ${
+                role={message.type === 'success' ? 'status' : 'alert'}
+                className={`mt-10 p-6 rounded-xl border text-sm font-medium text-center leading-relaxed motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-out ${
                   message.type === 'success'
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                    : 'bg-rose-50 border-rose-200 text-rose-800'
+                    : 'bg-rose-50 border-rose-200 text-accent-red'
                 }`}
               >
                 {message.text}
@@ -329,7 +352,7 @@ function LoginForm() {
             <div className="mt-16">
               <div className="flex items-center gap-6 mb-10">
                 <div className="h-px bg-slate-100 flex-1" />
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">
                   Satellite Access
                 </span>
                 <div className="h-px bg-slate-100 flex-1" />

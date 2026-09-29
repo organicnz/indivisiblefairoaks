@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getCategories } from '@/lib/queries/civic';
 import { createPublicClient } from '@/lib/supabase-server';
 
 export async function generateMetadata({
@@ -23,51 +24,20 @@ export async function generateMetadata({
       .single();
 
     if (category) {
-      const title = `${category.name} | Indivisible Fair Oaks-Carmichael`;
-      const description = `Browse ${category.name.toLowerCase()} and civic materials from Indivisible Fair Oaks-Carmichael.`;
-      return {
-        alternates: { canonical },
-        title,
-        description,
-        openGraph: {
-          title,
-          description,
-          url: `https://indivisiblefairoaks.org/products?category=${categorySlug}`,
-          siteName: 'Indivisible Fair Oaks-Carmichael',
-          locale: 'en_US',
-        },
-        twitter: {
-          card: 'summary_large_image',
-          title,
-          description,
-        },
-      };
+      return pageMetadata({
+        title: category.name,
+        description: `Browse ${category.name.toLowerCase()} and civic materials from Indivisible Fair Oaks-Carmichael.`,
+        path: canonical,
+      });
     }
   }
 
-  const title = 'Materials & Gear | Indivisible Fair Oaks-Carmichael';
-  const description =
-    'Browse our community outreach materials, rally shirts, and campaign gear supporting grassroots democracy.';
-  return {
-    alternates: { canonical: '/products' },
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url: 'https://indivisiblefairoaks.org/products',
-      siteName: 'Indivisible Fair Oaks-Carmichael',
-      locale: 'en_US',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: [
-        'https://mojsubkqjdruhpxbzgme.supabase.co/storage/v1/object/public/media/site/thunder-charter.jpg',
-      ],
-    },
-  };
+  return pageMetadata({
+    title: 'Materials & Gear',
+    description:
+      'Browse our community outreach materials, rally shirts, and campaign gear supporting grassroots democracy.',
+    path: '/products',
+  });
 }
 
 import { ProductCard } from '@/components/products/ProductCard';
@@ -89,19 +59,10 @@ export default async function ProductsPage({
   const categorySlug =
     typeof resolvedSearchParams.category === 'string' ? resolvedSearchParams.category : null;
 
-  // Fetch Categories for the Sidebar
-  const { data: categories, error: categoriesError } = await createPublicClient()
-    .from('categories')
-    .select('*')
-    .order('name');
-
-  if (categoriesError) {
-    // Prerender-phase rejection of the shell fetch — retried at request time.
-    if (!(categoriesError instanceof Error) || !/prerender/i.test(categoriesError.message)) {
-      console.error('[ProductsPage] Categories query failed:', categoriesError.message);
-    }
-    // Continue rendering — categories sidebar will be empty but page won't crash
-  }
+  // Sidebar categories, cached and tagged in the query layer. This used to be an
+  // inline uncached fetch, which logged a prerender warning on every build and
+  // re-queried on every request. See `getCategories` in `@/lib/queries/civic`.
+  const categories = await getCategories();
 
   // Fetch Products (with optional category filtering)
   const { data: products, error } = await (categorySlug
@@ -150,7 +111,7 @@ export default async function ProductsPage({
                   All Gear
                 </Link>
               </li>
-              {categories?.map((category) => (
+              {categories.map((category) => (
                 <li key={category.id}>
                   <Link
                     href={`/products?category=${category.slug}`}
@@ -214,3 +175,5 @@ export default async function ProductsPage({
     </div>
   );
 }
+
+import { pageMetadata } from '@/lib/metadata';

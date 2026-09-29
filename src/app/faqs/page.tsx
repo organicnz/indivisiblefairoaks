@@ -1,21 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { siteUrl } from '@/config/site';
+import { pageMetadata } from '@/lib/metadata';
+import { serializeJsonLd } from '@/lib/utils';
 
-export const metadata: Metadata = {
-  alternates: { canonical: '/faqs' },
-  title: 'Frequently Asked Questions | Indivisible Fair Oaks-Carmichael',
+export const metadata: Metadata = pageMetadata({
+  title: 'Frequently Asked Questions',
   description:
     'Answers to common questions about Indivisible Fair Oaks-Carmichael meetings, the Resistance Choir, voter outreach, and getting involved.',
-  openGraph: {
-    title: 'Frequently Asked Questions | Indivisible Fair Oaks-Carmichael',
-    description:
-      'Answers to common questions about Indivisible Fair Oaks-Carmichael meetings, the Resistance Choir, voter outreach, and getting involved.',
-    url: 'https://indivisiblefairoaks.org/faqs',
-    siteName: 'Indivisible Fair Oaks-Carmichael',
-    locale: 'en_US',
-    type: 'website',
-  },
-};
+  path: '/faqs',
+});
 
 export default function FAQPage() {
   const faqs = [
@@ -64,18 +58,49 @@ export default function FAQPage() {
     },
   ];
 
+  /*
+   * FAQPage structured data.
+   *
+   * These Q&As were hardcoded in the component and invisible to search engines —
+   * the page rendered fine and ranked as ordinary prose, while every one of these
+   * answers is exactly the shape a query like "where does indivisible fair oaks
+   * meet" is looking for. Google requires the visible text and the markup to
+   * match, so the answers are emitted from the SAME `faqs` array the page
+   * renders rather than restated here: a second copy would drift, and mismatched
+   * markup is grounds for a manual action.
+   */
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    '@id': `${siteUrl('/faqs')}#faq`,
+    mainEntity: faqs.flatMap((group) =>
+      group.questions.map((item) => ({
+        '@type': 'Question',
+        name: item.q,
+        acceptedAnswer: { '@type': 'Answer', text: item.a },
+      }))
+    ),
+  };
+
   return (
-    <div className="bg-slate-950 text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
+    <div className="bg-secondary text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
+      {/* JSON-LD. biome's noDangerouslySetInnerHtml is suppressed for this file
+          (see biome.json); the value is escaped by serializeJsonLd, which handles
+          <, >, & and the JS line separators so it cannot break out of the tag. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqJsonLd) }}
+      />
       <div className="max-w-3xl mx-auto">
         <div className="flex flex-col items-center text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <span>Frequently Asked Questions</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
             Frequently Asked Questions
           </h1>
-          <div className="h-1.5 w-24 bg-amber-400 rounded-full mb-4" />
-          <p className="text-slate-300 text-sm sm:text-base max-w-xl">
+          <div className="h-1.5 w-24 bg-accent-gold rounded-full mb-4" />
+          <p className="text-ink-on-dark text-sm sm:text-base max-w-xl">
             Have questions about attending a meeting, singing with the choir, or getting involved?
             Find quick answers below.
           </p>
@@ -90,19 +115,19 @@ export default function FAQPage() {
               <section key={group.category} aria-labelledby={categoryId}>
                 <h2
                   id={categoryId}
-                  className="text-xl font-bold text-amber-400 uppercase tracking-wider mb-6 flex items-center gap-3"
+                  className="text-xl font-bold text-accent-gold uppercase tracking-wider mb-6 flex items-center gap-3"
                 >
                   <span>{group.category}</span>
-                  <div className="h-px bg-slate-800 flex-1" />
+                  <div className="h-px bg-white/5 flex-1" />
                 </h2>
                 <div className="space-y-4">
                   {group.questions.map((faq) => (
                     <div
                       key={faq.q}
-                      className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-2"
+                      className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-slate-700 transition-all space-y-2"
                     >
                       <h3 className="text-base sm:text-lg font-bold text-white">{faq.q}</h3>
-                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{faq.a}</p>
+                      <p className="text-xs sm:text-sm text-ink-on-dark leading-relaxed">{faq.a}</p>
                     </div>
                   ))}
                 </div>
@@ -111,14 +136,14 @@ export default function FAQPage() {
           })}
         </div>
 
-        <div className="mt-16 text-center p-8 rounded-3xl bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-blue-500/30 space-y-4">
+        <div className="mt-16 text-center p-8 rounded-3xl bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-primary-bright/30 space-y-4">
           <h3 className="text-xl font-black text-white">Still have a question?</h3>
-          <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto">
+          <p className="text-xs sm:text-sm text-ink-on-dark max-w-md mx-auto">
             Our volunteer organizing committee is always here to help you get connected.
           </p>
           <Link
             href="/contact"
-            className="inline-block px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all"
+            className="inline-block px-6 py-3 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
           >
             Contact Us Directly
           </Link>

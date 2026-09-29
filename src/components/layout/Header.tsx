@@ -1,24 +1,23 @@
 'use client';
 
+import * as Dialog from '@radix-ui/react-dialog';
 import { Heart, Menu, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { AccountButton } from '@/components/layout/AccountButton';
 import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
+import { isActiveRoute, ROUTES } from '@/config/routes';
+import { SITE_CONTACT } from '@/config/site';
 
-const NAV_LINKS = [
-  { name: 'Home', href: '/' },
-  { name: 'About', href: '/about' },
-  { name: 'Events & Actions', href: '/events' },
-  { name: 'Resistance Choir', href: '/choir' },
-  { name: 'Voter Info', href: '/voter-info' },
-  { name: 'Gallery', href: '/gallery' },
-  { name: 'News', href: '/news' },
-  { name: 'Coalition', href: '/links' },
-  { name: 'Contact', href: '/contact' },
-];
+const DRAWER_ID = 'primary-navigation-drawer';
+
+// Focus ring, used on every interactive control in the header. The header had no
+// focus styling at all: keyboard focus on primary navigation was completely
+// invisible, which fails WCAG 2.4.7.
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary';
 
 export function Header() {
   return (
@@ -28,15 +27,24 @@ export function Header() {
   );
 }
 
+/**
+ * Rendered while the client component hydrates.
+ *
+ * A plain `<div>`, not a `<header>`: the real header owns the `banner` landmark,
+ * and two of them in the tree means assistive tech announces the site header
+ * twice. The nav items are inert spans for the same reason — a Suspense fallback
+ * full of focusable links would add a second, non-functional set of tab stops
+ * for the frame or two it is on screen.
+ */
 function HeaderFallback() {
   return (
-    <header className="bg-slate-900 py-4 border-b border-white/10">
+    <div className="bg-secondary py-4 border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative w-10 h-10 shrink-0">
             <Image
               src="/images/logo/indivisible-emblem.png"
-              alt="Indivisible Fair Oaks & Carmichael"
+              alt=""
               width={40}
               height={40}
               className="w-full h-full object-contain"
@@ -48,23 +56,23 @@ function HeaderFallback() {
             <span className="text-white font-black text-lg tracking-tight uppercase block">
               Indivisible
             </span>
-            <span className="text-blue-300 text-xs font-semibold tracking-wider uppercase block">
-              Fair Oaks & Carmichael
+            <span className="text-ink-muted-on-dark text-xs font-semibold tracking-wider uppercase block">
+              Fair Oaks &amp; Carmichael
             </span>
           </div>
         </div>
-        <div className="hidden xl:flex items-center gap-8">
-          {NAV_LINKS.map((link) => (
+        <div className="hidden 2xl:flex items-center gap-5">
+          {ROUTES.map((link) => (
             <span
-              key={link.name}
-              className="text-xs font-bold uppercase tracking-wider text-white/70"
+              key={link.href}
+              className="whitespace-nowrap text-xs font-bold uppercase tracking-[0.2em] text-white/70"
             >
-              {link.name}
+              {link.short ?? link.label}
             </span>
           ))}
         </div>
       </div>
-    </header>
+    </div>
   );
 }
 
@@ -78,30 +86,40 @@ function HeaderInner() {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // A route change must never leave the drawer open over the new page. The
+  // per-link `onClick` handlers cover ordinary navigation; this covers browser
+  // back/forward and programmatic redirects, which bypass them.
+  const lastPathname = useRef(pathname);
+  useEffect(() => {
+    if (lastPathname.current !== pathname) {
+      lastPathname.current = pathname;
+      setIsMenuOpen(false);
+    }
+  }, [pathname]);
+
   return (
     <>
-      {/* NOTE: the mobile drawer must be a sibling of <header>, not a child —
-          the header's backdrop-blur creates a containing block that would
-          trap the drawer's `fixed inset-0` at header height. */}
+      {/* NOTE: the drawer must stay a sibling of <header>, not a child — the
+          header's backdrop-blur creates a containing block that would trap the
+          drawer's `fixed inset-0` at header height. */}
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out ${
           isScrolled
-            ? 'bg-slate-950/95 backdrop-blur-md py-3 shadow-xl border-b border-white/10'
-            : 'bg-slate-900/90 backdrop-blur-sm py-4 border-b border-white/10'
+            ? 'bg-secondary/95 backdrop-blur-md py-3 shadow-header border-b border-white/10'
+            : 'bg-secondary/90 backdrop-blur-sm py-4 border-b border-white/10'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
-            {/* Logo / Chapter Identity */}
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="relative w-10 h-10 shrink-0 group-hover:scale-105 transition-transform">
+            <Link href="/" className={`flex items-center gap-3 group rounded-sm ${FOCUS_RING}`}>
+              <div className="relative w-10 h-10 shrink-0 group-hover:scale-105 transition-transform duration-300 ease-out motion-reduce:group-hover:scale-100">
                 <Image
                   src="/images/logo/indivisible-emblem.png"
-                  alt="Indivisible Fair Oaks & Carmichael"
+                  alt="Indivisible Fair Oaks &amp; Carmichael"
                   width={40}
                   height={40}
                   className="w-full h-full object-contain"
@@ -110,47 +128,60 @@ function HeaderInner() {
                 />
               </div>
               <div>
-                <span className="text-white font-black text-base sm:text-lg tracking-tight uppercase group-hover:text-blue-400 transition-colors block leading-tight">
+                <span className="text-white font-black text-base sm:text-lg tracking-tight uppercase group-hover:text-white transition-colors duration-300 ease-out block leading-tight">
                   Indivisible
                 </span>
-                <span className="text-blue-300 text-[11px] sm:text-xs font-semibold tracking-wider uppercase block leading-tight">
-                  Fair Oaks & Carmichael
+                <span className="text-ink-muted-on-dark text-[11px] sm:text-xs font-semibold tracking-wider uppercase block leading-tight">
+                  Fair Oaks &amp; Carmichael
                 </span>
               </div>
             </Link>
 
-            {/* Desktop Navigation — full link row only fits at xl+ (measured:
-              9 links + actions overflow 1024–1280px). Below xl the drawer
-              serves all links + account. */}
-            <nav className="hidden xl:flex items-center gap-5 2xl:gap-8">
-              {NAV_LINKS.map((link) => {
-                const isActive = pathname === link.href;
+            {/*
+              Desktop navigation.
+
+              The full nine-link row only fits at 2xl. At 1280px the labels at
+              `tracking-[0.2em]` (the AGENTS.md nav rule) need ~1365px once the
+              logo and action cluster are laid out, so showing the row at xl pushed
+              the account control off-screen. Between sm and 2xl the drawer serves
+              the links and the account control stays inline from xl up.
+            */}
+            <nav aria-label="Primary" className="hidden 2xl:flex items-center gap-5">
+              {ROUTES.map((link) => {
+                const isActive = isActiveRoute(pathname, link);
                 return (
                   <Link
-                    key={link.name}
+                    key={link.href}
                     href={link.href}
-                    className={`text-xs font-bold uppercase tracking-wider transition-all relative py-1 ${
-                      isActive ? 'text-amber-400 font-extrabold' : 'text-slate-200 hover:text-white'
+                    // `aria-current` is what conveys the active page to assistive
+                    // tech; the amber text and underline bar are decoration.
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`whitespace-nowrap text-xs font-bold uppercase tracking-[0.2em] transition-colors duration-300 ease-out relative py-1 rounded-sm ${FOCUS_RING} ${
+                      isActive
+                        ? 'text-accent-gold font-extrabold'
+                        : 'text-ink-on-dark hover:text-white'
                     }`}
                   >
-                    {link.name}
+                    {link.short ?? link.label}
                     {isActive && (
-                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400 rounded-full" />
+                      <span
+                        aria-hidden="true"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-gold rounded-full"
+                      />
                     )}
                   </Link>
                 );
               })}
             </nav>
 
-            {/* Action Buttons */}
             <div className="flex items-center gap-2.5 sm:gap-3">
               <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
 
               <Link
                 href="/donate"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg hover:scale-105 transition-all"
+                className={`hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent hover:bg-accent-gold text-secondary font-bold text-xs uppercase tracking-wider shadow-raised hover:shadow-float active:scale-95 transition-all duration-300 ease-out motion-reduce:hover:scale-100 ${FOCUS_RING}`}
               >
-                <Heart size={14} className="fill-slate-950" />
+                <Heart size={14} className="fill-secondary" aria-hidden="true" />
                 <span>Donate</span>
               </Link>
 
@@ -158,118 +189,139 @@ function HeaderInner() {
                 <AccountButton />
               </div>
 
-              {/* Mobile Menu Button */}
               <button
                 type="button"
-                className="xl:hidden p-2 rounded-lg text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+                // 44px minimum target: p-2 + a 24px glyph is only 40px.
+                className={`2xl:hidden inline-flex items-center justify-center size-11 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
                 onClick={() => setIsMenuOpen(true)}
                 aria-label="Open navigation menu"
                 aria-expanded={isMenuOpen}
+                aria-controls={DRAWER_ID}
               >
-                <Menu size={24} />
+                <Menu size={24} aria-hidden="true" />
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Mobile Drawer */}
-      <div
-        className={`fixed inset-0 z-[100] bg-slate-950/98 flex flex-col p-6 sm:p-8 xl:hidden transition-transform duration-300 ease-out ${
-          isMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <div className="flex items-center justify-between pb-6 border-b border-white/10">
-          <Link href="/" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3">
-            <div className="relative w-10 h-10 shrink-0">
-              <Image
-                src="/images/logo/indivisible-emblem.png"
-                alt="Indivisible Fair Oaks & Carmichael"
-                width={40}
-                height={40}
-                className="w-full h-full object-contain"
-                unoptimized
-              />
-            </div>
-            <div>
-              <span className="text-white font-black text-base uppercase block leading-tight">
-                Indivisible
-              </span>
-              <span className="text-blue-300 text-xs font-semibold uppercase block leading-tight">
-                Fair Oaks & Carmichael
-              </span>
-            </div>
-          </Link>
-          <button
-            type="button"
-            className="p-2 text-slate-300 hover:text-white transition-colors"
-            onClick={() => setIsMenuOpen(false)}
-            aria-label="Close menu"
-          >
-            <X size={28} />
-          </button>
-        </div>
+      {/*
+        The drawer was a bare <div> translated off-screen with
+        `-translate-x-full`. Nothing removed it from the accessibility tree or the
+        tab order, so on every mobile page load roughly thirteen off-screen links
+        and buttons sat between the header and the page content in the tab
+        sequence. It also had no Escape handling, no focus trap, and no scroll
+        lock.
 
-        <nav className="flex flex-col gap-4 py-8 overflow-y-auto">
-          {/* Search shortcut in mobile drawer */}
-          <button
-            type="button"
-            onClick={() => {
-              setIsMenuOpen(false);
-              setIsSearchOpen(true);
-            }}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 hover:text-white transition-colors text-sm font-medium"
+        Radix Dialog supplies all of that: `aria-modal`, focus containment, Escape
+        to dismiss, scroll locking, `inert` on everything behind it, and focus
+        restoration to the hamburger on close. It is already a dependency.
+      */}
+      <Dialog.Root open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-secondary/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 2xl:hidden" />
+          <Dialog.Content
+            id={DRAWER_ID}
+            className="fixed inset-0 z-[110] bg-secondary flex flex-col p-6 sm:p-8 2xl:hidden focus:outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=open]:duration-300 data-[state=closed]:duration-200"
           >
-            <Search size={18} className="text-blue-400" />
-            <span>Quick Search…</span>
-            <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-[10px] font-mono text-slate-400">
-              ⌘K
-            </kbd>
-          </button>
+            <Dialog.Title className="sr-only">Navigation menu</Dialog.Title>
+            <Dialog.Description className="sr-only">
+              Browse the chapter&apos;s pages, or sign in to your account.
+            </Dialog.Description>
 
-          {NAV_LINKS.map((link) => {
-            const isActive = pathname === link.href;
-            return (
+            <div className="flex items-center justify-between pb-6 border-b border-white/10">
               <Link
-                key={link.name}
-                href={link.href}
+                href="/"
                 onClick={() => setIsMenuOpen(false)}
-                className={`text-xl font-bold uppercase tracking-wide transition-colors py-1 ${
-                  isActive ? 'text-amber-400' : 'text-slate-200 hover:text-white'
-                }`}
+                className={`flex items-center gap-3 rounded-sm ${FOCUS_RING}`}
               >
-                {link.name}
+                <div className="relative w-10 h-10 shrink-0">
+                  <Image
+                    src="/images/logo/indivisible-emblem.png"
+                    alt="Indivisible Fair Oaks &amp; Carmichael"
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-contain"
+                    unoptimized
+                  />
+                </div>
+                <div>
+                  <span className="text-white font-black text-base uppercase block leading-tight">
+                    Indivisible
+                  </span>
+                  <span className="text-ink-muted-on-dark text-xs font-semibold uppercase block leading-tight">
+                    Fair Oaks &amp; Carmichael
+                  </span>
+                </div>
               </Link>
-            );
-          })}
-        </nav>
-
-        <div className="mt-auto pt-6 border-t border-white/10 flex flex-col gap-4">
-          <AccountButton variant="block" onNavigate={() => setIsMenuOpen(false)} />
-          <Link
-            href="/donate"
-            onClick={() => setIsMenuOpen(false)}
-            className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-center text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg"
-          >
-            <Heart size={16} className="fill-slate-950" />
-            Support via ActBlue
-          </Link>
-          <div className="text-xs text-slate-400 text-center space-y-1">
-            <p>
-              Inquiries:{' '}
-              <a
-                href="mailto:contact@indivisiblefairoaks.org"
-                className="text-blue-400 hover:underline"
+              <Dialog.Close
+                className={`inline-flex items-center justify-center size-11 -mr-2 rounded-lg text-ink-muted-on-dark hover:text-white transition-colors duration-300 ease-out ${FOCUS_RING}`}
+                aria-label="Close menu"
               >
-                contact@indivisiblefairoaks.org
-              </a>
-            </p>
-            <p className="text-[11px] text-slate-400">
-              Grassroots community organizing for democracy.
-            </p>
-          </div>
-        </div>
-      </div>
+                <X size={28} aria-hidden="true" />
+              </Dialog.Close>
+            </div>
+
+            <nav aria-label="Mobile" className="flex flex-col gap-1 py-6 overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  setIsSearchOpen(true);
+                }}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-colors duration-300 ease-out text-sm font-medium ${FOCUS_RING}`}
+              >
+                <Search size={18} className="text-ink-on-dark" aria-hidden="true" />
+                <span>Quick Search…</span>
+                <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-secondary border border-white/20 text-[10px] font-mono text-ink-muted-on-dark">
+                  ⌘K
+                </kbd>
+              </button>
+
+              {ROUTES.map((link) => {
+                const isActive = isActiveRoute(pathname, link);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsMenuOpen(false)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`text-xl font-bold uppercase tracking-wide transition-colors duration-300 ease-out py-2 rounded-sm ${FOCUS_RING} ${
+                      isActive ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="mt-auto pt-6 border-t border-white/10 flex flex-col gap-4">
+              <AccountButton variant="block" onNavigate={() => setIsMenuOpen(false)} />
+              <Link
+                href="/donate"
+                onClick={() => setIsMenuOpen(false)}
+                className={`w-full py-3 rounded-xl bg-accent hover:bg-accent-gold text-secondary font-bold text-center text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-2 shadow-float transition-colors duration-300 ease-out ${FOCUS_RING}`}
+              >
+                <Heart size={16} className="fill-secondary" aria-hidden="true" />
+                Support via ActBlue
+              </Link>
+              <div className="text-xs text-ink-muted-on-dark text-center space-y-1">
+                <p>
+                  Inquiries:{' '}
+                  <a
+                    href={`mailto:${SITE_CONTACT.email}`}
+                    className={`text-ink-on-dark hover:text-white hover:underline rounded-sm ${FOCUS_RING}`}
+                  >
+                    {SITE_CONTACT.email}
+                  </a>
+                </p>
+                <p className="text-[11px]">Grassroots community organizing for democracy.</p>
+              </div>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </>
   );
 }

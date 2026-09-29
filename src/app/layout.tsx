@@ -9,8 +9,19 @@ import { SettingsHydrator } from '@/components/account/SettingsHydrator';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
+import {
+  organizationJsonLd,
+  rootRobots,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_SHORT_DESCRIPTION,
+  SITE_TAGLINE,
+  SITE_URL,
+  webSiteJsonLd,
+} from '@/config/site';
 import type { UserSettings } from '@/lib/store/settings';
 import { getSettings } from '@/lib/supabase-server';
+import { serializeJsonLd } from '@/lib/utils';
 import Providers from './providers';
 
 const inter = Inter({
@@ -26,10 +37,16 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://indivisiblefairoaks.org'),
-  title: 'Indivisible Fair Oaks-Carmichael | Grassroots Democracy in Action',
-  description:
-    'Indivisible Fair Oaks-Carmichael is a non-violent grassroots movement defending democracy, resisting authoritarianism, electing progressive leaders, and advocating for our community.',
+  // Derived from env so the apex cutover is a Vercel env change. Previously
+  // hardcoded, which meant staging shipped apex canonicals for every page.
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} | ${SITE_TAGLINE}`,
+    // Pages supply bare titles; the brand suffix is applied here, once.
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
   keywords: [
     'Indivisible',
     'Fair Oaks',
@@ -41,19 +58,34 @@ export const metadata: Metadata = {
     'community meetings',
     'democracy',
   ],
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  category: 'Civic organization',
+  alternates: { canonical: '/' },
+  // Non-production builds (preview, staging) are noindex so they never compete
+  // with the apex. Flips automatically when NEXT_PUBLIC_SITE_URL points at it.
+  robots: rootRobots(),
+  formatDetection: { telephone: false },
   openGraph: {
-    title: 'Indivisible Fair Oaks-Carmichael | Grassroots Democracy in Action',
-    description:
-      'A grassroots chapter representing residents in Fair Oaks and Carmichael, CA, committed to defending democratic norms and progressive change.',
-    url: 'https://indivisiblefairoaks.org',
-    siteName: 'Indivisible Fair Oaks-Carmichael',
-    locale: 'en_US',
     type: 'website',
+    siteName: SITE_NAME,
+    locale: 'en_US',
+    title: `${SITE_NAME} | ${SITE_TAGLINE}`,
+    description: SITE_SHORT_DESCRIPTION,
+    // No `url` here on purpose — every page sets its own via pageMetadata().
+    // A root-level url is inherited verbatim by any child that omits one.
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${SITE_NAME} | ${SITE_TAGLINE}`,
+    description: SITE_SHORT_DESCRIPTION,
   },
   icons: {
     icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
       { url: '/favicon.ico', sizes: 'any' },
-      { url: '/icon.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
@@ -72,6 +104,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable} h-full antialiased`}>
+      <head>
+        {/* Entity graph for the chapter. Emitted once here rather than per page so
+            every URL carries the same `sameAs`/`logo` identity. */}
+        <script
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: serialized JSON-LD, escaped by serializeJsonLd
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(organizationJsonLd()) }}
+        />
+        <script
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: serialized JSON-LD, escaped by serializeJsonLd
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(webSiteJsonLd()) }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-white text-secondary font-sans selection:bg-primary selection:text-secondary">
         <Providers>
           <a

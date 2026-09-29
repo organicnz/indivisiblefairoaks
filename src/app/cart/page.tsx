@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { StripeExpressCheckout } from '@/components/checkout/StripeExpressCheckout';
-import { SHIPPING_RATES } from '@/config/shipping';
+import { SHIPPING_RATES } from '@/config/commerce';
 import { MAX_ITEM_QUANTITY, useCartStore } from '@/lib/store/cart';
 import { getStorageUrl } from '@/lib/supabase';
 
@@ -16,7 +16,6 @@ const emptySubscribe = () => () => {};
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalPrice } = useCartStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [promoCode, setPromoCode] = useState('');
   // Persisted cart rehydrates client-side only; render the skeleton on the
   // server/first paint to avoid an empty-cart mismatch flash.
   const hydrated = useSyncExternalStore(
@@ -39,7 +38,6 @@ export default function CartPage() {
             variationId: item.variationId ?? undefined,
             quantity: item.quantity,
           })),
-          promoCode: promoCode.trim(),
         }),
       });
       const data = await response.json();
@@ -109,7 +107,9 @@ export default function CartPage() {
     <div className="bg-white min-h-screen pt-(--header-h) pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col mb-10">
-          <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">Your Cart</h1>
+          <h1 className="text-4xl font-black tracking-tighter text-secondary uppercase">
+            Your Cart
+          </h1>
           <div className="h-1.5 w-24 bg-primary mt-3" />
         </div>
 
@@ -125,6 +125,7 @@ export default function CartPage() {
                           src={getStorageUrl(item.image_url)}
                           alt={item.name}
                           fill
+                          sizes="(max-width: 640px) 96px, 160px"
                           className="object-cover"
                         />
                       ) : (
@@ -165,12 +166,25 @@ export default function CartPage() {
                               )
                             }
                             disabled={item.quantity <= 1}
-                            className="p-2 text-secondary hover:text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                            aria-label="Decrease quantity"
+                            className="inline-flex items-center justify-center size-11 rounded-full text-secondary hover:text-primary transition-colors duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            // The buttons said "Increase quantity" with no product
+                            // named, so a screen-reader user heard the same label
+                            // once per line in the cart.
+                            aria-label={`Decrease quantity of ${item.name}`}
                           >
-                            <Minus size={16} strokeWidth={3} />
+                            <Minus size={16} strokeWidth={3} aria-hidden="true" />
                           </button>
-                          <span className="px-4 text-sm font-black text-secondary">
+                          {/*
+                            `role="status"` + aria-live: the stepper used to change
+                            the number silently, and the +/- labels never named the
+                            product, so the quantity was never announced at all.
+                          */}
+                          <span
+                            role="status"
+                            aria-live="polite"
+                            aria-label={`Quantity of ${item.name}`}
+                            className="px-4 text-sm font-black text-secondary tabular-nums"
+                          >
                             {item.quantity}
                           </span>
                           <button
@@ -183,17 +197,17 @@ export default function CartPage() {
                               )
                             }
                             disabled={item.quantity >= MAX_ITEM_QUANTITY}
-                            className="p-2 text-secondary hover:text-primary transition-colors"
-                            aria-label="Increase quantity"
+                            className="inline-flex items-center justify-center size-11 rounded-full text-secondary hover:text-primary transition-colors duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            aria-label={`Increase quantity of ${item.name}`}
                           >
-                            <Plus size={16} strokeWidth={3} />
+                            <Plus size={16} strokeWidth={3} aria-hidden="true" />
                           </button>
                         </div>
 
                         <div className="absolute top-0 right-0">
                           <button
                             type="button"
-                            className="-m-2 p-2 inline-flex text-slate-300 hover:text-rose-500 transition-colors"
+                            className="-m-2 inline-flex items-center justify-center size-11 rounded-full text-slate-500 hover:text-accent-red transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-red focus-visible:ring-offset-2"
                             onClick={() =>
                               removeItem(item.productId ?? item.id, item.variationId ?? null)
                             }
@@ -243,7 +257,7 @@ export default function CartPage() {
                 </dd>
               </div>
               <div className="border-t border-slate-200 pt-6 flex items-center justify-between">
-                <dt className="text-xl font-black text-secondary uppercase tracking-tight">
+                <dt className="text-xl font-black text-secondary uppercase tracking-tighter">
                   Order total
                 </dt>
                 <dd className="text-3xl font-black text-primary tracking-tighter">
@@ -252,37 +266,12 @@ export default function CartPage() {
               </div>
             </dl>
 
-            <div className="mt-10">
-              <label
-                htmlFor="promo"
-                className="block text-[10px] font-black text-secondary uppercase tracking-[0.2em] mb-3 ml-1"
-              >
-                Promo Code
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  id="promo"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  placeholder="ENTER CODE"
-                  className="block w-full px-5 py-3 bg-white border border-slate-200 rounded-full text-xs font-black uppercase tracking-widest focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all shadow-inner"
-                />
-                <button
-                  type="button"
-                  className="bg-slate-200 text-slate-600 px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest hover:bg-slate-300 transition-colors"
-                >
-                  Apply
-                </button>
-              </div>
-            </div>
-
             <div className="mt-8">
               <button
                 type="button"
                 onClick={handleCheckout}
                 disabled={isLoading}
-                className="w-full bg-secondary text-white rounded-full py-5 px-6 text-sm font-black uppercase tracking-[0.2em] hover:bg-primary transition-all shadow-xl shadow-secondary/10 flex justify-center items-center disabled:opacity-50"
+                className="w-full bg-secondary text-white rounded-full py-5 px-6 text-sm font-black uppercase tracking-[0.2em] hover:bg-primary active:bg-primary-dark transition-colors duration-300 ease-out shadow-float flex justify-center items-center disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 {isLoading ? 'Processing...' : 'Proceed to Checkout'}
                 {!isLoading && <ArrowRight className="ml-3" size={20} strokeWidth={3} />}

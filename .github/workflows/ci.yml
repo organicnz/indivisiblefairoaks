@@ -14,10 +14,17 @@ permissions:
   contents: read
 
 env:
-  # Public vars needed for next build / e2e
-  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-  NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+  # These are repository *variables*, not secrets. `NEXT_PUBLIC_*` is inlined
+  # into the client bundle by Next and is therefore readable by every visitor —
+  # it is configuration, not a credential. Storing it as a secret also broke
+  # this workflow: `pull_request` runs do not receive repository secrets when the
+  # PR comes from a fork, so the values arrived empty, `env.ts`'s `.default()`
+  # absorbed it, and the build happily succeeded against placeholder credentials.
+  # Repository variables are available to fork PRs, so the build is now
+  # deterministic in every case. See docs/ci-secrets.md.
+  NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+  NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
   # Pin bun — bump deliberately. Floor is package.json engines (bun >= 1.4.0).
   BUN_VERSION: "1.4.2"
 
@@ -130,10 +137,13 @@ jobs:
         # No --with-deps: OS dependencies are baked into the runner image and
         # persist system-wide. Re-add --with-deps after a runner rebuild if
         # browsers fail to launch with missing shared libraries.
-        run: bunx playwright install chromium
+        # The installed binary, not `bunx`: `playwright` is only a transitive
+        # dependency, so `bunx` would resolve it from the registry and run a
+        # different version than the lockfile pins.
+        run: ./node_modules/.bin/playwright install chromium
 
       - name: Run E2E tests
-        run: bunx playwright test
+        run: ./node_modules/.bin/playwright test
         env:
           CI: "true"
 
@@ -167,7 +177,7 @@ jobs:
     steps:
       - name: Probe app deployment
         env:
-          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
         run: |
           # Fallback is the staging host that serves this app — NOT the apex
           # (apex intentionally redirects to Google Sites).

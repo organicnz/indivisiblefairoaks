@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, X } from 'lucide-react';
+import { AlertCircle, Check, X } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { updateProduct } from '@/app/admin/actions';
 
@@ -192,7 +192,12 @@ export function ProductDetailForm({ product }: { product: ProductFields }) {
             <X size={12} /> Reset
           </button>
         )}
-        {error && <p className="text-[11px] font-bold text-rose-600">{error}</p>}
+        {error && (
+          <div role="alert" className="flex items-start gap-2 text-xs font-bold text-rose-600">
+            <AlertCircle size={14} aria-hidden="true" className="shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
         {success && !dirty && <p className="text-[11px] font-bold text-emerald-600">Saved.</p>}
       </div>
     </div>

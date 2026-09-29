@@ -7,13 +7,16 @@ import { Suspense } from 'react';
 import { AddToCartButton } from '@/components/checkout/AddToCartButton';
 import { ProductSlider } from '@/components/products/ProductSlider';
 import { WishlistButton } from '@/components/products/WishlistButton';
+import { CURRENCY_CODE, SHIPPING_RATES } from '@/config/commerce';
+import { ROBOTS, SITE_NAME, siteUrl } from '@/config/site';
+import { pageMetadata } from '@/lib/metadata';
 import {
   getAllProductSlugs,
   getProductDetail,
   getProductMeta,
   getRelatedProducts,
 } from '@/lib/queries/products';
-import { sanitizeWPContent } from '@/lib/sanitize';
+import { htmlToExcerpt, sanitizeWPContent } from '@/lib/sanitize';
 import { getStorageUrl } from '@/lib/supabase';
 import { serializeJsonLd } from '@/lib/utils';
 import type { Json } from '@/types/supabase';
@@ -31,27 +34,16 @@ export async function generateMetadata({
   const product = await getProductMeta(slug);
 
   if (!product) {
-    return { title: 'Product Not Found' };
+    // A delisted or mistyped slug must not return an indexable page.
+    return { title: 'Product Not Found', robots: ROBOTS.noindex };
   }
 
-  const rawDescription = product.short_description || product.description || '';
-  const cleanDescription = rawDescription
-    .replace(/<[^>]*>?/gm, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const description =
-    cleanDescription.length > 150 ? `${cleanDescription.substring(0, 147)}...` : cleanDescription;
-
-  return {
-    alternates: { canonical: `/products/${slug}` },
-    title: `${product.name} | Indivisible Fair Oaks-Carmichael`,
-    description: description,
-    openGraph: {
-      title: product.name,
-      description: description,
-      images: product.image_url ? [{ url: getStorageUrl(product.image_url) }] : [],
-    },
-  };
+  return pageMetadata({
+    title: product.name,
+    description: htmlToExcerpt(product.short_description || product.description || ''),
+    path: `/products/${slug}`,
+    images: product.image_url ? [{ url: getStorageUrl(product.image_url) }] : undefined,
+  });
 }
 
 export default async function ProductDetails({ params }: { params: Promise<{ slug: string }> }) {
@@ -102,41 +94,84 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
     return notFound();
   }
 
-  const productUrl = `https://indivisiblefairoaks.org/products/${slug}`;
+  const productUrl = siteUrl(`/products/${slug}`);
   const price = Number(product.sale_price ?? product.price ?? 0);
   const inStock = product.stock_status === 'instock';
+  const productImage = product.image_url ? [getStorageUrl(product.image_url)] : undefined;
+  const description =
+    sanitizeWPContent(
+      (product.short_description || product.description || '').replace(/<[^>]*>?/gm, ' ')
+    )
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 300) || undefined;
+
+  // Google Merchant Center rejects listings whose Offer omits shipping and return
+  // policy, and product snippets require `brand`. Both were absent, so no product
+  // page could surface a price in the SERP.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
+    '@id': `${productUrl}#product`,
     name: product.name,
-    description:
-      sanitizeWPContent(
-        (product.short_description || product.description || '').replace(/<[^>]*>?/gm, ' ')
-      )
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 300) || undefined,
-    image: product.image_url ? [getStorageUrl(product.image_url)] : undefined,
+    description,
+    image: productImage,
+    url: productUrl,
     sku: String(product.id),
+    brand: { '@type': 'Brand', name: SITE_NAME },
     offers: {
       '@type': 'Offer',
       url: productUrl,
-      priceCurrency: 'USD',
+      // Read from the single commerce source of truth. This previously read 'USD'
+      // while Stripe charged 'nzd' — a mismatch that is grounds for a Merchant
+      // Center disapproval and was simply wrong for a California chapter.
+      priceCurrency: CURRENCY_CODE,
       price: price.toFixed(2),
       availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       itemCondition: 'https://schema.org/NewCondition',
+      eligibleRegion: { '@type': 'Country', name: 'US' },
+      seller: { '@id': `${siteUrl('/')}#organization` },
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingRate: {
+          '@type': 'MonetaryAmount',
+          value: String(SHIPPING_RATES[0].amount / 100),
+          currency: CURRENCY_CODE,
+        },
+        shippingDestination: {
+          '@type': 'DefinedRegion',
+          addressCountry: 'US',
+        },
+        deliveryTime: {
+          '@type': 'ShippingDeliveryTime',
+          handlingTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 2,
+            maxValue: 5,
+            unitCode: 'DAY',
+          },
+        },
+      },
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        applicableCountry: 'US',
+        returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+        merchantReturnDays: 30,
+        returnMethod: 'https://schema.org/ReturnByMail',
+        returnFees: 'https://schema.org/FreeReturn',
+      },
     },
   };
   const breadcrumbLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://indivisiblefairoaks.org/' },
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl('/') },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Materials',
-        item: 'https://indivisiblefairoaks.org/products',
+        item: siteUrl('/products'),
       },
       { '@type': 'ListItem', position: 3, name: product.name, item: productUrl },
     ],
@@ -176,6 +211,11 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
                   src={getStorageUrl(product.image_url)}
                   alt={product.name}
                   fill
+                  // The container is a `lg:col-span-6` square, so the image is
+                  // half the viewport on desktop and full width on mobile. Without
+                  // this, `fill` assumes 100vw and the LCP image is served at
+                  // roughly twice the width it is displayed at.
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                   className="object-contain"
                   priority
                 />
@@ -192,7 +232,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
             {product.gallery_urls &&
               Array.isArray(product.gallery_urls) &&
               product.gallery_urls.length > 0 && (
-                <div className="mt-4 grid grid-cols-4 gap-4">
+                <div className="mt-4 grid grid-cols-4 gap-2 sm:gap-4">
                   {(product.gallery_urls as string[]).slice(0, 4).map((url: string) => (
                     <div
                       key={url}
@@ -202,6 +242,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
                         src={getStorageUrl(url)}
                         alt={`${product.name} gallery image`}
                         fill
+                        sizes="(max-width: 1024px) 22vw, 12vw"
                         className="object-cover"
                       />
                     </div>

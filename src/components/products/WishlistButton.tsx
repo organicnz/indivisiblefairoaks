@@ -38,25 +38,33 @@ export function WishlistButton({ product, showText = false }: WishlistButtonProp
 
   if (!isMounted) return null;
 
+  const label = active ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`;
+
   return (
     <button
       type="button"
       onClick={toggleWishlist}
-      className={`flex items-center justify-center gap-2 transition-all ${
+      // `aria-pressed` is what exposes the toggle state. `title` alone is not
+      // reliably announced and does not convey on/off at all.
+      aria-pressed={active}
+      aria-label={showText ? undefined : label}
+      className={`inline-flex items-center justify-center gap-2 transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
         showText
-          ? 'w-full py-4 rounded-full border-2 font-black uppercase tracking-widest text-xs'
-          : 'p-2 rounded-full shadow-md'
+          ? 'w-full min-h-11 py-4 rounded-full border-2 font-black uppercase tracking-[0.2em] text-xs'
+          : // 44px minimum target — p-2 plus a 20px glyph is only 36px.
+            'size-11 rounded-full shadow-raised'
       } ${
         active
-          ? 'bg-rose-50 border-rose-200 text-rose-500'
-          : 'bg-white border-slate-100 text-slate-400 hover:text-rose-500'
+          ? // `accent-red` is 4.83:1 on white; `rose-500` measured 3.34:1 and failed.
+            'bg-rose-50 border-rose-200 text-accent-red'
+          : 'bg-white border-slate-200 text-slate-500 hover:text-accent-red'
       }`}
-      title={active ? 'Remove from Wishlist' : 'Add to Wishlist'}
     >
       <Heart
         size={showText ? 16 : 20}
         fill={active ? 'currentColor' : 'none'}
         strokeWidth={active ? 0 : 2.5}
+        aria-hidden="true"
       />
       {showText && (active ? 'In Wishlist' : 'Add to Wishlist')}
     </button>

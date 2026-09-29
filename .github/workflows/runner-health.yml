@@ -2,6 +2,11 @@ name: Runner Health
 
 # Runs every 30 minutes — catches offline runners before a real CI job queues
 # and sits there forever. Also runs on demand.
+# Least privilege. Without this the workflow inherits the repository default,
+# which may grant write. It uses a runner-management PAT.
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: '*/30 * * * *'

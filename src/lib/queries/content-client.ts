@@ -44,35 +44,6 @@ interface GalleryPhotoRow {
   sort_order: number | null;
 }
 
-export async function getTestimonials() {
-  return Promise.resolve([
-    {
-      name: 'Capt. Charles',
-      role: 'Thunder Charter',
-      content:
-        'There you go mate! 40.1kg Kingfish, we got 4 yesterday. Your braid doing the business!',
-      image: 'site/charles-kingfish.png',
-      stars: 5,
-    },
-    {
-      name: 'Ham & Cheese',
-      role: 'Local NZ Fishing Celebrities',
-      content:
-        "She's like rope, it's bloody good stuff. Bay of Plenty Boat Hire use this stuff on their rods when they're catching the big stuff – This is the braid we use on all our gear.",
-      image: 'site/ham-cheese-kingfish.png',
-      stars: 5,
-    },
-    {
-      name: 'Mike Thompson',
-      role: 'Weekend Warrior',
-      content:
-        "What impressed me most is how well it holds up over time. No fraying, no colour bleed like I've had with other brands, it's super sensitive, you can feel every little nibble.",
-      image: 'site/mike-fish.png',
-      stars: 5,
-    },
-  ]);
-}
-
 /**
  * Fetches gallery photos from the gallery_photos table.
  *

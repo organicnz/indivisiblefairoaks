@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getStripeShippingOptions, SHIPPING_RATES } from '@/config/shipping';
+import { CURRENCY, formatPrice, getStripeShippingOptions, SHIPPING_RATES } from '@/config/commerce';
 
 // ─── SHIPPING_RATES data integrity ────────────────────────────────────────────
 // Shipping rates are sent directly to Stripe. Wrong values = wrong charges.
@@ -19,9 +19,14 @@ describe('SHIPPING_RATES', () => {
     }
   });
 
-  it('every rate uses nzd currency', () => {
+  it('every Stripe option is denominated in the storefront currency', () => {
+    // Currency lives in exactly one place. A per-rate currency field is how the
+    // checkout ended up charging 'nzd' while structured data advertised 'USD'.
     for (const rate of SHIPPING_RATES) {
-      expect(rate.currency).toBe('nzd');
+      expect(rate).not.toHaveProperty('currency');
+    }
+    for (const opt of getStripeShippingOptions()) {
+      expect(opt.shipping_rate_data.fixed_amount.currency).toBe(CURRENCY);
     }
   });
 
@@ -31,21 +36,21 @@ describe('SHIPPING_RATES', () => {
     }
   });
 
-  it('pickup rate has zero amount', () => {
-    const pickup = SHIPPING_RATES.find((r) => r.id === 'pickup');
+  it('local pickup is free', () => {
+    const pickup = SHIPPING_RATES.find((r) => r.id === 'local-pickup');
     expect(pickup?.amount).toBe(0);
   });
 
-  it('standard rate is 800 cents ($8.00 NZD)', () => {
-    const standard = SHIPPING_RATES.find((r) => r.id === 'standard');
-    expect(standard?.amount).toBe(800);
-  });
-
-  it('rural rate is more expensive than standard', () => {
-    const standard = SHIPPING_RATES.find((r) => r.id === 'standard');
-    const rural = SHIPPING_RATES.find((r) => r.id === 'rural');
-    expect(standard?.amount).toBeGreaterThanOrEqual(0);
-    expect(rural?.amount).toBeGreaterThan(standard?.amount ?? 0);
+  it('every display price matches the amount it advertises', () => {
+    // displayPrice is shown to the shopper next to the Stripe charge, so a stale
+    // string here is a pricing lie.
+    for (const rate of SHIPPING_RATES) {
+      if (rate.amount === 0) {
+        expect(rate.displayPrice).toMatch(/no cost|free/i);
+        continue;
+      }
+      expect(rate.displayPrice).toBe(formatPrice(rate.amount / 100));
+    }
   });
 });
 
@@ -71,12 +76,12 @@ describe('getStripeShippingOptions()', () => {
     const options = getStripeShippingOptions();
     for (let i = 0; i < SHIPPING_RATES.length; i++) {
       expect(options[i].shipping_rate_data.fixed_amount.amount).toBe(SHIPPING_RATES[i].amount);
-      expect(options[i].shipping_rate_data.fixed_amount.currency).toBe(SHIPPING_RATES[i].currency);
+      expect(options[i].shipping_rate_data.fixed_amount.currency).toBe(CURRENCY);
     }
   });
 
   it('uses stripeDisplayName when present, falls back to name', () => {
-    const pickup = SHIPPING_RATES.find((r) => r.id === 'pickup');
+    const pickup = SHIPPING_RATES.find((r) => r.id === 'local-pickup');
     expect(pickup).toBeDefined();
     if (!pickup) return;
     const options = getStripeShippingOptions();

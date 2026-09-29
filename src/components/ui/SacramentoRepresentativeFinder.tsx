@@ -215,16 +215,16 @@ export function SacramentoRepresentativeFinder() {
   };
 
   return (
-    <div className="rounded-3xl bg-slate-900/95 border border-slate-800 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl">
+    <div className="rounded-3xl bg-secondary/95 border border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl">
       <div className="max-w-3xl">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
-          <MapPin size={14} className="text-amber-400" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <MapPin size={14} className="text-accent-gold" />
           <span>Instant District & Representative Finder</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3">
           Know Your Representatives & Hold Them Accountable
         </h2>
-        <p className="text-sm sm:text-base text-slate-300 leading-relaxed mb-8">
+        <p className="text-sm sm:text-base text-ink-on-dark leading-relaxed mb-8">
           Enter your local ZIP code to instantly find your federal, state, and county elected
           officials, complete with verified direct phone numbers and constituent advocacy scripts.
         </p>
@@ -235,7 +235,10 @@ export function SacramentoRepresentativeFinder() {
           className="flex flex-col sm:flex-row items-stretch gap-3 mb-8"
         >
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted-on-dark"
+              size={18}
+            />
             <input
               type="text"
               pattern="[0-9]{5}"
@@ -243,28 +246,28 @@ export function SacramentoRepresentativeFinder() {
               value={zipInput}
               onChange={(e) => setZipInput(e.target.value)}
               placeholder="Enter ZIP (e.g. 95628, 95608, 95662)"
-              className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 text-sm font-mono focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-500 text-sm font-mono focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
           <button
             type="submit"
-            className="px-6 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all shrink-0 hover:scale-[1.02]"
+            className="px-6 py-3.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all shrink-0 hover:scale-[1.02]"
           >
             Find Officials
           </button>
         </form>
 
         {/* Current District Header */}
-        <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="p-4 rounded-2xl bg-secondary/70 border border-white/10 mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <div className="text-xs font-mono text-amber-400 uppercase tracking-wide">
+            <div className="text-xs font-mono text-accent-gold uppercase tracking-wide">
               Selected Community:
             </div>
             <div className="text-lg font-bold text-white">
               {activeDistrict.city}, CA ({activeDistrict.zip})
             </div>
           </div>
-          <div className="text-xs text-slate-400 font-mono">
+          <div className="text-xs text-ink-muted-on-dark font-mono">
             {activeDistrict.congressionalDistrict}
           </div>
         </div>
@@ -274,28 +277,32 @@ export function SacramentoRepresentativeFinder() {
           {activeDistrict.officials.map((official) => (
             <div
               key={official.name}
-              className="p-5 rounded-2xl bg-slate-950/50 border border-slate-800/80 hover:border-slate-700 transition-all flex flex-col justify-between"
+              className="p-5 rounded-2xl bg-secondary/50 border border-white/10/80 hover:border-slate-700 transition-all flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="font-mono text-slate-400 text-[11px]">{official.title}</span>
+                  <span className="font-mono text-ink-muted-on-dark text-[11px]">
+                    {official.title}
+                  </span>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       official.party === 'Democrat'
-                        ? 'bg-blue-500/20 text-blue-300'
+                        ? 'bg-primary-bright/20 text-primary-on-dark'
                         : official.party === 'Republican'
                           ? 'bg-red-500/20 text-red-300'
-                          : 'bg-slate-700 text-slate-300'
+                          : 'bg-slate-700 text-ink-on-dark'
                     }`}
                   >
                     {official.party}
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-white mb-1">{official.name}</h3>
-                {official.notes && <p className="text-xs text-slate-400 mb-3">{official.notes}</p>}
+                {official.notes && (
+                  <p className="text-xs text-ink-muted-on-dark mb-3">{official.notes}</p>
+                )}
               </div>
 
-              <div className="pt-4 border-t border-slate-800/60 flex items-center justify-between gap-2">
+              <div className="pt-4 border-t border-white/10/60 flex items-center justify-between gap-2">
                 <a
                   href={`tel:${official.phone.replace(/[^0-9]/g, '')}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-mono font-semibold transition-colors"
@@ -307,7 +314,7 @@ export function SacramentoRepresentativeFinder() {
                   href={official.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  className="p-1.5 rounded-lg text-ink-muted-on-dark hover:text-white hover:bg-white/5 transition-colors"
                   aria-label={`Official website for ${official.name}`}
                 >
                   <ExternalLink size={15} />
@@ -318,24 +325,24 @@ export function SacramentoRepresentativeFinder() {
         </div>
 
         {/* 5 Calls Constituent Phone Script Generator */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-blue-500/30">
+        <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-primary-bright/30">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
             <div>
-              <div className="text-xs font-mono text-amber-400 uppercase tracking-wider font-bold mb-1">
+              <div className="text-xs font-mono text-accent-gold uppercase tracking-wider font-bold mb-1">
                 Civic Action Phone Script
               </div>
               <h4 className="text-base font-bold text-white">What To Say When You Call</h4>
             </div>
 
             {/* Issue Selector Tabs */}
-            <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-medium">
+            <div className="flex items-center gap-1 p-1 bg-secondary rounded-xl border border-white/10 text-xs font-medium">
               <button
                 type="button"
                 onClick={() => setSelectedIssue('voting')}
                 className={`px-3 py-1 rounded-lg transition-colors ${
                   selectedIssue === 'voting'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-primary-bright text-white'
+                    : 'text-ink-muted-on-dark hover:text-white'
                 }`}
               >
                 Voting Rights
@@ -345,8 +352,8 @@ export function SacramentoRepresentativeFinder() {
                 onClick={() => setSelectedIssue('democracy')}
                 className={`px-3 py-1 rounded-lg transition-colors ${
                   selectedIssue === 'democracy'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-primary-bright text-white'
+                    : 'text-ink-muted-on-dark hover:text-white'
                 }`}
               >
                 Democracy
@@ -356,8 +363,8 @@ export function SacramentoRepresentativeFinder() {
                 onClick={() => setSelectedIssue('environment')}
                 className={`px-3 py-1 rounded-lg transition-colors ${
                   selectedIssue === 'environment'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-primary-bright text-white'
+                    : 'text-ink-muted-on-dark hover:text-white'
                 }`}
               >
                 Climate
@@ -365,18 +372,18 @@ export function SacramentoRepresentativeFinder() {
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 font-sans text-xs sm:text-sm text-slate-200 leading-relaxed mb-4 relative">
+          <div className="p-4 rounded-xl bg-secondary border border-white/10 font-sans text-xs sm:text-sm text-slate-200 leading-relaxed mb-4 relative">
             &ldquo;{getCallScript()}&rdquo;
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-ink-muted-on-dark">
               💡 Staffers tally calls by topic daily. 2 minutes makes a measurable difference!
             </span>
             <button
               type="button"
               onClick={copyScript}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-semibold transition-all shrink-0"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-semibold transition-all shrink-0"
             >
               {copiedScript ? (
                 <>

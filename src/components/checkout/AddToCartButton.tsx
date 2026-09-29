@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, ShoppingCart } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCartStore } from '@/lib/store/cart';
 
 interface Variation {
@@ -29,6 +29,17 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
   const [selectedVariation, setSelectedVariation] = useState<Variation | null>(
     variations.length > 0 ? variations[0] : null
   );
+  // The confirmation timer used to be a bare setTimeout with no cleanup, so
+  // navigating away inside those two seconds set state on an unmounted
+  // component. Held in a ref so the effect can cancel it on unmount.
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    },
+    []
+  );
 
   const handleAddToCart = () => {
     addItem({
@@ -45,7 +56,8 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
     });
 
     setIsAdded(true);
-    setTimeout(() => setIsAdded(false), 2000);
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setIsAdded(false), 3000);
   };
 
   const isOutOfStock = selectedVariation
@@ -72,7 +84,7 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
                 const v = variations.find((v) => v.id === Number.parseInt(e.target.value, 10));
                 if (v) setSelectedVariation(v);
               }}
-              className="w-full appearance-none bg-slate-50 border border-slate-200 text-secondary py-4 px-5 pr-10 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-bold text-sm uppercase tracking-wider"
+              className="w-full appearance-none bg-slate-50 border border-slate-200 text-secondary py-4 px-5 pr-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-transparent font-bold text-sm uppercase tracking-wider"
             >
               {variations.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -97,20 +109,37 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
         type="button"
         onClick={handleAddToCart}
         disabled={isOutOfStock}
-        className={`w-full border-none rounded-full py-5 px-10 flex items-center justify-center text-sm font-black text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all uppercase tracking-widest shadow-xl ${
+        className={`w-full border-none rounded-full py-5 px-10 flex items-center justify-center text-sm font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary transition-all duration-300 ease-out uppercase tracking-[0.2em] shadow-float ${
           isOutOfStock
             ? 'bg-slate-300 cursor-not-allowed shadow-none'
             : isAdded
-              ? 'bg-emerald-500 shadow-emerald-100 scale-95'
+              ? 'bg-emerald-600 scale-95'
               : 'bg-primary hover:bg-primary-dark shadow-primary/20 hover:scale-[1.02] active:scale-95'
         }`}
       >
-        <ShoppingCart className="mr-3" size={20} strokeWidth={3} />
+        <ShoppingCart className="mr-3" size={20} strokeWidth={3} aria-hidden="true" />
         {isOutOfStock ? 'Out of stock' : isAdded ? 'Added to Cart!' : 'Add to bag'}
       </button>
 
-      <div className="flex items-center justify-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+      {/*
+        The button label mutates on success, but nothing announced it: a
+        screen-reader user pressed "Add to bag" and heard silence. `aria-live`
+        on a region that is always in the DOM (not conditionally rendered) is
+        what makes the change announce.
+      */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {isOutOfStock
+          ? `${product.name} is out of stock.`
+          : isAdded
+            ? `${product.name} added to your cart.`
+            : ''}
+      </p>
+
+      <div className="flex items-center justify-center gap-2 text-xs font-black text-slate-500 uppercase tracking-[0.2em]">
+        <span
+          aria-hidden="true"
+          className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse motion-reduce:animate-none"
+        />
         Secure checkout via Stripe
       </div>
     </div>
