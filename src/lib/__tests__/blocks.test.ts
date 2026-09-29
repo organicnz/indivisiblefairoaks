@@ -12,7 +12,7 @@ import {
   serializeBlocks,
   stripTags,
 } from '@/lib/blocks';
-import { sanitizeWPContent } from '@/lib/sanitize';
+import { containsSpamKeyword, sanitizeWPContent } from '@/lib/sanitize';
 
 /** Block identity is session-scoped and irrelevant to round-trip equality. */
 function withoutIds(blocks: Block[]) {
@@ -22,6 +22,21 @@ function withoutIds(blocks: Block[]) {
 function fixture(block: Block): string {
   return serializeBlocks([block]);
 }
+
+/**
+ * Generated text occasionally lands on a spam keyword — a random three-letter
+ * button label like "RTp" is a real collision, and it was the cause of a
+ * property failing roughly one full-suite run in eight.
+ *
+ * The sanitizer deleting that is *correct*: "rtp" is a keyword precisely because
+ * casino spam is full of it, and a page whose body says "casino" is a page the
+ * spam filter is built to strip. So these two properties are about structural
+ * fidelity — that the serializer's own markup survives its own round trip — and
+ * a document that is actually spam is outside their claim, not a counterexample
+ * to it. Silencing the filter instead would leave the genuine deletion untested.
+ */
+const mentionsSpamKeyword = (blocks: Block[]): boolean =>
+  containsSpamKeyword(serializeBlocks(blocks).replace(/<[^>]*>/g, ' '));
 
 describe('block serialization is sanitizer-safe', () => {
   beforeEach(() => resetBlockIds());
@@ -569,6 +584,7 @@ describe('property: every serializable block survives a full round trip', () => 
     fc.assert(
       fc.property(fc.array(blockArb, { minLength: 1, maxLength: 6 }), (blocks) => {
         const model = blocks.map(withId);
+        if (mentionsSpamKeyword(model)) return;
         const rendered = sanitizeWPContent(serializeBlocks(model));
         const kinds = (list: Block[]) => list.map((b) => b.type);
         // Empty blocks are legitimately dropped rather than persisted as markup
@@ -609,6 +625,7 @@ describe('property: every serializable block survives a full round trip', () => 
       fc.property(fc.array(blockArb, { minLength: 1, maxLength: 6 }), (blocks) => {
         const model = blocks.map(withId).filter((b) => !isBlockEmpty(b));
         if (model.length === 0) return;
+        if (mentionsSpamKeyword(model)) return;
         const saved = serializeBlocks(model);
         expect(sanitizeWPContent(saved)).toBe(saved);
       }),

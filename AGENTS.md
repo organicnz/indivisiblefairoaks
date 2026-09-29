@@ -81,6 +81,27 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
 
 Never render raw Supabase HTML without this helper — treat it as a security boundary.
 
+**Spam keywords match on word boundaries, not substrings.** All three call sites
+— `isSpamContent`, the element-removal pass, and the contact form — go through
+`containsSpamKeyword()`, which builds `\b<keyword>(?:s|es|ed|ing)?\b`. This is
+load-bearing in both directions. The inflection allowance is why `isSpamContent(
+'hot slots action')` is still spam. The boundaries are why a paragraph about a
+**judicial** review or **pragmatically** better canvassing survives: matching
+`'judi'` as a substring deleted the entire `<p>`, `<div>` or `<a>` that mentioned
+it, and the contact form told the resident they were a spammer. The list is
+still aggressive on purpose — a bare `slot`, `bonus` or `bingo` *is* still a hit,
+which is documented in `sanitize-keywords.test.ts` rather than left as a
+surprise. Adding a fourth matcher here re-opens the same bug; export and use
+`containsSpamKeyword` instead.
+
+**The block editor must produce markup the sanitizer preserves.** A property
+test asserts `sanitize(serialize(blocks)) === serialize(blocks)` for arbitrary
+blocks. It is the only thing standing between a newly added block type and
+silently vanishing on publish — it is how a `button` block was caught being
+deleted. The one documented exemption is content that is genuinely spam, since
+deleting that is the filter working. A failure here is a sanitizer bug or a
+missing block type, not a flaky test.
+
 **The CMS bodies are plain text, not HTML.** The Google Sites export stripped
 every tag, so the site chrome arrived as literal lines — "Search this site",
 "Skip to main content", a sidebar navigation repeated three or four times, and a
@@ -329,6 +350,15 @@ on demand. Outstanding fixes are listed in
 Four functions deploy `--no-verify-jwt` and are therefore publicly callable, which
 is why an unread credential sitting in the edge store is a finding, not a nit.
 
+**`CRM_BROADCAST_FUNCTION_URL` was unset in production as of 2026-09-29.** Until
+it is set, every broadcast fails safely with "the broadcast sender is not
+configured on this deployment" and nothing is queued. Value:
+`https://<project-ref>.supabase.co/functions/v1/crm-broadcast-send`. It is a
+plain URL, not a credential, but it belongs in a secret store only if the
+`secrets:audit` reconciler is taught about it — it is a *name*, and the four
+stores disagree about where names live. See
+[`docs/crm-operations.md`](./docs/crm-operations.md#configuration).
+
 ---
 
 ## CI configuration (GitHub Actions)
@@ -423,8 +453,12 @@ Deliberately left undone. None block the apex cutover.
 
 ## Agent Skills
 
-Skills are installed in `.agents/skills/` (symlinked for discovery at `.claude/skills/`), pinned in `skills-lock.json`.
-Load on demand — do not load all skills upfront, do not re-install manually.
+Skills are installed in `.agents/skills/` (symlinked for discovery at `.claude/skills/`).
+The vendored ones are pinned in `skills-lock.json` — load on demand, do not load
+all skills upfront, do not re-install manually.
+
+`cms-editor-and-crm` is **not** vendored. It is written for this codebase, is not
+in the lockfile, and is meant to be edited when an invariant changes.
 
 Full usage guide with project-specific context for each skill: **[SKILLS.md](./SKILLS.md)**
 
@@ -432,6 +466,7 @@ Quick trigger table:
 
 | Skill | Load when |
 |---|---|
+| `cms-editor-and-crm` | **Any change to the content editor, the CRM, `sanitize.ts`, or anything that can send email** |
 | `vercel-react-best-practices` | Writing or refactoring any React / Next.js code |
 | `vercel-composition-patterns` | Component API design, compound components, boolean-prop refactors |
 | `web-design-guidelines` | UI or a11y audits |
@@ -444,6 +479,46 @@ Quick trigger table:
 | `vercel-react-native-skills` | Not applicable — web-only project |
 
 Update: `npx skills update` · Restore: `npx skills experimental_install`
+
+---
+
+## The admin surfaces
+
+Two admin surfaces own the material a volunteer actually edits. They have their
+own docs, because their failure modes are invisible to review and to unit tests.
+
+- **Content editor** — [`docs/content-editor.md`](./docs/content-editor.md).
+  Block model in `src/lib/blocks/`, shell in `ContentEditor.tsx`, server actions
+  in `src/lib/actions/content.ts`. Two invariants matter most: autosave persists
+  with the document's *current* publish state (an earlier version hardcoded
+  `draft` and quietly unpublished live pages), and image deletion checks
+  `content.body`, `content.featured_image` **and** `content_revisions.body`
+  before removing an object.
+- **CRM and broadcasting** — [`docs/crm-operations.md`](./docs/crm-operations.md).
+  Delivery is off the request path: the action writes a `queued` row and the
+  `crm-broadcast-send` Edge Function owns delivery and progress. A self-test
+  derives its recipient from the session and **cannot be pointed** at anyone
+  else; the narrowing lives in the Edge Function, where recipients are resolved.
+
+  `crm_broadcasts.status` omits nothing, but it once omitted `'queued'` — the
+  value the app writes and the sender requires — so **every broadcast failed at
+  the insert** and no unit test noticed, because they mock the Supabase client.
+  A `CHECK` constraint that disagrees with the code is a trap; when you add a
+  state, update the constraint in the same change.
+
+**No test may send email, by two different mechanisms.** The contact form's
+notifier is *redirected* in e2e: `playwright.config.ts` points
+`CONTACT_FUNCTION_URL` at a local mock, and `notifyUrl()` refuses to fall back
+to the live URL in an e2e build, so the call is harmless rather than bypassed —
+the suite still exercises the delivery-status UI and its failure branches. The
+CRM send paths are *refused in code*: `sendCRMBroadcast`,
+`sendCRMBroadcastSelfTest` and `sendCRMDirectEmail` return early when
+`isE2EMode()` is true, because they dispatch to a live Edge Function that talks
+to Resend and there is no redirect for them. That matters the moment e2e gains a
+seeded admin session. Any new send path needs the second mechanism;
+`isE2EMode()` requires **both** `CONTACT_SUBMISSION_TEST_MODE` and
+`NEXT_E2E_BUILD`, so CI cannot enable it by accident and an admin cannot
+disable real delivery by setting one variable.
 
 ---
 

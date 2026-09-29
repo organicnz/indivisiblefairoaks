@@ -11,10 +11,20 @@ const mockAdminClient = {
   rpc: vi.fn(),
 };
 
+const session = vi.hoisted(() => ({
+  adminUserId: 'admin-user-uuid-1234',
+  adminEmail: 'organizer@indivisiblefairoaks.org',
+}));
+
 vi.mock('@/lib/admin-auth', () => ({
   requireAdmin: vi.fn(async () => ({
     adminClient: mockAdminClient,
-    adminUserId: 'admin-user-uuid-1234',
+    get adminUserId() {
+      return session.adminUserId;
+    },
+    get adminEmail() {
+      return session.adminEmail;
+    },
   })),
 }));
 
@@ -32,6 +42,7 @@ import {
   saveCRMContact,
   saveCRMSegment,
   sendCRMBroadcast,
+  sendCRMBroadcastSelfTest,
   sendCRMDirectEmail,
   setCRMEmailConsent,
   setCRMTaskStatus,
@@ -918,5 +929,174 @@ describe('Civic CRM Server Actions', () => {
       expect(res.success).toBe(false);
       expect(res.error).toContain('No contacts match');
     });
+  });
+});
+
+describe('sendCRMBroadcastSelfTest', () => {
+  // The existing mockEnv is scoped to an earlier suite; env is a live object, so
+  // the same cast works here.
+  const mockEnv = env as unknown as Record<string, string | undefined>;
+
+  /**
+   * The first argument passed to `insert`. The shared builder mock types
+   * `insert()` as taking no arguments, so the recorded calls are zero-length
+   * tuples and the payload has to be read through a wider view.
+   */
+  const insertedRow = (qb: { insert: { mock: { calls: unknown[][] } } }): Record<string, unknown> =>
+    (qb.insert.mock.calls[0]?.[0] ?? {}) as Record<string, unknown>;
+
+  /** Wire the mocks for a successful self-test and return the broadcasts builder. */
+  const arrange = () => {
+    const qbBroadcasts = createMockQueryBuilder({
+      data: { id: 'test-broadcast-uuid' },
+      error: null,
+    });
+    mockAdminClient.from.mockImplementation((table: string) =>
+      table === 'crm_broadcasts' ? qbBroadcasts : createMockQueryBuilder()
+    );
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = mockFetch;
+    mockEnv.CRM_BROADCAST_FUNCTION_URL =
+      'https://project.supabase.co/functions/v1/crm-broadcast-send';
+    mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+    return { qbBroadcasts, mockFetch };
+  };
+
+  // A distinct admin identity, so this suite's sends do not spend the 5/minute
+  // budget that the other broadcast tests share. Restored afterwards.
+  const originalId = session.adminUserId;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    session.adminUserId = 'admin-user-selftest-uuid';
+    mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+    mockEnv.SUPABASE_SECRET_KEY = undefined;
+  });
+
+  afterEach(() => {
+    session.adminUserId = originalId;
+  });
+
+  it('addresses the signed-in admin and nobody else', async () => {
+    // The recipient is read from the session, so this function has no way to
+    // express "send this to someone else". A self-test that took a recipient
+    // would be a blast button with a narrow default.
+    const { qbBroadcasts } = arrange();
+    const res = await sendCRMBroadcastSelfTest({
+      subject: 'Chapter Meeting Next Tuesday',
+      body: 'Please attend.',
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.recipient).toBe('organizer@indivisiblefairoaks.org');
+    expect(qbBroadcasts.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        test_recipient: 'organizer@indivisiblefairoaks.org',
+        test_only: true,
+        recipient_count: 1,
+      })
+    );
+  });
+
+  it('writes no audience filters, so there is nothing for the sender to widen', async () => {
+    const { qbBroadcasts } = arrange();
+    await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
+    const row = insertedRow(qbBroadcasts);
+    expect(row.target_status).toBeUndefined();
+    expect(row.target_tags).toBeUndefined();
+    expect(row.target_districts).toBeUndefined();
+  });
+
+  it('marks the subject, so a stray preview is obvious in a real inbox', async () => {
+    const { qbBroadcasts } = arrange();
+    await sendCRMBroadcastSelfTest({ subject: 'Urgent: rally tomorrow', body: 'Body' });
+    const row = insertedRow(qbBroadcasts) as { subject: string };
+    expect(row.subject).toContain('[TEST');
+    expect(row.subject).toContain('Urgent: rally tomorrow');
+  });
+
+  it('dispatches through the same sender, with only the id', async () => {
+    const { mockFetch } = arrange();
+    await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(JSON.parse((mockFetch.mock.calls[0][1] as { body: string }).body)).toEqual({
+      broadcast_id: 'test-broadcast-uuid',
+    });
+  });
+
+  it('refuses an empty subject or body without writing anything', async () => {
+    const { qbBroadcasts } = arrange();
+    expect((await sendCRMBroadcastSelfTest({ subject: '  ', body: 'x' })).error).toMatch(/Subject/);
+    expect((await sendCRMBroadcastSelfTest({ subject: 'x', body: '  ' })).error).toMatch(/body/i);
+    expect(qbBroadcasts.insert).not.toHaveBeenCalled();
+  });
+
+  it('reports an unconfigured sender rather than claiming the test went out', async () => {
+    arrange();
+    mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+    const res = await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/not configured/i);
+  });
+});
+
+describe('CRM sends are blocked in an e2e build', () => {
+  // These paths dispatch to a live Edge Function that talks to Resend, and the
+  // audience is a real constituent list. The contact form is safe in e2e only
+  // because its notifier is redirected to a local mock; nothing does that here.
+  const envState = env as unknown as Record<string, string | undefined>;
+  const original = { test: envState.CONTACT_SUBMISSION_TEST_MODE, e2e: envState.NEXT_E2E_BUILD };
+  const mockFetch = vi.fn();
+  const originalId = session.adminUserId;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    session.adminUserId = 'admin-user-e2eguard-uuid';
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = mockFetch;
+  });
+
+  afterEach(() => {
+    session.adminUserId = originalId;
+    envState.CONTACT_SUBMISSION_TEST_MODE = original.test;
+    envState.NEXT_E2E_BUILD = original.e2e;
+  });
+
+  it('refuses a real broadcast', async () => {
+    envState.CONTACT_SUBMISSION_TEST_MODE = '1';
+    envState.NEXT_E2E_BUILD = 'true';
+    const res = await sendCRMBroadcast({ subject: 'Rally tomorrow', body: 'Join us' });
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/disabled in test builds/i);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('refuses a self-test send too', async () => {
+    // A preview is harmless in isolation, but it still reaches Resend and the
+    // chapter inbox, and a guard that only covers the dangerous path is a guard
+    // someone will extend by accident.
+    envState.CONTACT_SUBMISSION_TEST_MODE = '1';
+    envState.NEXT_E2E_BUILD = 'true';
+    const res = await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
+    expect(res.success).toBe(false);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('needs both flags, so CI cannot disable delivery by setting one', async () => {
+    // NEXT_E2E_BUILD alone is true of any CI build, where sending is wanted.
+    envState.CONTACT_SUBMISSION_TEST_MODE = undefined;
+    envState.NEXT_E2E_BUILD = 'true';
+    const qb = createMockQueryBuilder({ data: [], count: 0, error: null });
+    mockAdminClient.from.mockReturnValue(qb);
+    envState.CRM_BROADCAST_FUNCTION_URL =
+      'https://project.supabase.co/functions/v1/crm-broadcast-send';
+    envState.SUPABASE_SECRET_KEY = 'service-key';
+
+    const res = await sendCRMBroadcast({ subject: 'Rally', body: 'Join us' });
+
+    // The audience is empty here, so the send fails for that reason. What this
+    // asserts is which reason: not the test-build guard.
+    expect(res.success).toBe(false);
+    expect(res.error).not.toMatch(/disabled in test builds/i);
   });
 });

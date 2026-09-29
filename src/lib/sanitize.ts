@@ -299,6 +299,43 @@ const HTML_SANITIZE_OPTIONS: IOptions = {
   },
 };
 
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Utility to check if a given string contains spam keywords or non-latin characters.
+ * Used for aggressively filtering out malicious injections or spam pages.
+ */
+
+/**');
+
+/**
+ * One keyword matcher for every call site: word boundaries plus an optional
+ * inflection, so "casino" and "casinos" are caught while an ordinary word that
+ * merely contains a keyword is not.
+ *
+ * The substring match this replaces deleted whole paragraphs, blocks and
+ * buttons over English words. `SPAM_KEYWORDS` contains "bonus", "slot" and
+ * "judi" — so a section about a sign-up bonus, a parking slot, or a judicial
+ * review vanished on publish, and a contact message mentioning any of them was
+ * rejected as spam. `sanitizeText` already matched on word boundaries; the two
+ * HTML paths and the contact form did not, which is why a title survived
+ * something its own body did not.
+ *
+ * The inflection allowance is load-bearing: "slots" and "casinos" are spam,
+ * and `isSpamContent('hot slots action')` is pinned by a test.
+ *
+ * No `g` flag — these are reused with `test()`, and a sticky lastIndex would
+ * make the answer depend on call order.
+ */
+const SPAM_PATTERNS = SPAM_KEYWORDS.map(
+  (keyword) => new RegExp(`\\b${escapeRegex(keyword)}(?:s|es|ed|ing)?\\b`, 'i')
+);
+
+/** True when `text` contains a spam keyword as a word. */
+export function containsSpamKeyword(text: string): boolean {
+  return SPAM_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 /**
  * Utility to check if a given string contains spam keywords or non-latin characters.
  * Used for aggressively filtering out malicious injections or spam pages.
@@ -308,7 +345,7 @@ export function isSpamContent(text: string): boolean {
   const lowerText = text.toLowerCase();
 
   // Check for spam keywords
-  const hasSpamKeyword = SPAM_KEYWORDS.some((kw) => lowerText.includes(kw));
+  const hasSpamKeyword = containsSpamKeyword(lowerText);
 
   // Check for non-ASCII characters (spam payloads often use homoglyph alphabets).
   // \p{ASCII} covers U+0000–U+007F, identical to the old [^\x00-\x7F] range
@@ -477,10 +514,12 @@ export function sanitizeWPContent(html: string): string {
     // "delete the element that contains the keyword", so the match must not cross
     // the element's own closing tag. This narrows deletion, which cannot weaken
     // the boundary — a keyword still removes its own containing element.
-    for (const keyword of SPAM_KEYWORDS) {
-      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Each keyword's own pattern, so an element is deleted exactly when the
+    // text it contains is actually spam rather than a word that contains one.
+    for (const [index] of SPAM_KEYWORDS.entries()) {
+      const keywordPattern = SPAM_PATTERNS[index].source;
       for (const tag of ['p', 'div', 'a'] as const) {
-        const inner = `(?:(?!<\\/${tag}\\b)[\\s\\S])*?${escaped}(?:(?!<\\/${tag}\\b)[\\s\\S])*?`;
+        const inner = `(?:(?!<\\/${tag}\\b)[\\s\\S])*?${keywordPattern}(?:(?!<\\/${tag}\\b)[\\s\\S])*?`;
         const pattern =
           tag === 'a'
             ? new RegExp(`<a\\s[^>]*?${inner}<\\/a\\s*>`, 'gi')
@@ -586,14 +625,8 @@ export function sanitizeText(text: string): string {
   try {
     let clean = text;
 
-    for (const keyword of SPAM_KEYWORDS) {
-      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // Use word boundary where possible; fall back to plain match for multi-word/special keywords
-      const hasWordChars = /^\w+$/.test(keyword);
-      const pattern = hasWordChars
-        ? new RegExp(`\\b${escaped}\\b`, 'gi')
-        : new RegExp(escaped, 'gi');
-      clean = clean.replace(pattern, '...');
+    for (const pattern of SPAM_PATTERNS) {
+      clean = clean.replace(new RegExp(pattern.source, 'gi'), '...');
     }
 
     return clean;

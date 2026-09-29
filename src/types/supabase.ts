@@ -317,6 +317,8 @@ export type Database = {
           target_districts: string[]
           target_status: string[]
           target_tags: string[]
+          test_only: boolean
+          test_recipient: string | null
         }
         Insert: {
           body: string
@@ -333,6 +335,8 @@ export type Database = {
           target_districts?: string[]
           target_status?: string[]
           target_tags?: string[]
+          test_only?: boolean
+          test_recipient?: string | null
         }
         Update: {
           body?: string
@@ -349,6 +353,8 @@ export type Database = {
           target_districts?: string[]
           target_status?: string[]
           target_tags?: string[]
+          test_only?: boolean
+          test_recipient?: string | null
         }
         Relationships: []
       }
@@ -457,7 +463,7 @@ export type Database = {
       crm_tasks: {
         Row: {
           completed_at: string | null
-          contact_id: string
+          contact_id: string | null
           created_at: string
           created_by: string | null
           details: string | null
@@ -469,7 +475,7 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
-          contact_id: string
+          contact_id?: string | null
           created_at?: string
           created_by?: string | null
           details?: string | null
@@ -481,7 +487,7 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
-          contact_id?: string
+          contact_id?: string | null
           created_at?: string
           created_by?: string | null
           details?: string | null
