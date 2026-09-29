@@ -326,8 +326,8 @@ export type Database = {
           failed_count?: number
           id?: string
           recipient_count?: number
-          sent_count?: number
           sent_at?: string | null
+          sent_count?: number
           status?: string
           subject: string
           target_districts?: string[]
@@ -337,10 +337,13 @@ export type Database = {
         Update: {
           body?: string
           created_at?: string
+          created_by?: string | null
+          dispatched_at?: string | null
           failed_count?: number
           id?: string
           recipient_count?: number
           sent_at?: string | null
+          sent_count?: number
           status?: string
           subject?: string
           target_districts?: string[]
