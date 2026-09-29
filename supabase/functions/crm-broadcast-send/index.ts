@@ -91,7 +91,11 @@ interface Recipient {
   unsubscribe_token: string
 }
 
-app.post('/', async (c) => {
+// '*', not '/': Supabase delivers the request with its full path
+// (/functions/v1/crm-broadcast-send), so a '/' route never matches and the
+// handler is silently dead — the auth middleware still answers 401, which
+// makes it look deployed. Every other function in this repo uses '*'.
+app.post('*', async (c) => {
   assertConfigured()
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
@@ -123,6 +127,12 @@ app.post('/', async (c) => {
   }
   if (broadcast.dispatched_at) {
     return c.json({ ok: true, skipped: true, reason: 'already dispatched' })
+  }
+  // Only a queued campaign may be delivered. The app dispatches nothing else, so
+  // this is purely defensive — but a draft is an unsaved draft, and anything
+  // holding the service key should not be able to send one by accident.
+  if (broadcast.status !== 'queued') {
+    return c.json({ ok: true, skipped: true, reason: `not sendable (status: ${broadcast.status})` })
   }
 
   const { data: claimed, error: claimError } = await supabase
