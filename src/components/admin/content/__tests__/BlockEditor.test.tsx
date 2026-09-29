@@ -219,7 +219,10 @@ describe('BlockEditor DOM/model bridge', () => {
   it('adds a list item on Enter inside a list', () => {
     const onChange = vi.fn();
     render(parseHtml('<ul class="cw-list cw-list--bullet"><li>One</li></ul>'), onChange);
-    const li = container.querySelector('li') as HTMLElement;
+    // Scope to the block's own list: each block wrapper is itself an <li>, so a
+    // bare `li` selector would match the wrapper rather than the list item.
+    const li = container.querySelector('.cw-list li') as HTMLElement;
+    expect(li).not.toBeNull();
     act(() => {
       li.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })

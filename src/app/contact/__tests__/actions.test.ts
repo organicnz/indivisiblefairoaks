@@ -38,6 +38,7 @@ const fetchCalls: { url: string; init: RequestInit | undefined }[] = [];
 const testEnv = vi.hoisted(() => ({
   submissionTestMode: undefined as '1' | undefined,
   e2eBuild: false,
+  contactFunctionUrl: 'http://127.0.0.1:9911/notify-contact' as string | undefined,
 }));
 
 vi.mock('next/headers', () => ({
@@ -51,7 +52,10 @@ vi.mock('next/cache', () => ({
 vi.mock('@/lib/env', () => ({
   env: {
     NEXT_PUBLIC_SUPABASE_URL: 'https://stub.supabase.co',
-    CONTACT_FUNCTION_URL: undefined,
+    // Settable so the e2e-must-not-reach-the-live-function guard is testable.
+    get CONTACT_FUNCTION_URL() {
+      return testEnv.contactFunctionUrl;
+    },
     get CONTACT_SUBMISSION_TEST_MODE() {
       return testEnv.submissionTestMode;
     },
@@ -160,6 +164,26 @@ describeSuite('submitContact() validation', () => {
     expect(errOf(longMessage)).toMatch(/long/i);
   });
 
+  it('accepts a message that only contains a keyword as part of a longer word', async () => {
+    // The spam check used to be a bare substring match, so these were all
+    // rejected as spam before any write. A resident must be able to ask about
+    // parking or introduce themselves by name.
+    // Only substring over-matches are covered here. "Judi" or "RTP" as a whole
+    // word are still spam hits — see sanitize-keywords.test.ts, which documents
+    // that residual limitation rather than hiding it.
+    for (const message of [
+      'I have experience in judicial and legislative work.',
+      'Pragmatically, we should start the canvass in September.',
+      'The vUlCaNiSeD seal on the flyer is from last year.',
+    ]) {
+      const r = await submitContact(makeForm({ message }));
+      // 'error' in r is the rejection shape, so its absence is the assertion.
+      expect('error' in r, message).toBe(false);
+      expect(capturedRpcArgs, message).not.toBeNull();
+      capturedRpcArgs = null;
+    }
+  });
+
   it('rejects known spam keywords before any write', async () => {
     const r = await submitContact(
       makeForm({ message: 'Best online casino bonus awaits you here!' })
@@ -200,7 +224,11 @@ describeSuite('submitContact() delivery status propagation', () => {
     expect(r).toEqual({ success: true, emailStatus: 'sent', copyStatus: 'not-requested' });
   });
 
-  it('uses deterministic test mode without touching the database', async () => {
+  it('stubs the write but still calls the notifier in an E2E build', async () => {
+    // The UI under test is the visitor's real flow, including the honest
+    // delivery-status banner, so the notifier is the local mock rather than a
+    // bypass. `notifyUrl()` refuses to fall back to the live function in an e2e
+    // build, which is what keeps a real send impossible.
     testEnv.submissionTestMode = '1';
     testEnv.e2eBuild = true;
     const r = await submitContact(makeForm());
@@ -208,6 +236,27 @@ describeSuite('submitContact() delivery status propagation', () => {
     expect(fetchCalls).toHaveLength(1);
     expect(JSON.parse(String(fetchCalls[0].init?.body))).toEqual({ id: 1 });
     expect(r).toEqual({ success: true, emailStatus: 'sent', copyStatus: 'not-requested' });
+  });
+
+  it('refuses to reach the live notifier from an e2e build', async () => {
+    // If someone drops CONTACT_FUNCTION_URL from playwright.config.ts, the
+    // fallback would otherwise point a test run at the chapter's real inbox.
+    testEnv.submissionTestMode = '1';
+    testEnv.e2eBuild = true;
+    testEnv.contactFunctionUrl = undefined;
+    const r = await submitContact(makeForm());
+    expect(fetchCalls).toHaveLength(0);
+    expect(r).toEqual({ success: true, emailStatus: 'failed', copyStatus: 'not-requested' });
+  });
+
+  it('still emails a real submission when the E2E flag is not set', async () => {
+    // The inverse guard: the bypass needs BOTH variables, so CI cannot disable
+    // real delivery by setting one of them.
+    testEnv.submissionTestMode = undefined;
+    testEnv.e2eBuild = true;
+    await submitContact(makeForm());
+    expect(rpcMock).toHaveBeenCalled();
+    expect(fetchCalls).toHaveLength(1);
   });
 
   it('does not bypass persistence outside the E2E build', async () => {

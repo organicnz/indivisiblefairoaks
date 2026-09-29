@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
+import { CRMTaskForm } from '@/components/admin/crm/CRMTaskForm';
 import { type CRMTaskWithContact, deleteCRMTask, setCRMTaskStatus } from '@/lib/actions/crm';
 
 interface Props {
@@ -113,13 +114,18 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
         ))}
       </div>
 
+      {/* Adding a follow-up is here, not only on a constituent's profile. */}
+      <CRMTaskForm />
+
       {/* Task list */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {tasks.length === 0 ? (
           <div className="py-16 text-center text-slate-400">
             <CalendarCheck size={32} className="mx-auto mb-3 opacity-30" />
             <p className="font-bold text-sm">No follow-ups in this view.</p>
-            <p className="text-xs mt-1">Add one from a constituent&rsquo;s profile page.</p>
+            <p className="text-xs mt-1">
+              Add one above — with a constituent, or as chapter-wide work.
+            </p>
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
@@ -162,13 +168,17 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                       <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{task.details}</p>
                     )}
                     <div className="flex items-center gap-3 mt-1.5 text-[11px]">
-                      {task.contact && (
+                      {task.contact ? (
                         <Link
                           href={`/admin/crm/${task.contact.id}`}
                           className="text-primary font-bold hover:underline truncate max-w-[200px]"
                         >
                           {contactName || task.contact.email}
                         </Link>
+                      ) : (
+                        // Not a gap in the data: this is chapter work, and
+                        // saying so is more useful than showing no name at all.
+                        <span className="font-bold text-slate-500">Chapter-wide</span>
                       )}
                       <span className={due.className}>{due.text}</span>
                     </div>

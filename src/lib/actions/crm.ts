@@ -17,6 +17,7 @@ import {
   TAG_PATTERN,
   toCsvRow,
 } from '@/lib/crm-import';
+import { isE2EMode } from '@/lib/e2e-mode';
 import { brandShell, escapeHtml, LOGO_URL, safeSubject, sendEmail } from '@/lib/email';
 import { env } from '@/lib/env';
 import { rateLimit } from '@/lib/rate-limit';
@@ -65,8 +66,15 @@ const contactSchema = z.object({
 });
 
 const taskSchema = z.object({
-  contactId: z.string().uuid(),
-  title: z.string().trim().min(1).max(200),
+  // Optional: a follow-up can belong to the chapter rather than to a person
+  // ("call the county clerk", "confirm the venue"). `crm_tasks.contact_id`
+  // allows NULL for exactly this, and the board is where those live.
+  contactId: z
+    .string()
+    .uuid('Select a constituent, or leave this blank for a chapter-wide task')
+    .nullable()
+    .optional(),
+  title: z.string().trim().min(1, 'Give the follow-up a title').max(200),
   details: z.string().trim().max(2000).nullable().optional(),
   dueAt: z
     .string()
@@ -503,7 +511,7 @@ export async function addCRMTask(
   const { data, error } = await adminClient
     .from('crm_tasks')
     .insert({
-      contact_id: contactId,
+      contact_id: contactId || null,
       title,
       details: details || null,
       due_at: dueAt || null,
@@ -1002,6 +1010,9 @@ export async function sendCRMDirectEmail({
   subject: string;
   message: string;
 }): Promise<{ success: boolean; error?: string }> {
+  const blocked = sendBlockedInE2E();
+  if (blocked) return blocked;
+
   const { adminClient, adminUserId } = await requireAdmin();
 
   if (!subject.trim() || !message.trim()) {
@@ -1079,6 +1090,24 @@ export async function sendCRMDirectEmail({
 
   revalidateCRMRoutes(contactId);
   return { success: true };
+}
+
+/**
+ * Refuse to send from a test build.
+ *
+ * The contact form does not need this: its notifier is redirected to a local
+ * mock in e2e, so the call is harmless. These paths are not like that. They
+ * dispatch to a live Edge Function that talks to Resend, and the audience is a
+ * real list of real constituents. If e2e ever gains a seeded admin session — the
+ * obvious next step for testing the CRM — a single click in a spec would mail
+ * the chapter.
+ *
+ * Refusing here rather than trusting the harness means the guarantee travels
+ * with the code. A future test author does not need to know this rule exists, and
+ * a misconfigured environment cannot quietly undo it.
+ */
+function sendBlockedInE2E(): { success: false; error: string } | null {
+  return isE2EMode() ? { success: false, error: 'Sending is disabled in test builds.' } : null;
 }
 
 export interface BroadcastTarget {
@@ -1219,6 +1248,9 @@ export async function sendCRMBroadcast({
   broadcastId?: string;
   error?: string;
 }> {
+  const blocked = sendBlockedInE2E();
+  if (blocked) return blocked;
+
   const { adminClient, adminUserId } = await requireAdmin();
 
   const cleanSubject = broadcastSubject(subject);
@@ -1293,6 +1325,78 @@ export async function sendCRMBroadcast({
 
   revalidateCRMRoutes();
   return { success: true, recipientCount: recipients.length, broadcastId: broadcast.id };
+}
+
+/**
+ * Send a preview of this broadcast to the signed-in admin, and only to them.
+ *
+ * Authors need to see the rendered email before committing an audience to it,
+ * and the risk in offering that is obvious: a "send a test" button that accepts
+ * a recipient is one typo away from mailing the whole chapter, and there is no
+ * undo. So the recipient is never input — it is read from the server-side
+ * session, which means this function has no way to express "send this to
+ * someone else". A real audience still has to go through `sendCRMBroadcast`,
+ * with its rate limit and its recipient ceiling.
+ *
+ * Delivery itself is unchanged: the row is written with `test_recipient` set and
+ * handed to the same Edge Function. The function treats that column as the
+ * complete audience and ignores `target_*` entirely, so the narrowing happens
+ * where recipients are resolved rather than being trusted from here.
+ */
+export async function sendCRMBroadcastSelfTest({
+  subject,
+  body,
+}: {
+  subject: string;
+  body: string;
+}): Promise<{ success: boolean; recipient?: string; error?: string }> {
+  const blocked = sendBlockedInE2E();
+  if (blocked) return blocked;
+
+  const { adminClient, adminUserId, adminEmail } = await requireAdmin();
+
+  const cleanSubject = broadcastSubject(subject);
+  if (!cleanSubject) return { success: false, error: 'Subject is required' };
+  if (!body.trim()) return { success: false, error: 'Message body is required' };
+  if (!adminEmail) {
+    return { success: false, error: 'Your account has no email address to send the test to' };
+  }
+
+  const limited = sendRateLimited(adminUserId, BROADCAST_LIMIT);
+  if (limited) return { success: false, error: limited };
+
+  // The subject is marked because this lands in a real inbox, and an unmarked
+  // "Meeting tomorrow" from the chapter is indistinguishable from the real
+  // thing. Someone who finds one in production must know at a glance that no
+  // one else received it.
+  const markedSubject = `[TEST — not sent to the list] ${cleanSubject}`;
+
+  const { data, error } = await adminClient
+    .from('crm_broadcasts')
+    .insert({
+      subject: markedSubject,
+      body: body.trim(),
+      recipient_count: 1,
+      test_recipient: adminEmail,
+      test_only: true,
+      status: 'queued',
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) return { success: false, error: error?.message || 'Failed to log the test' };
+
+  const dispatched = await dispatchBroadcastSender(data.id);
+  if (!dispatched.ok) {
+    await adminClient
+      .from('crm_broadcasts')
+      .update({ status: 'failed', sent_at: new Date().toISOString() })
+      .eq('id', data.id);
+    return { success: false, error: `Test could not be sent: ${dispatched.error}` };
+  }
+
+  revalidateCRMRoutes();
+  return { success: true, recipient: adminEmail };
 }
 
 /**

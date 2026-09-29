@@ -113,7 +113,7 @@ app.post('*', async (c) => {
 
   const { data: broadcast, error: readError } = await supabase
     .from('crm_broadcasts')
-    .select('id, subject, body, status, recipient_count, sent_count, dispatched_at, target_tags, target_status, target_districts')
+    .select('id, subject, body, status, recipient_count, sent_count, dispatched_at, target_tags, target_status, target_districts, test_recipient, test_only')
     .eq('id', broadcastId)
     .maybeSingle()
 
@@ -151,7 +151,31 @@ app.post('*', async (c) => {
   const subject = broadcast.subject ?? '(no subject)'
 
   const recipients: Recipient[] = []
-  for (let offset = 0; offset < BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
+
+  /**
+   * A self-test addresses exactly one person, and that person is named in the
+   * row rather than derived from the audience filters.
+   *
+   * The narrowing is here, not in the caller, on purpose: this is the only place
+   * the recipient list is decided, so a preview cannot be widened by anything
+   * written on the client — not a stray `target_*`, not a stale audience. A
+   * preview that quietly resolved to a real list would be worse than no preview
+   * at all, because the author would ship on the strength of it.
+   */
+  const isSelfTest = broadcast.test_only === true && typeof broadcast.test_recipient === 'string'
+  if (isSelfTest) {
+    recipients.push({
+      id: 'selftest',
+      email: broadcast.test_recipient as string,
+      first_name: 'Test',
+      last_name: 'Recipient',
+      // No token: a preview has no unsubscribe link, because there is no
+      // standing subscription to withdraw — this address never opted in.
+      unsubscribe_token: '',
+    })
+  }
+
+  for (let offset = 0; !isSelfTest && offset < BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
     let qb = supabase
       .from('crm_contacts')
       .select('id, email, first_name, last_name, unsubscribe_token')
@@ -185,9 +209,13 @@ app.post('*', async (c) => {
       batch.map(async (recipient) => {
         const recipientName =
           [recipient.first_name, recipient.last_name].filter(Boolean).join(' ') || 'Supporter'
-        const unsubscribe = `${APP_URL.replace(/\/$/, '')}/api/crm/unsubscribe?token=${
-          recipient.unsubscribe_token
-        }`
+        // A preview has no subscription behind it, so it carries no unsubscribe
+        // link and no List-Unsubscribe header. A link built from an empty token
+        // would be a dead URL in a real inbox, and an unsubscribe header on a
+        // message the recipient never subscribed to is simply untrue.
+        const unsubscribe = isSelfTest
+          ? ''
+          : `${APP_URL.replace(/\/$/, '')}/api/crm/unsubscribe?token=${recipient.unsubscribe_token}`
         const { html, text } = buildBroadcastEmail({
           recipientName,
           body,
@@ -208,12 +236,14 @@ app.post('*', async (c) => {
             html,
             text,
             reply_to: ADMIN_ORDER_EMAIL,
-            headers: {
-              'List-Unsubscribe': `<${unsubscribe}>, <mailto:${ADMIN_ORDER_EMAIL}?subject=Unsubscribe>`,
-              'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-            },
+            headers: isSelfTest
+              ? { 'X-CRM-Test': 'true' }
+              : {
+                  'List-Unsubscribe': `<${unsubscribe}>, <mailto:${ADMIN_ORDER_EMAIL}?subject=Unsubscribe>`,
+                  'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+                },
             tags: [
-              { name: 'type', value: 'crm-broadcast' },
+              { name: 'type', value: isSelfTest ? 'crm-broadcast-test' : 'crm-broadcast' },
               { name: 'broadcast_id', value: broadcastId },
             ],
           }),
@@ -225,13 +255,20 @@ app.post('*', async (c) => {
     for (const { recipient, res } of results) {
       if (res.ok) {
         sent += 1
-        activityRows.push({
-          contact_id: recipient.id,
-          type: 'email_sent',
-          title: `Broadcast: ${subject}`,
-          description: `Delivered via campaign #${broadcastId}`,
-          metadata: { broadcast_id: broadcastId },
-        })
+        // No activity row for a preview. `crm_activities.contact_id` references
+        // `crm_contacts(id)`, and a self-test has no contact — the sentinel id
+        // would fail the foreign key and abort the write. Logging it against a
+        // real constituent would be worse: it would put "Broadcast: …" on
+        // somebody's timeline for a message they never received.
+        if (!isSelfTest) {
+          activityRows.push({
+            contact_id: recipient.id,
+            type: 'email_sent',
+            title: `Broadcast: ${subject}`,
+            description: `Delivered via campaign #${broadcastId}`,
+            metadata: { broadcast_id: broadcastId },
+          });
+        }
       } else {
         failed += 1
       }

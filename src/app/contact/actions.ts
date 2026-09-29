@@ -2,9 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
+import { isE2EMode } from '@/lib/e2e-mode';
 import { env } from '@/lib/env';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
-import { SPAM_KEYWORDS } from '@/lib/sanitize';
+import { containsSpamKeyword } from '@/lib/sanitize';
 import { createServerClient } from '@/lib/supabase-server';
 
 export type EmailStatus = 'sent' | 'failed' | 'not-requested';
@@ -19,14 +20,33 @@ export type ContactResult =
       copyStatus: EmailStatus;
     };
 
-/** Direct URL override for tests; defaults to the project's notify-contact. */
+/**
+ * Where the notification goes.
+ *
+ * In an e2e build the override is mandatory and the live function is
+ * unreachable by construction. `scripts/mock-notify-contact.mjs` exists so the
+ * suite can drive the delivery-status UI — including the 502 and
+ * "copied: false" branches — without a real send; the admin notification goes
+ * to the chapter's real inbox, which is not a place to put test traffic.
+ *
+ * Returning '' rather than falling back to the production URL is deliberate. A
+ * default that silently reappears if someone edits `playwright.config.ts` is a
+ * mail-sending accident waiting for a maintenance window; `invokeNotify` turns
+ * '' into a visible failure instead.
+ */
 function notifyUrl(): string {
+  if (isE2EMode()) return env.CONTACT_FUNCTION_URL ?? '';
   return env.CONTACT_FUNCTION_URL ?? `${env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notify-contact`;
 }
 
 async function invokeNotify(id: number): Promise<{ emailed: boolean; copied: boolean }> {
+  const url = notifyUrl();
+  if (!url) {
+    console.error('notify-contact is unreachable: no CONTACT_FUNCTION_URL in an e2e build');
+    return { emailed: false, copied: false };
+  }
   try {
-    const res = await fetch(notifyUrl(), {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
@@ -91,7 +111,10 @@ export async function submitContact(formData: FormData): Promise<ContactResult> 
   if (message.length > 5000) return { error: 'Message is too long (5000 characters max).' };
 
   // Keyword screen for drive-by link spam.
-  if (SPAM_KEYWORDS.some((kw) => message.toLowerCase().includes(kw))) {
+  // Word boundaries, not substrings: a resident writing about a sign-up bonus
+  // or a parking slot is not a spammer, and being told they are is a real
+  // barrier to contacting the chapter.
+  if (containsSpamKeyword(message)) {
     return { error: 'Message flagged as potential spam. Please revise.' };
   }
 
@@ -106,19 +129,18 @@ export async function submitContact(formData: FormData): Promise<ContactResult> 
     return { error: `Too many messages sent. Please try again in ${gate.retryAfterSec}s.` };
   }
 
-  const { data: id, error } =
-    env.CONTACT_SUBMISSION_TEST_MODE === '1' && env.NEXT_E2E_BUILD === 'true'
-      ? { data: 1, error: null }
-      : await (async () => {
-          const supabase = await createServerClient();
+  const { data: id, error } = isE2EMode()
+    ? { data: 1, error: null }
+    : await (async () => {
+        const supabase = await createServerClient();
 
-          return supabase.rpc('submit_contact_submission', {
-            p_name: name,
-            p_email: email,
-            p_message: message,
-            p_wants_copy: wantsCopy,
-          });
-        })();
+        return supabase.rpc('submit_contact_submission', {
+          p_name: name,
+          p_email: email,
+          p_message: message,
+          p_wants_copy: wantsCopy,
+        });
+      })();
 
   if (error || typeof id !== 'number') {
     console.error('Contact submission error:', error?.message);
@@ -127,6 +149,12 @@ export async function submitContact(formData: FormData): Promise<ContactResult> 
 
   // Await the notification so the UI can report real delivery status. The
   // function's atomic claim keeps this safe against retries and replays.
+  //
+  // This is the real notifier, not a stub, and that is safe: in an e2e build
+  // `notifyUrl()` refuses to fall back to the live Edge Function, so the call
+  // can only reach the local mock. Keeping the call means the suite still
+  // exercises the honest-delivery-status UI, including its failure branches —
+  // which a bypass would have silently made unreachable.
   const { emailed, copied } = await invokeNotify(id);
 
   revalidatePath('/contact');

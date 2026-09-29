@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   type ContentRevision,
@@ -59,6 +59,9 @@ interface EditorFields {
   featuredImage: string;
   body: string;
 }
+
+/** The failure branch of a save, so `persist` keeps a narrow union return type. */
+type SaveFailure = { success: false; error: string };
 
 function snapshotOf(fields: EditorFields): string {
   return JSON.stringify(fields);
@@ -106,6 +109,26 @@ export function ContentEditor({ initial, siteHost }: Props) {
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
   const [showRevisions, setShowRevisions] = useState(false);
 
+  /**
+   * Autosave.
+   *
+   * The unsaved-changes warning is necessary but not sufficient: it protects a
+   * deliberate navigation and nothing else. A browser crash, a closed laptop, a
+   * dropped connection or a mis-click in another tab loses everything, and on a
+   * long page that is a real afternoon of someone's work.
+   *
+   * Three rules, each of which exists to prevent autosave making things worse:
+   *
+   *   1. It never changes a page's publish state. It re-persists the document
+   *      with the status it already has, so it cannot take a live page down and
+   *      cannot put a draft up. Publishing stays a deliberate act.
+   *   2. It never creates a page from nothing. A title with no body is not a
+   *      page, and a directory full of empty rows is worse than no autosave.
+   *   3. It backs off, and stops entirely on a failure, so a server error does
+   *      not become a retry loop hammering the database every few seconds.
+   */
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+
   // The serialized body is derived, never tracked separately — so the save path
   // and the preview below cannot drift from what the blocks actually contain.
   const body = useMemo(() => serializeBlocks(blocks), [blocks]);
@@ -125,6 +148,32 @@ export function ContentEditor({ initial, siteHost }: Props) {
   const [savedSnapshot, setSavedSnapshot] = useState(snapshot);
   const dirty = snapshot !== savedSnapshot;
 
+  /**
+   * A failed autosave belongs to the document that produced it, so it records the
+   * snapshot it was written against. The next edit produces a different snapshot
+   * and the failure stops applying — no clearing effect, and no way for a stale
+   * error to be showing against content that has since changed.
+   */
+  const [saveFailure, setSaveFailure] = useState<{ snapshot: string; message: string } | null>(
+    null
+  );
+  const activeSaveFailure = saveFailure?.snapshot === snapshot ? saveFailure.message : null;
+
+  const handleSaveRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      // Cmd/Ctrl+S: the browser's "save the page" dialog is never what an author
+      // means inside an editor.
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        handleSaveRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
       if (!dirty) return;
@@ -143,6 +192,37 @@ export function ContentEditor({ initial, siteHost }: Props) {
     [slugTouched]
   );
 
+  /**
+   * The one write path. Both the Save button and autosave go through it, so they
+   * cannot diverge in what they persist or in how they report failure.
+   */
+  const persist = useCallback(
+    async (
+      nextStatus: 'publish' | 'draft'
+    ): Promise<
+      { success: true; data: { id: number }; status: 'publish' | 'draft' } | SaveFailure
+    > => {
+      const result = await saveContent({
+        id: initial.id,
+        title: title.trim(),
+        slug,
+        excerpt: excerpt.trim() || null,
+        type,
+        status: nextStatus,
+        body,
+        featuredImage: featuredImage.trim() || null,
+        metadata: {},
+      });
+      if (result.success) {
+        setSavedSnapshot(snapshotOf(fields));
+        setStatus(nextStatus);
+        return { success: true, data: result.data, status: nextStatus };
+      }
+      return { success: false, error: result.error };
+    },
+    [body, excerpt, featuredImage, fields, initial.id, slug, title, type]
+  );
+
   const handleSave = useCallback(
     async (nextStatus?: 'publish' | 'draft') => {
       if (saving) return;
@@ -158,48 +238,67 @@ export function ContentEditor({ initial, siteHost }: Props) {
       }
       setSaving(true);
       setError(null);
-      const targetStatus = nextStatus ?? status;
-      const result = await saveContent({
-        id: initial.id,
-        title: title.trim(),
-        slug,
-        excerpt: excerpt.trim() || null,
-        type,
-        status: targetStatus,
-        body,
-        featuredImage: featuredImage.trim() || null,
-        metadata: {},
-      });
+      const result = await persist(nextStatus ?? status);
       setSaving(false);
 
       if (!result.success) {
         setError(result.error);
+        setSaveFailure({ snapshot, message: result.error });
         toast.error(result.error);
         return;
       }
-      setStatus(targetStatus);
-      setSavedSnapshot(snapshot);
-      toast.success(targetStatus === 'publish' ? 'Published' : 'Draft saved');
+      setSaveFailure(null);
+      toast.success(result.status === 'publish' ? 'Published' : 'Draft saved');
       if (!initial.id) {
         router.replace(`/admin/content/${result.data.id}`);
       }
       router.refresh();
     },
-    [
-      blocks,
-      body,
-      excerpt,
-      featuredImage,
-      initial.id,
-      router,
-      saving,
-      slug,
-      snapshot,
-      status,
-      title,
-      type,
-    ]
+    [blocks, initial.id, persist, router, saving, snapshot, status, title]
   );
+
+  // Cmd+S reaches the same guarded path as the button.
+  useEffect(() => {
+    handleSaveRef.current = () => {
+      void handleSave();
+    };
+  }, [handleSave]);
+
+  /**
+   * Autosave, one debounced write behind the last edit.
+   *
+   * The delay matters as much as the write: the block editor emits a model
+   * change per keystroke, and saving each one would mean a database write and a
+   * new revision per character. Idle time is also the natural boundary — an
+   * author who stopped typing has stopped changing their mind.
+   *
+   * It persists with the document's *current* status and never changes it. An
+   * earlier version hardcoded `draft` here, which meant that editing a live
+   * page and pausing for two seconds quietly took it offline — the worst
+   * possible failure for a feature whose entire purpose is to be uneventful.
+   * Taking a page down stays a deliberate act, via the Save button.
+   */
+  useEffect(() => {
+    // Nothing worth saving yet. A title with no body is not a page.
+    if (!title.trim() || (blocks.length === 1 && isTransient(blocks[0]))) return;
+    // Only an existing page is autosaved. Creating a row from a half-typed title
+    // and then navigating away would leave an empty page behind.
+    if (!initial.id) return;
+    if (!dirty) return;
+    // A failed write keeps failing until the author changes something, so stop
+    // hammering the database and surface the reason instead.
+    if (activeSaveFailure) return;
+
+    const timer = setTimeout(() => {
+      setSaveState('saving');
+      void persist(status).then((result) => {
+        setSaveState(result.success ? 'saved' : 'idle');
+        setSaveFailure(result.success ? null : { snapshot, message: result.error });
+      });
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [activeSaveFailure, blocks, dirty, initial.id, persist, snapshot, status, title]);
 
   const handleDelete = useCallback(async () => {
     if (!initial.id) return;
@@ -293,12 +392,34 @@ export function ContentEditor({ initial, siteHost }: Props) {
           All pages
         </Link>
         <div className="flex flex-wrap items-center gap-2">
+          {/*
+            One indicator, and it never lies. Autosave writes a draft 2.5s after
+            the last keystroke, so the honest report is which of those is true
+            right now — including when autosave failed, which is the case that
+            matters most and the one a plain "saved" tick would hide.
+          */}
           <span
+            role="status"
+            aria-live="polite"
             className={`inline-flex items-center gap-1.5 text-xs ${
-              dirty ? 'font-semibold text-accent-gold' : 'text-slate-500'
+              activeSaveFailure
+                ? 'font-semibold text-accent-red'
+                : dirty || saveState === 'saving'
+                  ? 'font-semibold text-accent-gold'
+                  : 'text-slate-500'
             }`}
           >
-            {dirty ? (
+            {activeSaveFailure ? (
+              <>
+                <AlertCircle size={13} aria-hidden="true" />
+                Autosave failed
+              </>
+            ) : saveState === 'saving' ? (
+              <>
+                <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+                Saving…
+              </>
+            ) : dirty ? (
               <>
                 <AlertCircle size={13} aria-hidden="true" />
                 Unsaved changes
@@ -372,6 +493,32 @@ export function ContentEditor({ initial, siteHost }: Props) {
         </p>
       )}
 
+      {/*
+        A failed autosave is the one state a small indicator cannot carry on its
+        own: the reason matters (a slug clash is the author's to fix, a
+        transient database error is not), and it stays on screen until the
+        document changes.
+      */}
+      {activeSaveFailure && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-accent-red bg-rose-50 px-4 py-3"
+        >
+          <AlertCircle size={16} className="shrink-0 text-accent-red" aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-sm font-medium text-accent-red">
+            Autosave failed: {activeSaveFailure}
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="rounded-lg border border-accent-red px-3 py-1.5 text-xs font-bold text-accent-red transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       {showRevisions && initial.id && (
         <RevisionsPanel revisions={revisions} onLoad={loadRevisions} onRestore={handleRestore} />
       )}
@@ -403,12 +550,25 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 {stats.minutes > 0 && ` · ${stats.minutes} min read`}
               </p>
             </div>
-            <p className="mb-3 text-xs text-slate-500">
-              Type{' '}
-              <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[0.7rem]">
-                /
-              </kbd>{' '}
-              on an empty line to insert a block. Enter adds the next one.
+            <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1.5">
+                <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[0.7rem]">
+                  /
+                </kbd>
+                to insert a block
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[0.7rem]">
+                  {'Ctrl/⌘'} K
+                </kbd>
+                to add a link
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[0.7rem]">
+                  {'Ctrl/⌘'} S
+                </kbd>
+                to save now
+              </span>
             </p>
             <BlockEditor blocks={blocks} onChange={setBlocks} />
           </div>

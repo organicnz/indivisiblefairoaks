@@ -14,6 +14,7 @@ import {
   Radio,
   Save,
   Send,
+  SendHorizonal,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ import {
   previewCRMBroadcast,
   saveCRMBroadcastDraft,
   sendCRMBroadcast,
+  sendCRMBroadcastSelfTest,
 } from '@/lib/actions/crm';
 import { BROADCAST_RECIPIENT_CEILING } from '@/lib/crm-broadcast';
 
@@ -91,6 +93,7 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
   // Sending status
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isSelfTesting, setIsSelfTesting] = useState(false);
 
   // Expandable history rows
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -196,6 +199,37 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
       active = false;
     };
   }, [body, previewMode, subject]);
+
+  /**
+   * Send this exact message to the signed-in admin and nobody else.
+   *
+   * The address is never collected. That is the whole point: a self-test that
+   * asked for a recipient would be a send button with a narrow default, and
+   * the failure mode of getting it wrong lands in strangers' inboxes. So the
+   * server decides, from the session, and the button cannot be pointed.
+   */
+  const handleSelfTest = async () => {
+    if (!subject.trim() || !body.trim()) {
+      toast.error('Add a subject and message before sending a test');
+      return;
+    }
+    if (isSelfTesting) return;
+    setIsSelfTesting(true);
+    try {
+      const res = await sendCRMBroadcastSelfTest({ subject, body });
+      if (res.success) {
+        toast.success(`Test sent to ${res.recipient}. Nobody else received it.`, {
+          duration: 6000,
+        });
+      } else {
+        toast.error(res.error || 'Test could not be sent');
+      }
+    } catch {
+      toast.error('Test could not be sent');
+    } finally {
+      setIsSelfTesting(false);
+    }
+  };
 
   const handleSaveDraft = async () => {
     if (!subject.trim() || !body.trim()) {
@@ -477,14 +511,30 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                   2. Message Content
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setPreviewMode(!previewMode)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
-              >
-                <Eye size={14} />
-                {previewMode ? 'Edit Draft' : 'Sensory Preview'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSelfTest}
+                  disabled={isSelfTesting || !subject.trim() || !body.trim()}
+                  title="Send this message to your own inbox. Nobody else receives it."
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-40 disabled:hover:bg-slate-100"
+                >
+                  {isSelfTesting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <SendHorizonal size={14} />
+                  )}
+                  Send a test to me
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode(!previewMode)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                >
+                  <Eye size={14} />
+                  {previewMode ? 'Edit Draft' : 'Sensory Preview'}
+                </button>
+              </div>
             </div>
 
             {!previewMode ? (

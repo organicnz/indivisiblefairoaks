@@ -11,6 +11,7 @@ import {
   MAX_BODY_BYTES,
 } from '@/lib/content';
 import { env } from '@/lib/env';
+import { getStorageUrl } from '@/lib/supabase';
 import type { Database } from '@/types/supabase';
 
 // This is a 'use server' module, so it may only export async functions.
@@ -366,4 +367,111 @@ export async function restoreContentRevision(
     featuredImage: null,
     metadata: (revision.metadata as Record<string, string>) ?? {},
   });
+}
+
+/**
+ * Raster allowlist, identical to the product uploader.
+ *
+ * SVG is excluded deliberately: it is active content that executes on the
+ * storage origin under the site's own CSP, so an uploaded SVG is stored XSS
+ * against every page that references it. There is no sanitiser here that would
+ * make an SVG safe to serve from the site's own domain.
+ */
+const CONTENT_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
+const CONTENT_IMAGE_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+const MAX_CONTENT_IMAGE_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Upload an image for a CMS page or block and return its public URL.
+ *
+ * Without this the editor can only reference an image the admin already has a
+ * URL for, which makes "add a photo of today's rally" a three-step detour
+ * through an external host. The file lands in the same public `media` bucket
+ * the rest of the site uses, so it is served by the existing CDN path and
+ * needs no new bucket policy.
+ *
+ * The URL is absolute. That matters: `sanitizeWPContent` rewrites relative
+ * `src` values to a Storage URL on every render, so storing a relative path
+ * would make the stored document non-idempotent and produce a fresh revision on
+ * every load.
+ */
+export async function uploadContentImage(formData: FormData): Promise<{ url: string }> {
+  const file = formData.get('file');
+  if (!(file instanceof File)) throw new Error('No file provided');
+  if (!CONTENT_IMAGE_TYPES.includes(file.type as (typeof CONTENT_IMAGE_TYPES)[number])) {
+    throw new Error('Image must be JPEG, PNG, WebP or GIF. SVG is not allowed.');
+  }
+  if (file.size > MAX_CONTENT_IMAGE_BYTES) throw new Error('Image must be 5MB or smaller');
+
+  const { adminClient } = await requireAdmin();
+
+  // A random component, not a timestamp: two organizers uploading
+  // "rally.jpg" in the same second must not collide, and a content-hash-free
+  // timestamp path is exactly how that happens.
+  const ext = CONTENT_IMAGE_EXT[file.type] ?? 'png';
+  const base =
+    (file.name.replace(/\.[^.]+$/, '') || 'image')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'image';
+  const unique = crypto.randomUUID().slice(0, 8);
+  const path = `content/${base}-${unique}.${ext}`;
+
+  const { error } = await adminClient.storage
+    .from('media')
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (error) throw new Error(error.message);
+
+  return { url: getStorageUrl(path) };
+}
+
+/** Remove an orphaned upload, e.g. when the author replaces an image they just added. */
+export async function deleteContentImage(
+  url: string
+): Promise<{ deleted: boolean; retained?: 'referenced' | 'foreign' }> {
+  const { adminClient } = await requireAdmin();
+  const base = `${env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/`;
+  if (!url.startsWith(base)) {
+    // Only ever delete from our own bucket, and only by full path match.
+    return { deleted: false, retained: 'foreign' };
+  }
+  const path = url.slice(base.length);
+  if (!path.startsWith('content/') || path.includes('..')) {
+    return { deleted: false, retained: 'foreign' };
+  }
+
+  /**
+   * Check every reference before removing, including revisions.
+   *
+   * This action was previously an unconditional `storage.remove()`, which made
+   * a careless click a data-loss event: the same upload is routinely used twice
+   * — two blocks on one page, a hero image reused across pages, a revision that
+   * would then restore an image that no longer exists. The author's own unsaved
+   * edits are not visible here either, so the check can only be conservative.
+   *
+   * The failure direction is deliberate. Declining to delete leaves an orphaned
+   * file, which is garbage; deleting a file still in use is broken content on a
+   * live page. Revisions are checked as well as live rows, because a restore
+   * that points at a deleted object is worse than a restore that 404s.
+   */
+  const [bodyRefs, imageRefs, revisionRefs] = await Promise.all([
+    adminClient.from('content').select('id').like('body', `%${path}%`).limit(1),
+    adminClient.from('content').select('id').eq('featured_image', url).limit(1),
+    adminClient.from('content_revisions').select('id').like('body', `%${path}%`).limit(1),
+  ]);
+  const referenced =
+    (bodyRefs.data?.length ?? 0) > 0 ||
+    (imageRefs.data?.length ?? 0) > 0 ||
+    (revisionRefs.data?.length ?? 0) > 0;
+  if (referenced) return { deleted: false, retained: 'referenced' };
+
+  const { error } = await adminClient.storage.from('media').remove([path]);
+  if (error) return { deleted: false };
+  return { deleted: true };
 }

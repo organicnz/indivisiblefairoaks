@@ -5,6 +5,7 @@ import {
   ChevronUp,
   Copy,
   GripVertical,
+  Link2,
   Lock,
   Plus,
   Trash2,
@@ -38,6 +39,8 @@ import {
   INLINE_FORMATS,
   searchBlocks,
 } from './block-definitions';
+import { ContentImageInput } from './ContentImageInput';
+import { LinkPopover } from './LinkPopover';
 
 interface Props {
   blocks: Block[];
@@ -61,11 +64,31 @@ export function BlockEditor({ blocks, onChange }: Props) {
     left: number;
   } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  // The popover belongs to one block, so track which: a single shared boolean
+  // would open the toolbar on whichever block happened to render first.
+  const [linkEditorBlockId, setLinkEditorBlockId] = useState<string | null>(null);
+  /**
+   * Drag-to-reorder. `dragIndex` is the block being moved and `dropIndex` is
+   * where it would land. The previous build rendered a grip icon inside a
+   * decorative <span> — it looked draggable and did nothing, which is the
+   * "no fake controls" rule in its purest form. The up/down buttons remain as
+   * the keyboard path, because a drag handle is not reachable by keyboard and
+   * reordering has to work for everyone.
+   */
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef<string | null>(null);
   /** Last HTML written into each block DOM, so input events that changed nothing
    *  do not push a new model value (and therefore a new revision) upstream. */
   const domHtml = useRef(new Map<string, string>());
+  /**
+   * The author's text selection, stashed before a toolbar popover takes focus.
+   * Focusing an input collapses the Selection, so a link applied from a popover
+   * would otherwise wrap nothing and insert the URL at the caret instead of the
+   * words that were highlighted.
+   */
+  const savedRange = useRef<Range | null>(null);
 
   // ── DOM <-> model bridge ────────────────────────────────────────────────
   // Each block owns a contenteditable element. React renders the list once and
@@ -176,6 +199,18 @@ export function BlockEditor({ blocks, onChange }: Props) {
       onChange(next.length ? next : [{ id: nextBlockId(), type: 'paragraph', html: '' }]);
       const fallback = next[Math.min(index, next.length - 1)];
       if (fallback) pendingFocus.current = fallback.id;
+    },
+    [blocks, onChange]
+  );
+
+  /** Move a block to an absolute position. Shared by the drag and the buttons. */
+  const moveTo = useCallback(
+    (from: number, to: number) => {
+      if (to < 0 || to >= blocks.length || from === to) return;
+      const next = [...blocks];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      onChange(next);
     },
     [blocks, onChange]
   );
@@ -333,6 +368,15 @@ export function BlockEditor({ blocks, onChange }: Props) {
       return;
     }
 
+    // Ctrl/Cmd+K: the keyboard route to a link, since the toolbar route needs a
+    // pointer selection. Stash the selection before the popover takes focus.
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      stashSelection();
+      setLinkEditorBlockId(block.id);
+      return;
+    }
+
     if (event.key === '/' && !slash && isEmpty) {
       const target = event.currentTarget as HTMLElement;
       const text = target.textContent ?? '';
@@ -371,94 +415,171 @@ export function BlockEditor({ blocks, onChange }: Props) {
     []
   );
 
-  const applyInline = (command: string) => {
+  const stashSelection = () => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0)
+      savedRange.current = selection.getRangeAt(0).cloneRange();
+  };
+
+  const restoreSelection = () => {
+    const range = savedRange.current;
+    if (!range) return;
+    const selection = window.getSelection();
+    if (!selection) return;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+
+  const applyInline = (command: string, value?: string) => {
     // execCommand is deprecated but remains the only cross-browser way to apply
     // inline marks across an arbitrary Range without shipping a full rich-text
     // engine. The deprecated API is stable in every engine we target; the
     // alternative is a dependency, which this project does not take.
-    document.execCommand(command, false);
+    document.execCommand(command, false, value);
+    stashSelection();
   };
 
   const slashResults = slash ? searchBlocks(slash.query) : [];
 
   return (
     <div ref={containerRef} className="space-y-1">
-      {blocks.map((block, index) => {
-        const def = definitionFor(
-          (block.type === 'unsupported' ? 'paragraph' : block.type) as BlockKind
-        );
-        return (
-          <div
-            key={block.id}
-            className="group relative rounded-xl border border-transparent px-2 py-1 transition-colors hover:border-slate-200 focus-within:border-slate-300"
-            data-block-type={block.type}
-          >
-            {/* Block chrome */}
-            <div className="absolute -left-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-              <button
-                type="button"
-                onClick={() => openSlash(index)}
-                aria-label={`Change ${def.label} block`}
-                title="Add or change block"
-                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <Plus size={14} aria-hidden="true" />
-              </button>
-              <span aria-hidden="true" className="px-0.5 text-slate-300">
-                <GripVertical size={14} />
-              </span>
-            </div>
+      <ul aria-label="Page content blocks" className="m-0 list-none p-0">
+        {blocks.map((block, index) => {
+          const def = definitionFor(
+            (block.type === 'unsupported' ? 'paragraph' : block.type) as BlockKind
+          );
+          return (
+            <li
+              key={block.id}
+              className={`group relative rounded-xl border px-2 py-1 transition-colors focus-within:border-slate-300 ${
+                dropIndex === index && dragIndex !== index
+                  ? 'border-primary bg-blue-50'
+                  : 'border-transparent hover:border-slate-200'
+              } ${dragIndex === index ? 'opacity-40' : ''}`}
+              data-block-type={block.type}
+              onDragOver={(e) => {
+                if (dragIndex === null || dragIndex === index) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                setDropIndex(index);
+              }}
+              onDragLeave={() => {
+                if (dropIndex === index) setDropIndex(null);
+              }}
+              onDrop={(e) => {
+                if (dragIndex === null) return;
+                e.preventDefault();
+                moveTo(dragIndex, index);
+                setDragIndex(null);
+                setDropIndex(null);
+              }}
+            >
+              {/* Block chrome */}
+              <div className="absolute -left-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+                <button
+                  type="button"
+                  onClick={() => openSlash(index)}
+                  aria-label={`Change ${def.label} block`}
+                  title="Add or change block"
+                  className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Plus size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  draggable
+                  onDragStart={(e) => {
+                    setDragIndex(index);
+                    e.dataTransfer.effectAllowed = 'move';
+                    // Firefox will not start a drag without payload.
+                    e.dataTransfer.setData('text/plain', block.id);
+                  }}
+                  onDragEnd={() => {
+                    setDragIndex(null);
+                    setDropIndex(null);
+                  }}
+                  onKeyDown={(e) => {
+                    // The handle is focusable, so it has to work from the
+                    // keyboard too. Alt+Arrow is the conventional pairing and
+                    // does not collide with the caret-moving arrows.
+                    if (!e.altKey) return;
+                    if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      moveTo(index, index - 1);
+                    }
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      moveTo(index, index + 1);
+                    }
+                  }}
+                  aria-label={`Reorder ${def.label} block`}
+                  aria-describedby="block-reorder-help"
+                  title="Drag to reorder, or Alt+Arrow Up/Down"
+                  className="cursor-grab rounded-md p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
+                >
+                  <GripVertical size={14} aria-hidden="true" />
+                </button>
+              </div>
 
-            <div className="absolute -right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-              <button
-                type="button"
-                onClick={() => move(index, -1)}
-                disabled={index === 0}
-                aria-label="Move block up"
-                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <ChevronUp size={14} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={() => move(index, 1)}
-                disabled={index === blocks.length - 1}
-                aria-label="Move block down"
-                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <ChevronDown size={14} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={() => duplicateAt(index)}
-                aria-label="Duplicate block"
-                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <Copy size={14} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={() => removeAt(index)}
-                aria-label="Delete block"
-                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <Trash2 size={14} aria-hidden="true" />
-              </button>
-            </div>
+              <div className="absolute -right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+                <button
+                  type="button"
+                  onClick={() => move(index, -1)}
+                  disabled={index === 0}
+                  aria-label="Move block up"
+                  className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <ChevronUp size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => move(index, 1)}
+                  disabled={index === blocks.length - 1}
+                  aria-label="Move block down"
+                  className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <ChevronDown size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => duplicateAt(index)}
+                  aria-label="Duplicate block"
+                  className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Copy size={14} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeAt(index)}
+                  aria-label="Delete block"
+                  className="rounded-md p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                </button>
+              </div>
 
-            <BlockBody
-              block={block}
-              index={index}
-              registerRef={registerBlock}
-              onInput={handleInput}
-              onKeyDown={onEditableKeyDown}
-              onUpdate={update}
-              onApplyInline={applyInline}
-              onPickBlock={(kind, tone) => convert(index, kind, tone)}
-            />
-          </div>
-        );
-      })}
+              <BlockBody
+                block={block}
+                index={index}
+                registerRef={registerBlock}
+                onInput={handleInput}
+                onKeyDown={onEditableKeyDown}
+                onUpdate={update}
+                onApplyInline={applyInline}
+                onOpenLinkEditor={() => setLinkEditorBlockId(block.id)}
+                onCloseLinkEditor={() => setLinkEditorBlockId(null)}
+                linkEditorOpen={linkEditorBlockId === block.id}
+                restoreSelection={restoreSelection}
+                onPickBlock={(kind, tone) => convert(index, kind, tone)}
+              />
+            </li>
+          );
+        })}
+      </ul>
+
+      <p id="block-reorder-help" className="sr-only">
+        Drag the handle to move this block, or focus it and press Alt with the up or down arrow key.
+      </p>
 
       {slash && (
         <SlashMenu
@@ -523,14 +644,30 @@ interface BodyProps {
   onInput: (event: FormEvent<HTMLElement>, block: Block) => void;
   onKeyDown: (event: KeyboardEvent<HTMLElement>, block: Block, index: number) => void;
   onUpdate: (id: string, patch: Partial<Block>) => void;
-  onApplyInline: (command: string) => void;
+  onApplyInline: (command: string, value?: string) => void;
+  onOpenLinkEditor: () => void;
+  onCloseLinkEditor: () => void;
+  linkEditorOpen: boolean;
+  restoreSelection: () => void;
   onPickBlock: (kind: BlockKind, tone: CalloutTone) => void;
 }
 
 const INLINE_CLASS =
   'min-h-[1.75rem] w-full rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 
-function InlineToolbar({ onApply }: { onApply: (command: string) => void }) {
+function InlineToolbar({
+  onApply,
+  onOpenLinkEditor,
+  onCloseLinkEditor,
+  linkEditorOpen,
+  restoreSelection,
+}: {
+  onApply: (command: string, value?: string) => void;
+  onOpenLinkEditor: () => void;
+  onCloseLinkEditor: () => void;
+  linkEditorOpen: boolean;
+  restoreSelection: () => void;
+}) {
   return (
     <div className="mb-1 flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
       {INLINE_FORMATS.map((format) => {
@@ -553,6 +690,40 @@ function InlineToolbar({ onApply }: { onApply: (command: string) => void }) {
           </button>
         );
       })}
+      <button
+        type="button"
+        onMouseDown={(e) => {
+          // Stash the selection before the popover takes focus, then let it open.
+          e.preventDefault();
+          onOpenLinkEditor();
+        }}
+        aria-label="Add or edit link"
+        aria-expanded={linkEditorOpen}
+        title="Add or edit link (Ctrl+K)"
+        className={`rounded-md p-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
+          linkEditorOpen
+            ? 'bg-white text-primary'
+            : 'text-slate-600 hover:bg-white hover:text-primary'
+        }`}
+      >
+        <Link2 size={14} />
+      </button>
+      {/*
+        Keyboard route for a link, since the mouse route needs a selection the
+        author can only make with a pointer.
+      */}
+      {linkEditorOpen && (
+        <div className="min-w-0 flex-1">
+          <LinkPopover
+            onApply={(href) => {
+              onApply('createLink', href);
+              onCloseLinkEditor();
+            }}
+            onRemove={onCloseLinkEditor}
+            restoreSelection={restoreSelection}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -629,6 +800,10 @@ function BlockBody({
   onKeyDown,
   onUpdate,
   onApplyInline,
+  onOpenLinkEditor,
+  onCloseLinkEditor,
+  linkEditorOpen,
+  restoreSelection,
   onPickBlock,
 }: BodyProps) {
   const editableProps = {
@@ -674,32 +849,15 @@ function BlockBody({
     return (
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
         <BlockTypeMenu block={block} onPick={onPickBlock} />
-        {block.src ? (
-          /* biome-ignore lint/performance/noImgElement: an arbitrary CMS URL the
-             admin just typed; next/image would need a remotePatterns entry per
-             host and 400 on the first external image. Editor chrome only — the
-             public page still renders through next/image. */
-          <img
-            src={block.src}
-            alt={block.alt}
-            className="mb-3 max-h-48 w-full rounded-lg object-contain"
+        <div className="mb-3">
+          <ContentImageInput
+            label="Image"
+            hint="JPEG, PNG, WebP or GIF, up to 5MB"
+            value={block.src}
+            onChange={(src) => onUpdate(block.id, { src } as Partial<Block>)}
           />
-        ) : (
-          <p className="mb-3 rounded-lg border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-500">
-            Paste a full image URL below.
-          </p>
-        )}
+        </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <label className="block text-xs font-medium text-slate-600">
-            Image URL
-            <input
-              type="url"
-              value={block.src}
-              onChange={(e) => onUpdate(block.id, { src: e.target.value } as Partial<Block>)}
-              placeholder="https://…"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
-            />
-          </label>
           <label className="block text-xs font-medium text-slate-600">
             Alt text
             <input
@@ -710,7 +868,7 @@ function BlockBody({
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
             />
           </label>
-          <label className="block text-xs font-medium text-slate-600 sm:col-span-2">
+          <label className="block text-xs font-medium text-slate-600">
             Caption
             <input
               type="text"
@@ -721,6 +879,17 @@ function BlockBody({
             />
           </label>
         </div>
+        {/*
+          Alt text is not optional politeness here: the image block is the only
+          way a photo reaches a page, and a missing alt attribute is announced as
+          a filename by every screen reader. Nudge rather than block, because the
+          serializer is shared with content the editor did not author.
+        */}
+        {block.src && !block.alt.trim() && (
+          <p className="mt-2 text-[11px] font-medium text-accent-gold">
+            Add alt text so this image is described to screen reader users.
+          </p>
+        )}
       </div>
     );
   }
@@ -955,7 +1124,13 @@ function BlockBody({
           </label>
         )}
       </div>
-      <InlineToolbar onApply={onApplyInline} />
+      <InlineToolbar
+        onApply={onApplyInline}
+        onOpenLinkEditor={onOpenLinkEditor}
+        onCloseLinkEditor={onCloseLinkEditor}
+        linkEditorOpen={linkEditorOpen}
+        restoreSelection={restoreSelection}
+      />
       {/*
         The block classes live on a wrapper so the editable element itself can
         carry only the editor's own focus/padding styling. One `.cw` class
