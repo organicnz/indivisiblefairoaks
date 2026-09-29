@@ -93,7 +93,8 @@ export default function WishlistPage() {
                         src={getStorageUrl(item.image_url)}
                         alt={item.name}
                         fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        sizes="(max-width: 640px) 50vw, 25vw"
+                        className="object-cover group-hover:scale-105 motion-reduce:group-hover:scale-100 transition-transform duration-500"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-slate-300 font-black uppercase tracking-widest text-[10px]">

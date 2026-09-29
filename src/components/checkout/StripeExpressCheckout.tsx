@@ -4,6 +4,7 @@ import { Elements, ExpressCheckoutElement } from '@stripe/react-stripe-js';
 import type { StripeExpressCheckoutElementConfirmEvent } from '@stripe/stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { useState } from 'react';
+import { CURRENCY } from '@/config/commerce';
 import { env } from '@/lib/env';
 import { useCartStore } from '@/lib/store/cart';
 
@@ -64,7 +65,7 @@ export function StripeExpressCheckout() {
         options={{
           mode: 'payment',
           amount: Math.round(amount * 100) > 0 ? Math.round(amount * 100) : 100,
-          currency: 'nzd',
+          currency: CURRENCY,
           locale: 'en',
         }}
       >

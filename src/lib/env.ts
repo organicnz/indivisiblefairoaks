@@ -25,6 +25,10 @@ const serverSchema = publicSchema.extend({
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional().catch(undefined),
   // Contact notifications: test/ops overrides (defaults are derived in-code).
   CONTACT_FUNCTION_URL: z.string().url().optional(),
+  // Background broadcast sender. Required before a chapter-wide send will work;
+  // without it sendCRMBroadcast fails the broadcast rather than trying to deliver
+  // several thousand messages inside a request that cannot survive them.
+  CRM_BROADCAST_FUNCTION_URL: z.string().url().optional(),
   CONTACT_SUBMISSION_TEST_MODE: z.literal('1').optional(),
   NEXT_E2E_BUILD: z.literal('true').optional(),
   CONTACT_RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),

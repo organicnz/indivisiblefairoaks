@@ -5,6 +5,16 @@
 # Ensure we use the lockfile
 lockfile = true
 
+# `@next/playwright` declares a peer of `@playwright/test >= 1.0.0`. Bun's
+# auto-install-peers satisfied that independently of the root version and pulled a
+# SECOND playwright-core into node_modules/.deno (1.63.0) alongside the pinned
+# root (1.62.1). TypeScript then resolved the two `Page` types differently
+# depending on which copy it reached, so `tsc` passed while `next build` failed on
+# `ariaSnapshotJSON` — and the build's own cache made the result depend on run
+# order. Every dependency this project needs is declared explicitly, so guessing
+# peers only creates versions nothing asked for.
+autoInstallPeers = false
+
 [run]
 # Standard run options
 

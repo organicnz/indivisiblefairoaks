@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { ROBOTS, siteUrl } from '@/config/site';
+import { pageMetadata } from '@/lib/metadata';
 import { getAllPublishedSlugs, getPublishedContent } from '@/lib/queries/content';
-import { sanitizeWPContent } from '@/lib/sanitize';
+import { htmlToExcerpt, sanitizeWPContent } from '@/lib/sanitize';
 import { serializeJsonLd } from '@/lib/utils';
 
 export async function generateStaticParams() {
@@ -19,27 +21,42 @@ export async function generateMetadata({
   const content = await getPublishedContent(slug);
 
   if (!content) {
-    return { title: 'Not Found' };
+    // A missing row must not render an indexable page. Without this, an
+    // unpublished or mistyped slug returns the site chrome with a 200 and a
+    // "Not Found" title — a soft 404 that Google is happy to index.
+    return { title: 'Page Not Found', robots: ROBOTS.noindex };
   }
 
-  const cleanBody = sanitizeWPContent(content.body || '');
-  const rawText = cleanBody
-    .replace(/<[^>]*>?/gm, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const description = rawText.length > 150 ? `${rawText.substring(0, 147)}...` : rawText;
-
-  return {
-    alternates: { canonical: `/${slug}` },
-    title: `${content.title} | Indivisible Fair Oaks-Carmichael`,
-    description: description,
-    openGraph: {
-      title: content.title,
-      description: description,
-    },
-  };
+  return pageMetadata({
+    title: content.title,
+    // Derived from the *sanitized* body, so Google Sites navigation chrome can
+    // never bleed into the SERP snippet.
+    description: htmlToExcerpt(content.body || ''),
+    path: `/${slug}`,
+    type: content.type === 'post' ? 'article' : 'website',
+    publishedTime: content.created_at ?? undefined,
+    modifiedTime: content.updated_at ?? undefined,
+    authors: ['Indivisible Fair Oaks-Carmichael'],
+  });
 }
 
+/**
+ * A missing row is served as HTTP 200 with a "Page Not Found" title, not a 404.
+ *
+ * This route uses `generateStaticParams`, and with `cacheComponents` on it is
+ * Partial Prerendered: the static shell is flushed with a 200 before the
+ * streaming part that calls `notFound()` runs, and a status already sent cannot
+ * be rewritten. `instant = false` and hoisting the lookup above the Suspense
+ * boundary were both tried and neither changes it.
+ *
+ * The consequence is bounded: `generateMetadata` emits `noindex, nofollow` for a
+ * missing row, so search engines will not index it. What is affected is
+ * monitoring — an uptime check or analytics report records a broken CMS link as a
+ * success. Closing it properly means either a per-request existence check in
+ * middleware (a Supabase round trip on every request, on a shared 4 hr/30-day
+ * Fluid CPU pool) or dropping prerendering for this segment, which is why it is
+ * left as a documented limitation rather than changed unilaterally.
+ */
 export default function ContentPage({ params }: { params: Promise<{ slug: string }> }) {
   return (
     <Suspense fallback={<ContentSkeleton />}>
@@ -75,23 +92,47 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
   }
 
   const cleanBody = sanitizeWPContent(content.body || '');
+  const canonical = siteUrl(`/${slug}`);
 
-  const jsonLd =
+  // Breadcrumbs for every CMS page, not just product pages. Referencing the
+  // organization node by @id links this page into the entity graph declared in the
+  // root layout rather than emitting a second, conflicting definition.
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl('/') },
+      { '@type': 'ListItem', position: 2, name: content.title, item: canonical },
+    ],
+  };
+
+  // Google requires `image` and a `publisher.logo` of at least 112x112 for Article
+  // rich results. Both were missing, so no migrated post qualified for a rich
+  // result at all.
+  const articleJsonLd =
     content.type === 'post'
       ? {
           '@context': 'https://schema.org',
           '@type': 'Article',
+          '@id': `${canonical}#article`,
+          mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+          url: canonical,
           headline: content.title,
+          description: htmlToExcerpt(content.body || ''),
+          image: [siteUrl('/icon-512.png')],
+          inLanguage: 'en-US',
           datePublished: content.created_at ?? undefined,
           dateModified: content.updated_at ?? content.created_at ?? undefined,
-          author: { '@type': 'Organization', name: 'Indivisible Fair Oaks-Carmichael' },
-          publisher: { '@type': 'Organization', name: 'Indivisible Fair Oaks-Carmichael' },
+          author: { '@id': `${siteUrl('/')}#organization` },
+          publisher: { '@id': `${siteUrl('/')}#organization` },
         }
       : null;
 
+  const jsonLd = [breadcrumbJsonLd, articleJsonLd].filter(Boolean);
+
   return (
     <div className="bg-white min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
-      {jsonLd && (
+      {jsonLd.length > 0 && (
         <script
           type="application/ld+json"
           // Structured data, not WP content: sanitizeWPContent intentionally not applied
@@ -120,7 +161,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
         </div>
 
         <div
-          className="prose prose-slate prose-lg max-w-none 
+          className="cw prose prose-slate prose-lg max-w-none 
             prose-headings:text-secondary prose-headings:uppercase prose-headings:font-black
             prose-p:text-slate-600 prose-p:leading-relaxed
             prose-a:text-primary prose-a:font-bold prose-a:no-underline hover:prose-a:underline
@@ -137,7 +178,6 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
             >
               <span>&larr;</span> Back to Home
             </Link>
-            <div className="flex gap-4">{/* Social share placeholders */}</div>
           </div>
         )}
       </div>

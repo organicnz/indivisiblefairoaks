@@ -85,13 +85,13 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
         <Link
           href="/login"
           onClick={onNavigate}
-          className="group flex w-full items-center gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/60 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
+          className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5/60 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
           aria-label="Sign in to your account"
         >
           {placeholder}
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-bold uppercase tracking-wider">Sign In</span>
-            <span className="mt-0.5 block text-[11px] font-medium normal-case tracking-normal text-slate-400">
+            <span className="mt-0.5 block text-[11px] font-medium normal-case tracking-normal text-ink-muted-on-dark">
               Access your account
             </span>
           </span>
@@ -148,16 +148,16 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     <DropdownMenuContent
       align="end"
       sideOffset={4}
-      className="z-[110] w-44 rounded-md bg-slate-950 p-1 shadow-lg shadow-slate-900/60 border border-slate-800/30"
+      className="z-[110] w-48 rounded-lg bg-secondary p-1 shadow-float border border-white/10"
     >
       <DropdownMenuItem
-        className="flex items-center gap-3 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-900/50 transition-colors cursor-pointer"
+        className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm rounded-lg text-ink-on-dark transition-colors duration-150 ease-out cursor-pointer outline-none data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
         onClick={() => {
           onNavigate?.();
           window.location.href = '/account';
         }}
       >
-        <span className="flex-shrink-0 w-3.5 h-3.5">
+        <span aria-hidden="true" className="flex-shrink-0 w-3.5 h-3.5">
           <User size={14} />
         </span>
         My Account
@@ -165,13 +165,13 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
 
       {user.email?.endsWith('@indivisiblefairoaks.org') ? (
         <DropdownMenuItem
-          className="flex items-center gap-3 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-900/50 transition-colors cursor-pointer"
+          className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm rounded-lg text-ink-on-dark transition-colors duration-150 ease-out cursor-pointer outline-none data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
           onClick={() => {
             onNavigate?.();
             window.location.href = '/account?tab=settings';
           }}
         >
-          <span className="flex-shrink-0 w-3.5 h-3.5">
+          <span aria-hidden="true" className="flex-shrink-0 w-3.5 h-3.5">
             <Shield size={14} />
           </span>
           Settings
@@ -179,7 +179,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
       ) : null}
 
       <DropdownMenuItem
-        className="flex items-center gap-3 px-2 py-1.5 text-sm text-slate-300 hover:bg-slate-900/50 transition-colors cursor-pointer"
+        className="flex min-h-11 items-center gap-3 px-3 py-2 text-sm rounded-lg text-ink-on-dark transition-colors duration-150 ease-out cursor-pointer outline-none data-[highlighted]:bg-white/10 data-[highlighted]:text-white"
         onClick={() => {
           onNavigate?.();
           const supabase = createClient();
@@ -188,7 +188,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
           });
         }}
       >
-        <span className="flex-shrink-0 w-3.5 h-3.5">
+        <span aria-hidden="true" className="flex-shrink-0 w-3.5 h-3.5">
           <LogOut size={14} />
         </span>
         Sign Out
@@ -200,14 +200,14 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     return (
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex w-full items-center gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/60 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
+          className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5/60 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
           aria-label="User menu"
         >
           {renderAvatar('h-9 w-9 shrink-0', 'text-[11px]')}
           <span className="flex-1 min-w-0 text-left text-sm font-bold uppercase tracking-wider truncate">
             {displayName}
           </span>
-          <ChevronDown size={16} className="shrink-0 text-slate-400" />
+          <ChevronDown size={16} className="shrink-0 text-ink-muted-on-dark" />
         </DropdownMenuTrigger>
         {menuContent}
       </DropdownMenu>

@@ -4,8 +4,9 @@ import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import type { GalleryClientPhoto } from '@/app/gallery/GalleryClient';
+
 import { getGalleryPhotos } from '@/lib/queries/content-client';
+import type { GalleryPhotoView } from '@/types/gallery';
 
 interface Photo {
   id: string;
@@ -19,7 +20,7 @@ interface Photo {
 }
 
 // Hero crossfade photos (top 4 by sort_order, is_hero=true)
-const useHeroPhotos = (initialPhotos?: GalleryClientPhoto[]): Photo[] => {
+const useHeroPhotos = (initialPhotos?: GalleryPhotoView[]): Photo[] => {
   const [heroPhotos, setHeroPhotos] = useState<Photo[]>(() => {
     if (initialPhotos?.some((p) => p.is_hero === true)) {
       return initialPhotos
@@ -56,7 +57,7 @@ const useHeroPhotos = (initialPhotos?: GalleryClientPhoto[]): Photo[] => {
 };
 
 // Pair photos (is_pair=true)
-const usePairPhotos = (initialPhotos?: GalleryClientPhoto[]): Photo[] => {
+const usePairPhotos = (initialPhotos?: GalleryPhotoView[]): Photo[] => {
   const [pairPhotos, setPairPhotos] = useState<Photo[]>(() => {
     if (initialPhotos && initialPhotos.length > 0) {
       return initialPhotos
@@ -102,7 +103,7 @@ const rowVariants: Variants = {
   }),
 };
 
-export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryClientPhoto[] } = {}) {
+export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhotoView[] } = {}) {
   const reduced = useReducedMotion();
   const heroPhotos = useHeroPhotos(initialPhotos);
   const pairPhotos = usePairPhotos(initialPhotos);

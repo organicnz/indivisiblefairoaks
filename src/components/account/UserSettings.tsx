@@ -1,6 +1,7 @@
 'use client';
 
-import { Bell, CheckCircle2, CreditCard, Loader2, Mail } from 'lucide-react';
+import { Bell, CheckCircle2, Loader2, Mail, MapPin } from 'lucide-react';
+import { CURRENCY_CODE } from '@/config/commerce';
 import { useSettingsStore } from '@/lib/store/settings';
 
 export function UserSettings() {
@@ -10,22 +11,18 @@ export function UserSettings() {
     await updateSettings({ [key]: !settings[key] });
   };
 
-  const handleCurrencyChange = async (currency: string) => {
-    await updateSettings({ preferred_currency: currency });
-  };
-
   if (isLoading && !settings) {
     return (
-      <div className="flex justify-center p-12">
-        <Loader2 className="animate-spin text-primary" size={32} />
+      <div className="flex justify-center p-12" role="status" aria-label="Loading settings">
+        <Loader2 className="animate-spin text-primary" size={32} aria-hidden="true" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-12 mt-16 animate-in fade-in duration-300 ease-out">
+    <div className="space-y-12 mt-16 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 motion-safe:ease-out">
       <div className="flex flex-col mb-8">
-        <h2 className="text-2xl font-black text-secondary uppercase tracking-widest mb-2 inline-block">
+        <h2 className="text-2xl font-black text-secondary uppercase tracking-tighterer mb-2 inline-block">
           Preferences
         </h2>
         <div className="h-1 w-12 bg-primary" />
@@ -39,7 +36,7 @@ export function UserSettings() {
               <Bell size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-black text-secondary uppercase tracking-tight">
+              <h3 className="text-lg font-black text-secondary uppercase tracking-tighter">
                 Notifications
               </h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
@@ -64,15 +61,15 @@ export function UserSettings() {
               <button
                 type="button"
                 onClick={() => handleToggle('marketing_emails')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none ${
-                  settings.marketing_emails ? 'bg-primary' : 'bg-slate-200'
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                  settings.marketing_emails ? 'bg-primary' : 'bg-slate-300'
                 }`}
-                aria-label="Toggle marketing emails"
                 aria-checked={settings.marketing_emails}
                 role="switch"
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ease-out ${
                     settings.marketing_emails ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -94,15 +91,15 @@ export function UserSettings() {
               <button
                 type="button"
                 onClick={() => handleToggle('order_updates')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none ${
-                  settings.order_updates ? 'bg-primary' : 'bg-slate-200'
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                  settings.order_updates ? 'bg-primary' : 'bg-slate-300'
                 }`}
-                aria-label="Toggle order updates"
                 aria-checked={settings.order_updates}
                 role="switch"
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ease-out ${
                     settings.order_updates ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -111,63 +108,63 @@ export function UserSettings() {
           </div>
         </div>
 
-        {/* Currency & Localization */}
+        {/* Store region */}
         <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-4 mb-8">
             <div className="p-3 bg-slate-50 text-secondary rounded-2xl">
-              <CreditCard size={24} />
+              <MapPin size={24} aria-hidden="true" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-secondary uppercase tracking-tight">
-                Localization
+              <h3 className="text-lg font-black text-secondary uppercase tracking-tighterer">
+                Store Region
               </h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                Preferred shopping experience
+              <p className="text-[11px] text-slate-500 font-bold uppercase tracking-[0.2em]">
+                Where we ship and what we charge
               </p>
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="p-4 bg-slate-50 rounded-2xl">
-              <label
-                htmlFor="currency-select"
-                className="block text-[10px] font-black text-secondary uppercase tracking-widest mb-4 ml-1"
-              >
-                Preferred Currency
-              </label>
-              <div id="currency-select" className="grid grid-cols-3 gap-2">
-                {['NZD', 'AUD', 'USD'].map((curr) => (
-                  <button
-                    key={curr}
-                    type="button"
-                    onClick={() => handleCurrencyChange(curr)}
-                    className={`py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                      settings.preferred_currency === curr
-                        ? 'bg-secondary text-white shadow-lg shadow-secondary/20'
-                        : 'bg-white text-slate-400 hover:text-secondary border border-slate-100'
-                    }`}
-                  >
-                    {curr}
-                  </button>
-                ))}
-              </div>
+          {/*
+            This card used to offer a three-way currency picker (NZD/AUD/USD) that
+            wrote `preferred_currency` and changed nothing — the storefront has a
+            single price list, so the control was a lie that read as broken software.
+            It is replaced by the two facts a shopper actually needs.
+          */}
+          <dl className="space-y-4">
+            <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between gap-4">
+              <dt className="text-xs font-black text-secondary uppercase tracking-wider">
+                Currency
+              </dt>
+              <dd className="text-sm font-bold text-primary-ink">{CURRENCY_CODE}</dd>
             </div>
-          </div>
+            <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between gap-4">
+              <dt className="text-xs font-black text-secondary uppercase tracking-wider">
+                Ships from
+              </dt>
+              <dd className="text-sm font-bold text-primary-ink text-right">Carmichael, CA</dd>
+            </div>
+          </dl>
         </div>
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-[10px] font-black uppercase tracking-widest text-center animate-in slide-in-from-top-2 duration-300">
-          Error: {error}
-          <p className="mt-1 text-[8px] opacity-60">
+        <div
+          role="alert"
+          className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-accent-red text-xs font-bold uppercase tracking-wider text-center motion-safe:animate-in motion-safe:slide-in-from-top-2 motion-safe:duration-300 motion-safe:ease-out"
+        >
+          {error}
+          <p className="mt-1 text-[11px] font-medium normal-case tracking-normal opacity-80">
             If this persists, please try a hard reload (Cmd+Shift+R)
           </p>
         </div>
       )}
 
       {!error && !isLoading && (
-        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-[10px] font-black uppercase tracking-widest text-center flex items-center justify-center gap-2">
-          <CheckCircle2 size={14} />
+        <div
+          role="status"
+          className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-xs font-bold uppercase tracking-wider text-center flex items-center justify-center gap-2"
+        >
+          <CheckCircle2 size={14} aria-hidden="true" />
           Settings are synced with the cloud
         </div>
       )}

@@ -114,7 +114,7 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Find the duplicate by name or email…"
               aria-label="Search duplicate contact"
-              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
             />
             <button
               type="submit"

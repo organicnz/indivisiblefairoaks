@@ -1,4 +1,6 @@
 import { ImageResponse } from 'next/og';
+import { BRAND } from '@/config/brand';
+import { SITE_NAME } from '@/config/site';
 import { getPublishedContent } from '@/lib/queries/content';
 
 export const size = { width: 1200, height: 630 };
@@ -28,7 +30,7 @@ export default async function ContentOgImage({ params }: { params: Promise<{ slu
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        background: '#0F172A',
+        background: BRAND.surfaceDark,
         padding: '72px',
       }}
     >
@@ -38,11 +40,11 @@ export default async function ContentOgImage({ params }: { params: Promise<{ slu
           fontSize: 28,
           fontWeight: 900,
           letterSpacing: '0.15em',
-          color: '#94A3B8',
+          color: BRAND.inkMutedOnDark,
           textTransform: 'uppercase',
         }}
       >
-        Indivisible Fair Oaks-Carmichael
+        {SITE_NAME}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div
@@ -50,7 +52,7 @@ export default async function ContentOgImage({ params }: { params: Promise<{ slu
             display: 'flex',
             height: 10,
             width: 120,
-            background: '#F59E0B',
+            background: BRAND.accentGold,
             borderRadius: 9999,
           }}
         />
@@ -59,14 +61,16 @@ export default async function ContentOgImage({ params }: { params: Promise<{ slu
             display: 'flex',
             fontSize: 64,
             fontWeight: 900,
-            color: '#FFFFFF',
+            color: BRAND.surfaceCard,
             letterSpacing: '-0.02em',
             lineHeight: 1.05,
           }}
         >
           {title}
         </div>
-        <div style={{ display: 'flex', fontSize: 26, color: '#94A3B8', lineHeight: 1.4 }}>
+        <div
+          style={{ display: 'flex', fontSize: 26, color: BRAND.inkMutedOnDark, lineHeight: 1.4 }}
+        >
           {description}
         </div>
       </div>
@@ -75,7 +79,7 @@ export default async function ContentOgImage({ params }: { params: Promise<{ slu
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          color: '#64748B',
+          color: BRAND.inkMutedOnDark,
           fontSize: 22,
           fontWeight: 700,
           textTransform: 'uppercase',
@@ -83,7 +87,7 @@ export default async function ContentOgImage({ params }: { params: Promise<{ slu
         }}
       >
         <span>Defending Democracy & Community</span>
-        <span style={{ color: '#F59E0B' }}>indivisiblefairoaks.org</span>
+        <span style={{ color: BRAND.accentGold }}>indivisiblefairoaks.org</span>
       </div>
     </div>,
     size

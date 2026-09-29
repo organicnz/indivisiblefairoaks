@@ -25,12 +25,10 @@ export async function updateUserSettingsAction(settings: Partial<UserSettings>) 
   const mfa = await assertMfaVerified(supabase);
   if (!mfa.ok) return { error: mfa.error };
 
-  // Simple validation
-  const allowedKeys: (keyof UserSettings)[] = [
-    'marketing_emails',
-    'order_updates',
-    'preferred_currency',
-  ];
+  // Allowlist, not a denylist: a new key must be added deliberately.
+  // `preferred_currency` was removed here along with the dead currency picker —
+  // the storefront has one price list, so the setting had no effect.
+  const allowedKeys: (keyof UserSettings)[] = ['marketing_emails', 'order_updates'];
   const filteredSettings: Partial<UserSettings> = {};
 
   for (const key of allowedKeys) {

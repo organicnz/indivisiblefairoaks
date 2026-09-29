@@ -30,15 +30,28 @@ export default defineConfig({
       //   src/lib/store/**       — Zustand stores are pure state, no logic
       //   src/lib/supabase*.ts   — SSR client init needs Next.js cookies/headers
       //   src/lib/settings-server.ts — requires live Supabase + unstable_cache
-      //   src/lib/env.ts         — Zod parse runs at module load; mock-hostile
+      //
+      // `src/config/site.ts` and `src/lib/metadata.ts` DO import `@/lib/env`, which
+      // parses process.env at module load. Their tests set
+      // NEXT_SKIP_ENV_VALIDATION=1 (the switch env.ts already exposes for exactly
+      // this) so the import is safe without a full .env.
       include: [
         'src/lib/sanitize.ts',
+        'src/lib/blocks/parse.ts',
+        'src/lib/blocks/serialize.ts',
+        'src/lib/blocks/types.ts',
+        'src/lib/crm-broadcast.ts',
+        'src/lib/content.ts',
         'src/lib/utils.ts',
         'src/lib/validations.ts',
+        'src/lib/metadata.ts',
         'src/lib/actions/settings.ts',
         'src/lib/error-report.ts',
         'src/lib/crm-unsubscribe.ts',
-        'src/config/shipping.ts',
+        'src/config/commerce.ts',
+        'src/config/site.ts',
+        'src/config/routes.ts',
+        'src/config/legacy-redirects.ts',
         'src/app/auth/callback/route.ts',
       ],
 

@@ -13,19 +13,84 @@
 - Dynamic pages use `[slug]` routing; `generateMetadata` is mandatory on every dynamic route.
 - `cacheLife` profiles are set to `"hours"` across all catalog and content fetches — do not change to `"minutes"` until the project moves to Vercel Pro (see Conservation Mode below).
 
+### Site identity — one source of truth
+**`src/config/site.ts` owns "where does this site live".** `metadataBase`, every
+canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
+`@id`/`url` values derive from `env.NEXT_PUBLIC_SITE_URL`. Nothing may hardcode
+`indivisiblefairoaks.org` for those purposes.
+
+- Build page metadata through `pageMetadata()` in `src/lib/metadata.ts`. It
+  guarantees a canonical, an `og:url`, a Twitter card and a robots directive.
+  Returning a hand-written `Metadata` literal is how the `og:url` bug happened.
+- **Next replaces, never merges, `openGraph`.** A child that declares its own
+  `openGraph` discards the parent's — including `images` from the
+  `opengraph-image` file convention. This is why `pageMetadata` sets an explicit
+  default card.
+- `IS_PRODUCTION_SITE` is true only when the configured origin is the apex.
+  Otherwise the whole build emits `noindex, nofollow` and `robots.txt` returns
+  `Disallow: /`, so previews and staging can never compete with the apex.
+- **The apex cutover is therefore a single env change**, not a code sweep. See
+  `docs/apex-cutover-runbook.md`.
+- `app/page.tsx` shares its segment with the root layout, and Next does not
+  apply a segment's own `title.template` to itself — the homepage must pass an
+  absolute title.
+
+### Navigation and legacy URLs
+- `src/config/routes.ts` is the single source of truth for primary navigation.
+  `Header.tsx` renders the desktop row and the drawer from it, and
+  `isActiveRoute()` supplies `aria-current`. Add a link there, not inline.
+- **The horizontal nav row is `2xl` and above only.** The nine labels at
+  `tracking-[0.2em]` render a ~1047px row, which needs ~1700px of viewport with
+  the logo and action cluster. That fits no standard breakpoint at full label
+  length, which is why `NavLink.short` exists: the desktop row uses the short
+  label, the drawer uses the full one. Do not drop `short` — without it the row
+  silently reverts to ~1700px and overflows.
+- `e2e/header-fit.spec.ts` asserts the header fits at eight widths from 320px to
+  1920px and that the account entry is reachable at every one. It exists because
+  this has already broken twice, and the symptom (a Playwright click timeout) did
+  not identify the cause.
+- `src/config/legacy-redirects.ts` maps the old Google Sites paths to their real
+  equivalents as permanent redirects. It is imported by **both** `next.config.ts`
+  (which cannot resolve the `@/` alias, hence the standalone module) and
+  `getAllPublishedSlugs()`, so a shadowed CMS slug is never prerendered. The two
+  cannot drift.
+
 ### Supabase backend
 - PostgreSQL with RLS on every user-facing table. Anon key = read-only + insert on allowlisted tables only.
 - Auth includes MFA support. Middleware enforces session checks on `/account`, `/admin`, `/login` **only** — do not expand middleware scope without checking Fluid CPU budget.
 - Edge Functions: `notify-contact`, `stripe-webhook`, `health`. Invoked directly from Server Actions; never call Edge Functions from Client Components.
+- `supabase/config.toml` governs the **local** CLI stack only. The hosted
+  project's `site_url` / `additional_redirect_urls` live in the dashboard —
+  Authentication → URL Configuration. Magic links and OAuth callbacks fail
+  closed against that list, so an apex cutover that misses it strands every user.
 - **RLS role-repair pattern**: after project restore/re-provisioning, policy→role OID references can orphan (`pg_policies` shows `{public}` but matches nobody). Playbook: `DROP POLICY … ; CREATE POLICY … TO authenticated …`. Reference: `20260825160000_contact_rls_role_repair.sql`.
+
+### Commerce
+- `src/config/commerce.ts` owns currency, shipping rates and price formatting.
+  Stripe sessions, the Product JSON-LD and the storefront all read from it.
+  The site previously charged `nzd` with Auckland pickup addresses while its
+  structured data advertised `USD`; do not reintroduce a per-site currency
+  literal. Shipping rates are placeholders pending the chapter's confirmation.
 
 ### Sanitization layer
 `sanitizeWPContent` in `src/lib/` must wrap **all** HTML from the `content` table before render. It:
-1. Removes legacy WPForms shortcodes (replaces with native contact component).
-2. Strips spam keywords (Casino, Slot, Betting, etc.) and their parent elements.
-3. Drops outbound links not matching trusted domains (supabase.co, stripe.com, indivisiblefairoaks.org).
+1. Strips Google Sites page furniture — see below.
+2. Removes legacy WPForms shortcodes (replaces with native contact component).
+3. Strips spam keywords (Casino, Slot, Betting, etc.) and their parent elements.
+4. Drops outbound links not matching trusted domains (supabase.co, stripe.com, indivisiblefairoaks.org).
 
 Never render raw Supabase HTML without this helper — treat it as a security boundary.
+
+**The CMS bodies are plain text, not HTML.** The Google Sites export stripped
+every tag, so the site chrome arrived as literal lines — "Search this site",
+"Skip to main content", a sidebar navigation repeated three or four times, and a
+trailing "Report abuse / Page details / Page updated" block. Tag-based filtering
+cannot see any of it. `stripMigratedSiteChrome()` handles it, gated on
+`looksLikeGoogleSitesExport()` so it can never touch hand-authored content.
+
+Derive meta descriptions with `htmlToExcerpt()`, never by slicing the raw body.
+Slicing raw text is how shipped SERP snippets came to begin "IndivisibleFairOaks.org
+- Links Search this site Embedded Files…".
 
 ---
 
@@ -37,26 +102,121 @@ Tokens are defined in `src/app/globals.css` via `@theme`. No `tailwind.config.*`
 | Token | Hex | Usage |
 |---|---|---|
 | `--primary` | `#1e3a8a` | Primary blue — buttons, links, active states |
-| `--primary-light` | `#2563eb` | Hover/focus variants |
+| `--primary-light` | `#2563eb` | Hover/focus variants. **Light surfaces only** — 3.5:1 on the dark header |
 | `--primary-dark` | `#172554` | Pressed/deep variants |
 | `--primary-ink` | `#1e3a8a` | Text on light surfaces (replaces raw lime) |
 | `--secondary` | `#0f172a` | Page backgrounds, dark surfaces |
-| `--accent` | `#d97706` | Amber — donate CTA, warnings |
-| `--accent-gold` | `#f59e0b` | Active nav indicators |
+| `--ink-on-dark` | `#cbd5e1` | Body copy on dark surfaces |
+| `--ink-muted-on-dark` | `#94a3b8` | Secondary copy on dark surfaces |
+| `--primary-bright` | `#155dfc` | Brand blue as a **surface on dark pages** (CTAs) |
+| `--primary-on-dark` | `#8ec5ff` | Brand blue as **display text on dark** (hero highlights) |
+| `--primary-on-dark-muted` | `#50a2ff` | Brand blue as **eyebrow/label text on dark** |
+| `--accent` | `#d97706` | Amber — donate CTA, warnings. **Surface, not text** |
+| `--accent-gold` | `#f59e0b` | Active nav indicators, dark-surface accents |
 | `--accent-red` | `#dc2626` | Destructive actions, errors |
+| `--accent-lime` | `#d1ff00` | Dark-surface non-text accent only |
 | `--surface-muted` | `#f8fafc` | Card backgrounds on light pages |
 
-Use `text-primary-ink` for any text placed on light/white surfaces. Raw lime (`#D1FF00`) is reserved for dark-surface non-text accents only — do not use it for body or heading text.
+Use `text-primary-ink` for any text placed on light/white surfaces. Raw lime
+(`#D1FF00`) is reserved for dark-surface non-text accents only — do not use it for
+body or heading text.
+
+**`--accent` and `--accent-gold` are text-unsafe on white** (3.19:1 and 2.15:1)
+and `--primary-light` is text-unsafe on the dark header (3.51:1). These are
+surfaces. On an amber background use `text-secondary` (5.69:1); on a dark
+background use the `--ink-*-on-dark` pair. The axe gate in `e2e/a11y.spec.ts`
+enforces this — do not "fix" a failing contrast check by swapping to a token
+without re-measuring.
+
+### Radius, elevation and motion tokens
+`@theme` also defines `--radius-*` (`xs`…`3xl`), `--shadow-*` (`card`, `raised`,
+`float`, `hero`, `header`), `--ease-sensory`, and `--duration-fast` (300ms) /
+`--duration-slow` (500ms). Prefer these over ad-hoc `rounded-[2.5rem]` and
+`shadow-[0_40px_100px_-20px_rgba(...)]` values.
+
+`--primary-bright` / `--primary-on-dark` / `--primary-on-dark-muted` exist because
+`--primary` is only 1.5:1 against `--secondary` — correct as a surface on white,
+but a CTA built from it disappears on a dark page. The token set had no
+"brand blue on dark" entry, which is why the civic pages reached for raw
+`blue-600`. Adding a token was the fix; re-measuring first was the discipline.
+
+### Changing colours: measure, then sweep
+Never find-and-replace palette classes blind. The tooling exists:
+
+```bash
+bun run palette /about        # colours actually painted, by area, vs the tokens
+bun run token-sweep -- --check  # dry run of the class mapping
+bun run snap before           # capture every route to .snapshots/before/
+# …make the change…
+bun run snap after            # …then diff the two
+```
+
+Every mapping in `scripts/token-sweep.mjs` was chosen so the replacement resolves
+to the colour the page was already painting (within ~1.03:1). The pixel diff is
+what proves it, and the light pages act as the control: `/products`, `/login` and
+`/contact` must read 0.00% changed. Gradient stops (`from-`/`via-`/`to-`) are
+deliberately excluded — the atmospheric gradients are a design decision, not a
+consistency problem.
+
+### Enter/exit animation layer
+`@utility animate-in` / `animate-out` and the `fade-*`, `zoom-*`, `slide-*`
+composition classes are implemented **in `globals.css`**, not by
+`tailwindcss-animate` (which is not a dependency and never was). Every
+`data-[state=open]:animate-in fade-in-0 zoom-in-95` on a Radix primitive depends
+on this layer existing. Adding a new variant means adding a `@utility` that sets
+the matching `--tw-enter-*` / `--tw-exit-*` variable.
 
 ### Typography
 - **Headings**: Outfit font, `font-black uppercase tracking-tighter`
 - **Navigation**: `font-bold uppercase tracking-[0.2em]`
-- **Body**: Inter font, `font-medium text-slate-600 leading-relaxed`
+- **Body**: Inter font, `font-medium text-slate-600 leading-relaxed` on light
+  surfaces; `text-ink-on-dark` on dark ones (`text-slate-600` is 1.86:1 on
+  `bg-slate-950` and unreadable)
 
 ### Motion
 - Use `motion` (the `motion` npm package, not `framer-motion`) for complex transitions.
 - Tailwind utilities for micro-animations (hover scale, opacity, color transitions).
 - All transitions must be `ease-out`, duration `300ms`–`500ms`. Avoid durations over 500ms for interactive feedback.
+- The global `prefers-reduced-motion` guard covers CSS only. JS motion
+  (`motion`'s `whileHover`, `scrollIntoView`, `scrollBy`) bypasses it — check
+  `useReducedMotion()` / `matchMedia` at those call sites.
+
+### Stacking order is one scale, not ad-hoc numbers
+Five surfaces stack, and they were on five unrelated arbitrary `z-[…]` values.
+The Wall-E launcher (`z-120`) sat **above** the open nav drawer (`z-110`), so on
+mobile the chat bubble floated on top of the drawer and a click there opened a
+second dialog over a surface that still held the focus trap. The command palette
+overlay also tied with the Wall-E panel, so DOM order decided the winner.
+
+| Layer | Class | Surface |
+|---|---|---|
+| 1 | `z-50` | `<header>` |
+| 2 | `z-[60]` / `z-[70]` | WALL-E launcher / panel |
+| 3 | `z-[100]` / `z-[110]` | Nav drawer overlay / content |
+| 4 | `z-[120]` / `z-[130]` | Command palette overlay / content |
+
+Overlay and content always differ by 10, and a modal layer sits above every
+non-modal one. If you add a surface, put it on this scale.
+
+### Scrollable regions must be focusable
+An `overflow-x-auto` container is no longer focusable by default in Chrome and
+Firefox, so a carousel without `tabIndex={0}` cannot be scrolled by a keyboard
+user at all. `ProductSlider` follows the WAI-ARIA Scrollable Region pattern
+(`<section aria-label>` + `tabIndex={0}`); Biome's `noNoninteractiveTabindex`
+does not model it and is suppressed for that one file.
+
+### No fake controls
+A control must do what it says. `ChoirAudioPlayer` shipped a range input labelled
+"Seek harmonic broadcast" over a Web Audio oscillator stack with no media
+element — nothing to seek, and the `onChange` moved local state only. It is now a
+read-only `role="progressbar"`. Check whether a control has an effect before
+styling it.
+
+### Reveal-on-hover must be hover-gated
+`group-hover:opacity-100` alone hides a control on every touch device and leaves
+it in the tab order while invisible on desktop. Gate the reveal with the
+`hover-capable` custom variant (`@media (hover: hover)`) and add
+`focus-within:opacity-100`. `ProductCard`'s wishlist button is the reference.
 
 ---
 
@@ -84,7 +244,7 @@ The team shares one Fluid Active CPU pool (4 hrs / rolling 30 days). **Do not re
 | Image quality | `75` | Reduces transform CPU |
 | Image cache | 31-day CDN TTL | Avoids repeat transforms |
 | Logo | Served unoptimized | Tiny file; transform cost not worth it |
-| Sitemap | Fully static | No dynamic compute |
+| Sitemap | `cacheLife: 'hours'`, one query per crawl wave | Not truly static — a real query is cheaper than re-rendering |
 | Checkout rate limit | 10/min/IP | Stripe fraud + CPU protection |
 | Contact rate limit | 3/10min/IP | Anon-key flood protection |
 | Pre-push e2e | Playwright when push touches runtime surfaces | Delivery gate without punishing docs-only pushes |
@@ -93,9 +253,134 @@ When the project moves to Vercel Pro, revisit `cacheLife: "minutes"` for price a
 
 ---
 
+## Secrets & configuration — four stores, one reconciler
+
+Credentials and runtime config live in four independent places, each with a
+declared contract and a pre-commit checker. Full inventory:
+[`docs/secrets-and-config.md`](./docs/secrets-and-config.md).
+
+| Store | Declared in | Checked by |
+|---|---|---|
+| Vercel environment variables | `scripts/vercel-env.mjs` | `scripts/check-vercel-env.mjs` |
+| Supabase Edge Function secrets | `supabase/functions/secrets.manifest.mjs` | `scripts/check-edge-secrets.mjs` + `supabase.yml` |
+| GitHub Actions secrets + variables | `scripts/ci-env.mjs` | `scripts/check-ci-env.mjs` |
+| Supabase Vault | *unused, deliberately* | — |
+
+- **`NEXT_PUBLIC_*` is public by construction** — Next inlines it into the client
+  bundle. It belongs in Vercel *Plain* and GitHub *Variables*, never in a Secrets
+  store. Two real bugs came from getting this wrong.
+- **Vault is the wrong tool here.** Every consumer needs the value at cold start
+  without a database round trip. Vault only applies if a Postgres function or
+  trigger needs a secret.
+
+### The reconciler, and why it exists
+
+All three checkers above are **offline** — they read source and YAML, so each proves
+only that a manifest agrees with the code. None can see a dashboard. A live audit on
+2026-09-27 found production drift in *every* category they claim to cover:
+`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `APP_URL` unset, so commerce
+returned 503; all three `NEXT_PUBLIC_*` values held as GitHub *secrets*, so fork PRs
+build against empty config; a `required: true` variable never set; twelve
+undeclared, unread secrets in the edge project including a `GITHUB_TOKEN`.
+
+```bash
+bun run secrets:audit       # reconcile all four live stores (read-only)
+bun run secrets:baseline    # re-accept the current state
+bun run vercel:env:sync     # populate Vercel from .env.local (--apply to write)
+```
+
+The audit is read-only by construction — no mutation path, because a linter that
+can delete a live credential is a liability. It prints the fix command for each
+finding. `sync-vercel-env.mjs` is the separate, deliberate counterpart: the audit
+decides what *should* be true, the sync applies what it can *source*.
+
+**Only `.env.local` and Vault are readable out.** The Supabase edge secret store
+and the GitHub secret store are **write-only by platform design** — `supabase
+secrets` has no `get` and returns digests, `gh secret list` returns names. A
+value written to either cannot be copied to another store by anyone. Do not
+design a rotation or migration that assumes otherwise.
+
+Three properties are load-bearing. Do not "simplify" them away:
+
+1. **An unreadable store is UNKNOWN, never empty.** Measured across all three
+   CLIs: a non-zero exit means unauthorized, and exit 0 with zero names means
+   genuinely empty. So the *operation's own exit code* is the signal, and
+   ambiguously-parsed output is UNKNOWN rather than empty — the same class as the
+   `grep '"name": "X"'` bug the `supabase.yml` comment documents.
+
+   There is deliberately **no separate auth preflight**. The first version used
+   `vercel whoami` and was wrong: a project-scoped token can read a project's env
+   but fails `whoami`, so the preflight reported a readable store as UNKNOWN. A
+   safety check that manufactures false negatives is worse than no check, because
+   it looks like diligence. Use the least-privileged command the operation
+   actually requires.
+2. **A committed baseline** (`scripts/secrets-baseline.json`) accepts current drift,
+   so a not-yet-clean repository does not sit permanently red — only a **new**
+   finding fails. A ratchet, not a wall. Findings are fingerprinted
+   `code:store:name`, insensitive to rewording.
+3. **`scripts/secrets-registry.mjs`** supplies owner, blast radius and expected
+   store — the axes a name list cannot express. It deliberately owns *no names*;
+   those stay derived from the three manifests, so there is no fourth list to drift.
+
+`.github/workflows/secret-audit.yml` runs the live reconciliation daily at 04:37 UTC
+(not `:00`, when every scheduled workflow competes for the shared runner fleet) and
+on demand. Outstanding fixes are listed in
+[`docs/secrets-and-config.md`](./docs/secrets-and-config.md#outstanding-remediation-from-the-2026-09-27-live-audit).
+Four functions deploy `--no-verify-jwt` and are therefore publicly callable, which
+is why an unread credential sitting in the edge store is a finding, not a nit.
+
+---
+
+## CI configuration (GitHub Actions)
+
+The required set lives in **`scripts/ci-env.mjs`**, and
+`scripts/check-ci-env.mjs` diffs it against the workflow files. It runs in the
+pre-commit gate, so drift fails at commit time rather than at 3am.
+
+- **`NEXT_PUBLIC_*` and `SUPABASE_PROJECT_REF` are repository *variables*, not
+  secrets.** Next inlines `NEXT_PUBLIC_*` into the client bundle, so they are
+  public by construction. Storing them as secrets also broke `ci.yml`: secrets
+  are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
+  absorbed the empty value, so a fork PR built successfully against placeholder
+  credentials.
+- **Every workflow declares an explicit `permissions:` block.** Two that hold
+  credentials previously inherited the repository default, which may grant
+  write.
+- `SUPABASE_SECRET_KEY` bypasses RLS entirely. It is scoped to one scheduled
+  workflow; a leak makes the row-level security model decorative.
+- Full inventory and rationale: [`docs/ci-secrets.md`](./docs/ci-secrets.md).
+- All four stores together: [`docs/secrets-and-config.md`](./docs/secrets-and-config.md).
+
+### Supabase Edge Function secrets — a *separate* store
+
+`supabase functions deploy` ships **code only**. `supabase.yml` never runs
+`supabase secrets set`, so these values are set by hand in the dashboard and CI
+could not see them. The `verify` job's probes all fail on a validation or method
+check that runs *before* any secret is read, so a missing `STRIPE_SECRET_KEY`
+deployed green and broke silently.
+
+- `supabase/functions/secrets.manifest.mjs` declares what each function needs;
+  `scripts/check-edge-secrets.mjs` (pre-commit) keeps it in sync with the code and
+  with `env.example.md`, and `supabase.yml` asserts the required ones are actually
+  set in the hosted project.
+- Platform-injected (`SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY`) are absent from `secrets list` by design — do not
+  add them to the required list.
+- **`APP_URL` currently defaults to the apex, which 302s to Google Sites.** WALL-E
+  citations and Stripe return URLs therefore point somewhere that does not serve
+  the app. It must be set to the staging host now and the apex at cutover.
+- **Supabase Vault is not used.** Environment injection is correct at this size —
+  every consumer is an edge function here and needs the value at cold start. Vault
+  earns its place only when a Postgres function or trigger needs a secret.
+- The edge `checkout` function carried the **entire NZD bug** independently of the
+  Next app and was directly reachable. `src/lib/__tests__/commerce-parity.test.ts`
+  now asserts `_shared/commerce.ts` and `src/config/commerce.ts` agree.
+
+---
+
 ## Delivery Gates (lefthook)
 
-- **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts, lockfile pairing, and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
+- **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
 - **pre-push**: lint → unit → typecheck → coverage ≥90% → production build → peer-deps → **Playwright e2e delivery gate** (full suite, `workers=2`) when the push range touches `src/`, `e2e/`, `public/`, `supabase/`, app configs, or the lockfile. Docs-only pushes skip e2e with an explicit note.
 - Bypasses (documented in `lefthook.yml`): `LEFTHOOK=0`, `LEFTHOOK_EXCLUDE=<command>`.
 
@@ -109,6 +394,30 @@ Next.js 16.3 loads TypeScript via the JS compiler API (`lib/typescript.js`), whi
 **Stay on TypeScript 5.9.** The `tsconfig.json` is already shaped for TS 7 (`moduleResolution: bundler`) so the upgrade will be a version bump only.
 
 TypeScript 6 is a bridge release (deprecations only) — skip it.
+
+---
+
+## Known Follow-ups
+
+Deliberately left undone. None block the apex cutover.
+
+1. **The dark civic pages keep their gradient stops.** ~690 raw palette classes
+   were swept to tokens and verified pixel-identical (`scripts/token-sweep.mjs`).
+   What remains are the atmospheric `from-`/`via-`/`to-` gradient stops and a
+   handful of `indigo-*`/`emerald-*` status tints, which have no token equivalent.
+   Collapsing them would flatten a deliberate design choice, so they stay.
+2. **Apex SPF does not authorise Resend.** Application mail passes DMARC on
+   Resend DKIM alignment alone. `_spf.resend.com` is NXDOMAIN, so adding that
+   `include` would make the whole record a `permerror`. Resolving this is a
+   decision, not a mechanical fix — see the recovery log §8.
+3. **`google._domainkey` is unpublished**, so outbound Workspace mail fails DKIM.
+4. **Shipping rates are placeholders** inherited from the previous site's New
+   Zealand tariff. See `src/config/commerce.ts`.
+5. **HSTS `preload` + `includeSubDomains`** pins every subdomain to HTTPS for
+   ~12 months once submitted, including staging.
+6. **`/products` categories query logs a prerender warning** during builds. It is
+   caught and degrades gracefully, but the fetch should move inside the
+   Suspense boundary that actually needs it.
 
 ---
 

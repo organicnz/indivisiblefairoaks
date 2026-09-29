@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from 'next/cache';
+import { isLegacySlug } from '@/config/legacy-redirects';
 import { createPublicClient } from '@/lib/supabase-server';
 
 /**
@@ -45,7 +46,13 @@ export async function getAllPublishedSlugs() {
       .select('slug')
       .eq('status', 'publish')
       .or(buildVisibilityFilter(new Date().toISOString()));
-    const slugs = (data ?? []).map((row) => ({ slug: row.slug }));
+    // Drop slugs owned by a legacy 301. Those paths are served by the redirect map
+    // in next.config.ts, so prerendering them here would build a page that can never
+    // be reached — and would advertise a duplicate in the sitemap.
+    const slugs = (data ?? [])
+      .map((row) => row.slug)
+      .filter((slug): slug is string => Boolean(slug) && !isLegacySlug(slug))
+      .map((slug) => ({ slug }));
     return slugs.length > 0 ? slugs : [{ slug: '_sample' }];
   } catch {
     return [{ slug: '_sample' }];

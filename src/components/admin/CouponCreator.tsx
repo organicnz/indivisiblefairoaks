@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { createCoupon, deleteCoupon } from '@/app/admin/actions';
 
@@ -101,7 +101,12 @@ export function CouponCreator() {
           <Plus size={12} /> Create
         </button>
       </div>
-      {error && <p className="text-[11px] font-bold text-rose-400 mt-3">{error}</p>}
+      {error && (
+        <div role="alert" className="flex items-start gap-2 text-xs font-bold text-rose-400 mt-3">
+          <AlertCircle size={14} aria-hidden="true" className="shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
       {success && <p className="text-[11px] font-bold text-emerald-400 mt-3">Coupon created.</p>}
     </div>
   );

@@ -8,11 +8,13 @@ import {
   ChevronUp,
   Clock,
   Eye,
+  Loader2,
   Mail,
   Megaphone,
   Radio,
+  Save,
   Send,
-  Sparkles,
+  Trash2,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -27,11 +29,17 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import {
+  type BroadcastProgress,
   type CRMBroadcast,
   type CRMSegment,
+  deleteCRMBroadcastDraft,
+  getBroadcastProgress,
   getBroadcastRecipientCount,
+  previewCRMBroadcast,
+  saveCRMBroadcastDraft,
   sendCRMBroadcast,
 } from '@/lib/actions/crm';
+import { BROADCAST_RECIPIENT_CEILING } from '@/lib/crm-broadcast';
 
 interface Props {
   initialBroadcasts: CRMBroadcast[];
@@ -70,6 +78,11 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [progress, setProgress] = useState<BroadcastProgress | null>(null);
 
   // Audience size
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
@@ -137,6 +150,90 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
     );
   };
 
+  /** Poll until the sender leaves an in-flight state. */
+  const followProgress = async (broadcastId: string) => {
+    for (let attempt = 0; attempt < 90; attempt += 1) {
+      const current = await getBroadcastProgress(broadcastId);
+      if (!current) return;
+      setProgress(current);
+      if (current.status !== 'queued' && current.status !== 'sending') {
+        startTransition(() => router.refresh());
+        return;
+      }
+      await new Promise((resolve) => {
+        setTimeout(resolve, 2000);
+      });
+    }
+  };
+
+  /**
+   * The preview is the message, not an illustration of it: rendered by the same
+   * builder the sender uses and shown in a sandboxed iframe, so what the author
+   * approves is what lands in the inbox. The previous hand-rolled "Sensory
+   * Preview" omitted the logo, greeting, brand shell and unsubscribe footer and
+   * rendered the body with different line breaking — an author approved a
+   * document no recipient would ever receive.
+   */
+  useEffect(() => {
+    if (!previewMode) {
+      setPreviewHtml(null);
+      return;
+    }
+    let active = true;
+    const load = async () => {
+      setPreviewLoading(true);
+      try {
+        const result = await previewCRMBroadcast({ subject, body });
+        if (active) setPreviewHtml(result.html);
+      } catch {
+        if (active) setPreviewHtml(null);
+      } finally {
+        if (active) setPreviewLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [body, previewMode, subject]);
+
+  const handleSaveDraft = async () => {
+    if (!subject.trim() || !body.trim()) {
+      toast.error('Add a subject and message before saving a draft');
+      return;
+    }
+    setSavingDraft(true);
+    const res = await saveCRMBroadcastDraft({
+      subject,
+      body,
+      targetStatus: selectedStatuses,
+      targetDistricts: selectedDistricts,
+      targetTags: selectedTags,
+    });
+    setSavingDraft(false);
+    if (!res.success) {
+      toast.error(res.error || 'Failed to save draft');
+      return;
+    }
+    setDraftId(res.broadcastId ?? null);
+    toast.success('Draft saved');
+    startTransition(() => router.refresh());
+  };
+
+  const handleDiscardDraft = async () => {
+    if (!draftId) return;
+    const res = await deleteCRMBroadcastDraft(draftId);
+    if (!res.success) {
+      toast.error(res.error || 'Failed to delete draft');
+      return;
+    }
+    setDraftId(null);
+    toast.success('Draft discarded');
+    startTransition(() => router.refresh());
+  };
+
+  const overCeiling = (recipientCount ?? 0) > BROADCAST_RECIPIENT_CEILING;
+
   const handleSend = async () => {
     if (!subject.trim() || !body.trim()) {
       toast.error('Please provide both subject and message body');
@@ -159,20 +256,20 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
       });
 
       if (res.success) {
-        const failed = res.failedCount ?? 0;
-        if (failed > 0) {
-          toast.warning(
-            `Sent to ${res.recipientCount ?? 0} — ${failed} delivery failure${failed === 1 ? '' : 's'}`
-          );
-        } else {
-          toast.success(`Broadcast successfully sent to ${res.recipientCount ?? 0} constituents!`);
-        }
+        // Delivery continues in the background. Reporting "sent" here would be a
+        // lie — the request only queued it — so say what happened and let the
+        // progress readout below report the rest.
+        toast.success(
+          `Broadcast queued for ${res.recipientCount ?? 0} constituents. Delivery is running in the background.`
+        );
         setSubject('');
         setBody('');
+        setDraftId(null);
         setSelectedStatuses([]);
         setSelectedDistricts([]);
         setSelectedTags([]);
         setIsConfirmOpen(false);
+        if (res.broadcastId) void followProgress(res.broadcastId);
         startTransition(() => {
           router.refresh();
         });
@@ -265,7 +362,7 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                     setSelectedTags(seg.tags);
                     if (seg.query) toast.message(`Segment "${seg.name}" applied`);
                   }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary bg-slate-50/50"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
                 >
                   <option value="">Choose a saved segment…</option>
                   {segments.map((seg) => (
@@ -405,7 +502,7 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     placeholder="e.g. Urgent Action: Stop H.R. 1 Rally at Carmichael Park"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm font-bold text-secondary placeholder:font-normal placeholder:text-slate-400"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm font-bold text-secondary placeholder:font-normal placeholder:text-slate-400"
                   />
                 </div>
 
@@ -414,7 +511,7 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                     htmlFor="broadcast-body"
                     className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5"
                   >
-                    Message Body (HTML/Markdown Paragraphs supported)
+                    Message Body
                   </label>
                   <textarea
                     id="broadcast-body"
@@ -422,42 +519,52 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
                     placeholder="Dear Neighbor,&#10;&#10;Join us this Saturday at Carmichael Park as we rally for democracy...&#10;&#10;Here are the three ways to take immediate action..."
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm text-slate-800 leading-relaxed font-sans placeholder:text-slate-400"
+                    aria-describedby="broadcast-body-hint"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm text-slate-800 leading-relaxed font-sans placeholder:text-slate-400"
                   />
+                  {/*
+                    Stated plainly because the previous label promised "HTML/Markdown
+                    Paragraphs supported": the server escapes the body and converts
+                    newlines to line breaks, so markup typed here arrives in the
+                    recipient's inbox as visible source text.
+                  */}
+                  <p id="broadcast-body-hint" className="mt-1.5 text-[11px] text-slate-500">
+                    Plain text. Blank lines become paragraph breaks; anything that looks like markup
+                    is sent as literal text.
+                  </p>
                 </div>
               </div>
-            ) : (
-              /* Sensory Luxury Email Shell Preview */
-              <div className="p-6 bg-slate-950 rounded-2xl border border-slate-800 text-slate-100 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <Sparkles size={14} className="text-amber-400" />
-                    <span>Branded Email Preview</span>
+            ) : null}
+
+            {previewMode && (
+              <div className="space-y-3">
+                <p className="text-[11px] text-slate-500">
+                  Exactly what recipients receive, generated by the same code that sends it.
+                </p>
+                {previewLoading && !previewHtml ? (
+                  <div className="flex h-40 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-500">
+                    Building preview…
                   </div>
-                  <span className="text-[10px] font-mono text-slate-500">
-                    From: contact@indivisiblefairoaks.org
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  <div className="text-xs uppercase tracking-widest text-blue-400 font-bold">
-                    Chapter Broadcast
+                ) : previewHtml ? (
+                  <iframe
+                    title="Broadcast email preview"
+                    // Sandboxed with neither allow-scripts nor allow-same-origin:
+                    // this is remote HTML and must not reach the admin page's DOM,
+                    // cookies or storage while it is being previewed.
+                    sandbox=""
+                    srcDoc={previewHtml}
+                    className="h-[32rem] w-full rounded-2xl border border-slate-200 bg-white"
+                  />
+                ) : (
+                  <div className="flex h-40 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-500">
+                    Add a subject and message to see the preview.
                   </div>
-                  <h3 className="text-lg font-bold text-white">
-                    {subject || '(Subject line placeholder)'}
-                  </h3>
-                  <div className="p-4 bg-slate-900 rounded-xl border-l-4 border-blue-600 text-sm leading-relaxed text-slate-200 whitespace-pre-line">
-                    {body ||
-                      'Message content will be formatted inside this branded card container.'}
-                  </div>
-                  <div className="text-xs text-slate-500 pt-3 border-t border-slate-800">
-                    Indivisible Fair Oaks-Carmichael Organizing Team · indivisiblefairoaks.org
-                  </div>
-                </div>
+                )}
               </div>
             )}
 
             {/* Dispatch Action Bar */}
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+            <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-slate-500">
                 Will be delivered to{' '}
                 <strong className="text-secondary">{recipientCount ?? 0}</strong> constituents.
@@ -465,18 +572,88 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                   Opted-out contacts are excluded automatically. Every email includes a one-click
                   unsubscribe link.
                 </span>
+                {overCeiling && (
+                  <span role="alert" className="mt-1 block font-bold text-accent-red">
+                    This is over the {BROADCAST_RECIPIENT_CEILING.toLocaleString()}-recipient limit
+                    for a single broadcast. Narrow the audience before sending.
+                  </span>
+                )}
               </div>
-              <button
-                type="button"
-                disabled={
-                  !subject.trim() || !body.trim() || !recipientCount || recipientCount === 0
-                }
-                onClick={() => setIsConfirmOpen(true)}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-slate-200 disabled:text-slate-400 text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
-              >
-                <Send size={14} /> Send Broadcast Now
-              </button>
+              <div className="flex items-center gap-2">
+                {draftId ? (
+                  <button
+                    type="button"
+                    onClick={handleDiscardDraft}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 text-slate-600 hover:text-accent-red text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
+                  >
+                    <Trash2 size={14} /> Discard draft
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={savingDraft || !subject.trim() || !body.trim()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-slate-200 text-slate-700 hover:border-slate-300 disabled:opacity-50 text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
+                  >
+                    {savingDraft ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Save size={14} />
+                    )}
+                    Save draft
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={
+                    !subject.trim() ||
+                    !body.trim() ||
+                    !recipientCount ||
+                    recipientCount === 0 ||
+                    overCeiling
+                  }
+                  onClick={() => setIsConfirmOpen(true)}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-slate-200 disabled:text-slate-400 text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
+                >
+                  <Send size={14} /> Send Broadcast Now
+                </button>
+              </div>
             </div>
+
+            {/*
+              Live progress. The send no longer runs inside the request that
+              started it, so without this the button would return and the admin
+              would have no idea whether anything was going out.
+            */}
+            {progress && (progress.status === 'queued' || progress.status === 'sending') && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3"
+              >
+                <p className="text-sm font-semibold text-blue-900">
+                  Sending “{progress.subject}” — {progress.sentCount} of {progress.recipientCount}{' '}
+                  accepted
+                </p>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-blue-200">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-500 ease-sensory"
+                    style={{
+                      width: `${
+                        progress.recipientCount > 0
+                          ? Math.min(100, (progress.sentCount / progress.recipientCount) * 100)
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+                {progress.failedCount > 0 && (
+                  <p className="mt-2 text-xs text-blue-800">
+                    {progress.failedCount} rejected by the provider.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

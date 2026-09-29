@@ -7,7 +7,7 @@ import { cors } from 'jsr:@hono/hono/cors'
 import { HTTPException } from 'jsr:@hono/hono/http-exception'
 import Stripe from 'npm:stripe@17'
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { getStripeShippingOptions } from '../_shared/shipping.ts'
+import { CURRENCY, getStripeShippingOptions } from '../_shared/commerce.ts'
 
 const REQUIRED_ENV: [string, string][] = [
   ['STRIPE_SECRET_KEY', Deno.env.get('STRIPE_SECRET_KEY') ?? ''],
@@ -127,7 +127,7 @@ app.post('*', async (c) => {
 
     return {
       price_data: {
-        currency: 'nzd',
+        currency: CURRENCY,
         product_data: { name: dbProduct.name },
         unit_amount: Math.round(serverPrice * 100),
       },
@@ -145,7 +145,7 @@ app.post('*', async (c) => {
     payment_method_types: ['card', 'link'],
     line_items: lineItems,
     mode: 'payment',
-    currency: 'nzd',
+    currency: CURRENCY,
     customer_email: userEmail,
     client_reference_id: userId,
     metadata: { userId: userId ?? 'guest' },
@@ -153,7 +153,7 @@ app.post('*', async (c) => {
     success_url: `${APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${APP_URL}/cart`,
     billing_address_collection: 'required',
-    shipping_address_collection: { allowed_countries: ['NZ'] },
+    shipping_address_collection: { allowed_countries: ['US'] },
     phone_number_collection: { enabled: true },
     shipping_options: getStripeShippingOptions(),
   })
@@ -279,7 +279,7 @@ async function resolveStripeCoupon(
     {
       ...(isPercent
         ? { percent_off: amount }
-        : { amount_off: Math.round(amount * 100), currency: 'nzd' }),
+        : { amount_off: Math.round(amount * 100), currency: CURRENCY }),
       duration: 'once',
       name: code,
     },

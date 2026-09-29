@@ -2,18 +2,20 @@ import { CheckCircle2, Heart, Shield, Sparkles, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import { pageMetadata } from '@/lib/metadata';
 
-export const metadata: Metadata = {
-  title: 'About Us | Indivisible Fair Oaks-Carmichael',
+export const metadata: Metadata = pageMetadata({
+  title: 'About Us',
   description:
     'Learn about Indivisible Fair Oaks-Carmichael, our mission, values, and grassroots organizing across Fair Oaks, Carmichael, and Sacramento County.',
-};
+  path: '/about',
+});
 
 export default function AboutPage() {
   return (
-    <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
+    <div className="w-full bg-secondary text-white min-h-screen pt-24 pb-20">
       {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
+      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="flex justify-center mb-6">
             <Image
@@ -25,14 +27,14 @@ export default function AboutPage() {
               priority
             />
           </div>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
-            <Users size={14} className="text-amber-400" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+            <Users size={14} className="text-accent-gold" />
             <span>Grassroots Democracy In Action</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
             About Indivisible Fair Oaks-Carmichael
           </h1>
-          <p className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed">
             We are a local grassroots chapter representing residents in and near Fair Oaks and
             Carmichael, California, dedicated to protecting our democracy through peaceful civic
             power.
@@ -44,10 +46,10 @@ export default function AboutPage() {
         {/* Our Mission */}
         <section className="space-y-6">
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <Shield className="text-amber-400" />
+            <Shield className="text-accent-gold" />
             <span>Our Mission Statement</span>
           </h2>
-          <div className="p-8 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 text-slate-300 leading-relaxed text-base">
+          <div className="p-8 rounded-2xl bg-secondary/90 border border-white/10 space-y-4 text-ink-on-dark leading-relaxed text-base">
             <p className="font-semibold text-white text-lg">
               The mission of the Fair Oaks - Carmichael Indivisible Chapter is to cultivate a
               disciplined, non-violent grassroots movement that:
@@ -90,10 +92,10 @@ export default function AboutPage() {
         {/* Who We Are & Where We Organize */}
         <section className="space-y-6">
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <Users className="text-blue-400" />
+            <Users className="text-primary-on-dark-muted" />
             <span>Who We Are</span>
           </h2>
-          <div className="text-slate-300 space-y-4 leading-relaxed">
+          <div className="text-ink-on-dark space-y-4 leading-relaxed">
             <p>
               We are neighbors, retirees, workers, students, educators, and community members in
               Sacramento County who believe that true democracy requires active, ongoing
@@ -111,12 +113,12 @@ export default function AboutPage() {
         </section>
 
         {/* Commitment to Nonviolent Action */}
-        <section className="p-8 rounded-2xl bg-gradient-to-r from-blue-950/40 to-slate-900 border border-blue-500/30 space-y-4">
+        <section className="p-8 rounded-2xl bg-gradient-to-r from-blue-950/40 to-slate-900 border border-primary-bright/30 space-y-4">
           <h3 className="text-xl font-bold text-white flex items-center gap-2">
-            <Sparkles className="text-amber-400" size={20} />
+            <Sparkles className="text-accent-gold" size={20} />
             Commitment to Non-Violent Action & De-escalation
           </h3>
-          <p className="text-slate-300 text-sm leading-relaxed">
+          <p className="text-ink-on-dark text-sm leading-relaxed">
             A foundational pillar behind all Indivisible Fair Oaks-Carmichael events is a strict
             commitment to nonviolence. We expect all attendees to act lawfully, treat fellow
             citizens with dignity, and actively seek to de-escalate potential conflict with
@@ -130,7 +132,7 @@ export default function AboutPage() {
             <Heart className="text-rose-400" />
             <span>Community Care & Food Drives</span>
           </h2>
-          <p className="text-slate-300 leading-relaxed">
+          <p className="text-ink-on-dark leading-relaxed">
             We believe that civic justice begins with community care. At every in-person monthly
             gathering, our members bring non-perishable canned goods and staple foods to donate to
             local Carmichael and Fair Oaks food pantries.
@@ -138,22 +140,22 @@ export default function AboutPage() {
         </section>
 
         {/* Contact & Join */}
-        <section className="p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-6">
+        <section className="p-8 rounded-2xl bg-secondary border border-white/10 text-center space-y-6">
           <h3 className="text-2xl font-black text-white">Join Our Next Gathering</h3>
-          <p className="text-slate-300 text-sm max-w-xl mx-auto">
+          <p className="text-ink-on-dark text-sm max-w-xl mx-auto">
             Ready to get involved? Join our mailing list, attend our next monthly meeting, or sing
             with the Carmichael Resistance Choir.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               href="/events"
-              className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-all"
+              className="px-6 py-3 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
             >
               See Upcoming Events
             </Link>
             <Link
               href="/contact"
-              className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs uppercase tracking-wider transition-all"
+              className="px-6 py-3 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs uppercase tracking-wider transition-all"
             >
               Contact Us
             </Link>

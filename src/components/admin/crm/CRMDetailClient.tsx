@@ -10,6 +10,7 @@ import {
   Edit2,
   FileText,
   GitMerge,
+  Loader2,
   Mail,
   MapPin,
   MessageSquare,
@@ -63,6 +64,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteDesc, setNoteDesc] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [togglingTaskId, setTogglingTaskId] = useState<string | null>(null);
 
   // Task form state
   const [taskTitle, setTaskTitle] = useState('');
@@ -211,13 +213,24 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
   };
 
   const handleTaskToggle = async (task: CRMTask) => {
+    // Guarded like every other handler in this file. Without the try/catch and
+    // the in-flight lock, a double-click fired two mutations and a rejection
+    // surfaced as an unhandled promise with no feedback at all.
+    if (togglingTaskId === task.id) return;
+    setTogglingTaskId(task.id);
     const next = task.status === 'done' ? 'open' : 'done';
-    const res = await setCRMTaskStatus({ id: task.id, status: next });
-    if (res.success) {
-      toast.success(next === 'done' ? 'Follow-up completed' : 'Follow-up reopened');
-      router.refresh();
-    } else {
-      toast.error(res.error || 'Failed to update follow-up');
+    try {
+      const res = await setCRMTaskStatus({ id: task.id, status: next });
+      if (res.success) {
+        toast.success(next === 'done' ? 'Follow-up completed' : 'Follow-up reopened');
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update follow-up');
+      }
+    } catch {
+      toast.error('Failed to update follow-up');
+    } finally {
+      setTogglingTaskId(null);
     }
   };
 
@@ -542,7 +555,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                       value={taskTitle}
                       onChange={(e) => setTaskTitle(e.target.value)}
                       placeholder="e.g. Call about Saturday canvass"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
                     />
                   </div>
                   <div>
@@ -557,7 +570,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                       type="date"
                       value={taskDue}
                       onChange={(e) => setTaskDue(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
                     />
                   </div>
                 </div>
@@ -574,7 +587,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                     value={taskDetails}
                     onChange={(e) => setTaskDetails(e.target.value)}
                     placeholder="Context, phone number, promised deliverable…"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
                   />
                 </div>
                 <div className="flex justify-end">
@@ -600,13 +613,16 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                       <button
                         type="button"
                         onClick={() => handleTaskToggle(task)}
-                        className="mt-0.5 text-slate-400 hover:text-emerald-600 transition-colors"
+                        disabled={togglingTaskId === task.id}
                         aria-label={task.status === 'done' ? 'Reopen task' : 'Complete task'}
+                        className="mt-0.5 rounded transition-colors hover:text-emerald-600 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
                       >
-                        {task.status === 'done' ? (
-                          <CheckCircle2 size={16} className="text-emerald-500" />
+                        {togglingTaskId === task.id ? (
+                          <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                        ) : task.status === 'done' ? (
+                          <CheckCircle2 size={16} className="text-emerald-500" aria-hidden="true" />
                         ) : (
-                          <FileText size={16} />
+                          <FileText size={16} aria-hidden="true" />
                         )}
                       </button>
                       <div className="min-w-0 flex-1">
@@ -679,7 +695,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
                     placeholder="e.g. Next steps for our Postcard Blitz campaign"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm disabled:bg-slate-50 disabled:text-slate-400"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm disabled:bg-slate-50 disabled:text-slate-400"
                   />
                 </div>
 
@@ -698,7 +714,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                     value={emailMessage}
                     onChange={(e) => setEmailMessage(e.target.value)}
                     placeholder="Type your message to this constituent..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm leading-relaxed disabled:bg-slate-50 disabled:text-slate-400"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm leading-relaxed disabled:bg-slate-50 disabled:text-slate-400"
                   />
                 </div>
 
@@ -750,7 +766,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                     value={noteTitle}
                     onChange={(e) => setNoteTitle(e.target.value)}
                     placeholder="e.g. Spoke at General Meeting about choir rehearsals"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
                   />
                 </div>
 
@@ -767,7 +783,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                     value={noteDesc}
                     onChange={(e) => setNoteDesc(e.target.value)}
                     placeholder="Details of the conversation, follow-up dates, volunteer availability..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm leading-relaxed"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm leading-relaxed"
                   />
                 </div>
 

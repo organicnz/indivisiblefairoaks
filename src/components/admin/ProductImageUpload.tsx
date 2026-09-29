@@ -1,6 +1,6 @@
 'use client';
 
-import { ImagePlus, Loader2, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ImagePlus, Loader2, Trash2, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useRef, useState, useTransition } from 'react';
@@ -97,7 +97,12 @@ export function ProductImageUpload({
           e.target.value = '';
         }}
       />
-      {error && <p className="text-[11px] font-bold text-rose-600">{error}</p>}
+      {error && (
+        <div role="alert" className="flex items-start gap-2 text-xs font-bold text-rose-600">
+          <AlertCircle size={14} aria-hidden="true" className="shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
       <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
         <Upload size={9} /> JPEG, PNG or WebP up to 5MB
       </p>

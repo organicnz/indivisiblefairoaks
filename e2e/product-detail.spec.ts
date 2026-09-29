@@ -71,18 +71,23 @@ test('unknown product slug returns 404 page', async ({ page }) => {
   await page.goto('/products/this-slug-does-not-exist-xyz123');
   // Cache Components streams a 200 shell before the not-found boundary resolves.
   // Assert the user-visible 404 state rather than relying on the early shell status.
-  await expect(page.getByRole('heading', { name: '404 - Page Not Found' })).toBeVisible();
+  // The 404 page is branded and its heading is "This page isn't here", with
+  // "Error 404" as the eyebrow above it.
+  await expect(page.getByRole('heading', { name: /this page isn't here/i })).toBeVisible();
+  await expect(page.getByText('Error 404')).toBeVisible();
 });
 
 test('products listing links navigate to detail pages', async ({ page }) => {
   await page.goto('/products');
 
-  const viewGearLinks = page.getByRole('link', { name: /view gear/i });
-  const count = await viewGearLinks.count();
+  // One canonical link per card (the title); the image and the "View Gear" pill
+  // are decorative and out of the tab order.
+  const productLinks = page.locator('a[href^="/products/"]');
+  const count = await productLinks.count();
   test.skip(count === 0, 'no products seeded');
 
   // Click the first product card link and confirm we land on a detail page
-  await viewGearLinks.first().click();
+  await productLinks.first().click();
   await page.waitForLoadState('load');
 
   // Detail pages always have an h1

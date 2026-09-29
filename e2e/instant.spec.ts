@@ -29,14 +29,21 @@ test.beforeAll(async () => {
   if (data?.slug) productPath = `/products/${data.slug}`;
 });
 
+// The horizontal nav row only renders from 2xl; below that the drawer serves it.
+// These assertions are about the *shell* painting instantly, so the viewport has
+// to be one where the nav is part of the shell at all.
+const DESKTOP_VIEWPORT = { width: 1600, height: 900 };
+
 const shellAssertions = async (page: import('@playwright/test').Page) => {
   const banner = page.getByRole('banner');
   await expect(banner.locator('a[href="/"]').first()).toBeVisible();
-  await expect(banner.getByRole('link', { name: 'Events & Actions' })).toBeVisible();
+  // Short label, matching the desktop row.
+  await expect(banner.getByRole('link', { name: 'Events', exact: true })).toBeVisible();
   await expect(page.getByText('Indivisible').first()).toBeVisible();
 };
 
 test('shell paints instantly: home → faqs', async ({ page }) => {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
   await page.goto('/');
   await expect(page.locator('header a[href="/"]').first()).toBeVisible();
 
@@ -56,6 +63,7 @@ test('shell paints instantly: home → faqs', async ({ page }) => {
 test('shell paints instantly: home → products listing (deliberate block route)', async ({
   page,
 }) => {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
   await page.goto('/');
   await instant(
     page,
@@ -72,6 +80,7 @@ test('shell paints instantly: home → products listing (deliberate block route)
 });
 
 test('shell paints instantly: listing → product detail', async ({ page }) => {
+  await page.setViewportSize(DESKTOP_VIEWPORT);
   test.skip(productPath === '/products', 'no instock products seeded');
   await page.goto('/products');
   await instant(

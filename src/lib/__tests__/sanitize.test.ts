@@ -83,6 +83,41 @@ describe('sanitizeWPContent() — legacy WordPress artifacts', () => {
     expect(out).toContain('kept');
     expect(out).not.toContain('<a');
   });
+
+  // The spam-keyword match used to use a plain `[\s\S]*?` between the opening tag
+  // and the keyword, which happily spanned sibling blocks. A keyword inside a
+  // later blockquote let the *earlier* <p> swallow everything up to the next
+  // </p>, so an innocent quote was destroyed along with the spam. Found by
+  // property-testing the block editor's round trip.
+  it('does not let a spam keyword in one block delete a sibling block', () => {
+    const out = sanitizeWPContent(
+      '<p>An innocent opening paragraph.</p>' +
+        '<blockquote class="cw-quote"><p>Our quote mentions a casino once.</p></blockquote>' +
+        '<p>A closing paragraph that must survive.</p>'
+    );
+    expect(out).toContain('An innocent opening paragraph.');
+    expect(out).toContain('A closing paragraph that must survive.');
+    // The containing element is still removed — the match just no longer escapes it.
+    expect(out).not.toContain('Our quote mentions a casino once.');
+  });
+
+  it('still removes the element that actually contains a spam keyword', () => {
+    const out = sanitizeWPContent(
+      '<p>Legit intro.</p><p>Cheap casino chips here</p><p>Legit outro.</p>'
+    );
+    expect(out).toContain('Legit intro.');
+    expect(out).toContain('Legit outro.');
+    expect(out).not.toContain('casino');
+  });
+
+  it('does not let a spam keyword in a div delete a following sibling', () => {
+    const out = sanitizeWPContent(
+      '<div>Clean block</div><div>Slot machine deal</div><p>Tail stays</p>'
+    );
+    expect(out).toContain('Clean block');
+    expect(out).toContain('Tail stays');
+    expect(out).not.toContain('Slot machine');
+  });
 });
 
 describe('isSpamContent()', () => {

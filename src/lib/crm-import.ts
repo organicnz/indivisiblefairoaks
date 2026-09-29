@@ -35,6 +35,23 @@ const VALID_STATUSES = new Set([
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Single source of truth for tag shape, shared by the CSV importer and the
+ * hand-edit action schema. A comma is banned outright: tags round-trip through
+ * comma-joined URL params (`?tag=a,b`), so a comma inside a tag is unrepresentable
+ * and silently splits into two on the next read.
+ */
+export const MAX_TAGS_PER_CONTACT = 20;
+export const MAX_TAG_LENGTH = 40;
+export const TAG_PATTERN = /^[\w][\w .'&/+-]*$/u;
+
+export function normalizeTags(raw: string[]): string[] {
+  return [...new Set(raw.map((t) => t.trim().toLowerCase()).filter(Boolean))].slice(
+    0,
+    MAX_TAGS_PER_CONTACT
+  );
+}
+
 /** RFC 4180-ish CSV parser: handles quoted fields, escaped quotes, CRLF/LF. */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -106,11 +123,7 @@ function normHeader(h: string): string {
 }
 
 function splitTags(raw: string): string[] {
-  return raw
-    .split(/[;|]/)
-    .map((t) => t.trim().toLowerCase())
-    .filter(Boolean)
-    .slice(0, 20);
+  return normalizeTags(raw.split(/[;|]/).filter((t) => TAG_PATTERN.test(t.trim())));
 }
 
 function cell(row: string[], index: number): string {

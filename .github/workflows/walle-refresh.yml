@@ -1,5 +1,8 @@
 name: WALL-E knowledge refresh
 
+permissions:
+  contents: read
+
 on:
   schedule:
     - cron: '17 4 * * *'
@@ -20,7 +23,7 @@ jobs:
           # NOTE: there are no SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY repo
           # secrets — reuse the canonical public URL + service-role secret.
           # The edge function accepts `Authorization: Bearer <service key>`.
-          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: |
           test -n "$SUPABASE_URL" || { echo "::error::NEXT_PUBLIC_SUPABASE_URL secret is empty"; exit 1; }

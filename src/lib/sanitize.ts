@@ -71,6 +71,160 @@ export const TRUSTED_DOMAINS = [
   'givealittle.co.nz',
 ] as const;
 
+/**
+ * Class/id fragments identifying Google Sites page furniture. The CMS was
+ * imported from a Google Site whose navigation was baked into every page body, so
+ * each migrated page repeats "Search this site", "Skip to main content" and the
+ * full sidebar nav several times over. Left in place it corrupts the page copy and,
+ * worse, the meta description — which is derived from the first 150 characters of
+ * the body, so SERP snippets began "IndivisibleFairOaks.org - Links Search this
+ * site Embedded Files Skip to main content…".
+ */
+const GOOGLE_SITES_CHROME = [
+  'gs-',
+  'gc-',
+  'sites-',
+  'googlesites',
+  'skip to main',
+  'skip to navigation',
+  'embedded files',
+  'search this site',
+  'page-links',
+  'globalnav',
+  'globalfooter',
+] as const;
+
+/** Boilerplate phrases that survive as bare text once the wrappers are removed. */
+const GOOGLE_SITES_PHRASES = [
+  /\bSearch this site\b/gi,
+  /\bSkip to main content\b/gi,
+  /\bSkip to navigation\b/gi,
+  /\bEmbedded Files\b/gi,
+] as const;
+
+/**
+ * Whole-line chrome from the Google Sites text export.
+ *
+ * The CMS bodies are not HTML at all — the export stripped every tag and left
+ * newline-separated text, so the page furniture is a run of literal lines at the
+ * top ("Search this site", "Skip to main content", …) and another at the bottom
+ * ("Report abuse", "Page details", "Page updated"). Tag-based stripping cannot
+ * see any of it.
+ */
+const GOOGLE_SITES_CHROME_LINES: readonly RegExp[] = [
+  /^search this site$/i,
+  /^embedded files$/i,
+  /^skip to main content$/i,
+  /^skip to navigation$/i,
+  /^report abuse$/i,
+  /^page details$/i,
+  /^page updated$/i,
+  /^more$/i,
+  /^indivisiblefairoaks\.org$/i,
+  /^indivisiblefairoaks\.org\s*[-–—]\s*/i,
+  /^indivisible fair Oaks/i,
+  /^last edited by .*$/i,
+] as const;
+
+/**
+ * Detects the Google Sites text-export format. Every cleanup below is gated on
+ * this so it can never touch hand-authored or WordPress content.
+ */
+function looksLikeGoogleSitesExport(text: string): boolean {
+  return /search this site/i.test(text) && /(skip to main content|embedded files)/i.test(text);
+}
+
+/**
+ * Collapses a block of consecutive lines that is repeated verbatim.
+ *
+ * The exported pages carry the same sidebar navigation three or four times —
+ * once per Google Sites layout region — which is why shipped meta descriptions
+ * began "IndivisibleFairOaks.org - Links Search this site Embedded Files Skip to
+ * main content…". Removing the duplicate copies keeps the first, which is the
+ * one adjacent to real content.
+ *
+ * Scans longest block first so the maximal repeated run is collapsed in one
+ * pass. Only blocks of three or more lines are considered: shorter repeats are
+ * far more likely to be ordinary prose that happens to coincide.
+ */
+function collapseRepeatedBlocks(lines: string[], minBlockSize = 3): string[] {
+  let working = lines;
+  let removedSomething = true;
+
+  while (removedSomething) {
+    removedSomething = false;
+
+    search: for (let size = working.length; size >= minBlockSize; size--) {
+      for (let start = 0; start + size <= working.length; start++) {
+        const block = working.slice(start, start + size);
+        const key = block.join('\n');
+        // Only collapse a block that repeats later in the document, and never
+        // more than once per pass so overlapping copies cannot loop.
+        for (let other = start + size; other + size <= working.length; other++) {
+          const candidate = working.slice(other, other + size);
+          if (candidate.join('\n') === key) {
+            working = [...working.slice(0, other), ...working.slice(other + size)];
+            removedSomething = true;
+            break search;
+          }
+        }
+      }
+    }
+  }
+
+  return working;
+}
+
+/**
+ * A line shaped like a Google Sites navigation label: title-cased, short, and
+ * without sentence punctuation. Used only to find the end of a leading nav run.
+ */
+const NAV_LABEL_SHAPE = /^[\p{Lu}][\p{L}\p{N}&'’\- ]{0,40}$/u;
+
+/**
+ * Strips the leading sidebar-navigation run from an exported body.
+ *
+ * After the duplicate copies are collapsed, one copy survives at the top. The
+ * export always puts it first (the "Home" logo link) and always lists the
+ * current page among its own items — so the real page heading is the first line
+ * that *repeats* something already in the run. That gives a general stop
+ * condition with no hardcoded navigation vocabulary.
+ *
+ * Falls back to the label shape when nothing repeats, so a page whose title is
+ * not itself a nav item still gets its chrome removed.
+ */
+function stripLeadingNavRun(lines: string[]): string[] {
+  if (lines.length === 0 || lines[0].trim().toLowerCase() !== 'home') return lines;
+
+  const seen = new Set<string>();
+  for (let i = 1; i < lines.length; i++) {
+    const key = lines[i].trim().toLowerCase();
+    if (seen.has(key)) return lines.slice(i);
+    seen.add(key);
+    if (!NAV_LABEL_SHAPE.test(lines[i].trim())) return lines.slice(i);
+  }
+
+  // Every line looked like a label and nothing repeated — the whole document is
+  // navigation, so there is no content left to keep.
+  return [];
+}
+
+/**
+ * Removes Google Sites page furniture from an exported plain-text body.
+ * Returns the input unchanged for anything that is not an export.
+ */
+export function stripMigratedSiteChrome(text: string): string {
+  if (!looksLikeGoogleSitesExport(text)) return text;
+
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !GOOGLE_SITES_CHROME_LINES.some((pattern) => pattern.test(line)));
+
+  return stripLeadingNavRun(collapseRepeatedBlocks(lines)).join('\n');
+}
+
 const HTML_SANITIZE_OPTIONS: IOptions = {
   allowedTags: [
     'a',
@@ -120,6 +274,23 @@ const HTML_SANITIZE_OPTIONS: IOptions = {
   allowedSchemesByTag: { img: ['http', 'https'] },
   allowProtocolRelative: false,
   disallowedTagsMode: 'discard',
+  // `discard` strips the tag but keeps its children, which is right for inline
+  // markup and catastrophic for page furniture: the CMS was migrated from Google
+  // Sites, whose entire navigation chrome was copied into each page's body. Listing
+  // the container tags here makes sanitize-html drop the whole subtree instead.
+  // Only ever applied to CMS `content.body` strings — never to our own layout.
+  nonTextTags: ['script', 'style', 'textarea', 'option', 'nav', 'aside', 'header', 'footer'],
+  // Google Sites wraps its chrome in class/id markers that survive the class-name
+  // filter. Drop the whole element rather than leaking "Search this site" and
+  // "Skip to main content" into page copy and meta descriptions.
+  exclusiveFilter: (frame) => {
+    const marker = `${frame.attribs?.class ?? ''} ${frame.attribs?.id ?? ''}`.toLowerCase();
+    return (
+      frame.tag === 'nav' ||
+      frame.tag === 'aside' ||
+      GOOGLE_SITES_CHROME.some((needle) => marker.includes(needle))
+    );
+  },
   transformTags: {
     a: (_tagName, attribs) => ({
       tagName: 'a',
@@ -198,7 +369,12 @@ export function sanitizeWPContent(html: string): string {
   try {
     let clean = html;
 
-    // 0. Strip active-content elements WITH their bodies first. Callers inject
+    // 0. Google Sites page furniture. The migrated bodies are plain text rather
+    // than HTML, so the site chrome is a run of literal lines, not elements.
+    // This has to run first: every pass below should only ever see real content.
+    clean = stripMigratedSiteChrome(clean);
+
+    // 0.5. Strip active-content elements WITH their bodies. Callers inject
     // this output as raw HTML, so script/style/iframe/plugin content must go.
     clean = clean.replace(/<script[\s\S]*?<\/script\s*>/gi, '');
     clean = clean.replace(/<style[\s\S]*?<\/style\s*>/gi, '');
@@ -214,6 +390,31 @@ export function sanitizeWPContent(html: string): string {
       /(\s(?:href|src|xlink:href)\s*=\s*)(?:"\s*(?:javascript|data|vbscript)[^"]*"|'\s*(?:javascript|data|vbscript)[^']*'|[^\s>]*?(?:javascript|data|vbscript):[^\s>]*)/gi,
       '$1"#"'
     );
+
+    // 0.5. Remove Google Sites page furniture before anything else, so no later
+    // pass (or the meta-description extractor) can read navigation text as body
+    // copy. Container tags are dropped whole rather than unwrapped.
+    for (const tag of ['nav', 'aside', 'header', 'footer'] as const) {
+      clean = clean.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi'), '');
+      // Unclosed variants (a truncated migration left some behind).
+      clean = clean.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*$`, 'i'), '');
+    }
+    for (const phrase of GOOGLE_SITES_PHRASES) {
+      clean = clean.replace(phrase, '');
+    }
+    // Div wrappers carrying a Google Sites marker: drop the element and its
+    // contents. Non-greedy, so an inner `</div>` terminates the match early and
+    // leaves any real content that followed intact.
+    for (const needle of GOOGLE_SITES_CHROME) {
+      const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      clean = clean.replace(
+        new RegExp(
+          `<div\\b[^>]*(?:class|id)\\s*=\\s*"[^"]*${escaped}[^"]*"[^>]*>[\\s\\S]*?<\\/div\\s*>`,
+          'gi'
+        ),
+        ''
+      );
+    }
 
     // 1. Remove Gutenberg block comments: <!-- wp:... --> and <!-- /wp:... -->
     clean = clean.replace(/<!--\s*\/?wp:[\s\S]*?-->/g, '');
@@ -268,14 +469,24 @@ export function sanitizeWPContent(html: string): string {
 
     // 4. Remove entire <p>, <div>, and <a> elements whose text contains spam keywords.
     // Use [\s\S]*? so nested markup (<b>, <span>) before the keyword can't bypass.
+    //
+    // The tempered `(?!</tag)` lookahead is load-bearing. With a plain [\s\S]*? the
+    // match happily spans sibling blocks: a spam keyword inside a later blockquote
+    // would let the *earlier* `<p>` swallow everything up to the next `</p>`, so a
+    // perfectly innocent quote was deleted along with the spam. The intent is
+    // "delete the element that contains the keyword", so the match must not cross
+    // the element's own closing tag. This narrows deletion, which cannot weaken
+    // the boundary — a keyword still removes its own containing element.
     for (const keyword of SPAM_KEYWORDS) {
       const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const pRegex = new RegExp(`<p\\b[^>]*>[\\s\\S]*?${escaped}[\\s\\S]*?<\\/p\\s*>`, 'gi');
-      const divRegex = new RegExp(`<div\\b[^>]*>[\\s\\S]*?${escaped}[\\s\\S]*?<\\/div\\s*>`, 'gi');
-      const aRegex = new RegExp(`<a\\b[^>]*>[\\s\\S]*?${escaped}[\\s\\S]*?<\\/a\\s*>`, 'gi');
-      clean = clean.replace(pRegex, '');
-      clean = clean.replace(divRegex, '');
-      clean = clean.replace(aRegex, '');
+      for (const tag of ['p', 'div', 'a'] as const) {
+        const inner = `(?:(?!<\\/${tag}\\b)[\\s\\S])*?${escaped}(?:(?!<\\/${tag}\\b)[\\s\\S])*?`;
+        const pattern =
+          tag === 'a'
+            ? new RegExp(`<a\\s[^>]*?${inner}<\\/a\\s*>`, 'gi')
+            : new RegExp(`<${tag}\\b[^>]*>${inner}<\\/${tag}\\s*>`, 'gi');
+        clean = clean.replace(pattern, '');
+      }
     }
 
     // 5. Remove blocks of 3+ consecutive links
@@ -336,6 +547,33 @@ export function sanitizeWPContent(html: string): string {
     console.error('[sanitizeWPContent] Error:', err);
     return '';
   }
+}
+
+/**
+ * Extracts readable text from CMS HTML for use in meta descriptions and OG cards.
+ *
+ * Runs the same sanitizer first, so Google Sites navigation chrome can never leak
+ * into a SERP snippet. The previous call sites sliced the first 150 characters of
+ * the *raw* body, which is how shipped descriptions came to start with
+ * "IndivisibleFairOaks.org - Links Search this site Embedded Files…".
+ */
+export function htmlToExcerpt(html: string, maxLength = 155): string {
+  const text = sanitizeWPContent(html)
+    .replace(/<\/(p|div|h[1-6]|li|tr|blockquote)>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (text.length <= maxLength) return text;
+  const cut = text.slice(0, maxLength);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[,;:.\s]+$/, '')}…`;
 }
 
 /**

@@ -133,7 +133,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.first_name}
                 onChange={(e) => setFormData((p) => ({ ...p, first_name: e.target.value }))}
                 placeholder="Jane"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
             <div>
@@ -149,7 +149,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.last_name}
                 onChange={(e) => setFormData((p) => ({ ...p, last_name: e.target.value }))}
                 placeholder="Doe"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
           </div>
@@ -169,7 +169,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.email}
                 onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
                 placeholder="jane@example.com"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
             <div>
@@ -185,7 +185,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.phone}
                 onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))}
                 placeholder="(916) 555-0199"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
           </div>
@@ -203,7 +203,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
               value={formData.address}
               onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))}
               placeholder="123 Main St"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
             />
           </div>
 
@@ -221,7 +221,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.city}
                 onChange={(e) => setFormData((p) => ({ ...p, city: e.target.value }))}
                 placeholder="Fair Oaks"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
             <div>
@@ -237,7 +237,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.zip_code}
                 onChange={(e) => setFormData((p) => ({ ...p, zip_code: e.target.value }))}
                 placeholder="95628"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
             <div>
@@ -251,7 +251,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 id="district"
                 value={formData.district}
                 onChange={(e) => setFormData((p) => ({ ...p, district: e.target.value }))}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm bg-white"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm bg-white"
               >
                 <option value="CA-06">CA-06 (Bera / Matsui)</option>
                 <option value="CA-03">CA-03 (Kiley / Sierra)</option>
@@ -272,7 +272,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
               id="status"
               value={formData.status}
               onChange={(e) => setFormData((p) => ({ ...p, status: e.target.value }))}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm bg-white"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm bg-white"
             >
               <option value="supporter">Supporter (Standard Member)</option>
               <option value="active_volunteer">Active Volunteer</option>
@@ -303,7 +303,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                   }
                 }}
                 placeholder="e.g. postcard-blitz, phone-bank, rally-marshal"
-                className="flex-1 px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-xs"
+                className="flex-1 px-4 py-2 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-xs"
               />
               <button
                 type="button"
@@ -346,7 +346,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
               value={formData.notes}
               onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))}
               placeholder="Meeting notes, preferred contact times, organizing skills..."
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
             />
           </div>
 

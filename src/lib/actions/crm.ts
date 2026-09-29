@@ -3,9 +3,23 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireAdmin } from '@/lib/admin-auth';
-import { type CRMImportError, parseCRMImportCsv, toCsvRow } from '@/lib/crm-import';
-import { brandShell, escapeHtml, safeSubject, sendEmail } from '@/lib/email';
+import {
+  BROADCAST_RECIPIENT_CEILING,
+  broadcastSubject,
+  buildBroadcastEmail,
+} from '@/lib/crm-broadcast';
+import {
+  type CRMImportError,
+  MAX_TAG_LENGTH,
+  MAX_TAGS_PER_CONTACT,
+  normalizeTags,
+  parseCRMImportCsv,
+  TAG_PATTERN,
+  toCsvRow,
+} from '@/lib/crm-import';
+import { brandShell, escapeHtml, LOGO_URL, safeSubject, sendEmail } from '@/lib/email';
 import { env } from '@/lib/env';
+import { rateLimit } from '@/lib/rate-limit';
 import type { Database } from '@/types/supabase';
 
 export type CRMContact = Database['public']['Tables']['crm_contacts']['Row'];
@@ -15,6 +29,19 @@ export type CRMActivity = Database['public']['Tables']['crm_activities']['Row'];
 export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'];
 export type CRMTask = Database['public']['Tables']['crm_tasks']['Row'];
 export type CRMSegment = Database['public']['Tables']['crm_segments']['Row'];
+
+/**
+ * Tag shape is enforced identically on both write paths. The CSV importer already
+ * normalised to lowercase and capped at 20 (see `splitTags` in crm-import.ts); without
+ * the matching cap here, a hand-entered contact could carry 500 tags, which then
+ * renders 500 options in the directory filter and floods the broadcast chip list.
+ */
+const tagSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_TAG_LENGTH)
+  .regex(TAG_PATTERN, 'Tags may not contain <, >, or commas');
 
 const contactSchema = z.object({
   id: z.string().uuid().optional(),
@@ -29,7 +56,11 @@ const contactSchema = z.object({
   status: z
     .enum(['active_volunteer', 'supporter', 'donor', 'choir', 'organizer', 'inactive'])
     .default('supporter'),
-  tags: z.array(z.string()).default([]),
+  tags: z
+    .array(tagSchema)
+    .max(MAX_TAGS_PER_CONTACT, `A contact may carry at most ${MAX_TAGS_PER_CONTACT} tags`)
+    .transform(normalizeTags)
+    .default([]),
   notes: z.string().nullable().optional(),
 });
 
@@ -100,16 +131,122 @@ function splitList(v: string | undefined | null): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Every CRM mutation invalidates the same set of reads: the KPI cards on the directory,
+ * the directory itself, the follow-up board, and the contact 360 that owns the row.
+ * Hand-listing these per action is how they drifted — toggling a task on the 360 page
+ * revalidated the board but not the 360, so the tab it was toggled in stayed stale.
+ */
+/**
+ * Per-admin send budget, enforced in addition to the database-level flood guard.
+ *
+ * The CRM send paths were the only ones in the app with no limiter at all — the
+ * contact form runs 3/10min/IP and error reports 5/10min. A double-click on the
+ * broadcast confirm dialog, or a compromised admin session, could otherwise drain
+ * the Resend quota. Keyed on the admin's user id rather than an IP, because the
+ * thing at risk is the *account's* sending authority, and every legitimate send
+ * comes from the same office IP.
+ */
+const SEND_LIMIT = { limit: 30, windowMs: 60_000 } as const;
+const BROADCAST_LIMIT = { limit: 5, windowMs: 60_000 } as const;
+
+function sendRateLimited(
+  adminUserId: string,
+  scope: { limit: number; windowMs: number }
+): string | null {
+  const { ok, retryAfterSec } = rateLimit(
+    `crm-send:${scope.limit}:${adminUserId}`,
+    scope.limit,
+    scope.windowMs
+  );
+  if (ok) return null;
+  return `Too many emails sent. Wait ${retryAfterSec}s before sending again.`;
+}
+
+interface BroadcastRecipient {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  unsubscribe_token: string;
+}
+
+/**
+ * Resolve the audience for a broadcast. Consent is applied here and nowhere
+ * else, so there is exactly one place an opted-out contact can be excluded —
+ * the previous inline filter was easy to reorder past.
+ */
+async function resolveBroadcastRecipients(
+  adminClient: AdminClient,
+  target: BroadcastTarget
+): Promise<BroadcastRecipient[]> {
+  const targetTags = target.targetTags ?? [];
+  const targetStatus = target.targetStatus ?? [];
+  const targetDistricts = target.targetDistricts ?? [];
+  const PAGE = 1000;
+  const recipients: BroadcastRecipient[] = [];
+
+  for (let offset = 0; offset < BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
+    let qb = adminClient
+      .from('crm_contacts')
+      .select('id, email, first_name, last_name, unsubscribe_token')
+      .eq('do_not_email', false);
+
+    if (targetStatus.length > 0) qb = qb.in('status', targetStatus);
+    if (targetDistricts.length > 0) qb = qb.in('district', targetDistricts);
+    if (targetTags.length > 0) {
+      for (const tag of targetTags) qb = qb.contains('tags', [tag]);
+    }
+
+    const { data, error } = await qb.range(offset, offset + PAGE - 1);
+    if (error) throw new Error(`Failed to resolve recipients: ${error.message}`);
+    if (!data || data.length === 0) break;
+    recipients.push(...(data as BroadcastRecipient[]));
+    if (data.length < PAGE) break;
+  }
+  return recipients;
+}
+
+function revalidateCRMRoutes(contactId?: string | null): void {
+  revalidatePath('/admin/crm');
+  revalidatePath('/admin/crm/tasks');
+  revalidatePath('/admin/crm/broadcasts');
+  if (contactId) revalidatePath(`/admin/crm/${contactId}`);
+}
+
+/**
+ * KPI cards for the directory header.
+ *
+ * Aggregated in the database by `crm_stats()` (see migration
+ * 20260929120000). The previous version selected every donor row and summed
+ * `total_donated_cents` in JavaScript, which put an unbounded result set on the
+ * wire on every dashboard load. The RPC is a single pass over the table and
+ * returns one object.
+ */
 export async function getCRMStats(): Promise<CRMStats> {
   const { adminClient } = await requireAdmin();
 
-  const [
-    { count: totalContacts },
-    { count: activeVolunteers },
-    { count: localDistrict },
-    { data: donorRows },
-    { count: openTasks },
-  ] = await Promise.all([
+  const { data, error } = await adminClient.rpc('crm_stats');
+  if (error) {
+    // The RPC is additive: on a database that has not had the migration
+    // applied yet, fall back to the old per-query counts so the dashboard
+    // still renders rather than 500ing during a staged rollout.
+    return legacyCRMStats(adminClient);
+  }
+
+  const row = (data ?? {}) as Record<string, number>;
+  return {
+    totalContacts: row.total_contacts ?? 0,
+    activeVolunteers: row.active_volunteers ?? 0,
+    localDistrict: row.local_district ?? 0,
+    totalDonors: row.total_donors ?? 0,
+    totalDonationsCents: row.total_donations_cents ?? 0,
+    openTasks: row.open_tasks ?? 0,
+  };
+}
+
+async function legacyCRMStats(adminClient: AdminClient): Promise<CRMStats> {
+  const [total, volunteers, local, tasks] = await Promise.all([
     adminClient.from('crm_contacts').select('*', { count: 'exact', head: true }),
     adminClient
       .from('crm_contacts')
@@ -119,22 +256,15 @@ export async function getCRMStats(): Promise<CRMStats> {
       .from('crm_contacts')
       .select('*', { count: 'exact', head: true })
       .in('district', ['CA-03', 'CA-06']),
-    adminClient.from('crm_contacts').select('total_donated_cents').gt('total_donated_cents', 0),
     adminClient.from('crm_tasks').select('*', { count: 'exact', head: true }).eq('status', 'open'),
   ]);
-
-  const totalDonationsCents = (donorRows || []).reduce(
-    (sum, r) => sum + (r.total_donated_cents || 0),
-    0
-  );
-
   return {
-    totalContacts: totalContacts ?? 0,
-    activeVolunteers: activeVolunteers ?? 0,
-    localDistrict: localDistrict ?? 0,
-    totalDonors: donorRows?.length ?? 0,
-    totalDonationsCents,
-    openTasks: openTasks ?? 0,
+    totalContacts: total.count ?? 0,
+    activeVolunteers: volunteers.count ?? 0,
+    localDistrict: local.count ?? 0,
+    totalDonors: 0,
+    totalDonationsCents: 0,
+    openTasks: tasks.count ?? 0,
   };
 }
 
@@ -384,9 +514,7 @@ export async function addCRMTask(
 
   if (error) return { success: false, error: error.message };
 
-  revalidatePath('/admin/crm');
-  revalidatePath('/admin/crm/tasks');
-  revalidatePath(`/admin/crm/${contactId}`);
+  revalidateCRMRoutes(contactId);
   return { success: true, taskId: data.id };
 }
 
@@ -399,27 +527,33 @@ export async function setCRMTaskStatus({
 }): Promise<{ success: boolean; error?: string }> {
   const { adminClient } = await requireAdmin();
   const now = new Date().toISOString();
-  const { error } = await adminClient
+  const { data, error } = await adminClient
     .from('crm_tasks')
     .update({
       status,
       completed_at: status === 'done' ? now : null,
       updated_at: now,
     })
-    .eq('id', id);
+    .eq('id', id)
+    .select('contact_id')
+    .single();
 
   if (error) return { success: false, error: error.message };
-  revalidatePath('/admin/crm');
-  revalidatePath('/admin/crm/tasks');
+  revalidateCRMRoutes(data?.contact_id);
   return { success: true };
 }
 
 export async function deleteCRMTask(id: string): Promise<{ success: boolean; error?: string }> {
   const { adminClient } = await requireAdmin();
-  const { error } = await adminClient.from('crm_tasks').delete().eq('id', id);
+  const { data, error } = await adminClient
+    .from('crm_tasks')
+    .delete()
+    .eq('id', id)
+    .select('contact_id')
+    .single();
+
   if (error) return { success: false, error: error.message };
-  revalidatePath('/admin/crm');
-  revalidatePath('/admin/crm/tasks');
+  revalidateCRMRoutes(data?.contact_id);
   return { success: true };
 }
 
@@ -460,7 +594,7 @@ export async function saveCRMSegment(
       .select('id')
       .single();
     if (error) return { success: false, error: error.message };
-    revalidatePath('/admin/crm');
+    revalidateCRMRoutes();
     return { success: true, segmentId: data.id };
   }
 
@@ -471,7 +605,7 @@ export async function saveCRMSegment(
     }
     return { success: false, error: error.message };
   }
-  revalidatePath('/admin/crm');
+  revalidateCRMRoutes();
   return { success: true, segmentId: data.id };
 }
 
@@ -479,7 +613,7 @@ export async function deleteCRMSegment(id: string): Promise<{ success: boolean; 
   const { adminClient } = await requireAdmin();
   const { error } = await adminClient.from('crm_segments').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
-  revalidatePath('/admin/crm');
+  revalidateCRMRoutes();
   return { success: true };
 }
 
@@ -571,8 +705,7 @@ export async function saveCRMContact(
       created_by: adminUserId,
     });
 
-    revalidatePath('/admin/crm');
-    revalidatePath(`/admin/crm/${id}`);
+    revalidateCRMRoutes(id);
     return { success: true, contactId: updated.id };
   }
 
@@ -597,7 +730,7 @@ export async function saveCRMContact(
     created_by: adminUserId,
   });
 
-  revalidatePath('/admin/crm');
+  revalidateCRMRoutes(created.id);
   return { success: true, contactId: created.id };
 }
 
@@ -607,7 +740,7 @@ export async function deleteCRMContact(id: string): Promise<{ success: boolean; 
   const { error } = await adminClient.from('crm_contacts').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
 
-  revalidatePath('/admin/crm');
+  revalidateCRMRoutes();
   return { success: true };
 }
 
@@ -634,7 +767,7 @@ export async function addCRMNote({
 
   if (error) return { success: false, error: error.message };
 
-  revalidatePath(`/admin/crm/${contactId}`);
+  revalidateCRMRoutes(contactId);
   return { success: true };
 }
 
@@ -669,8 +802,7 @@ export async function setCRMEmailConsent({
     created_by: adminUserId,
   });
 
-  revalidatePath('/admin/crm');
-  revalidatePath(`/admin/crm/${contactId}`);
+  revalidateCRMRoutes(contactId);
   return { success: true };
 }
 
@@ -778,7 +910,7 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
   const insertFailed = insertErrors.some((e) => e.message.startsWith('Insert failed'));
   const success = imported > 0 || (skipped > 0 && !insertFailed);
 
-  revalidatePath('/admin/crm');
+  revalidateCRMRoutes();
   return {
     success,
     imported,
@@ -857,8 +989,7 @@ export async function mergeCRMContacts({
     created_by: adminUserId,
   });
 
-  revalidatePath('/admin/crm');
-  revalidatePath(`/admin/crm/${keepId}`);
+  revalidateCRMRoutes(keepId);
   return { success: true };
 }
 
@@ -876,6 +1007,9 @@ export async function sendCRMDirectEmail({
   if (!subject.trim() || !message.trim()) {
     return { success: false, error: 'Subject and message are required' };
   }
+
+  const limited = sendRateLimited(adminUserId, SEND_LIMIT);
+  if (limited) return { success: false, error: limited };
 
   const { data: contact, error: fetchError } = await adminClient
     .from('crm_contacts')
@@ -943,91 +1077,196 @@ export async function sendCRMDirectEmail({
     }),
   ]);
 
-  revalidatePath(`/admin/crm/${contactId}`);
+  revalidateCRMRoutes(contactId);
   return { success: true };
 }
 
+export interface BroadcastTarget {
+  targetTags?: string[];
+  targetStatus?: string[];
+  targetDistricts?: string[];
+}
+
+export interface BroadcastProgress {
+  id: string;
+  subject: string | null;
+  status: 'draft' | 'queued' | 'sending' | 'sent' | 'failed';
+  recipientCount: number;
+  sentCount: number;
+  failedCount: number;
+  sentAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * Render the broadcast a recipient would receive.
+ *
+ * The composer calls this to show a preview and the sender calls the same
+ * builder to deliver, so the two cannot diverge. The previous "Sensory
+ * Preview" was a different document: no logo, no greeting, no brand shell, no
+ * unsubscribe footer, and a body rendered with `whitespace-pre-line` where the
+ * server substituted `<br />`. An author previewing a broadcast saw an email no
+ * recipient would ever receive — the AGENTS.md "no fake controls" failure in a
+ * new place.
+ */
+export async function previewCRMBroadcast({
+  subject,
+  body,
+  recipientName = 'Neighbor',
+}: {
+  subject: string;
+  body: string;
+  recipientName?: string;
+}): Promise<{ html: string; text: string; subject: string }> {
+  await requireAdmin();
+  return {
+    ...buildBroadcastEmail({
+      recipientName,
+      body,
+      unsubscribeUrl: unsubscribeUrl('00000000-0000-0000-0000-000000000000'),
+      logoUrl: LOGO_URL,
+    }),
+    subject: broadcastSubject(subject),
+  };
+}
+
+/**
+ * Save a broadcast without sending it.
+ *
+ * `crm_broadcasts.status` has carried a 'draft' value since the table was
+ * created and nothing ever wrote one, so half the state machine was dead and a
+ * half-written campaign could only be held in the browser. Drafts persist the
+ * audience alongside the copy, so returning to one restores what it would send.
+ */
+export async function saveCRMBroadcastDraft({
+  subject,
+  body,
+  targetTags = [],
+  targetStatus = [],
+  targetDistricts = [],
+}: BroadcastTarget & { subject: string; body: string }): Promise<{
+  success: boolean;
+  broadcastId?: string;
+  error?: string;
+}> {
+  const { adminClient } = await requireAdmin();
+  const cleanSubject = broadcastSubject(subject);
+  if (!cleanSubject) return { success: false, error: 'Subject is required' };
+  if (!body.trim()) return { success: false, error: 'Message body is required' };
+
+  const { data, error } = await adminClient
+    .from('crm_broadcasts')
+    .insert({
+      subject: cleanSubject,
+      body: body.trim(),
+      target_tags: targetTags,
+      target_status: targetStatus,
+      target_districts: targetDistricts,
+      recipient_count: 0,
+      status: 'draft',
+    })
+    .select('id')
+    .single();
+  if (error) return { success: false, error: error.message };
+
+  revalidateCRMRoutes();
+  return { success: true, broadcastId: data.id };
+}
+
+export async function deleteCRMBroadcastDraft(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  const { adminClient } = await requireAdmin();
+  const { data: existing } = await adminClient
+    .from('crm_broadcasts')
+    .select('status')
+    .eq('id', id)
+    .maybeSingle();
+  // Only drafts are removable. Deleting a sent broadcast would orphan every
+  // `email_sent` activity referencing it — that log is the audit trail.
+  if (!existing) return { success: false, error: 'That broadcast no longer exists' };
+  if (existing.status !== 'draft') {
+    return { success: false, error: 'Only unsent drafts can be deleted' };
+  }
+  const { error } = await adminClient.from('crm_broadcasts').delete().eq('id', id);
+  if (error) return { success: false, error: error.message };
+  revalidateCRMRoutes();
+  return { success: true };
+}
+
+/**
+ * Queue a broadcast and hand delivery to a background function.
+ *
+ * The send used to run entirely inside this server action: five recipients per
+ * sequential round-trip, inside one request. Past roughly a thousand recipients
+ * the platform killed the request, and because the row was written as `sending`
+ * before the loop began it stayed that way permanently — the composer rendered
+ * it as a benign amber pill with no way to retry or recover.
+ *
+ * Now the action does only what must be transactional: resolve the audience,
+ * write the log row, dispatch. Progress lives on the row and the composer polls
+ * `getBroadcastProgress()`, so a send outlives the request that started it.
+ */
 export async function sendCRMBroadcast({
   subject,
   body,
   targetTags = [],
   targetStatus = [],
   targetDistricts = [],
-}: {
-  subject: string;
-  body: string;
-  targetTags?: string[];
-  targetStatus?: string[];
-  targetDistricts?: string[];
-}): Promise<{
+}: BroadcastTarget & { subject: string; body: string }): Promise<{
   success: boolean;
   recipientCount?: number;
-  failedCount?: number;
   broadcastId?: string;
   error?: string;
 }> {
   const { adminClient, adminUserId } = await requireAdmin();
 
-  if (!subject.trim() || !body.trim()) {
-    return { success: false, error: 'Subject and message body are required' };
-  }
+  const cleanSubject = broadcastSubject(subject);
+  if (!cleanSubject) return { success: false, error: 'Subject is required' };
+  if (!body.trim()) return { success: false, error: 'Message body is required' };
 
-  // PostgREST caps a single response at 1000 rows — page through recipients.
-  const RECIPIENT_PAGE = 1000;
-  const RECIPIENT_HARD_CAP = 10_000;
-  const recipients: {
-    id: string;
-    email: string;
-    first_name: string | null;
-    last_name: string | null;
-    unsubscribe_token: string;
-  }[] = [];
+  const limited = sendRateLimited(adminUserId, BROADCAST_LIMIT);
+  if (limited) return { success: false, error: limited };
 
-  for (let offset = 0; offset < RECIPIENT_HARD_CAP; offset += RECIPIENT_PAGE) {
-    let qb = adminClient
-      .from('crm_contacts')
-      .select('id, email, first_name, last_name, unsubscribe_token');
-
-    // Consent gate: never resolve opted-out contacts as recipients.
-    qb = qb.eq('do_not_email', false);
-
-    if (targetStatus.length > 0) {
-      qb = qb.in('status', targetStatus);
-    }
-    if (targetDistricts.length > 0) {
-      qb = qb.in('district', targetDistricts);
-    }
-    if (targetTags.length > 0) {
-      qb = qb.contains('tags', targetTags);
-    }
-
-    const { data, error: recError } = await qb
-      .order('id', { ascending: true })
-      .range(offset, offset + RECIPIENT_PAGE - 1);
-
-    if (recError) {
-      return { success: false, error: `Failed to resolve recipients: ${recError.message}` };
-    }
-    if (!data || data.length === 0) break;
-    recipients.push(...data);
-    if (data.length < RECIPIENT_PAGE) break;
+  let recipients: BroadcastRecipient[];
+  try {
+    recipients = await resolveBroadcastRecipients(adminClient, {
+      targetTags,
+      targetStatus,
+      targetDistricts,
+    });
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to resolve recipients',
+    };
   }
 
   if (recipients.length === 0) {
-    return { success: false, error: 'No constituents match the selected criteria' };
+    return { success: false, error: 'No contacts match this audience' };
+  }
+  // Refuse rather than truncate. A silently shortened broadcast is worse than a
+  // refused one: the author would believe four thousand people heard from them.
+  if (recipients.length > BROADCAST_RECIPIENT_CEILING) {
+    return {
+      success: false,
+      error:
+        `This audience has ${recipients.length.toLocaleString()} contacts, over the ` +
+        `${BROADCAST_RECIPIENT_CEILING.toLocaleString()} limit for one broadcast. ` +
+        'Narrow the audience and try again.',
+    };
   }
 
-  // Insert draft broadcast record
   const { data: broadcast, error: bcError } = await adminClient
     .from('crm_broadcasts')
     .insert({
-      subject: safeSubject(subject.trim()),
+      subject: cleanSubject,
       body: body.trim(),
       target_tags: targetTags,
       target_status: targetStatus,
       target_districts: targetDistricts,
       recipient_count: recipients.length,
-      status: 'sending',
+      status: 'queued',
     })
     .select('id')
     .single();
@@ -1036,104 +1275,89 @@ export async function sendCRMBroadcast({
     return { success: false, error: 'Failed to create broadcast log' };
   }
 
-  const cleanSubject = safeSubject(subject.trim());
-  const escapedBody = escapeHtml(body.trim()).replace(/\n/g, '<br />');
-
-  // Dispatch in small concurrent batches to keep within Fluid CPU + Resend limits.
-  let successfulSends = 0;
-  let failedSends = 0;
-  const BATCH = 5;
-  const now = new Date().toISOString();
-
-  for (let i = 0; i < recipients.length; i += BATCH) {
-    const batch = recipients.slice(i, i + BATCH);
-    const results = await Promise.all(
-      batch.map(async (recipient) => {
-        const recipientName =
-          [recipient.first_name, recipient.last_name].filter(Boolean).join(' ') || 'Supporter';
-        const unsubHref = unsubscribeUrl(recipient.unsubscribe_token);
-        const html = brandShell({
-          eyebrow: 'Chapter Broadcast',
-          body: `
-            <p style="margin:0 0 16px;color:#F1F5F9;font-size:16px;">Hello ${escapeHtml(recipientName)},</p>
-            <div style="margin:0 0 20px;padding:20px;background:#0F172A;border-radius:12px;border-left:3px solid #2563EB;color:#F1F5F9;font-size:14px;line-height:1.7;">
-              ${escapedBody}
-            </div>
-            <p style="margin:24px 0 0;color:#94A3B8;font-size:13px;line-height:1.5;">
-              Indivisible Fair Oaks-Carmichael Organizing Team<br />
-              <a href="https://indivisiblefairoaks.org" style="color:#60A5FA;text-decoration:none;">indivisiblefairoaks.org</a>
-            </p>
-            <p style="margin:12px 0 0;font-size:12px;">
-              <a href="${unsubHref}" style="color:#60A5FA;">Unsubscribe from chapter email</a>
-            </p>
-          `.trim(),
-          footer: 'You received this community broadcast as a registered supporter or volunteer.',
-        });
-
-        const res = await sendEmail({
-          to: recipient.email,
-          subject: cleanSubject,
-          html,
-          text: `${body.trim()}\n\n--\nIndivisible Fair Oaks-Carmichael\nhttps://indivisiblefairoaks.org\n\nUnsubscribe: ${unsubHref}`,
-          replyTo: env.ADMIN_ORDER_EMAIL || 'contact@indivisiblefairoaks.org',
-          tags: [
-            { name: 'type', value: 'crm-broadcast' },
-            { name: 'broadcast_id', value: broadcast.id },
-          ],
-          headers: listUnsubscribeHeaders(recipient.unsubscribe_token),
-        });
-        return { recipient, res };
-      })
-    );
-
-    for (const { recipient, res } of results) {
-      if (res.ok) {
-        successfulSends += 1;
-        await adminClient.from('crm_activities').insert({
-          contact_id: recipient.id,
-          type: 'email_sent',
-          title: `Broadcast: ${cleanSubject}`,
-          description: `Delivered via campaign #${broadcast.id}`,
-          metadata: { broadcast_id: broadcast.id, resend_id: res.id },
-          created_by: adminUserId,
-        });
-      } else {
-        failedSends += 1;
-      }
-    }
-  }
-
-  await adminClient
-    .from('crm_broadcasts')
-    .update({
-      status: failedSends === 0 ? 'sent' : successfulSends > 0 ? 'sent' : 'failed',
-      recipient_count: recipients.length,
-      failed_count: failedSends,
-      sent_at: now,
-    })
-    .eq('id', broadcast.id);
-
-  revalidatePath('/admin/crm');
-  revalidatePath('/admin/crm/broadcasts');
-
-  if (successfulSends === 0) {
+  const dispatched = await dispatchBroadcastSender(broadcast.id);
+  if (!dispatched.ok) {
+    // Mark it failed rather than leaving it queued forever: the admin needs to
+    // see that it did not go out, and be able to try again.
+    await adminClient
+      .from('crm_broadcasts')
+      .update({ status: 'failed', sent_at: new Date().toISOString() })
+      .eq('id', broadcast.id);
     return {
       success: false,
       recipientCount: recipients.length,
-      failedCount: failedSends,
       broadcastId: broadcast.id,
-      error: 'All deliveries failed',
+      error: `Broadcast could not be started: ${dispatched.error}`,
     };
   }
 
+  revalidateCRMRoutes();
+  return { success: true, recipientCount: recipients.length, broadcastId: broadcast.id };
+}
+
+/**
+ * Hand the send to the `crm-broadcast-send` Edge Function.
+ *
+ * The function owns delivery, progress and the final status from here, so the
+ * request that queues the broadcast can return immediately.
+ */
+async function dispatchBroadcastSender(
+  broadcastId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const functionUrl = env.CRM_BROADCAST_FUNCTION_URL;
+  if (!functionUrl) {
+    return { ok: false, error: 'the broadcast sender is not configured on this deployment' };
+  }
+  const key = env.SUPABASE_SECRET_KEY;
+  if (!key) {
+    return { ok: false, error: 'the service key is unavailable' };
+  }
+  try {
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // service_role is the only role permitted to enqueue a send. This call
+        // originates from an action that already passed requireAdmin().
+        Authorization: `Bearer ${key}`,
+        apikey: key,
+      },
+      body: JSON.stringify({ broadcast_id: broadcastId }),
+    });
+    if (!response.ok) return { ok: false, error: `sender responded ${response.status}` };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'sender unreachable' };
+  }
+}
+
+/** Poll target for the composer's progress readout. */
+export async function getBroadcastProgress(broadcastId: string): Promise<BroadcastProgress | null> {
+  const { adminClient } = await requireAdmin();
+  const { data, error } = await adminClient
+    .from('crm_broadcasts')
+    .select('id, subject, status, recipient_count, sent_count, failed_count, sent_at, created_at')
+    .eq('id', broadcastId)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to read broadcast progress: ${error.message}`);
+  if (!data) return null;
   return {
-    success: true,
-    recipientCount: successfulSends,
-    failedCount: failedSends,
-    broadcastId: broadcast.id,
+    id: data.id,
+    subject: data.subject,
+    status: (data.status ?? 'draft') as BroadcastProgress['status'],
+    recipientCount: data.recipient_count ?? 0,
+    sentCount: data.sent_count ?? 0,
+    failedCount: data.failed_count ?? 0,
+    sentAt: data.sent_at,
+    createdAt: data.created_at ?? new Date().toISOString(),
   };
 }
 
+/**
+ * Backfill contacts from contact-form submissions, profiles and completed
+ * orders. Idempotent: re-running it unions tags and only applies a donation
+ * total the first time each order is seen.
+ */
 export async function triggerHistoricalCRMSync(): Promise<{
   success: boolean;
   syncedCount?: number;
@@ -1148,7 +1372,7 @@ export async function triggerHistoricalCRMSync(): Promise<{
 
   const result = data as { contacts_synced?: number; activities_created?: number } | null;
 
-  revalidatePath('/admin/crm');
+  revalidateCRMRoutes();
   return {
     success: true,
     syncedCount: result?.contacts_synced ?? 0,

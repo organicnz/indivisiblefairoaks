@@ -90,7 +90,8 @@
       "includes": [
         "**/src/app/page.tsx",
         "**/src/app/\\[slug\\]/page.tsx",
-        "**/src/app/products/\\[slug\\]/page.tsx"
+        "**/src/app/products/\\[slug\\]/page.tsx",
+        "**/src/app/faqs/page.tsx"
       ],
       "linter": {
         "rules": {
@@ -106,6 +107,27 @@
         "rules": {
           "correctness": {
             "useExhaustiveDependencies": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/src/components/ui/CivicCommandPalette.tsx"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noNoninteractiveElementToInteractiveRole": "off",
+            "useFocusableInteractive": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/src/components/products/ProductSlider.tsx"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noNoninteractiveTabindex": "off"
           }
         }
       }

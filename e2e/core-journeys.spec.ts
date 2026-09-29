@@ -43,11 +43,29 @@ test.describe('static + content pages resolve', () => {
 
 test.describe('home shell', () => {
   test('header logo, primary nav and footer render', async ({ page }) => {
+    // The horizontal nav row is shown from 2xl. Below that the drawer serves the
+    // links — see `e2e/header-fit.spec.ts` for the width matrix and
+    // `src/config/routes.ts` for why the row cannot fit any narrower.
+    await page.setViewportSize({ width: 1600, height: 900 });
     await page.goto('/');
     const banner = page.getByRole('banner');
     await expect(banner.locator('a[href="/"]').first()).toBeVisible();
-    await expect(banner.getByRole('link', { name: 'Events & Actions' })).toBeVisible();
+    // Short label: the desktop row uses `link.short`.
+    await expect(banner.getByRole('link', { name: 'Events', exact: true })).toBeVisible();
     await expect(page.getByRole('contentinfo')).toBeVisible();
+  });
+
+  test('drawer carries the full nav labels on narrow viewports', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Open navigation menu' }).click();
+    const drawer = page.getByRole('dialog', { name: 'Navigation menu' });
+    await expect(drawer.getByRole('link', { name: 'Events & Actions' })).toBeVisible();
+    await expect(drawer.getByRole('link', { name: 'Resistance Choir' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    // Escape must dismiss it — Radix supplies this, and it is the only way out
+    // for a keyboard user who opened it.
+    await expect(drawer).toHaveCount(0);
   });
 
   test('donate page loads with a heading', async ({ page }) => {
@@ -101,7 +119,7 @@ test.describe('gallery journey', () => {
     await expect.poll(() => photos.count(), { timeout: 10_000 }).toBeGreaterThan(0);
     await photos.first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('button', { name: 'Close image modal' }).click();
+    await page.getByRole('button', { name: 'Close image viewer' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 });
