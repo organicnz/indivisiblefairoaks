@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Reveal-on-hover is only usable where hover actually exists. Gating it behind
+   `(hover: hover)` is what makes "visible on touch, revealed on pointer" a
+   one-class change instead of a breakpoint guess — touch devices report
+   `(hover: none)`, so they keep the always-visible state. */
+@custom-variant hover-capable (@media (hover: hover));
+
 :root {
   --background: #ffffff;
   --foreground: #0f172a;
@@ -13,6 +19,40 @@
   --accent-gold: #f59e0b;
   --surface-muted: #f8fafc;
   --surface-card: #ffffff;
+
+  /* Hairline borders and secondary copy. Both were used as raw
+     `border-slate-200` / `text-slate-600` classes across the codebase, which
+     made them the most-repeated colours in the project and the two hardest to
+     change in one place. Promoting them to tokens is what lets the CMS content
+     stylesheet — which styles raw HTML and so cannot use utility classes — obey
+     the same "tokens always" rule as the components. Values are exactly what the
+     utilities were already rendering, so nothing shifts. */
+  --border: #e2e8f0;
+  --muted-foreground: #475569;
+
+  /* Body copy on dark surfaces. `--ink-on-dark` exists because `text-slate-600`
+     — the token the design system names for body copy — measures 1.86:1 on the
+     dark civic pages and is unreadable there. Dark surfaces need their own pair
+     or the "always use text-slate-600" rule cannot be followed. */
+  --ink-on-dark: #cbd5e1;
+  --ink-muted-on-dark: #94a3b8;
+
+  /* Reserved dark-surface accent. Named here so the rule in AGENTS.md ("raw lime
+     is never body or heading text, never on light surfaces") is enforceable by a
+     token rather than a comment. Previously it existed only as a raw hex in
+     global-error.tsx, which is how it ended up in JSX at all. */
+  --accent-lime: #d1ff00;
+
+  /* Brand blue, on a dark surface.
+     `--primary` (#1e3a8a) is 1.5:1 against `--secondary`, which is fine as a
+     surface on white but makes a CTA disappear on a dark page. The dark civic
+     pages therefore need their own brand-blue entry, and previously had none —
+     which is exactly why they reached for raw `blue-600`. Both values below are
+     the ones the site was already rendering, so adopting the token is a no-op
+     that makes the choice explicit and governed. */
+  --primary-bright: #155dfc; /* CTA surface on dark — replaces bg-blue-600 */
+  --primary-on-dark: #8ec5ff; /* display / hero highlight — replaces text-blue-300 */
+  --primary-on-dark-muted: #50a2ff; /* eyebrow + label — replaces text-blue-400 */
 
   /* Fixed-header clearance. */
   --header-h: 5.5rem; /* 88px */
@@ -31,14 +71,46 @@
   --color-primary-light: var(--primary-light);
   --color-primary-dark: var(--primary-dark);
   --color-primary-ink: var(--primary-ink);
+  --color-primary-bright: var(--primary-bright);
+  --color-primary-on-dark: var(--primary-on-dark);
+  --color-primary-on-dark-muted: var(--primary-on-dark-muted);
   --color-secondary: var(--secondary);
   --color-accent: var(--accent);
   --color-accent-red: var(--accent-red);
   --color-accent-gold: var(--accent-gold);
+  --color-accent-lime: var(--accent-lime);
   --color-surface-muted: var(--surface-muted);
   --color-surface-card: var(--surface-card);
+  --color-border: var(--border);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-ink-on-dark: var(--ink-on-dark);
+  --color-ink-muted-on-dark: var(--ink-muted-on-dark);
   --font-sans: var(--font-inter);
   --font-outfit: var(--font-outfit);
+
+  /* Radius scale. Every radius in the codebase was an ad-hoc arbitrary value
+     (`rounded-[2.5rem]`, `rounded-[1.75rem]`, `rounded-[0.5rem]`, …) with no
+     scale behind them, so nothing constrained the set. */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.75rem;
+  --radius-2xl: 2.5rem;
+  --radius-3xl: 3.5rem;
+
+  /* Elevation scale, replacing one-off arbitrary shadows. */
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+  --shadow-raised: 0 4px 6px -1px rgb(15 23 42 / 0.07), 0 2px 4px -2px rgb(15 23 42 / 0.05);
+  --shadow-float: 0 20px 25px -5px rgb(15 23 42 / 0.1), 0 8px 10px -6px rgb(15 23 42 / 0.06);
+  --shadow-hero: 0 40px 100px -20px rgb(15 23 42 / 0.1);
+  --shadow-header: 0 10px 15px -3px rgb(15 23 42 / 0.1), 0 4px 6px -4px rgb(15 23 42 / 0.1);
+
+  /* Motion. AGENTS.md caps interactive feedback at 500ms; these are the only
+     two durations in the system so nothing has to be invented per component. */
+  --ease-sensory: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 300ms;
+  --duration-slow: 500ms;
 }
 
 @layer base {
@@ -58,6 +130,246 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Enter/exit animation layer
+
+   `tailwindcss-animate` was never installed, so every `animate-in`,
+   `animate-out`, `fade-in-0`, `zoom-in-95`, `slide-in-from-*` and
+   `data-[state=open]:…` class in this codebase compiled to nothing. All Radix
+   dialog motion and all login/account/MFA entrance animation was silently dead:
+   surfaces popped in with no transition at all.
+
+   Rather than add a dependency, the utilities the codebase already uses are
+   implemented here against Tailwind v4's `@utility`. Same class names, same
+   composition model (animate-in sets the timeline, the `fade-in-0` /
+   `zoom-in-95` / `slide-in-from-*` classes set the CSS variables it reads), so
+   no call site changes.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+
+@keyframes sensory-enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(
+        var(--tw-enter-translate-x, 0),
+        var(--tw-enter-translate-y, 0),
+        0
+      )
+      scale(var(--tw-enter-scale, 1))
+      rotate(var(--tw-enter-rotate, 0));
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes sensory-exit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  to {
+    opacity: var(--tw-exit-opacity, 1);
+    transform: translate3d(
+        var(--tw-exit-translate-x, 0),
+        var(--tw-exit-translate-y, 0),
+        0
+      )
+      scale(var(--tw-exit-scale, 1))
+      rotate(var(--tw-exit-rotate, 0));
+  }
+}
+
+/* Base timelines. `ease-out` and the 300/500ms durations are the house rules. */
+@utility animate-in {
+  animation-name: sensory-enter;
+  animation-duration: var(--tw-duration, var(--duration-slow));
+  animation-timing-function: var(--ease-sensory);
+  animation-fill-mode: both;
+}
+
+@utility animate-out {
+  animation-name: sensory-exit;
+  animation-duration: var(--tw-duration, var(--duration-fast));
+  animation-timing-function: var(--ease-sensory);
+  animation-fill-mode: both;
+}
+
+@utility fade-in {
+  --tw-enter-opacity: 1;
+}
+
+@utility fade-in-0 {
+  --tw-enter-opacity: 0;
+}
+
+@utility fade-out {
+  --tw-exit-opacity: 1;
+}
+
+@utility fade-out-0 {
+  --tw-exit-opacity: 0;
+}
+
+@utility zoom-in {
+  --tw-enter-scale: 1;
+}
+
+@utility zoom-in-95 {
+  --tw-enter-scale: 0.95;
+}
+
+@utility zoom-out {
+  --tw-exit-scale: 1;
+}
+
+@utility zoom-out-95 {
+  --tw-exit-scale: 0.95;
+}
+
+/* Spacing scale for the slide offsets, mirroring Tailwind's numeric steps. */
+@utility slide-in-from-top {
+  --tw-enter-translate-y: -100%;
+}
+
+@utility slide-in-from-top-1 {
+  --tw-enter-translate-y: -0.25rem;
+}
+
+@utility slide-in-from-top-2 {
+  --tw-enter-translate-y: -0.5rem;
+}
+
+@utility slide-in-from-top-4 {
+  --tw-enter-translate-y: -1rem;
+}
+
+@utility slide-in-from-top-full {
+  --tw-enter-translate-y: -100%;
+}
+
+@utility slide-in-from-bottom {
+  --tw-enter-translate-y: 100%;
+}
+
+@utility slide-in-from-bottom-1 {
+  --tw-enter-translate-y: 0.25rem;
+}
+
+@utility slide-in-from-bottom-2 {
+  --tw-enter-translate-y: 0.5rem;
+}
+
+@utility slide-in-from-bottom-4 {
+  --tw-enter-translate-y: 1rem;
+}
+
+@utility slide-in-from-bottom-full {
+  --tw-enter-translate-y: 100%;
+}
+
+@utility slide-in-from-left {
+  --tw-enter-translate-x: -100%;
+}
+
+@utility slide-in-from-left-1 {
+  --tw-enter-translate-x: -0.25rem;
+}
+
+@utility slide-in-from-left-1\/2 {
+  --tw-enter-translate-x: -50%;
+}
+
+@utility slide-in-from-left-full {
+  --tw-enter-translate-x: -100%;
+}
+
+@utility slide-in-from-right {
+  --tw-enter-translate-x: 100%;
+}
+
+@utility slide-in-from-right-1 {
+  --tw-enter-translate-x: 0.25rem;
+}
+
+@utility slide-in-from-right-1\/2 {
+  --tw-enter-translate-x: 50%;
+}
+
+@utility slide-in-from-right-full {
+  --tw-enter-translate-x: 100%;
+}
+
+@utility slide-out-to-top {
+  --tw-exit-translate-y: -100%;
+}
+
+@utility slide-out-to-top-1 {
+  --tw-exit-translate-y: -0.25rem;
+}
+
+@utility slide-out-to-top-1\/2 {
+  --tw-exit-translate-y: -50%;
+}
+
+@utility slide-out-to-bottom {
+  --tw-exit-translate-y: 100%;
+}
+
+@utility slide-out-to-bottom-1 {
+  --tw-exit-translate-y: 0.25rem;
+}
+
+@utility slide-out-to-bottom-full {
+  --tw-exit-translate-y: 100%;
+}
+
+@utility slide-out-to-left {
+  --tw-exit-translate-x: -100%;
+}
+
+@utility slide-out-to-left-1\/2 {
+  --tw-exit-translate-x: -50%;
+}
+
+@utility slide-out-to-right {
+  --tw-exit-translate-x: 100%;
+}
+
+@utility slide-out-to-right-1\/2 {
+  --tw-exit-translate-x: 50%;
+}
+
+/* `duration-*` inside an `animate-in` composition sets the timeline length
+   rather than a CSS transition, matching the plugin's behaviour. */
+@utility duration-100 {
+  --tw-duration: 100ms;
+}
+
+@utility duration-150 {
+  --tw-duration: 150ms;
+}
+
+@utility duration-200 {
+  --tw-duration: var(--duration-fast);
+}
+
+@utility duration-300 {
+  --tw-duration: var(--duration-fast);
+}
+
+@utility duration-500 {
+  --tw-duration: var(--duration-slow);
+}
+
+@utility duration-700 {
+  --tw-duration: 700ms;
+}
+
+@utility duration-1000 {
+  --tw-duration: 1000ms;
+}
 @layer utilities {
   @keyframes fade-in {
     from {
@@ -82,19 +394,238 @@
   }
 
   .animate-fade-in {
-    animation: fade-in 0.8s ease-out forwards;
+    animation: fade-in var(--duration-slow) var(--ease-sensory) forwards;
   }
 
   .animate-scale-up {
-    animation: scale-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: scale-up var(--duration-slow) var(--ease-sensory) forwards;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CMS content blocks
+
+   `content.body` is rendered into `[slug]` as raw HTML, so it cannot carry
+   Tailwind utility classes from a component — it needs its own stylesheet. The
+   `cw-` classes below are the block model's vocabulary: they are what the editor
+   writes into `class` and what this layer styles.
+
+   `data-*` attributes were not an option. `sanitizeWPContent` allowlists
+   `class`/`id` and drops everything else, so block identity and variant have to
+   travel in the class attribute. That constraint is why the class names are
+   load-bearing rather than cosmetic — renaming one orphans every block already
+   stored in the database.
+
+   SCOPE — this is the important part. Every rule here is keyed on a `cw-*`
+   class, and nothing here restyles a bare `p`, `h2`, `ul` or `a`. The public
+   page keeps its existing `prose-*` typography, which is what the migrated
+   Google Sites bodies are already rendered with and what the visual regression
+   snapshots were taken against. So adding an editor can only ever *add* styling
+   to markup the editor itself produces; it cannot shift a live page. Styling
+   bare elements here would override `prose` (these selectors have higher
+   specificity than prose's `:where()`) and silently restyle every page.
+
+   The colours resolve to the same tokens as the rest of the site. `--accent`
+   and `--accent-gold` are text-unsafe on white and appear only as borders and
+   surfaces, per the contrast rules in AGENTS.md.
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  .cw-callout {
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    border: 1px solid;
+    margin-block: 1.5rem;
   }
 
-  .tracking-ultra {
-    letter-spacing: 0.5em;
+  .cw-callout > * + * {
+    margin-block-start: 0.75rem;
   }
 
-  .transition-sensory {
-    transition: all 500ms cubic-bezier(0.16, 1, 0.3, 1);
+  .cw-callout p {
+    /* Tone is a surface, never a text colour: --accent-gold is 2.15:1 on white,
+       and prose's default body colour is not guaranteed to clear 4.5:1 on the
+       tinted backgrounds. --secondary measures 12.6:1 on all three. */
+    color: var(--secondary);
+    font-weight: 500;
+  }
+
+  .cw-callout--info {
+    background: var(--surface-muted);
+    border-color: var(--border);
+  }
+
+  .cw-callout--action {
+    background: color-mix(in srgb, var(--accent) 10%, white);
+    border-color: var(--accent);
+  }
+
+  .cw-callout--warning {
+    background: color-mix(in srgb, var(--accent-red) 8%, white);
+    border-color: var(--accent-red);
+  }
+
+  .cw-quote {
+    border-inline-start: 4px solid var(--accent-gold);
+    padding-inline-start: 1.25rem;
+    margin-block: 1.5rem;
+    font-family: var(--font-outfit), sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.5;
+    color: var(--secondary);
+  }
+
+  .cw-code {
+    background: var(--secondary);
+    color: var(--ink-on-dark);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+    margin-block: 1.5rem;
+    overflow-x: auto;
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .cw-figure {
+    margin: 1.5rem 0;
+  }
+
+  .cw-figure img {
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-lg);
+  }
+
+  .cw-caption {
+    margin-block-start: 0.625rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    text-align: center;
+  }
+
+  .cw-divider {
+    border: 0;
+    border-block-start: 1px solid var(--border);
+    margin-block: 2.5rem;
+  }
+
+  .cw-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-block: 1.5rem;
+    font-size: 0.9375rem;
+  }
+
+  .cw-table th,
+  .cw-table td {
+    border: 1px solid var(--border);
+    padding: 0.625rem 0.875rem;
+    text-align: start;
+    vertical-align: top;
+    line-height: 1.6;
+  }
+
+  /* Empty cells collapse to a hairline without this. The serializer emits them
+     empty on purpose, so the width has to come from the stylesheet. */
+  .cw-table th:empty,
+  .cw-table td:empty {
+    min-width: 3rem;
+  }
+
+  .cw-table th {
+    background: var(--surface-muted);
+    font-family: var(--font-outfit), sans-serif;
+    font-weight: 700;
+  }
+
+  .cw-table tbody tr:nth-child(even) {
+    background: color-mix(in srgb, var(--surface-muted) 55%, white);
+  }
+
+  .cw-action {
+    display: flex;
+    margin-block: 1.5rem;
+  }
+
+  .cw-button {
+    display: inline-block;
+    background: var(--primary);
+    color: #fff;
+    font-family: var(--font-outfit), sans-serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8125rem;
+    padding: 0.875rem 1.75rem;
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: background-color var(--duration-fast) var(--ease-sensory);
+  }
+
+  .cw-button:hover {
+    background: var(--primary-dark);
+    color: #fff;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Editor canvas
+
+   The admin editor previews with the same `cw-*` rules the reader will get, so
+   a callout looks the same in both places. Typography for *plain* elements
+   (paragraphs, headings, lists) is defined here rather than in the shared layer,
+   because on the public page that job belongs to `prose` — see the scope note
+   above. Without it the author would be typing into unstyled text.
+   ───────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  .cw-editor-canvas {
+    color: var(--secondary);
+  }
+
+  .cw-editor-canvas p {
+    font-weight: 500;
+    line-height: 1.75;
+    min-height: 1.75rem;
+  }
+
+  .cw-editor-canvas :is(h2, h3, h4) {
+    font-family: var(--font-outfit), sans-serif;
+    font-weight: 800;
+    color: var(--secondary);
+    line-height: 1.25;
+  }
+
+  .cw-editor-canvas h2 {
+    font-size: 1.5rem;
+  }
+
+  .cw-editor-canvas h3 {
+    font-size: 1.25rem;
+  }
+
+  .cw-editor-canvas h4 {
+    font-size: 1.125rem;
+  }
+
+  .cw-editor-canvas :is(ul, ol) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding-inline-start: 1.5rem;
+    line-height: 1.7;
+  }
+
+  .cw-editor-canvas ul {
+    list-style: disc;
+  }
+
+  .cw-editor-canvas ol {
+    list-style: decimal;
+  }
+
+  .cw-editor-canvas li {
+    min-height: 1.5rem;
   }
 }
 
@@ -110,9 +641,14 @@
   border-color: var(--primary);
 }
 
-/* Reduced-motion safety net: users who opt out of animation get instant,
-   static transitions everywhere — including Tailwind transitions and
-   framer-motion CSS-driven effects. */
+/* Reduced-motion safety net. Covers CSS animations and transitions *and* the
+   enter/exit layer above, because those animations run through the same
+   `animation-duration` property.
+
+   JS-driven motion is not covered here — `motion` (ProductCard whileHover,
+   ProductSlider scrollBy) and `scrollIntoView({ behavior: 'smooth' })` bypass
+   CSS entirely. Those call sites check `useReducedMotion()` / `matchMedia`
+   directly. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

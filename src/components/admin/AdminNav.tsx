@@ -2,6 +2,7 @@
 
 import {
   BadgePercent,
+  FileText,
   LayoutDashboard,
   Package,
   ShoppingBag,
@@ -13,6 +14,7 @@ import { usePathname } from 'next/navigation';
 
 const ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/content', label: 'Pages', icon: FileText },
   { href: '/admin/crm', label: 'Civic CRM', icon: UsersRound },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/admin/products', label: 'Products', icon: Package },

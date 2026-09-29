@@ -124,7 +124,7 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
               value={csvText}
               onChange={(e) => setCsvText(e.target.value)}
               placeholder={SAMPLE}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-xs font-mono leading-relaxed"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-xs font-mono leading-relaxed"
             />
           </div>
 

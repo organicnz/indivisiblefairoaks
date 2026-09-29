@@ -113,6 +113,18 @@ export function CRMContactList({
     return params;
   };
 
+  // The pager must continue the result set the user is actually looking at, which is
+  // the one the server ran — not the uncommitted form state. Paging off currentFilters()
+  // silently jumped to a different set whenever a filter was typed but not yet applied.
+  const appliedFilters = () => {
+    const params = new URLSearchParams();
+    if (currentQuery) params.set('q', currentQuery);
+    if (currentStatus && currentStatus !== 'all') params.set('status', currentStatus);
+    if (currentDistrict && currentDistrict !== 'all') params.set('district', currentDistrict);
+    if (currentTag && currentTag !== 'all') params.set('tag', currentTag);
+    return params;
+  };
+
   const handleFilterSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const params = currentFilters();
@@ -178,9 +190,9 @@ export function CRMContactList({
       const res = await saveCRMSegment({
         name,
         query: query.trim(),
-        statuses: status && status !== 'all' ? [status] : [],
-        districts: district && district !== 'all' ? [district] : [],
-        tags: tag && tag !== 'all' ? [tag] : [],
+        statuses: splitActiveTags(status),
+        districts: splitActiveTags(district),
+        tags: splitActiveTags(tag),
       });
       if (res.success) {
         toast.success(`Segment "${name}" saved`);
@@ -223,15 +235,16 @@ export function CRMContactList({
     }
   };
 
-  const hasActiveFilters =
+  const hasActiveFilters = Boolean(
     (query.trim() && query.trim() !== currentQuery) ||
-    (status !== 'all' && status !== currentStatus) ||
-    (district !== 'all' && district !== currentDistrict) ||
-    (tag !== 'all' && tag !== currentTag) ||
-    currentQuery ||
-    (currentStatus && currentStatus !== 'all') ||
-    (currentDistrict && currentDistrict !== 'all') ||
-    (currentTag && currentTag !== 'all');
+      (status !== 'all' && status !== currentStatus) ||
+      (district !== 'all' && district !== currentDistrict) ||
+      (tag !== 'all' && tag !== currentTag) ||
+      currentQuery ||
+      (currentStatus && currentStatus !== 'all') ||
+      (currentDistrict && currentDistrict !== 'all') ||
+      (currentTag && currentTag !== 'all')
+  );
 
   return (
     <div className="space-y-6">
@@ -252,7 +265,7 @@ export function CRMContactList({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search name, email, city, notes..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-primary text-sm bg-slate-50/50"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm bg-slate-50/50"
             />
           </div>
 
@@ -261,7 +274,7 @@ export function CRMContactList({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary bg-slate-50/50"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
             >
               <option value="all">All Engagement Statuses</option>
               <option value="active_volunteer">Active Volunteers</option>
@@ -278,7 +291,7 @@ export function CRMContactList({
             <select
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary bg-slate-50/50"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
             >
               <option value="all">All Districts</option>
               <option value="CA-06">CA-06 (Sacramento/Carmichael)</option>
@@ -294,7 +307,7 @@ export function CRMContactList({
               value={tag}
               onChange={(e) => setTag(e.target.value)}
               aria-label="Filter by tag"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-primary bg-slate-50/50"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
             >
               <option value="all">All Tags</option>
               {tagOptions.map((t) => (
@@ -427,7 +440,7 @@ export function CRMContactList({
               placeholder="Segment name (e.g. CA-06 choir)"
               maxLength={60}
               autoFocus
-              className="px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:border-primary text-xs w-56"
+              className="px-3 py-1.5 rounded-lg border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-xs w-56"
             />
             <button
               type="button"
@@ -684,7 +697,7 @@ export function CRMContactList({
             totalCount={totalCount}
             pageSize={pageSize}
             basePath="/admin/crm"
-            params={currentFilters()}
+            params={appliedFilters()}
           />
         </div>
       </div>

@@ -174,6 +174,56 @@ export type Database = {
         }
         Relationships: []
       }
+      content_revisions: {
+        Row: {
+          body: string | null
+          content_id: number
+          created_at: string
+          created_by: string | null
+          excerpt: string | null
+          id: number
+          metadata: Json
+          slug: string | null
+          status: string | null
+          title: string | null
+          type: string | null
+        }
+        Insert: {
+          body?: string | null
+          content_id: number
+          created_at?: string
+          created_by?: string | null
+          excerpt?: string | null
+          id?: number
+          metadata?: Json
+          slug?: string | null
+          status?: string | null
+          title?: string | null
+          type?: string | null
+        }
+        Update: {
+          body?: string | null
+          content_id?: number
+          created_at?: string
+          created_by?: string | null
+          excerpt?: string | null
+          id?: number
+          metadata?: Json
+          slug?: string | null
+          status?: string | null
+          title?: string | null
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_revisions_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coupons: {
         Row: {
           amount: number | null
@@ -255,10 +305,13 @@ export type Database = {
         Row: {
           body: string
           created_at: string
+          created_by: string | null
+          dispatched_at: string | null
           failed_count: number
           id: string
           recipient_count: number
           sent_at: string | null
+          sent_count: number
           status: string
           subject: string
           target_districts: string[]
@@ -268,9 +321,12 @@ export type Database = {
         Insert: {
           body: string
           created_at?: string
+          created_by?: string | null
+          dispatched_at?: string | null
           failed_count?: number
           id?: string
           recipient_count?: number
+          sent_count?: number
           sent_at?: string | null
           status?: string
           subject: string
@@ -1038,6 +1094,7 @@ export type Database = {
     }
     Functions: {
       cleanup_old_audit_logs: { Args: never; Returns: undefined }
+      crm_stats: { Args: never; Returns: Json }
       crm_sync_historical_records: { Args: never; Returns: Json }
       decrement_stock: {
         Args: { decrement_by?: number; p_id: number }

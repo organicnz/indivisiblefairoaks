@@ -80,6 +80,8 @@ describe('Civic CRM Server Actions', () => {
     mockEnv.RESEND_API_KEY = 're_test_key_dummy';
     mockEnv.RESEND_FROM_EMAIL = 'contact@indivisiblefairoaks.org';
     mockEnv.ADMIN_ORDER_EMAIL = 'contact@indivisiblefairoaks.org';
+    mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+    mockEnv.SUPABASE_SECRET_KEY = undefined;
   });
 
   afterEach(() => {
@@ -180,32 +182,57 @@ describe('Civic CRM Server Actions', () => {
   });
 
   describe('getCRMStats', () => {
-    it('aggregates constituent metrics and donor totals correctly', async () => {
-      mockAdminClient.from.mockImplementation((table: string) => {
-        if (table === 'crm_contacts') {
-          return {
-            select: vi.fn((_cols, options) => {
-              if (options?.head) {
-                return {
-                  count: 42,
-                  in: vi.fn().mockResolvedValue({ count: 15 }),
-                };
-              }
-              return {
-                gt: vi.fn().mockResolvedValue({
-                  data: [{ total_donated_cents: 5000 }, { total_donated_cents: 10000 }],
-                }),
-              };
-            }),
-          };
-        }
-        return createMockQueryBuilder();
+    it('reads the aggregate from the crm_stats RPC', async () => {
+      // The KPI cards used to select every donor row and sum it in JavaScript,
+      // which put an unbounded result set on the wire on every dashboard load.
+      // A single aggregate RPC replaces that.
+      mockAdminClient.rpc = vi.fn().mockResolvedValue({
+        data: {
+          total_contacts: 42,
+          active_volunteers: 15,
+          local_district: 30,
+          total_donors: 2,
+          total_donations_cents: 15000,
+          open_tasks: 7,
+        },
+        error: null,
       });
+      mockAdminClient.from.mockReturnValue(createMockQueryBuilder());
 
       const stats = await getCRMStats();
-      expect(stats.totalContacts).toBe(42);
-      expect(stats.totalDonors).toBe(2);
-      expect(stats.totalDonationsCents).toBe(15000);
+      expect(mockAdminClient.rpc).toHaveBeenCalledWith('crm_stats');
+      expect(stats).toEqual({
+        totalContacts: 42,
+        activeVolunteers: 15,
+        localDistrict: 30,
+        totalDonors: 2,
+        totalDonationsCents: 15000,
+        openTasks: 7,
+      });
+    });
+
+    it('maps absent keys to zero rather than undefined', async () => {
+      mockAdminClient.rpc = vi.fn().mockResolvedValue({ data: {}, error: null });
+      mockAdminClient.from.mockReturnValue(createMockQueryBuilder());
+
+      const stats = await getCRMStats();
+      expect(stats.totalContacts).toBe(0);
+      expect(stats.totalDonationsCents).toBe(0);
+    });
+
+    it('falls back to per-table counts when the migration has not been applied', async () => {
+      // Staged rollout: a database without crm_stats() must still render the
+      // dashboard rather than 500 for every admin.
+      mockAdminClient.rpc = vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'function public.crm_stats() does not exist' },
+      });
+      mockAdminClient.from.mockReturnValue(createMockQueryBuilder({ count: 3 }));
+
+      const stats = await getCRMStats();
+      expect(stats.totalContacts).toBe(3);
+      expect(stats.openTasks).toBe(3);
+      expect(stats.totalDonationsCents).toBe(0);
     });
   });
 
@@ -786,10 +813,26 @@ describe('Civic CRM Server Actions', () => {
       expect(qb.contains).toHaveBeenCalledWith('tags', ['choir']);
     });
 
-    it('broadcasts to matched recipients and updates campaign status', async () => {
+    it('queues the broadcast and dispatches it to the background sender', async () => {
+      // Delivery no longer happens inside this action. It used to send five
+      // recipients per sequential round-trip within one request, which the
+      // platform killed past ~1,000 recipients, leaving the row stuck at
+      // 'sending' forever. The action now only queues and dispatches.
       const recipients = [
-        { id: 'u1', email: 'vol1@example.com', first_name: 'Alice', last_name: 'Smith' },
-        { id: 'u2', email: 'vol2@example.com', first_name: 'Bob', last_name: 'Jones' },
+        {
+          id: 'u1',
+          email: 'vol1@example.com',
+          first_name: 'Alice',
+          last_name: 'Smith',
+          unsubscribe_token: 't1',
+        },
+        {
+          id: 'u2',
+          email: 'vol2@example.com',
+          first_name: 'Bob',
+          last_name: 'Jones',
+          unsubscribe_token: 't2',
+        },
       ];
 
       const qbContacts = createMockQueryBuilder({ data: recipients, error: null });
@@ -806,12 +849,11 @@ describe('Civic CRM Server Actions', () => {
         return createMockQueryBuilder();
       });
 
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ id: 'resend-blast-1' }),
-      });
+      const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
       global.fetch = mockFetch;
+      mockEnv.CRM_BROADCAST_FUNCTION_URL =
+        'https://project.supabase.co/functions/v1/crm-broadcast-send';
+      mockEnv.SUPABASE_SECRET_KEY = 'service-key';
 
       const res = await sendCRMBroadcast({
         subject: 'Chapter Meeting Next Tuesday',
@@ -821,13 +863,60 @@ describe('Civic CRM Server Actions', () => {
 
       expect(res.success).toBe(true);
       expect(res.recipientCount).toBe(2);
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(qbBroadcasts.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'sent',
-          recipient_count: 2,
-        })
+      expect(res.broadcastId).toBe('broadcast-uuid-1');
+      // Exactly one call: the dispatch. This action must not send any mail.
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(JSON.parse((mockFetch.mock.calls[0][1] as { body: string }).body)).toEqual({
+        broadcast_id: 'broadcast-uuid-1',
+      });
+      // The log row is written as 'queued', not 'sending' — the sender owns
+      // that transition, and only once it has actually claimed the run.
+      expect(qbBroadcasts.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'queued', recipient_count: 2 })
       );
+    });
+
+    it('fails the broadcast visibly when the sender is not configured', async () => {
+      // Without this, an unconfigured deployment would report a queued broadcast
+      // that never goes anywhere. The audience resolves first, so the mock must
+      // return recipients for the dispatch attempt to be the failing step.
+      mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+      mockAdminClient.from.mockImplementation((table: string) =>
+        table === 'crm_contacts'
+          ? createMockQueryBuilder({
+              data: [
+                {
+                  id: 'u1',
+                  email: 'vol1@example.com',
+                  first_name: 'Alice',
+                  last_name: 'Smith',
+                  unsubscribe_token: 't1',
+                },
+              ],
+              error: null,
+            })
+          : createMockQueryBuilder({ data: { id: 'b1' }, error: null })
+      );
+
+      const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Hello there' });
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('not configured');
+      // The row is marked failed rather than left queued forever, so the admin
+      // sees that nothing went out and can retry.
+      expect(mockAdminClient.from).toHaveBeenCalledWith('crm_broadcasts');
+    });
+
+    it('refuses an empty audience rather than logging a no-op campaign', async () => {
+      mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
+      mockAdminClient.from.mockImplementation((table: string) =>
+        table === 'crm_contacts'
+          ? createMockQueryBuilder({ data: [], error: null })
+          : createMockQueryBuilder({ data: null, error: null })
+      );
+
+      const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Hello there' });
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('No contacts match');
     });
   });
 });
