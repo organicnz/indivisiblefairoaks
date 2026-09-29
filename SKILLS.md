@@ -147,11 +147,36 @@ Entry: `.agents/skills/vgpu/SKILL.md`
 
 ---
 
+### `cms-editor-and-crm`
+**Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, or the broadcast Edge Function.
+
+**Project-specific, not vendored.** Unlike the skills above, this one is written
+for this codebase and is not pinned in `skills-lock.json` — so it *can* be edited,
+and it should be when an invariant changes.
+
+It exists because the failure modes here are invisible to review and to unit
+tests:
+
+- A new block type that serializes to markup `sanitizeWPContent` strips looks
+  perfect in the editor and vanishes on publish.
+- Autosave that hardcodes a publish state quietly takes a live page offline.
+- `storage.remove()` without a reference check is a data-loss event.
+- A `CHECK` constraint that disagrees with the code is invisible to any test that
+  mocks the Supabase client. `crm_broadcasts.status` omitted `'queued'`, so
+  **no broadcast had ever been sent**, and unit tests were green throughout.
+- A test run that emails the chapter admins from a system they are not operating.
+
+Entry: `.agents/skills/cms-editor-and-crm/SKILL.md`
+Full context: [`docs/content-editor.md`](./docs/content-editor.md), [`docs/crm-operations.md`](./docs/crm-operations.md)
+
+---
+
 ## Quick trigger reference
 
 | Task | Load |
 |---|---|
 | Write/refactor a React component | `vercel-react-best-practices`, `vercel-composition-patterns` |
+| **Content editor, CRM, or anything that can send email** | **`cms-editor-and-crm`** |
 | Add page/route animation | `vercel-react-view-transitions` |
 | UI or a11y audit | `web-design-guidelines` |
 | Deploy or preview | `deploy-to-vercel` |
