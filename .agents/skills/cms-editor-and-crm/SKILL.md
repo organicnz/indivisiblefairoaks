@@ -136,6 +136,14 @@ A restore that clears the hero is the same failure as the unconditional
 not ask to delete. Pre-migration rows have `NULL` and restore as before; only
 newer revisions carry the image.
 
+### 11. A restore is never blind, and never native-confirmed
+
+History rows show status, type, and a field-level diff against the document on
+screen, and restore goes through an inline confirm step. Do not put
+`window.confirm()` back on this path: it re-asks a blinder question after an
+informed one, and it cannot be automated, so the restore path goes untested.
+The diff must read from the same `fields` object the dirty check compares.
+
 ## Before you finish
 
 ```bash

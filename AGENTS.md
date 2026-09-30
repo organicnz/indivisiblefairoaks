@@ -492,8 +492,10 @@ own docs, because their failure modes are invisible to review and to unit tests.
   with the document's *current* publish state (an earlier version hardcoded
   `draft` and quietly unpublished live pages); image deletion checks
   `content.body`, `content.featured_image` **and** `content_revisions.body`
-  before removing an object; and a revision restore writes the revision's
-  `featured_image` back instead of clearing the hero.
+  before removing an object; a revision restore writes the revision's
+  `featured_image` back instead of clearing the hero; and the history panel
+  shows what a restore would change with an inline confirm, never a native
+  dialog.
 - **CRM and broadcasting** — [`docs/crm-operations.md`](./docs/crm-operations.md).
   Delivery is off the request path: the action writes a `queued` row and the
   `crm-broadcast-send` Edge Function owns delivery and progress. A self-test
