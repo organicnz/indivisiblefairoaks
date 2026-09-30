@@ -903,17 +903,41 @@ pre-push:
 
     # ── 4. Suppression count gate ─────────────────────────────────────────────
     # Tracks @ts-ignore / biome-ignore / eslint-disable across all of src/.
-    # Baseline is 7 (5 from audit + 2 deliberate a11y ignores on the contact
+    # Starts at 7 (5 from audit + 2 deliberate a11y ignores on the contact
     # form's <output role="status"> banners: Chromium does not expose
     # <output>'s implicit status role to assistive tech or testing queries).
+    # Currently 12. The per-addition reasoning is in the `run` block below.
+    #
     # Fails if the count grows.
     # To raise the baseline: update the BASELINE value here AND in the comment
     # at the top of this file with a chore commit explaining why.
     suppress-count:
       priority: 30
       run: |
-        # Baseline 7 → 9 → 10. The additions are in the content block editor and
-        # the preview component, and none is a workaround for a real defect:
+        # Baseline 7 → 9 → 10 → 12. None of the additions is a workaround for a
+        # real defect; in two cases the rule is wrong rather than the code.
+        #
+        # Baseline 10 → 12, both `noNoninteractiveTabindex`:
+        #
+        #   ContentList.tsx — the admin directory table, 46rem wide.
+        #   BlockEditor.tsx — the table block, unbounded column count.
+        #
+        # Chrome and Firefox stopped making an `overflow-x-auto` container
+        # focusable by default, so a region wider than its container cannot be
+        # scrolled by a keyboard user at all without `tabIndex={0}`. The
+        # WAI-ARIA Scrollable Region pattern — a named element that is a tab
+        # stop — is precisely what the rule flags and does not model.
+        # AGENTS.md § "Scrollable regions must be focusable" states the
+        # requirement, and `ProductSlider` already carries the same suppression,
+        # there file-wide in biome.json because it is a 100-line carousel.
+        #
+        # These two are suppressed per *element* with the reason inline rather
+        # than per file. `BlockEditor` has thirty blocks; a file-scope
+        # suppression there would hide a real `tabIndex` regression on any of
+        # them, and a per-file one on `ContentList` would cover a component
+        # that has exactly one scrollable region.
+        #
+        # Baseline 7 → 9 → 10, the content block editor and the preview:
         #
         #   4x noArrayIndexKey — table cells and list items. The rule exists to
         #      catch state being mis-associated when the order changes, and it
@@ -933,7 +957,7 @@ pre-push:
         #   1x noDangerouslySetInnerHtml — ContentPreview renders the sanitized
         #      body through the same sanitizeWPContent boundary as the public
         #      page. The suppression is the security boundary, not a workaround.
-        BASELINE=10
+        BASELINE=12
         COUNT=$(grep -rn "@ts-ignore\|@ts-nocheck\|biome-ignore\|eslint-disable" \
           src --include="*.ts" --include="*.tsx" 2>/dev/null \
           | grep -v "__tests__" | wc -l | tr -d ' ')
