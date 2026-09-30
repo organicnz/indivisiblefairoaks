@@ -153,6 +153,19 @@ automated — so the restore path would go untested. The diff reads from the sam
 `fields` object the dirty check compares, so "what would change" and "unsaved
 changes" can never disagree about what "current" means.
 
+### SEO meta fields win over derived values
+
+The editor exposes meta title and meta description, stored in
+`content.metadata` as `meta_title` / `meta_description`. `generateMetadata`
+uses them when present and falls back to the derived title / body excerpt when
+not — so pages authored before SEO existed still get a sensible snippet.
+
+The character counts are Google's SERP budgets: a title past ~60 is truncated
+in the results, a description past ~155 is cut mid-sentence. The search preview
+shows the meta fields when set, because that is what Google will actually use.
+
+- `__tests__/ContentEditor.seo.test.tsx` — inputs render, preview shows them, save persists them
+
 ### A preview is honest, or it is not a preview
 
 `ContentPreview` (`src/components/admin/content/ContentPreview.tsx`) renders the
@@ -217,6 +230,7 @@ the drag handle used to be a decorative `<span>`.
 - `__tests__/ContentEditor.revisions.test.tsx` — row labels, the diff, confirm-only restore, cancel backs out
 - `__tests__/ConfirmAction.test.tsx` — the shared destructive-action contract
 - `__tests__/ContentEditor.preview.test.tsx` — modal opens with sanitized body, close button works
+- `__tests__/ContentEditor.seo.test.tsx` — inputs render, preview shows them, save persists them
 - `src/lib/__tests__/content-links.test.ts` — `isLinkableHref`
 - `src/lib/__tests__/blocks.test.ts` — the sanitizer-parity property
 

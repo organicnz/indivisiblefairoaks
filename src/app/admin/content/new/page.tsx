@@ -22,6 +22,7 @@ export default async function AdminContentNewPage() {
         slug: '',
         excerpt: null,
         publishedAt: null,
+        metadata: null,
         // A new page starts as a draft. Creating something live by accident is
         // much harder to undo than promoting a draft afterwards.
         type: 'page',
