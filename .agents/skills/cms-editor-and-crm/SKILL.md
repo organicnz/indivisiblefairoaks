@@ -140,9 +140,18 @@ newer revisions carry the image.
 
 History rows show status, type, and a field-level diff against the document on
 screen, and restore goes through an inline confirm step. Do not put
-`window.confirm()` back on this path: it re-asks a blinder question after an
+`window.confirm()` back on this path: it re-asked a blinder question after an
 informed one, and it cannot be automated, so the restore path goes untested.
 The diff must read from the same `fields` object the dirty check compares.
+
+### 12. Every destructive action uses ConfirmAction
+
+`src/components/admin/ConfirmAction.tsx` is the one shape for delete / merge /
+opt-out across both admin surfaces. Idle control → consequence → inline
+Confirm/Cancel. Never `window.confirm()`: it asks a blind question and cannot
+be automated, so the path behind it goes untested. Keep it unmount-safe (state
+in the button, not a portal), use `fieldset`/`legend` not `role="group"`, and
+disable the whole step while `busy`.
 
 ## Before you finish
 

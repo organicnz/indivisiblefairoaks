@@ -4,6 +4,7 @@ import { GitMerge } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
   Dialog,
   DialogContent,
@@ -50,18 +51,19 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
     }
   };
 
+  const displayName = (c: CRMContact) =>
+    [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email;
+
+  const mergeMessage = (other: CRMContact) =>
+    `Merge ${displayName(other)} into ${displayName(keep)}? ` +
+    'The duplicate record will be removed; its timeline, tasks, tags, and giving history move to this profile. This cannot be undone.';
+
   const handleMerge = () => {
     if (!candidate) return;
-    const label =
-      [candidate.first_name, candidate.last_name].filter(Boolean).join(' ') || candidate.email;
-    if (
-      !confirm(
-        `Merge ${label} into ${[keep.first_name, keep.last_name].filter(Boolean).join(' ') || keep.email}?\n\n` +
-          'The duplicate record will be removed; its timeline, tasks, tags, and giving history move to this profile. This cannot be undone.'
-      )
-    ) {
-      return;
-    }
+    // No confirm() here: the modal's ConfirmAction only calls this from its
+    // inline confirm step, which already named both profiles and the
+    // consequence. The modal itself is the first step; the dialog was the
+    // redundant second question.
     startTransition(async () => {
       try {
         const res = await mergeCRMContacts({ keepId: keep.id, removeId: candidate.id });
@@ -157,15 +159,23 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
             >
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={handleMerge}
-              disabled={!candidate || isPending}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-md transition-colors disabled:opacity-50"
+            <ConfirmAction
+              label={
+                candidate
+                  ? `Merge ${displayName(candidate)} into ${displayName(keep)}`
+                  : 'Merge Into Profile'
+              }
+              message={candidate ? mergeMessage(candidate) : 'Select a duplicate contact first.'}
+              confirmLabel="Merge contacts"
+              danger
+              disabled={!candidate}
+              busy={isPending}
+              idleClassName="inline-flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-md transition-colors disabled:opacity-50"
+              onConfirm={handleMerge}
             >
-              <GitMerge size={14} />
+              <GitMerge size={14} aria-hidden="true" />
               {isPending ? 'Merging...' : 'Merge Into Profile'}
-            </button>
+            </ConfirmAction>
           </div>
         </div>
       </DialogContent>

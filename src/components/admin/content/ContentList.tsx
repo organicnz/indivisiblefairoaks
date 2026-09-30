@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { type ContentListRow, deleteContent, setContentStatus } from '@/lib/actions/content';
 import { CONTENT_TYPES } from '@/lib/content';
 
@@ -72,7 +73,8 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
   };
 
   const handleDelete = async (row: ContentListRow) => {
-    if (!confirm(`Delete “${row.title}”? This cannot be undone.`)) return;
+    // No confirm() here: the row's ConfirmAction only calls this from its
+    // inline confirm step, which already named the page and the consequence.
     setBusyId(row.id);
     const result = await deleteContent(row.id);
     setBusyId(null);
@@ -260,14 +262,16 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                             >
                               {row.status === 'publish' ? 'Unpublish' : 'Publish'}
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(row)}
-                              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
+                            <ConfirmAction
+                              label={`Delete ${row.title}`}
+                              message={`Delete “${row.title}”? This cannot be undone.`}
+                              danger
+                              idleClassName="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
+                              onConfirm={() => void handleDelete(row)}
                             >
                               <Trash2 size={15} aria-hidden="true" />
                               <span className="sr-only">Delete {row.title}</span>
-                            </button>
+                            </ConfirmAction>
                           </>
                         )}
                       </div>

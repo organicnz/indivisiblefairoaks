@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
 import { CRMMergeModal } from '@/components/admin/crm/CRMMergeModal';
 import {
@@ -79,9 +80,9 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
     contact.email.split('@')[0];
 
   const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${fullName}? This cannot be undone.`)) {
-      return;
-    }
+    // No confirm() here: the ConfirmAction below only calls this from its
+    // inline confirm step, which already named the constituent and the
+    // consequence.
     setDeleting(true);
     try {
       const res = await deleteCRMContact(contact.id);
@@ -100,10 +101,9 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
 
   const handleConsentToggle = async () => {
     const next = !contact.do_not_email;
-    const confirmMsg = next
-      ? `Opt ${fullName} out of all chapter email broadcasts?`
-      : `Re-subscribe ${fullName} for chapter broadcasts?`;
-    if (!confirm(confirmMsg)) return;
+    // No confirm() here: the ConfirmAction only calls this from its inline
+    // confirm step. Consent is reversible, so this is not a danger action —
+    // but it still changes who receives chapter email, so it confirms.
     setConsentBusy(true);
     try {
       const res = await setCRMEmailConsent({ contactId: contact.id, doNotEmail: next });
@@ -279,28 +279,36 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-red-700">
                     <AlertTriangle size={13} /> Do Not Email
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleConsentToggle}
-                    disabled={consentBusy}
-                    className="text-[11px] font-bold text-slate-500 hover:text-emerald-700 transition-colors disabled:opacity-50"
+                  <ConfirmAction
+                    label={contact.do_not_email ? 'Re-subscribe' : 'Opt out'}
+                    message={
+                      contact.do_not_email
+                        ? `Re-subscribe ${fullName} for chapter broadcasts?`
+                        : `Opt ${fullName} out of all chapter email broadcasts?`
+                    }
+                    confirmLabel={contact.do_not_email ? 'Re-subscribe' : 'Opt out'}
+                    busy={consentBusy}
+                    idleClassName="text-[11px] font-bold text-slate-500 hover:text-emerald-700 transition-colors disabled:opacity-50"
+                    onConfirm={() => void handleConsentToggle()}
                   >
-                    {consentBusy ? '…' : 'Re-subscribe'}
-                  </button>
+                    {consentBusy ? '…' : contact.do_not_email ? 'Re-subscribe' : 'Opt out'}
+                  </ConfirmAction>
                 </>
               ) : (
                 <>
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-700">
                     <CheckCircle2 size={13} /> Email Opted-In
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleConsentToggle}
-                    disabled={consentBusy}
-                    className="text-[11px] font-bold text-slate-500 hover:text-red-600 transition-colors disabled:opacity-50"
+                  <ConfirmAction
+                    label="Opt out"
+                    message={`Opt ${fullName} out of all chapter email broadcasts?`}
+                    confirmLabel="Opt out"
+                    busy={consentBusy}
+                    idleClassName="text-[11px] font-bold text-slate-500 hover:text-red-600 transition-colors disabled:opacity-50"
+                    onConfirm={() => void handleConsentToggle()}
                   >
                     {consentBusy ? '…' : 'Opt out'}
-                  </button>
+                  </ConfirmAction>
                 </>
               )}
             </div>
@@ -408,14 +416,16 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleting}
-                className="inline-flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+              <ConfirmAction
+                label={`Delete ${fullName}`}
+                message={`Delete ${fullName}? This cannot be undone.`}
+                danger
+                busy={deleting}
+                idleClassName="inline-flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                onConfirm={() => void handleDelete()}
               >
-                <Trash2 size={13} /> Delete
-              </button>
+                <Trash2 size={13} aria-hidden="true" /> Delete
+              </ConfirmAction>
             </div>
           </div>
         </div>

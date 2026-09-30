@@ -153,6 +153,21 @@ automated — so the restore path would go untested. The diff reads from the sam
 `fields` object the dirty check compares, so "what would change" and "unsaved
 changes" can never disagree about what "current" means.
 
+### Destructive actions confirm inline, never natively
+
+`ConfirmAction` (`src/components/admin/ConfirmAction.tsx`) is the one shape for
+"delete this", "merge these", "opt this person out". The idle control says what
+it is; clicking it replaces it with the consequence and a Confirm/Cancel pair.
+
+`window.confirm()` is gone from every destructive path. It asks a blind
+question — "are you sure?" about something the dialog never names — and it
+cannot be automated, so every path behind one went untested. The component is
+unmount-safe (state lives in the button, not a portal), keyboard accessible
+(`fieldset`/`legend`, not `role="group"`), and `busy` disables the whole step
+while an async action is in flight.
+
+- `__tests__/ConfirmAction.test.tsx` — idle label, confirm-only fire, cancel backs out, busy disables
+
 ### Links are validated against the same rule the sanitizer enforces
 
 `isLinkableHref` is the editor's copy of the trusted-domain rule. If the two
@@ -186,6 +201,7 @@ the drag handle used to be a decorative `<span>`.
 - `src/lib/__tests__/content-media.test.ts` — upload rules, reference-safe delete
 - `src/lib/__tests__/content-revisions.test.ts` — restore writes the revision hero back
 - `__tests__/ContentEditor.revisions.test.tsx` — row labels, the diff, confirm-only restore, cancel backs out
+- `__tests__/ConfirmAction.test.tsx` — the shared destructive-action contract
 - `src/lib/__tests__/content-links.test.ts` — `isLinkableHref`
 - `src/lib/__tests__/blocks.test.ts` — the sanitizer-parity property
 
