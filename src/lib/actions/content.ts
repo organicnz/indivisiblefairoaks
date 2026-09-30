@@ -363,20 +363,18 @@ export async function restoreContentRevision(
   if (error) return fail(error.message);
   if (!revision) return fail('That revision no longer exists');
 
-  // The hero travels with the revision. The column arrives via migration
-  // `20260930000000`; the optional read keeps pre-migration rows compiling,
-  // and they restore exactly as before (no hero).
-  const hero = (revision as ContentRevision & { featured_image?: string | null }).featured_image;
+  // The hero travels with the revision (migration `20260930000000`). Pre-migration
+  // rows have `featured_image = NULL` and restore as before — no hero.
+  const hero = revision.featured_image;
 
   // So does the publish date, and for the same reason. `saveContent` re-stamps
   // `published_at = now()` whenever a published page is written without one, so
   // restoring a March revision of a post re-dated it to today and jumped it to
   // the top of `/news` — the exact reordering `setContentStatus` was written to
-  // prevent three functions away in this same file. The column arrives via
-  // `20260930120000`; a revision older than that restores its content and takes
-  // the re-dating, as it did before.
-  const publishedAt =
-    (revision as ContentRevision & { published_at?: string | null }).published_at ?? null;
+  // prevent three functions away in this same file. A revision older than
+  // migration `20260930120000` has `NULL` here and takes the re-dating, as it did
+  // before.
+  const publishedAt = revision.published_at ?? null;
 
   return saveContent({
     id: contentId,
