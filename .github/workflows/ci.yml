@@ -32,7 +32,7 @@ jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +58,7 @@ jobs:
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
     name: Tests & Coverage
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -78,7 +78,7 @@ jobs:
   # ── 3. Build ─────────────────────────────────────────────────────────────────
   build:
     name: Next.js Build
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     needs: [lint, test]
     timeout-minutes: 20
     steps:
@@ -113,7 +113,7 @@ jobs:
   # ── 4. E2E Tests ─────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     needs: [build]
     timeout-minutes: 30
     steps:
@@ -167,7 +167,7 @@ jobs:
   # it (api-upload-free) into permanent red. Don't re-add it.
   health-probe:
     name: Live Health Probe
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     # CI build completion is the sync point: by then the Git-driven
     # Vercel deploy (~3-4 min) is settled or nearly so; the 90 s
     # retry loop below absorbs the remainder.

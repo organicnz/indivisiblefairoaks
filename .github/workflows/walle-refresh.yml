@@ -15,7 +15,7 @@ concurrency:
 jobs:
   refresh:
     # Self-hosted ONLY per repo policy (no github-hosted runners anywhere).
-    runs-on: [self-hosted, linux, ARM64, backend-runner]
+    runs-on: [self-hosted, linux, X64, backend-runner]
     timeout-minutes: 5
     steps:
       - name: Refresh public knowledge snapshot
