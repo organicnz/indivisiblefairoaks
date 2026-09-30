@@ -52,6 +52,7 @@ export default async function AdminContentEditPage({
         body: content.body,
         featuredImage: content.featured_image,
         publishedAt: content.published_at,
+        metadata: content.metadata as Record<string, string> | null,
       }}
     />
   );
