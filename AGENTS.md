@@ -500,7 +500,9 @@ own docs, because their failure modes are invisible to review and to unit tests.
   cannot be automated, so the paths behind it went untested. A preview renders
   through the same sanitizer and classes as the public page, as a modal. SEO
   meta fields (`meta_title` / `meta_description` in `content.metadata`) win
-  over derived values in `generateMetadata`.
+  over derived values in `generateMetadata`. A scheduled broadcast saves as
+  `scheduled` and is dispatched by a Vercel cron → edge function chain that
+  resolves the audience at send time.
 - **CRM and broadcasting** — [`docs/crm-operations.md`](./docs/crm-operations.md).
   Delivery is off the request path: the action writes a `queued` row and the
   `crm-broadcast-send` Edge Function owns delivery and progress. A self-test
