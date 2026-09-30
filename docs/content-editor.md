@@ -143,6 +143,16 @@ revisions carry the image. `content_revisions` is allowlisted in
 `scripts/gen-types.mjs` so regeneration keeps it; regenerate after the
 migration lands and never hand-edit `src/types/supabase.ts`.
 
+### A restore is never blind
+
+Each history row shows its status and type, a field-level diff against the
+document on screen (title, slug, status, type, excerpt, hero, body size), and
+an inline confirm step. The native `confirm()` is gone from the restore path:
+it asks a second, blinder question on top of an informed one, and it cannot be
+automated — so the restore path would go untested. The diff reads from the same
+`fields` object the dirty check compares, so "what would change" and "unsaved
+changes" can never disagree about what "current" means.
+
 ### Links are validated against the same rule the sanitizer enforces
 
 `isLinkableHref` is the editor's copy of the trusted-domain rule. If the two
@@ -175,6 +185,7 @@ the drag handle used to be a decorative `<span>`.
 - `src/lib/__tests__/editor-history.test.ts`, `draft-recovery.test.ts` — the two modules
 - `src/lib/__tests__/content-media.test.ts` — upload rules, reference-safe delete
 - `src/lib/__tests__/content-revisions.test.ts` — restore writes the revision hero back
+- `__tests__/ContentEditor.revisions.test.tsx` — row labels, the diff, confirm-only restore, cancel backs out
 - `src/lib/__tests__/content-links.test.ts` — `isLinkableHref`
 - `src/lib/__tests__/blocks.test.ts` — the sanitizer-parity property
 
