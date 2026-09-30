@@ -44,7 +44,17 @@ import { LinkPopover } from './LinkPopover';
 
 interface Props {
   blocks: Block[];
-  onChange: (blocks: Block[]) => void;
+  /**
+   * `intent` is how the change should be grouped for undo: a string coalesces
+   * consecutive edits of the same run, `null` makes it a step of its own.
+   *
+   * Only the editor knows which is which. A model update looks identical whether
+   * it came from a keystroke or from the author deleting a block, and the parent
+   * cannot guess — so an omitted intent is a discrete change, which is the safe
+   * default: it can only mean "undo steps too fine", never "undo swallowed a
+   * block you deleted".
+   */
+  onChange: (blocks: Block[], intent?: string | null) => void;
 }
 
 const HEADING_LEVEL_NAMES: Record<number, string> = {
@@ -146,8 +156,11 @@ export function BlockEditor({ blocks, onChange }: Props) {
   }, [blocks]);
 
   const update = useCallback(
-    (id: string, patch: Partial<Block>) => {
-      onChange(blocks.map((b) => (b.id === id ? ({ ...b, ...patch } as Block) : b)));
+    (id: string, patch: Partial<Block>, intent: string | null = null) => {
+      onChange(
+        blocks.map((b) => (b.id === id ? ({ ...b, ...patch } as Block) : b)),
+        intent
+      );
     },
     [blocks, onChange]
   );
@@ -404,7 +417,10 @@ export function BlockEditor({ blocks, onChange }: Props) {
     timer.current = setTimeout(() => {
       // Read the latest `blocks` through a ref-free path: recompute from the
       // current props at flush time by locating the block again.
-      onChange(blocks.map((b) => (b.id === block.id ? ({ ...b, html } as Block) : b)));
+      onChange(
+        blocks.map((b) => (b.id === block.id ? ({ ...b, html } as Block) : b)),
+        `type:${block.id}`
+      );
     }, INPUT_DEBOUNCE_MS);
   };
 
@@ -643,7 +659,8 @@ interface BodyProps {
   registerRef: (id: string) => (el: HTMLElement | null) => void;
   onInput: (event: FormEvent<HTMLElement>, block: Block) => void;
   onKeyDown: (event: KeyboardEvent<HTMLElement>, block: Block, index: number) => void;
-  onUpdate: (id: string, patch: Partial<Block>) => void;
+  /** Third argument is the undo intent; see the `onChange` prop for its meaning. */
+  onUpdate: (id: string, patch: Partial<Block>, intent?: string | null) => void;
   onApplyInline: (command: string, value?: string) => void;
   onOpenLinkEditor: () => void;
   onCloseLinkEditor: () => void;
@@ -863,7 +880,13 @@ function BlockBody({
             <input
               type="text"
               value={block.alt}
-              onChange={(e) => onUpdate(block.id, { alt: e.target.value } as Partial<Block>)}
+              onChange={(e) =>
+                onUpdate(
+                  block.id,
+                  { alt: e.target.value } as Partial<Block>,
+                  `type:alt:${block.id}`
+                )
+              }
               placeholder="Describe the image for screen readers"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
             />
@@ -873,7 +896,13 @@ function BlockBody({
             <input
               type="text"
               value={block.caption}
-              onChange={(e) => onUpdate(block.id, { caption: e.target.value } as Partial<Block>)}
+              onChange={(e) =>
+                onUpdate(
+                  block.id,
+                  { caption: e.target.value } as Partial<Block>,
+                  `type:caption:${block.id}`
+                )
+              }
               placeholder="Optional"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
             />
@@ -900,7 +929,9 @@ function BlockBody({
         <BlockTypeMenu block={block} onPick={onPickBlock} />
         <textarea
           value={block.text}
-          onChange={(e) => onUpdate(block.id, { text: e.target.value } as Partial<Block>)}
+          onChange={(e) =>
+            onUpdate(block.id, { text: e.target.value } as Partial<Block>, `type:text:${block.id}`)
+          }
           rows={4}
           spellCheck={false}
           aria-label="Code block content"
@@ -920,7 +951,13 @@ function BlockBody({
             <input
               type="text"
               value={block.label}
-              onChange={(e) => onUpdate(block.id, { label: e.target.value } as Partial<Block>)}
+              onChange={(e) =>
+                onUpdate(
+                  block.id,
+                  { label: e.target.value } as Partial<Block>,
+                  `type:label:${block.id}`
+                )
+              }
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
             />
           </label>
@@ -929,7 +966,13 @@ function BlockBody({
             <input
               type="text"
               value={block.href}
-              onChange={(e) => onUpdate(block.id, { href: e.target.value } as Partial<Block>)}
+              onChange={(e) =>
+                onUpdate(
+                  block.id,
+                  { href: e.target.value } as Partial<Block>,
+                  `type:href:${block.id}`
+                )
+              }
               placeholder="/contact"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
             />

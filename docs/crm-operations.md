@@ -64,6 +64,24 @@ A preview also:
 - carries no unsubscribe link and no `List-Unsubscribe` header — there is no subscription behind it
 - writes no `crm_activities` row, because `contact_id` references `crm_contacts(id)` and a preview has no contact
 
+**How it reads in the history.** Previews are kept in the same
+`Past Campaigns` table as real campaigns — a test is something the author did,
+and hiding it would leave a campaign in the record with no visible trace. Every
+column therefore says what happened:
+
+| Column | A real campaign | A preview |
+|---|---|---|
+| Subject | the subject | `[TEST — not sent to the list] …` plus a Test chip |
+| Audience | `All Constituents` or the filters | `Nobody — sent only to you` |
+| Recipients | the count | `1 (you)` |
+| Status | green `sent` | amber `test`, no success check |
+
+The audience column is the one that matters. A preview row is saved with no
+filters at all, so rendering it the way a campaign renders would read
+`All Constituents` beside a green `sent` — telling an organizer a blast had
+gone out when nobody had received anything. A count line above the table says how
+many rows are previews, so the headline number is not read as "campaigns sent".
+
 To verify the guard without mailing anyone, insert a row whose audience filter
 matches nobody (`target_status: ['__no_such_status__']`) with a
 `test_recipient`. A working guard returns `recipientCount: 1`; a broken one

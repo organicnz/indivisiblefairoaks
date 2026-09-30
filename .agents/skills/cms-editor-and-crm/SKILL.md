@@ -101,6 +101,30 @@ constraint.
 When you add a state, update the CHECK in a migration in the same change, and
 verify against the real database — not a mock.
 
+### 8. Undo groups by intent, and the stack is snapshots
+
+`src/lib/editor-history.ts`. Handlers declare an intent: `type:<field>` for
+typing, `null` for a discrete change. Without grouping, undo removes one
+character at a time.
+
+Two traps in the wiring, both of which present as "undo silently does nothing":
+
+- A functional `setState` updater must not read a ref that the same effect then
+  mutates. The updater runs during the re-render, sees the advanced value, and
+  records no change. Read refs into locals first.
+- A snapshot that does not round-trip to an identical string is recorded as a
+  edit. Undo, redo and draft restores set `appliedByUs` so the recording effect
+  skips them; otherwise one restore looks like two undo steps.
+
+Cmd/Ctrl+Z must be intercepted, not left to the browser: native undo walks the
+DOM's own history, which knows nothing about the block model.
+
+### 9. Recovered drafts are offered, never applied
+
+`src/lib/draft-recovery.ts`. A local copy silently replacing the page someone
+came back to loses an author's trust permanently. Keep the "Restore" / "Discard"
+choice, keep the per-content-id key, and keep the freshness checks.
+
 ## Before you finish
 
 ```bash
