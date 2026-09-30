@@ -115,6 +115,15 @@ deleted. The one documented exemption is content that is genuinely spam, since
 deleting that is the filter working. A failure here is a sanitizer bug or a
 missing block type, not a flaky test.
 
+**The sanitizer's allowlist is therefore load-bearing, and the test that says so
+must keep saying it.** An image's measured `width` / `height` reach the reader
+only because `img: ['src', 'alt', 'width', 'height', 'loading']` permits them.
+The properties were present in the model and the serializer from the start and
+populated by nothing; the moment the uploader began filling them in, the
+allowlist became a correctness dependency rather than a tidy list. Narrowing it
+now fails the round-trip test at the boundary instead of as a slow, invisible
+regression in the field.
+
 **The CMS bodies are plain text, not HTML.** The Google Sites export stripped
 every tag, so the site chrome arrived as literal lines — "Search this site",
 "Skip to main content", a sidebar navigation repeated three or four times, and a
@@ -260,7 +269,7 @@ it in the tab order while invisible on desktop. Gate the reveal with the
 2. **generateMetadata everywhere** — every `page.tsx` must export it; title and description must be unique.
 3. **Sanitize all CMS content** — `sanitizeWPContent` before any `dangerouslySetInnerHTML`.
 4. **No console.log in committed code** — enforced by oxlint.
-5. **No layout shift** — always provide width/height on `next/image`; use `aspect-ratio` utilities for unknown-dimension embeds.
+5. **No layout shift** — always provide width/height on `next/image`; use `aspect-ratio` utilities for unknown-dimension embeds. For a CMS image, **measure the size rather than reserve a guess**: `measureImageSize` reads the intrinsic dimensions from the bytes, and a block that cannot be measured must render in a fixed frame — never neither. See [`docs/content-editor.md`](./docs/content-editor.md#an-image-is-measured-or-the-frame-is-fixed--never-neither).
 6. **Server-only env reads** — `process.env.SUPABASE_SECRET_KEY` etc. are accessed as dotted properties, never spread into objects, never imported into client modules. Public `NEXT_PUBLIC_*` vars are safe to access anywhere.
 7. **Exact dependency versions** — use `^` only; pin via `overrides` for any package with a known CVE.
 8. **MFA guards** — account-mutating operations must check MFA enrollment status server-side.
@@ -469,6 +478,12 @@ deployed green and broke silently.
   `created_by` column stayed unwritten with the pipeline green. Its remaining uncovered
   branches are `?? 0` / `?? 'draft'` defences against `NOT NULL` columns. The floor is a
   ratchet, not an exemption: it can only go up.
+- **Adding a file to `include` can turn the gate red without touching anything else.**
+  The same aggregate arithmetic is why. `src/lib/image-size.ts` entered at 86% branches
+  and pulled everything-except-`crm.ts` from 90.0% to 89.86% — the build failed on
+  coverage alone, with 895 tests green. The fix is to cover the new file, never to
+  widen an exclusion to accommodate it: the whole point of naming globs is that a
+  file in the list is a file being measured.
 - Bypasses (documented in `lefthook.yml`): `LEFTHOOK=0`, `LEFTHOOK_EXCLUDE=<command>`.
 
 ---
@@ -525,8 +540,16 @@ Deliberately left undone. None block the apex cutover.
    blocks, and nearly every one carries a five-to-fifteen-line rationale comment
    and a multi-line remediation block. The content is right; the shape is drift,
    visible in duplicated section numbers and orphan comments. Moving each body
-   into `scripts/hooks/*.mjs` would take it to roughly 400 lines. Worth doing
-   before the next guard is added rather than after.
+into `scripts/hooks/*.mjs` would take it to roughly 400 lines. Worth doing
+    before the next guard is added rather than after.
+11. **Pre-existing CMS images still carry no `width` / `height`.** New and edited
+    images are measured from their bytes at upload, and a hand-typed URL is
+    measured client-side, so nothing added from here on shifts. The content
+    migrated from Google Sites does not: those images sit on external hosts that
+    are largely dead, so a backfill would rewrite every `content` row — and mint
+    a revision per row — for what would mostly be no-op measurements. It is also
+    a production data change, which belongs to the chapter rather than to a
+    deploy. Cheaper when an author touches the page anyway.
 
 ---
 

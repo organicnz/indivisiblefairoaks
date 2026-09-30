@@ -11,6 +11,7 @@ import {
   MAX_BODY_BYTES,
 } from '@/lib/content';
 import { env } from '@/lib/env';
+import { measureImageSize } from '@/lib/image-size';
 import { isOwnImageUrl } from '@/lib/own-media';
 import { getStorageUrl } from '@/lib/supabase';
 import type { Database } from '@/types/supabase';
@@ -408,6 +409,18 @@ const CONTENT_IMAGE_EXT: Record<string, string> = {
 const MAX_CONTENT_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /**
+ * How much of an uploaded file to read for its dimensions.
+ *
+ * 30 bytes covers a PNG's IHDR (24), a GIF's screen descriptor (10), and a
+ * WebP's VP8X header (30). A JPEG has no fixed offset — its frame header sits
+ * after an EXIF block that can run to tens of kilobytes — so this is a bound,
+ * not a promise: a JPEG with a very large thumbnail is measured when the header
+ * fits and returns `null` when it does not. That is the safe direction, since an
+ * unmeasured image costs a layout shift and a wrong one also distorts.
+ */
+const HEADER_PROBE_BYTES = 64 * 1024;
+
+/**
  * Upload an image for a CMS page or block and return its public URL.
  *
  * Without this the editor can only reference an image the admin already has a
@@ -421,7 +434,25 @@ const MAX_CONTENT_IMAGE_BYTES = 5 * 1024 * 1024;
  * would make the stored document non-idempotent and produce a fresh revision on
  * every load.
  */
-export async function uploadContentImage(formData: FormData): Promise<{ url: string }> {
+/**
+ * The result carries the image's intrinsic size as well as its URL.
+ *
+ * The dimensions are measured from the bytes that were just written to the
+ * bucket, so they cannot be wrong — unlike a size the browser reports, which does
+ * not exist on the paste path or the URL field, and unlike one the author types,
+ * which nobody verifies. The editor writes them onto the block, and the
+ * serializer emits them as `width` / `height`, which is what lets the browser
+ * reserve the space before the bytes arrive. Without them every content image on
+ * the site shifted layout as it loaded.
+ *
+ * `null` means "this header was not readable", not "zero", and the caller treats
+ * it as unknown rather than rendering a zero-sized image.
+ */
+export async function uploadContentImage(formData: FormData): Promise<{
+  url: string;
+  width: number | null;
+  height: number | null;
+}> {
   const file = formData.get('file');
   if (!(file instanceof File)) throw new Error('No file provided');
   if (!CONTENT_IMAGE_TYPES.includes(file.type as (typeof CONTENT_IMAGE_TYPES)[number])) {
@@ -449,7 +480,17 @@ export async function uploadContentImage(formData: FormData): Promise<{ url: str
     .upload(path, file, { upsert: false, contentType: file.type });
   if (error) throw new Error(error.message);
 
-  return { url: getStorageUrl(path) };
+  // Measured after a successful write, and from a copy rather than the File: the
+  // File has been consumed by the upload, and re-reading it would parse a
+  // megabyte again for a header we only need the first few dozen bytes of.
+  const head = new Uint8Array(await file.slice(0, HEADER_PROBE_BYTES).arrayBuffer());
+  const measured = measureImageSize(head, file.type);
+
+  return {
+    url: getStorageUrl(path),
+    width: measured?.width ?? null,
+    height: measured?.height ?? null,
+  };
 }
 
 /** Remove an orphaned upload, e.g. when the author replaces an image they just added. */

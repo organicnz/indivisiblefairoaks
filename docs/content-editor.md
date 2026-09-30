@@ -69,14 +69,70 @@ once it is served from the bucket it executes in the site's origin. Paths are
 `content/<slug>-<8 hex>.<ext>`: random rather than timestamped, so two organizers
 uploading `rally.jpg` in the same second cannot collide.
 
+### An image is measured, or the frame is fixed — never neither
+
+A content image is emitted as `<img src alt width height loading>` and the block
+model has carried `width` / `height` since the editor was written. **Nothing
+populated them**, so every content image on the site shipped with no intrinsic
+size — a guaranteed layout shift as the bytes arrive, and a direct violation of
+`AGENTS.md` coding rule 5.
+
+The dimensions come from the bytes, never from the author and never from the
+browser's own report at render time. An author-supplied width is a number nobody
+verifies. `measureImageSize` in `src/lib/image-size.ts` reads the header each
+format already stores its size in — PNG's IHDR, GIF's logical screen, WebP's
+first chunk, JPEG's SOFn — from the bytes just written to the bucket, and returns
+`null` for anything it does not recognise rather than guessing. **A wrong
+dimension is worse than no dimension**: the browser reserves the wrong box, so
+the shift is still there and the image is now distorted too.
+
+Every route that carries a `File` is measured, because they all reach the same
+`upload()`: the picker, the drop target, and the clipboard paste. A hand-typed
+or pasted *URL* has no bytes, so `ContentImageInput` probes it with a detached
+`window.Image` after a 600 ms settle and re-emits the URL with the measurement
+attached. Three properties of that probe are load-bearing:
+
+- **It re-emits the same `src` rather than setting the size alone.** The consumer
+  replaces the whole image block, so a dimensions-only update would be a second,
+  separate change to the same field — and the intent key is unchanged from the
+  keystrokes, so the whole thing coalesces into the single edit the author was
+  already making.
+- **It skips our own hosts** (`isOwnImageUrl`), which the server already measured
+  from the bytes. Re-probing would spend a request to re-learn what we know.
+- **It never resolves twice, and never blocks the URL.** A 404 still commits the
+  URL — the author may be mid-fix — and writes no dimensions, because the block
+  already holds `null` and re-emitting `null` is a no-op the author would have to
+  undo. The single settlement is guaranteed by the promise, not by detaching the
+  handlers; detaching them releases two closures and nothing more.
+
+Where no measurement is possible, the fallback is a **fixed frame**, never an
+unreserved box. That is what the hero does (§ below), and it is why an
+unmeasured hero is acceptable while an unmeasured content image was not.
+
+The serializer omits `width` / `height` entirely when they are `null`, rather
+than emitting `width="0"` — a zero reserves nothing and renders nothing. The
+sanitizer's `img` allowlist (`src, alt, width, height, loading`) is what carries
+them to the reader, so it is load-bearing: narrowing it fails the round-trip
+property test at the boundary rather than as a slow, invisible regression.
+
+**Not done: backfilling existing content.** The CMS was migrated from Google
+Sites, so legacy `content.body` images sit on external hosts that are largely
+dead. A backfill would rewrite every content row — and mint a revision per row —
+for what would mostly be no-op measurements, and it is a production data change
+that belongs to the chapter rather than to a deploy. New and edited images are
+all measured; the pre-existing ones keep their shift until an author touches
+them. Deliberate, not overlooked.
+
 ### The hero is an image, and it is on the page
 
 `featured_image` is a hero, not an attachment. It renders at the top of
 `src/app/[slug]/page.tsx` in an `aspect-[16/9]` frame via `next/image` with
 `fill` — a fixed frame rather than `width`/`height` because the CMS accepts an
-arbitrary upload and nothing measures one, so an intrinsic size would be a guess
-and the frame is what prevents layout shift. It is also the `og:image` (through
-`pageMetadata`'s `images`) and the Article JSON-LD `image`.
+arbitrary upload and the hero is deliberately cropped to 16/9, so an intrinsic
+size would describe a shape the page does not render. The frame is what prevents
+layout shift here, and it holds whether or not the upload was measured. It is
+also the `og:image` (through `pageMetadata`'s `images`) and the Article JSON-LD
+`image`.
 
 Three things used to be true at once, and each one is a control that did not do
 what it said:
@@ -147,6 +203,59 @@ publish.
 The exemption is content that genuinely contains a spam keyword — deleting that
 is the filter working, so those cases are skipped rather than asserted. See
 `AGENTS.md` § Sanitization layer.
+
+### Between a keystroke and the model there are two documents
+
+A keystroke reaches the DOM instantly and the model on a 120 ms debounce. **In
+that window there are two candidate documents**, and only one of them is the
+model: `committed` is what `content.blocks` holds, `pendingHtml` is every
+keystroke not yet folded into it.
+
+The old code shared one `setTimeout` across all blocks and closed over the
+`blocks` array captured when the keystroke was *rendered*. It failed three ways
+at once, and all three are silent:
+
+- **Two blocks in one window lost the first block's text.** The shared timer
+  flushed only the block that scheduled it last, so the first block's pending
+  characters never reached the model.
+- **Enter inside the window deleted the paragraph it had just created.** The
+  insert fired, and the pending flush then wrote the pre-Enter array back through
+  `onChange` — so the caret moved into a block that the next render removed.
+- **Convert, duplicate, split and move read the stale `html`** and carried across
+  the words last *saved* rather than the words on screen. Converting is what makes
+  that loss permanent.
+
+Type-then-Enter is the single most common action in a block editor, so this was
+the most common way to lose a sentence.
+
+The rule that prevents all four: **every structural operation reads
+`liveBlocks()`, never the `blocks` prop.** `liveBlocks()` is
+`committed + pendingHtml`; `structural()` folds the pending edits into the base
+*without* a second `onChange`, because they are not a separate render — React
+batches the whole event, so from the model's point of view it is one atomic
+transition. Emitting them separately would produce two `onChange` calls whose
+second argument is a single ref, and the last writer would silently relabel the
+other's undo entry.
+
+Two consequences worth knowing:
+
+- **One shared timer is correct; flushing only the last block was the bug.** The
+  flush commits *every* pending block in a single `onChange`, so a burst spanning
+  two blocks is one transition and one undo step.
+- **The undo intent is field-scoped and sorted.** `burstIntent` builds
+  `type:<sorted, comma-joined ids>`, so a run of typing in one block still yields
+  the byte-identical key `type:<id>` it always did, two bursts over the same pair
+  of blocks coalesce regardless of the order they were clicked in, and two
+  different blocks never merge into one step. An insertion-ordered key would split
+  one run of typing into two undo steps purely because of click order.
+
+A pending flush is cancelled on unmount rather than committed: calling `onChange`
+on a parent that has already dropped the document could resurrect a block the
+author deleted on the way out.
+
+`BlockEditor.debounce.test.tsx` is the regression suite. **It needs two blocks
+inside one window to fail** — with one block, one timer and one flush, the stale
+closure is correct by accident, which is why this shipped.
 
 ### Undo/redo is snapshot-based, and grouped by intent
 
@@ -409,6 +518,8 @@ handle used to be a decorative `<span>`.
 ## Testing
 
 - `__tests__/BlockEditor.test.tsx` — one editable per block, the type menu, conversion keeps the words, `unsupported` stays read-only and serializable
+- `__tests__/BlockEditor.debounce.test.tsx` — **needs two blocks inside one window to fail**; keeps both edits, Enter's new paragraph survives, conversion carries just-typed words, one intent per burst, and the key is order-independent
+- `__tests__/ContentImageInput.probe.test.tsx` — a typed URL is measured and re-emitted atomically; no probe for our own uploads, a half-typed URL, or a repeat; a failed probe changes nothing
 - `__tests__/BlockEditor.reorder.test.tsx` — drag, keyboard reorder, link entry
 - `__tests__/BlockEditor.slash-menu.test.tsx` — opens and focuses; Arrow/Home/End; Enter and Tab accept with no mouse event; Escape and backdrop close; query narrowing; `aria-activedescendant`; the viewport-covering backdrop stays out of the tab order
 - `__tests__/ContentEditor.autosave.test.tsx` — the autosave contract
@@ -424,7 +535,8 @@ handle used to be a decorative `<span>`.
 - `__tests__/ContentEditor.seo.test.tsx` — inputs render, preview shows them, save persists them
 - `__tests__/ContentList.publish-state.test.tsx` — View only when live, no draft URL, Preview says why
 - `src/lib/__tests__/content-links.test.ts` — `isLinkableHref`
-- `src/lib/__tests__/blocks.test.ts` — the sanitizer-parity property
+- `src/lib/__tests__/image-size.test.ts` — header parsing against **real encodings** (fixtures produced with `sips` / `cwebp`, expected values taken from the OS decoder, so a hand-written header cannot agree with a mistaken idea of the format), plus the marker walk and the WebP container's rejection paths
+- `src/lib/__tests__/blocks.test.ts` — the sanitizer-parity property, and that an image's measured dimensions survive sanitize and parse back
 
 ## Known limitations
 

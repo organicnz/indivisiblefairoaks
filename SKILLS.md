@@ -148,7 +148,7 @@ Entry: `.agents/skills/vgpu/SKILL.md`
 ---
 
 ### `cms-editor-and-crm`
-**Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, `src/lib/trusted-links.ts`, `src/lib/own-media.ts`, the broadcast Edge Function, or a coverage threshold in `vitest.config.ts`.
+**Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, `src/lib/trusted-links.ts`, `src/lib/own-media.ts`, `src/lib/image-size.ts`, the broadcast Edge Function, or a coverage threshold in `vitest.config.ts`.
 
 **Project-specific, not vendored.** Unlike the skills above, this one is written
 for this codebase and is not pinned in `skills-lock.json` — so it *can* be edited,
@@ -178,6 +178,20 @@ tests:
   told authors their links would be removed when they would not have been.
 - A **file outside the coverage `include` list** cannot fail a gate. `crm.ts` was
   in no threshold at all, which is how both of the two above shipped.
+- **A file inside it can still turn the gate red**, because a bare `statements: 90`
+  is checked against the aggregate. `image-size.ts` entered at 86% branches and
+  dropped everything-else to 89.86% with every test green. Cover the new file;
+  never widen an exclusion to make room for it.
+- **A keystroke reaches the DOM instantly and the model on a debounce**, so
+  anything reading the model inside that window reads a document that never
+  existed. Type-then-Enter silently deleted the paragraph the caret had just
+  moved into, and a **single-block test cannot see it** — with one block, one
+  timer and one flush, the stale closure is correct by accident.
+- **A dimension nobody measured is a layout shift on every page load.** An image's
+  `width` / `height` were in the model and the serializer from the start and
+  populated by nothing. The sanitizer's `img` allowlist then became a
+  *correctness* dependency rather than a tidy list, because it is the only route
+  those attributes take to the reader.
 
 Entry: `.agents/skills/cms-editor-and-crm/SKILL.md`
 Full context: [`docs/content-editor.md`](./docs/content-editor.md), [`docs/crm-operations.md`](./docs/crm-operations.md)

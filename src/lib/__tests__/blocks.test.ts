@@ -113,6 +113,60 @@ describe('round trip through the real render pipeline', () => {
     expect(twice).toBe(once);
   });
 
+  /**
+   * An image's measured dimensions must reach the reader, and the only route to
+   * that is the sanitizer agreeing to keep the attributes.
+   *
+   * `width` / `height` are what make the browser reserve the image's box before
+   * the bytes arrive. They were present in the model and the serializer from the
+   * start and populated by nothing, so every content image shifted layout as it
+   * loaded — and the moment an uploader started filling them in, the allowlist
+   * (`img: src, alt, width, height, loading`) became load-bearing. If it ever
+   * narrows, this fails at the boundary rather than as a slow, invisible
+   * regression in the field.
+   */
+  it("carries an image's dimensions through sanitize and back", () => {
+    const blocks: Block[] = [
+      {
+        id: '1',
+        type: 'image',
+        src: 'https://example.org/rally.jpg',
+        alt: 'Volunteers at the town hall',
+        caption: '',
+        width: 1400,
+        height: 933,
+      },
+    ];
+    const saved = serializeBlocks(blocks);
+
+    expect(saved).toContain('width="1400"');
+    expect(saved).toContain('height="933"');
+    // The attribute has to survive the sanitizer, not merely the serializer.
+    expect(sanitizeWPContent(saved)).toContain('width="1400"');
+    // And it has to be readable again, or a second save would silently drop it
+    // and the next publish would shift again.
+    expect(withoutIds(parseHtml(sanitizeWPContent(saved)))).toEqual(withoutIds(blocks));
+  });
+
+  it('omits the attributes entirely for an unmeasured image', () => {
+    // A hand-typed URL has no measurement. Emitting `width=""` or a zero would
+    // reserve nothing or render nothing, so the attributes are left off.
+    const saved = serializeBlocks([
+      {
+        id: '1',
+        type: 'image',
+        src: 'https://example.org/a.jpg',
+        alt: '',
+        caption: '',
+        width: null,
+        height: null,
+      },
+    ]);
+    expect(saved).not.toContain('width=');
+    expect(saved).not.toContain('height=');
+    expect(sanitizeWPContent(saved)).toBe(saved);
+  });
+
   it('preserves blocks after sanitization, not just before it', () => {
     // The real pipeline sanitizes at render, so the block count an author sees
     // must match the block count that was saved.

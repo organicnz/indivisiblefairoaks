@@ -1,8 +1,8 @@
 ---
-name: cms-editor-and-crm
-description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, src/lib/trusted-links.ts, src/lib/own-media.ts, the broadcast Edge Function, or a coverage threshold in vitest.config.ts — and whenever a change could make CMS content vanish on publish, change a page's publish state, lose or re-date a revision, widen who receives an email, or leave a file outside the coverage gate.
----
 
+name: cms-editor-and-crm
+description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, src/lib/sanitize.ts, src/lib/trusted-links.ts, src/lib/own-media.ts, src/lib/image-size.ts, the broadcast Edge Function, or a coverage threshold in vitest.config.ts — and whenever a change could make CMS content vanish on publish, change a page's publish state, lose an author's keystrokes, lose or re-date a revision, widen who receives an email, shift an image's layout, or leave a file outside the coverage gate.
+---
 # CMS editor & CRM
 
 Two admin surfaces with a shared theme: **a control that looks like it works is
@@ -343,6 +343,12 @@ Coverage thresholds are globs, not a global number, because Vitest checks a bare
 a looser one silently lowers it for everything else. The thresholds are floors
 that only go up.
 
+**And expect that to turn the gate red.** The same arithmetic is why:
+`src/lib/image-size.ts` entered at 86% branches and pulled everything-except-
+`crm.ts` from 90.0% to 89.86%, so the run failed on coverage alone with every test
+green. **Cover the new file — never widen an exclusion to accommodate it.** The
+point of naming globs is that a file in the list is a file being measured.
+
 A related habit, from the same pass: every unit test here mocks the Supabase
 client, so **a schema-level constraint is invisible to them**. `crm_broadcasts`
 once omitted `'queued'` from its CHECK and no test failed while every broadcast
@@ -360,6 +366,70 @@ The `verify` job now probes it with the **publishable** key expecting a 401 — 
 404 means absent, a 200 means it stopped requiring the key. When you add a
 function: deploy step, required-secrets entry, and probe expectation, or the
 `secrets.manifest.mjs` assertion is checking a fiction.
+
+### 21. Between a keystroke and the model there are two documents
+
+A keystroke reaches the DOM instantly and the model on a 120 ms debounce. In that
+window `committed` is what the model holds and `pendingHtml` is every keystroke
+not yet folded into it. **Only one of those is the model**, and the difference is
+silent.
+
+**Every structural operation reads `liveBlocks()`, never the `blocks` prop.** The
+old code shared one timer across all blocks and closed over the `blocks` array
+captured when the keystroke was rendered, which failed three ways at once: two
+blocks in one window lost the first block's text (the shared timer flushed only
+the last block); Enter inside the window wrote the pre-Enter array back and
+**deleted the paragraph the caret had just moved into**; and convert / duplicate /
+split / move read the stale `html` and carried the last *saved* words. Type-then-
+Enter is the most common action in a block editor, so this was the most common way
+to lose a sentence.
+
+- `structural()` folds pending edits into the base **without a second `onChange`**.
+  They are not a separate render — React batches the whole event — and two calls
+  share one undo-intent ref, so the last writer would relabel the other's entry.
+- One shared timer is correct; flushing only the last block was the bug. The flush
+  commits *every* pending block as one transition and one undo step.
+- **The undo intent is field-scoped and sorted** (`burstIntent`). A single block
+  must still yield the byte-identical `type:<id>`, or a run of typing splits into
+  many steps.
+- A pending flush is cancelled on unmount, never committed — calling `onChange`
+  on a parent that dropped the document could resurrect a deleted block.
+
+**The regression test needs two blocks inside one window.** With one block, one
+timer and one flush, the stale closure is correct *by accident*, which is why this
+shipped with a green suite. A single-block test cannot see it.
+
+### 22. An image is measured, or the frame is fixed — never neither
+
+`width` / `height` were in the block model and the serializer from the start and
+populated by nothing, so every content image shipped with no intrinsic size: a
+guaranteed layout shift, and a direct violation of `AGENTS.md` coding rule 5.
+
+**Measure from the bytes.** `measureImageSize` (`src/lib/image-size.ts`) reads the
+header each format stores its size in — PNG IHDR, GIF screen, WebP first chunk,
+JPEG SOFn — from the bytes just written, and returns `null` rather than guessing.
+A wrong dimension is *worse* than none: the browser reserves the wrong box, so the
+shift remains and the image is now distorted too. Never accept an author-supplied
+size; never trust a browser's report at render time.
+
+- **Where no measurement is possible, reserve a fixed frame.** Never neither.
+- **Emit no attribute at all for an unmeasured image** — `width="0"` reserves
+  nothing and renders nothing.
+- **A URL typed by hand is probed client-side** (`ContentImageInput`), after a
+  600 ms settle, and **re-emits the same `src` with the dimensions attached** so
+  the pair is one update and one undo step. It skips our own hosts (already
+  measured server-side) and a failed probe writes nothing, because the block
+  already holds `null` and re-emitting it is a no-op the author has to undo.
+- **The sanitizer's `img` allowlist is load-bearing.** Those attributes reach the
+  reader only because `img: [... 'width', 'height' ...]` permits them. Narrowing
+  it fails the round-trip property test at the boundary instead of as a slow
+  invisible regression.
+
+Test fixtures for the parsers are **real encodings** with expected values from the
+OS decoder, not hand-built headers — a hand-written header only proves the reader
+agrees with your idea of the format, and it caught a wrong VP8L bit-packing during
+development. Include a landscape, a portrait and an odd width, so a transposed
+reader cannot pass.
 
 ## Before you finish
 

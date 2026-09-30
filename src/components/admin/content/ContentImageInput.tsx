@@ -2,13 +2,23 @@
 
 import { AlertCircle, ImagePlus, Loader2, Upload } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { deleteContentImage, uploadContentImage } from '@/lib/actions/content';
+import { isOwnImageUrl } from '@/lib/own-media';
 
 interface Props {
   value: string;
-  onChange: (url: string) => void;
+  /**
+   * `dimensions` carries the intrinsic size, so the block can emit `width` /
+   * `height` and the browser can reserve the image's box before the bytes
+   * arrive.
+   *
+   * It is optional because the hero field has no use for it — it renders in a
+   * fixed 16/9 frame — and because a URL that cannot be measured yields `null`
+   * for both, which is "unknown", not "zero".
+   */
+  onChange: (url: string, dimensions?: { width: number | null; height: number | null }) => void;
   label: string;
   hint?: string;
   /** Rendered small by default; the featured image wants a bigger frame. */
@@ -31,6 +41,18 @@ const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif';
 const MAX_BYTES = 5 * 1024 * 1024;
 const OK_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+/**
+ * How long a typed URL must sit still before it is probed.
+ *
+ * Long enough that a pasted URL is measured once rather than once per
+ * character, and short enough that the author has not moved on before the
+ * dimensions land.
+ */
+const URL_PROBE_DEBOUNCE_MS = 600;
+
+/** An absolute http(s) URL with a path — not a half-typed scheme or a bare host. */
+const ABSOLUTE_IMAGE_URL = /^https?:\/\/[^\s/]+\/\S*$/i;
+
 export function ContentImageInput({ value, onChange, label, hint, aspect = 'thumb' }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -52,8 +74,14 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
       try {
         const formData = new FormData();
         formData.append('file', file);
-        const { url } = await uploadContentImage(formData);
-        onChange(url);
+        // The server measures the image from the bytes it just wrote, so the
+        // dimensions arrive with the URL rather than being reported by the
+        // browser afterwards. Both of the paths that carry a `File` — picker,
+        // drop and paste — land here, and this is the one that cannot be wrong:
+        // the browser's own report does not exist until the image has already
+        // loaded, by which point the shift it would have prevented has happened.
+        const { url, width, height } = await uploadContentImage(formData);
+        onChange(url, { width, height });
         toast.success('Image uploaded');
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Upload failed';
@@ -77,6 +105,89 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
     },
     [upload]
   );
+
+  /**
+   * The intrinsic size of an image already on the internet, or `null`.
+   *
+   * The upload path measures from the bytes it just wrote, which is
+   * authoritative. This path has no bytes — only a URL the author typed — and
+   * without a measurement the block emits no `width` / `height`, so the image
+   * shifts the page as it arrives. Probing with a detached `Image` closes that.
+   *
+   * `naturalWidth` / `naturalHeight` are metadata, not pixels, so this works for
+   * a cross-origin URL without a CORS header — unlike reading the image into a
+   * canvas, which would taint. The request is one the page was going to make
+   * anyway to display the image, and the browser serves the second from cache.
+   *
+   * Deliberately `window.Image`: the module's `Image` is `next/image`.
+   */
+  const probeRemoteSize = useCallback(
+    (url: string): Promise<{ width: number; height: number } | null> =>
+      new Promise((resolve) => {
+        const probe = new window.Image();
+        // Both outcomes are settled exactly once because a promise can only
+        // settle once — that, and not the detachment below, is what stops a
+        // late second event producing a second edit. Dropping the handlers
+        // releases the two closures so they do not outlive the probe element.
+        const settle = (result: { width: number; height: number } | null) => {
+          probe.onload = null;
+          probe.onerror = null;
+          resolve(result);
+        };
+        probe.onload = () => {
+          const { naturalWidth: width, naturalHeight: height } = probe;
+          // A zero means a degenerate image, and `width="0"` renders nothing.
+          settle(width > 0 && height > 0 ? { width, height } : null);
+        };
+        probe.onerror = () => settle(null);
+        probe.src = url;
+      }),
+    []
+  );
+
+  /**
+   * `onChange` is an inline arrow in the parent, so it is a new function on
+   * every render. Reading it through a ref keeps the probe effect keyed on the
+   * URL alone — otherwise the effect would re-run on every parent render and
+   * re-probe an image it had already measured.
+   */
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  /** The URL most recently handed to the probe, so each one is tried once. */
+  const [probed, setProbed] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Our own uploads are already measured server-side from the bytes, so
+    // probing them would spend a request to learn what we already know.
+    if (isOwnImageUrl(value)) return;
+    if (!ABSOLUTE_IMAGE_URL.test(value)) return;
+    if (probed === value) return;
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void probeRemoteSize(value).then((dimensions) => {
+        if (cancelled) return;
+        setProbed(value);
+        // Re-emit the *same* URL with the measurement attached, so `src` and
+        // `width` / `height` land as one update and one undo step. The intent
+        // key is unchanged from the keystrokes, so the whole thing coalesces
+        // into the single edit the author was already making.
+        //
+        // A failed probe emits nothing: the block already holds `null` for both
+        // dimensions, and writing `null` again would be a second undo step that
+        // changes nothing.
+        if (dimensions) onChangeRef.current(value, dimensions);
+      });
+    }, URL_PROBE_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [value, probed, probeRemoteSize]);
 
   const remove = useCallback(async () => {
     const previous = value;

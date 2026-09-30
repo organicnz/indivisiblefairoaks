@@ -51,6 +51,7 @@ export default defineConfig({
         'src/lib/crm-broadcast.ts',
         'src/lib/crm-import.ts',
         'src/lib/content.ts',
+        'src/lib/image-size.ts',
         'src/lib/trusted-links.ts',
         'src/lib/own-media.ts',
         'src/lib/utils.ts',

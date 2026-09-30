@@ -67,6 +67,32 @@ const HEADING_LEVEL_NAMES: Record<number, string> = {
 /** Debounce is short enough to feel live and long enough not to thrash re-renders. */
 const INPUT_DEBOUNCE_MS = 120;
 
+/**
+ * Fold a set of pending keystrokes into a block array. Pure, and module-level so
+ * the debounce, the structural operations and the tests all agree on it.
+ */
+function applyPendingHtml(base: Block[], updates: Map<string, string>): Block[] {
+  if (updates.size === 0) return base;
+  let next = base;
+  for (const [id, html] of updates) {
+    next = next.map((b) => (b.id === id ? ({ ...b, html } as Block) : b));
+  }
+  return next;
+}
+
+/**
+ * The undo intent for one burst of keystrokes.
+ *
+ * Field-scoped, so typing in two blocks never merges into one undo step. Sorted
+ * so the key describes the *set* of blocks rather than the order they were
+ * clicked in, and — deliberately — so that a single block yields exactly
+ * `type:<id>`, byte-identical to the key used before this became a map. That
+ * keeps a continuous run of typing in one block coalescing into one undo step.
+ */
+function burstIntent(ids: Iterable<string>): string {
+  return `type:${[...ids].sort().join(',')}`;
+}
+
 export function BlockEditor({ blocks, onChange }: Props) {
   const [slash, setSlash] = useState<{
     index: number;
@@ -109,6 +135,106 @@ export function BlockEditor({ blocks, onChange }: Props) {
   // the caret, so the inner HTML is never bound through JSX.
 
   const blockRefs = useRef(new Map<string, HTMLElement>());
+
+  /**
+   * A keystroke reaches the DOM instantly and the model on a debounce, so between
+   * the two there are two candidate documents: `committed` is what the model
+   * holds, `pendingHtml` is every keystroke not yet folded into it.
+   *
+   * **Every structural operation reads `liveBlocks()`, never the `blocks`
+   * prop.** That single rule is what makes type-then-Enter safe, and it is not
+   * an optimisation. The previous code shared one `setTimeout` across all
+   * blocks and closed over the `blocks` array captured when the keystroke was
+   * rendered, which failed three ways at once:
+   *
+   *   - typing in block A then block B inside one window *cancelled* A's
+   *     flush, so A's last characters never reached the model;
+   *   - pressing Enter inside the window fired an insert, and the pending flush
+   *     then wrote the pre-Enter array back through `onChange` — silently
+   *     deleting the paragraph the caret had just been moved into;
+   *   - converting, duplicating or splitting a block read the stale `html` and
+   *     carried across text the author could see but the model had not.
+   *
+   * Type-then-Enter is the single most common action in a block editor, so this
+   * was the most common way to lose a sentence.
+   */
+  const committed = useRef<Block[]>(blocks);
+  const pendingHtml = useRef(new Map<string, string>());
+  const inputTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useLayoutEffect(() => {
+    committed.current = blocks;
+  }, [blocks]);
+
+  /** The model with every unflushed keystroke folded in. The only array to build from. */
+  const liveBlocks = useCallback((): Block[] => {
+    if (pendingHtml.current.size === 0) return committed.current;
+    return applyPendingHtml(committed.current, pendingHtml.current);
+  }, []);
+
+  /** Detach the pending edits. Silent — the caller decides whether to emit them. */
+  const takePending = useCallback((): Map<string, string> => {
+    if (inputTimer.current) {
+      clearTimeout(inputTimer.current);
+      inputTimer.current = null;
+    }
+    const updates = new Map(pendingHtml.current);
+    pendingHtml.current = new Map();
+    return updates;
+  }, []);
+
+  /**
+   * Run a structural operation against the live document.
+   *
+   * The pending keystrokes are folded into the base *without* a second
+   * `onChange`. They are not separate history entries because they are not a
+   * separate render: React batches the whole event, so from the model's point of
+   * view this is one atomic transition. Emitting them separately would produce
+   * two `onChange` calls whose second argument — the undo intent — is a single
+   * ref, and the last writer would silently relabel the other's entry.
+   */
+  const structural = useCallback(
+    (build: (current: Block[]) => Block[], intent: string | null = null): Block[] => {
+      const base = applyPendingHtml(committed.current, takePending());
+      const next = build(base);
+      onChange(next, intent);
+      return next;
+    },
+    [onChange, takePending]
+  );
+
+  /**
+   * The writer half of the debounce, and the counterpart to `liveBlocks()`.
+   *
+   * A keystroke is recorded into `pendingHtml` and flushed up to
+   * `INPUT_DEBOUNCE_MS` later. One shared timer is deliberate: the flush commits
+   * *every* pending block in a single `onChange`, so a burst that spans two
+   * blocks is one atomic model transition and one undo step. The old code
+   * shared a timer but flushed only the last block, so the second block's
+   * keystroke cancelled the first block's flush and silently dropped it.
+   */
+  const scheduleUpdate = (block: Block, html: string) => {
+    pendingHtml.current.set(block.id, html);
+    if (inputTimer.current) clearTimeout(inputTimer.current);
+    inputTimer.current = setTimeout(() => {
+      const updates = takePending();
+      if (updates.size === 0) return;
+      // Every block named in the intent, so two bursts touching different
+      // blocks are never collapsed into a single undo entry while a run of
+      // typing in one block stays one entry.
+      onChange(applyPendingHtml(committed.current, updates), burstIntent(updates.keys()));
+    }, INPUT_DEBOUNCE_MS);
+  };
+
+  // A pending flush must never survive the editor. Committing it during unmount
+  // would call `onChange` on a parent that has already dropped the document, and
+  // could resurrect a block the author had deleted on the way out.
+  useEffect(
+    () => () => {
+      if (inputTimer.current) clearTimeout(inputTimer.current);
+    },
+    []
+  );
 
   const registerBlock = useCallback(
     (id: string) => (el: HTMLElement | null) => {
@@ -158,12 +284,12 @@ export function BlockEditor({ blocks, onChange }: Props) {
 
   const update = useCallback(
     (id: string, patch: Partial<Block>, intent: string | null = null) => {
-      onChange(
-        blocks.map((b) => (b.id === id ? ({ ...b, ...patch } as Block) : b)),
+      structural(
+        (current) => current.map((b) => (b.id === id ? ({ ...b, ...patch } as Block) : b)),
         intent
       );
     },
-    [blocks, onChange]
+    [structural]
   );
 
   // ── Block construction ──────────────────────────────────────────────────
@@ -197,87 +323,100 @@ export function BlockEditor({ blocks, onChange }: Props) {
 
   const insertAt = useCallback(
     (index: number, block: Block) => {
-      const next = [...blocks];
-      next.splice(index, 0, block);
-      onChange(next);
+      structural((current) => {
+        const next = [...current];
+        next.splice(index, 0, block);
+        return next;
+      });
       return block;
     },
-    [blocks, onChange]
+    [structural]
   );
 
   const removeAt = useCallback(
     (index: number) => {
-      const next = blocks.filter((_, i) => i !== index);
-      // Never leave the document with zero blocks — the author would have
-      // nowhere to click and typing would do nothing.
-      onChange(next.length ? next : [{ id: nextBlockId(), type: 'paragraph', html: '' }]);
-      const fallback = next[Math.min(index, next.length - 1)];
+      const removed = structural((current) => {
+        const next = current.filter((_, i) => i !== index);
+        // Never leave the document with zero blocks — the author would have
+        // nowhere to click and typing would do nothing.
+        return next.length ? next : [{ id: nextBlockId(), type: 'paragraph', html: '' } as Block];
+      });
+      const fallback = removed[Math.min(index, removed.length - 1)];
       if (fallback) pendingFocus.current = fallback.id;
     },
-    [blocks, onChange]
+    [structural]
   );
 
   /** Move a block to an absolute position. Shared by the drag and the buttons. */
   const moveTo = useCallback(
     (from: number, to: number) => {
-      if (to < 0 || to >= blocks.length || from === to) return;
-      const next = [...blocks];
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      onChange(next);
+      const latest = liveBlocks();
+      if (to < 0 || to >= latest.length || from === to) return;
+      structural((current) => {
+        const next = [...current];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        return next;
+      });
     },
-    [blocks, onChange]
+    [structural, liveBlocks]
   );
 
   const move = useCallback(
     (index: number, delta: number) => {
+      const latest = liveBlocks();
       const target = index + delta;
-      if (target < 0 || target >= blocks.length) return;
-      const next = [...blocks];
-      const [moved] = next.splice(index, 1);
-      next.splice(target, 0, moved);
-      onChange(next);
+      if (target < 0 || target >= latest.length) return;
+      moveTo(index, target);
     },
-    [blocks, onChange]
+    [liveBlocks, moveTo]
   );
 
   const duplicateAt = useCallback(
     (index: number) => {
-      const source = blocks[index];
+      const source = liveBlocks()[index];
       if (!source) return;
       // A fresh id is required: two blocks sharing an id would share a DOM node
       // in the ref map, and the second one's edits would overwrite the first.
+      // Sourced from `liveBlocks()`, so the copy carries the words just typed
+      // rather than the ones last saved.
       const copy = { ...source, id: nextBlockId() } as Block;
-      const next = [...blocks];
-      next.splice(index + 1, 0, copy);
-      onChange(next);
+      structural((current) => {
+        const next = [...current];
+        next.splice(index + 1, 0, copy);
+        return next;
+      });
     },
-    [blocks, onChange]
+    [structural, liveBlocks]
   );
 
   const convert = useCallback(
     (index: number, kind: BlockKind, tone: CalloutTone = 'info') => {
-      const current = blocks[index];
+      const current = liveBlocks()[index];
       if (!current) return;
       const replacement = makeBlock(kind, tone);
       // Carry the author's words across the conversion — losing them because
       // they pressed the wrong arrow key is the fastest way to lose trust.
+      // Sourced from `liveBlocks()`: converting inside the debounce window used
+      // to carry the last *saved* words and silently revert what was on screen.
       if (isTextualBlock(current) && isTextualBlock(replacement)) {
         (replacement as { html: string }).html = current.html;
       }
-      const next = [...blocks];
-      next[index] = replacement;
-      onChange(next);
+      structural((current_) => {
+        const next = [...current_];
+        next[index] = replacement;
+        return next;
+      });
       pendingFocus.current = replacement.id;
       setSlash(null);
     },
-    [blocks, makeBlock, onChange]
+    [structural, liveBlocks, makeBlock]
   );
 
   // ── Slash menu ──────────────────────────────────────────────────────────
   const openSlash = useCallback(
     (index: number) => {
-      const el = blockRefs.current.get(blocks[index]?.id ?? '');
+      const el = blockRefs.current.get(liveBlocks()[index]?.id ?? '');
       if (!el) return;
       const rect = el.getBoundingClientRect();
       setSlash({
@@ -288,14 +427,14 @@ export function BlockEditor({ blocks, onChange }: Props) {
       });
       setActiveIndex(0);
     },
-    [blocks]
+    [liveBlocks]
   );
 
   const applySlashChoice = useCallback(
     (def: { kind: BlockKind; tones?: readonly { tone: CalloutTone }[] }) => {
       if (!slash) return;
       const tone = def.tones?.[0]?.tone ?? 'info';
-      const current = blocks[slash.index];
+      const current = liveBlocks()[slash.index];
       // Typing "/quote" in an empty paragraph means "turn this line into a
       // quote", not "insert a second quote below it".
       if (current && current.type === 'paragraph' && stripTags(current.html).trim() === '') {
@@ -306,7 +445,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
         setSlash(null);
       }
     },
-    [blocks, convert, insertAt, makeBlock, slash]
+    [liveBlocks, convert, insertAt, makeBlock, slash]
   );
 
   const closeSlash = useCallback(() => setSlash(null), []);
@@ -391,27 +530,6 @@ export function BlockEditor({ blocks, onChange }: Props) {
     domHtml.current.set(block.id, html);
     scheduleUpdate(block, html);
   };
-
-  // Coalesce rapid keystrokes into one model update.
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scheduleUpdate = (block: Block, html: string) => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      // Read the latest `blocks` through a ref-free path: recompute from the
-      // current props at flush time by locating the block again.
-      onChange(
-        blocks.map((b) => (b.id === block.id ? ({ ...b, html } as Block) : b)),
-        `type:${block.id}`
-      );
-    }, INPUT_DEBOUNCE_MS);
-  };
-
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    []
-  );
 
   const stashSelection = () => {
     const selection = window.getSelection();
@@ -869,9 +987,30 @@ function BlockBody({
             label="Image"
             hint="JPEG, PNG, WebP or GIF, up to 5MB"
             value={block.src}
-            onChange={(src) =>
-              onUpdate(block.id, { src } as Partial<Block>, `type:src:${block.id}`)
-            }
+            onChange={(src, dimensions) => {
+              /*
+               * The dimensions ride along with the URL, so the block gets them in
+               * the same update that sets `src` and undo treats the pair as one
+               * step. They are what the serializer emits as `width` / `height`,
+               * which is the browser's only way to reserve an image's box before
+               * the bytes arrive — without them every content image on the site
+               * shifted layout as it loaded.
+               *
+               * A URL typed by hand arrives with no measurement, so the existing
+               * dimensions are cleared rather than left describing the previous
+               * image. Stale dimensions would reserve the *old* box, which is
+               * worse than reserving none.
+               */
+              onUpdate(
+                block.id,
+                {
+                  src,
+                  width: dimensions?.width ?? null,
+                  height: dimensions?.height ?? null,
+                } as Partial<Block>,
+                `type:src:${block.id}`
+              );
+            }}
           />
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
