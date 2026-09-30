@@ -887,56 +887,6 @@ describe('Civic CRM Server Actions', () => {
       );
     });
 
-    it('saves as scheduled without dispatching when scheduledAt is set', async () => {
-      const qbBroadcasts = createMockQueryBuilder({ data: { id: 'b-sched' }, error: null });
-      mockAdminClient.from.mockImplementation((table: string) =>
-        table === 'crm_broadcasts'
-          ? qbBroadcasts
-          : createMockQueryBuilder({ data: null, error: null })
-      );
-      const mockFetch = vi.fn();
-      global.fetch = mockFetch;
-
-      const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-      const res = await sendCRMBroadcast({
-        subject: 'Scheduled rally reminder',
-        body: 'See you at the rally.',
-        scheduledAt: future,
-      });
-
-      expect(res.success).toBe(true);
-      expect(res.recipientCount).toBe(0);
-      // No dispatch: the scheduler owns the send when the time comes.
-      expect(mockFetch).not.toHaveBeenCalled();
-      expect(qbBroadcasts.insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'scheduled',
-          scheduled_at: future,
-          recipient_count: 0,
-        })
-      );
-    });
-
-    it('rejects a scheduled time in the past', async () => {
-      const qbBroadcasts = createMockQueryBuilder({ data: null, error: null });
-      mockAdminClient.from.mockImplementation((table: string) =>
-        table === 'crm_broadcasts'
-          ? qbBroadcasts
-          : createMockQueryBuilder({ data: null, error: null })
-      );
-
-      const past = new Date(Date.now() - 60 * 1000).toISOString();
-      const res = await sendCRMBroadcast({
-        subject: 'Too late',
-        body: 'This should fail.',
-        scheduledAt: past,
-      });
-
-      expect(res.success).toBe(false);
-      expect(res.error).toContain('future');
-      expect(qbBroadcasts.insert).not.toHaveBeenCalled();
-    });
-
     it('fails the broadcast visibly when the sender is not configured', async () => {
       // Without this, an unconfigured deployment would report a queued broadcast
       // that never goes anywhere. The audience resolves first, so the mock must

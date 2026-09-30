@@ -1242,8 +1242,7 @@ export async function sendCRMBroadcast({
   targetTags = [],
   targetStatus = [],
   targetDistricts = [],
-  scheduledAt,
-}: BroadcastTarget & { subject: string; body: string; scheduledAt?: string }): Promise<{
+}: BroadcastTarget & { subject: string; body: string }): Promise<{
   success: boolean;
   recipientCount?: number;
   broadcastId?: string;
@@ -1260,43 +1259,6 @@ export async function sendCRMBroadcast({
 
   const limited = sendRateLimited(adminUserId, BROADCAST_LIMIT);
   if (limited) return { success: false, error: limited };
-
-  // A scheduled send skips audience resolution and rate limiting — the
-  // scheduler will resolve the audience when the time comes, so the recipient
-  // count reflects who is actually there at send time, not who was there when
-  // the author clicked Schedule.
-  if (scheduledAt) {
-    const when = new Date(scheduledAt);
-    if (Number.isNaN(when.getTime())) {
-      return { success: false, error: 'Scheduled time is not a valid date' };
-    }
-    if (when.getTime() <= Date.now()) {
-      return { success: false, error: 'Scheduled time must be in the future' };
-    }
-
-    const { data: broadcast, error: bcError } = await adminClient
-      .from('crm_broadcasts')
-      .insert({
-        subject: cleanSubject,
-        body: body.trim(),
-        target_tags: targetTags,
-        target_status: targetStatus,
-        target_districts: targetDistricts,
-        recipient_count: 0,
-        status: 'scheduled',
-        // @ts-expect-error scheduled_at arrives via migration 20260930120000; types regenerate after
-        scheduled_at: when.toISOString(),
-      })
-      .select('id')
-      .single();
-
-    if (bcError || !broadcast) {
-      return { success: false, error: 'Failed to create broadcast log' };
-    }
-
-    revalidateCRMRoutes();
-    return { success: true, recipientCount: 0, broadcastId: broadcast.id };
-  }
 
   let recipients: BroadcastRecipient[];
   try {

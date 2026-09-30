@@ -97,7 +97,6 @@ export const FUNCTION_SECRETS = {
     RESEND_FROM_EMAIL: { verify: false, note: 'Defaults in code.' },
     ADMIN_ORDER_EMAIL: { verify: false, note: 'Defaults in code.' },
   },
-  'crm-broadcast-scheduler': {},
   'crm-broadcast-send': {
     RESEND_API_KEY: {
       verify: true,
