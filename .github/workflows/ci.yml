@@ -6,39 +6,6 @@ on:
   pull_request:
     branches: [main, mainDeploy]
 
-# ── Runner labels: ARM64, and this has been "corrected" twice already ───────
-# `runs-on: [self-hosted, linux, ARM64, …]` is not a typo and not a stale
-# assumption. Read this before changing it to X64.
-#
-# The one registered runner for this repository is `personal-organicnz`, an
-# Apple-silicon macOS host, labelled:
-#   self-hosted, Linux, ARM64, frontend-runner, backend-runner
-# GitHub matches `self-hosted`/`linux` case-insensitively, so `ARM64` is the
-# only platform label that selector can satisfy.
-#
-# `67a4e08` changed these from ARM64 to X64 after diagnosing a *different*
-# machine — an Azure `Standard_B2ats_v2` (x86_64, systemd, `uname -m` =
-# x86_64). That host is not registered with this repository any more. The change
-# was correct about the host it investigated and wrong about the fleet that
-# exists, and the failure is completely silent: a `runs-on` selector matching
-# nothing does not error, it queues forever.
-#
-# The tell that the workflows were written for an ARM host all along: every
-# install step downloads `supabase_linux_arm64.tar.gz`. That tarball does not run
-# on x86_64.
-#
-# How it looked from the outside: every run sat at `queued` while the runner sat
-# `online, busy: false`, and `concurrency: cancel-in-progress: true` quietly
-# cancelled each run as the next push arrived. A green tick next to a merged PR
-# meant nothing, because no job had ever started.
-#
-# **To verify this file after any change here, do not read the run list — check
-# that a job actually leaves `queued`:**
-#   gh run list --branch main --limit 5
-#   gh api repos/$REPO/actions/runners -q '.runners[].labels[].name'
-# A selector no runner satisfies is indistinguishable from a slow machine in the
-# run list. It is only distinguishable by asking the runners endpoint.
-
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -65,7 +32,7 @@ jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +58,7 @@ jobs:
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
     name: Tests & Coverage
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -111,7 +78,7 @@ jobs:
   # ── 3. Build ─────────────────────────────────────────────────────────────────
   build:
     name: Next.js Build
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     needs: [lint, test]
     timeout-minutes: 20
     steps:
@@ -146,7 +113,7 @@ jobs:
   # ── 4. E2E Tests ─────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     needs: [build]
     timeout-minutes: 30
     steps:
@@ -200,7 +167,7 @@ jobs:
   # it (api-upload-free) into permanent red. Don't re-add it.
   health-probe:
     name: Live Health Probe
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     # CI build completion is the sync point: by then the Git-driven
     # Vercel deploy (~3-4 min) is settled or nearly so; the 90 s
     # retry loop below absorbs the remainder.
