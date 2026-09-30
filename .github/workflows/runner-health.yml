@@ -28,7 +28,7 @@ jobs:
     # Self-hosted ONLY per repo policy (no github-hosted runners anywhere).
     # Runs on backend-runner; if backend itself is down this job QUEUES —
     # which is itself the alert (visible as "queued" in Actions).
-    runs-on: [self-hosted, linux, X64, backend-runner]
+    runs-on: [self-hosted, linux, ARM64, backend-runner]
     timeout-minutes: 5
     outputs:
       api_ok: ${{ steps.check.outputs.api_ok }}
@@ -127,7 +127,7 @@ jobs:
   # one proves itself even when the registration API is unreachable.
   smoke-frontend:
     name: Smoke test — frontend-runner
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64, frontend-runner]
     timeout-minutes: 3
     steps:
       - name: Runner is alive
@@ -151,7 +151,7 @@ jobs:
 
   smoke-backend:
     name: Smoke test — backend-runner
-    runs-on: [self-hosted, linux, X64, backend-runner]
+    runs-on: [self-hosted, linux, ARM64, backend-runner]
     timeout-minutes: 3
     steps:
       - name: Runner is alive
