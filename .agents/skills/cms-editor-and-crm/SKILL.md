@@ -153,6 +153,13 @@ be automated, so the path behind it goes untested. Keep it unmount-safe (state
 in the button, not a portal), use `fieldset`/`legend` not `role="group"`, and
 disable the whole step while `busy`.
 
+### 13. A preview renders through the public page's own sanitizer
+
+`ContentPreview` must use the same `sanitizeWPContent` + `cw`/prose classes as
+`src/app/[slug]/page.tsx`. A preview that styled itself differently would be a
+lie the author ships on. Keep it a modal, never a route — an unsaved document
+must not have a shareable URL.
+
 ## Before you finish
 
 ```bash

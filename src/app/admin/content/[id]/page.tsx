@@ -51,6 +51,7 @@ export default async function AdminContentEditPage({
         status: content.status ?? 'draft',
         body: content.body,
         featuredImage: content.featured_image,
+        publishedAt: content.published_at,
       }}
     />
   );

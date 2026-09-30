@@ -153,6 +153,20 @@ automated — so the restore path would go untested. The diff reads from the sam
 `fields` object the dirty check compares, so "what would change" and "unsaved
 changes" can never disagree about what "current" means.
 
+### A preview is honest, or it is not a preview
+
+`ContentPreview` (`src/components/admin/content/ContentPreview.tsx`) renders the
+current document through the same `sanitizeWPContent` and the same `cw` + prose
+classes as `src/app/[slug]/page.tsx`. A preview that styled itself differently
+would be a lie the author ships on.
+
+It is a modal, not a route: the document may be unsaved, and a URL that renders
+unsaved work is a URL that can be shared by accident. Escape closes it, focus
+moves to the close button on open, and a "Draft preview — not published" banner
+keeps it from being mistaken for the live page.
+
+- `__tests__/ContentEditor.preview.test.tsx` — modal opens with sanitized body, close button works
+
 ### Destructive actions confirm inline, never natively
 
 `ConfirmAction` (`src/components/admin/ConfirmAction.tsx`) is the one shape for
@@ -202,6 +216,7 @@ the drag handle used to be a decorative `<span>`.
 - `src/lib/__tests__/content-revisions.test.ts` — restore writes the revision hero back
 - `__tests__/ContentEditor.revisions.test.tsx` — row labels, the diff, confirm-only restore, cancel backs out
 - `__tests__/ConfirmAction.test.tsx` — the shared destructive-action contract
+- `__tests__/ContentEditor.preview.test.tsx` — modal opens with sanitized body, close button works
 - `src/lib/__tests__/content-links.test.ts` — `isLinkableHref`
 - `src/lib/__tests__/blocks.test.ts` — the sanitizer-parity property
 
