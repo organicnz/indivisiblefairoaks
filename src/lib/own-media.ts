@@ -49,7 +49,13 @@ const supabaseHost = (): string => {
  *   origin rather than the storage one
  */
 export function isOwnImageHost(host: string): boolean {
-  const normalized = host.trim().toLowerCase();
+  const normalized = host
+    .trim()
+    .toLowerCase()
+    // A trailing dot is the DNS root and is the same host; leaving it on makes
+    // `indivisiblefairoaks.org.` fail a check that `indivisiblefairoaks.org`
+    // passes, which is the kind of difference an author can never debug.
+    .replace(/\.$/, '');
   if (!normalized) return false;
 
   const site = siteHost().toLowerCase();

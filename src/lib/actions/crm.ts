@@ -27,7 +27,17 @@ export type CRMContact = Database['public']['Tables']['crm_contacts']['Row'];
 export type CRMContactInsert = Database['public']['Tables']['crm_contacts']['Insert'];
 export type CRMContactUpdate = Database['public']['Tables']['crm_contacts']['Update'];
 export type CRMActivity = Database['public']['Tables']['crm_activities']['Row'];
-export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'];
+export type CRMBroadcastRow = Database['public']['Tables']['crm_broadcasts']['Row'];
+
+/**
+ * `updated_at` arrives with migration 20260930120000 and the generated types
+ * follow the live schema, so the column is declared here rather than in
+ * `src/types/supabase.ts` — hand-editing that file is exactly what the
+ * `types:generate` step exists to prevent, and the property is a structural
+ * merge rather than an override, so it disappears on its own once the migration
+ * is applied and the types are regenerated.
+ */
+export type CRMBroadcast = CRMBroadcastRow & { updated_at?: string | null };
 export type CRMTask = Database['public']['Tables']['crm_tasks']['Row'];
 export type CRMSegment = Database['public']['Tables']['crm_segments']['Row'];
 
@@ -392,8 +402,13 @@ export async function getCRMContacts(params: GetCRMContactsParams = {}): Promise
   totalCount: number;
 }> {
   const { adminClient } = await requireAdmin();
-  const page = params.page ?? 1;
-  const pageSize = params.pageSize ?? 50;
+  // Clamped, because both values come from URL search params and reach PostgREST
+  // as a range. `page: 0` produced `range(-50, -1)`, which is a 416 rather than
+  // a read, and an unclamped `pageSize` let any caller ask for the whole
+  // directory. `getContentList` has clamped its pair since it was written; this
+  // one had not, so the same request was safe on the content side and not here.
+  const page = Math.max(1, Math.floor(Number(params.page) || 1));
+  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(params.pageSize) || 50)));
   const filters = resolveFilters(params);
   const result = await fetchContactPage(adminClient, filters, page, pageSize);
   if (result.error) {
@@ -419,11 +434,13 @@ export async function exportCRMContacts(
     'Last Name',
     'Email',
     'Phone',
+    'Address',
     'District',
     'City',
     'Zip Code',
     'Status',
     'Tags',
+    'Notes',
     'Do Not Email',
     'Lifetime Giving (cents)',
     'Source',
@@ -436,11 +453,18 @@ export async function exportCRMContacts(
       c.last_name || '',
       c.email,
       c.phone || '',
+      // `address` and `notes` were both missing here while the importer read
+      // `notes` and the editor modal edited both. A file that could be exported
+      // and re-imported is the chapter's only off-platform backup, and this one
+      // quietly dropped every street address and every free-text note on the way
+      // out — the failure surfaces weeks later, on the day it is needed.
+      c.address || '',
       c.district || '',
       c.city || '',
       c.zip_code || '',
       c.status,
       (c.tags || []).join('; '),
+      c.notes || '',
       c.do_not_email ? 'yes' : 'no',
       c.total_donated_cents,
       c.source || '',
@@ -696,13 +720,24 @@ export async function saveCRMContact(
   const normalizedEmail = data.email.trim().toLowerCase();
 
   if (id) {
-    const { data: previous } = await adminClient
+    const { data: previous, error: previousError } = await adminClient
       .from('crm_contacts')
       .select('status, email, tags, notes')
       .eq('id', id)
       .single();
 
-    const statusChanged = previous != null && previous.status !== data.status;
+    // A volunteer has this form open on a contact a colleague deleted, merged
+    // away, or that the historical sync re-keyed. Two failures used to follow
+    // from that and both were unhelpful: the read's error was discarded, so the
+    // code went on to UPDATE a row that matches nothing, got `data: null` back,
+    // and threw on `updated.id` — an unhandled TypeError, which is a 500 and an
+    // error boundary, not a sentence. `saveContent` refuses the same situation
+    // with "That page no longer exists", and this is the same page.
+    if (previousError || !previous) {
+      return { success: false, error: 'That contact no longer exists' };
+    }
+
+    const statusChanged = previous.status !== data.status;
 
     const { data: updated, error } = await adminClient
       .from('crm_contacts')
@@ -716,6 +751,9 @@ export async function saveCRMContact(
       .single();
 
     if (error) return { success: false, error: error.message };
+    // Belt and braces: a concurrent delete between the read and the write
+    // matches no row and still returns no error.
+    if (!updated) return { success: false, error: 'That contact no longer exists' };
 
     await adminClient.from('crm_activities').insert({
       contact_id: id,
@@ -886,6 +924,11 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
       first_name: r.first_name,
       last_name: r.last_name,
       phone: r.phone,
+      // `address` was missing from this mapping as well as from the parser, so
+      // adding the column to the import was necessary but not sufficient: the
+      // row parsed it and the insert dropped it on the floor. Both halves of a
+      // round trip, or neither.
+      address: r.address,
       city: r.city,
       zip_code: r.zip_code,
       district: r.district,
@@ -1079,7 +1122,21 @@ export async function sendCRMDirectEmail({
     to: contact.email,
     subject: cleanSubject,
     html,
-    text: `${message.trim()}\n\n--\nIndivisible Fair Oaks-Carmichael\nhttps://indivisiblefairoaks.org\n\nUnsubscribe: ${unsubHref}`,
+    // The site origin comes from the same env var the HTML footer and the
+    // unsubscribe link do. It used to be a literal here, so a staging build
+    // mailed a text body pointing at the apex — which 302s to Google Sites
+    // until the cutover — while the HTML in the same email pointed at staging.
+    // Two different hosts in one message, and the one a screen reader reads
+    // first was the wrong one. `unsubscribeUrl` is the existing derivation.
+    text: [
+      message.trim(),
+      '',
+      '--',
+      'Indivisible Fair Oaks-Carmichael',
+      env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, ''),
+      '',
+      `Unsubscribe: ${unsubHref}`,
+    ].join('\n'),
     replyTo: env.ADMIN_ORDER_EMAIL || 'contact@indivisiblefairoaks.org',
     tags: [{ name: 'type', value: 'crm-direct' }],
     headers: listUnsubscribeHeaders(contact.unsubscribe_token),
@@ -1140,6 +1197,12 @@ export interface BroadcastProgress {
   failedCount: number;
   sentAt: string | null;
   createdAt: string;
+  /**
+   * Client-side only: the composer stopped polling. The row is still in flight
+   * server-side, so this is not a claim about the send — it says that what the
+   * operator is looking at has stopped updating and the view is behind.
+   */
+  stillWatching?: boolean;
 }
 
 /**
@@ -1547,16 +1610,49 @@ export async function triggerHistoricalCRMSync(): Promise<{
   };
 }
 
+/**
+ * Past campaigns: what has actually been sent, and what failed.
+ *
+ * Drafts are excluded, and the exclusion is in the query rather than filtered in
+ * JavaScript for two reasons. It is what the partial index
+ * `crm_broadcasts_recent_idx ... WHERE status <> 'draft'` was created for, and a
+ * query that does not state the predicate cannot use it — so the index was dead
+ * and this read degraded to a scan of every row the chapter has ever composed.
+ * And a draft is not history: an unsent draft in the campaign log tells an
+ * organizer that people were contacted when nobody was, which is the reading the
+ * row's own `draft` pill is least able to prevent.
+ *
+ * `getCRMBroadcastDrafts()` is the other half — resuming a draft is a real
+ * workflow, and it needs its own read rather than a filter over this one.
+ */
 export async function getCRMBroadcasts(): Promise<CRMBroadcast[]> {
   const { adminClient } = await requireAdmin();
   const { data, error } = await adminClient
     .from('crm_broadcasts')
     .select('*')
+    .neq('status', 'draft')
     .order('created_at', { ascending: false })
     .limit(50);
 
   if (error) {
     throw new Error(`Failed to fetch broadcasts: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/** Unsent work in progress, newest first. Resumable, and removable. */
+export async function getCRMBroadcastDrafts(): Promise<CRMBroadcast[]> {
+  const { adminClient } = await requireAdmin();
+  const { data, error } = await adminClient
+    .from('crm_broadcasts')
+    .select('*')
+    .eq('status', 'draft')
+    .order('updated_at', { ascending: false })
+    .limit(20);
+
+  if (error) {
+    throw new Error(`Failed to fetch broadcast drafts: ${error.message}`);
   }
 
   return data || [];

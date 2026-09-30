@@ -110,3 +110,105 @@ describe('toCsvRow', () => {
     );
   });
 });
+
+/**
+ * An export that cannot be re-imported intact is not a backup.
+ *
+ * The chapter's only off-platform copy of its constituent list is
+ * "Export → keep the CSV". That file has to survive a round trip through
+ * `parseCRMImportCsv`, and two columns did not: `notes` was read by the
+ * importer but never written by the exporter, and `address` was written by
+ * neither while the column existed and the editor modal edited it. Both failures
+ * are invisible at export time and only surface on the day the file is needed.
+ */
+describe('export columns round-trip through the importer', () => {
+  /** The exporter's header, verbatim. Kept in step by the assertion below. */
+  const EXPORT_HEADER = [
+    'ID',
+    'First Name',
+    'Last Name',
+    'Email',
+    'Phone',
+    'Address',
+    'District',
+    'City',
+    'Zip Code',
+    'Status',
+    'Tags',
+    'Notes',
+    'Do Not Email',
+    'Lifetime Giving (cents)',
+    'Source',
+    'Created At',
+  ];
+
+  it('carries the address and the notes through to a parsed row', () => {
+    const csv = [
+      EXPORT_HEADER.join(','),
+      [
+        'c-1',
+        'Robin',
+        'Vega',
+        'robin@example.org',
+        '9165550143',
+        '4821 Fair Oaks Blvd',
+        'CA-06',
+        'Carmichael',
+        '95608',
+        'active_volunteer',
+        'canvasser; choir',
+        toCsvRow(['Prefers phone, not email']),
+        'no',
+        '0',
+        'manual',
+        '2026-01-05T00:00:00.000Z',
+      ].join(','),
+    ].join('\r\n');
+
+    const { rows, errors } = parseCRMImportCsv(csv);
+    expect(errors).toEqual([]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      email: 'robin@example.org',
+      first_name: 'Robin',
+      last_name: 'Vega',
+      phone: '9165550143',
+      address: '4821 Fair Oaks Blvd',
+      city: 'Carmichael',
+      zip_code: '95608',
+      district: 'CA-06',
+      notes: 'Prefers phone, not email',
+    });
+  });
+
+  it('quotes a note containing a comma, so the columns do not shift', () => {
+    // The failure this guards is a silent column shift: a note with a comma
+    // moves every later value one column left and the row still parses.
+    const csv = [
+      EXPORT_HEADER.join(','),
+      [
+        'c-2',
+        'Sam',
+        'Oyelaran',
+        'sam@example.org',
+        '',
+        '',
+        'CA-06',
+        'Fair Oaks',
+        '95626',
+        'donor',
+        '',
+        toCsvRow(['Met at the town hall, wants a yard sign']),
+        'no',
+        '2500',
+        'import',
+        '2026-02-01T00:00:00.000Z',
+      ].join(','),
+    ].join('\r\n');
+
+    const { rows } = parseCRMImportCsv(csv);
+    expect(rows[0].notes).toBe('Met at the town hall, wants a yard sign');
+    expect(rows[0].zip_code).toBe('95626');
+    expect(rows[0].status).toBe('donor');
+  });
+});

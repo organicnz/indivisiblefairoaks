@@ -6,6 +6,7 @@ export interface CRMImportRow {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  address: string | null;
   city: string | null;
   zip_code: string | null;
   district: string;
@@ -156,6 +157,7 @@ export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
   const firstNameIdx = idx('first_name');
   const lastNameIdx = idx('last_name');
   const phoneIdx = idx('phone');
+  const addressIdx = idx('address');
   const cityIdx = idx('city');
   const zipIdx = idx('zip_code');
   const districtIdx = idx('district');
@@ -203,6 +205,11 @@ export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
       first_name: firstNameIdx >= 0 ? cell(raw, firstNameIdx) || null : null,
       last_name: lastNameIdx >= 0 ? cell(raw, lastNameIdx) || null : null,
       phone: phoneIdx >= 0 ? cell(raw, phoneIdx) || null : null,
+      // `address` is in the column set so that an export round-trips. The
+      // exporter writes it, the column exists, and the editor modal edits it —
+      // but the importer ignored it, so a restored backup silently lost every
+      // street address in the chapter.
+      address: addressIdx >= 0 ? cell(raw, addressIdx) || null : null,
       city: cityIdx >= 0 ? cell(raw, cityIdx) || null : null,
       zip_code: zipIdx >= 0 ? cell(raw, zipIdx) || null : null,
       district,

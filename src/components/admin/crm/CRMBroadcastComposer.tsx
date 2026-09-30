@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Fragment, useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,8 @@ import { BROADCAST_RECIPIENT_CEILING } from '@/lib/crm-broadcast';
 
 interface Props {
   initialBroadcasts: CRMBroadcast[];
+  /** Unsent work in progress. Kept out of `initialBroadcasts` on purpose. */
+  initialDrafts?: CRMBroadcast[];
   segments: CRMSegment[];
   existingTags: string[];
 }
@@ -67,7 +70,12 @@ const AVAILABLE_DISTRICTS = [
 // Fallback when the directory has no tags yet (fresh install / empty CRM).
 const FALLBACK_TAGS = ['contact-form', 'registered-member', 'donor', 'organizer'];
 
-export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags }: Props) {
+export function CRMBroadcastComposer({
+  initialBroadcasts,
+  initialDrafts = [],
+  segments,
+  existingTags,
+}: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -83,6 +91,7 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<CRMBroadcast[]>(initialDrafts);
   const [savingDraft, setSavingDraft] = useState(false);
   const [progress, setProgress] = useState<BroadcastProgress | null>(null);
 
@@ -108,7 +117,14 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
     ]),
   ].slice(0, 40);
 
-  // Update recipient count when targeting changes
+  // Update recipient count when targeting changes.
+  //
+  // Debounced. `getBroadcastRecipientCount` is an uncapped `count: 'exact'` over
+  // `crm_contacts`, so it ran on every single chip click — four tags tapped in a
+  // row meant four full counts inside half a second. The number is a display
+  // affordance; a slightly stale one for 300ms is invisible, and the action
+  // re-resolves the audience and re-checks the ceiling on send, so nothing
+  // downstream depends on this being exact at any instant.
   useEffect(() => {
     let active = true;
     const fetchCount = async () => {
@@ -129,9 +145,10 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
       }
     };
 
-    fetchCount();
+    const timer = setTimeout(fetchCount, 300);
     return () => {
       active = false;
+      clearTimeout(timer);
     };
   }, [selectedStatuses, selectedDistricts, selectedTags]);
 
@@ -153,9 +170,25 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
     );
   };
 
-  /** Poll until the sender leaves an in-flight state. */
+  /**
+   * Poll until the sender leaves an in-flight state.
+   *
+   * The give-up is now visible. It used to return silently after 180 seconds,
+   * never calling `router.refresh()`, so a large campaign — the sender moves ten
+   * recipients per round-trip, and 5,000 is five hundred rounds — outlived the
+   * poll and left the row in this tab reading `sending` forever, with no
+   * indication that anything was still happening or that the page needed a
+   * refresh. An admin who saw that had no way to tell a slow send from a stuck
+   * one, and the recovery procedure for a stuck send is in the docs.
+   *
+   * So: say so, refresh what is known, and keep the number of attempts
+   * proportional to the ceiling rather than a fixed 90.
+   */
   const followProgress = async (broadcastId: string) => {
-    for (let attempt = 0; attempt < 90; attempt += 1) {
+    // The sender batches ten at a time, so the worst case is the full ceiling
+    // plus slack for the audience query and the final status write.
+    const maxAttempts = Math.ceil(BROADCAST_RECIPIENT_CEILING / 10) + 30;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       const current = await getBroadcastProgress(broadcastId);
       if (!current) return;
       setProgress(current);
@@ -167,6 +200,13 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
         setTimeout(resolve, 2000);
       });
     }
+
+    // Still in flight after roughly half an hour. Not an error — the send may
+    // well be fine — but the operator needs to know this tab has stopped
+    // watching, because the row they are looking at is not the row in the
+    // database.
+    setProgress((current) => (current ? { ...current, stillWatching: false } : current));
+    startTransition(() => router.refresh());
   };
 
   /**
@@ -254,14 +294,35 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
     startTransition(() => router.refresh());
   };
 
-  const handleDiscardDraft = async () => {
-    if (!draftId) return;
-    const res = await deleteCRMBroadcastDraft(draftId);
+  /**
+   * Load a saved draft back into the composer.
+   *
+   * The composer holds exactly one draft id, so loading replaces what is on
+   * screen. That is destructive to unsent typing, so it goes through the same
+   * confirm step the discard does — losing an afternoon of copy because you
+   * clicked the wrong row is the failure mode this whole surface is prone to.
+   */
+  const handleLoadDraft = (draft: CRMBroadcast) => {
+    setSubject(draft.subject ?? '');
+    setBody(draft.body ?? '');
+    setSelectedStatuses(draft.target_status ?? []);
+    setSelectedDistricts(draft.target_districts ?? []);
+    setSelectedTags(draft.target_tags ?? []);
+    setDraftId(draft.id);
+    setProgress(null);
+    toast.success(`Loaded “${draft.subject}”`);
+    startTransition(() => router.refresh());
+  };
+
+  const handleDiscardDraft = async (id: string) => {
+    const res = await deleteCRMBroadcastDraft(id);
     if (!res.success) {
       toast.error(res.error || 'Failed to delete draft');
       return;
     }
-    setDraftId(null);
+    // Only clear the composer if it was the draft on screen that went away.
+    setDraftId((current) => (current === id ? null : current));
+    setDrafts((current) => current.filter((d) => d.id !== id));
     toast.success('Draft discarded');
     startTransition(() => router.refresh());
   };
@@ -639,13 +700,18 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
               </div>
               <div className="flex items-center gap-2">
                 {draftId ? (
-                  <button
-                    type="button"
-                    onClick={handleDiscardDraft}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 text-slate-600 hover:text-accent-red text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
+                  <ConfirmAction
+                    label="Discard draft"
+                    message="Delete this unsent draft. Anything written in it is gone."
+                    confirmLabel="Delete draft"
+                    danger
+                    idleClassName="inline-flex items-center gap-1.5 px-4 py-2.5 text-slate-600 hover:text-accent-red text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
+                    onConfirm={() => {
+                      if (draftId) void handleDiscardDraft(draftId);
+                    }}
                   >
                     <Trash2 size={14} /> Discard draft
-                  </button>
+                  </ConfirmAction>
                 ) : (
                   <button
                     type="button"
@@ -682,17 +748,55 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
               Live progress. The send no longer runs inside the request that
               started it, so without this the button would return and the admin
               would have no idea whether anything was going out.
+
+              Two states, not one. "Sending" is a claim about the database. Once
+              the poll gives up — a 5,000-recipient campaign is five hundred
+              round-trips in the sender — the number here stops moving while the
+              send carries on, so continuing to say "Sending" is a lie about
+              this view. The second branch says plainly that the send may well be
+              fine and that this tab has stopped watching, and offers the refresh
+              rather than leaving the operator to guess which kind of stuck it is.
             */}
             {progress && (progress.status === 'queued' || progress.status === 'sending') && (
               <div
                 role="status"
                 aria-live="polite"
-                className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3"
+                className={`rounded-xl border px-4 py-3 ${
+                  progress.stillWatching
+                    ? 'border-blue-200 bg-blue-50'
+                    : 'border-accent-gold/40 bg-surface-muted'
+                }`}
               >
-                <p className="text-sm font-semibold text-blue-900">
-                  Sending “{progress.subject}” — {progress.sentCount} of {progress.recipientCount}{' '}
-                  accepted
+                <p
+                  className={`text-sm font-semibold ${
+                    progress.stillWatching ? 'text-blue-900' : 'text-secondary'
+                  }`}
+                >
+                  {progress.stillWatching ? (
+                    <>
+                      Sending “{progress.subject}” — {progress.sentCount} of{' '}
+                      {progress.recipientCount} accepted
+                    </>
+                  ) : (
+                    <>Still sending, but this view has stopped updating</>
+                  )}
                 </p>
+                {!progress.stillWatching && (
+                  <>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {progress.sentCount} of {progress.recipientCount} accepted as of the last
+                      check. The send continues in the background — it is not stuck. Refresh to pick
+                      it up again.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => router.refresh()}
+                      className="mt-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      Refresh
+                    </button>
+                  </>
+                )}
                 <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-blue-200">
                   <div
                     className="h-full rounded-full bg-primary transition-[width] duration-500 ease-sensory"
@@ -774,6 +878,74 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
           </div>
         </DialogContent>
       </Dialog>
+
+      {/*
+        Unsent drafts, above the history.
+
+        These used to be interleaved with sent campaigns, which is worse than it
+        sounds: a row in "Past Campaigns & Dispatch History" is a claim that
+        people were contacted, and an unsent draft there makes that claim for
+        nobody. Drafts also have no other way in — the composer's id lived in
+        component state, so a reload lost the handle and left the row
+        unreachable — which is why `getCRMBroadcasts` filters them out and
+        `getCRMBroadcastDrafts` reads them separately.
+      */}
+      {drafts.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Save size={16} className="text-slate-400" />
+            <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">
+              Unsent drafts ({drafts.length})
+            </h2>
+          </div>
+          <ul className="space-y-2">
+            {drafts.map((draft) => {
+              const loaded = draft.id === draftId;
+              return (
+                <li
+                  key={draft.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xs"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-secondary">
+                      {draft.subject || 'Untitled draft'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Saved{' '}
+                      {new Date(
+                        draft.updated_at ?? draft.created_at ?? Date.now()
+                      ).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleLoadDraft(draft)}
+                      className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      {loaded ? 'Loaded' : 'Resume'}
+                    </button>
+                    <ConfirmAction
+                      label={`Delete draft ${draft.subject || 'untitled'}`}
+                      message={`Delete the unsent draft “${draft.subject || 'Untitled'}”. Anything written in it is gone.`}
+                      confirmLabel="Delete draft"
+                      danger
+                      idleClassName="rounded-xl px-3 py-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-accent-red"
+                      onConfirm={() => void handleDiscardDraft(draft.id)}
+                    >
+                      <Trash2 size={14} />
+                    </ConfirmAction>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Broadcast History Table */}
       <div className="space-y-4">
