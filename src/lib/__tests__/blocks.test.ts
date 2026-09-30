@@ -113,6 +113,60 @@ describe('round trip through the real render pipeline', () => {
     expect(twice).toBe(once);
   });
 
+  /**
+   * An image's measured dimensions must reach the reader, and the only route to
+   * that is the sanitizer agreeing to keep the attributes.
+   *
+   * `width` / `height` are what make the browser reserve the image's box before
+   * the bytes arrive. They were present in the model and the serializer from the
+   * start and populated by nothing, so every content image shifted layout as it
+   * loaded — and the moment an uploader started filling them in, the allowlist
+   * (`img: src, alt, width, height, loading`) became load-bearing. If it ever
+   * narrows, this fails at the boundary rather than as a slow, invisible
+   * regression in the field.
+   */
+  it("carries an image's dimensions through sanitize and back", () => {
+    const blocks: Block[] = [
+      {
+        id: '1',
+        type: 'image',
+        src: 'https://example.org/rally.jpg',
+        alt: 'Volunteers at the town hall',
+        caption: '',
+        width: 1400,
+        height: 933,
+      },
+    ];
+    const saved = serializeBlocks(blocks);
+
+    expect(saved).toContain('width="1400"');
+    expect(saved).toContain('height="933"');
+    // The attribute has to survive the sanitizer, not merely the serializer.
+    expect(sanitizeWPContent(saved)).toContain('width="1400"');
+    // And it has to be readable again, or a second save would silently drop it
+    // and the next publish would shift again.
+    expect(withoutIds(parseHtml(sanitizeWPContent(saved)))).toEqual(withoutIds(blocks));
+  });
+
+  it('omits the attributes entirely for an unmeasured image', () => {
+    // A hand-typed URL has no measurement. Emitting `width=""` or a zero would
+    // reserve nothing or render nothing, so the attributes are left off.
+    const saved = serializeBlocks([
+      {
+        id: '1',
+        type: 'image',
+        src: 'https://example.org/a.jpg',
+        alt: '',
+        caption: '',
+        width: null,
+        height: null,
+      },
+    ]);
+    expect(saved).not.toContain('width=');
+    expect(saved).not.toContain('height=');
+    expect(sanitizeWPContent(saved)).toBe(saved);
+  });
+
   it('preserves blocks after sanitization, not just before it', () => {
     // The real pipeline sanitizes at render, so the block count an author sees
     // must match the block count that was saved.
@@ -463,6 +517,26 @@ describe('parser edge cases', () => {
   });
 });
 
+/**
+ * The budget is on the suite, not on each test, and it is deliberate.
+ *
+ * Each of the four properties runs 300 generated documents, and each run takes a
+ * document through up to three full serialize → parse → sanitize cycles — the
+ * slowest one does three round trips per run. That is over a thousand parses per
+ * test, which is the right amount of work for a property that is the only thing
+ * standing between a new block type and silent data loss.
+ *
+ * It does not fit Vitest's 5s default once `v8` instrumentation is on, and it
+ * failed *intermittently* — a coverage run that passes or fails depending on
+ * machine load. That is the worst kind of gate failure: it trains people to
+ * re-run until green, which is exactly how a real regression gets through.
+ *
+ * So the budget is stated rather than the timeout raised globally. The
+ * assertions and the run count are untouched; only the time the slow work is
+ * allowed is made explicit.
+ */
+const PROPERTY_TIMEOUT_MS = 30_000;
+
 describe('property: every serializable block survives a full round trip', () => {
   beforeEach(() => resetBlockIds());
 
@@ -570,66 +644,82 @@ describe('property: every serializable block survives a full round trip', () => 
     return !isBlockEmpty({ ...b, id: 'x' } as Block);
   }
 
-  it('parse(serialize(blocks)) === blocks for populated blocks', () => {
-    fc.assert(
-      fc.property(fc.array(populatedBlockArb, { minLength: 1, maxLength: 6 }), (blocks) => {
-        const model = blocks.map(withId);
-        expect(withoutIds(parseHtml(serializeBlocks(model)))).toEqual(withoutIds(model));
-      }),
-      { numRuns: 300 }
-    );
-  });
+  it(
+    'parse(serialize(blocks)) === blocks for populated blocks',
+    () => {
+      fc.assert(
+        fc.property(fc.array(populatedBlockArb, { minLength: 1, maxLength: 6 }), (blocks) => {
+          const model = blocks.map(withId);
+          expect(withoutIds(parseHtml(serializeBlocks(model)))).toEqual(withoutIds(model));
+        }),
+        { numRuns: 300 }
+      );
+    },
+    PROPERTY_TIMEOUT_MS
+  );
 
-  it('sanitize(serialize(blocks)) does not lose any block', () => {
-    fc.assert(
-      fc.property(fc.array(blockArb, { minLength: 1, maxLength: 6 }), (blocks) => {
-        const model = blocks.map(withId);
-        if (mentionsSpamKeyword(model)) return;
-        const rendered = sanitizeWPContent(serializeBlocks(model));
-        const kinds = (list: Block[]) => list.map((b) => b.type);
-        // Empty blocks are legitimately dropped rather than persisted as markup
-        // the sanitizer would delete anyway, so compare only the blocks that
-        // actually carry content.
-        const expected = kinds(model.filter((b) => !isBlockEmpty(b)));
-        const reparsed = parseHtml(rendered);
-        // An all-empty document parses to the single placeholder block the
-        // editor types into, which is not part of the saved content.
-        const actual =
-          expected.length === 0 && reparsed.length === 1 && isTransient(reparsed[0])
-            ? []
-            : kinds(reparsed);
-        expect(actual).toEqual(expected);
-      }),
-      { numRuns: 300 }
-    );
-  });
+  it(
+    'sanitize(serialize(blocks)) does not lose any block',
+    () => {
+      fc.assert(
+        fc.property(fc.array(blockArb, { minLength: 1, maxLength: 6 }), (blocks) => {
+          const model = blocks.map(withId);
+          if (mentionsSpamKeyword(model)) return;
+          const rendered = sanitizeWPContent(serializeBlocks(model));
+          const kinds = (list: Block[]) => list.map((b) => b.type);
+          // Empty blocks are legitimately dropped rather than persisted as markup
+          // the sanitizer would delete anyway, so compare only the blocks that
+          // actually carry content.
+          const expected = kinds(model.filter((b) => !isBlockEmpty(b)));
+          const reparsed = parseHtml(rendered);
+          // An all-empty document parses to the single placeholder block the
+          // editor types into, which is not part of the saved content.
+          const actual =
+            expected.length === 0 && reparsed.length === 1 && isTransient(reparsed[0])
+              ? []
+              : kinds(reparsed);
+          expect(actual).toEqual(expected);
+        }),
+        { numRuns: 300 }
+      );
+    },
+    PROPERTY_TIMEOUT_MS
+  );
 
-  it('converges: the second save is byte-identical to the third', () => {
-    // This is the guarantee an editing session actually depends on. Loading a
-    // page, saving it, reloading and saving again must not keep mutating the
-    // stored HTML — otherwise every visit rewrites the content and the revision
-    // history fills with meaningless churn.
-    fc.assert(
-      fc.property(fc.array(blockArb, { minLength: 1, maxLength: 6 }), (blocks) => {
-        const first = serializeBlocks(blocks.map(withId));
-        const second = serializeBlocks(parseHtml(first));
-        const third = serializeBlocks(parseHtml(second));
-        expect(third).toBe(second);
-      }),
-      { numRuns: 300 }
-    );
-  });
+  it(
+    'converges: the second save is byte-identical to the third',
+    () => {
+      // This is the guarantee an editing session actually depends on. Loading a
+      // page, saving it, reloading and saving again must not keep mutating the
+      // stored HTML — otherwise every visit rewrites the content and the revision
+      // history fills with meaningless churn.
+      fc.assert(
+        fc.property(fc.array(blockArb, { minLength: 1, maxLength: 6 }), (blocks) => {
+          const first = serializeBlocks(blocks.map(withId));
+          const second = serializeBlocks(parseHtml(first));
+          const third = serializeBlocks(parseHtml(second));
+          expect(third).toBe(second);
+        }),
+        { numRuns: 300 }
+      );
+    },
+    PROPERTY_TIMEOUT_MS
+  );
 
-  it('never emits markup that the sanitizer then deletes', () => {
-    fc.assert(
-      fc.property(fc.array(blockArb, { minLength: 1, maxLength: 6 }), (blocks) => {
-        const model = blocks.map(withId).filter((b) => !isBlockEmpty(b));
-        if (model.length === 0) return;
-        if (mentionsSpamKeyword(model)) return;
-        const saved = serializeBlocks(model);
-        expect(sanitizeWPContent(saved)).toBe(saved);
-      }),
-      { numRuns: 300 }
-    );
-  });
+  it(
+    'never emits markup that the sanitizer then deletes',
+    () => {
+      fc.assert(
+        fc.property(fc.array(blockArb, { minLength: 1, maxLength: 6 }), (blocks) => {
+          const model = blocks.map(withId).filter((b) => !isBlockEmpty(b));
+          if (model.length === 0) return;
+          if (mentionsSpamKeyword(model)) return;
+          const saved = serializeBlocks(model);
+          expect(sanitizeWPContent(saved)).toBe(saved);
+        }),
+        { numRuns: 300 }
+      );
+    },
+    PROPERTY_TIMEOUT_MS
+  );
 });

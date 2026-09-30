@@ -51,12 +51,14 @@ export default defineConfig({
         'src/lib/crm-broadcast.ts',
         'src/lib/crm-import.ts',
         'src/lib/content.ts',
+        'src/lib/image-size.ts',
         'src/lib/trusted-links.ts',
         'src/lib/own-media.ts',
         'src/lib/utils.ts',
         'src/lib/validations.ts',
         'src/lib/metadata.ts',
         'src/lib/actions/settings.ts',
+        'src/lib/actions/content.ts',
         'src/lib/actions/crm.ts',
         'src/lib/error-report.ts',
         'src/lib/crm-unsubscribe.ts',
@@ -85,8 +87,14 @@ export default defineConfig({
       //
       // Aligned with the lefthook pre-push coverage gate (90%).
       thresholds: {
-        // Everything except `crm.ts`, which is on the ratchet below.
-        '!src/lib/actions/crm.ts': {
+        // Everything except `crm.ts` and `content.ts`, which are on the
+        // ratchets below.
+        //
+        // One glob, not two. Vitest treats each threshold key as its own
+        // "all files not matching this" set, so `'!crm.ts'` *includes*
+        // `content.ts` and vice versa — and each of those sets then fails on the
+        // other file's floor. The exclusion has to be expressed once.
+        '!src/lib/actions/{crm,content}.ts': {
           statements: 90,
           branches: 90,
           functions: 90,
@@ -117,6 +125,36 @@ export default defineConfig({
           branches: 76,
           functions: 100,
           lines: 93,
+        },
+
+        /**
+         * `content.ts` is on a ratchet too, from a much lower start.
+         *
+         * It is every CMS mutation — upload, delete, duplicate, status, save,
+         * revisions — and it was in **no threshold at all**, which is the same
+         * omission that hid `crm.ts` and is how a broadcast had never been sent
+         * while the pipeline stayed green. Adding it to `include` immediately
+         * put it at 53.57 / 50 / 53.84 / 59.71.
+         *
+         * The 50% is not a rounding artefact. Uncovered is most of the image
+         * storage paths, the revision queries, the list/pagination reads and
+         * every failure branch — most of which mock the network one layer down
+         * and are covered by `content-media` / `content-revisions` instead.
+         *
+         * So this is a floor at the measured value, not an exemption: it is
+         * now a number that can fail the build and can only rise. That is the
+         * whole difference from being invisible, and it is the difference
+         * between "we have not looked" and "we have looked, and here is the
+         * number".
+         *
+         * Achieved 2026-09-30: 53.57 statements / 50 branches / 53.84
+         * functions / 59.71 lines.
+         */
+        'src/lib/actions/content.ts': {
+          statements: 53,
+          branches: 50,
+          functions: 53,
+          lines: 59,
         },
       },
     },

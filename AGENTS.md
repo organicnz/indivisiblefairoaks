@@ -115,6 +115,15 @@ deleted. The one documented exemption is content that is genuinely spam, since
 deleting that is the filter working. A failure here is a sanitizer bug or a
 missing block type, not a flaky test.
 
+**The sanitizer's allowlist is therefore load-bearing, and the test that says so
+must keep saying it.** An image's measured `width` / `height` reach the reader
+only because `img: ['src', 'alt', 'width', 'height', 'loading']` permits them.
+The properties were present in the model and the serializer from the start and
+populated by nothing; the moment the uploader began filling them in, the
+allowlist became a correctness dependency rather than a tidy list. Narrowing it
+now fails the round-trip test at the boundary instead of as a slow, invisible
+regression in the field.
+
 **The CMS bodies are plain text, not HTML.** The Google Sites export stripped
 every tag, so the site chrome arrived as literal lines — "Search this site",
 "Skip to main content", a sidebar navigation repeated three or four times, and a
@@ -260,7 +269,7 @@ it in the tab order while invisible on desktop. Gate the reveal with the
 2. **generateMetadata everywhere** — every `page.tsx` must export it; title and description must be unique.
 3. **Sanitize all CMS content** — `sanitizeWPContent` before any `dangerouslySetInnerHTML`.
 4. **No console.log in committed code** — enforced by oxlint.
-5. **No layout shift** — always provide width/height on `next/image`; use `aspect-ratio` utilities for unknown-dimension embeds.
+5. **No layout shift** — always provide width/height on `next/image`; use `aspect-ratio` utilities for unknown-dimension embeds. For a CMS image, **measure the size rather than reserve a guess**: `measureImageSize` reads the intrinsic dimensions from the bytes, and a block that cannot be measured must render in a fixed frame — never neither. See [`docs/content-editor.md`](./docs/content-editor.md#an-image-is-measured-or-the-frame-is-fixed--never-neither).
 6. **Server-only env reads** — `process.env.SUPABASE_SECRET_KEY` etc. are accessed as dotted properties, never spread into objects, never imported into client modules. Public `NEXT_PUBLIC_*` vars are safe to access anywhere.
 7. **Exact dependency versions** — use `^` only; pin via `overrides` for any package with a known CVE.
 8. **MFA guards** — account-mutating operations must check MFA enrollment status server-side.
@@ -462,13 +471,43 @@ deployed green and broke silently.
   Vitest's bare `statements: 90` is checked against the *aggregate* over every included
   file, so a stricter file cannot raise it and a looser one silently lowers it for
   everything else. `vitest.config.ts` therefore names globs: 90 across the board, with
-  `src/lib/actions/crm.ts` on an explicit floor of **88 / 76 / 100 / 93**. That file
-  (1,700 lines holding every CRM mutation, the dispatch, the recipient resolution, the
-  rate limits and the e2e guard) was in **no threshold at all** until recently — it was
-  not in the `include` list — which is how a ceiling refusal stayed dead code and a
-  `created_by` column stayed unwritten with the pipeline green. Its remaining uncovered
-  branches are `?? 0` / `?? 'draft'` defences against `NOT NULL` columns. The floor is a
-  ratchet, not an exemption: it can only go up.
+  `src/lib/actions/crm.ts` on an explicit floor of **88 / 76 / 100 / 93** and
+  `src/lib/actions/content.ts` on **53 / 50 / 53 / 59**. Both were in **no threshold
+  at all** until recently — neither was in the `include` list — which is how a
+  ceiling refusal stayed dead code and a `created_by` column stayed unwritten with
+  the pipeline green. Their remaining uncovered branches are `?? 0` / `?? 'draft'`
+  defences against `NOT NULL` columns. A floor is a ratchet, not an exemption: it can
+  only go up.
+- **Two exclusion globs do not compose; write one.** Vitest treats each threshold key
+  as its own "everything except this" set, so naming `'!crm.ts'` and
+  `'!content.ts'` separately makes each one *include* the other file, and each set
+  then fails on the other's floor. The exclusion has to be a single
+  `'!src/lib/actions/{crm,content}.ts'`.
+- **Adding a file to `include` can turn the gate red without touching anything else.**
+  The same aggregate arithmetic is why. `src/lib/image-size.ts` entered at 86% branches
+  and pulled everything-except-`crm.ts` from 90.0% to 89.86% — the build failed on
+  coverage alone, with 895 tests green. The fix is to cover the new file, never to
+  widen an exclusion to accommodate it: the whole point of naming globs is that a
+  file in the list is a file being measured.
+- **A gate that is sometimes red is not a gate.** The `blocks.test.ts` property
+  suite (four properties × 300 generated documents, up to three serialize → parse →
+  sanitize cycles each) sat right at Vitest's 5s default once `v8` instrumentation
+  was on, and failed *intermittently* under `test:coverage` — pass or fail depending
+  on machine load. That trains people to re-run until green, which is how a real
+  regression gets through. The budget is now stated per suite
+  (`PROPERTY_TIMEOUT_MS`) with the run count and every assertion untouched; raising
+  `testTimeout` globally would have hidden the same cost everywhere else.
+- **A mock narrower than the real client fails on correct code.** Five suites
+  hand-rolled their own `adminClient`, each modelling the smallest slice it needed.
+  `saveContent` legitimately calls `.update().eq().select().maybeSingle()` — the
+  shape PostgREST requires to report whether an UPDATE matched a row at all — while
+  `content-revisions`' `update()` returned `{ eq: () => Promise.resolve(...) }`, so
+  correct code failed a green suite. `src/lib/__tests__/supabase-mock.ts` is the
+  shared row-based replacement. It also reproduces `.eq(col, null)` matching
+  *nothing* (`.is()` is the null-aware form), `LIKE`'s `%` without SQL's `_`, and
+  `limit(n)` as a filter rather than decoration. The three CRM suites that assert
+  on call *arguments* rather than rows are still on their own builders — a
+  legitimate style, but one that cannot catch a query naming the wrong column.
 - Bypasses (documented in `lefthook.yml`): `LEFTHOOK=0`, `LEFTHOOK_EXCLUDE=<command>`.
 
 ---
@@ -517,16 +556,30 @@ Deliberately left undone. None block the apex cutover.
    and never exercised in a real browser. A seeded admin session in e2e is the
    highest-value next test investment, and it is also the thing that would let
    `sendBlockedInE2E()` be verified end to end rather than by inspection.
-9. **`/admin` has no concurrent-edit detection.** Two organizers on one page are
-   last-write-wins with no warning. A `content.updated_at` precondition on
-   `saveContent` would catch it.
-10. **`lefthook.yml` is 1,100 lines because the logic lives in YAML.** About
+9. **`lefthook.yml` is 1,100 lines because the logic lives in YAML.** About
    twenty-five of the twenty-nine pre-commit guards are inline `run: |` bash
    blocks, and nearly every one carries a five-to-fifteen-line rationale comment
    and a multi-line remediation block. The content is right; the shape is drift,
    visible in duplicated section numbers and orphan comments. Moving each body
-   into `scripts/hooks/*.mjs` would take it to roughly 400 lines. Worth doing
-   before the next guard is added rather than after.
+into `scripts/hooks/*.mjs` would take it to roughly 400 lines. Worth doing
+    before the next guard is added rather than after.
+10. **Pre-existing CMS images still carry no `width` / `height`.** New and edited
+    images are measured from their bytes at upload, and a hand-typed URL is
+    measured client-side, so nothing added from here on shifts. The content
+    migrated from Google Sites does not: those images sit on external hosts that
+    are largely dead, so a backfill would rewrite every `content` row — and mint
+    a revision per row — for what would mostly be no-op measurements. It is also
+    a production data change, which belongs to the chapter rather than to a
+    deploy. Cheaper when an author touches the page anyway.
+11. **Three CRM suites still hand-roll their Supabase mock.** `crm.test.ts`,
+    `crm-mutations.test.ts` and `crm-reads.test.ts` each carry their own
+    `createMockQueryBuilder`, and each asserts on the *arguments* a builder
+    received rather than on the rows a query would match. That is a legitimate
+    style for testing the shape of a call, but it cannot detect a query that
+    names the wrong column — `content-media.test.ts` could assert "keeps a
+    referenced file" while the query checked nothing at all, and did.
+    `src/lib/__tests__/supabase-mock.ts` is the row-based replacement; converting
+    these three means rewriting their assertions, not swapping a helper.
 
 ---
 
@@ -584,6 +637,21 @@ own docs, because their failure modes are invisible to review and to unit tests.
   indistinguishable from a typo. SEO
   meta fields (`meta_title` / `meta_description` in `content.metadata`) win
   over derived values in `generateMetadata`.
+
+  **A save carries the version it was based on.** `saveContent` takes an optional
+  `expectedUpdatedAt` and turns it into a precondition on the same UPDATE — two
+  organizers on one page used to be last-write-wins with no signal, which is the
+  default outcome of the one surface whose purpose is to look after written work.
+  Three details are load-bearing and each fails silently without its own test:
+  the precondition rides on the UPDATE rather than a SELECT-then-UPDATE (which
+  would leave a window in which a colleague's save still lands); the returned
+  version is the one the `BEFORE UPDATE` trigger wrote, not a JS timestamp (a
+  second clock disagrees, and the author's next autosave conflicts with itself);
+  and a null claim uses `.is()`, never `.eq()` (`.eq(col, null)` is
+  `col=eq.null` and matches nothing, so the guard would fire against an untouched
+  page). The editor keeps it in a ref and adopts it from each save's response,
+  and a revision restore adopts the version it re-reads — but undo, redo and
+  draft recovery deliberately do not, because they never write the row.
 - **CRM and broadcasting** — [`docs/crm-operations.md`](./docs/crm-operations.md).
   Delivery is off the request path: the action writes a `queued` row and the
   `crm-broadcast-send` Edge Function owns delivery and progress. A self-test

@@ -148,7 +148,7 @@ Entry: `.agents/skills/vgpu/SKILL.md`
 ---
 
 ### `cms-editor-and-crm`
-**Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, `src/lib/trusted-links.ts`, `src/lib/own-media.ts`, the broadcast Edge Function, or a coverage threshold in `vitest.config.ts`.
+**Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, `src/lib/trusted-links.ts`, `src/lib/own-media.ts`, `src/lib/image-size.ts`, `src/lib/__tests__/supabase-mock.ts`, the broadcast Edge Function, or a coverage threshold in `vitest.config.ts`.
 
 **Project-specific, not vendored.** Unlike the skills above, this one is written
 for this codebase and is not pinned in `skills-lock.json` — so it *can* be edited,
@@ -178,6 +178,37 @@ tests:
   told authors their links would be removed when they would not have been.
 - A **file outside the coverage `include` list** cannot fail a gate. `crm.ts` was
   in no threshold at all, which is how both of the two above shipped.
+- **A file inside it can still turn the gate red**, because a bare `statements: 90`
+  is checked against the aggregate. `image-size.ts` entered at 86% branches and
+  dropped everything-else to 89.86% with every test green. Cover the new file;
+  never widen an exclusion to make room for it.
+- **A keystroke reaches the DOM instantly and the model on a debounce**, so
+  anything reading the model inside that window reads a document that never
+  existed. Type-then-Enter silently deleted the paragraph the caret had just
+  moved into, and a **single-block test cannot see it** — with one block, one
+  timer and one flush, the stale closure is correct by accident.
+- **A dimension nobody measured is a layout shift on every page load.** An image's
+  `width` / `height` were in the model and the serializer from the start and
+  populated by nothing. The sanitizer's `img` allowlist then became a
+  *correctness* dependency rather than a tidy list, because it is the only route
+  those attributes take to the reader.
+- **Last-write-wins on the one surface whose job is to look after written work.**
+  Two organizers on one page, and the second save discarded the first one's
+  afternoon with no signal. The fix is a precondition, and a precondition has two
+  silent failure modes: `.eq(col, null)` matches *nothing* in PostgREST, so a
+  nullable-version guard written that way fires against pages nobody touched; and
+  generating the new version in JavaScript instead of returning the row's means
+  the author's own next autosave conflicts with themselves.
+- **A hand-rolled Supabase mock diverges from the real client in both
+  directions.** One narrower than reality fails on correct code; one wider passes
+  on code that would 4xx. And a stub that returns whatever a test told it to
+  cannot distinguish "matched the right row" from "matched a row" — the reference
+  check in `content-media.test.ts` could have queried nothing at all and still
+  passed, until the suite gained a *negative* case with rows that exist and do
+  not mention the file.
+- **A gate that is sometimes red is not a gate.** The block round-trip property
+  suite sat at Vitest's 5s default once coverage instrumentation was on, and
+  failed intermittently. That trains people to re-run until green.
 
 Entry: `.agents/skills/cms-editor-and-crm/SKILL.md`
 Full context: [`docs/content-editor.md`](./docs/content-editor.md), [`docs/crm-operations.md`](./docs/crm-operations.md)

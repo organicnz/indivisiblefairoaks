@@ -62,6 +62,14 @@ export interface ContentEditorInitial {
    * a preview showing the wrong date is worse than one showing none.
    */
   createdAt?: string | null;
+  /**
+   * The row's `updated_at` as loaded, used as a precondition on every write.
+   *
+   * Two organizers editing one page is routine for a volunteer group, and
+   * last-write-wins discards a colleague's afternoon with no signal. Sending
+   * this back on save turns that into a refusal the author can act on.
+   */
+  updatedAt?: string | null;
   metadata?: Record<string, string> | null;
 }
 
@@ -417,11 +425,39 @@ export function ContentEditor({ initial, siteHost }: Props) {
    * The one write path. Both the Save button and autosave go through it, so they
    * cannot diverge in what they persist or in how they report failure.
    */
+  /**
+   * The row version this document is based on, sent as a precondition on save.
+   *
+   * A ref, not state: it changes on every autosave and must not re-render the
+   * editor, which would reset focus and fight the debounce in `BlockEditor`.
+   *
+   * A revision restore writes the row, so it adopts the version it re-reads —
+   * see the restore handler. Undo, redo and draft recovery deliberately do not:
+   * they only rearrange a document already in hand.
+   *
+   * Re-seeded only when `initial.id` changes, i.e. a different page. Adopting
+   * the prop on every render would defeat the guard: `router.refresh()` runs
+   * after each save, so a colleague's newer timestamp would be adopted and the
+   * next save would overwrite it having first agreed it was fine.
+   */
+  const expectedUpdatedAt = useRef<string | null>(initial.updatedAt ?? null);
+  const expectedForId = useRef(initial.id);
+  useEffect(() => {
+    if (expectedForId.current === initial.id) return;
+    expectedForId.current = initial.id;
+    expectedUpdatedAt.current = initial.updatedAt ?? null;
+  }, [initial.id, initial.updatedAt]);
+
   const persist = useCallback(
     async (
       nextStatus: 'publish' | 'draft'
     ): Promise<
-      { success: true; data: { id: number }; status: 'publish' | 'draft' } | SaveFailure
+      | {
+          success: true;
+          data: { id: number; updatedAt: string | null };
+          status: 'publish' | 'draft';
+        }
+      | SaveFailure
     > => {
       const result = await saveContent({
         id: initial.id,
@@ -432,6 +468,10 @@ export function ContentEditor({ initial, siteHost }: Props) {
         status: nextStatus,
         body,
         featuredImage: featuredImage.trim() || null,
+        // Only claim a version for a row that exists. A new page has nothing to
+        // be stale against, and sending `null` there would assert the row is
+        // already there with no timestamp.
+        ...(initial.id ? { expectedUpdatedAt: expectedUpdatedAt.current } : {}),
         metadata: {
           ...(metaTitle.trim() ? { meta_title: metaTitle.trim() } : {}),
           ...(metaDescription.trim() ? { meta_description: metaDescription.trim() } : {}),
@@ -440,6 +480,9 @@ export function ContentEditor({ initial, siteHost }: Props) {
       if (result.success) {
         setSavedSnapshot(snapshotOf(fields));
         setStatus(nextStatus);
+        // Adopt the version the trigger just wrote, so the next autosave
+        // compares against this save rather than against the one before it.
+        if (initial.id) expectedUpdatedAt.current = result.data.updatedAt;
         return { success: true, data: result.data, status: nextStatus };
       }
       return { success: false, error: result.error };
@@ -629,6 +672,13 @@ export function ContentEditor({ initial, siteHost }: Props) {
       // and body together, and the editor has to reflect all of it.
       const reloaded = await getContentForEdit(initial.id);
       if (reloaded) {
+        // A restore writes the row, so its version moved. Without adopting it
+        // here the very next autosave would compare against a timestamp the
+        // restore itself invalidated and refuse the author's own document.
+        // `applySnapshot` is deliberately *not* consulted: undo, redo and draft
+        // recovery only rearrange a document already in hand and leave the row
+        // untouched, so their precondition must not move.
+        expectedUpdatedAt.current = reloaded.updated_at ?? null;
         setTitle(reloaded.title);
         setSlug(reloaded.slug);
         setExcerpt(reloaded.excerpt ?? '');

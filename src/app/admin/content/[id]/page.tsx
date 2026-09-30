@@ -57,6 +57,9 @@ export default async function AdminContentEditPage({
         // value and is null for anything never explicitly published, which is
         // why the preview used to show no date at all for those pages.
         createdAt: content.created_at,
+        // The version this edit is based on, so a save refuses rather than
+        // silently overwriting a colleague who saved in the meantime.
+        updatedAt: content.updated_at,
         metadata: content.metadata as Record<string, string> | null,
       }}
     />
