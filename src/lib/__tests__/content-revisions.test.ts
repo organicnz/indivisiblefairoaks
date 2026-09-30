@@ -26,7 +26,9 @@ const { restoreContentRevision } = await import('@/lib/actions/content');
 
 const HERO = 'https://indivisiblefairoaks.org/media/hero.jpg';
 
-const revisionRow = {
+let updatedRow: Record<string, unknown> | null = null;
+
+const revisionRow: Record<string, unknown> = {
   id: 99,
   content_id: 7,
   title: 'Test page',
@@ -39,9 +41,18 @@ const revisionRow = {
   metadata: {},
   created_at: new Date().toISOString(),
   created_by: null,
+  published_at: null,
 };
 
-let updatedRow: Record<string, unknown> | null = null;
+beforeEach(() => {
+  vi.clearAllMocks();
+  updatedRow = null;
+  // Restores are stateful per-revision; reset the two fields these tests vary.
+  revisionRow.status = 'draft';
+  revisionRow.published_at = null;
+  requireAdmin.mockResolvedValue({ adminClient: { from: fromTable } });
+  fromTable.mockImplementation((table: string) => new FakeTable(table));
+});
 
 /** Minimal PostgREST stub: only the calls `restoreContentRevision` makes. */
 class FakeTable {
@@ -90,5 +101,38 @@ describe('restoreContentRevision', () => {
 
     expect(result).toMatchObject({ success: true });
     expect(updatedRow?.featured_image).toBe(HERO);
+  });
+
+  /**
+   * Restoring a revision must not re-date the post.
+   *
+   * `saveContent` re-stamps `published_at = now()` whenever a published page is
+   * written without one, so a restore that omitted the date re-dated a March
+   * post to today and jumped it to the top of `/news`. `setContentStatus` was
+   * written specifically to stop un-publishing from reordering the feed, and
+   * this routed straight around it. `content_revisions.published_at` arrives via
+   * migration 20260930120000.
+   */
+  it('restores the publish date rather than re-stamping it as today', async () => {
+    revisionRow.status = 'publish';
+    revisionRow.published_at = '2026-03-14T18:00:00.000Z';
+
+    const result = await restoreContentRevision(7, 99);
+
+    expect(result).toMatchObject({ success: true });
+    expect(updatedRow?.published_at).toBe('2026-03-14T18:00:00.000Z');
+    // The absence of a fresh "now" is the whole point: anything else here would
+    // put a restored March post at the top of the news feed.
+    expect(updatedRow?.published_at).not.toBe(undefined);
+  });
+
+  it('leaves published_at alone for a draft, which has no date to keep', async () => {
+    revisionRow.status = 'draft';
+    revisionRow.published_at = null;
+
+    const result = await restoreContentRevision(7, 99);
+
+    expect(result).toMatchObject({ success: true });
+    expect(updatedRow?.published_at).toBeNull();
   });
 });

@@ -183,16 +183,24 @@ interface BroadcastRecipient {
  * Resolve the audience for a broadcast. Consent is applied here and nowhere
  * else, so there is exactly one place an opted-out contact can be excluded —
  * the previous inline filter was easy to reorder past.
+ *
+ * The return carries `exhausted`, and it is not incidental. Paging with
+ * `offset < CEILING` cannot distinguish "the audience is this big" from "the
+ * audience is at least this big", and the caller previously guessed by counting
+ * what came back — which caps at exactly the ceiling, so the guess was always
+ * "big enough" and the refusal never ran. `exhausted: true` means the query
+ * itself ran dry, which is the only evidence the list is complete.
  */
 async function resolveBroadcastRecipients(
   adminClient: AdminClient,
   target: BroadcastTarget
-): Promise<BroadcastRecipient[]> {
+): Promise<{ recipients: BroadcastRecipient[]; exhausted: boolean }> {
   const targetTags = target.targetTags ?? [];
   const targetStatus = target.targetStatus ?? [];
   const targetDistricts = target.targetDistricts ?? [];
   const PAGE = 1000;
   const recipients: BroadcastRecipient[] = [];
+  let exhausted = false;
 
   for (let offset = 0; offset < BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
     let qb = adminClient
@@ -208,11 +216,18 @@ async function resolveBroadcastRecipients(
 
     const { data, error } = await qb.range(offset, offset + PAGE - 1);
     if (error) throw new Error(`Failed to resolve recipients: ${error.message}`);
-    if (!data || data.length === 0) break;
+    if (!data || data.length === 0) {
+      exhausted = true;
+      break;
+    }
     recipients.push(...(data as BroadcastRecipient[]));
-    if (data.length < PAGE) break;
+    // A short page is the only evidence there is nothing after it.
+    if (data.length < PAGE) {
+      exhausted = true;
+      break;
+    }
   }
-  return recipients;
+  return { recipients, exhausted };
 }
 
 function revalidateCRMRoutes(contactId?: string | null): void {
@@ -1166,33 +1181,68 @@ export async function previewCRMBroadcast({
  * created and nothing ever wrote one, so half the state machine was dead and a
  * half-written campaign could only be held in the browser. Drafts persist the
  * audience alongside the copy, so returning to one restores what it would send.
+ *
+ * `broadcastId` makes this an upsert. It used to insert unconditionally, so
+ * pressing "Save draft" twice left two rows and the composer's handle — the only
+ * record of which one it meant — lived in component state, so a reload orphaned
+ * it and the draft became unremovable. Updating in place is what makes a draft
+ * a document rather than a log entry.
  */
 export async function saveCRMBroadcastDraft({
+  broadcastId,
   subject,
   body,
   targetTags = [],
   targetStatus = [],
   targetDistricts = [],
-}: BroadcastTarget & { subject: string; body: string }): Promise<{
+}: BroadcastTarget & { broadcastId?: string | null; subject: string; body: string }): Promise<{
   success: boolean;
   broadcastId?: string;
   error?: string;
 }> {
-  const { adminClient } = await requireAdmin();
+  const { adminClient, adminUserId } = await requireAdmin();
   const cleanSubject = broadcastSubject(subject);
   if (!cleanSubject) return { success: false, error: 'Subject is required' };
   if (!body.trim()) return { success: false, error: 'Message body is required' };
 
+  const row = {
+    subject: cleanSubject,
+    body: body.trim(),
+    target_tags: targetTags,
+    target_status: targetStatus,
+    target_districts: targetDistricts,
+  };
+
+  if (broadcastId) {
+    // Scoped to `status = 'draft'` in the WHERE clause rather than checked in
+    // JS: a draft that has since been sent must not be rewritten, and a
+    // conditional update is the only way to make that hold under concurrency.
+    const { data, error } = await adminClient
+      .from('crm_broadcasts')
+      .update(row)
+      .eq('id', broadcastId)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    if (!data) {
+      return {
+        success: false,
+        error: 'That draft is no longer a draft — it was sent or removed. Save it as a new draft.',
+      };
+    }
+    revalidateCRMRoutes();
+    return { success: true, broadcastId: data.id };
+  }
+
   const { data, error } = await adminClient
     .from('crm_broadcasts')
     .insert({
-      subject: cleanSubject,
-      body: body.trim(),
-      target_tags: targetTags,
-      target_status: targetStatus,
-      target_districts: targetDistricts,
+      ...row,
       recipient_count: 0,
       status: 'draft',
+      created_by: adminUserId,
     })
     .select('id')
     .single();
@@ -1260,9 +1310,9 @@ export async function sendCRMBroadcast({
   const limited = sendRateLimited(adminUserId, BROADCAST_LIMIT);
   if (limited) return { success: false, error: limited };
 
-  let recipients: BroadcastRecipient[];
+  let audience: { recipients: BroadcastRecipient[]; exhausted: boolean };
   try {
-    recipients = await resolveBroadcastRecipients(adminClient, {
+    audience = await resolveBroadcastRecipients(adminClient, {
       targetTags,
       targetStatus,
       targetDistricts,
@@ -1273,19 +1323,28 @@ export async function sendCRMBroadcast({
       error: err instanceof Error ? err.message : 'Failed to resolve recipients',
     };
   }
+  const { recipients } = audience;
 
   if (recipients.length === 0) {
     return { success: false, error: 'No contacts match this audience' };
   }
   // Refuse rather than truncate. A silently shortened broadcast is worse than a
   // refused one: the author would believe four thousand people heard from them.
-  if (recipients.length > BROADCAST_RECIPIENT_CEILING) {
+  //
+  // This comparison could never fire. `resolveBroadcastRecipients` pages with
+  // `offset < BROADCAST_RECIPIENT_CEILING`, so it returned at most exactly
+  // `CEILING` rows and `> CEILING` was false — the branch was dead, and an
+  // audience of twelve thousand was quietly cut to five thousand and sent as a
+  // healthy campaign. The resolver now reports whether it read the audience to
+  // exhaustion, and *that* is what this refuses on: a loop that stopped because
+  // it hit the ceiling is an audience we have not finished counting.
+  if (!audience.exhausted) {
     return {
       success: false,
       error:
-        `This audience has ${recipients.length.toLocaleString()} contacts, over the ` +
+        `This audience is larger than the ` +
         `${BROADCAST_RECIPIENT_CEILING.toLocaleString()} limit for one broadcast. ` +
-        'Narrow the audience and try again.',
+        'Narrow the audience and try again — nothing was sent.',
     };
   }
 
@@ -1299,6 +1358,10 @@ export async function sendCRMBroadcast({
       target_districts: targetDistricts,
       recipient_count: recipients.length,
       status: 'queued',
+      // The column was added in 20260929140000 precisely so a blast had an
+      // attributable author, and all three inserts omitted it. `adminUserId` is
+      // already in scope from `requireAdmin()`.
+      created_by: adminUserId,
     })
     .select('id')
     .single();
@@ -1380,6 +1443,7 @@ export async function sendCRMBroadcastSelfTest({
       test_recipient: adminEmail,
       test_only: true,
       status: 'queued',
+      created_by: adminUserId,
     })
     .select('id')
     .single();

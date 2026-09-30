@@ -119,6 +119,26 @@ jobs:
           supabase functions deploy walle-refresh \
             --project-ref "$SUPABASE_PROJECT_REF"
 
+      # crm-broadcast-send is the one function the campaign composer cannot work
+      # without: sendCRMBroadcast writes a `queued` row and dispatches here, so
+      # the variable the app reads (CRM_BROADCAST_FUNCTION_URL) resolves to a
+      # route that only exists once this step runs. It was absent from this
+      # workflow while `secrets.manifest.mjs` marked RESEND_API_KEY and APP_URL
+      # as required *for this function* — so the assertion below was checking
+      # secrets for code nothing ever shipped, and production's composer failed
+      # safely with "the broadcast sender is not configured on this deployment"
+      # on every attempt.
+      #
+      # JWT verification stays ON. The only caller is an admin-gated server
+      # action holding the service-role key, and this function moves real mail
+      # to real people: an unauthenticated POST here must not reach Resend.
+      - name: Deploy Edge Function — crm-broadcast-send
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy crm-broadcast-send \
+            --project-ref "$SUPABASE_PROJECT_REF"
+
       - name: Assert required edge secrets are set in the hosted project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -334,6 +354,26 @@ jobs:
           check_post search 400 '{"q":""}'
           check_post checkout '400|401' '{}'
           check_post webhook 400 ''
+
+          # The broadcast sender is probed with the *publishable* key, not the
+          # service-role key, and the expectation is a rejection. That is the
+          # assertion: a 401 here proves the route exists, is reachable, and
+          # refuses an unauthenticated caller. A 404 would mean the function was
+          # not deployed (the exact failure this probe exists to catch); a 200
+          # would mean it has stopped requiring a key, which is worse.
+          #
+          # The publishable key is deliberately *not* the service-role key. Using
+          # a real credential here would let a probe that sends a malformed
+          # broadcast reach the recipient-resolution path.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H "$AUTH_HEADER" -H "$APIKEY_HEADER" -H 'Content-Type: application/json' \
+            -d '{}' "$EDGE_BASE/crm-broadcast-send" || echo 000)
+          echo "crm-broadcast-send → HTTP $code (unauthenticated POST)"
+          if [ "$code" != "401" ]; then
+            echo "::error::crm-broadcast-send returned HTTP $code — expected 401. A 404 means the function is not deployed; a 200 means it stopped requiring the service key."
+            exit 1
+          fi
+
           check_get wall-e-chat
           check_get walle-refresh
           echo "✅ All edge functions answering (project $SUPABASE_PROJECT_REF)"

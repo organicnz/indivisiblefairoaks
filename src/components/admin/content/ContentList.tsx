@@ -171,89 +171,103 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[46rem] text-left text-sm">
-              <caption className="sr-only">Pages and posts</caption>
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-                <tr>
-                  <th scope="col" className="px-4 py-3 font-bold">
-                    Title
-                  </th>
-                  <th scope="col" className="px-4 py-3 font-bold">
-                    Type
-                  </th>
-                  <th scope="col" className="px-4 py-3 font-bold">
-                    Status
-                  </th>
-                  <th scope="col" className="px-4 py-3 font-bold">
-                    <span className="inline-flex items-center gap-1">
-                      <ArrowUpDown size={12} aria-hidden="true" />
-                      Updated
-                    </span>
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right font-bold">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {initialRows.map((row) => (
-                  <tr key={row.id} className="transition-colors hover:bg-slate-50/70">
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/content/${row.id}`}
-                        className="font-semibold text-secondary underline-offset-2 hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-primary"
-                      >
-                        {row.title}
-                      </Link>
-                      {/* A draft's slug is not yet a live URL, so it is dimmed to
+          <>
+            {/*
+              The table is 46rem wide and so scrolls horizontally on any
+              laptop. An `overflow-x-auto` box stopped being focusable in Chrome
+              and Firefox, which meant a keyboard user could not scroll it at
+              all. Same rule as `ProductCard` and the table block. The fragment
+              wrapper is only here because a ternary arm takes exactly one
+              expression, and a bare sibling comment would be a second one.
+            */}
+            <section
+              className="overflow-x-auto"
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: WAI-ARIA scrollable region, see AGENTS.md "Scrollable regions must be focusable"
+              tabIndex={0}
+              aria-label="Pages and posts, scrollable"
+            >
+              <table className="w-full min-w-[46rem] text-left text-sm">
+                <caption className="sr-only">Pages and posts</caption>
+                <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 font-bold">
+                      Title
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-bold">
+                      Type
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-bold">
+                      Status
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-bold">
+                      <span className="inline-flex items-center gap-1">
+                        <ArrowUpDown size={12} aria-hidden="true" />
+                        Updated
+                      </span>
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-right font-bold">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {initialRows.map((row) => (
+                    <tr key={row.id} className="transition-colors hover:bg-slate-50/70">
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/content/${row.id}`}
+                          className="font-semibold text-secondary underline-offset-2 hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                          {row.title}
+                        </Link>
+                        {/* A draft's slug is not yet a live URL, so it is dimmed to
                           match: the path is real, the page behind it is not. */}
-                      <p
-                        className={`mt-0.5 truncate font-mono text-xs ${
-                          row.status === 'publish' ? 'text-slate-400' : 'text-slate-300'
-                        }`}
-                      >
-                        /{row.slug}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
-                          TYPE_BADGE[row.type ?? 'page'] ?? TYPE_BADGE.page
-                        }`}
-                      >
-                        {row.type ?? 'page'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
-                          STATUS_BADGE[row.status ?? 'draft'] ?? STATUS_BADGE.draft
-                        }`}
-                      >
-                        {row.status === 'publish' ? 'Published' : 'Draft'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500">
-                      {row.updated_at
-                        ? new Date(row.updated_at).toLocaleDateString(undefined, {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {busyId === row.id ? (
-                          <Loader2
-                            size={15}
-                            className="animate-spin text-slate-400"
-                            aria-label="Working"
-                          />
-                        ) : (
-                          <>
-                            {/*
+                        <p
+                          className={`mt-0.5 truncate font-mono text-xs ${
+                            row.status === 'publish' ? 'text-slate-400' : 'text-slate-300'
+                          }`}
+                        >
+                          /{row.slug}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                            TYPE_BADGE[row.type ?? 'page'] ?? TYPE_BADGE.page
+                          }`}
+                        >
+                          {row.type ?? 'page'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                            STATUS_BADGE[row.status ?? 'draft'] ?? STATUS_BADGE.draft
+                          }`}
+                        >
+                          {row.status === 'publish' ? 'Published' : 'Draft'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {row.updated_at
+                          ? new Date(row.updated_at).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {busyId === row.id ? (
+                            <Loader2
+                              size={15}
+                              className="animate-spin text-slate-400"
+                              aria-label="Working"
+                            />
+                          ) : (
+                            <>
+                              {/*
                               A draft has no public page — `getPublishedContent`
                               filters to published rows, so a View link on a draft
                               landed on an HTTP 200 "Page Not Found" that the
@@ -263,51 +277,52 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                               (into the editor, which renders unsaved work
                               through the real sanitizer) when it is not.
                             */}
-                            {row.status === 'publish' ? (
-                              <Link
-                                href={`/${row.slug}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title={`View /${row.slug}`}
+                              {row.status === 'publish' ? (
+                                <Link
+                                  href={`/${row.slug}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={`View /${row.slug}`}
+                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                                >
+                                  View
+                                </Link>
+                              ) : (
+                                <Link
+                                  href={`/admin/content/${row.id}`}
+                                  title="Not published yet — opens the editor to preview it"
+                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                                >
+                                  Preview
+                                </Link>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleToggle(row)}
                                 className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
                               >
-                                View
-                              </Link>
-                            ) : (
-                              <Link
-                                href={`/admin/content/${row.id}`}
-                                title="Not published yet — opens the editor to preview it"
-                                className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                                {row.status === 'publish' ? 'Unpublish' : 'Publish'}
+                              </button>
+                              <ConfirmAction
+                                label={`Delete ${row.title}`}
+                                message={`Delete “${row.title}”? This cannot be undone.`}
+                                danger
+                                idleClassName="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
+                                onConfirm={() => void handleDelete(row)}
                               >
-                                Preview
-                              </Link>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleToggle(row)}
-                              className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
-                            >
-                              {row.status === 'publish' ? 'Unpublish' : 'Publish'}
-                            </button>
-                            <ConfirmAction
-                              label={`Delete ${row.title}`}
-                              message={`Delete “${row.title}”? This cannot be undone.`}
-                              danger
-                              idleClassName="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
-                              onConfirm={() => void handleDelete(row)}
-                            >
-                              <Trash2 size={15} aria-hidden="true" />
-                              <span className="sr-only">Delete {row.title}</span>
-                            </ConfirmAction>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                                <Trash2 size={15} aria-hidden="true" />
+                                <span className="sr-only">Delete {row.title}</span>
+                              </ConfirmAction>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          </>
         )}
       </div>
 

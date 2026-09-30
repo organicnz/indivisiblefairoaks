@@ -39,6 +39,7 @@ import {
   getCRMTasks,
   importCRMContacts,
   mergeCRMContacts,
+  saveCRMBroadcastDraft,
   saveCRMContact,
   saveCRMSegment,
   sendCRMBroadcast,
@@ -79,6 +80,11 @@ function createMockQueryBuilder(terminalResult: Record<string, unknown> = {}) {
 
 function firstMockArg<T>(fn: { mock: { calls: unknown[][] } }): T {
   return fn.mock.calls[0]?.[0] as T;
+}
+
+/** The payload of the nth call to a builder method, for insert/update assertions. */
+function nthMockArg<T>(fn: { mock: { calls: unknown[][] } }, index = 0): T {
+  return fn.mock.calls[index]?.[0] as T;
 }
 
 describe('Civic CRM Server Actions', () => {
@@ -1098,5 +1104,248 @@ describe('CRM sends are blocked in an e2e build', () => {
     // asserts is which reason: not the test-build guard.
     expect(res.success).toBe(false);
     expect(res.error).not.toMatch(/disabled in test builds/i);
+  });
+});
+
+/**
+ * Regression tests for the four broadcast-safety defects.
+ *
+ * Each one shipped behind a comment that asserted the opposite of what the code
+ * did, which is why they need pinning rather than a re-read. The invariant
+ * names in each test are the ones to keep.
+ */
+describe('Broadcast blast radius', () => {
+  const originalFetch = global.fetch;
+  const envState = env as unknown as Record<string, string | undefined>;
+  const originalId = session.adminUserId;
+  const originalFunctionUrl = envState.CRM_BROADCAST_FUNCTION_URL;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    session.adminUserId = 'admin-user-blast-uuid';
+    envState.RESEND_API_KEY = 're_test_key_dummy';
+    envState.CRM_BROADCAST_FUNCTION_URL =
+      'https://project.supabase.co/functions/v1/crm-broadcast-send';
+    envState.SUPABASE_SECRET_KEY = 'service-key';
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    envState.CRM_BROADCAST_FUNCTION_URL = originalFunctionUrl;
+    session.adminUserId = originalId;
+  });
+
+  /**
+   * The ceiling refusal was dead code. `resolveBroadcastRecipients` paged with
+   * `offset < CEILING`, so it returned at most exactly CEILING rows, and the
+   * caller then compared `length > CEILING` — which is never true. A twelve
+   * thousand contact audience was cut to five thousand and sent as `sent`, with
+   * the organizer believing everyone had heard from them.
+   *
+   * The fix is the `exhausted` flag: only a query that ran dry proves the list
+   * is complete. A full final page means there may be more.
+   */
+  it('refuses an audience larger than the ceiling instead of truncating it', async () => {
+    // Every page is full, for all five pages the loop is allowed, and the loop
+    // then stops on the ceiling rather than on an empty page. So the count is a
+    // floor ("at least 5,000") and not a measurement.
+    const fullPage = {
+      data: Array.from({ length: 1000 }, () => ({ id: 'x', email: 'a@b.co' })),
+      error: null,
+    };
+    const qb = createMockQueryBuilder(fullPage);
+    qb.range = vi.fn().mockResolvedValue(fullPage);
+    mockAdminClient.from.mockReturnValue(qb);
+
+    const res = await sendCRMBroadcast({ subject: 'Rally', body: 'Join us' });
+
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/larger than the 5,000 limit/i);
+    // The refusal must happen before the row is written, or the campaign history
+    // shows a broadcast that was never sent.
+    const tables = mockAdminClient.from.mock.calls.map((c) => c[0]);
+    expect(tables).not.toContain('crm_broadcasts');
+  });
+
+  it('sends when the audience page runs dry before the ceiling', async () => {
+    // One full page then an empty one: the query itself proved the list ended.
+    const fullPage = {
+      data: Array.from({ length: 1000 }, () => ({ id: 'x', email: 'a@b.co' })),
+      error: null,
+    };
+    const emptyPage = { data: [], error: null };
+    const insertBuilder = createMockQueryBuilder({ data: { id: 'bcast-1' }, error: null });
+
+    const qb = createMockQueryBuilder(fullPage);
+    qb.range = vi.fn().mockResolvedValueOnce(fullPage).mockResolvedValue(emptyPage);
+    mockAdminClient.from
+      .mockReturnValueOnce(qb) // audience page 1 (full)
+      .mockReturnValueOnce(qb) // audience page 2 (empty -> exhausted)
+      .mockReturnValueOnce(insertBuilder); // crm_broadcasts insert
+
+    const res = await sendCRMBroadcast({ subject: 'Rally', body: 'Join us' });
+
+    expect(res.success).toBe(true);
+    expect(res.recipientCount).toBe(1000);
+  });
+
+  /**
+   * `crm_broadcasts.created_by` was added in 20260929140000 so a blast had an
+   * attributable author, and all three inserts omitted it. A campaign log where
+   * nobody owns the campaign is not an audit trail.
+   */
+  it('stamps the author on a real broadcast', async () => {
+    const shortPage = { data: [{ id: 'c1', email: 'a@b.co' }], error: null };
+    const insertBuilder = createMockQueryBuilder({ data: { id: 'bcast-2' }, error: null });
+
+    const qb = createMockQueryBuilder(shortPage);
+    qb.range = vi.fn().mockResolvedValue(shortPage); // short -> exhausted
+    mockAdminClient.from.mockReturnValueOnce(qb).mockReturnValueOnce(insertBuilder);
+
+    await sendCRMBroadcast({ subject: 'Rally', body: 'Join us' });
+
+    const insertCall = nthMockArg<Record<string, unknown>>(insertBuilder.insert);
+    expect(insertCall.created_by).toBe('admin-user-blast-uuid');
+  });
+
+  it('stamps the author on a self-test', async () => {
+    const insertBuilder = createMockQueryBuilder({ data: { id: 'bcast-3' }, error: null });
+    mockAdminClient.from.mockReturnValue(insertBuilder);
+
+    await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
+
+    const insertCall = nthMockArg<Record<string, unknown>>(insertBuilder.insert);
+    expect(insertCall.created_by).toBe('admin-user-blast-uuid');
+    // The narrowing invariant: a self-test row carries no audience at all. If it
+    // ever gains one, the edge function's `!isSelfTest` guard is the only thing
+    // between a preview and the whole list.
+    expect(insertCall.test_only).toBe(true);
+    expect(insertCall.test_recipient).toBe('organizer@indivisiblefairoaks.org');
+    expect(insertCall.target_tags).toBeUndefined();
+    expect(insertCall.target_status).toBeUndefined();
+    expect(insertCall.target_districts).toBeUndefined();
+  });
+});
+
+/**
+ * `crm-broadcast-send` read the self-test flag as
+ * `test_only === true && typeof test_recipient === 'string'`. Both columns are
+ * nullable and no CHECK tied them together, so a `test_only` row with a NULL
+ * `test_recipient` fell out of the branch and ran the *audience* loop — mailing
+ * every opted-in contact. The function now refuses, and migration
+ * 20260930120000 makes the row unrepresentable.
+ *
+ * This is the app-side half of that pairing: the action must never be the thing
+ * that writes a self-test with an address the sender cannot use.
+ */
+describe('Self-test narrowing is unrepresentable', () => {
+  const originalFetch = global.fetch;
+  const envState = env as unknown as Record<string, string | undefined>;
+  const originalId = session.adminUserId;
+  const originalEmail = session.adminEmail;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    session.adminUserId = 'admin-user-selftest-uuid';
+    envState.CRM_BROADCAST_FUNCTION_URL =
+      'https://project.supabase.co/functions/v1/crm-broadcast-send';
+    envState.SUPABASE_SECRET_KEY = 'service-key';
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    session.adminUserId = originalId;
+    session.adminEmail = originalEmail;
+  });
+
+  it('refuses to send when the session has no email to address the test to', async () => {
+    // Writing `test_only: true` with a null `test_recipient` is exactly the row
+    // the sender used to widen into a full broadcast. The action must never
+    // create it, so it declines before the insert.
+    session.adminEmail = undefined as unknown as string;
+    mockAdminClient.from.mockReturnValue(createMockQueryBuilder({ data: null, error: null }));
+
+    const res = await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
+
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/no email address/i);
+    expect(mockAdminClient.from).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Drafts were insert-only. Pressing "Save draft" twice left two rows, the
+ * composer's handle to the intended one lived in component state, and a reload
+ * orphaned it — so a draft became a log entry nobody could find or remove.
+ */
+describe('Broadcast drafts are a document, not a log entry', () => {
+  const originalFetch = global.fetch;
+  const originalId = session.adminUserId;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    session.adminUserId = 'admin-user-draft-uuid';
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    session.adminUserId = originalId;
+  });
+
+  it('inserts once when there is no id yet', async () => {
+    const insertBuilder = createMockQueryBuilder({ data: { id: 'draft-1' }, error: null });
+    mockAdminClient.from.mockReturnValue(insertBuilder);
+
+    const res = await saveCRMBroadcastDraft({ subject: 'Draft', body: 'Later' });
+
+    expect(res.success).toBe(true);
+    expect(res.broadcastId).toBe('draft-1');
+    expect(insertBuilder.insert).toHaveBeenCalledTimes(1);
+    expect(insertBuilder.update).not.toHaveBeenCalled();
+    expect(nthMockArg<Record<string, unknown>>(insertBuilder.insert).created_by).toBe(
+      'admin-user-draft-uuid'
+    );
+  });
+
+  it('updates in place when the id is known, so a second save does not duplicate', async () => {
+    const updateBuilder = createMockQueryBuilder({ data: { id: 'draft-1' }, error: null });
+    mockAdminClient.from.mockReturnValue(updateBuilder);
+
+    const res = await saveCRMBroadcastDraft({
+      broadcastId: 'draft-1',
+      subject: 'Draft, revised',
+      body: 'Better copy',
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.broadcastId).toBe('draft-1');
+    expect(updateBuilder.update).toHaveBeenCalledTimes(1);
+    expect(updateBuilder.insert).not.toHaveBeenCalled();
+    const updated = nthMockArg<Record<string, unknown>>(updateBuilder.update);
+    expect(updated.subject).toBe('Draft, revised');
+  });
+
+  it('scopes the update to a still-draft row, so a sent campaign is never rewritten', async () => {
+    // The condition lives in the WHERE clause, not in a JS check: a draft that
+    // was sent between the composer rendering and the save must not be mutated.
+    const updateBuilder = createMockQueryBuilder({ data: null, error: null });
+    mockAdminClient.from.mockReturnValue(updateBuilder);
+
+    const res = await saveCRMBroadcastDraft({
+      broadcastId: 'draft-1',
+      subject: 'Draft',
+      body: 'Body',
+    });
+
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/no longer a draft/i);
+    // The condition lives in the WHERE clause, not in a JS guard.
+    const eqCalls = updateBuilder.eq.mock.calls as unknown as [string, unknown][];
+    expect(eqCalls.map((c) => c[0])).toContain('status');
+    expect(eqCalls.find((c) => c[0] === 'status')?.[1]).toBe('draft');
   });
 });

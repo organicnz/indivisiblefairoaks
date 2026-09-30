@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { useState } from 'react';
 import { sanitizeWPContent } from '@/lib/sanitize';
 
 interface ContentPreviewProps {
@@ -8,6 +9,12 @@ interface ContentPreviewProps {
   body: string;
   type: string;
   featuredImage: string;
+  /**
+   * The row's creation time — the same field `src/app/[slug]/page.tsx` prints as
+   * "Published". It is *not* `published_at`: those are different values, and a
+   * preview that shows one where the public page shows the other is a preview
+   * the author ships on the strength of.
+   */
   createdAt: string | null;
   onClose: () => void;
 }
@@ -22,6 +29,13 @@ interface ContentPreviewProps {
  *
  * It is a modal, not a route: the document may be unsaved, and a URL that
  * renders unsaved work is a URL that can be shared by accident.
+ *
+ * Built on Radix rather than a hand-rolled `role="dialog"`. That version
+ * declared `aria-modal="true"` and moved focus to the close button, but trapped
+ * nothing: Tab walked out of the preview and into the editor behind it, so a
+ * keyboard user landed in the body of a document they believed they had left.
+ * Radix gives the trap, the focus restore on close, and Escape — which is why
+ * every other modal in this repo is one.
  */
 export function ContentPreview({
   title,
@@ -31,85 +45,101 @@ export function ContentPreview({
   createdAt,
   onClose,
 }: ContentPreviewProps) {
-  const closeRef = useRef<HTMLButtonElement>(null);
   const cleanBody = sanitizeWPContent(body);
 
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // `next/image` is deliberately not used here. This renders inside a portal
+  // over a document that is not ours to route, and the public page's own 16/9
+  // frame is reproduced with a plain box so the two agree on reserved space —
+  // which is the property that actually matters for a preview, since a hero
+  // that reflows differently is exactly what the author is checking for.
+  // Which URL failed to load, not a boolean. A boolean has to be reset when the
+  // author picks a different image, and the reset belongs in an effect keyed on
+  // that URL — which is exactly the dependency an effect can silently drop. Storing
+  // the URL instead makes "this image is broken" a derived value that cannot go
+  // stale, and removes the effect entirely.
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  const showHero = Boolean(featuredImage) && failedFor !== featuredImage;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Page preview"
-      className="fixed inset-0 z-[130] overflow-y-auto bg-white"
-    >
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-          <span className="inline-block h-2 w-2 rounded-full bg-accent-gold" aria-hidden="true" />
-          Draft preview — not published
-        </span>
-        <button
-          ref={closeRef}
-          type="button"
-          onClick={onClose}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary"
+    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[120] bg-secondary/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+        <Dialog.Content
+          // The stacking scale in AGENTS.md: content sits 10 above its overlay,
+          // and a modal layer clears every non-modal one. 130 is the top of the
+          // scale, shared with the command palette, which cannot be open at the
+          // same time as this.
+          className="fixed inset-0 z-[130] overflow-y-auto bg-white focus:outline-none"
         >
-          Close preview
-        </button>
-      </div>
+          <Dialog.Title className="sr-only">Preview of {title || 'Untitled page'}</Dialog.Title>
 
-      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-12 flex flex-col">
-          <h1 className="mb-4 text-4xl font-black uppercase leading-tight tracking-tight text-secondary md:text-5xl">
-            {title || 'Untitled page'}
-          </h1>
-          <div className="h-2 w-24 bg-primary" />
-          {type === 'post' && createdAt && (
-            <time
-              dateTime={createdAt}
-              className="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-400"
-            >
-              Published{' '}
-              {new Date(createdAt).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </time>
-          )}
-        </div>
-
-        {featuredImage && (
-          // biome-ignore lint/performance/noImgElement: public bucket URL, validated on save to be on this site's own domain; next/image needs dimensions we don't have for arbitrary uploads
-          <img src={featuredImage} alt="" className="mb-10 w-full rounded-3xl shadow-lg" />
-        )}
-
-        <div
-          className="cw prose prose-slate prose-lg max-w-none
-            prose-headings:text-secondary prose-headings:uppercase prose-headings:font-black
-            prose-p:text-slate-600 prose-p:leading-relaxed
-            prose-a:text-primary prose-a:font-bold prose-a:no-underline hover:prose-a:underline
-            prose-strong:text-secondary prose-strong:font-black
-            prose-img:rounded-3xl prose-img:shadow-lg"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: cleanBody is produced by sanitizeWPContent, the same security boundary the public page renders through
-          dangerouslySetInnerHTML={{ __html: cleanBody }}
-        />
-
-        {type === 'post' && (
-          <div className="mt-20 flex items-center justify-between border-t border-slate-100 pt-10">
-            <span className="text-sm font-black uppercase tracking-widest text-secondary">
-              &larr; Back to Home
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+              <span
+                className="inline-block h-2 w-2 rounded-full bg-accent-gold"
+                aria-hidden="true"
+              />
+              Draft preview — not published
             </span>
+            <Dialog.Close className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary">
+              Close preview
+            </Dialog.Close>
           </div>
-        )}
-      </div>
-    </div>
+
+          <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+            <div className="mb-12 flex flex-col">
+              <h1 className="mb-4 text-4xl font-black uppercase leading-tight tracking-tight text-secondary md:text-5xl">
+                {title || 'Untitled page'}
+              </h1>
+              <div className="h-2 w-24 bg-primary" />
+              {type === 'post' && createdAt && (
+                <time
+                  dateTime={createdAt}
+                  className="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-400"
+                >
+                  Published{' '}
+                  {new Date(createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </time>
+              )}
+            </div>
+
+            {showHero && (
+              <div className="mb-12 aspect-[16/9] w-full overflow-hidden rounded-3xl bg-surface-muted shadow-lg">
+                {/* biome-ignore lint/performance/noImgElement: mirrors the public hero frame; a CMS upload has no intrinsic size and the reserved aspect box is what keeps the two layouts in agreement */}
+                <img
+                  src={featuredImage}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  onError={() => setFailedFor(featuredImage)}
+                />
+              </div>
+            )}
+
+            <div
+              className="cw prose prose-slate prose-lg max-w-none
+                prose-headings:text-secondary prose-headings:uppercase prose-headings:font-black
+                prose-p:text-slate-600 prose-p:leading-relaxed
+                prose-a:text-primary prose-a:font-bold prose-a:no-underline hover:prose-a:underline
+                prose-strong:text-secondary prose-strong:font-black
+                prose-img:rounded-3xl prose-img:shadow-lg"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: cleanBody is produced by sanitizeWPContent, the same security boundary the public page renders through
+              dangerouslySetInnerHTML={{ __html: cleanBody }}
+            />
+
+            {type === 'post' && (
+              <div className="mt-20 flex items-center justify-between border-t border-slate-100 pt-10">
+                <span className="text-sm font-black uppercase tracking-widest text-secondary">
+                  &larr; Back to Home
+                </span>
+              </div>
+            )}
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

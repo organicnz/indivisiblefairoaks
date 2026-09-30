@@ -43,6 +43,7 @@ import {
 } from '@/lib/editor-history';
 import { htmlToExcerpt } from '@/lib/sanitize';
 import { BlockEditor } from './BlockEditor';
+import { ContentImageInput } from './ContentImageInput';
 import { ContentPreview } from './ContentPreview';
 
 export interface ContentEditorInitial {
@@ -55,6 +56,12 @@ export interface ContentEditorInitial {
   body: string | null;
   featuredImage: string | null;
   publishedAt: string | null;
+  /**
+   * Row creation time, which is what the public page prints as "Published".
+   * Distinct from `publishedAt`, and null-checked rather than defaulted because
+   * a preview showing the wrong date is worse than one showing none.
+   */
+  createdAt?: string | null;
   metadata?: Record<string, string> | null;
 }
 
@@ -567,6 +574,27 @@ export function ContentEditor({ initial, siteHost }: Props) {
       setStatus(next);
       return;
     }
+
+    // Publishing is a claim about the document you are looking at.
+    //
+    // `setContentStatus` writes `status` and `published_at` and nothing else, so
+    // toggling it while edits were unsaved published the *last saved* version
+    // and dropped the rest. It then called `setSavedSnapshot` over the whole
+    // field set, which marked the editor clean — so the autosave effect
+    // short-circuited on `if (!dirty) return`, `beforeunload` stopped warning,
+    // and the indicator read "All changes saved". A publish that discards an
+    // afternoon of writing and reports success is the worst failure this editor
+    // can produce, and it was the default outcome of the button most likely to
+    // be pressed at the end of a writing session.
+    //
+    // When anything is unsaved, publish the whole document instead. That is the
+    // same guarded path the Save button and Cmd+S already use, so the title and
+    // body rules apply here too.
+    if (dirty) {
+      await handleSave(next);
+      return;
+    }
+
     const result = await setContentStatus(initial.id, next);
     if (!result.success) {
       toast.error(result.error);
@@ -576,7 +604,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
     setSavedSnapshot(snapshotOf({ ...fields, status: next }));
     toast.success(next === 'publish' ? 'Published' : 'Moved to drafts');
     router.refresh();
-  }, [fields, initial.id, router, status]);
+  }, [dirty, fields, handleSave, initial.id, router, status]);
 
   const loadRevisions = useCallback(async () => {
     if (!initial.id) return;
@@ -858,7 +886,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
           body={body}
           type={type}
           featuredImage={featuredImage}
-          createdAt={initial.publishedAt}
+          createdAt={initial.createdAt ?? null}
           onClose={() => setShowPreview(false)}
         />
       )}
@@ -963,19 +991,23 @@ export function ContentEditor({ initial, siteHost }: Props) {
               </div>
             </label>
 
-            <label className="block text-xs font-medium text-slate-600">
-              Featured image URL
-              <input
-                type="url"
-                value={featuredImage}
-                onChange={(e) => {
-                  noteEdit('type:featuredImage');
-                  setFeaturedImage(e.target.value);
-                }}
-                placeholder="https://…"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
-              />
-            </label>
+            {/*
+              The hero uses the same uploader as an image block, not a bare URL
+              field. A URL box was the only way to set it, and the only URLs that
+              pass `saveContent`'s production host check are this site's own —
+              which the CMS's own uploader produces. So the control the author was
+              offered could not be satisfied by the tool sitting next to it.
+            */}
+            <ContentImageInput
+              value={featuredImage}
+              onChange={(url) => {
+                noteEdit('type:featuredImage');
+                setFeaturedImage(url);
+              }}
+              label="Featured image"
+              hint="The hero at the top of the page, and the share card on social media."
+              aspect="wide"
+            />
           </div>
 
           {/*
