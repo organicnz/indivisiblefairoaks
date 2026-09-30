@@ -167,14 +167,6 @@ Meta title / description live in `content.metadata` (`meta_title` /
 the derived title / body excerpt when not. The search preview shows them when
 set — that is what Google uses. Character budgets: title ~60, description ~155.
 
-### 15. A scheduled broadcast resolves its audience at send time
-
-`sendCRMBroadcast` with `scheduledAt` saves as `scheduled` without dispatching.
-The scheduler (Vercel cron → `crm-broadcast-scheduler` edge function) claims
-the `scheduled → queued` transition with a conditional update, then hands to
-`crm-broadcast-send`. The audience is resolved when the time comes, not when
-the author clicks Schedule — so the count reflects who is actually there.
-
 ## Before you finish
 
 ```bash

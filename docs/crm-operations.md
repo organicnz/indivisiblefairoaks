@@ -7,23 +7,9 @@
 
 ```
 draft ──▶ queued ──▶ sending ──▶ sent
-             │                      └─▶ failed
-             └────────────────────▶ failed
-
-scheduled ──▶ (scheduler) ──▶ queued ──▶ sending ──▶ sent
+            │                      └─▶ failed
+            └────────────────────▶ failed
 ```
-
-A broadcast can be **scheduled** instead of sent immediately. `sendCRMBroadcast`
-with `scheduledAt` saves the row with status `scheduled` and a `scheduled_at`
-timestamp, without resolving the audience or dispatching. A Vercel cron job
-(`vercel.json`, every minute) calls `/api/cron/broadcast-scheduler`, which
-dispatches to the `crm-broadcast-scheduler` Edge Function. That function finds
-scheduled broadcasts whose time has passed, claims the `scheduled → queued`
-transition (a conditional update, so overlapping runs cannot double-send), and
-hands each to `crm-broadcast-send`.
-
-The audience is resolved at send time, not at schedule time — so the recipient
-count reflects who is actually there when the broadcast goes out.
 
 | State | Meaning | Written by |
 |---|---|---|

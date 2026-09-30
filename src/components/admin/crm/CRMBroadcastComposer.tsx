@@ -93,9 +93,6 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
   // Sending status
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [isScheduling, setIsScheduling] = useState(false);
-  const [scheduleAt, setScheduleAt] = useState('');
-  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
   const [isSelfTesting, setIsSelfTesting] = useState(false);
 
   // Expandable history rows
@@ -318,53 +315,6 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
       toast.error(`Broadcast error: ${msg}`);
     } finally {
       setIsSending(false);
-    }
-  };
-
-  const handleSchedule = async () => {
-    if (!subject.trim() || !body.trim()) {
-      toast.error('Please provide both subject and message body');
-      return;
-    }
-    if (!scheduleAt) {
-      toast.error('Pick a date and time first');
-      return;
-    }
-
-    setIsScheduling(true);
-    try {
-      const res = await sendCRMBroadcast({
-        subject,
-        body,
-        targetStatus: selectedStatuses,
-        targetDistricts: selectedDistricts,
-        targetTags: selectedTags,
-        scheduledAt: scheduleAt,
-      });
-
-      if (res.success) {
-        toast.success(
-          `Broadcast scheduled for ${new Date(scheduleAt).toLocaleString()}. The scheduler will send it at that time.`
-        );
-        setSubject('');
-        setBody('');
-        setDraftId(null);
-        setSelectedStatuses([]);
-        setSelectedDistricts([]);
-        setSelectedTags([]);
-        setScheduleAt('');
-        setShowSchedulePicker(false);
-        startTransition(() => {
-          router.refresh();
-        });
-      } else {
-        toast.error(`Could not schedule: ${res.error}`);
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      toast.error(`Schedule error: ${msg}`);
-    } finally {
-      setIsScheduling(false);
     }
   };
 
@@ -725,47 +675,6 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                 >
                   <Send size={14} /> Send Broadcast Now
                 </button>
-                <div className="flex items-center gap-2">
-                  {showSchedulePicker ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="datetime-local"
-                        value={scheduleAt}
-                        onChange={(e) => setScheduleAt(e.target.value)}
-                        min={new Date().toISOString().slice(0, 16)}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-700 focus-visible:ring-2 focus-visible:ring-primary"
-                        aria-label="Scheduled date and time"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void handleSchedule()}
-                        disabled={isScheduling || !subject.trim() || !body.trim() || !scheduleAt}
-                        className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-2.5 text-xs font-black uppercase tracking-wider text-white transition-colors hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400"
-                      >
-                        <Clock size={14} />
-                        {isScheduling ? 'Scheduling…' : 'Confirm schedule'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowSchedulePicker(false);
-                          setScheduleAt('');
-                        }}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-white"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setShowSchedulePicker(true)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
-                    >
-                      <Clock size={14} /> Schedule
-                    </button>
-                  )}
-                </div>
               </div>
             </div>
 
@@ -977,9 +886,7 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                                     ? 'bg-emerald-100 text-emerald-800'
                                     : b.status === 'sending'
                                       ? 'bg-amber-100 text-amber-800'
-                                      : b.status === 'scheduled'
-                                        ? 'bg-purple-100 text-purple-800'
-                                        : 'bg-rose-100 text-rose-800'
+                                      : 'bg-rose-100 text-rose-800'
                               }`}
                             >
                               {b.status === 'sent' && !b.test_only && <CheckCircle2 size={10} />}
@@ -987,24 +894,19 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                             </span>
                           </td>
                           <td className="px-6 py-4 text-slate-400">
-                            {b.status === 'scheduled'
-                              ? `Scheduled ${new Date(
-                                  (b as CRMBroadcast & { scheduled_at?: string | null })
-                                    .scheduled_at ?? b.created_at
-                                ).toLocaleString()}`
-                              : b.sent_at
-                                ? new Date(b.sent_at).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })
-                                : new Date(b.created_at).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric',
-                                  })}
+                            {b.sent_at
+                              ? new Date(b.sent_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : new Date(b.created_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })}
                           </td>
                         </tr>
                         {isExpanded && (
