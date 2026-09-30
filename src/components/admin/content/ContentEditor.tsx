@@ -8,9 +8,11 @@ import {
   Eye,
   History,
   Loader2,
+  Redo2,
   RotateCcw,
   Save,
   Trash2,
+  Undo2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -28,6 +30,16 @@ import {
 } from '@/lib/actions/content';
 import { type Block, isTransient, parseHtml, serializeBlocks } from '@/lib/blocks';
 import { CONTENT_TYPES, type ContentType, readingStats, slugifyTitle } from '@/lib/content';
+import { clearDraft, isWorthRecovering, readDraft, writeDraft } from '@/lib/draft-recovery';
+import {
+  canRedo,
+  canUndo,
+  type History as EditorHistory,
+  EMPTY_HISTORY,
+  record as recordHistory,
+  redo as redoHistory,
+  undo as undoHistory,
+} from '@/lib/editor-history';
 import { htmlToExcerpt } from '@/lib/sanitize';
 import { BlockEditor } from './BlockEditor';
 
@@ -149,6 +161,157 @@ export function ContentEditor({ initial, siteHost }: Props) {
   const dirty = snapshot !== savedSnapshot;
 
   /**
+   * Undo/redo.
+   *
+   * Snapshot-based, and only the two directions are held — the live fields stay
+   * the present, so there is no second copy of the document to drift out of sync
+   * with what the author sees. The snapshot string is the same one that decides
+   * whether the page is dirty, so "undo restored a document" and "the page is
+   * clean" can never mean different things.
+   *
+   * History is recorded by diffing the snapshot, because by the time any effect
+   * can observe a change the model has already been replaced: the handler that
+   * caused it holds the *next* value, not the one being replaced. Reading the
+   * previous value from a ref is what makes undo return here rather than to
+   * wherever this hook happened to mount.
+   *
+   * `coalesceKey` is set by the handler that caused the change, because only it
+   * knows the intent. Typing in a block and deleting a block are both "the model
+   * changed", but one is a keystroke and the other is a decision, and undo has to
+   * tell them apart.
+   */
+  const [undoStack, setUndoStack] = useState<EditorHistory>(EMPTY_HISTORY);
+  const previousSnapshot = useRef(snapshot);
+  const coalesceKey = useRef<string | null>(null);
+  /**
+   * Set when a change is one we made ourselves — an undo, a redo, a restored
+   * draft. Without it, any snapshot that does not round-trip to the identical
+   * string (a draft written by an older version, say) is recorded as a fresh
+   * edit, and the author gets two steps to undo where they expect one.
+   */
+  const appliedByUs = useRef(false);
+
+  useEffect(() => {
+    // Both refs are read into locals first, and the ref is advanced before the
+    // state is set. A functional updater runs later, during the re-render, by
+    // which time this effect has already overwritten the refs — so reading them
+    // from inside the updater compares the new snapshot with itself, finds no
+    // change, and records nothing. Undo then has an empty stack and silently
+    // does nothing, which is the worst shape a broken feature can take.
+    const previous = previousSnapshot.current;
+    if (appliedByUs.current) {
+      appliedByUs.current = false;
+      previousSnapshot.current = snapshot;
+      return;
+    }
+    if (previous === snapshot) return;
+    const key = coalesceKey.current;
+    previousSnapshot.current = snapshot;
+    coalesceKey.current = null;
+    setUndoStack((h) => recordHistory(h, previous, snapshot, key));
+  }, [snapshot]);
+
+  const applySnapshot = useCallback((value: string) => {
+    const fields = JSON.parse(value) as EditorFields;
+    setTitle(fields.title);
+    setSlug(fields.slug);
+    setExcerpt(fields.excerpt);
+    setType(fields.type);
+    setStatus(fields.status);
+    setFeaturedImage(fields.featuredImage);
+    setBlocks(parseHtml(fields.body));
+  }, []);
+
+  /**
+   * Both directions read the stack directly rather than through a functional
+   * update, because restoring the document is a setState of its own and a
+   * functional updater is not a place to put one — React may run it twice, and
+   * the second run would apply the snapshot to a document already restored.
+   */
+  const handleUndo = useCallback(() => {
+    const result = undoHistory(undoStack, snapshot);
+    if (!result) return;
+    // Flag the ref before the state lands, so the recording effect knows this
+    // change was ours and does not push an entry for the undo itself.
+    appliedByUs.current = true;
+    previousSnapshot.current = result.restore;
+    applySnapshot(result.restore);
+    setUndoStack(result.history);
+  }, [applySnapshot, snapshot, undoStack]);
+
+  const handleRedo = useCallback(() => {
+    const result = redoHistory(undoStack, snapshot);
+    if (!result) return;
+    appliedByUs.current = true;
+    previousSnapshot.current = result.restore;
+    applySnapshot(result.restore);
+    setUndoStack(result.history);
+  }, [applySnapshot, snapshot, undoStack]);
+
+  /** Note the intent of an edit before it is committed. */
+  const noteEdit = useCallback((key: string | null) => {
+    coalesceKey.current = key;
+  }, []);
+
+  /**
+   * Local draft recovery.
+   *
+   * Autosave leaves a 2.5s window where the document exists only in this tab.
+   * A crash inside that window loses it, and `content_revisions` cannot help
+   * because it records persisted states. So a copy is kept in localStorage as the
+   * author types and offered back when they return.
+   *
+   * It is never applied automatically. A recovered draft is a claim — the author
+   * decides, and the alternative is a local copy silently reverting a colleague's
+   * newer edit.
+   */
+  const [recovered, setRecovered] = useState<{ snapshot: string; savedAt: number } | null>(null);
+
+  /**
+   * What the server sent at mount. Held in a ref so the one-time recovery check
+   * compares against it without depending on a value that changes on every
+   * keystroke — which is both the honest dependency and the correct semantics:
+   * the question is "does this draft differ from the page I was given", not
+   * "does it differ from what I have typed since".
+   */
+  const serverSnapshot = useRef(snapshot);
+
+  useEffect(() => {
+    if (!initial.id) return;
+    // Offered on arrival only. Re-checking on every render would re-prompt for a
+    // draft the author is already looking at.
+    const draft = readDraft(initial.id);
+    if (isWorthRecovering(draft, serverSnapshot.current)) setRecovered(draft);
+  }, [initial.id]);
+
+  useEffect(() => {
+    if (!initial.id || recovered) return;
+    if (!dirty) {
+      clearDraft(initial.id);
+      return;
+    }
+    const timer = setTimeout(() => writeDraft(initial.id as number, snapshot), 400);
+    return () => clearTimeout(timer);
+  }, [dirty, initial.id, recovered, snapshot]);
+
+  const acceptRecovery = useCallback(() => {
+    if (!recovered) return;
+    // Pushed as one undoable step, so accepting by mistake is recoverable rather
+    // than merely regrettable.
+    const restored = recovered.snapshot;
+    appliedByUs.current = true;
+    previousSnapshot.current = restored;
+    setUndoStack((h) => recordHistory(h, snapshot, restored, null));
+    applySnapshot(restored);
+    setRecovered(null);
+  }, [applySnapshot, recovered, snapshot]);
+
+  const discardRecovery = useCallback(() => {
+    setRecovered(null);
+    if (initial.id) clearDraft(initial.id);
+  }, [initial.id]);
+
+  /**
    * A failed autosave belongs to the document that produced it, so it records the
    * snapshot it was written against. The next edit produces a different snapshot
    * and the failure stops applying — no clearing effect, and no way for a stale
@@ -160,14 +323,36 @@ export function ContentEditor({ initial, siteHost }: Props) {
   const activeSaveFailure = saveFailure?.snapshot === snapshot ? saveFailure.message : null;
 
   const handleSaveRef = useRef<() => void>(() => {});
+  const undoRef = useRef<() => void>(() => {});
+  const redoRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const meta = event.metaKey || event.ctrlKey;
+      if (!meta) return;
+
       // Cmd/Ctrl+S: the browser's "save the page" dialog is never what an author
       // means inside an editor.
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      if (event.key.toLowerCase() === 's') {
         event.preventDefault();
         handleSaveRef.current();
+        return;
+      }
+
+      // Undo/redo are intercepted rather than left to the browser. Inside a
+      // contenteditable the native version walks the DOM's own edit history,
+      // which knows nothing about the block model — it would undo a character
+      // the model no longer has, and silently disagree with what is on screen.
+      if (event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) redoRef.current();
+        else undoRef.current();
+        return;
+      }
+      // Cmd+Y is the Windows spelling of redo; both are expected to work.
+      if (event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        redoRef.current();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -184,12 +369,27 @@ export function ContentEditor({ initial, siteHost }: Props) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
+  /**
+   * The one path a block edit takes into the document, so the intent for undo
+   * is captured at the same moment the model changes. Routing it through
+   * `setBlocks` directly would leave the editor unable to tell a keystroke from
+   * a block deletion.
+   */
+  const handleBlocksChange = useCallback(
+    (next: Block[], intent: string | null = null) => {
+      noteEdit(intent);
+      setBlocks(next);
+    },
+    [noteEdit]
+  );
+
   const onTitleChange = useCallback(
     (value: string) => {
+      noteEdit('type:title');
       setTitle(value);
       if (!slugTouched) setSlug(slugifyTitle(value));
     },
-    [slugTouched]
+    [noteEdit, slugTouched]
   );
 
   /**
@@ -263,6 +463,11 @@ export function ContentEditor({ initial, siteHost }: Props) {
       void handleSave();
     };
   }, [handleSave]);
+
+  useEffect(() => {
+    undoRef.current = handleUndo;
+    redoRef.current = handleRedo;
+  }, [handleRedo, handleUndo]);
 
   /**
    * Autosave, one debounced write behind the last edit.
@@ -398,6 +603,35 @@ export function ContentEditor({ initial, siteHost }: Props) {
             right now — including when autosave failed, which is the case that
             matters most and the one a plain "saved" tick would hide.
           */}
+          {/*
+            Undo and redo are buttons as well as shortcuts. A keyboard-only
+            feature is a feature nobody discovers, and a discoverable one also
+            tells the author whether there is anything to take back — which a
+            shortcut cannot.
+          */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={!canUndo(undoStack)}
+              title="Undo (Ctrl/Cmd+Z)"
+              aria-label="Undo"
+              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-secondary focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <Undo2 size={15} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={!canRedo(undoStack)}
+              title="Redo (Ctrl/Cmd+Shift+Z)"
+              aria-label="Redo"
+              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-secondary focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <Redo2 size={15} aria-hidden="true" />
+            </button>
+          </div>
+
           <span
             role="status"
             aria-live="polite"
@@ -499,6 +733,44 @@ export function ContentEditor({ initial, siteHost }: Props) {
         transient database error is not), and it stays on screen until the
         document changes.
       */}
+      {/*
+        A recovered draft is never applied on its own. The author may have
+        returned to fix something on purpose, and silently replacing the page
+        they came back to is how an editor loses trust once.
+      */}
+      {recovered && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-primary bg-blue-50 px-4 py-3"
+        >
+          <RotateCcw size={16} className="shrink-0 text-primary" aria-hidden="true" />
+          <p className="min-w-0 flex-1 text-sm font-medium text-secondary">
+            Unsaved changes from{' '}
+            {new Date(recovered.savedAt).toLocaleString('en-US', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })}{' '}
+            were found in this browser.
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={discardRecovery}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={acceptRecovery}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-primary-dark focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Restore them
+            </button>
+          </div>
+        </div>
+      )}
+
       {activeSaveFailure && (
         <div
           role="alert"
@@ -570,7 +842,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 to save now
               </span>
             </p>
-            <BlockEditor blocks={blocks} onChange={setBlocks} />
+            <BlockEditor blocks={blocks} onChange={handleBlocksChange} />
           </div>
         </div>
 
@@ -628,7 +900,10 @@ export function ContentEditor({ initial, siteHost }: Props) {
               <input
                 type="url"
                 value={featuredImage}
-                onChange={(e) => setFeaturedImage(e.target.value)}
+                onChange={(e) => {
+                  noteEdit('type:featuredImage');
+                  setFeaturedImage(e.target.value);
+                }}
                 placeholder="https://…"
                 className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
               />
@@ -660,7 +935,10 @@ export function ContentEditor({ initial, siteHost }: Props) {
             {!excerpt.trim() && derivedExcerpt && (
               <button
                 type="button"
-                onClick={() => setExcerpt(derivedExcerpt.replace(/…$/, ''))}
+                onClick={() => {
+                  noteEdit(null);
+                  setExcerpt(derivedExcerpt.replace(/…$/, ''));
+                }}
                 className="text-xs font-medium text-primary underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Use the generated summary

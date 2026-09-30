@@ -318,6 +318,14 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
     }
   };
 
+  /**
+   * Previews live in the same history as real campaigns, deliberately: a test is
+   * something the author did, and hiding it would leave a campaign in the record
+   * with no visible trace. Counting them here keeps the headline number from
+   * reading as "campaigns sent to the list".
+   */
+  const testCount = initialBroadcasts.filter((b) => b.test_only).length;
+
   return (
     <div className="space-y-12">
       {/* Header & Breadcrumb */}
@@ -776,6 +784,14 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
           </h2>
         </div>
 
+        {testCount > 0 && (
+          <p className="text-xs text-amber-800">
+            {`${testCount} ${testCount === 1 ? 'row is' : 'rows are'} a test sent to yourself. Nobody else received ${
+              testCount === 1 ? 'it' : 'them'
+            }.`}
+          </p>
+        )}
+
         {initialBroadcasts.length === 0 ? (
           <div className="bg-slate-50 p-12 rounded-2xl border border-dashed border-slate-200 text-center text-xs text-slate-500">
             No broadcast campaigns sent yet. Compose your first campaign above!
@@ -799,7 +815,9 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                     return (
                       <Fragment key={b.id}>
                         <tr
-                          className="hover:bg-slate-50/70 transition-colors cursor-pointer"
+                          className={`transition-colors cursor-pointer hover:bg-slate-50/70 ${
+                            b.test_only ? 'bg-amber-50/50' : ''
+                          }`}
                           onClick={() => setExpandedId(isExpanded ? null : b.id)}
                         >
                           <td className="px-6 py-4 font-bold text-secondary max-w-xs">
@@ -817,20 +835,42 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                               </button>
                               <span className="truncate">{b.subject}</span>
+                              {b.test_only && (
+                                <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-900">
+                                  Test
+                                </span>
+                              )}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-slate-500">
-                            {b.target_status.length > 0 && `Status: ${b.target_status.join(', ')} `}
-                            {b.target_districts.length > 0 &&
-                              `Districts: ${b.target_districts.join(', ')} `}
-                            {b.target_tags.length > 0 && `Tags: ${b.target_tags.join(', ')}`}
-                            {b.target_status.length === 0 &&
-                              b.target_districts.length === 0 &&
-                              b.target_tags.length === 0 &&
-                              'All Constituents'}
+                            {b.test_only ? (
+                              // Never "All Constituents" for a preview. The row
+                              // is saved with no audience filters at all, so
+                              // rendering it the way a real campaign renders
+                              // would tell the admin the whole list was mailed.
+                              <span className="font-bold text-amber-800">
+                                Nobody — sent only to you
+                              </span>
+                            ) : (
+                              <>
+                                {b.target_status.length > 0 &&
+                                  `Status: ${b.target_status.join(', ')} `}
+                                {b.target_districts.length > 0 &&
+                                  `Districts: ${b.target_districts.join(', ')} `}
+                                {b.target_tags.length > 0 && `Tags: ${b.target_tags.join(', ')}`}
+                                {b.target_status.length === 0 &&
+                                  b.target_districts.length === 0 &&
+                                  b.target_tags.length === 0 &&
+                                  'All Constituents'}
+                              </>
+                            )}
                           </td>
                           <td className="px-6 py-4 font-bold text-secondary">
-                            {b.recipient_count}
+                            {b.test_only ? (
+                              <span className="text-amber-800">1 (you)</span>
+                            ) : (
+                              b.recipient_count
+                            )}
                             {b.failed_count > 0 && (
                               <span className="ml-1.5 text-[10px] font-black text-red-600">
                                 {b.failed_count} failed
@@ -840,15 +880,17 @@ export function CRMBroadcastComposer({ initialBroadcasts, segments, existingTags
                           <td className="px-6 py-4">
                             <span
                               className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                b.status === 'sent'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : b.status === 'sending'
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : 'bg-rose-100 text-rose-800'
+                                b.test_only
+                                  ? 'bg-amber-100 text-amber-900'
+                                  : b.status === 'sent'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : b.status === 'sending'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-rose-100 text-rose-800'
                               }`}
                             >
-                              {b.status === 'sent' && <CheckCircle2 size={10} />}
-                              {b.status}
+                              {b.status === 'sent' && !b.test_only && <CheckCircle2 size={10} />}
+                              {b.test_only ? 'test' : b.status}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-slate-400">

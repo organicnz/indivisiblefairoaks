@@ -516,6 +516,12 @@ CRM send paths are *refused in code*: `sendCRMBroadcast`,
 `isE2EMode()` is true, because they dispatch to a live Edge Function that talks
 to Resend and there is no redirect for them. That matters the moment e2e gains a
 seeded admin session. Any new send path needs the second mechanism;
+
+  A preview stays in the campaign history — hiding it would leave a campaign with
+  no visible trace — so every column has to say what happened. Its audience reads
+  `Nobody — sent only to you`, never `All Constituents`, because a preview row has
+  no filters at all, and rendering it the way a campaign renders tells an
+  organizer a blast went out when nobody received anything.
 `isE2EMode()` requires **both** `CONTACT_SUBMISSION_TEST_MODE` and
 `NEXT_E2E_BUILD`, so CI cannot enable it by accident and an admin cannot
 disable real delivery by setting one variable.
