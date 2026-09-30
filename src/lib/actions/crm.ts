@@ -202,11 +202,19 @@ async function resolveBroadcastRecipients(
   const recipients: BroadcastRecipient[] = [];
   let exhausted = false;
 
-  for (let offset = 0; offset < BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
+  // `<=` plus the over-the-line break, so an audience of exactly the ceiling is
+  // not refused as "larger than the limit" — the previous `<` stopped one page
+  // short of the boundary and could not tell the two apart. Ordered by the
+  // primary key, because `.range()` is offset paging and is only coherent
+  // against a stable total order; without it a row that appears or disappears
+  // between pages duplicates one recipient and skips another. See the identical
+  // fix in `crm-broadcast-send/index.ts`.
+  for (let offset = 0; offset <= BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
     let qb = adminClient
       .from('crm_contacts')
       .select('id, email, first_name, last_name, unsubscribe_token')
-      .eq('do_not_email', false);
+      .eq('do_not_email', false)
+      .order('id', { ascending: true });
 
     if (targetStatus.length > 0) qb = qb.in('status', targetStatus);
     if (targetDistricts.length > 0) qb = qb.in('district', targetDistricts);
@@ -221,6 +229,9 @@ async function resolveBroadcastRecipients(
       break;
     }
     recipients.push(...(data as BroadcastRecipient[]));
+    // Past the ceiling: stop collecting and leave `exhausted` false, so the
+    // caller refuses rather than sending a silently shortened audience.
+    if (recipients.length > BROADCAST_RECIPIENT_CEILING) break;
     // A short page is the only evidence there is nothing after it.
     if (data.length < PAGE) {
       exhausted = true;

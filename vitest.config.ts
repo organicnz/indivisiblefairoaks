@@ -147,14 +147,18 @@ export default defineConfig({
          * between "we have not looked" and "we have looked, and here is the
          * number".
          *
-         * Achieved 2026-09-30: 53.57 statements / 50 branches / 53.84
-         * functions / 59.71 lines.
+         * Raised once already, from 53/50/53/59 to the figures below, when the
+         * concurrent-edit and unsubscribe-route suites landed. A floor that is
+         * not moved when the number moves is a comment, not a ratchet.
+         *
+         * Achieved 2026-09-30: 58.82 statements / 54.54 branches / 61.53
+         * functions / 65.71 lines.
          */
         'src/lib/actions/content.ts': {
-          statements: 53,
-          branches: 50,
-          functions: 53,
-          lines: 59,
+          statements: 58,
+          branches: 54,
+          functions: 61,
+          lines: 65,
         },
       },
     },

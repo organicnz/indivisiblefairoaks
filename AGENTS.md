@@ -124,6 +124,32 @@ allowlist became a correctness dependency rather than a tidy list. Narrowing it
 now fails the round-trip test at the boundary instead of as a slow, invisible
 regression in the field.
 
+**Container tags are dropped with their bodies, and the option that sounds like
+it does this does not.** `disallowedTagsMode: 'discard'` strips a tag and keeps
+its children — right for inline markup, wrong for a container. A migrated page's
+`<form>` or `<marquee>` re-injected its contents as live body copy, and
+`htmlToExcerpt` runs the same sanitizer, so that copy also reached the SERP meta
+description. Two options look like the fix and are neither:
+
+- **`nonTextTags`** sets sanitize-html's `skipText`, which suppresses the *raw
+  text* directly inside a disallowed tag. A container's children are elements, so
+  `<marquee><p>x</p></marquee>` still emitted the `<p>`. It is correct for
+  `script` / `style` / `textarea` / `option` and nothing more.
+- **`exclusiveFilter`** is never consulted for a tag that is *already disallowed* —
+  sanitize-html returns from its close handler before reaching it. Returning true
+  for `form` there does nothing at all.
+
+The removal is a **pre-pass**, and its position is the part that is invisible
+until it bites. The pass that strips active-content tags already removes the
+opening and closing tags of `form`, `object`, `select` and `marquee`, destroying
+the evidence: afterwards there is no `<marquee>` left to match, so a subtree
+removal placed after it silently matches nothing. Both wrong fixes were applied
+and observed to change nothing before the ordering was found.
+`sanitize-hardening.test.ts` pins every member of `MIGRATED_PAGE_FURNITURE` and
+the ordering. The unclosed-tag sweep runs to the end of the input, so it is
+applied **only** to the four tags whose truncated variants the migration actually
+left behind; extending it to `<form>` would delete the rest of a valid page.
+
 **The CMS bodies are plain text, not HTML.** The Google Sites export stripped
 every tag, so the site chrome arrived as literal lines — "Search this site",
 "Skip to main content", a sidebar navigation repeated three or four times, and a
@@ -571,7 +597,16 @@ into `scripts/hooks/*.mjs` would take it to roughly 400 lines. Worth doing
     a revision per row — for what would mostly be no-op measurements. It is also
     a production data change, which belongs to the chapter rather than to a
     deploy. Cheaper when an author touches the page anyway.
-11. **Three CRM suites still hand-roll their Supabase mock.** `crm.test.ts`,
+11. **The checkout rate limit is not a control on Stripe sessions.** The 10/min/IP
+    limit in `AGENTS.md`'s table is on the Next route. `supabase/functions/checkout`
+    has no rate limit of any kind, is deployed with JWT verification **on**, and
+    Supabase's `verify_jwt` accepts the publishable/anon key — which is public by
+    construction in the client bundle. So `POST /functions/v1/checkout` with the
+    anon bearer creates a real Stripe Checkout Session on every call, unthrottled,
+    and the CORS `origin` restriction is inert for a non-browser client. Closing it
+    means rate limiting inside an Edge Function, which has no shared in-memory
+    state — a design decision, not a patch.
+12. **Three CRM suites still hand-roll their Supabase mock.** `crm.test.ts`,
     `crm-mutations.test.ts` and `crm-reads.test.ts` each carry their own
     `createMockQueryBuilder`, and each asserts on the *arguments* a builder
     received rather than on the rows a query would match. That is a legitimate
@@ -663,6 +698,43 @@ own docs, because their failure modes are invisible to review and to unit tests.
   the insert** and no unit test noticed, because they mock the Supabase client.
   A `CHECK` constraint that disagrees with the code is a trap; when you add a
   state, update the constraint in the same change.
+
+  **Two of its guards were broken, in the direction that looks like safety.**
+  `isDeliverableAddress` used a POSIX character class, `[^@[:space:],]`, in a
+  **JavaScript** regex. There is no such thing inside `[...]`: it is the literal
+  run `[ : s p a c e :]`, so the negated set forbade the letters `s p a c e`
+  alongside the separators. `alice@example.com` was rejected — the guard stopped a
+  self-test reaching several recipients by refusing to reach *any*. And it lived
+  only inside the Edge Function, which no test runner can reach, which is why the
+  editor and the CRM are covered and the code deciding who receives email was not.
+  It is now in `_shared` and unit-tested, and **anything a
+  `crm-broadcast-send` guard must be right about belongs in `_shared` for the same
+  reason.** A guard that fails closed on legitimate input is still broken, and one
+  nobody can see reads as protection.
+
+  **The audience is paged in a stable order.** Both resolvers called
+  `.range(offset, …)` with no `.order()`. Offset paging is coherent only against a
+  total order that does not change between statements, and PostgREST emits no
+  `order` parameter when none is given — so a contact who opted out, or a CSV
+  import that landed, between page 3 and page 4 shifts every later row by one. The
+  boundary contact is then **mailed twice** and `recipient_count` is wrong; a
+  concurrent insert silently skips someone instead. Both now order by `id`, the
+  primary key, so the order is total — a non-unique column would still tie. The
+  same file's `getCRMExistingTags` already did this, which is what made it an
+  oversight rather than a decision.
+
+  **A GET must never change state on the unsubscribe route.** It did: the
+  `do_not_email` write sat *above* the method branch, so `GET` opted the contact
+  out and only differed in what it rendered afterwards — while the route's own
+  docblock said GET only rendered a confirmation. Corporate mail security products
+  fetch every URL in an inbound message (Proofpoint, Barracuda, Microsoft Safe
+  Links) and clients prefetch on hover, so any of them turns "the recipient
+  clicked unsubscribe" into "the recipient's mail gateway clicked unsubscribe" —
+  a silent mass opt-out across a 5,000-recipient list. GET now writes nothing and
+  renders a form; POST performs the opt-out, told apart by the *body* (`confirm=1`
+  from the browser, empty from an RFC 8058 auto-confirm) rather than by sniffing
+  `Accept`, which would silently start returning an empty `204` to a real person
+  if a mail client changed a header.
 
 **No test may send email, by two different mechanisms.** The contact form's
 notifier is *redirected* in e2e: `playwright.config.ts` points

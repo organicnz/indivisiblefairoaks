@@ -1,7 +1,9 @@
 ---
 
 name: cms-editor-and-crm
-description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, src/lib/sanitize.ts, src/lib/trusted-links.ts, src/lib/own-media.ts, src/lib/image-size.ts, src/lib/__tests__/supabase-mock.ts, the broadcast Edge Function, or a coverage threshold in vitest.config.ts — and whenever a change could make CMS content vanish on publish, change a page's publish state, lose an author's keystrokes, lose or re-date a revision, widen who receives an email, shift an image's layout, or leave a file outside the coverage gate.
+description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, src/lib/sanitize.ts, src/lib/trusted-links.ts, src/lib/own-media.ts, src/lib/image-size.ts, src/lib/__tests__/supabase-mock.ts,
+supabase/functions/_shared/broadcast.ts, supabase/functions/crm-broadcast-send/, the
+unsubscribe route, or a coverage threshold in `vitest.config.ts`, or a coverage threshold in vitest.config.ts — and whenever a change could make CMS content vanish on publish, change a page's publish state, lose an author's keystrokes, lose or re-date a revision, widen who receives an email, shift an image's layout, or leave a file outside the coverage gate.
 ---
 # CMS editor & CRM
 
@@ -505,6 +507,89 @@ Three CRM suites assert on call *arguments* rather than rows. That is a
 legitimate style for testing the shape of a call — but it cannot catch a query
 naming the wrong column, and converting them is a rewrite of their assertions,
 not a swap of a helper.
+
+### 25. A guard that fails closed on legitimate input is still broken
+
+`isDeliverableAddress` was `[^@[:space:],]` — a **POSIX** character class, in a
+**JavaScript** regex. There is no such thing inside `[...]`: it is the literal
+run `[ : s p a c e :]`, so the negated set forbade the letters `s p a c e` along
+with the separators. `alice@example.com` was rejected.
+
+Two separate lessons, and the second is the one that generalises:
+
+- **A pattern that rejects the wrong characters is worse than no pattern**, because
+  it looks like a control. It stopped a self-test resolving to several recipients
+  by refusing to resolve to any.
+- **It lived only in the Edge Function, which no test runner can reach.** That is
+  why the editor and the CRM are covered and the code deciding who actually
+  receives email was not. **Anything a `crm-broadcast-send` guard must be right
+  about belongs in `_shared`**, which `crm-broadcast-parity.test.ts` can import —
+  `commerce-parity.test.ts` already imports `_shared/commerce` this way.
+
+Test it with **real addresses**. A synthetic fixture would not have caught this:
+the regression is precisely that ordinary addresses were refused.
+
+### 26. Offset paging needs a total order
+
+Both audience resolvers called `.range(offset, …)` with no `.order()`. PostgREST
+emits no `order` parameter when none is given, and offset paging is coherent only
+against an order that does not change *between statements*. A contact who opted
+out, or a CSV import that landed, between page 3 and page 4 shifts every later row
+by one: the boundary contact is **mailed twice** and `recipient_count` is wrong. A
+concurrent insert silently skips someone.
+
+Order by the **primary key**. A non-unique column still ties and re-opens the
+hole. `getCRMExistingTags` in the same file already did this — when one function
+in a file is right about something, that is your evidence it is an oversight and
+not a decision.
+
+Related, and a one-line class of bug: a loop bounded by `offset < CEILING` cannot
+distinguish "the list ended exactly at the ceiling" from "it continued past it",
+because it stops one page short of the boundary. An audience of exactly the
+ceiling is not over the limit. Use `<=` **and** break explicitly on
+`collected > CEILING`, so the work stays bounded.
+
+### 27. A GET must never change state on a public link
+
+`GET /api/crm/unsubscribe?token=…` wrote `do_not_email = true` and only *then*
+branched on the method to choose what to render — while the route's docblock said
+GET only rendered a confirmation.
+
+**Corporate mail security products fetch every URL in an inbound message**
+(Proofpoint, Barracuda, Microsoft Safe Links), and web and chat clients prefetch
+links on hover. Any of them turns "the recipient clicked unsubscribe" into "the
+recipient's mail gateway clicked unsubscribe". The blast radius is the entire
+subscriber list, and the failure is invisible: every recipient still believes
+they are subscribed.
+
+- **GET writes nothing.** It may look the row up and render a form.
+- **POST performs the change**, and the two POST shapes are told apart by the
+  **body** (`confirm=1` from a browser form, empty from an RFC 8058
+  `List-Unsubscribe-Post`), never by sniffing `Accept` or a user-agent. Header
+  sniffing is how you end up returning an empty `204` to a real person when a
+  mail client changes a header, and both possible outcomes are bad.
+- Say *why* on the confirmation page. People complete a step they understand.
+
+The same rule applies to any route whose URL appears in an email.
+
+### 28. Sanitizing a container is a pre-pass, and the position is load-bearing
+
+`disallowedTagsMode: 'discard'` keeps a disallowed tag's children, which is wrong
+for a container. Two plausible options do **nothing**:
+
+- `nonTextTags` sets `skipText`, which suppresses *raw text* directly inside a
+  tag. Children are elements.
+- `exclusiveFilter` is never consulted for a tag that is already disallowed —
+  sanitize-html returns from its close handler first.
+
+And the pre-pass that works has an ordering constraint: the pass stripping
+active-content tags already deletes the opening and closing tags of `form`,
+`object`, `select` and `marquee`, so a subtree removal placed *after* it matches
+nothing. You get a fix that compiles, ships, and changes no behaviour — which is
+how two wrong fixes got applied here before the ordering was found.
+
+Any sweep that runs to the end of the input (unclosed tags) must be scoped to the
+tags where that actually happened, or one unclosed `<form>` deletes a page.
 
 ## Before you finish
 

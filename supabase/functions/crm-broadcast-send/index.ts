@@ -3,7 +3,11 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { Hono } from 'jsr:@hono/hono'
 import { HTTPException } from 'jsr:@hono/hono/http-exception'
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { buildBroadcastEmail, BROADCAST_RECIPIENT_CEILING } from '../_shared/broadcast.ts'
+import {
+  buildBroadcastEmail,
+  BROADCAST_RECIPIENT_CEILING,
+  isDeliverableAddress,
+} from '../_shared/broadcast.ts'
 
 /**
  * Background broadcast sender.
@@ -89,17 +93,6 @@ interface Recipient {
   first_name: string | null
   last_name: string | null
   unsubscribe_token: string
-}
-
-/**
- * A single deliverable address, matching the `test_recipient` CHECK in
- * migration 20260929180000. Deliberately a *closed* pattern: one address, no
- * separators. A self-test that resolved to several recipients would be exactly
- * the widening this function exists to prevent, so a value carrying a comma is
- * rejected rather than split — the operator fixes the row, we do not guess.
- */
-function isDeliverableAddress(value: string): boolean {
-  return /^[^@[:space:],]+@[^@[:space:],]+\.[^@[:space:],]+$/.test(value)
 }
 
 // '*', not '/': Supabase delivers the request with its full path
@@ -223,11 +216,30 @@ app.post('*', async (c) => {
    * stopped us", and only the first is allowed to proceed to delivery.
    */
   let audienceExhausted = false
-  for (let offset = 0; !isSelfTest && offset < BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
+  // `offset <= CEILING`, not `<`, and the over-the-line break below. The
+  // previous condition stopped one page *before* the boundary, so it could never
+  // learn whether the audience ended exactly at the ceiling or continued past
+  // it: an audience of precisely 5,000 was refused as "larger than the limit".
+  // Reading one page further is the only way to tell those apart, and it is
+  // bounded — the loop breaks the moment the ceiling is passed, so the work is
+  // still capped rather than proportional to the list.
+  for (let offset = 0; !isSelfTest && offset <= BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
     let qb = supabase
       .from('crm_contacts')
       .select('id, email, first_name, last_name, unsubscribe_token')
       .eq('do_not_email', false)
+      // Ordered, and by the primary key.
+      //
+      // `.range(offset, …)` is *offset* paging, which is only coherent against a
+      // total order that does not change between statements. PostgREST emits no
+      // `order` parameter when none is given, so the row order is whatever the
+      // plan happens to produce, and it is not guaranteed to match the previous
+      // page's. A contact who opted out — or a CSV import that landed — between
+      // page 3 and page 4 shifts every later row by one, so the boundary contact
+      // appears in two pages and is mailed twice, and `recipient_count` is
+      // wrong. `id` is unique, so it is a total order; a non-unique column would
+      // still tie.
+      .order('id', { ascending: true })
 
     const tags = broadcast.target_tags ?? []
     const statuses = broadcast.target_status ?? []
@@ -246,6 +258,9 @@ app.post('*', async (c) => {
       break
     }
     recipients.push(...(data as Recipient[]))
+    // Past the ceiling is a refusal, not a truncation: stop collecting and leave
+    // `audienceExhausted` false so the check below refuses before any send.
+    if (recipients.length > BROADCAST_RECIPIENT_CEILING) break
     // A short page is the only evidence that there is nothing after it.
     if (data.length < PAGE) {
       audienceExhausted = true

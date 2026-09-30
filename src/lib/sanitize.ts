@@ -70,6 +70,46 @@ export { TRUSTED_DOMAINS };
  * the body, so SERP snippets began "IndivisibleFairOaks.org - Links Search this
  * site Embedded Files Skip to main content…".
  */
+/**
+ * Container tags whose contents are page furniture, never copy.
+ *
+ * Removed with their subtree by the pre-pass in `sanitizeWPContent`, because that
+ * is the only mechanism in this file that drops a container's children — see the
+ * note there on why `nonTextTags` and `exclusiveFilter` cannot.
+ *
+ * The CMS was migrated from Google Sites, so this list is the difference between
+ * a page's furniture being dropped and being rendered in the middle of its copy —
+ * and, because `htmlToExcerpt` runs this same sanitizer, between that appearing
+ * in the SERP meta description as well.
+ *
+ * `form` is the one worth arguing for. Measured, not assumed: a `<form>` does
+ * **not** leave a working control behind — `input` is not in `allowedTags` and is
+ * always stripped. What it leaves is its children's *text* rendered as body copy
+ * (a migrated search box contributes a bare "Go"), which is the same furniture
+ * leak as `nav` rather than a fake control. It belongs here for that reason and
+ * not a stronger one.
+ *
+ * Unreachable from the block editor, whose schema drops these at parse, and
+ * entirely reachable from pasted or imported raw body HTML — which is exactly how
+ * the migration arrived.
+ */
+const MIGRATED_PAGE_FURNITURE: readonly string[] = [
+  'nav',
+  'aside',
+  'header',
+  'footer',
+  'template',
+  'noscript',
+  'details',
+  'marquee',
+  'listing',
+  'form',
+  'xmp',
+  'plaintext',
+  'object',
+  'select',
+];
+
 const GOOGLE_SITES_CHROME = [
   'gs-',
   'gc-',
@@ -264,22 +304,32 @@ const HTML_SANITIZE_OPTIONS: IOptions = {
   allowedSchemesByTag: { img: ['http', 'https'] },
   allowProtocolRelative: false,
   disallowedTagsMode: 'discard',
-  // `discard` strips the tag but keeps its children, which is right for inline
-  // markup and catastrophic for page furniture: the CMS was migrated from Google
-  // Sites, whose entire navigation chrome was copied into each page's body. Listing
-  // the container tags here makes sanitize-html drop the whole subtree instead.
-  // Only ever applied to CMS `content.body` strings — never to our own layout.
-  nonTextTags: ['script', 'style', 'textarea', 'option', 'nav', 'aside', 'header', 'footer'],
+  // `discard` strips a tag but keeps its children, which is right for inline
+  // markup and wrong for a container. Only ever applied to CMS `content.body`
+  // strings — never to our own layout.
+  //
+  // These four are the raw-text elements, and this is genuinely all
+  // `nonTextTags` is for: it sets sanitize-html's `skipText`, which suppresses
+  // the *text* directly inside a disallowed tag. The containers are handled by
+  // the pre-pass in `stripGoogleSitesFurniture` instead, which is the only
+  // mechanism in this file that drops a subtree — see the note on
+  // `exclusiveFilter` for why the obvious-looking option cannot do it.
+  nonTextTags: ['script', 'style', 'textarea', 'option'],
+
   // Google Sites wraps its chrome in class/id markers that survive the class-name
-  // filter. Drop the whole element rather than leaking "Search this site" and
-  // "Skip to main content" into page copy and meta descriptions.
+  // filter, so those are matched here and the whole element dropped rather than
+  // leaking "Search this site" and "Skip to main content" into page copy and
+  // meta descriptions.
+  //
+  // This is the *only* correct use of `exclusiveFilter` in this file, and the
+  // limit is worth stating because it is not obvious. For a tag that is already
+  // disallowed, sanitize-html returns from its close handler before it ever
+  // consults `exclusiveFilter` (`disallowedTagsMode: 'discard'` takes that
+  // branch), so returning true here for `form` or `marquee` would do nothing at
+  // all. Container removal is done in the pre-pass instead.
   exclusiveFilter: (frame) => {
     const marker = `${frame.attribs?.class ?? ''} ${frame.attribs?.id ?? ''}`.toLowerCase();
-    return (
-      frame.tag === 'nav' ||
-      frame.tag === 'aside' ||
-      GOOGLE_SITES_CHROME.some((needle) => marker.includes(needle))
-    );
+    return GOOGLE_SITES_CHROME.some((needle) => marker.includes(needle));
   },
   transformTags: {
     a: (_tagName, attribs) => ({
@@ -401,8 +451,43 @@ export function sanitizeWPContent(html: string): string {
     // This has to run first: every pass below should only ever see real content.
     clean = stripMigratedSiteChrome(clean);
 
-    // 0.5. Strip active-content elements WITH their bodies. Callers inject
-    // this output as raw HTML, so script/style/iframe/plugin content must go.
+    // 0.25. Remove page-furniture containers WITH their bodies, before step 0.5
+    // below.
+    //
+    // The ordering is the whole point. Step 0.5 strips the opening and closing
+    // tags of `form`, `object`, `select`, `marquee` and friends, and by doing so
+    // it *destroys the evidence* — after it has run there is no `<marquee>` left
+    // to match, so a subtree removal placed after it silently matches nothing.
+    // That is not hypothetical: a `<marquee>` whose contents leaked as live body
+    // copy was found exactly this way, after adding the tag to `nonTextTags` and
+    // to `exclusiveFilter` and watching it change nothing.
+    //
+    // So containers go first, while their tags are still intact. This pre-pass,
+    // not `nonTextTags` and not `exclusiveFilter`, is the only thing here that
+    // drops a *subtree*: `nonTextTags` suppresses only the raw text directly
+    // inside a tag, so `<marquee><p>x</p></marquee>` still emitted the `<p>`; and
+    // `exclusiveFilter` is never consulted at all for a tag that is already
+    // disallowed, because sanitize-html returns from its close handler first.
+    for (const tag of MIGRATED_PAGE_FURNITURE) {
+      clean = clean.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi'), '');
+    }
+    // Unclosed variants, for the four the migration is known to have truncated.
+    // Deliberately *not* extended to the rest of the set: this pattern runs to
+    // the end of the document, so an unclosed `<form>` in otherwise valid copy
+    // would delete the rest of the page. A missing close tag on those four was
+    // observed in the migration; on any other container it is a hypothetical
+    // worth a leaked paragraph rather than a lost page.
+    for (const tag of ['nav', 'aside', 'header', 'footer'] as const) {
+      clean = clean.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*$`, 'i'), '');
+    }
+
+    // 0.5. Strip active-content elements. Callers inject this output as raw
+    // HTML, so script/style/iframe content must go.
+    //
+    // `script`, `style` and `iframe` are removed whole, bodies included. The
+    // rest of the list below is removed **tag only**, which is correct for them
+    // — a `<button>`'s text and a `<select>`'s options are not a vector — and
+    // their containers were already handled as subtrees in step 0.25.
     clean = clean.replace(/<script[\s\S]*?<\/script\s*>/gi, '');
     clean = clean.replace(/<style[\s\S]*?<\/style\s*>/gi, '');
     clean = clean.replace(/<iframe[\s\S]*?<\/iframe\s*>/gi, '');
@@ -418,14 +503,6 @@ export function sanitizeWPContent(html: string): string {
       '$1"#"'
     );
 
-    // 0.5. Remove Google Sites page furniture before anything else, so no later
-    // pass (or the meta-description extractor) can read navigation text as body
-    // copy. Container tags are dropped whole rather than unwrapped.
-    for (const tag of ['nav', 'aside', 'header', 'footer'] as const) {
-      clean = clean.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi'), '');
-      // Unclosed variants (a truncated migration left some behind).
-      clean = clean.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*$`, 'i'), '');
-    }
     for (const phrase of GOOGLE_SITES_PHRASES) {
       clean = clean.replace(phrase, '');
     }

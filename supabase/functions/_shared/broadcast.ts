@@ -162,3 +162,42 @@ export function buildBroadcastEmail({
     text: broadcastText({ recipientName, body, unsubscribeUrl }),
   }
 }
+
+/**
+ * A single deliverable address — one address, no separators, no whitespace.
+ *
+ * ## Why this is a shared, tested module and not a local helper
+ *
+ * It was a local helper inside `crm-broadcast-send/index.ts`, with no test
+ * anywhere, and it was **broken in a way that rejected every realistic
+ * address**. The pattern was `[^@[:space:],]`, written for a POSIX regex. In
+ * JavaScript a POSIX class inside a character class is not a class at all: it
+ * is the literal run of characters `[ : s p a c e : ]`, so the negated set
+ * forbade `@`, `:`, `,` — and the letters `s`, `p`, `a`, `c`, `e`.
+ *
+ * `a`, `c`, `e` and `s` are among the most common letters in an email address,
+ * so `alice@example.com` and `test@example.com` were both rejected. The guard
+ * exists to stop a self-test resolving to more than one recipient, and it
+ * achieved that by refusing to resolve to any recipient at all — which is the
+ * same shape of bug as the broadcast that had never been sent: a narrow
+ * guard that fails closed on legitimate input is still a broken guard, and a
+ * broken guard nobody can see is worse than no guard, because it reads as
+ * protection.
+ *
+ * It is exported and tested here for the same reason the rest of this file is
+ * duplicated-and-parity-checked: the delivery path is otherwise untestable from
+ * the Next app, and that is precisely where the previous two broadcast bugs
+ * lived. `src/lib/__tests__/crm-broadcast-parity.test.ts` imports this module
+ * directly, so a regression fails the ordinary unit suite.
+ *
+ * Deliberately still *closed*: a value carrying a comma is rejected, never
+ * split. A self-test that resolved to several recipients would be exactly the
+ * widening the self-test exists to prevent, so the operator fixes the row and
+ * this function does not guess.
+ */
+export function isDeliverableAddress(value: string): boolean {
+  // `\s`, not `[:space:]`. `%s` is never a valid character in an address
+  // literal, and silently matching a broader set than intended is the failure
+  // this function exists to avoid.
+  return /^[^@\s,]+@[^@\s,]+\.[^@\s,]+$/.test(value)
+}
