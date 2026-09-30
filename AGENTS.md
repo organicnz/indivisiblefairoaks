@@ -495,7 +495,9 @@ own docs, because their failure modes are invisible to review and to unit tests.
   before removing an object; a revision restore writes the revision's
   `featured_image` back instead of clearing the hero; and the history panel
   shows what a restore would change with an inline confirm, never a native
-  dialog.
+  dialog. Every destructive action on both surfaces goes through the shared
+  `ConfirmAction` component — `window.confirm()` asks a blind question and
+  cannot be automated, so the paths behind it went untested.
 - **CRM and broadcasting** — [`docs/crm-operations.md`](./docs/crm-operations.md).
   Delivery is off the request path: the action writes a `queued` row and the
   `crm-broadcast-send` Edge Function owns delivery and progress. A self-test

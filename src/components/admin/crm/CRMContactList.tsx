@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
 import { CRMImportModal } from '@/components/admin/crm/CRMImportModal';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
@@ -225,7 +226,8 @@ export function CRMContactList({
   };
 
   const handleDeleteSegment = async (segment: CRMSegment) => {
-    if (!confirm(`Delete saved segment "${segment.name}"?`)) return;
+    // No confirm() here: the ConfirmAction only calls this from its inline
+    // confirm step.
     const res = await deleteCRMSegment(segment.id);
     if (res.success) {
       toast.success('Segment deleted');
@@ -410,14 +412,15 @@ export function CRMContactList({
                 >
                   {seg.name}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteSegment(seg)}
-                  className="p-0.5 hover:text-red-600 transition-colors"
-                  aria-label={`Delete segment ${seg.name}`}
+                <ConfirmAction
+                  label={`Delete segment ${seg.name}`}
+                  message={`Delete saved segment "${seg.name}"?`}
+                  danger
+                  idleClassName="p-0.5 hover:text-red-600 transition-colors"
+                  onConfirm={() => void handleDeleteSegment(seg)}
                 >
-                  <X size={11} />
-                </button>
+                  <X size={11} aria-hidden="true" />
+                </ConfirmAction>
               </span>
             ))}
           </div>

@@ -132,6 +132,12 @@ constituent or to the chapter — "call the county clerk", "confirm the venue",
 "chase the AV rental". When it is `NULL` the board labels the row *Chapter-wide*;
 that is not missing data, and rendering no name at all reads as a bug.
 
+Every destructive CRM action — delete constituent, delete follow-up, delete
+segment, merge contacts, opt out / re-subscribe — goes through the shared
+`ConfirmAction` component: idle control, then the consequence, then an inline
+Confirm/Cancel. No `window.confirm()` anywhere. A native dialog asks a blind
+question and cannot be automated, so the paths behind it went untested.
+
 Tasks can be created from the board or from a constituent's profile. The board
 used to tell authors to go via a profile, which was no route at all to the tasks
 that are not about a person.

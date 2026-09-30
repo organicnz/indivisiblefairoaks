@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
 import { CRMTaskForm } from '@/components/admin/crm/CRMTaskForm';
 import { type CRMTaskWithContact, deleteCRMTask, setCRMTaskStatus } from '@/lib/actions/crm';
@@ -76,7 +77,8 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
   };
 
   const handleDelete = async (task: CRMTaskWithContact) => {
-    if (!confirm(`Delete follow-up "${task.title}"?`)) return;
+    // No confirm() here: the row's ConfirmAction only calls this from its
+    // inline confirm step.
     setBusyId(task.id);
     try {
       const res = await deleteCRMTask(task.id);
@@ -184,16 +186,16 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(task)}
-                    disabled={busyId === task.id}
-                    className="p-1.5 text-slate-300 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-                    title="Delete follow-up"
-                    aria-label="Delete follow-up"
+                  <ConfirmAction
+                    label={`Delete follow-up ${task.title}`}
+                    message={`Delete follow-up "${task.title}"?`}
+                    danger
+                    busy={busyId === task.id}
+                    idleClassName="p-1.5 text-slate-300 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                    onConfirm={() => void handleDelete(task)}
                   >
-                    <Trash2 size={14} />
-                  </button>
+                    <Trash2 size={14} aria-hidden="true" />
+                  </ConfirmAction>
                 </li>
               );
             })}

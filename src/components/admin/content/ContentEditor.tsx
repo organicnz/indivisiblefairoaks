@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
   type ContentRevision,
   deleteContent,
@@ -507,7 +508,8 @@ export function ContentEditor({ initial, siteHost }: Props) {
 
   const handleDelete = useCallback(async () => {
     if (!initial.id) return;
-    if (!confirm(`Delete “${title}”? This cannot be undone.`)) return;
+    // No confirm() here: the ConfirmAction below only calls this from its
+    // inline confirm step, which already named the page and the consequence.
     const result = await deleteContent(initial.id);
     if (!result.success) {
       toast.error(result.error);
@@ -516,7 +518,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
     toast.success('Page deleted');
     router.push('/admin/content');
     router.refresh();
-  }, [initial.id, router, title]);
+  }, [initial.id, router]);
 
   const handleDuplicate = useCallback(async () => {
     if (!initial.id) return;
@@ -694,14 +696,16 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 <History size={15} aria-hidden="true" />
                 History
               </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="rounded-xl border border-slate-200 p-2 text-accent-red transition-colors hover:bg-rose-50 focus-visible:ring-2 focus-visible:ring-primary"
+              <ConfirmAction
+                label={`Delete ${title}`}
+                message={`Delete “${title}”? This cannot be undone.`}
+                danger
+                idleClassName="rounded-xl border border-slate-200 p-2 text-accent-red transition-colors hover:bg-rose-50 focus-visible:ring-2 focus-visible:ring-primary"
+                onConfirm={() => void handleDelete()}
               >
                 <Trash2 size={15} aria-hidden="true" />
                 <span className="sr-only">Delete page</span>
-              </button>
+              </ConfirmAction>
             </>
           )}
           <button
