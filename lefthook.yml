@@ -912,8 +912,8 @@ pre-push:
     suppress-count:
       priority: 30
       run: |
-        # Baseline 7 → 9. Both additions are in the content block editor and
-        # neither is a workaround for a real defect:
+        # Baseline 7 → 9 → 10. The additions are in the content block editor and
+        # the preview component, and none is a workaround for a real defect:
         #
         #   4x noArrayIndexKey — table cells and list items. The rule exists to
         #      catch state being mis-associated when the order changes, and it
@@ -930,7 +930,10 @@ pre-push:
         #      without a config entry per origin, and would 400 on the first
         #      external image. This is admin chrome; the public page still uses
         #      next/image.
-        BASELINE=9
+        #   1x noDangerouslySetInnerHtml — ContentPreview renders the sanitized
+        #      body through the same sanitizeWPContent boundary as the public
+        #      page. The suppression is the security boundary, not a workaround.
+        BASELINE=10
         COUNT=$(grep -rn "@ts-ignore\|@ts-nocheck\|biome-ignore\|eslint-disable" \
           src --include="*.ts" --include="*.tsx" 2>/dev/null \
           | grep -v "__tests__" | wc -l | tr -d ' ')
