@@ -497,7 +497,8 @@ own docs, because their failure modes are invisible to review and to unit tests.
   shows what a restore would change with an inline confirm, never a native
   dialog. Every destructive action on both surfaces goes through the shared
   `ConfirmAction` component — `window.confirm()` asks a blind question and
-  cannot be automated, so the paths behind it went untested.
+  cannot be automated, so the paths behind it went untested. A preview renders
+  through the same sanitizer and classes as the public page, as a modal.
 - **CRM and broadcasting** — [`docs/crm-operations.md`](./docs/crm-operations.md).
   Delivery is off the request path: the action writes a `queued` row and the
   `crm-broadcast-send` Edge Function owns delivery and progress. A self-test

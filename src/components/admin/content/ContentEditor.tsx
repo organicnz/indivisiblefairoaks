@@ -43,6 +43,7 @@ import {
 } from '@/lib/editor-history';
 import { htmlToExcerpt } from '@/lib/sanitize';
 import { BlockEditor } from './BlockEditor';
+import { ContentPreview } from './ContentPreview';
 
 export interface ContentEditorInitial {
   id?: number;
@@ -53,6 +54,7 @@ export interface ContentEditorInitial {
   status: string;
   body: string | null;
   featuredImage: string | null;
+  publishedAt: string | null;
 }
 
 interface Props {
@@ -121,6 +123,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
   const [showRevisions, setShowRevisions] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   /**
    * Autosave.
@@ -696,6 +699,14 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 <History size={15} aria-hidden="true" />
                 History
               </button>
+              <button
+                type="button"
+                onClick={() => setShowPreview(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <Eye size={15} aria-hidden="true" />
+                Preview
+              </button>
               <ConfirmAction
                 label={`Delete ${title}`}
                 message={`Delete “${title}”? This cannot be undone.`}
@@ -804,6 +815,17 @@ export function ContentEditor({ initial, siteHost }: Props) {
           current={fields}
           onLoad={loadRevisions}
           onRestore={handleRestore}
+        />
+      )}
+
+      {showPreview && (
+        <ContentPreview
+          title={title}
+          body={body}
+          type={type}
+          featuredImage={featuredImage}
+          createdAt={initial.publishedAt}
+          onClose={() => setShowPreview(false)}
         />
       )}
 
