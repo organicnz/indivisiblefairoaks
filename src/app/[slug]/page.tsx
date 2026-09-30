@@ -27,15 +27,19 @@ export async function generateMetadata({
     return { title: 'Page Not Found', robots: ROBOTS.noindex };
   }
 
+  const metadata = (content.metadata ?? {}) as Record<string, string>;
+  const metaTitle = metadata.meta_title?.trim();
+  const metaDescription = metadata.meta_description?.trim();
+
   return pageMetadata({
-    title: content.title,
-    // Derived from the *sanitized* body, so Google Sites navigation chrome can
-    // never bleed into the SERP snippet.
-    description: htmlToExcerpt(content.body || ''),
+    // Meta fields win when set — that is what Google uses. The derived title /
+    // body excerpt is the fallback for pages authored before SEO existed.
+    title: metaTitle || content.title,
+    description: metaDescription || htmlToExcerpt(content.body || ''),
     path: `/${slug}`,
     type: content.type === 'post' ? 'article' : 'website',
     publishedTime: content.created_at ?? undefined,
-    modifiedTime: content.updated_at ?? undefined,
+    modifiedTime: content.updated_at ?? content.created_at ?? undefined,
     authors: ['Indivisible Fair Oaks-Carmichael'],
   });
 }

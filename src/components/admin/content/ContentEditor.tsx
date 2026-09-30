@@ -55,6 +55,7 @@ export interface ContentEditorInitial {
   body: string | null;
   featuredImage: string | null;
   publishedAt: string | null;
+  metadata?: Record<string, string> | null;
 }
 
 interface Props {
@@ -73,6 +74,8 @@ interface EditorFields {
   status: 'publish' | 'draft';
   featuredImage: string;
   body: string;
+  metaTitle: string;
+  metaDescription: string;
 }
 
 /** The failure branch of a save, so `persist` keeps a narrow union return type. */
@@ -90,6 +93,7 @@ function fieldsFromRow(row: {
   status: string | null;
   featured_image: string | null;
   body: string | null;
+  metadata?: Record<string, string> | null;
 }): EditorFields {
   return {
     title: row.title,
@@ -99,6 +103,8 @@ function fieldsFromRow(row: {
     status: row.status === 'publish' ? 'publish' : 'draft',
     featuredImage: row.featured_image ?? '',
     body: row.body ?? '',
+    metaTitle: row.metadata?.meta_title ?? '',
+    metaDescription: row.metadata?.meta_description ?? '',
   };
 }
 
@@ -117,6 +123,8 @@ export function ContentEditor({ initial, siteHost }: Props) {
     initial.status === 'publish' ? 'publish' : 'draft'
   );
   const [featuredImage, setFeaturedImage] = useState(initial.featuredImage ?? '');
+  const [metaTitle, setMetaTitle] = useState(initial.metadata?.meta_title ?? '');
+  const [metaDescription, setMetaDescription] = useState(initial.metadata?.meta_description ?? '');
   const [blocks, setBlocks] = useState<Block[]>(() => parseHtml(initial.body ?? ''));
 
   const [saving, setSaving] = useState(false);
@@ -157,8 +165,8 @@ export function ContentEditor({ initial, siteHost }: Props) {
   // forgets — a failed request, a restore, a server-side status change — leaves
   // the editor claiming unsaved work that is already stored.
   const fields = useMemo<EditorFields>(
-    () => ({ title, slug, excerpt, type, status, featuredImage, body }),
-    [body, excerpt, featuredImage, slug, status, title, type]
+    () => ({ title, slug, excerpt, type, status, featuredImage, body, metaTitle, metaDescription }),
+    [body, excerpt, featuredImage, metaDescription, metaTitle, slug, status, title, type]
   );
   const snapshot = useMemo(() => snapshotOf(fields), [fields]);
   const [savedSnapshot, setSavedSnapshot] = useState(snapshot);
@@ -223,6 +231,8 @@ export function ContentEditor({ initial, siteHost }: Props) {
     setType(fields.type);
     setStatus(fields.status);
     setFeaturedImage(fields.featuredImage);
+    setMetaTitle(fields.metaTitle);
+    setMetaDescription(fields.metaDescription);
     setBlocks(parseHtml(fields.body));
   }, []);
 
@@ -415,7 +425,10 @@ export function ContentEditor({ initial, siteHost }: Props) {
         status: nextStatus,
         body,
         featuredImage: featuredImage.trim() || null,
-        metadata: {},
+        metadata: {
+          ...(metaTitle.trim() ? { meta_title: metaTitle.trim() } : {}),
+          ...(metaDescription.trim() ? { meta_description: metaDescription.trim() } : {}),
+        },
       });
       if (result.success) {
         setSavedSnapshot(snapshotOf(fields));
@@ -424,7 +437,18 @@ export function ContentEditor({ initial, siteHost }: Props) {
       }
       return { success: false, error: result.error };
     },
-    [body, excerpt, featuredImage, fields, initial.id, slug, title, type]
+    [
+      body,
+      excerpt,
+      featuredImage,
+      fields,
+      initial.id,
+      metaDescription,
+      metaTitle,
+      slug,
+      title,
+      type,
+    ]
   );
 
   const handleSave = useCallback(
@@ -583,11 +607,21 @@ export function ContentEditor({ initial, siteHost }: Props) {
         setType((reloaded.type as ContentType) ?? 'page');
         setStatus(reloaded.status === 'publish' ? 'publish' : 'draft');
         setFeaturedImage(reloaded.featured_image ?? '');
+        setMetaTitle((reloaded.metadata as Record<string, string> | null)?.meta_title ?? '');
+        setMetaDescription(
+          (reloaded.metadata as Record<string, string> | null)?.meta_description ?? ''
+        );
         setBlocks(parseHtml(reloaded.body ?? ''));
       }
       const history = await getContentRevisions(initial.id);
       if (history.success) setRevisions(history.data.revisions);
-      if (reloaded) setSavedSnapshot(snapshotOf(fieldsFromRow(reloaded)));
+      if (reloaded) {
+        const row = {
+          ...reloaded,
+          metadata: reloaded.metadata as Record<string, string> | null,
+        };
+        setSavedSnapshot(snapshotOf(fieldsFromRow(row)));
+      }
       toast.success('Version restored');
       router.refresh();
     },
@@ -945,10 +979,64 @@ export function ContentEditor({ initial, siteHost }: Props) {
           </div>
 
           {/*
+            SEO meta fields. Stored in content.metadata as meta_title /
+            meta_description; generateMetadata uses them when present and falls
+            back to the derived title / body excerpt when not. The character
+            counts are Google's SERP budgets — a title past ~60 is truncated in
+            the results, a description past ~155 is cut mid-sentence.
+          */}
+          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">SEO</h2>
+            <label className="block text-xs font-medium text-slate-600">
+              Meta title
+              <input
+                type="text"
+                value={metaTitle}
+                onChange={(e) => {
+                  noteEdit('type:metaTitle');
+                  setMetaTitle(e.target.value);
+                }}
+                placeholder={title || 'Untitled page'}
+                maxLength={80}
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+              />
+              <span
+                className={`mt-0.5 block text-right text-[11px] ${
+                  metaTitle.length > 60 ? 'font-bold text-accent-red' : 'text-slate-400'
+                }`}
+              >
+                {metaTitle.length}/60
+              </span>
+            </label>
+            <label className="block text-xs font-medium text-slate-600">
+              Meta description
+              <textarea
+                value={metaDescription}
+                onChange={(e) => {
+                  noteEdit('type:metaDescription');
+                  setMetaDescription(e.target.value);
+                }}
+                placeholder={derivedExcerpt || 'No summary yet.'}
+                maxLength={200}
+                rows={3}
+                className="mt-1 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+              />
+              <span
+                className={`mt-0.5 block text-right text-[11px] ${
+                  metaDescription.length > 155 ? 'font-bold text-accent-red' : 'text-slate-400'
+                }`}
+              >
+                {metaDescription.length}/155
+              </span>
+            </label>
+          </div>
+
+          {/*
             A search-result preview, not a claim about Google's output — the
             layout mirrors the familiar blue-title / green-URL / grey-snippet
             shape so the author can sanity-check the title and description they
-            are about to ship.
+            are about to ship. It shows the meta fields when set, because that
+            is what Google will actually use.
           */}
           <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between">
@@ -958,15 +1046,15 @@ export function ContentEditor({ initial, siteHost }: Props) {
               <Eye size={14} className="text-slate-400" aria-hidden="true" />
             </div>
             <p className="truncate text-sm font-medium text-[#1a0dab]">
-              {title || 'Untitled page'}
+              {metaTitle.trim() || title || 'Untitled page'}
             </p>
             <p className="truncate text-xs text-[#0d6528]">
               {siteHost}/{slug || '…'}
             </p>
             <p className="text-xs leading-relaxed text-slate-600">
-              {excerpt.trim() || derivedExcerpt || 'No summary yet.'}
+              {metaDescription.trim() || excerpt.trim() || derivedExcerpt || 'No summary yet.'}
             </p>
-            {!excerpt.trim() && derivedExcerpt && (
+            {!metaDescription.trim() && !excerpt.trim() && derivedExcerpt && (
               <button
                 type="button"
                 onClick={() => {
