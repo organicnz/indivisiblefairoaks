@@ -148,7 +148,9 @@ Entry: `.agents/skills/vgpu/SKILL.md`
 ---
 
 ### `cms-editor-and-crm`
-**Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, `src/lib/trusted-links.ts`, `src/lib/own-media.ts`, `src/lib/image-size.ts`, `src/lib/__tests__/supabase-mock.ts`, the broadcast Edge Function, or a coverage threshold in `vitest.config.ts`.
+**Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, `src/lib/trusted-links.ts`, `src/lib/own-media.ts`, `src/lib/image-size.ts`, `src/lib/__tests__/supabase-mock.ts`,
+`supabase/functions/_shared/broadcast.ts`, `supabase/functions/crm-broadcast-send/`, the
+unsubscribe route, or a coverage threshold in `vitest.config.ts`.
 
 **Project-specific, not vendored.** Unlike the skills above, this one is written
 for this codebase and is not pinned in `skills-lock.json` — so it *can* be edited,
@@ -192,6 +194,18 @@ tests:
   populated by nothing. The sanitizer's `img` allowlist then became a
   *correctness* dependency rather than a tidy list, because it is the only route
   those attributes take to the reader.
+- **A guard that fails closed on legitimate input is still broken, and one nobody
+  can see reads as protection.** A POSIX character class inside a JavaScript
+  character class is a literal string of letters — which made the self-test
+  recipient check reject `alice@example.com`. It also lived only in the Edge
+  Function, so no test runner could reach it.
+- **A GET that writes is a mass-unsubscribe waiting for a link scanner.** Corporate
+  mail security products fetch every URL in an inbound message. The unsubscribe
+  route wrote the opt-out on GET while documenting that GET only rendered a
+  confirmation.
+- **Offset paging without a total order double-sends.** `.range()` with no
+  `.order()` — so a contact who opted out mid-send was mailed twice, and a
+  concurrent insert silently skipped someone.
 - **Last-write-wins on the one surface whose job is to look after written work.**
   Two organizers on one page, and the second save discarded the first one's
   afternoon with no signal. The fix is a precondition, and a precondition has two

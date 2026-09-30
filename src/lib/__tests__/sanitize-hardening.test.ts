@@ -140,3 +140,98 @@ describe('sanitizers — fail-safe contracts', () => {
     expect(hasSuspiciousContent({} as unknown as string)).toBe(false);
   });
 });
+
+/**
+ * Container tags whose *contents* are not page copy.
+ *
+ * `disallowedTagsMode: 'discard'` strips a tag and keeps its children. For inline
+ * markup that is right; for a container it re-injects the container's contents as
+ * live markup. The Google Sites migration arrived wrapped in exactly those
+ * containers, so this list is the difference between a page's furniture being
+ * dropped and being rendered in the middle of its copy — and, because
+ * `htmlToExcerpt` runs the same sanitizer, between that appearing in the SERP
+ * meta description too.
+ *
+ * ## Why these needed a pre-pass rather than an option
+ *
+ * The obvious fixes both do nothing, and both were tried:
+ *
+ *   - `nonTextTags` sets sanitize-html's `skipText`, which suppresses the *raw
+ *     text* directly inside a disallowed tag. A container's children are
+ *     elements, so `<marquee><p>x</p></marquee>` still emitted the `<p>`.
+ *   - `exclusiveFilter` is never consulted for a tag that is already disallowed:
+ *     sanitize-html returns from its close handler before reaching it.
+ *
+ * And the pass that *does* work has an ordering constraint that is invisible
+ * until it bites. Step 0.5 strips the opening and closing tags of `form`,
+ * `object`, `select` and `marquee`, which destroys the evidence — after it runs
+ * there is no `<marquee>` left to match, so a subtree removal placed *after* it
+ * silently matches nothing and the test still fails for the original reason.
+ * The removal therefore has to happen while the tags are still intact.
+ */
+describe('container tags drop their whole subtree, not just their tag', () => {
+  const CASES: Array<{ tag: string; body: string; leaked: string }> = [
+    { tag: 'template', body: '<p>Search this site</p>', leaked: 'Search this site' },
+    { tag: 'noscript', body: '<p>Skip to main content</p>', leaked: 'Skip to main content' },
+    {
+      tag: 'details',
+      body: '<summary>Page details</summary><p>Page updated</p>',
+      leaked: 'Page updated',
+    },
+    { tag: 'marquee', body: '<p>Report abuse</p>', leaked: 'Report abuse' },
+    { tag: 'listing', body: '<p>Embedded Files</p>', leaked: 'Embedded Files' },
+    { tag: 'form', body: '<p>Page details</p>', leaked: 'Page details' },
+    { tag: 'xmp', body: '<p>Embedded Files</p>', leaked: 'Embedded Files' },
+    { tag: 'object', body: '<p>Embedded Files</p>', leaked: 'Embedded Files' },
+    { tag: 'select', body: '<option>Embedded Files</option>', leaked: 'Embedded Files' },
+  ];
+
+  for (const { tag, body, leaked } of CASES) {
+    it(`drops the children of <${tag}>`, () => {
+      const out = sanitizeWPContent(`<${tag}>${body}</${tag}>`);
+      expect(out).not.toContain(leaked);
+    });
+  }
+
+  it('keeps the four the migration is known to have truncated', () => {
+    for (const [tag, body] of [
+      ['nav', '<p>Home About Contact</p>'],
+      ['aside', '<p>Related links</p>'],
+      ['header', '<p>Site header</p>'],
+      ['footer', '<p>Site footer</p>'],
+    ] as const) {
+      expect(sanitizeWPContent(`<${tag}>${body}</${tag}>`)).not.toContain(body);
+    }
+  });
+
+  it('does not let a form contribute its button label as body copy', () => {
+    // The real shape of the harm, and it is worth stating precisely because the
+    // stronger claim is false. A `<form>` does NOT leave a working control
+    // behind — `input` is not in `allowedTags` and is always stripped. What it
+    // leaves is its children's *text* rendered as page copy, so a migrated
+    // search box contributes a bare "Go" in the middle of a sentence.
+    const out = sanitizeWPContent('<form action="/search"><button>Go</button></form>');
+    expect(out).not.toContain('Go');
+    // And the input was never a risk in the first place, which is why this
+    // assertion is here rather than assumed.
+    expect(sanitizeWPContent('<form><input name="q"></form>')).not.toMatch(/<input/i);
+  });
+
+  it('leaves the rest of a document alone when a container is unclosed', () => {
+    // The unclosed sweep runs to the end of the input, so it is applied only to
+    // the four the migration actually truncated. Applying it to `<form>` would
+    // delete the rest of an otherwise valid page.
+    expect(sanitizeWPContent('<p>Real copy.</p><form><p>chrome</p>')).toContain('Real copy.');
+  });
+
+  it('still keeps real authored copy', () => {
+    // A length-only guard would satisfy every test above by sanitizing nothing.
+    const out = sanitizeWPContent(
+      '<p>March agenda</p><h2>Budget</h2><ul><li>Motion</li></ul><a href="/contact">Contact</a>'
+    );
+    expect(out).toContain('March agenda');
+    expect(out).toContain('Budget');
+    expect(out).toContain('Motion');
+    expect(out).toContain('href="/contact"');
+  });
+});

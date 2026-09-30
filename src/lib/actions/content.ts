@@ -326,11 +326,20 @@ export async function setContentStatus(
       ? (existing.published_at ?? new Date().toISOString())
       : existing.published_at;
 
-  const { error } = await adminClient
+  // `.select()` is what makes the outcome observable. An UPDATE that matches no
+  // rows returns `error: null`, so without asking for the row back this reports
+  // success for a write that did nothing — a "Published" toast on a page that
+  // someone else deleted between the read above and this statement. The CRM's
+  // own `setCRMTaskStatus` and `deleteCRMTask` both ask for the row; this did
+  // not, which is what made it an oversight rather than a decision.
+  const { data: written, error } = await adminClient
     .from('content')
     .update({ status, published_at: publishedAt })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
   if (error) return fail(error.message);
+  if (!written) return fail('That page no longer exists');
   revalidateContent(existing.slug);
   return { success: true, data: { id } };
 }

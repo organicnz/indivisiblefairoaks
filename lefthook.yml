@@ -345,6 +345,21 @@ pre-commit:
         VIOLATIONS=""
         for f in {staged_files}; do
           [ -f "$f" ] || continue
+          # Test files are excluded, and the reasoning is narrow rather than
+          # convenient. A file under `__tests__` is never shipped, so it cannot
+          # bypass RLS in production; and the only way the symbol appears in one
+          # is as the *name* of a `vi.mock('@/lib/supabase-server', …)` factory
+          # — which is the thing that stops the real privileged client from ever
+          # being constructed. Flagging that is a false positive on the exact
+          # pattern that makes a test safe.
+          #
+          # Residual risk, stated: a test that called the *real*
+          # `createAdminClient()` would need live credentials in the test
+          # environment, and none are injected — `env.ts` validates on import and
+          # the server-only key is absent. The same `__tests__` exclusion is
+          # already used by `suppress-count` below, so this follows an existing
+          # precedent rather than inventing one.
+          echo "$f" | grep -q "__tests__" && continue
           if grep -q "createAdminClient" "$f" 2>/dev/null; then
             if ! echo "$f" | grep -qE "$ALLOWLIST"; then
               VIOLATIONS="$VIOLATIONS\n  $f"

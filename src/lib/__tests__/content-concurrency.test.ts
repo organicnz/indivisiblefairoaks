@@ -207,3 +207,86 @@ describe('saveContent, concurrent edits', () => {
     expect(result.data.updatedAt).toBeTruthy();
   });
 });
+
+/**
+ * "Did that write actually happen?"
+ *
+ * A distinct failure from a precondition conflict, and it is quieter. PostgREST
+ * reports an UPDATE that matched no rows as `error: null` — indistinguishable from
+ * success unless the row is asked for. So an action can validate, report
+ * success, revalidate a cache for a page, and show an author a "Published" toast
+ * having changed nothing.
+ *
+ * `setContentStatus` read the row, then wrote it back with a bare
+ * `.update(...).eq('id', id)`. The CRM's own `setCRMTaskStatus` and
+ * `deleteCRMTask` both ask for the row back; this one did not, which is what
+ * makes it an oversight rather than a decision.
+ */
+const { setContentStatus } = await import('@/lib/actions/content');
+
+describe('setContentStatus', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    row = {
+      id: 7,
+      slug: 'town-hall-recap',
+      title: 'Town hall recap',
+      status: 'draft',
+      published_at: null,
+      updated_at: LOADED_AT,
+    };
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: { rows: [row], onUpdate: touchUpdatedAt() },
+      }),
+    });
+  });
+
+  it('publishes, and reports the version it wrote', async () => {
+    const result = await setContentStatus(7, 'publish');
+
+    expect(result).toMatchObject({ success: true });
+    expect(row.status).toBe('publish');
+  });
+
+  it('keeps the original publication date when un-publishing', async () => {
+    // Un-publishing a draft must not bump a restored post back to the top of
+    // `/news`. `setContentStatus` exists for exactly this.
+    row.status = 'publish';
+    row.published_at = '2026-03-14T18:00:00.000Z';
+
+    const result = await setContentStatus(7, 'draft');
+
+    expect(result).toMatchObject({ success: true });
+    expect(row.published_at).toBe('2026-03-14T18:00:00.000Z');
+    expect(row.status).toBe('draft');
+  });
+
+  it('fails rather than reporting success when the write matched no row', async () => {
+    // The row is read successfully, then deleted, then written. Without
+    // `.select()` on the UPDATE the write is invisible and this returns
+    // `success: true` — and the author is told the page was published.
+    //
+    // The row is emptied on the *second* `from('content')` call, which is the
+    // write. Emptying it on the first would make the existence check fail, and
+    // the test would pass while proving nothing about the write.
+    let calls = 0;
+    const client = createMockAdminClient({
+      content: { rows: [row], onUpdate: touchUpdatedAt() },
+    });
+    const build = client.from;
+    client.from = vi.fn((table: string) => {
+      calls += 1;
+      if (table === 'content' && calls === 2) {
+        for (const key of Object.keys(row)) delete row[key];
+      }
+      return build(table);
+    });
+    requireAdmin.mockResolvedValue({ adminClient: client });
+
+    const result = await setContentStatus(7, 'publish');
+
+    expect(result.success).toBe(false);
+    expect(result).toMatchObject({ error: 'That page no longer exists' });
+  });
+});

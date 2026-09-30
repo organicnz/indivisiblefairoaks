@@ -107,7 +107,7 @@ function matches(row: Record<string, unknown>, filters: readonly Filter[]): bool
   });
 }
 
-class MockQueryBuilder {
+export class MockQueryBuilder {
   private filters: Filter[] = [];
   private columns: string | null = null;
   private limitCount: number | null = null;
@@ -284,7 +284,11 @@ class MockQueryBuilder {
  * ```
  */
 export function createMockAdminClient(tables: Record<string, MockTableConfig>): {
-  from: ReturnType<typeof vi.fn>;
+  // A plain function type rather than a bare `vi.fn()`: tests legitimately wrap
+  // `from` to make a row appear or vanish between a read and the write that
+  // follows it, and Vitest's untyped `Mock<Procedure | Constructable>` is not
+  // assignable to a callable signature.
+  from: (table: string) => MockQueryBuilder;
 } {
   return {
     from: vi.fn((table: string) => new MockQueryBuilder(tables[table] ?? {})),

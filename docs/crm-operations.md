@@ -101,6 +101,35 @@ deliberately closed single-address pattern, so a value carrying a comma is
 rejected rather than split — a self-test that resolved to several recipients
 would be exactly the widening the function exists to prevent.
 
+### `isDeliverableAddress` rejected every real address
+
+That guard is in `_shared/broadcast.ts` now, exported and unit-tested, and it was
+**broken in the one direction that matters**. It was a local helper in
+`crm-broadcast-send/index.ts` with no test in any runner, and its pattern was
+`[^@[:space:],]` — written for a POSIX regex. JavaScript has no POSIX character
+classes: inside `[...]` that is the literal run `[ : s p a c e :]`, so the negated
+set forbade `@`, `:`, `,` **and the letters `s`, `p`, `a`, `c`, `e`**.
+
+`alice@example.com` was rejected. So was `test@example.com`. The guard stopped a
+self-test resolving to several recipients by refusing to resolve to *any*
+recipient — the same shape as the broadcast that had never been sent. A narrow
+guard that fails closed on legitimate input is still broken, and a broken guard
+nobody can see reads as protection.
+
+Three things are load-bearing about the fix:
+
+- **It lives in `_shared` and is imported by the parity test.** The delivery path
+  is Deno, so the Next test runner cannot exercise an Edge Function directly. That
+  gap is why the editor and the CRM are covered and the code deciding who actually
+  receives email was not. Anything a `crm-broadcast-send` guard must be right
+  about belongs in `_shared` for the same reason.
+- **The pattern is `\s`, not `[:space:]`.** The forbidden set has to be the one
+  the comment claims; a pattern that rejects the wrong characters is worse than no
+  pattern, because it looks like a control.
+- **The test is mostly real addresses.** A synthetic fixture would not have caught
+  this: the failure is precisely that ordinary addresses were refused, so the
+  regression to guard is `"alice@example.com" and friends are accepted`.
+
 A `CHECK` (`crm_broadcasts_test_only_needs_recipient`, migration
 `20260930120000`) makes the shape unreachable as well as unreachable-by-code. It
 repairs any pre-existing offender in place — a self-test with no address becomes
@@ -142,6 +171,79 @@ To confirm the *pairing* holds rather than the branch, try to write
 refused by `crm_broadcasts_test_only_needs_recipient` before any application
 code runs. The old recipe assumed you could stage the dangerous row by hand, and
 you no longer can — which is the point.
+
+## The audience is paged in a stable order, and the ceiling is exact
+
+Two defects in the same loop, in both `crm.ts` and `crm-broadcast-send/index.ts`.
+
+**`.range(offset, …)` is offset paging, so it needs a total order.** Neither loop
+called `.order()`, so PostgREST emitted no `order` parameter and the row order was
+whatever the plan happened to produce — and, crucially, not guaranteed to match
+the previous page's. `.range()` is coherent only against an order that does not
+change between statements. A contact who opted out, or a CSV import that landed,
+between page 3 and page 4 shifts every later row by one: the boundary contact
+appears in two pages and **is mailed twice**, and `recipient_count` is wrong. A
+concurrent insert is the mirror case, and one contact is silently skipped with no
+trace anywhere.
+
+Both now `.order('id', { ascending: true })` before the range. `id` is the primary
+key, so it is a total order; a non-unique column would still tie and re-open the
+same hole. `getCRMExistingTags` in the same file already did this, which is what
+made it an oversight rather than a decision.
+
+**An audience of exactly the ceiling was refused as "larger than the limit".** The
+loop condition was `offset < CEILING`, which stops one page *before* the boundary
+and so can never learn whether the list ended at 5,000 or continued past it. With
+a full final page, `exhausted` stayed false and the send was refused. The
+condition is now `<=` with an explicit `recipients.length > CEILING` break: the
+loop reads one page further, which is the only way to tell those apart, and it
+still breaks the moment the ceiling is passed, so the work stays bounded rather
+than proportional to the list.
+
+| Audience | Outcome |
+|---|---|
+| 4,999 | sent |
+| 5,000 (exactly the ceiling) | sent |
+| 5,001 | refused, nothing sent |
+
+## Unsubscribe: a GET must never change state
+
+`GET /api/crm/unsubscribe?token=…` used to write `do_not_email = true` and insert
+a `crm_activities` row, and only *then* branch on the method to decide what to
+render. The route's own docblock said "GET renders a tiny branded confirmation;
+POST performs the opt-out", so the code did the opposite of its documentation.
+
+That is a mass-unsubscribe waiting to happen. **Corporate mail security products
+fetch every URL in an inbound message** — Proofpoint, Barracuda, Microsoft Safe
+Links — and web and chat clients prefetch links on hover. Any of them turns "the
+recipient clicked unsubscribe" into "the recipient's mail gateway clicked
+unsubscribe", and a 5,000-recipient chapter has 5,000 gateways watching for that
+exact URL. The outcome is a silent mass opt-out in which every recipient believes
+they are still subscribed.
+
+So the two methods now do genuinely different things:
+
+- **GET** looks the contact up and renders a confirmation page. It writes nothing.
+- **POST** performs the opt-out, in two shapes told apart **by the body** — a
+  browser form carrying `confirm=1` gets the page back, and an RFC 8058
+  `List-Unsubscribe-Post` auto-confirm (same URL, empty body) gets `204`.
+
+Distinguishing on the body rather than on `Accept` or a user-agent is deliberate.
+Inferring it from headers is the kind of cleverness that silently starts returning
+an empty `204` to a real person when a mail client changes a header, and both
+failures are bad: a subscriber who sees nothing happen and assumes it worked, or
+does not.
+
+The confirmation page says why it asks — a chapter that explains the extra click
+gets more honest clicks than one that silently unsubscribes people.
+
+**The unsubscribe token is not rotated on re-subscribe.** Deliberate: rotating it
+would break the link in every historical broadcast the contact still has, and
+someone who has deliberately re-subscribed is not being attacked by their own old
+email. The exposure is a token that leaks once via a shared inbox, a gateway log
+or a proxy log, and the mitigation is the contact's own re-subscribe rather than
+silent invalidation of links they may still be looking at. If that trade is ever
+revisited, it is a decision about the chapter's threat model, not a bug fix.
 
 ## Never send email from a test
 
