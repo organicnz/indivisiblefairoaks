@@ -356,6 +356,11 @@ export async function restoreContentRevision(
   if (error) return fail(error.message);
   if (!revision) return fail('That revision no longer exists');
 
+  // The hero travels with the revision. The column arrives via migration
+  // `20260930000000`; the optional read keeps pre-migration rows compiling,
+  // and they restore exactly as before (no hero).
+  const hero = (revision as ContentRevision & { featured_image?: string | null }).featured_image;
+
   return saveContent({
     id: contentId,
     title: revision.title ?? 'Untitled',
@@ -364,7 +369,7 @@ export async function restoreContentRevision(
     type: (revision.type as ContentType) ?? 'page',
     status: (revision.status as 'publish' | 'draft') ?? 'draft',
     body: revision.body ?? '',
-    featuredImage: null,
+    featuredImage: hero ?? null,
     metadata: (revision.metadata as Record<string, string>) ?? {},
   });
 }

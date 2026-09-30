@@ -130,6 +130,19 @@ once the work is saved, so it cannot offer a recovery for text already durable.
 Storage failures are swallowed. A full quota must not break editing; the draft is
 a nicety and the editor is the product.
 
+### Revisions preserve the featured image
+
+`content_revisions` has a `featured_image` column, and the trigger stores
+`OLD.featured_image`. `restoreContentRevision` writes that value back instead
+of `null`.
+
+The trigger already treated a hero change as revision-worthy, but the table had
+nowhere to store it — so a restore silently cleared the hero. Rows written
+before the migration still have `NULL` and restore as before; only newer
+revisions carry the image. `content_revisions` is allowlisted in
+`scripts/gen-types.mjs` so regeneration keeps it; regenerate after the
+migration lands and never hand-edit `src/types/supabase.ts`.
+
 ### Links are validated against the same rule the sanitizer enforces
 
 `isLinkableHref` is the editor's copy of the trusted-domain rule. If the two
@@ -161,6 +174,7 @@ the drag handle used to be a decorative `<span>`.
 - `__tests__/ContentEditor.draft.test.tsx` — recovery offered, not applied
 - `src/lib/__tests__/editor-history.test.ts`, `draft-recovery.test.ts` — the two modules
 - `src/lib/__tests__/content-media.test.ts` — upload rules, reference-safe delete
+- `src/lib/__tests__/content-revisions.test.ts` — restore writes the revision hero back
 - `src/lib/__tests__/content-links.test.ts` — `isLinkableHref`
 - `src/lib/__tests__/blocks.test.ts` — the sanitizer-parity property
 

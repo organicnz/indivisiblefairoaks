@@ -155,9 +155,11 @@ believe four thousand people heard from them.
 | `SUPABASE_SECRET_KEY` | Vercel env (secret) | Service-role auth for the sender. Bypasses RLS. |
 | `APP_URL` | Edge Function secret | Used for the unsubscribe URL. Must not be the pre-cutover apex. |
 
-`CRM_BROADCAST_FUNCTION_URL` was unset in production as of the 2026-09-29 live
-audit. Until it is set, every broadcast fails safely with "the broadcast sender
-is not configured on this deployment" and nothing is queued.
+`CRM_BROADCAST_FUNCTION_URL` was set in production on 2026-09-30 as a
+non-sensitive Production config var. It takes effect on the next production
+deployment; until then, a queued broadcast still fails safely with "the
+broadcast sender is not configured on this deployment" and nothing is queued.
+No test sends through it: CRM sends refuse to run in e2e builds.
 
 ## Recovery
 
