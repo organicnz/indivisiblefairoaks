@@ -195,6 +195,24 @@ while an async action is in flight.
 
 - `__tests__/ConfirmAction.test.tsx` — idle label, confirm-only fire, cancel backs out, busy disables
 
+### A control must name the state it will actually reach
+
+The directory's row action is **View** for a published page and **Preview** for
+a draft. A draft has no public page — `getPublishedContent` filters to published
+rows — so a View link on a draft landed on an HTTP 200 "Page Not Found" that the
+author could not tell apart from a typo'd slug.
+
+That is the AGENTS.md "no fake controls" failure, and it is worth restating
+because the live example is so mild: nothing crashed, no console error, the page
+rendered. The only symptom was an author unable to tell a typo from an
+unpublished draft, which is precisely the question the editor exists to answer.
+
+The fix is not a better error page. It is a control that says what it does.
+`Publish` stays on both states — the fix must not hide the way out of the
+situation it reports.
+
+- `__tests__/ContentList.publish-state.test.tsx` — View only when live, no draft URL, Preview says why, Publish still reachable
+
 ### Links are validated against the same rule the sanitizer enforces
 
 `isLinkableHref` is the editor's copy of the trusted-domain rule. If the two
@@ -231,6 +249,7 @@ the drag handle used to be a decorative `<span>`.
 - `__tests__/ConfirmAction.test.tsx` — the shared destructive-action contract
 - `__tests__/ContentEditor.preview.test.tsx` — modal opens with sanitized body, close button works
 - `__tests__/ContentEditor.seo.test.tsx` — inputs render, preview shows them, save persists them
+- `__tests__/ContentList.publish-state.test.tsx` — View only when live, no draft URL, Preview says why
 - `src/lib/__tests__/content-links.test.ts` — `isLinkableHref`
 - `src/lib/__tests__/blocks.test.ts` — the sanitizer-parity property
 
@@ -243,5 +262,7 @@ the drag handle used to be a decorative `<span>`.
   covers a bad publish (BEFORE UPDATE, so the pre-image) and the local draft
   covers an unsaved crash, but there is no per-session undo across a page load.
 - **A missing `[slug]` returns HTTP 200 with `noindex`.** Under PPR the response
-  commits before `notFound()` can change the status. Not editor-specific, but it
-  is the first thing an editor sees after a typo'd slug.
+  commits before `notFound()` can change the status. The status code is still
+  wrong for crawlers, but the editor-facing consequence is fixed: a draft row no
+  longer links to a URL that cannot resolve, so an author is told which state
+  they are in rather than discovering it by clicking.
