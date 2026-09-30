@@ -1,7 +1,7 @@
 ---
 
 name: cms-editor-and-crm
-description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, src/lib/sanitize.ts, src/lib/trusted-links.ts, src/lib/own-media.ts, src/lib/image-size.ts, the broadcast Edge Function, or a coverage threshold in vitest.config.ts — and whenever a change could make CMS content vanish on publish, change a page's publish state, lose an author's keystrokes, lose or re-date a revision, widen who receives an email, shift an image's layout, or leave a file outside the coverage gate.
+description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, src/lib/sanitize.ts, src/lib/trusted-links.ts, src/lib/own-media.ts, src/lib/image-size.ts, src/lib/__tests__/supabase-mock.ts, the broadcast Edge Function, or a coverage threshold in vitest.config.ts — and whenever a change could make CMS content vanish on publish, change a page's publish state, lose an author's keystrokes, lose or re-date a revision, widen who receives an email, shift an image's layout, or leave a file outside the coverage gate.
 ---
 # CMS editor & CRM
 
@@ -346,6 +346,29 @@ that only go up.
 **And expect that to turn the gate red.** The same arithmetic is why:
 `src/lib/image-size.ts` entered at 86% branches and pulled everything-except-
 `crm.ts` from 90.0% to 89.86%, so the run failed on coverage alone with every test
+green. **Cover the new file — never widen an exclusion to accommodate it.**
+
+`src/lib/actions/content.ts` was the second omission of the same kind: every CMS
+mutation, in no threshold at all. It is now on a floor of 53/50/53/59 — a floor at
+the measured value, not an exemption. **50% branches is not a rounding artefact**:
+most of the image storage paths, the revision queries, the list/pagination reads
+and every failure branch are uncovered. The difference between "we have not
+looked" and "we have looked, and here is the number" is the whole point.
+
+**One exclusion glob, not several.** Vitest treats each threshold key as its own
+"everything except this" set, so `'!crm.ts'` *includes* `content.ts` and vice
+versa, and each set then fails on the other's floor. It has to be a single
+`'!src/lib/actions/{crm,content}.ts'`.
+
+**A gate that is sometimes red is not a gate.** The `blocks.test.ts` property
+suite (four properties × 300 documents, up to three serialize → parse → sanitize
+cycles each) sat at Vitest's 5s default once `v8` was on and failed
+*intermittently* — which trains people to re-run until green. It carries an
+explicit `PROPERTY_TIMEOUT_MS` with every assertion and the run count untouched.
+
+**And expect that to turn the gate red.** The same arithmetic is why:
+`src/lib/image-size.ts` entered at 86% branches and pulled everything-except-
+`crm.ts` from 90.0% to 89.86%, so the run failed on coverage alone with every test
 green. **Cover the new file — never widen an exclusion to accommodate it.** The
 point of naming globs is that a file in the list is a file being measured.
 
@@ -430,6 +453,58 @@ OS decoder, not hand-built headers — a hand-written header only proves the rea
 agrees with your idea of the format, and it caught a wrong VP8L bit-packing during
 development. Include a landscape, a portrait and an odd width, so a transposed
 reader cannot pass.
+
+### 23. A save carries the version it was based on
+
+`saveContent` takes an optional `expectedUpdatedAt` and makes it a precondition
+on the UPDATE. Before it, two organizers on one page were last-write-wins with no
+signal — the default outcome of the one surface whose purpose is to look after
+written work.
+
+Four things, each silent when wrong:
+
+- **The precondition rides on the UPDATE**, not a SELECT-then-UPDATE. Checking
+  first leaves a window in which a colleague's save lands and is then overwritten.
+- **The write asks the row back with `.select(...)`.** An UPDATE matching no rows
+  returns `error: null, data: null` — indistinguishable from success. Without the
+  select, a conflict is reported as a success.
+- **The returned version is the trigger's**, not a JS timestamp. A second clock
+  disagrees with the database's, and the author's next autosave conflicts with
+  their own work. A guard that fails the second save is worse than no guard.
+- **A null claim uses `.is()`, never `.eq()`.** `content.updated_at` is nullable,
+  and `.eq(col, null)` is `col=eq.null` — matches nothing, so the guard fires
+  against a page nobody touched. Omitted / `null` / string are three states.
+
+Only a *write* moves the version. The editor keeps it in a ref (not state — it
+changes every autosave and must not re-render). A revision restore adopts the
+version it re-reads; undo, redo and draft recovery do not. Re-seed from props
+only when `initial.id` changes: `router.refresh()` runs after each save, so
+adopting every render would agree with a colleague's newer timestamp and then
+overwrite it.
+
+### 24. Use the shared Supabase mock, and make it a *filtering* mock
+
+`src/lib/__tests__/supabase-mock.ts`. Five suites hand-rolled their own
+`adminClient`, each modelling the smallest slice it needed, and the divergence
+cuts both ways:
+
+- a mock **narrower** than the real client fails on correct code — `saveContent`
+  legitimately calls `.update().eq().select().maybeSingle()`, which
+  `content-revisions`' `update()` did not have, and the suite was green;
+- a mock **wider** than the real client passes on code that would 4xx.
+
+Worse, a stub that returns whatever a test put under `table:like` cannot tell
+"matched the right row" from "matched a row". `content-media.test.ts` asserted
+"keeps a referenced file" while the reference query could have checked nothing at
+all, and deleting its `.like` still passed. **Row-based mocks close that**, but
+only if the suite has a *negative* case: rows that exist and do **not** mention
+the file. Without one, an unfiltered query matches them and the guard still
+"passes".
+
+Three CRM suites assert on call *arguments* rather than rows. That is a
+legitimate style for testing the shape of a call — but it cannot catch a query
+naming the wrong column, and converting them is a rewrite of their assertions,
+not a swap of a helper.
 
 ## Before you finish
 

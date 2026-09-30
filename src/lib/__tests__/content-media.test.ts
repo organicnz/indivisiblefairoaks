@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const requireAdmin = vi.hoisted(() => vi.fn());
 const remove = vi.hoisted(() => vi.fn());
 const uploadToStorage = vi.hoisted(() => vi.fn());
-const fromTable = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin }));
 vi.mock('server-only', () => ({}));
@@ -30,51 +29,42 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key';
 
 const { deleteContentImage, uploadContentImage } = await import('@/lib/actions/content');
+const { createMockAdminClient } = await import('./supabase-mock');
 
 const MEDIA_BASE = 'https://project.supabase.co/storage/v1/object/public/media/';
 
-/** Rows a lookup should return, keyed `table` or `table:like` / `table:eq`. */
-const refs: Record<string, unknown[]> = {};
-
 /**
- * A PostgREST builder stub. `like` and `eq` are what tell the three reference
- * queries apart, so it records which one was used, and `limit` is terminal: the
- * action always ends each query with `.limit(1)`, so that is where the promise
- * comes from. Resolving there rather than implementing `then` keeps this a plain
- * object — a thenable would need a `then` member, which Biome's `noThenProperty`
- * reads as a promise with a missing rejection callback.
+ * The rows the reference queries will find.
+ *
+ * These are **rows, not canned results**, which is the point of moving off the
+ * hand-rolled builder: the previous stub returned whatever a test put under
+ * `content:like`, so a test passed whether or not the query named the right
+ * column or the right value. A `body` that does not actually contain the file
+ * path now fails to match, so these tests assert the query as well as the
+ * outcome — which is what "checks every reference first" has to mean.
  */
-class ReferenceBuilder {
-  private mode = '';
-
-  constructor(private readonly table: string) {}
-
-  select = vi.fn(() => this);
-  like = vi.fn(() => {
-    this.mode = 'like';
-    return this;
-  });
-  eq = vi.fn(() => {
-    this.mode = 'eq';
-    return this;
-  });
-  limit = vi.fn(() =>
-    Promise.resolve({ data: refs[`${this.table}:${this.mode}`] ?? [], error: null })
-  );
-}
+const contentRows: Record<string, unknown>[] = [];
+const revisionRows: Record<string, unknown>[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
-  for (const key of Object.keys(refs)) delete refs[key];
+  // Emptied in place, never reassigned: the client is built below and holds
+  // these arrays by reference, so `contentRows = [...]` would leave it serving
+  // the empty array it captured and every reference check would report "no
+  // references" — a false pass on the one thing this file exists to check.
+  contentRows.length = 0;
+  revisionRows.length = 0;
   requireAdmin.mockResolvedValue({
     adminClient: {
       storage: { from: () => ({ remove, upload: uploadToStorage }) },
-      from: fromTable,
+      ...createMockAdminClient({
+        content: { rows: contentRows },
+        content_revisions: { rows: revisionRows },
+      }),
     },
   });
   uploadToStorage.mockResolvedValue({ error: null });
   remove.mockResolvedValue({ error: null });
-  fromTable.mockImplementation((table: string) => new ReferenceBuilder(table));
 });
 
 const fileForm = (name: string, type: string, bytes = 8) => {
@@ -156,7 +146,7 @@ describe('deleteContentImage', () => {
   });
 
   it('keeps a file another page body still points at', async () => {
-    refs['content:like'] = [{ id: 3 }];
+    contentRows.push({ id: 3, body: `<p>See <img src="${MEDIA_BASE}content/shared.png"></p>` });
     expect(await deleteContentImage(`${MEDIA_BASE}content/shared.png`)).toEqual({
       deleted: false,
       retained: 'referenced',
@@ -165,7 +155,7 @@ describe('deleteContentImage', () => {
   });
 
   it('keeps a file that is still a featured image', async () => {
-    refs['content:eq'] = [{ id: 4 }];
+    contentRows.push({ id: 4, featured_image: `${MEDIA_BASE}content/hero.png` });
     expect(await deleteContentImage(`${MEDIA_BASE}content/hero.png`)).toEqual({
       deleted: false,
       retained: 'referenced',
@@ -176,12 +166,31 @@ describe('deleteContentImage', () => {
   it('keeps a file a revision points at, so a restore cannot 404', async () => {
     // The subtle one: no live row references the file, but a revision does, and
     // removing it would break the only route back from a bad publish.
-    refs['content_revisions:like'] = [{ id: 11 }];
+    revisionRows.push({ id: 11, body: `<img src="${MEDIA_BASE}content/old.png">` });
     expect(await deleteContentImage(`${MEDIA_BASE}content/old.png`)).toEqual({
       deleted: false,
       retained: 'referenced',
     });
     expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('deletes a file no reference actually points at, even when rows exist', async () => {
+    // The negative case, and it is the one that makes the three above mean
+    // anything. A revision and a page exist, but neither *mentions this file*.
+    //
+    // Without it, deleting the `like` from a reference query leaves the suite
+    // green: an unfiltered `.limit(1)` still matches the rows that are there, so
+    // "still referenced" is reported for the wrong reason and a query that checks
+    // nothing at all passes as a reference check. A guard that cannot tell
+    // "matched the right row" from "matched a row" is not a guard.
+    contentRows.push({
+      id: 3,
+      body: `<p>Unrelated: <img src="${MEDIA_BASE}content/other.png"></p>`,
+    });
+    revisionRows.push({ id: 11, body: `<img src="${MEDIA_BASE}content/another.png">` });
+
+    expect(await deleteContentImage(`${MEDIA_BASE}content/x.png`)).toEqual({ deleted: true });
+    expect(remove).toHaveBeenCalledWith(['content/x.png']);
   });
 
   it('reports a storage error without claiming the file is gone', async () => {

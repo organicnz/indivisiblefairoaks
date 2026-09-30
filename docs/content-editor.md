@@ -330,6 +330,60 @@ once the work is saved, so it cannot offer a recovery for text already durable.
 Storage failures are swallowed. A full quota must not break editing; the draft is
 a nicety and the editor is the product.
 
+### A save carries the version it was based on
+
+`saveContent` takes an optional `expectedUpdatedAt` and turns it into a
+precondition on the UPDATE. Two organizers on one page is the normal case for a
+volunteer group, and the editor was **last-write-wins with no signal** — the
+second save discarded the first one's afternoon, on the one surface whose entire
+purpose is to look after written work. `content_revisions` made it *recoverable*,
+which is a poor consolation for an author who never learns they overwrote anyone.
+
+The rule is the optimistic-concurrency one, and four details decide whether it
+works. Each is silent when wrong, so each has its own test.
+
+**The precondition rides on the same UPDATE, not a SELECT-then-UPDATE.** Checking
+the version first leaves a window between the two statements in which a
+colleague's save lands and is then overwritten — the guard passes and still loses
+their work. And the write must ask for the row back with `.select(...)`: an
+UPDATE that matches nothing returns `error: null` and `data: null`, which is
+indistinguishable from success. That is the whole reason
+`.update().eq().select().maybeSingle()` is the correct call and a bare
+`.update().eq()` is not.
+
+**The version returned is the one the trigger wrote.** `content` has a
+`BEFORE UPDATE` trigger (`touch_content_updated_at`) that sets
+`updated_at = now()`. `saveContent` returns that value rather than generating a
+timestamp in JavaScript: a second clock disagrees with the database's, and the
+author's very next autosave — 2.5s later — would conflict with the author's own
+work. A guard that made the second save fail would be worse than no guard,
+because it would block the person who is *not* in conflict.
+
+**A null claim uses `.is()`, never `.eq()`.** `content.updated_at` is nullable, so
+a row that predates the trigger has none. `.eq('updated_at', null)` is
+`updated_at=eq.null` in PostgREST and matches **nothing**, so the guard would
+report a conflict for a page nobody had touched. Omitted, `null` and a string are
+three distinct states, and conflating the first two silently disables the check
+for exactly the pages with the least history.
+
+**Only a write updates the version.** The editor holds it in a ref — a ref, not
+state, because it changes on every autosave and must not re-render the editor. A
+revision restore adopts the version it re-reads, because it wrote the row. Undo,
+redo and draft recovery deliberately do **not**: they only rearrange a document
+already in hand. And it is re-seeded from props only when `initial.id` changes —
+adopting it every render would defeat the whole mechanism, because
+`router.refresh()` runs after each save, so a colleague's newer timestamp would be
+picked up and then overwritten having first agreed it was fine.
+
+A conflict is reported as a failure, which is already the path that stops
+autosave (`activeSaveFailure`) and offers the author their snapshot back. The
+message names the cause and the action; it does not say which of the two things
+happened, because distinguishing "a colleague saved" from "the page was deleted"
+costs a round trip on a path that fires once per conflict and both are answered by
+the same instruction: reload, look, decide what to keep.
+
+`src/lib/__tests__/content-concurrency.test.ts` covers all of it.
+
 ### A revision preserves the hero *and* the publish date
 
 `content_revisions` has a `featured_image` column (migration `20260930000000`;
@@ -528,6 +582,7 @@ handle used to be a decorative `<span>`.
 - `src/lib/__tests__/editor-history.test.ts`, `draft-recovery.test.ts` — the two modules
 - `src/lib/__tests__/content-media.test.ts` — upload rules, reference-safe delete
 - `src/lib/__tests__/content-revisions.test.ts` — restore writes the revision hero **and** the revision publish date back
+- `src/lib/__tests__/supabase-mock.ts` — the shared row-based builder every action test should use. Not a database: no joins, RLS or transactions. It models the *builder's* semantics, which is where a hand-rolled stub diverges from the API and either fails on correct code or passes on code that would 4xx
 - `__tests__/ContentEditor.publish.test.tsx` — unsaved work goes out with the publish; a clean document still takes the status-only path
 - `__tests__/ContentEditor.revisions.test.tsx` — row labels, the diff, confirm-only restore, cancel backs out
 - `__tests__/ConfirmAction.test.tsx` — the shared destructive-action contract
@@ -537,6 +592,8 @@ handle used to be a decorative `<span>`.
 - `src/lib/__tests__/content-links.test.ts` — `isLinkableHref`
 - `src/lib/__tests__/image-size.test.ts` — header parsing against **real encodings** (fixtures produced with `sips` / `cwebp`, expected values taken from the OS decoder, so a hand-written header cannot agree with a mistaken idea of the format), plus the marker walk and the WebP container's rejection paths
 - `src/lib/__tests__/blocks.test.ts` — the sanitizer-parity property, and that an image's measured dimensions survive sanitize and parse back
+- `src/lib/__tests__/content-concurrency.test.ts` — the `updated_at` precondition: refuses without writing, returns the version the trigger wrote, three consecutive saves all succeed, and a null claim uses `.is()`
+- `src/lib/__tests__/content-media.test.ts` — upload rules, reference-safe delete. Row-based, so the **query** is under test: mutating the reference check's column, or removing its filter, fails here
 
 ## Known limitations
 

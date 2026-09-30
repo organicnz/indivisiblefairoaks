@@ -73,6 +73,29 @@ const contentSchema = z.object({
     .nullable()
     .optional(),
   publishedAt: z.string().datetime().nullable().optional(),
+  /**
+   * The `updated_at` this edit was based on, as a precondition on the write.
+   *
+   * Two organizers on one page is the normal case for a volunteer group, and
+   * without this the second save silently discards the first one's work —
+   * last-write-wins with no signal at all, on the one surface whose entire
+   * purpose is to look after written work.
+   *
+   * Three states, and they mean different things:
+   *   - omitted — no precondition. A caller that does not know the row's
+   *     version (a restore, a test, anything older) keeps the old behaviour
+   *     rather than being locked out of saving.
+   *   - a string — write only if the row still carries this timestamp.
+   *   - `null`  — write only if the row's timestamp *is* null. Distinct from
+   *     omitted: `expectedUpdatedAt: null` is a claim about the row, and
+   *     conflating the two would silently disable the guard for any page whose
+   *     timestamp happens to be unset.
+   *
+   * `.max(64)` rather than `.datetime()`: this value is only ever compared for
+   * equality, so rejecting an unfamiliar-but-valid timestamp would block a
+   * legitimate save to protect nothing.
+   */
+  expectedUpdatedAt: z.string().max(64).nullable().optional(),
   /** Free-form SEO/structured fields the editor exposes as key/value rows. */
   metadata: z.record(z.string().max(80), z.string().max(2000)).default({}),
 });
@@ -174,7 +197,9 @@ function revalidateContent(slug?: string | null, previousSlug?: string | null): 
   revalidatePath('/search');
 }
 
-export async function saveContent(rawInput: ContentInput): Promise<ActionResult<{ id: number }>> {
+export async function saveContent(
+  rawInput: ContentInput
+): Promise<ActionResult<{ id: number; updatedAt: string | null }>> {
   const { adminClient } = await requireAdmin();
   const parsed = contentSchema.safeParse(rawInput);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message || 'Invalid input');
@@ -229,23 +254,57 @@ export async function saveContent(rawInput: ContentInput): Promise<ActionResult<
       .maybeSingle();
     if (!previous) return fail('That page no longer exists');
 
-    const { error } = await adminClient.from('content').update(row).eq('id', data.id);
+    // The precondition rides on the same UPDATE rather than on a separate
+    // SELECT-then-UPDATE. Checking first would leave a window between the two
+    // statements in which a colleague's save lands and is then overwritten —
+    // the guard would pass and still lose their work.
+    //
+    // `.select(...)` is what makes the outcome observable: an UPDATE that
+    // matches no rows returns `error: null` and `data: null`, which is
+    // indistinguishable from success. Asking for the row back is the only way
+    // to tell "wrote it" from "someone else moved it".
+    let update = adminClient.from('content').update(row).eq('id', data.id);
+    if (data.expectedUpdatedAt === null) {
+      update = update.is('updated_at', null);
+    } else if (typeof data.expectedUpdatedAt === 'string') {
+      update = update.eq('updated_at', data.expectedUpdatedAt);
+    }
+
+    const { data: written, error } = await update.select('id, updated_at').maybeSingle();
+
     if (error) return fail(error.message);
+    if (!written) {
+      // Either a colleague saved in between, or the row was deleted outright.
+      // Distinguishing the two costs a second round trip on a path that fires
+      // once per conflict, and both are answered by the same action: reload,
+      // see what is there, decide what to keep.
+      return fail(
+        'Someone else saved this page while you were editing it. Reload to see their version, then reapply your changes.'
+      );
+    }
+
     revalidateContent(data.slug, previous.slug);
-    return { success: true, data: { id: data.id } };
+    // The `updated_at` the trigger just wrote, not a timestamp generated here.
+    // The editor has to learn the new value or its next autosave would conflict
+    // with itself — which is the failure mode that would make this feature
+    // unusable within two seconds of enabling it.
+    return { success: true, data: { id: written.id, updatedAt: written.updated_at } };
   }
 
   const { data: created, error } = await adminClient
     .from('content')
     .insert(row)
-    .select('id')
+    .select('id, updated_at')
     .single();
   if (error) {
     if (error.code === '23505') return fail(`/${data.slug} is already used by another page.`);
     return fail(error.message);
   }
   revalidateContent(data.slug);
-  return { success: true, data: { id: created.id } };
+  // `updated_at` is returned for the same reason as on update: the editor keeps
+  // it as the precondition for its next write, so a freshly created page does
+  // not conflict with itself on the first autosave.
+  return { success: true, data: { id: created.id, updatedAt: created.updated_at } };
 }
 
 export async function setContentStatus(

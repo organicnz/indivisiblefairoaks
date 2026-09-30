@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const requireAdmin = vi.hoisted(() => vi.fn());
-const fromTable = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/admin-auth', () => ({ requireAdmin }));
 vi.mock('server-only', () => ({}));
@@ -23,10 +22,23 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key';
 
 const { restoreContentRevision } = await import('@/lib/actions/content');
+const { createMockAdminClient, touchUpdatedAt } = await import('./supabase-mock');
 
 const HERO = 'https://indivisiblefairoaks.org/media/hero.jpg';
 
-let updatedRow: Record<string, unknown> | null = null;
+/**
+ * The row a restore writes back to. Separate from the revision being restored,
+ * because conflating them is how a test ends up asserting the restore copied
+ * the *current* state instead of the historic one.
+ */
+const contentRow: Record<string, unknown> = {
+  id: 7,
+  slug: 'test-page',
+  title: 'Current title',
+  body: '<p>Current</p>',
+  status: 'draft',
+  updated_at: '2026-01-01T00:00:00.000Z',
+};
 
 const revisionRow: Record<string, unknown> = {
   id: 99,
@@ -46,53 +58,16 @@ const revisionRow: Record<string, unknown> = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  updatedRow = null;
   // Restores are stateful per-revision; reset the two fields these tests vary.
   revisionRow.status = 'draft';
   revisionRow.published_at = null;
-  requireAdmin.mockResolvedValue({ adminClient: { from: fromTable } });
-  fromTable.mockImplementation((table: string) => new FakeTable(table));
-});
-
-/** Minimal PostgREST stub: only the calls `restoreContentRevision` makes. */
-class FakeTable {
-  private columns = '';
-  private filters: Record<string, unknown> = {};
-
-  constructor(private readonly table: string) {}
-
-  select(columns = '') {
-    this.columns = columns;
-    return this;
-  }
-
-  eq(column: string, value: unknown) {
-    this.filters[column] = value;
-    return this;
-  }
-
-  async maybeSingle() {
-    if (this.table === 'content_revisions') return { data: revisionRow, error: null };
-    if (this.table === 'content') {
-      if (this.columns.includes('slug') && 'id' in this.filters) {
-        return { data: { slug: 'test-page' }, error: null };
-      }
-      return { data: null, error: null };
-    }
-    return { data: null, error: null };
-  }
-
-  update(payload: Record<string, unknown>) {
-    updatedRow = payload;
-    return { eq: () => Promise.resolve({ error: null }) };
-  }
-}
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  updatedRow = null;
-  requireAdmin.mockResolvedValue({ adminClient: { from: fromTable } });
-  fromTable.mockImplementation((table: string) => new FakeTable(table));
+  contentRow.updated_at = '2026-01-01T00:00:00.000Z';
+  requireAdmin.mockResolvedValue({
+    adminClient: createMockAdminClient({
+      content_revisions: { rows: [revisionRow] },
+      content: { rows: [contentRow], onUpdate: touchUpdatedAt() },
+    }),
+  });
 });
 
 describe('restoreContentRevision', () => {
@@ -100,7 +75,7 @@ describe('restoreContentRevision', () => {
     const result = await restoreContentRevision(7, 99);
 
     expect(result).toMatchObject({ success: true });
-    expect(updatedRow?.featured_image).toBe(HERO);
+    expect(contentRow.featured_image).toBe(HERO);
   });
 
   /**
@@ -120,10 +95,10 @@ describe('restoreContentRevision', () => {
     const result = await restoreContentRevision(7, 99);
 
     expect(result).toMatchObject({ success: true });
-    expect(updatedRow?.published_at).toBe('2026-03-14T18:00:00.000Z');
+    expect(contentRow.published_at).toBe('2026-03-14T18:00:00.000Z');
     // The absence of a fresh "now" is the whole point: anything else here would
     // put a restored March post at the top of the news feed.
-    expect(updatedRow?.published_at).not.toBe(undefined);
+    expect(contentRow.published_at).not.toBe(undefined);
   });
 
   it('leaves published_at alone for a draft, which has no date to keep', async () => {
@@ -133,6 +108,6 @@ describe('restoreContentRevision', () => {
     const result = await restoreContentRevision(7, 99);
 
     expect(result).toMatchObject({ success: true });
-    expect(updatedRow?.published_at).toBeNull();
+    expect(contentRow.published_at).toBeNull();
   });
 });
