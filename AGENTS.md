@@ -350,13 +350,12 @@ on demand. Outstanding fixes are listed in
 Four functions deploy `--no-verify-jwt` and are therefore publicly callable, which
 is why an unread credential sitting in the edge store is a finding, not a nit.
 
-**`CRM_BROADCAST_FUNCTION_URL` was unset in production as of 2026-09-29.** Until
-it is set, every broadcast fails safely with "the broadcast sender is not
-configured on this deployment" and nothing is queued. Value:
+**`CRM_BROADCAST_FUNCTION_URL` was set in production on 2026-09-30** as a
+non-sensitive Production config var. It takes effect on the next production
+deployment; until then, every broadcast still fails safely with "the broadcast
+sender is not configured on this deployment" and nothing is queued. Value:
 `https://<project-ref>.supabase.co/functions/v1/crm-broadcast-send`. It is a
-plain URL, not a credential, but it belongs in a secret store only if the
-`secrets:audit` reconciler is taught about it — it is a *name*, and the four
-stores disagree about where names live. See
+plain URL, not a credential, and the registry expects it in `vercel-var`. See
 [`docs/crm-operations.md`](./docs/crm-operations.md#configuration).
 
 ---
@@ -489,11 +488,12 @@ own docs, because their failure modes are invisible to review and to unit tests.
 
 - **Content editor** — [`docs/content-editor.md`](./docs/content-editor.md).
   Block model in `src/lib/blocks/`, shell in `ContentEditor.tsx`, server actions
-  in `src/lib/actions/content.ts`. Two invariants matter most: autosave persists
+  in `src/lib/actions/content.ts`. Three invariants matter most: autosave persists
   with the document's *current* publish state (an earlier version hardcoded
-  `draft` and quietly unpublished live pages), and image deletion checks
+  `draft` and quietly unpublished live pages); image deletion checks
   `content.body`, `content.featured_image` **and** `content_revisions.body`
-  before removing an object.
+  before removing an object; and a revision restore writes the revision's
+  `featured_image` back instead of clearing the hero.
 - **CRM and broadcasting** — [`docs/crm-operations.md`](./docs/crm-operations.md).
   Delivery is off the request path: the action writes a `queued` row and the
   `crm-broadcast-send` Edge Function owns delivery and progress. A self-test

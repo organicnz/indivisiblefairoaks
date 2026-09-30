@@ -125,6 +125,17 @@ DOM's own history, which knows nothing about the block model.
 came back to loses an author's trust permanently. Keep the "Restore" / "Discard"
 choice, keep the per-content-id key, and keep the freshness checks.
 
+### 10. Revisions must preserve the featured image
+
+The trigger treats a hero change as revision-worthy, so the revision row has to
+hold it: `content_revisions.featured_image`, stored from `OLD.featured_image`,
+restored by `restoreContentRevision` instead of `null`.
+
+A restore that clears the hero is the same failure as the unconditional
+`storage.remove()`: a control labelled "Restore" deleting data the author did
+not ask to delete. Pre-migration rows have `NULL` and restore as before; only
+newer revisions carry the image.
+
 ## Before you finish
 
 ```bash
