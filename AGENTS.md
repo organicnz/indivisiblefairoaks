@@ -58,12 +58,25 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
 ### Supabase backend
 - PostgreSQL with RLS on every user-facing table. Anon key = read-only + insert on allowlisted tables only.
 - Auth includes MFA support. Middleware enforces session checks on `/account`, `/admin`, `/login` **only** — do not expand middleware scope without checking Fluid CPU budget.
-- Edge Functions: `notify-contact`, `stripe-webhook`, `health`. Invoked directly from Server Actions; never call Edge Functions from Client Components.
+- Edge Functions: `notify-contact`, `checkout`, `search`, `webhook`, `health`,
+  `wall-e-chat`, `walle-refresh`, `crm-broadcast-send`. All are deployed by
+  `.github/workflows/supabase.yml`; `crm-broadcast-send` joined that list only
+  recently, and until it did, `CRM_BROADCAST_FUNCTION_URL` pointed production at
+  a route no pipeline shipped. Invoked directly from Server Actions; never call
+  Edge Functions from Client Components.
+  **JWT verification is on unless a step says `--no-verify-jwt`.** Four functions
+  are deliberately public (`notify-contact`, `search`, `webhook`, `health`);
+  `checkout`, `wall-e-chat`, `walle-refresh` and `crm-broadcast-send` require a
+  key. A step that silently loses the flag turns a credentialed endpoint into a
+  public one; one that silently gains it makes an internal endpoint unreachable.
+  The `verify` job probes each function and asserts the specific expected code —
+  400, 400|401, 405, or 401 for `crm-broadcast-send` — so neither direction passes
+  silently. **A config var and a deploy step have to land together.**
 - `supabase/config.toml` governs the **local** CLI stack only. The hosted
   project's `site_url` / `additional_redirect_urls` live in the dashboard —
   Authentication → URL Configuration. Magic links and OAuth callbacks fail
   closed against that list, so an apex cutover that misses it strands every user.
-- **RLS role-repair pattern**: after project restore/re-provisioning, policy→role OID references can orphan (`pg_policies` shows `{public}` but matches nobody). Playbook: `DROP POLICY … ; CREATE POLICY … TO authenticated …`. Reference: `20260825160000_contact_rls_role_repair.sql`.
+- **RLS role-repair pattern**: after project restore/re-provisioning, policy→role OID references can orphan (`pg_policies` shows `{public}` but matches nobody). Playbook: `DROP POLICY … ; CREATE POLICY … TO authenticated …`. There is no dedicated migration for this — the pattern responds to a re-provisioning event rather than a schema change, so it lives in `scripts/rls-role-repair.mjs` and not in `migrations/`.
 
 ### Commerce
 - `src/config/commerce.ts` owns currency, shipping rates and price formatting.
@@ -366,8 +379,17 @@ non-sensitive Production config var. It takes effect on the next production
 deployment; until then, every broadcast still fails safely with "the broadcast
 sender is not configured on this deployment" and nothing is queued. Value:
 `https://<project-ref>.supabase.co/functions/v1/crm-broadcast-send`. It is a
-plain URL, not a credential, and the registry expects it in `vercel-var`. See
+plain URL, not a credential, and the registry expects it in `vercel-var` — which is the
+inverse of the mistake the audit exists to catch, since `vercel env add` stores values as
+**Sensitive/Secret** by default. See
 [`docs/crm-operations.md`](./docs/crm-operations.md#configuration).
+
+**Setting the variable alone was not the fix and never could have been.**
+`crm-broadcast-send` was not in `.github/workflows/supabase.yml`, so the variable
+pointed production at a route no pipeline shipped — while `secrets.manifest.mjs` already
+marked `RESEND_API_KEY` and `APP_URL` required *for that function*, so the workflow was
+asserting secrets for code nothing deployed. It is now deployed by that workflow (JWT
+verification on) and probed with the publishable key expecting a 401.
 
 ---
 
@@ -421,7 +443,18 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **pre-push**: lint → unit → typecheck → coverage ≥90% → production build → peer-deps → **Playwright e2e delivery gate** (full suite, `workers=2`) when the push range touches `src/`, `e2e/`, `public/`, `supabase/`, app configs, or the lockfile. Docs-only pushes skip e2e with an explicit note.
+- **pre-push**: lint → unit → typecheck → coverage → production build → peer-deps → **Playwright e2e delivery gate** (full suite, `workers=2`) when the push range touches `src/`, `e2e/`, `public/`, `supabase/`, app configs, or the lockfile. Docs-only pushes skip e2e with an explicit note.
+- **The coverage gate is per-file, not a global percentage, and that is deliberate.**
+  Vitest's bare `statements: 90` is checked against the *aggregate* over every included
+  file, so a stricter file cannot raise it and a looser one silently lowers it for
+  everything else. `vitest.config.ts` therefore names globs: 90 across the board, with
+  `src/lib/actions/crm.ts` on an explicit floor of **88 / 76 / 100 / 93**. That file
+  (1,700 lines holding every CRM mutation, the dispatch, the recipient resolution, the
+  rate limits and the e2e guard) was in **no threshold at all** until recently — it was
+  not in the `include` list — which is how a ceiling refusal stayed dead code and a
+  `created_by` column stayed unwritten with the pipeline green. Its remaining uncovered
+  branches are `?? 0` / `?? 'draft'` defences against `NOT NULL` columns. The floor is a
+  ratchet, not an exemption: it can only go up.
 - Bypasses (documented in `lefthook.yml`): `LEFTHOOK=0`, `LEFTHOOK_EXCLUDE=<command>`.
 
 ---
@@ -458,6 +491,28 @@ Deliberately left undone. None block the apex cutover.
 6. **`/products` categories query logs a prerender warning** during builds. It is
    caught and degrades gracefully, but the fetch should move inside the
    Suspense boundary that actually needs it.
+7. **Tags are not case-normalised in the CRM.** The CSV importer lowercases them,
+   but a tag typed into the contact editor is stored as written, so `Choir` and
+   `choir` are two different tags in the database and the filter offers both. The
+   fix is a one-time `UPDATE … lower(tags)` plus lowercasing at the editor
+   boundary — a data change, so it belongs to the chapter, not to a deploy.
+8. **The admin surfaces have no axe coverage and no seeded session.** `/admin` is
+   excluded from `e2e/a11y.spec.ts` because the auth-gated routes have no session,
+   so the editor and the CRM have zero browser coverage: the preview, the
+   revision diff, the slash menu and the broadcast composer are all unit-tested
+   and never exercised in a real browser. A seeded admin session in e2e is the
+   highest-value next test investment, and it is also the thing that would let
+   `sendBlockedInE2E()` be verified end to end rather than by inspection.
+9. **`/admin` has no concurrent-edit detection.** Two organizers on one page are
+   last-write-wins with no warning. A `content.updated_at` precondition on
+   `saveContent` would catch it.
+10. **`lefthook.yml` is 1,100 lines because the logic lives in YAML.** About
+   twenty-five of the twenty-nine pre-commit guards are inline `run: |` bash
+   blocks, and nearly every one carries a five-to-fifteen-line rationale comment
+   and a multi-line remediation block. The content is right; the shape is drift,
+   visible in duplicated section numbers and orphan comments. Moving each body
+   into `scripts/hooks/*.mjs` would take it to roughly 400 lines. Worth doing
+   before the next guard is added rather than after.
 
 ---
 
@@ -571,12 +626,12 @@ README/AGENTS/CLAUDE docs, ProductCard + Gallery design hardening, end-to-end QA
 **Phase 5 — Stack Hardening** ✅
 - Error telemetry: `error_reports` table (anon insert-only RLS) + rate-limited `/api/report-error` wired into `error.tsx` / `global-error.tsx`.
 - Full-text search: weighted `tsvector` generated columns + GIN indexes + ranked RPCs (`search_products`, `search_content`); `/search` uses FTS with ILIKE fallback.
-- A11y regression gate: `@axe-core/playwright` over 8 public routes; serious/critical violations fail CI.
+- A11y regression gate: `@axe-core/playwright` over 12 public routes; serious/critical violations fail CI. `/admin` is excluded — the auth-gated surfaces have no seeded session, so the editor and the CRM have no automated a11y coverage at all.
 - Contrast remediation: `--primary-ink` token for lime-on-light text; lime-bg CTAs use dark text; raw lime reserved for dark non-text accents.
 - Bundle hygiene: removed dead `mime-types`; React Query devtools dev-only gated.
 - Cart crash fix: `env.ts` was spreading `process.env` (empty client stub → ZodError). Public vars now use dotted property access (inlined by bundler); spreads are server-only.
 - Contact email delivery: `notify-contact` Edge Function invoked directly from the server action; atomic `email_sent_at` claim prevents duplicate sends; global 20/10-min volume cap resists anon floods; opt-in sender copy locked to the submitter's own address.
 - Daily compatibility workflow: nightly CI with frozen install, lint/types/unit/build/e2e, live health probes, advisory AI diff review (never gates CI).
-- RLS role-repair: `20260825160000_contact_rls_role_repair.sql` — recreate-and-rebind playbook for orphaned policy→role OID references.
+- RLS role-repair: `scripts/rls-role-repair.mjs` — the recreate-and-rebind playbook for orphaned policy→role OID references. It is a script rather than a migration because it responds to a re-provisioning event, not to a schema change.
 
 </details>

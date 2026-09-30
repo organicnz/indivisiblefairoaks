@@ -56,7 +56,7 @@ Full rules: `.agents/skills/vercel-composition-patterns/AGENTS.md`
 Project-specific context:
 - The skill fetches live guidelines from `vercel-labs/web-interface-guidelines`. Internet access required.
 - Pair with WCAG contrast checks: `--primary-ink` (#1e3a8a) on white passes AA; raw lime (#D1FF00) on white fails — do not use it for text.
-- The a11y regression gate (`e2e/a11y.spec.ts`) uses `@axe-core/playwright` over 8 public routes. New routes should be added to that suite.
+- The a11y regression gate (`e2e/a11y.spec.ts`) uses `@axe-core/playwright` over 12 public routes. `/admin` is excluded — the auth-gated surfaces have no seeded session, so the editor and the CRM have no automated a11y coverage at all. New public routes should be added to that suite.
 
 Entry: `.agents/skills/web-design-guidelines/SKILL.md`
 
@@ -97,7 +97,7 @@ Entry: `.agents/skills/deploy-to-vercel/SKILL.md`
 Project-specific context:
 - `VERCEL_TOKEN` should be in GitHub Secrets only — never in `.env.local` or committed files.
 - `VERCEL_PROJECT_ID` and `VERCEL_ORG_ID` are in `.vercel/project.json`.
-- The CI workflow (`daily-compat.yml`) already handles token-based CLI usage — check it before adding new automation.
+- There is no `daily-compat.yml`; the file is `.github/workflows/ci.yml`, and its CLI `deploy-vercel` job was **removed on purpose** (spare previews, doubled upload consumption, the free tier's `api-upload-free` rate limit). Do not re-add it. Token-based CLI usage belongs in `secret-audit.yml`, which holds `VERCEL_TOKEN` and `SUPABASE_ACCESS_TOKEN`.
 
 Entry: `.agents/skills/vercel-cli-with-tokens/SKILL.md`
 
@@ -148,7 +148,7 @@ Entry: `.agents/skills/vgpu/SKILL.md`
 ---
 
 ### `cms-editor-and-crm`
-**Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, or the broadcast Edge Function.
+**Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, `src/lib/trusted-links.ts`, `src/lib/own-media.ts`, the broadcast Edge Function, or a coverage threshold in `vitest.config.ts`.
 
 **Project-specific, not vendored.** Unlike the skills above, this one is written
 for this codebase and is not pinned in `skills-lock.json` — so it *can* be edited,
@@ -165,6 +165,19 @@ tests:
   mocks the Supabase client. `crm_broadcasts.status` omitted `'queued'`, so
   **no broadcast had ever been sent**, and unit tests were green throughout.
 - A test run that emails the chapter admins from a system they are not operating.
+- A **narrowing guard written as a conjunction over two nullable columns** looks
+  unconditional and is not: `test_only === true && typeof test_recipient === 'string'`
+  evaluated false for a `test_only` row whose address was never written, and the
+  sender then mailed every opted-in contact.
+- A **limit enforced by counting** cannot tell "this is all of them" from "this is
+  all I was allowed to look at". The recipient ceiling compared against a pager
+  that could return at most exactly the ceiling, so the refusal was dead code and
+  a 12,000-person audience went out as 5,000.
+- A **duplicated allowlist** drifts silently. The trusted-domain rule was three
+  copies; the editor's was eleven domains narrower than the sanitizer's, and it
+  told authors their links would be removed when they would not have been.
+- A **file outside the coverage `include` list** cannot fail a gate. `crm.ts` was
+  in no threshold at all, which is how both of the two above shipped.
 
 Entry: `.agents/skills/cms-editor-and-crm/SKILL.md`
 Full context: [`docs/content-editor.md`](./docs/content-editor.md), [`docs/crm-operations.md`](./docs/crm-operations.md)
