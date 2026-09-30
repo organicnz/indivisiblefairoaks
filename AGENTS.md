@@ -405,6 +405,20 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
+- **No workflow in this repository can currently run.** `runs-on:
+  [self-hosted, linux, X64, …]` is correct, but this repository is listed in
+  `ghrunner`'s `UNSERVED` file, so no runner is provisioned for it and every job
+  queues forever. `cancel-in-progress` hides the queue, and the Vercel /
+  GitGuardian / CodeRabbit checks still report green, so a merged PR looks
+  healthy. Full diagnosis, the two commands that answer it, and the fix are in
+  [`docs/ci-runners.md`](./docs/ci-runners.md). **Do not "fix" this by changing
+  the platform label** — that is what `67a4e08` nearly did in reverse, and a
+  hand-registered ARM64 Mac satisfies the selector and then fails in
+  `Prepare workflow directory`.
+- **The local lefthook gates are therefore the real gates**, and they do run on
+  every push: 24 pre-commit guards, then lint → unit → coverage → types → build →
+  peer-deps → 112 Playwright specs. Migrations and Edge Functions are deployed
+  deliberately with the Supabase CLI rather than by `supabase.yml`.
 - **Every workflow declares an explicit `permissions:` block.** Two that hold
   credentials previously inherited the repository default, which may grant
   write.

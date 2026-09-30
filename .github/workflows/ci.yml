@@ -6,38 +6,51 @@ on:
   pull_request:
     branches: [main, mainDeploy]
 
-# ── Runner labels: ARM64, and this has been "corrected" twice already ───────
-# `runs-on: [self-hosted, linux, ARM64, …]` is not a typo and not a stale
-# assumption. Read this before changing it to X64.
+# ── Why every job here has never run ───────────────────────────────────────
+# `runs-on: [self-hosted, linux, X64, …]` is correct and should stay. The
+# platform label is not the problem, so read this before touching it.
 #
-# The one registered runner for this repository is `personal-organicnz`, an
-# Apple-silicon macOS host, labelled:
-#   self-hosted, Linux, ARM64, frontend-runner, backend-runner
-# GitHub matches `self-hosted`/`linux` case-insensitively, so `ARM64` is the
-# only platform label that selector can satisfy.
+# Self-hosted runners for this organisation are provisioned by **ghrunner**, a
+# fleet manager running as rootless Podman + Quadlet on one x86_64 VPS behind
+# Tailscale (../ghrunner). A repository is served only when it has an
+# `instances/<id>.env` declaring `REPO_URL`, and the fleet's own coverage auditor
+# is what tells you whether one exists.
 #
-# `67a4e08` changed these from ARM64 to X64 after diagnosing a *different*
-# machine — an Azure `Standard_B2ats_v2` (x86_64, systemd, `uname -m` =
-# x86_64). That host is not registered with this repository any more. The change
-# was correct about the host it investigated and wrong about the fleet that
-# exists, and the failure is completely silent: a `runs-on` selector matching
-# nothing does not error, it queues forever.
+# **`organicnz/indivisiblefairoaks` is listed in ghrunner's `UNSERVED`.** The
+# auditor says, verbatim:
 #
-# The tell that the workflows were written for an ARM host all along: every
-# install step downloads `supabase_linux_arm64.tar.gz`. That tarball does not run
-# on x86_64.
+#   no runner serves this repository, and `UNSERVED` says that is intended.
+#   Its jobs queue until the declaration is removed.
 #
-# How it looked from the outside: every run sat at `queued` while the runner sat
-# `online, busy: false`, and `concurrency: cancel-in-progress: true` quietly
-# cancelled each run as the next push arrived. A green tick next to a merged PR
-# meant nothing, because no job had ever started.
+# So the jobs queue *by design*. A `runs-on` selector that matches nothing does
+# not error — it waits forever — and `cancel-in-progress: true` below cancels the
+# previous run as the next push lands, so the queue never visibly grows. The run
+# history reads as a series of quiet `cancelled` runs with a green tick beside the
+# merged PR, which is the most dangerous kind of fake control: indistinguishable
+# from passing.
 #
-# **To verify this file after any change here, do not read the run list — check
-# that a job actually leaves `queued`:**
-#   gh run list --branch main --limit 5
+# To serve this repository, and *only* if that is wanted:
+#
+#   1. write instances/<id>.env in ../ghrunner with
+#      REPO_URL=https://github.com/organicnz/indivisiblefairoaks
+#      LABELS=self-hosted,linux,X64,frontend-runner,backend-runner
+#   2. delete the organicnz/indivisiblefairoaks entry from UNSERVED
+#   3. run `runner-fleet sync`
+#
+# The audit will then report the repo as served, and will flag the UNSERVED entry
+# as stale if you forget step 2.
+#
+# **Do not diagnose this from the run list.** A queued job and an unservable
+# selector look identical there. Ask the two questions that can tell them apart:
+#
 #   gh api repos/$REPO/actions/runners -q '.runners[].labels[].name'
-# A selector no runner satisfies is indistinguishable from a slow machine in the
-# run list. It is only distinguishable by asking the runners endpoint.
+#   cargo run -q -p fleet-coverage -- --root .        # in ../ghrunner
+#
+# Note also that a hand-registered runner for this repository exists
+# (`personal-organicnz`, an Apple-silicon Mac). It satisfies the label selector
+# well enough for jobs to be *dispatched*, and then fails in
+# "Prepare workflow directory" — so a green runner list is not evidence that a
+# job can run either.
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -65,7 +78,7 @@ jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +104,7 @@ jobs:
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
     name: Tests & Coverage
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -111,7 +124,7 @@ jobs:
   # ── 3. Build ─────────────────────────────────────────────────────────────────
   build:
     name: Next.js Build
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     needs: [lint, test]
     timeout-minutes: 20
     steps:
@@ -146,7 +159,7 @@ jobs:
   # ── 4. E2E Tests ─────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     needs: [build]
     timeout-minutes: 30
     steps:
@@ -200,7 +213,7 @@ jobs:
   # it (api-upload-free) into permanent red. Don't re-add it.
   health-probe:
     name: Live Health Probe
-    runs-on: [self-hosted, linux, ARM64, frontend-runner]
+    runs-on: [self-hosted, linux, X64, frontend-runner]
     # CI build completion is the sync point: by then the Git-driven
     # Vercel deploy (~3-4 min) is settled or nearly so; the 90 s
     # retry loop below absorbs the remainder.
