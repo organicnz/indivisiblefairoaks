@@ -181,8 +181,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           excerpt: string | null
+          featured_image: string | null
           id: number
           metadata: Json
+          published_at: string | null
           slug: string | null
           status: string | null
           title: string | null
@@ -194,8 +196,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           excerpt?: string | null
+          featured_image?: string | null
           id?: number
           metadata?: Json
+          published_at?: string | null
           slug?: string | null
           status?: string | null
           title?: string | null
@@ -207,8 +211,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           excerpt?: string | null
+          featured_image?: string | null
           id?: number
           metadata?: Json
+          published_at?: string | null
           slug?: string | null
           status?: string | null
           title?: string | null
@@ -319,6 +325,7 @@ export type Database = {
           target_tags: string[]
           test_only: boolean
           test_recipient: string | null
+          updated_at: string
         }
         Insert: {
           body: string
@@ -337,6 +344,7 @@ export type Database = {
           target_tags?: string[]
           test_only?: boolean
           test_recipient?: string | null
+          updated_at?: string
         }
         Update: {
           body?: string
@@ -355,6 +363,7 @@ export type Database = {
           target_tags?: string[]
           test_only?: boolean
           test_recipient?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

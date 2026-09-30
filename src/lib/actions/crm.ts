@@ -27,17 +27,7 @@ export type CRMContact = Database['public']['Tables']['crm_contacts']['Row'];
 export type CRMContactInsert = Database['public']['Tables']['crm_contacts']['Insert'];
 export type CRMContactUpdate = Database['public']['Tables']['crm_contacts']['Update'];
 export type CRMActivity = Database['public']['Tables']['crm_activities']['Row'];
-export type CRMBroadcastRow = Database['public']['Tables']['crm_broadcasts']['Row'];
-
-/**
- * `updated_at` arrives with migration 20260930120000 and the generated types
- * follow the live schema, so the column is declared here rather than in
- * `src/types/supabase.ts` — hand-editing that file is exactly what the
- * `types:generate` step exists to prevent, and the property is a structural
- * merge rather than an override, so it disappears on its own once the migration
- * is applied and the types are regenerated.
- */
-export type CRMBroadcast = CRMBroadcastRow & { updated_at?: string | null };
+export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'];
 export type CRMTask = Database['public']['Tables']['crm_tasks']['Row'];
 export type CRMSegment = Database['public']['Tables']['crm_segments']['Row'];
 
