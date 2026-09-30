@@ -32,6 +32,7 @@ import {
   nextBlockId,
   stripTags,
 } from '@/lib/blocks';
+import { isTrustedLinkHref } from '@/lib/trusted-links';
 import {
   BLOCK_DEFINITIONS,
   type BlockKind,
@@ -313,33 +314,14 @@ export function BlockEditor({ blocks, onChange }: Props) {
   // ── Keyboard handling ───────────────────────────────────────────────────
 
   const onEditableKeyDown = (event: KeyboardEvent<HTMLElement>, block: Block, index: number) => {
-    // Escape closes the menu without touching the document.
+    // Escape closes the menu without touching the document. The rest of the
+    // menu's keys are handled inside `SlashMenu` itself — see the note there on
+    // why they cannot live here: opening the menu moves focus into the search
+    // input, so a handler bound to this element would never see them.
     if (event.key === 'Escape' && slash) {
       event.preventDefault();
       closeSlash();
       return;
-    }
-
-    if (slash && slash.index === index) {
-      const results = searchBlocks(slash.query);
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        setActiveIndex((i) => (results.length ? (i + 1) % results.length : 0));
-        return;
-      }
-      if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        setActiveIndex((i) => (results.length ? (i - 1 + results.length) % results.length : 0));
-        return;
-      }
-      if (event.key === 'Enter' || event.key === 'Tab') {
-        const choice = results[activeIndex];
-        if (choice) {
-          event.preventDefault();
-          applySlashChoice(choice);
-        }
-        return;
-      }
     }
 
     const isEmpty = isTextualBlock(block) && stripTags(block.html).trim() === '';
@@ -490,12 +472,26 @@ export function BlockEditor({ blocks, onChange }: Props) {
                 setDropIndex(null);
               }}
             >
-              {/* Block chrome */}
-              <div className="absolute -left-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+              {/*
+                Block chrome.
+
+                `hover-capable:` gates the reveal. Tailwind v4's `group-hover` is
+                `@media (hover: hover)` underneath, so on a touch device the whole
+                row stayed at `opacity: 0` while remaining clickable and still in
+                the tab order — invisible controls an author could hit by accident
+                and had to Tab to with no visual feedback. Same rule as
+                `ProductCard`'s wishlist button: reveal on hover-capable devices
+                only, and on focus-within for everyone.
+
+                `focus-within` is also what makes the drag grip reachable: it is
+                inside this row, so without it a keyboard user would Tab to a
+                button they cannot see.
+              */}
+              <div className="absolute -left-1 top-1 flex items-center gap-0.5 transition-opacity focus-within:opacity-100 hover-capable:opacity-0 hover-capable:group-hover:opacity-100">
                 <button
                   type="button"
                   onClick={() => openSlash(index)}
-                  aria-label={`Change ${def.label} block`}
+                  aria-label="Insert or change block"
                   title="Add or change block"
                   className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
                 >
@@ -537,7 +533,8 @@ export function BlockEditor({ blocks, onChange }: Props) {
                 </button>
               </div>
 
-              <div className="absolute -right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+              {/* Same hover-capable gate and focus-within escape as the left cluster. */}
+              <div className="absolute -right-1 top-1 flex items-center gap-0.5 transition-opacity focus-within:opacity-100 hover-capable:opacity-0 hover-capable:group-hover:opacity-100">
                 <button
                   type="button"
                   onClick={() => move(index, -1)}
@@ -605,6 +602,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
           position={{ top: slash.top, left: slash.left }}
           onPick={applySlashChoice}
           onQueryChange={(query) => setSlash((s) => (s ? { ...s, query } : s))}
+          onActiveIndexChange={setActiveIndex}
           onClose={closeSlash}
         />
       )}
@@ -871,7 +869,9 @@ function BlockBody({
             label="Image"
             hint="JPEG, PNG, WebP or GIF, up to 5MB"
             value={block.src}
-            onChange={(src) => onUpdate(block.id, { src } as Partial<Block>)}
+            onChange={(src) =>
+              onUpdate(block.id, { src } as Partial<Block>, `type:src:${block.id}`)
+            }
           />
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -997,7 +997,24 @@ function BlockBody({
     return (
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
         <BlockTypeMenu block={block} onPick={onPickBlock} />
-        <div className="overflow-x-auto">
+        {/*
+          WAI-ARIA scrollable-region pattern. An `overflow-x-auto` box is no
+          longer focusable in Chrome or Firefox, so a table wider than the editor
+          — which a four-column block always is — could be scrolled with a mouse
+          and not at all from the keyboard.
+
+          Suppressed per element rather than for the file. `ProductSlider` turns
+          the rule off wholesale in biome.json, which is fine for a 100-line
+          carousel and too broad for this component: it has thirty blocks, and a
+          file-level suppression would hide a real `tabIndex` regression on any
+          of them.
+        */}
+        <section
+          className="overflow-x-auto"
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: WAI-ARIA scrollable region, see AGENTS.md "Scrollable regions must be focusable"
+          tabIndex={0}
+          aria-label="Table block, scrollable"
+        >
           <table className="cw-table">
             <thead>
               <tr>
@@ -1014,7 +1031,15 @@ function BlockBody({
                       onChange={(e) => {
                         const head = [...block.head];
                         head[colIndex] = e.target.value;
-                        onUpdate(block.id, { head } as Partial<Block>);
+                        // The intent is what makes undo coalesce. Without it
+                        // `record()` treats every keystroke as a separate edit
+                        // and one word in a cell costs one undo per letter.
+                        // Keyed by cell, so two columns type as two steps.
+                        onUpdate(
+                          block.id,
+                          { head } as Partial<Block>,
+                          `type:head:${block.id}:${colIndex}`
+                        );
                       }}
                       className="w-full min-w-24 rounded border border-slate-200 bg-white px-2 py-1 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-primary"
                     />
@@ -1050,7 +1075,12 @@ function BlockBody({
                           const rows = block.rows.map((r) => [...r]);
                           while (rows[rowIndex].length < block.head.length) rows[rowIndex].push('');
                           rows[rowIndex][colIndex] = e.target.value;
-                          onUpdate(block.id, { rows } as Partial<Block>);
+                          // Keyed by cell — see the header row's note.
+                          onUpdate(
+                            block.id,
+                            { rows } as Partial<Block>,
+                            `type:cell:${block.id}:${rowIndex}:${colIndex}`
+                          );
                         }}
                         className="w-full min-w-24 rounded border border-slate-200 bg-white px-2 py-1 text-sm focus-visible:ring-2 focus-visible:ring-primary"
                       />
@@ -1077,7 +1107,7 @@ function BlockBody({
               ))}
             </tbody>
           </table>
-        </div>
+        </section>
         {block.rows.length > 0 && (
           <button
             type="button"
@@ -1110,7 +1140,13 @@ function BlockBody({
               onInput={(e) => {
                 const items = [...block.items];
                 items[itemIndex] = e.currentTarget.innerHTML;
-                onUpdate(block.id, { items } as Partial<Block>);
+                // Keyed by item, so a burst of typing inside one bullet is one
+                // undo step and moving to the next bullet starts a new one.
+                onUpdate(
+                  block.id,
+                  { items } as Partial<Block>,
+                  `type:item:${block.id}:${itemIndex}`
+                );
               }}
               onKeyDown={(e) => onKeyDown(e, block, index)}
               className="min-h-[1.5rem] rounded px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -1211,21 +1247,17 @@ function HeadingTag({ level, ...rest }: { level: HeadingLevel } & HTMLAttributes
   return <h4 {...rest} />;
 }
 
-/** Mirrors the sanitizer's trusted-domain rule so the editor can warn early. */
+/**
+ * Mirrors the sanitizer's trusted-domain rule so the editor can warn early.
+ *
+ * The second of two hand-written copies of this, both of which listed only
+ * `indivisiblefairoaks.org` while the sanitizer allowed twelve domains — so a
+ * button pointing at `mobilize.us` or `actblue.com` raised a "this link will be
+ * removed" warning for a link the sanitizer would have kept. The third copy is
+ * gone; this is `isTrustedLinkHref` now.
+ */
 export function isSafeHref(href: string): boolean {
-  const value = href.trim().toLowerCase();
-  if (value.startsWith('/') && !value.startsWith('//')) return true;
-  if (value.startsWith('#') || value.startsWith('mailto:') || value.startsWith('tel:')) return true;
-  try {
-    const url = new URL(value);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
-    return (
-      url.hostname === 'indivisiblefairoaks.org' ||
-      url.hostname.endsWith('.indivisiblefairoaks.org')
-    );
-  } catch {
-    return false;
-  }
+  return isTrustedLinkHref(href);
 }
 
 function SlashMenu({
@@ -1235,6 +1267,7 @@ function SlashMenu({
   position,
   onPick,
   onQueryChange,
+  onActiveIndexChange,
   onClose,
 }: {
   query: string;
@@ -1243,12 +1276,78 @@ function SlashMenu({
   position: { top: number; left: number };
   onPick: (def: (typeof BLOCK_DEFINITIONS)[number]) => void;
   onQueryChange: (query: string) => void;
+  onActiveIndexChange: (index: number) => void;
   onClose: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Keep the highlighted option in view as the selection moves. Without this,
+  // arrowing past the seventh item scrolls the list but leaves the highlight
+  // off-screen, so the author is navigating a list they cannot see.
+  //
+  // Optional-called: `scrollIntoView` is not implemented in jsdom, and a
+  // missing layout API should not take the whole editor down with it.
+  useEffect(() => {
+    const option = listRef.current?.querySelector<HTMLElement>('[data-active="true"]');
+    option?.scrollIntoView?.({ block: 'nearest' });
+  }, []);
+
+  /**
+   * All menu keyboard handling lives here, on the dialog, rather than on the
+   * originating block.
+   *
+   * The arrow/Enter handler used to sit in `onEditableKeyDown`, which is bound to
+   * the block the menu was opened from — but opening the menu moves focus into
+   * this search input, so that handler never fired. Arrow keys, Enter and Tab
+   * were all no-ops, and the only way to pick a block was a mouse click, which a
+   * keyboard user never generates. The editor's primary insertion affordance —
+   * the one advertised in the shortcut hints — was mouse-only.
+   *
+   * Events from the input and from the options both bubble through here, so
+   * focus is free to move within the menu without losing the handling.
+   */
+  const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (results.length === 0) return;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      onActiveIndexChange((results.length + activeIndex + 1) % results.length);
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      onActiveIndexChange((activeIndex - 1 + results.length) % results.length);
+      return;
+    }
+    if (event.key === 'Home') {
+      event.preventDefault();
+      onActiveIndexChange(0);
+      return;
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      onActiveIndexChange(results.length - 1);
+      return;
+    }
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      const choice = results[activeIndex];
+      if (!choice) return;
+      // Tab is bound to "accept" rather than "move on", which is the listbox
+      // convention for a filter field: Tab commits the highlighted choice
+      // instead of escaping to the next control mid-search.
+      event.preventDefault();
+      onPick(choice);
+    }
+  };
 
   return (
     <div>
@@ -1257,29 +1356,40 @@ function SlashMenu({
       <button
         type="button"
         aria-label="Close block menu"
+        tabIndex={-1}
         onClick={onClose}
         className="fixed inset-0 z-40 cursor-default"
       />
       <div
         role="dialog"
         aria-label="Insert block"
+        onKeyDown={onMenuKeyDown}
         className="fixed z-50 w-72 rounded-2xl border border-slate-200 bg-white p-2 shadow-float"
         style={{ top: position.top, left: position.left }}
       >
         <div className="mb-1 flex items-center gap-2 border-b border-slate-100 px-2 pb-2">
           <TypeIcon size={14} className="text-slate-400" aria-hidden="true" />
+          {/*
+            A combobox, not a plain text input. `aria-activedescendant` is what
+            makes the highlighted option announceable while focus stays in the
+            field — the WAI-ARIA listbox pattern, where the options are not
+            themselves focusable. The previous markup had a bare input above a
+            `role="listbox"`, so a screen-reader user was told there were options
+            and given no way to reach the one that was selected.
+          */}
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.preventDefault();
-                onClose();
-              }
-            }}
             placeholder="Search blocks…"
             aria-label="Search blocks"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="slash-menu-listbox"
+            aria-autocomplete="list"
+            aria-activedescendant={
+              results[activeIndex] ? `slash-option-${results[activeIndex].kind}` : undefined
+            }
             className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
           />
           <button
@@ -1293,12 +1403,18 @@ function SlashMenu({
         </div>
 
         {/*
-          A div with role="listbox" rather than a <ul>: the options are buttons
-          driven by arrow keys, which is the combobox/listbox pattern. Putting
+          A div with role="listbox" rather than a <ul>: the options are driven by
+          arrow keys from the combobox above, which is the listbox pattern. Putting
           that role on a <ul> replaces list semantics wholesale and the a11y
           linter is right to object.
         */}
-        <div role="listbox" aria-label="Block types" className="max-h-72 overflow-y-auto">
+        <div
+          id="slash-menu-listbox"
+          ref={listRef}
+          role="listbox"
+          aria-label="Block types"
+          className="max-h-72 overflow-y-auto"
+        >
           {results.length === 0 && (
             <p className="px-3 py-6 text-center text-sm text-slate-500">
               No blocks match “{query}”.
@@ -1306,20 +1422,41 @@ function SlashMenu({
           )}
           {results.map((def, index) => {
             const Icon = def.icon;
+            const isActive = index === activeIndex;
             return (
+              /*
+                Two handlers, on purpose.
+                `onPointerDown` with preventDefault is the mouse/touch/pen path:
+                it fires before the caret leaves the block the menu was opened
+                from, which a plain `click` would already have lost. It also
+                calls `preventDefault`, so no `click` follows it and the two
+                paths cannot double-fire.
+                `onClick` alone would cover keyboard activation, but an option in
+                this pattern is not focusable — focus stays in the combobox — so
+                the dialog's `onKeyDown` is what a keyboard user actually hits,
+                and this is the assistive-technology path that synthesises a click
+                on the active option.
+              */
               <button
-                key={def.kind}
                 type="button"
+                key={def.kind}
+                id={`slash-option-${def.kind}`}
                 role="option"
-                aria-selected={index === activeIndex}
-                // mousedown + preventDefault keeps the caret in the block the menu
-                // was opened from; a plain click would blur it first.
-                onMouseDown={(e) => {
+                aria-selected={isActive}
+                data-active={isActive}
+                // `tabIndex={-1}` keeps the option out of the tab order, which is
+                // the listbox pattern: focus belongs in the combobox and
+                // `aria-activedescendant` carries the selection. The element is
+                // still a real button so that a click, a pointer press and an
+                // assistive technology's synthesised activation all work.
+                tabIndex={-1}
+                onPointerDown={(e) => {
                   e.preventDefault();
                   onPick(def);
                 }}
-                className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors focus-visible:outline-none ${
-                  index === activeIndex ? 'bg-surface-muted' : 'hover:bg-surface-muted'
+                onClick={() => onPick(def)}
+                className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                  isActive ? 'bg-surface-muted' : 'hover:bg-surface-muted'
                 }`}
               >
                 <Icon size={16} className="shrink-0 text-primary" aria-hidden="true" />

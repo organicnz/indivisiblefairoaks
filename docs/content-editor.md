@@ -14,7 +14,10 @@ dependencies — everything is `src/lib/blocks` plus React.
 | Editor shell | `src/components/admin/content/ContentEditor.tsx` | Autosave, save state, revisions, settings. |
 | Block UI | `.../BlockEditor.tsx` | One row per block: toolbar, slash menu, drag handle. |
 | Media | `.../ContentImageInput.tsx` | Picker, drop, paste, alt text. |
-| Links | `.../LinkPopover.tsx` | Toolbar link editing + `isLinkableHref`. |
+| Block inventory | `.../block-definitions.tsx` | The 11 insertable block types: labels, hints, search keywords. |
+| Links — the UI | `.../LinkPopover.tsx` | Toolbar link editing. `isLinkableHref` is a wrapper, not a rule. |
+| Links — **the rule** | `src/lib/trusted-links.ts` | `TRUSTED_DOMAINS`, `isTrustedHost`, `isTrustedLinkHref`, `untrustedLinkReason`. One source of truth. |
+| Media — **the rule** | `src/lib/own-media.ts` | `isOwnImageHost`, `isOwnImageUrl`, `ownImageRemotePatterns`. Which hosts may serve an authored image. |
 | Server actions | `src/lib/actions/content.ts` | CRUD, revisions, upload, delete. |
 
 The serialized body is `useMemo`-derived from the block model, never tracked
@@ -33,6 +36,23 @@ whose entire purpose is to be uneventful must not have.
 Taking a page down stays deliberate, via the Save button. Pinned by
 `ContentEditor.autosave.test.tsx`.
 
+**And neither may the Publish button.** The same bug in a worse place.
+`setContentStatus` writes `status` and `published_at` and nothing else, so
+toggling it with unsaved edits on screen published the *last saved* version and
+dropped the rest — and then set the saved snapshot over the whole field set, which
+marked the editor clean. That short-circuited the autosave effect, stopped the
+`beforeunload` warning, and left the indicator reading **"All changes saved"**. A
+publish that discards an afternoon of writing and reports success, on the button
+most likely to be pressed at the end of a writing session, is the worst failure
+this editor can produce.
+
+When anything is unsaved, `handleToggleStatus` now calls `handleSave(next)` — the
+same guarded path as the button and Cmd+S, so the title and body rules apply there
+too. Pinned by `__tests__/ContentEditor.publish.test.tsx`: the whole document goes
+out at the new status; a body edit is flushed, not just a title; a clean document
+still takes the narrow status-only path; and a failed publish leaves the unsaved
+indicator up.
+
 ### Autosave backs off, and stops on failure
 
 2.5s debounced, existing pages only, never creates a row from a half-typed
@@ -48,6 +68,63 @@ showing against text that has since changed.
 once it is served from the bucket it executes in the site's origin. Paths are
 `content/<slug>-<8 hex>.<ext>`: random rather than timestamped, so two organizers
 uploading `rally.jpg` in the same second cannot collide.
+
+### The hero is an image, and it is on the page
+
+`featured_image` is a hero, not an attachment. It renders at the top of
+`src/app/[slug]/page.tsx` in an `aspect-[16/9]` frame via `next/image` with
+`fill` — a fixed frame rather than `width`/`height` because the CMS accepts an
+arbitrary upload and nothing measures one, so an intrinsic size would be a guess
+and the frame is what prevents layout shift. It is also the `og:image` (through
+`pageMetadata`'s `images`) and the Article JSON-LD `image`.
+
+Three things used to be true at once, and each one is a control that did not do
+what it said:
+
+1. **The field was rendered by no public route.** Stored, revision-tracked,
+   reference-checked on delete, and shown in the editor's preview — and invisible
+   to readers. So the preview was showing an image the published page would not
+   have, which is the opposite of what a preview is for.
+2. **It was a bare URL field, and its only acceptable values were the site's own
+   hosts.** The CMS's own uploader writes to the `media` bucket on the Supabase
+   project and returns a `*.supabase.co` URL, so a hero could not be set from the
+   CMS at all in production. A control the author could fill in and watch come
+   back as an error.
+3. **`saveContent` compared that host against `NEXT_PUBLIC_SITE_URL` alone**,
+   which is the same exclusion.
+
+So the hero now uses the same `ContentImageInput` uploader as an image block, and
+host validation is `isOwnImageUrl` from `src/lib/own-media.ts` — the site origin,
+the Supabase project host, or any `*.supabase.co`, **derived from configuration**
+so it follows the apex cutover without a code sweep. It is absolute http(s)
+only: a `data:` URL would break the crawler that reads the OG tag, and a relative
+one would resolve against whatever host rendered it.
+
+Next *replaces* rather than merges `openGraph`, so a page that declares its own
+`images` discards the `opengraph-image` file convention's output entirely. That
+is why the hero is passed through `pageMetadata` rather than left to the
+convention.
+
+### The block inventory, and the two rules the sanitizer imposes on it
+
+Twelve types exist; **eleven are insertable** from the slash menu.
+`BLOCK_DEFINITIONS` in `.../block-definitions.tsx` is the single inventory —
+labels, hints, search keywords, heading levels, callout tones. `unsupported` is
+the twelfth and is deliberately *not* insertable: it is markup the model has no
+editor for (a definition list, something the migration left behind), preserved
+verbatim and rendered read-only, so that opening a page in the editor and saving
+it does not delete content it cannot represent.
+
+Two sanitizer constraints shape every type, and both are silent when violated:
+
+- **`data-*` is not in the allowlist**, so block identity and variant travel in
+  `class` under the `cw-` prefix. That also dodges every prefix the sanitizer
+  strips (`wp-`, `elementor-`, `freshio-`, `woocommerce`, `yith-`). Renaming a
+  class orphans every stored block.
+- **Three or more directly adjacent anchors are deleted as link spam**, which is
+  why every `button` block carries a `BUTTON_WRAPPER_CLASS` wrapper. A row of
+  calls to action written without knowing this is eaten on publish, and looks
+  fine in the editor.
 
 ### Deleting an image checks every reference first
 
@@ -92,6 +169,20 @@ character. Every handler therefore declares an intent: `type:<field>` for typing
 `null` for a discrete change like deleting a block. Undoing one letter at a time
 is not undo, it is a way to make an editor feel broken.
 
+The claim is only as good as its enforcement, and it had none. Four typing paths —
+the image `src`, table headers, table cells and list items — omitted the argument
+entirely, so undo recorded one step per character in exactly those blocks while
+every other field behaved. Nothing caught it, because the grouping is invisible
+from the DOM.
+
+Two rules make the declaration mean something. **Every `onUpdate` / `setBlocks`
+call passes an intent or an explicit `null`** — omitting the argument is the bug,
+and it reads as tidier code, not riskier. And **the key must be field- and
+position-scoped**: `type:cell:${block.id}:${rowIndex}:${colIndex}`, not
+`type:cell:${block.id}`. Coalescing on the block alone merges edits to two
+different cells into one undo step, which is a quieter failure than
+one-undo-per-character and harder to notice.
+
 Two bugs in this wiring are worth knowing about, because both present as "undo
 silently does nothing":
 
@@ -130,11 +221,30 @@ once the work is saved, so it cannot offer a recovery for text already durable.
 Storage failures are swallowed. A full quota must not break editing; the draft is
 a nicety and the editor is the product.
 
-### Revisions preserve the featured image
+### A revision preserves the hero *and* the publish date
 
-`content_revisions` has a `featured_image` column, and the trigger stores
-`OLD.featured_image`. `restoreContentRevision` writes that value back instead
-of `null`.
+`content_revisions` has a `featured_image` column (migration `20260930000000`;
+the trigger stores `OLD.featured_image`, and `restoreContentRevision` writes it
+back instead of `null`) **and** a `published_at` column (migration
+`20260930120000`; the rewritten trigger stores `OLD.published_at`, treats a date
+change as revision-worthy, and the restore passes it through as `publishedAt`).
+
+The date is the same failure as the hero, in a place nobody was looking.
+`saveContent` re-stamps `published_at = now()` whenever a published page is
+written without one, so restoring a March revision of a post re-dated it to today
+and **jumped it to the top of `/news`** — the exact reordering `setContentStatus`
+was written to prevent, three functions away in the same file. A restore must
+restore the *document*, not just its text.
+
+Pre-migration rows have `NULL` in both columns and restore as before: no hero, and
+the re-dating. `content_revisions` is allowlisted in `scripts/gen-types.mjs`, so
+regeneration keeps it.
+
+**`src/types/supabase.ts` will not have either column until the migrations are
+applied** — it is generated from the *live* project, not from the files. That is
+why both read sites use intersection casts
+(`as ContentRevision & { featured_image?: … }`). Do not "fix" a cast by editing
+the generated file; run `bun run types:generate` after the push.
 
 The trigger already treated a hero change as revision-worthy, but the table had
 nowhere to store it — so a restore silently cleared the hero. Rows written
@@ -174,11 +284,32 @@ classes as `src/app/[slug]/page.tsx`. A preview that styled itself differently
 would be a lie the author ships on.
 
 It is a modal, not a route: the document may be unsaved, and a URL that renders
-unsaved work is a URL that can be shared by accident. Escape closes it, focus
-moves to the close button on open, and a "Draft preview — not published" banner
-keeps it from being mistaken for the live page.
+unsaved work is a URL that can be shared by accident.
 
-- `__tests__/ContentEditor.preview.test.tsx` — modal opens with sanitized body, close button works
+It is built on `@radix-ui/react-dialog` rather than a hand-rolled
+`role="dialog"`. That version declared `aria-modal="true"` and moved focus to the
+close button but **trapped nothing**, so Tab walked out of the preview and into
+the editor behind it, and a keyboard user landed in the body of a document they
+believed they had left. Radix gives the trap, the focus restore on close, and
+Escape — which is why every other modal in this repo already is one. A
+`Dialog.Title` is present, so it is announced as a dialog rather than as an
+unnamed region. A "Draft preview — not published" banner keeps it from being
+mistaken for the live page.
+
+The hero renders in the same 16/9 frame the public page uses, via a plain `<img>`
+rather than `next/image` — the frame reserves the space, which is the property
+the two layouts actually have to agree on. Broken-image state stores *which URL
+failed* rather than a boolean, so picking a different image cannot leave a stale
+"broken" marker.
+
+The date it prints is `createdAt`, the same field the public page prints as
+"Published". It used to pass `publishedAt` — a different column, and `NULL` for
+anything never explicitly published, so the preview showed **no date at all** for
+those pages.
+
+- `__tests__/ContentEditor.preview.test.tsx` — modal opens with sanitized body, close button works, prints the created-at date, holds focus inside the dialog, is announced as a dialog
+- `src/lib/__tests__/trusted-links-parity.test.ts` — the sanitizer's allowlist and the editor's cannot diverge, for any host
+- `src/lib/__tests__/own-media.test.ts` — which hosts may serve an authored image, which may not, and what happens when the env is unconfigured
 
 ### Destructive actions confirm inline, never natively
 
@@ -213,11 +344,30 @@ situation it reports.
 
 - `__tests__/ContentList.publish-state.test.tsx` — View only when live, no draft URL, Preview says why, Publish still reachable
 
-### Links are validated against the same rule the sanitizer enforces
+### One trusted-domain rule, in one module
 
-`isLinkableHref` is the editor's copy of the trusted-domain rule. If the two
-disagree the author finds out on publish: the link looks fine in the editor and
-is then stripped. The predicate rejects lookalike hosts
+`src/lib/trusted-links.ts` owns `TRUSTED_DOMAINS`, `isTrustedHost`,
+`isTrustedLinkHref` and `untrustedLinkReason`. `sanitize.ts` re-exports
+`TRUSTED_DOMAINS` from it; `LinkPopover.isLinkableHref` and
+`BlockEditor.isSafeHref` are one-line wrappers. **Nothing else may hold its own
+list.**
+
+It was three lists, and they had already drifted. The sanitizer allowed twelve
+domains, `LinkPopover` allowed one, and `isSafeHref` carried a hardcoded second
+copy of that one. So an author could not link to `indivisible.org`,
+`actblue.com` or `mobilize.us` — all of which the sanitizer would have kept — and
+the editor told them the link "is removed when the page is published", which was
+false for eleven of the twelve. The failure mode of a duplicated allowlist is not
+a build error; it is a volunteer quietly believing the site is more restrictive
+than it is.
+
+Everything in that module is a pure function over a string, so the editor can
+import it without pulling `sanitize-html` into a client bundle, and
+`untrustedLinkReason` is what the popover shows, so the **wording** cannot drift
+from the rule either. `src/lib/__tests__/trusted-links-parity.test.ts` asserts
+the two agree for every domain on the list, which is what makes adding one safe.
+
+The predicate rejects lookalike hosts
 (`evil-indivisiblefairoaks.org`), protocol-relative `//evil.com`, and
 non-http schemes. `mailto:`, `tel:` and `#anchor` are allowed.
 
@@ -233,18 +383,41 @@ non-http schemes. `mailto:`, `tel:` and `#anchor` are allowed.
 | `Cmd/Ctrl+Shift+Z` or `Cmd+Y` | Redo |
 
 Every pointer affordance has a keyboard equivalent, and every one of them is
-tested. A control that only looks like it works is worse than a visible button —
-the drag handle used to be a decorative `<span>`.
+tested — a claim that was false for as long as it was written here. The slash
+menu, the editor's primary insertion affordance and the one the shortcut table
+above advertises, was mouse-only: it autofocused its own search input while
+Arrow / Enter / Tab were bound to the block it had been opened **from**, so no key
+ever reached a handler and the only way to pick a block was a click. It is now a
+combobox with `aria-activedescendant`, the keys on the dialog (plus Home/End and
+Tab-as-accept), and options that are `role="option"` at `tabIndex={-1}` so focus
+stays in the field.
+
+Two rules generalise it, and both are easy to get wrong again:
+
+- **A menu that moves focus must own its own key handling.** Do not bind the keys
+  on the element the menu was opened from. Every key an author needs inside a
+  floating surface has to be handled on the surface, or it will not fire.
+- **A reveal gated on `group-hover` is invisible on touch.** Tailwind v4's
+  `group-hover` *is* `@media (hover: hover)`, so the block chrome — drag, move,
+  duplicate, delete — sat at `opacity: 0` on a phone while remaining clickable
+  and still in the tab order. Gate with `hover-capable:` and add
+  `focus-within:opacity-100`, per AGENTS.md § Reveal-on-hover.
+
+A control that only looks like it works is worse than a visible button — the drag
+handle used to be a decorative `<span>`.
 
 ## Testing
 
+- `__tests__/BlockEditor.test.tsx` — one editable per block, the type menu, conversion keeps the words, `unsupported` stays read-only and serializable
 - `__tests__/BlockEditor.reorder.test.tsx` — drag, keyboard reorder, link entry
+- `__tests__/BlockEditor.slash-menu.test.tsx` — opens and focuses; Arrow/Home/End; Enter and Tab accept with no mouse event; Escape and backdrop close; query narrowing; `aria-activedescendant`; the viewport-covering backdrop stays out of the tab order
 - `__tests__/ContentEditor.autosave.test.tsx` — the autosave contract
 - `__tests__/ContentEditor.undo.test.tsx` — undo grouping, whole-document restore
 - `__tests__/ContentEditor.draft.test.tsx` — recovery offered, not applied
 - `src/lib/__tests__/editor-history.test.ts`, `draft-recovery.test.ts` — the two modules
 - `src/lib/__tests__/content-media.test.ts` — upload rules, reference-safe delete
-- `src/lib/__tests__/content-revisions.test.ts` — restore writes the revision hero back
+- `src/lib/__tests__/content-revisions.test.ts` — restore writes the revision hero **and** the revision publish date back
+- `__tests__/ContentEditor.publish.test.tsx` — unsaved work goes out with the publish; a clean document still takes the status-only path
 - `__tests__/ContentEditor.revisions.test.tsx` — row labels, the diff, confirm-only restore, cancel backs out
 - `__tests__/ConfirmAction.test.tsx` — the shared destructive-action contract
 - `__tests__/ContentEditor.preview.test.tsx` — modal opens with sanitized body, close button works
@@ -266,3 +439,20 @@ the drag handle used to be a decorative `<span>`.
   wrong for crawlers, but the editor-facing consequence is fixed: a draft row no
   longer links to a URL that cannot resolve, so an author is told which state
   they are in rather than discovering it by clicking.
+- **Scrollable regions have to be told to be focusable, and that is easy to
+  forget.** An `overflow-x-auto` container stopped being focusable by default in
+  Chrome and Firefox, so one without `tabIndex={0}` cannot be scrolled by a
+  keyboard user at all. The directory table and the table block are both
+  `<section aria-label="…" tabIndex={0}>` now, per the WAI-ARIA Scrollable
+  Region pattern. Biome's `noNoninteractiveTabindex` does not model the pattern;
+  it is suppressed per element with the reason, not for the file, because
+  `BlockEditor` has thirty blocks and a file-scope suppression would hide a real
+  regression on any of them.
+- **A large broadcast's progress view gives up after ~30 minutes.** The CRM
+  composer's poll is derived from the recipient ceiling rather than a fixed count,
+  then stops and says the *view* has stopped updating. That is a statement about
+  the tab, not the send. See [`crm-operations.md`](./crm-operations.md) § Recovery.
+- **No concurrent-edit detection.** Two organizers on the same page are
+  last-write-wins with no warning, and a revision restores cleanly enough that
+  the loss is only visible by reading. A `content.updated_at` precondition on
+  `saveContent` would catch it; it is not built.

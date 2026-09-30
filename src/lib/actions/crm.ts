@@ -27,7 +27,17 @@ export type CRMContact = Database['public']['Tables']['crm_contacts']['Row'];
 export type CRMContactInsert = Database['public']['Tables']['crm_contacts']['Insert'];
 export type CRMContactUpdate = Database['public']['Tables']['crm_contacts']['Update'];
 export type CRMActivity = Database['public']['Tables']['crm_activities']['Row'];
-export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'];
+export type CRMBroadcastRow = Database['public']['Tables']['crm_broadcasts']['Row'];
+
+/**
+ * `updated_at` arrives with migration 20260930120000 and the generated types
+ * follow the live schema, so the column is declared here rather than in
+ * `src/types/supabase.ts` — hand-editing that file is exactly what the
+ * `types:generate` step exists to prevent, and the property is a structural
+ * merge rather than an override, so it disappears on its own once the migration
+ * is applied and the types are regenerated.
+ */
+export type CRMBroadcast = CRMBroadcastRow & { updated_at?: string | null };
 export type CRMTask = Database['public']['Tables']['crm_tasks']['Row'];
 export type CRMSegment = Database['public']['Tables']['crm_segments']['Row'];
 
@@ -183,16 +193,24 @@ interface BroadcastRecipient {
  * Resolve the audience for a broadcast. Consent is applied here and nowhere
  * else, so there is exactly one place an opted-out contact can be excluded —
  * the previous inline filter was easy to reorder past.
+ *
+ * The return carries `exhausted`, and it is not incidental. Paging with
+ * `offset < CEILING` cannot distinguish "the audience is this big" from "the
+ * audience is at least this big", and the caller previously guessed by counting
+ * what came back — which caps at exactly the ceiling, so the guess was always
+ * "big enough" and the refusal never ran. `exhausted: true` means the query
+ * itself ran dry, which is the only evidence the list is complete.
  */
 async function resolveBroadcastRecipients(
   adminClient: AdminClient,
   target: BroadcastTarget
-): Promise<BroadcastRecipient[]> {
+): Promise<{ recipients: BroadcastRecipient[]; exhausted: boolean }> {
   const targetTags = target.targetTags ?? [];
   const targetStatus = target.targetStatus ?? [];
   const targetDistricts = target.targetDistricts ?? [];
   const PAGE = 1000;
   const recipients: BroadcastRecipient[] = [];
+  let exhausted = false;
 
   for (let offset = 0; offset < BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
     let qb = adminClient
@@ -208,11 +226,18 @@ async function resolveBroadcastRecipients(
 
     const { data, error } = await qb.range(offset, offset + PAGE - 1);
     if (error) throw new Error(`Failed to resolve recipients: ${error.message}`);
-    if (!data || data.length === 0) break;
+    if (!data || data.length === 0) {
+      exhausted = true;
+      break;
+    }
     recipients.push(...(data as BroadcastRecipient[]));
-    if (data.length < PAGE) break;
+    // A short page is the only evidence there is nothing after it.
+    if (data.length < PAGE) {
+      exhausted = true;
+      break;
+    }
   }
-  return recipients;
+  return { recipients, exhausted };
 }
 
 function revalidateCRMRoutes(contactId?: string | null): void {
@@ -377,8 +402,13 @@ export async function getCRMContacts(params: GetCRMContactsParams = {}): Promise
   totalCount: number;
 }> {
   const { adminClient } = await requireAdmin();
-  const page = params.page ?? 1;
-  const pageSize = params.pageSize ?? 50;
+  // Clamped, because both values come from URL search params and reach PostgREST
+  // as a range. `page: 0` produced `range(-50, -1)`, which is a 416 rather than
+  // a read, and an unclamped `pageSize` let any caller ask for the whole
+  // directory. `getContentList` has clamped its pair since it was written; this
+  // one had not, so the same request was safe on the content side and not here.
+  const page = Math.max(1, Math.floor(Number(params.page) || 1));
+  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(params.pageSize) || 50)));
   const filters = resolveFilters(params);
   const result = await fetchContactPage(adminClient, filters, page, pageSize);
   if (result.error) {
@@ -404,11 +434,13 @@ export async function exportCRMContacts(
     'Last Name',
     'Email',
     'Phone',
+    'Address',
     'District',
     'City',
     'Zip Code',
     'Status',
     'Tags',
+    'Notes',
     'Do Not Email',
     'Lifetime Giving (cents)',
     'Source',
@@ -421,11 +453,18 @@ export async function exportCRMContacts(
       c.last_name || '',
       c.email,
       c.phone || '',
+      // `address` and `notes` were both missing here while the importer read
+      // `notes` and the editor modal edited both. A file that could be exported
+      // and re-imported is the chapter's only off-platform backup, and this one
+      // quietly dropped every street address and every free-text note on the way
+      // out — the failure surfaces weeks later, on the day it is needed.
+      c.address || '',
       c.district || '',
       c.city || '',
       c.zip_code || '',
       c.status,
       (c.tags || []).join('; '),
+      c.notes || '',
       c.do_not_email ? 'yes' : 'no',
       c.total_donated_cents,
       c.source || '',
@@ -681,13 +720,24 @@ export async function saveCRMContact(
   const normalizedEmail = data.email.trim().toLowerCase();
 
   if (id) {
-    const { data: previous } = await adminClient
+    const { data: previous, error: previousError } = await adminClient
       .from('crm_contacts')
       .select('status, email, tags, notes')
       .eq('id', id)
       .single();
 
-    const statusChanged = previous != null && previous.status !== data.status;
+    // A volunteer has this form open on a contact a colleague deleted, merged
+    // away, or that the historical sync re-keyed. Two failures used to follow
+    // from that and both were unhelpful: the read's error was discarded, so the
+    // code went on to UPDATE a row that matches nothing, got `data: null` back,
+    // and threw on `updated.id` — an unhandled TypeError, which is a 500 and an
+    // error boundary, not a sentence. `saveContent` refuses the same situation
+    // with "That page no longer exists", and this is the same page.
+    if (previousError || !previous) {
+      return { success: false, error: 'That contact no longer exists' };
+    }
+
+    const statusChanged = previous.status !== data.status;
 
     const { data: updated, error } = await adminClient
       .from('crm_contacts')
@@ -701,6 +751,9 @@ export async function saveCRMContact(
       .single();
 
     if (error) return { success: false, error: error.message };
+    // Belt and braces: a concurrent delete between the read and the write
+    // matches no row and still returns no error.
+    if (!updated) return { success: false, error: 'That contact no longer exists' };
 
     await adminClient.from('crm_activities').insert({
       contact_id: id,
@@ -871,6 +924,11 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
       first_name: r.first_name,
       last_name: r.last_name,
       phone: r.phone,
+      // `address` was missing from this mapping as well as from the parser, so
+      // adding the column to the import was necessary but not sufficient: the
+      // row parsed it and the insert dropped it on the floor. Both halves of a
+      // round trip, or neither.
+      address: r.address,
       city: r.city,
       zip_code: r.zip_code,
       district: r.district,
@@ -1064,7 +1122,21 @@ export async function sendCRMDirectEmail({
     to: contact.email,
     subject: cleanSubject,
     html,
-    text: `${message.trim()}\n\n--\nIndivisible Fair Oaks-Carmichael\nhttps://indivisiblefairoaks.org\n\nUnsubscribe: ${unsubHref}`,
+    // The site origin comes from the same env var the HTML footer and the
+    // unsubscribe link do. It used to be a literal here, so a staging build
+    // mailed a text body pointing at the apex — which 302s to Google Sites
+    // until the cutover — while the HTML in the same email pointed at staging.
+    // Two different hosts in one message, and the one a screen reader reads
+    // first was the wrong one. `unsubscribeUrl` is the existing derivation.
+    text: [
+      message.trim(),
+      '',
+      '--',
+      'Indivisible Fair Oaks-Carmichael',
+      env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, ''),
+      '',
+      `Unsubscribe: ${unsubHref}`,
+    ].join('\n'),
     replyTo: env.ADMIN_ORDER_EMAIL || 'contact@indivisiblefairoaks.org',
     tags: [{ name: 'type', value: 'crm-direct' }],
     headers: listUnsubscribeHeaders(contact.unsubscribe_token),
@@ -1125,6 +1197,12 @@ export interface BroadcastProgress {
   failedCount: number;
   sentAt: string | null;
   createdAt: string;
+  /**
+   * Client-side only: the composer stopped polling. The row is still in flight
+   * server-side, so this is not a claim about the send — it says that what the
+   * operator is looking at has stopped updating and the view is behind.
+   */
+  stillWatching?: boolean;
 }
 
 /**
@@ -1166,33 +1244,68 @@ export async function previewCRMBroadcast({
  * created and nothing ever wrote one, so half the state machine was dead and a
  * half-written campaign could only be held in the browser. Drafts persist the
  * audience alongside the copy, so returning to one restores what it would send.
+ *
+ * `broadcastId` makes this an upsert. It used to insert unconditionally, so
+ * pressing "Save draft" twice left two rows and the composer's handle — the only
+ * record of which one it meant — lived in component state, so a reload orphaned
+ * it and the draft became unremovable. Updating in place is what makes a draft
+ * a document rather than a log entry.
  */
 export async function saveCRMBroadcastDraft({
+  broadcastId,
   subject,
   body,
   targetTags = [],
   targetStatus = [],
   targetDistricts = [],
-}: BroadcastTarget & { subject: string; body: string }): Promise<{
+}: BroadcastTarget & { broadcastId?: string | null; subject: string; body: string }): Promise<{
   success: boolean;
   broadcastId?: string;
   error?: string;
 }> {
-  const { adminClient } = await requireAdmin();
+  const { adminClient, adminUserId } = await requireAdmin();
   const cleanSubject = broadcastSubject(subject);
   if (!cleanSubject) return { success: false, error: 'Subject is required' };
   if (!body.trim()) return { success: false, error: 'Message body is required' };
 
+  const row = {
+    subject: cleanSubject,
+    body: body.trim(),
+    target_tags: targetTags,
+    target_status: targetStatus,
+    target_districts: targetDistricts,
+  };
+
+  if (broadcastId) {
+    // Scoped to `status = 'draft'` in the WHERE clause rather than checked in
+    // JS: a draft that has since been sent must not be rewritten, and a
+    // conditional update is the only way to make that hold under concurrency.
+    const { data, error } = await adminClient
+      .from('crm_broadcasts')
+      .update(row)
+      .eq('id', broadcastId)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    if (!data) {
+      return {
+        success: false,
+        error: 'That draft is no longer a draft — it was sent or removed. Save it as a new draft.',
+      };
+    }
+    revalidateCRMRoutes();
+    return { success: true, broadcastId: data.id };
+  }
+
   const { data, error } = await adminClient
     .from('crm_broadcasts')
     .insert({
-      subject: cleanSubject,
-      body: body.trim(),
-      target_tags: targetTags,
-      target_status: targetStatus,
-      target_districts: targetDistricts,
+      ...row,
       recipient_count: 0,
       status: 'draft',
+      created_by: adminUserId,
     })
     .select('id')
     .single();
@@ -1260,9 +1373,9 @@ export async function sendCRMBroadcast({
   const limited = sendRateLimited(adminUserId, BROADCAST_LIMIT);
   if (limited) return { success: false, error: limited };
 
-  let recipients: BroadcastRecipient[];
+  let audience: { recipients: BroadcastRecipient[]; exhausted: boolean };
   try {
-    recipients = await resolveBroadcastRecipients(adminClient, {
+    audience = await resolveBroadcastRecipients(adminClient, {
       targetTags,
       targetStatus,
       targetDistricts,
@@ -1273,19 +1386,28 @@ export async function sendCRMBroadcast({
       error: err instanceof Error ? err.message : 'Failed to resolve recipients',
     };
   }
+  const { recipients } = audience;
 
   if (recipients.length === 0) {
     return { success: false, error: 'No contacts match this audience' };
   }
   // Refuse rather than truncate. A silently shortened broadcast is worse than a
   // refused one: the author would believe four thousand people heard from them.
-  if (recipients.length > BROADCAST_RECIPIENT_CEILING) {
+  //
+  // This comparison could never fire. `resolveBroadcastRecipients` pages with
+  // `offset < BROADCAST_RECIPIENT_CEILING`, so it returned at most exactly
+  // `CEILING` rows and `> CEILING` was false — the branch was dead, and an
+  // audience of twelve thousand was quietly cut to five thousand and sent as a
+  // healthy campaign. The resolver now reports whether it read the audience to
+  // exhaustion, and *that* is what this refuses on: a loop that stopped because
+  // it hit the ceiling is an audience we have not finished counting.
+  if (!audience.exhausted) {
     return {
       success: false,
       error:
-        `This audience has ${recipients.length.toLocaleString()} contacts, over the ` +
+        `This audience is larger than the ` +
         `${BROADCAST_RECIPIENT_CEILING.toLocaleString()} limit for one broadcast. ` +
-        'Narrow the audience and try again.',
+        'Narrow the audience and try again — nothing was sent.',
     };
   }
 
@@ -1299,6 +1421,10 @@ export async function sendCRMBroadcast({
       target_districts: targetDistricts,
       recipient_count: recipients.length,
       status: 'queued',
+      // The column was added in 20260929140000 precisely so a blast had an
+      // attributable author, and all three inserts omitted it. `adminUserId` is
+      // already in scope from `requireAdmin()`.
+      created_by: adminUserId,
     })
     .select('id')
     .single();
@@ -1380,6 +1506,7 @@ export async function sendCRMBroadcastSelfTest({
       test_recipient: adminEmail,
       test_only: true,
       status: 'queued',
+      created_by: adminUserId,
     })
     .select('id')
     .single();
@@ -1483,16 +1610,49 @@ export async function triggerHistoricalCRMSync(): Promise<{
   };
 }
 
+/**
+ * Past campaigns: what has actually been sent, and what failed.
+ *
+ * Drafts are excluded, and the exclusion is in the query rather than filtered in
+ * JavaScript for two reasons. It is what the partial index
+ * `crm_broadcasts_recent_idx ... WHERE status <> 'draft'` was created for, and a
+ * query that does not state the predicate cannot use it — so the index was dead
+ * and this read degraded to a scan of every row the chapter has ever composed.
+ * And a draft is not history: an unsent draft in the campaign log tells an
+ * organizer that people were contacted when nobody was, which is the reading the
+ * row's own `draft` pill is least able to prevent.
+ *
+ * `getCRMBroadcastDrafts()` is the other half — resuming a draft is a real
+ * workflow, and it needs its own read rather than a filter over this one.
+ */
 export async function getCRMBroadcasts(): Promise<CRMBroadcast[]> {
   const { adminClient } = await requireAdmin();
   const { data, error } = await adminClient
     .from('crm_broadcasts')
     .select('*')
+    .neq('status', 'draft')
     .order('created_at', { ascending: false })
     .limit(50);
 
   if (error) {
     throw new Error(`Failed to fetch broadcasts: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/** Unsent work in progress, newest first. Resumable, and removable. */
+export async function getCRMBroadcastDrafts(): Promise<CRMBroadcast[]> {
+  const { adminClient } = await requireAdmin();
+  const { data, error } = await adminClient
+    .from('crm_broadcasts')
+    .select('*')
+    .eq('status', 'draft')
+    .order('updated_at', { ascending: false })
+    .limit(20);
+
+  if (error) {
+    throw new Error(`Failed to fetch broadcast drafts: ${error.message}`);
   }
 
   return data || [];

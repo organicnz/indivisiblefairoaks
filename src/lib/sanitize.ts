@@ -55,21 +55,11 @@ export const SPAM_KEYWORDS = [
   'apuesta-360',
 ] as const;
 
-export const TRUSTED_DOMAINS = [
-  'indivisiblefairoaks.org',
-  'i0.wp.com',
-  'i1.wp.com',
-  'i2.wp.com',
-  'supabase.co',
-  'stripe.com',
-  'mobilize.us',
-  'actblue.com',
-  'indivisible.org',
-  'indivisibleca.org',
-  // Sea Cleaners mission partner (donation links live in CharitySection and CMS content).
-  'seacleaners.org.nz',
-  'givealittle.co.nz',
-] as const;
+import { isTrustedHost, TRUSTED_DOMAINS } from '@/lib/trusted-links';
+
+// Re-exported: this list has always been reachable from here, and moving it
+// behind a shared module should not move the public name with it.
+export { TRUSTED_DOMAINS };
 
 /**
  * Class/id fragments identifying Google Sites page furniture. The CMS was
@@ -479,9 +469,7 @@ export function sanitizeWPContent(html: string): string {
       if (lower.startsWith('//')) {
         const hostMatchProto = lower.match(/^\/\/([^/:?#\s]+)/);
         const hostProto = hostMatchProto?.[1] ?? '';
-        const trustedProto = TRUSTED_DOMAINS.some(
-          (d) => hostProto === d || hostProto.endsWith(`.${d}`)
-        );
+        const trustedProto = isTrustedHost(hostProto);
         return trustedProto ? match.replace(rawHref, `https:${rawHref}`) : '';
       }
       if (
@@ -500,7 +488,7 @@ export function sanitizeWPContent(html: string): string {
         return match;
       }
       const host = hostMatch[1];
-      const trusted = TRUSTED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+      const trusted = isTrustedHost(host);
       return trusted ? match : '';
     });
 

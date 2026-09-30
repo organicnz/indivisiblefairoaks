@@ -65,11 +65,11 @@ bun run types:generate  # regenerate Supabase types
 
 ## CI/CD
 
-- **Runner**: self-hosted ARM64 Linux with preflight disk guard and workspace cleanup.
-- **On push to `main`**: lint → types → unit → build → e2e → Supabase migrations → Vercel production deploy.
-- **Nightly** (`daily-compat.yml`): frozen install, full lint/types/unit/build/e2e, live health probes for `/api/health` and all three Edge Functions, advisory AI diff review (output never gates CI).
-- **Pre-commit**: lefthook runs `biome check --write` + `oxlint`, typecheck, and `playwright test --list` (spec parse only — no browsers).
-- **Pre-push**: lefthook runs lint, unit tests, typecheck, coverage ≥90%, production build, peer-deps, then the **Playwright e2e delivery gate** when the push range touches runtime surfaces (`src/`, `e2e/`, `public/`, `supabase/`, configs, lockfile). Docs-only pushes skip e2e. Bypass: `LEFTHOOK_EXCLUDE=e2e git push`.
+- **Runner**: self-hosted **X64** Linux (`[self-hosted, linux, X64]`), with a preflight disk guard and workspace cleanup in `runner-health.yml`.
+- **On push to `main`**: `ci.yml` runs lint → types → unit + coverage → build → Playwright e2e → live `/api/health` probe. `supabase.yml` runs in parallel on any `supabase/**` change and pushes migrations. There is **no Vercel deploy job** — it was removed on purpose (spare previews, doubled upload consumption, the free tier's `api-upload-free` rate limit). Production ships from the push plus the health probe. Do not re-add it.
+- **Scheduled**: `runner-health.yml` every 30 min, `walle-refresh.yml` at 04:17 UTC, `secret-audit.yml` at 04:37 UTC. Deliberately staggered off `:00`, when every scheduled workflow competes for the shared runner fleet. There is no nightly compatibility workflow; `scripts/ai-review.mjs` is unreferenced.
+- **Pre-commit**: ~24 lefthook guards — secrets, migration/RLS/`SECURITY DEFINER` checks, Biome, oxlint, typecheck, four env-contract checkers, lockfile pairing, and `playwright test --list` (spec parse only, no browsers). A committed migration regenerates `src/types/supabase.ts`.
+- **Pre-push**: lint → unit → typecheck → coverage → production build → peer-deps, then the **Playwright e2e delivery gate** when the push range touches runtime surfaces (`src/`, `e2e/`, `public/`, `supabase/`, configs, lockfile). Docs-only pushes skip e2e. Bypass: `LEFTHOOK_EXCLUDE=e2e git push`.
 
 ---
 

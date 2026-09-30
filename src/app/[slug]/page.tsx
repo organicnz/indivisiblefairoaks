@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { ROBOTS, siteUrl } from '@/config/site';
 import { pageMetadata } from '@/lib/metadata';
+import { isOwnImageUrl } from '@/lib/own-media';
 import { getAllPublishedSlugs, getPublishedContent } from '@/lib/queries/content';
 import { htmlToExcerpt, sanitizeWPContent } from '@/lib/sanitize';
 import { serializeJsonLd } from '@/lib/utils';
@@ -30,6 +32,8 @@ export async function generateMetadata({
   const metadata = (content.metadata ?? {}) as Record<string, string>;
   const metaTitle = metadata.meta_title?.trim();
   const metaDescription = metadata.meta_description?.trim();
+  const hero = content.featured_image?.trim() || '';
+  const heroSrc = hero && isOwnImageUrl(hero) ? hero : '';
 
   return pageMetadata({
     // Meta fields win when set — that is what Google uses. The derived title /
@@ -41,6 +45,11 @@ export async function generateMetadata({
     publishedTime: content.created_at ?? undefined,
     modifiedTime: content.updated_at ?? content.created_at ?? undefined,
     authors: ['Indivisible Fair Oaks-Carmichael'],
+    // The authored hero is the best card this page can offer. Next *replaces*
+    // openGraph rather than merging it, so this has to be stated here — the
+    // `opengraph-image` file convention's output is otherwise discarded the
+    // moment a page declares its own `images`.
+    ...(heroSrc ? { images: [{ url: heroSrc, width: 1200, height: 630 }] } : {}),
   });
 }
 
@@ -97,6 +106,11 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
 
   const cleanBody = sanitizeWPContent(content.body || '');
   const canonical = siteUrl(`/${slug}`);
+  // Only ours: the sanitizer's outbound-link rule is for anchors a reader can
+  // follow, but this is a URL the page hands to next/image, and an authored
+  // value from an unvetted host is not one we want to fetch.
+  const hero = content.featured_image?.trim() || '';
+  const heroSrc = hero && isOwnImageUrl(hero) ? hero : '';
 
   // Breadcrumbs for every CMS page, not just product pages. Referencing the
   // organization node by @id links this page into the entity graph declared in the
@@ -123,7 +137,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           url: canonical,
           headline: content.title,
           description: htmlToExcerpt(content.body || ''),
-          image: [siteUrl('/icon-512.png')],
+          image: [heroSrc || siteUrl('/icon-512.png')],
           inLanguage: 'en-US',
           datePublished: content.created_at ?? undefined,
           dateModified: content.updated_at ?? content.created_at ?? undefined,
@@ -163,6 +177,31 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
             </time>
           )}
         </div>
+
+        {/*
+          The hero. `featured_image` was stored, revision-tracked, reference-
+          checked on delete and rendered in the editor's preview — and read by no
+          public route at all, so the field was a control that did nothing
+          visible. The preview showing an image the published page would not have
+          is exactly the "a control must do what it says" failure.
+
+          `fill` inside a fixed `aspect-[16/9]` frame rather than width/height:
+          the CMS accepts an arbitrary upload and nothing measures one, so an
+          intrinsic size would be a guess. The frame reserves the space up front,
+          which is what keeps this from introducing layout shift.
+        */}
+        {heroSrc && (
+          <div className="relative mb-12 aspect-[16/9] w-full overflow-hidden rounded-3xl bg-surface-muted shadow-lg">
+            <Image
+              src={heroSrc}
+              alt=""
+              fill
+              sizes="(max-width: 768px) 100vw, 896px"
+              className="object-cover"
+              priority={content.type === 'post'}
+            />
+          </div>
+        )}
 
         <div
           className="cw prose prose-slate prose-lg max-w-none 

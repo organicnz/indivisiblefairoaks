@@ -1,5 +1,10 @@
 import { CRMBroadcastComposer } from '@/components/admin/crm/CRMBroadcastComposer';
-import { getCRMBroadcasts, getCRMExistingTags, getCRMSegments } from '@/lib/actions/crm';
+import {
+  getCRMBroadcastDrafts,
+  getCRMBroadcasts,
+  getCRMExistingTags,
+  getCRMSegments,
+} from '@/lib/actions/crm';
 import { requireAdmin } from '@/lib/admin-auth';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
@@ -16,8 +21,9 @@ export async function generateMetadata() {
 
 export default async function AdminCRMBroadcastsPage() {
   await requireAdmin();
-  const [broadcasts, segments, existingTags] = await Promise.all([
+  const [broadcasts, drafts, segments, existingTags] = await Promise.all([
     getCRMBroadcasts(),
+    getCRMBroadcastDrafts(),
     getCRMSegments(),
     getCRMExistingTags(),
   ]);
@@ -25,6 +31,7 @@ export default async function AdminCRMBroadcastsPage() {
   return (
     <CRMBroadcastComposer
       initialBroadcasts={broadcasts}
+      initialDrafts={drafts}
       segments={segments}
       existingTags={existingTags}
     />

@@ -52,6 +52,11 @@ export default async function AdminContentEditPage({
         body: content.body,
         featuredImage: content.featured_image,
         publishedAt: content.published_at,
+        // The public page prints `created_at` as the "Published" line, so the
+        // preview has to be given the same field. `published_at` is a different
+        // value and is null for anything never explicitly published, which is
+        // why the preview used to show no date at all for those pages.
+        createdAt: content.created_at,
         metadata: content.metadata as Record<string, string> | null,
       }}
     />

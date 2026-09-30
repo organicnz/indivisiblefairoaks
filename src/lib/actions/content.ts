@@ -11,6 +11,7 @@ import {
   MAX_BODY_BYTES,
 } from '@/lib/content';
 import { env } from '@/lib/env';
+import { isOwnImageUrl } from '@/lib/own-media';
 import { getStorageUrl } from '@/lib/supabase';
 import type { Database } from '@/types/supabase';
 
@@ -179,15 +180,21 @@ export async function saveContent(rawInput: ContentInput): Promise<ActionResult<
   const data = parsed.data;
 
   if (data.featuredImage) {
-    // Absolute, non-private URLs only. The page renders this straight into an
-    // OG image tag, so a `data:` URL or a private host would either break the
-    // crawler or leak an internal hostname into a public card.
-    const host = new URL(data.featuredImage).hostname;
+    // Absolute, non-private URLs only, and only from a host this site controls.
+    // The page renders this into an OG image tag, so a `data:` URL or a private
+    // host would either break the crawler or leak an internal hostname into a
+    // public card.
+    //
+    // "This site" means more than the configured origin: the editor's own
+    // uploader writes to the `media` bucket on the Supabase project and returns
+    // a `*.supabase.co` URL, so testing against `NEXT_PUBLIC_SITE_URL` alone
+    // rejected every image the CMS itself had just produced. See
+    // `src/lib/own-media.ts`.
     if (!/^https?:$/.test(new URL(data.featuredImage).protocol)) {
       return fail('Featured image must be an http(s) URL');
     }
-    if (IS_PRODUCTION_SITE && host !== new URL(env.NEXT_PUBLIC_SITE_URL).hostname) {
-      return fail('Featured image must be hosted on this site');
+    if (IS_PRODUCTION_SITE && !isOwnImageUrl(data.featuredImage)) {
+      return fail('Featured image must be uploaded here, or hosted on this site');
     }
   }
 
@@ -361,6 +368,16 @@ export async function restoreContentRevision(
   // and they restore exactly as before (no hero).
   const hero = (revision as ContentRevision & { featured_image?: string | null }).featured_image;
 
+  // So does the publish date, and for the same reason. `saveContent` re-stamps
+  // `published_at = now()` whenever a published page is written without one, so
+  // restoring a March revision of a post re-dated it to today and jumped it to
+  // the top of `/news` — the exact reordering `setContentStatus` was written to
+  // prevent three functions away in this same file. The column arrives via
+  // `20260930120000`; a revision older than that restores its content and takes
+  // the re-dating, as it did before.
+  const publishedAt =
+    (revision as ContentRevision & { published_at?: string | null }).published_at ?? null;
+
   return saveContent({
     id: contentId,
     title: revision.title ?? 'Untitled',
@@ -370,6 +387,7 @@ export async function restoreContentRevision(
     status: (revision.status as 'publish' | 'draft') ?? 'draft',
     body: revision.body ?? '',
     featuredImage: hero ?? null,
+    publishedAt,
     metadata: (revision.metadata as Record<string, string>) ?? {},
   });
 }

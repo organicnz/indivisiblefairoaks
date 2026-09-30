@@ -91,6 +91,17 @@ interface Recipient {
   unsubscribe_token: string
 }
 
+/**
+ * A single deliverable address, matching the `test_recipient` CHECK in
+ * migration 20260929180000. Deliberately a *closed* pattern: one address, no
+ * separators. A self-test that resolved to several recipients would be exactly
+ * the widening this function exists to prevent, so a value carrying a comma is
+ * rejected rather than split — the operator fixes the row, we do not guess.
+ */
+function isDeliverableAddress(value: string): boolean {
+  return /^[^@[:space:],]+@[^@[:space:],]+\.[^@[:space:],]+$/.test(value)
+}
+
 // '*', not '/': Supabase delivers the request with its full path
 // (/functions/v1/crm-broadcast-send), so a '/' route never matches and the
 // handler is silently dead — the auth middleware still answers 401, which
@@ -161,12 +172,37 @@ app.post('*', async (c) => {
    * written on the client — not a stray `target_*`, not a stale audience. A
    * preview that quietly resolved to a real list would be worse than no preview
    * at all, because the author would ship on the strength of it.
+   *
+   * `test_only` is a one-way door, so it is read on its own. It used to be read
+   * as `test_only === true && typeof test_recipient === 'string'`, and that
+   * conjunction was the whole safety property: a `test_only` row whose
+   * `test_recipient` was NULL fell through it, `isSelfTest` came out false, and
+   * the audience loop then ran against every opted-in contact in the database.
+   * The column is nullable and nothing constrained the pair, so "a preview that
+   * sends to the whole list" was one absent value away — no bad intent, no
+   * caller change, just a row that never got its address written.
+   *
+   * So the flag now decides on its own, and a self-test with no usable address
+   * is a hard refusal. The audience loop below is reached only when
+   * `test_only` is false outright.
    */
-  const isSelfTest = broadcast.test_only === true && typeof broadcast.test_recipient === 'string'
+  const isSelfTest = broadcast.test_only === true
   if (isSelfTest) {
+    const address =
+      typeof broadcast.test_recipient === 'string' ? broadcast.test_recipient.trim() : ''
+    if (!isDeliverableAddress(address)) {
+      await finish(supabase, broadcastId, 'failed', 0, 0, 0)
+      return c.json(
+        {
+          error:
+            'self-test has no usable test_recipient; refusing to fall back to the full audience',
+        },
+        422,
+      )
+    }
     recipients.push({
       id: 'selftest',
-      email: broadcast.test_recipient as string,
+      email: address,
       first_name: 'Test',
       last_name: 'Recipient',
       // No token: a preview has no unsubscribe link, because there is no
@@ -175,6 +211,18 @@ app.post('*', async (c) => {
     })
   }
 
+  /**
+   * The ceiling is a refusal, not a truncation.
+   *
+   * The loop condition alone cannot enforce that: it stops at
+   * `BROADCAST_RECIPIENT_CEILING` and returns whatever it collected, so an
+   * audience larger than the ceiling was quietly shortened and then reported as
+   * `sent` with a plausible `sent_count`. The organizer sees a delivered
+   * campaign; a third of the list silently never heard about it. Every real
+   * exit from this loop is therefore one of "the query ran dry" or "the ceiling
+   * stopped us", and only the first is allowed to proceed to delivery.
+   */
+  let audienceExhausted = false
   for (let offset = 0; !isSelfTest && offset < BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
     let qb = supabase
       .from('crm_contacts')
@@ -193,14 +241,33 @@ app.post('*', async (c) => {
       await finish(supabase, broadcastId, 'failed', recipients.length, 0, 0)
       return c.json({ error: `recipient query failed: ${error.message}` }, 500)
     }
-    if (!data || data.length === 0) break
+    if (!data || data.length === 0) {
+      audienceExhausted = true
+      break
+    }
     recipients.push(...(data as Recipient[]))
-    if (data.length < PAGE) break
+    // A short page is the only evidence that there is nothing after it.
+    if (data.length < PAGE) {
+      audienceExhausted = true
+      break
+    }
+  }
+
+  if (!isSelfTest && !audienceExhausted) {
+    await finish(supabase, broadcastId, 'failed', 0, 0, 0)
+    return c.json(
+      {
+        error: `audience exceeds the ${BROADCAST_RECIPIENT_CEILING.toLocaleString()} recipient ceiling for one broadcast; nothing was sent`,
+      },
+      422,
+    )
   }
 
   const logoUrl = `${SUPABASE_URL}/${LOGO_PATH}`
   let sent = 0
   let failed = 0
+  let activityWriteFailures = 0
+  let activityRowsLost = 0
   const activityRows: Array<Record<string, unknown>> = []
 
   for (let i = 0; i < recipients.length; i += BATCH) {
@@ -275,7 +342,26 @@ app.post('*', async (c) => {
     }
 
     if (activityRows.length > 0) {
-      await supabase.from('crm_activities').insert(activityRows.splice(0))
+      // The returned error used to be discarded, which made this a silent
+      // data loss rather than a visible failure. `crm_activities_flood_guard`
+      // (migration 20260929120000) RAISEs once 2,000 `email_sent` rows exist in
+      // the last hour, and it fires *per statement* — so a broadcast large
+      // enough to cross that line lost every activity row from there on, kept
+      // counting `sent`, and finished as a healthy green campaign whose
+      // recipients had no timeline entry showing they were ever contacted. The
+      // count is now tracked, logged, and reported so the discrepancy is
+      // visible instead of inferred.
+      const { error: activityError } = await supabase
+        .from('crm_activities')
+        .insert(activityRows.splice(0))
+      if (activityError) {
+        activityWriteFailures += 1
+        activityRowsLost += BATCH
+        console.error(
+          `[crm-broadcast-send] activity write failed for broadcast ${broadcastId}:`,
+          activityError.message,
+        )
+      }
     }
 
     if ((i / BATCH) % Math.ceil(PROGRESS_EVERY / BATCH) === 0) {
@@ -289,7 +375,24 @@ app.post('*', async (c) => {
   const status = sent > 0 ? 'sent' : 'failed'
   await finish(supabase, broadcastId, status, recipients.length, sent, failed)
 
-  return c.json({ ok: true, recipientCount: recipients.length, sent, failed })
+  return c.json({
+    ok: activityWriteFailures === 0,
+    recipientCount: recipients.length,
+    sent,
+    failed,
+    // Delivery is what `status` reports. These two are a separate, truthful
+    // statement: the mail went out, the record of it did not. A caller that
+    // only reads `ok` learns the truth; one that reads `sent` still gets the
+    // delivery number it always did.
+    ...(activityWriteFailures > 0
+      ? {
+          activityWriteFailures,
+          activityRowsLost,
+          warning:
+            'delivery completed but some timeline entries could not be written; the guard in 20260929120000 may still be counting broadcast rows',
+        }
+      : {}),
+  })
 })
 
 async function finish(

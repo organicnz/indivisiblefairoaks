@@ -1,6 +1,6 @@
 ---
 name: cms-editor-and-crm
-description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, or the broadcast Edge Function — and whenever a change could make CMS content vanish on publish, change a page's publish state, or send an email.
+description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, src/lib/trusted-links.ts, src/lib/own-media.ts, the broadcast Edge Function, or a coverage threshold in vitest.config.ts — and whenever a change could make CMS content vanish on publish, change a page's publish state, lose or re-date a revision, widen who receives an email, or leave a file outside the coverage gate.
 ---
 
 # CMS editor & CRM
@@ -31,6 +31,21 @@ Do not add a block type without checking what the sanitizer allows first. There
 is deliberately **no embed block**: `sanitizeWPContent` strips iframes and oEmbed
 markup, so the control would do nothing.
 
+Two sanitizer rules shape every type, and both fail silently:
+
+- **`data-*` is not in the allowlist**, so block identity and variant travel in
+  `class` under the `cw-` prefix. Renaming a class orphans every stored block.
+- **Three or more directly adjacent anchors are deleted as link spam**, which is
+  why every `button` block carries a `BUTTON_WRAPPER_CLASS` wrapper. A row of
+  calls to action written without knowing this looks fine and is eaten on
+  publish.
+
+Twelve types exist; eleven are insertable. `BLOCK_DEFINITIONS` in
+`block-definitions.tsx` is the single inventory — add there, not inline.
+`unsupported` is the twelfth and is deliberately *not* insertable: it is markup
+the model cannot represent, kept verbatim and read-only so that opening and
+saving a page never deletes content it cannot edit.
+
 ### 2. Autosave must not change a page's publish state
 
 Autosave persists with the document's *current* `status`.
@@ -38,6 +53,16 @@ Autosave persists with the document's *current* `status`.
 Passing `'draft'` unconditionally was a live bug: editing a published page and
 pausing 2.5s quietly unpublished it. Taking a page down stays a deliberate act
 via the Save button.
+
+**Neither may the Publish button.** `setContentStatus` writes `status` and
+`published_at` and nothing else, so toggling it with unsaved edits published the
+*last saved* version and dropped the rest — then marked the editor clean, which
+short-circuited autosave, stopped the unload warning, and left the indicator
+reading "All changes saved". When anything is unsaved, publish the whole document
+through `handleSave(next)`, the same guarded path as the button and Cmd+S.
+
+The general rule: **a status-only action must never mark a whole document
+saved.** If it writes two fields, it may only re-snapshot two fields.
 
 ### 3. Deleting an image checks every reference first
 
@@ -48,6 +73,14 @@ An unconditional `storage.remove()` is a data-loss event: the same upload is
 routinely used by two blocks, reused as a hero, or referenced by a revision whose
 restore would then 404. Prefer leaving an orphan (garbage) over breaking a live
 page.
+
+**`featured_image` is a hero and it is on the page.** It renders on
+`src/app/[slug]/page.tsx`, feeds the `og:image` and the Article JSON-LD. Which
+hosts may serve it is `isOwnImageUrl` in `src/lib/own-media.ts` — derived from
+configuration, not a literal. It has to include the Supabase project host,
+because the CMS's own uploader writes to the `media` bucket there: validating
+against `NEXT_PUBLIC_SITE_URL` alone made the field impossible to set in
+production.
 
 ### 4. Spam keywords match on word boundaries
 
@@ -71,6 +104,20 @@ The audience narrowing lives in the `crm-broadcast-send` Edge Function: when
 `test_only` is set, `test_recipient` is the whole audience and the `target_*`
 query is skipped. Keep the guard there. Moving it to the caller means a preview
 can be widened by anything written on the client.
+
+**Read the flag on its own.** It used to be
+`test_only === true && typeof test_recipient === 'string'`, and that conjunction
+*was* the safety property. Both columns are nullable and nothing constrained the
+pair, so a `test_only` row with a NULL recipient evaluated false, dropped out of
+the branch, and the audience loop mailed **every opted-in contact**. No bad
+intent was needed — just a row missing a value.
+
+A one-way door needs a floor. `test_only === true` with no usable address is a
+hard 422, never a fallback, and migration `20260930120000` adds
+`crm_broadcasts_test_only_needs_recipient` so the shape cannot be written at all.
+
+The same reasoning applies to the recipient ceiling: it is enforced on
+*completeness*, not on a count. See invariant 18.
 
 ### 6. A new send path must refuse to run in an e2e build
 
@@ -119,22 +166,46 @@ Two traps in the wiring, both of which present as "undo silently does nothing":
 Cmd/Ctrl+Z must be intercepted, not left to the browser: native undo walks the
 DOM's own history, which knows nothing about the block model.
 
+**The declaration needs a shape or it is not a rule.** Four typing paths — the
+image `src`, table headers, table cells, list items — omitted the argument
+entirely, so undo recorded one character per step in exactly those blocks while
+every other field behaved. Two requirements:
+
+- **Every `onUpdate` / `setBlocks` call passes an intent or an explicit `null`.**
+  Omitting it is the bug, and it reads as tidier code rather than riskier.
+- **The key is field- and position-scoped**: `type:cell:${id}:${r}:${c}`, not
+  `type:cell:${id}`. Coalescing on the block alone merges edits to two different
+  cells into one undo step — quieter than one-per-character and harder to spot.
+
 ### 9. Recovered drafts are offered, never applied
 
 `src/lib/draft-recovery.ts`. A local copy silently replacing the page someone
 came back to loses an author's trust permanently. Keep the "Restore" / "Discard"
 choice, keep the per-content-id key, and keep the freshness checks.
 
-### 10. Revisions must preserve the featured image
+### 10. A revision preserves the document, not just its text
 
-The trigger treats a hero change as revision-worthy, so the revision row has to
-hold it: `content_revisions.featured_image`, stored from `OLD.featured_image`,
-restored by `restoreContentRevision` instead of `null`.
+Two columns, and the second was missed for the same reason as the first.
+`content_revisions.featured_image` is stored from `OLD.featured_image` and
+restored instead of `null`. `content_revisions.published_at` is stored from
+`OLD.published_at`, treated as revision-worthy, and passed through as
+`publishedAt`.
 
-A restore that clears the hero is the same failure as the unconditional
-`storage.remove()`: a control labelled "Restore" deleting data the author did
-not ask to delete. Pre-migration rows have `NULL` and restore as before; only
-newer revisions carry the image.
+Both are the same failure as the unconditional `storage.remove()`: a control
+labelled "Restore" deleting or re-dating data the author did not ask to change.
+The date one is worse and quieter — `saveContent` re-stamps
+`published_at = now()` whenever a published page is written without one, so
+restoring a March revision re-dated the post to today and **jumped it to the top
+of `/news`**, the exact reordering `setContentStatus` exists to prevent.
+
+**Before you trust a restore, ask what the restore would do to state the editor
+does not display.** The date was invisible in the diff, invisible in the form,
+and obvious only in the feed.
+
+Pre-migration rows have `NULL` in both and restore as before. `src/types/supabase.ts`
+is generated from the *live* project, so it will not have either column until the
+migrations are applied — which is why the read sites use intersection casts. Do not
+fix a cast by hand-editing the generated file.
 
 ### 11. A restore is never blind, and never native-confirmed
 
@@ -172,6 +243,26 @@ action (Publish) available in the state you are warning about.
 lie the author ships on. Keep it a modal, never a route — an unsaved document
 must not have a shareable URL.
 
+Build it on `@radix-ui/react-dialog`, not a hand-rolled `role="dialog"`. The
+hand-rolled one declared `aria-modal="true"`, moved focus to the close button,
+and **trapped nothing** — Tab walked out into the editor behind it. Every other
+modal in this repo is Radix for that reason.
+
+Two fidelity rules, each of which was violated while the claim stayed true:
+
+- **The date is `created_at`, not `published_at`.** The public page prints
+  `content.created_at`; `published_at` is a different column and is `NULL` for
+  anything never explicitly published, so the preview showed no date at all for
+  exactly those pages. Pass the field the page prints.
+- **Render the same hero, in the same frame.** The preview showed a hero the
+  published page did not have, because `featured_image` was read by no public
+  route. A preview that displays an element the page will not is worse than one
+  that omits it.
+
+Store *which URL failed* for a broken image, not a boolean — a boolean needs a
+reset effect keyed on the value, and that dependency is exactly what a lint
+autofix will drop.
+
 ### 15. SEO meta fields win over derived values
 
 Meta title / description live in `content.metadata` (`meta_title` /
@@ -179,20 +270,130 @@ Meta title / description live in `content.metadata` (`meta_title` /
 the derived title / body excerpt when not. The search preview shows them when
 set — that is what Google uses. Character budgets: title ~60, description ~155.
 
+### 16. One rule, one module — never a second copy
+
+`src/lib/trusted-links.ts` owns the outbound-link allowlist. `sanitize.ts`
+re-exports it; `LinkPopover.isLinkableHref` and `BlockEditor.isSafeHref` are
+one-line wrappers. `src/lib/own-media.ts` owns which hosts may serve an authored
+image, derived from configuration.
+
+It was three lists, and they had already drifted: the sanitizer allowed twelve
+domains, the editor allowed one, and the editor told authors their `actblue.com`
+link "will be removed when the page is published" — for a link the sanitizer
+would have kept. **The failure mode of a duplicated allowlist is not a build
+error.** It is a volunteer quietly believing the site is more restrictive than
+it is.
+
+`src/lib/__tests__/trusted-links-parity.test.ts` asserts the two agree for every
+domain on the list, so adding one is safe. Keep the module free of `sanitize-html`
+so a client component can import it.
+
+### 17. A menu that takes focus owns its own keys
+
+The slash menu — the editor's primary insertion affordance — was **mouse-only**.
+It autofocused its own search input while Arrow / Enter / Tab were bound to the
+block it was opened *from*, so no key ever reached a handler. It is now a
+combobox: `aria-activedescendant` on the input, all keys on the dialog, options
+at `tabIndex={-1}` so focus stays in the field.
+
+Two generalisations:
+
+- **Do not bind a floating surface's keys to the element it was opened from.**
+  Opening it moves focus, so the handler never fires.
+- **`group-hover` is `@media (hover: hover)`.** A reveal gated on it sits at
+  `opacity: 0` on a phone while staying clickable and in the tab order. Use
+  `hover-capable:` plus `focus-within:opacity-100`, per AGENTS.md.
+
+`overflow-x-auto` also stopped being focusable by default: a scrollable region
+without `tabIndex={0}` cannot be scrolled from the keyboard at all. Use a
+`<section aria-label="…">`, and suppress Biome's `noNoninteractiveTabindex`
+per element with a reason rather than for the whole file.
+
+### 18. A ceiling is a refusal, enforced on completeness
+
+`resolveBroadcastRecipients` returns `{ recipients, exhausted }`, and
+`sendCRMBroadcast` refuses on `!exhausted` before the log row is written.
+
+It used to compare `recipients.length > BROADCAST_RECIPIENT_CEILING` against a
+resolver that paged with `offset < CEILING` and could therefore return at most
+exactly `CEILING` rows. The branch was **structurally dead**, and a
+12,000-recipient audience was cut to 5,000 and reported `sent`.
+
+**The general rule: a loop bounded by a limit cannot tell "this is all of them"
+from "this is all I was allowed to look at".** Report exhaustion from inside the
+loop. `crm-broadcast-send` applies the same rule independently and answers 422.
+
+The same shape appeared twice more, and the pattern is worth recognising:
+
+- A `created_by` column added "so a blast has an attributable author" was in
+  **no threshold and no test** — not in the coverage `include` list at all.
+- The email flood guard counted broadcast rows, so a legitimate 2,500-recipient
+  campaign lost every timeline entry past recipient 2,000 while the sender
+  **discarded the returned error** and finished green.
+
+### 19. A file that cannot be measured is a file that cannot fail
+
+`src/lib/actions/crm.ts` held every mutation, the dispatch, the recipient
+resolution, the rate limits and the e2e guard, and was in no coverage threshold
+at all. That is how both of the last two bugs shipped.
+
+**When you add a file, add it to `vitest.config.ts`'s `include`, or say why not.**
+Coverage thresholds are globs, not a global number, because Vitest checks a bare
+`statements: 90` against the *aggregate* — so a stricter file cannot raise it and
+a looser one silently lowers it for everything else. The thresholds are floors
+that only go up.
+
+A related habit, from the same pass: every unit test here mocks the Supabase
+client, so **a schema-level constraint is invisible to them**. `crm_broadcasts`
+once omitted `'queued'` from its CHECK and no test failed while every broadcast
+the site had ever sent failed at the insert.
+
+### 20. A config var and a deploy step land together
+
+`crm-broadcast-send` was absent from `.github/workflows/supabase.yml` while
+`secrets.manifest.mjs` already marked `RESEND_API_KEY` and `APP_URL` required
+*for it*. So `CRM_BROADCAST_FUNCTION_URL` pointed production at a route no
+pipeline shipped, and the workflow was asserting secrets for code nothing
+deployed.
+
+The `verify` job now probes it with the **publishable** key expecting a 401 — a
+404 means absent, a 200 means it stopped requiring the key. When you add a
+function: deploy step, required-secrets entry, and probe expectation, or the
+`secrets.manifest.mjs` assertion is checking a fiction.
+
 ## Before you finish
 
 ```bash
 bun run lint:check
 bunx tsc --noEmit
-bun vitest run
+bun run test:coverage
 ```
 
-`supabase db push --include-all` for migrations, then `bun run types:generate`.
-Never hand-edit `src/types/supabase.ts`; it is generated and the next run will
-show a phantom diff.
+`test:coverage`, not `test` — the thresholds are per-glob and only the coverage run
+applies them, so `bun vitest run` passing tells you nothing about the gate.
+
+For migrations, `bun run types:generate` reads the **live** project, not the
+migration files. A committed-but-unapplied migration leaves the generated types
+missing its columns, and the read sites use intersection casts until it lands.
+Never hand-edit `src/types/supabase.ts`; the next regeneration will show a phantom
+diff and quietly undo the fix.
+
+`lefthook` enforces a suppression baseline (currently 10 across `src/`) and
+`no-new-hardcoded-ref`. Both are ratchets, not walls: raising one is a `chore:`
+commit that says why, and a migration file cannot be edited once committed —
+add another one.
 
 ## Reporting
 
 State what you verified and how. "Tests pass" means you ran them. A guard
 verified against the live Edge Function is worth more than a unit test that
 mocks the client, and the difference is the whole reason bug 7 got shipped.
+
+**The failure mode of this whole area is a comment that asserts the opposite of
+what the code does.** Nearly every bug these two surfaces shipped was introduced
+alongside a comment explaining why it was correct. When you fix one, delete or
+rewrite the comment: leaving it is how the next reader trusts the wrong thing,
+and leaving the *doc* wrong is how the next agent reintroduces the bug.
+
+Prefer a test that fails against the old code over a note describing why the new
+code is right. A comment has no failure mode; a test does.

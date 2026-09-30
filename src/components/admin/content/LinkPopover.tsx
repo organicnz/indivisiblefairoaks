@@ -2,6 +2,7 @@
 
 import { ExternalLink, Link2, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { untrustedLinkReason } from '@/lib/trusted-links';
 
 interface Props {
   /** Absolute or site-relative href. */
@@ -18,42 +19,21 @@ interface Props {
 }
 
 /**
- * Mirrors `sanitizeWPContent`'s trusted-domain rule.
+ * Mirrors `sanitizeWPContent`'s trusted-domain rule, by importing it.
  *
  * The sanitizer drops an untrusted href at render, so an external link entered
  * here would look correct in the editor and then silently vanish from the
  * published page. Refusing at the point of entry is the only place the author
- * can be told.
+ * can be told — but only if the two agree, and they did not: this file carried
+ * its own one-entry list while the sanitizer allowed twelve. An author was told
+ * their `actblue.com` link would be removed when it would have been kept.
+ *
+ * `untrustedLinkReason` is the shared function, so the wording and the rule
+ * cannot drift apart either.
  */
-const TRUSTED_HOSTS = ['indivisiblefairoaks.org'];
-
 export function isLinkableHref(value: string): { ok: true } | { ok: false; reason: string } {
-  const href = value.trim();
-  if (!href) return { ok: false, reason: 'Enter a link' };
-  if (href.startsWith('/') && !href.startsWith('//')) return { ok: true };
-  if (href.startsWith('#')) return { ok: true };
-  // `(mailto|tel)` not `(mailto:|tel:)`: the colon belongs outside the group,
-  // or the pattern demands a second one and every mailto link is rejected.
-  if (/^(mailto|tel):/i.test(href)) return { ok: true };
-  if (href.startsWith('//')) {
-    return { ok: false, reason: 'Use a full https:// URL, or a path like /contact' };
-  }
-  let url: URL;
-  try {
-    url = new URL(href);
-  } catch {
-    return { ok: false, reason: 'That is not a URL. Try https://… or /contact' };
-  }
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    return { ok: false, reason: 'Only http and https links are allowed' };
-  }
-  const host = url.hostname.toLowerCase();
-  if (TRUSTED_HOSTS.some((d) => host === d || host.endsWith(`.${d}`))) return { ok: true };
-  return {
-    ok: false,
-    reason:
-      'External links are removed when the page is published. Link to a page on this site instead.',
-  };
+  const reason = untrustedLinkReason(value);
+  return reason ? { ok: false, reason } : { ok: true };
 }
 
 /**
