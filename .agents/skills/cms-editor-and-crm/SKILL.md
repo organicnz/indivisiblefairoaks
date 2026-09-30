@@ -153,14 +153,26 @@ be automated, so the path behind it goes untested. Keep it unmount-safe (state
 in the button, not a portal), use `fieldset`/`legend` not `role="group"`, and
 disable the whole step while `busy`.
 
-### 13. A preview renders through the public page's own sanitizer
+### 13. A control must name the state it will actually reach
+
+A draft has no public page — `getPublishedContent` filters to published rows, and
+under PPR the fallback is an HTTP 200 "Page Not Found". So a row action must
+differ by state: **View** (live URL) for published, **Preview** (into the editor)
+for a draft. Never render a public-URL link for something unpublished.
+
+This is the "no fake controls" rule in its mildest and nastiest form: nothing
+crashed, no console error, the page rendered fine. The only symptom was an
+author unable to distinguish a typo from an unpublished draft. Keep the exit
+action (Publish) available in the state you are warning about.
+
+### 14. A preview renders through the public page's own sanitizer
 
 `ContentPreview` must use the same `sanitizeWPContent` + `cw`/prose classes as
 `src/app/[slug]/page.tsx`. A preview that styled itself differently would be a
 lie the author ships on. Keep it a modal, never a route — an unsaved document
 must not have a shareable URL.
 
-### 14. SEO meta fields win over derived values
+### 15. SEO meta fields win over derived values
 
 Meta title / description live in `content.metadata` (`meta_title` /
 `meta_description`). `generateMetadata` uses them when present, falls back to

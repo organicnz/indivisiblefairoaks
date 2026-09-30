@@ -206,7 +206,13 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                       >
                         {row.title}
                       </Link>
-                      <p className="mt-0.5 truncate font-mono text-xs text-slate-400">
+                      {/* A draft's slug is not yet a live URL, so it is dimmed to
+                          match: the path is real, the page behind it is not. */}
+                      <p
+                        className={`mt-0.5 truncate font-mono text-xs ${
+                          row.status === 'publish' ? 'text-slate-400' : 'text-slate-300'
+                        }`}
+                      >
                         /{row.slug}
                       </p>
                     </td>
@@ -247,14 +253,35 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                           />
                         ) : (
                           <>
-                            <Link
-                              href={`/${row.slug}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
-                            >
-                              View
-                            </Link>
+                            {/*
+                              A draft has no public page — `getPublishedContent`
+                              filters to published rows, so a View link on a draft
+                              landed on an HTTP 200 "Page Not Found" that the
+                              author could not tell apart from a typo'd slug.
+                              The action now names the state it will actually
+                              reach: View only when the page is live, Preview
+                              (into the editor, which renders unsaved work
+                              through the real sanitizer) when it is not.
+                            */}
+                            {row.status === 'publish' ? (
+                              <Link
+                                href={`/${row.slug}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`View /${row.slug}`}
+                                className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                              >
+                                View
+                              </Link>
+                            ) : (
+                              <Link
+                                href={`/admin/content/${row.id}`}
+                                title="Not published yet — opens the editor to preview it"
+                                className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                              >
+                                Preview
+                              </Link>
+                            )}
                             <button
                               type="button"
                               onClick={() => handleToggle(row)}

@@ -272,6 +272,17 @@ The team shares one Fluid Active CPU pool (4 hrs / rolling 30 days). **Do not re
 
 When the project moves to Vercel Pro, revisit `cacheLife: "minutes"` for price and stock freshness.
 
+**The plan constrains configuration, not just performance.** A `vercel.json` with
+a `* * * * *` cron failed the *build*, not just the schedule: the free tier
+rejects sub-daily cron expressions, so the deployment for `c6ebb3ff` never
+completed and `main` was left undeployable. It was reverted in `47c12542`.
+
+Nothing local catches this — the pre-push gate ran the full suite, the build and
+112 e2e, all green, because the fault is a hosted-plan constraint rather than a
+code defect. Before adding a platform config file, check the tier first.
+Anything needing sub-daily scheduling must use Supabase `pg_cron`, not Vercel
+crons.
+
 ---
 
 ## Secrets & configuration — four stores, one reconciler
@@ -498,7 +509,10 @@ own docs, because their failure modes are invisible to review and to unit tests.
   dialog. Every destructive action on both surfaces goes through the shared
   `ConfirmAction` component — `window.confirm()` asks a blind question and
   cannot be automated, so the paths behind it went untested. A preview renders
-  through the same sanitizer and classes as the public page, as a modal. SEO
+  through the same sanitizer and classes as the public page, as a modal. A row
+  action names the state it reaches: **View** only when a page is live, never a
+  public-URL link for a draft, which resolves to a 200 "Page Not Found" that is
+  indistinguishable from a typo. SEO
   meta fields (`meta_title` / `meta_description` in `content.metadata`) win
   over derived values in `generateMetadata`.
 - **CRM and broadcasting** — [`docs/crm-operations.md`](./docs/crm-operations.md).
