@@ -5,7 +5,7 @@
 # Skip one command     : LEFTHOOK_EXCLUDE=<name> git <action>
 #
 # ── Baseline metrics (update when intentionally changed) ─────────────────────
-# suppress-count baseline: 7   (checked in pre-push; +2 contact a11y ignores)
+# suppress-count baseline: 12  (checked in pre-push; +2 contact a11y ignores)
 # coverage threshold     : 90% (checked in pre-push + vitest.config.ts)
 # env contract           : every code-referenced env var exists in .env.example
 # lockfile contract      : package.json and bun.lock must move together
@@ -21,505 +21,114 @@ pre-commit:
   commands:
 
     # ── 1. Secret leak detection ──────────────────────────────────────────────
-    # Patterns: Supabase secret/publishable, Stripe live/test/webhook, Resend,
-    # PRIVATE_KEY assignments, and Postgres connection strings with passwords.
+    # Body: scripts/hooks/no-secrets.mjs
     no-secrets:
       priority: 1
       glob: "*.{ts,tsx,js,mjs,json,yml,yaml,env,md}"
-      run: |
-        FORBIDDEN=$(grep -rn \
-          -e "sb_secret_[A-Za-z0-9]\{20,\}" \
-          -e "sb_publishable_[A-Za-z0-9]\{40,\}" \
-          -e "sk_live_[A-Za-z0-9]\{20,\}" \
-          -e "sk_test_[A-Za-z0-9]\{20,\}" \
-          -e "whsec_[A-Za-z0-9]\{20,\}" \
-          -e "re_[A-Za-z0-9]\{20,\}" \
-          -e "PRIVATE_KEY\s*=\s*['\"][^'\"]\{20,\}" \
-          -e "postgresql://[^@]*:[^@]\{8,\}@" \
-          -- {staged_files} 2>/dev/null || true)
-        if [ -n "$FORBIDDEN" ]; then
-          echo ""
-          echo "✖  Potential secret detected in staged files:"
-          echo "$FORBIDDEN"
-          echo ""
-          echo "   Remove the secret and rotate it immediately."
-          echo "   Use .env.local for local secrets (it is gitignored)."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/no-secrets.mjs {staged_files}
 
     # ── 2. Migration guard ────────────────────────────────────────────────────
-    # Migrations are append-only. Modifying an already-tracked file is dangerous.
+    # Body: scripts/hooks/migration-guard.mjs
     migration-guard:
       priority: 2
       glob: "supabase/migrations/*.sql"
-      run: |
-        MODIFIED=$(git diff --cached --name-only --diff-filter=M -- "supabase/migrations/*.sql" 2>/dev/null || true)
-        if [ -n "$MODIFIED" ]; then
-          echo ""
-          echo "✖  Modifying an existing migration file is not allowed:"
-          echo "$MODIFIED"
-          echo ""
-          echo "   Migrations are append-only. Create a new one instead:"
-          echo "   supabase migration new <descriptive_name>"
-          echo ""
-          echo "   Bypass: LEFTHOOK_EXCLUDE=migration-guard git commit"
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/migration-guard.mjs
 
     # ── 3. SQL: new tables must have RLS enabled ──────────────────────────────
-    # Every new CREATE TABLE in a migration must be followed by
-    # ALTER TABLE <name> ENABLE ROW LEVEL SECURITY within the same file.
-    # Tables without RLS expose all rows to the anon/authenticated roles.
+    # Body: scripts/hooks/rls-table-guard.mjs
     rls-table-guard:
       priority: 3
       glob: "supabase/migrations/*.sql"
-      run: |
-        VIOLATIONS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          # Extract table names from CREATE TABLE (IF NOT EXISTS) statements
-          tmpfile=$(mktemp)
-          grep -oiE "CREATE TABLE (IF NOT EXISTS )?([a-z_\".]+)" "$f" 2>/dev/null \
-            | sed -E 's/CREATE TABLE (IF NOT EXISTS )?//' \
-            | tr -d '"' \
-            | grep -v "^$" > "$tmpfile" || true
-          while IFS= read -r tbl; do
-            # Strip schema prefix if present (public.foo → foo)
-            tbl_bare=$(echo "$tbl" | sed 's/.*\.//')
-            # Check if RLS is enabled for this table in the same file
-            if ! grep -qi "ALTER TABLE.*${tbl_bare}.*ENABLE ROW LEVEL SECURITY\|ENABLE ROW LEVEL SECURITY.*${tbl_bare}" "$f" 2>/dev/null; then
-              VIOLATIONS="$VIOLATIONS\n  $f → table: $tbl_bare"
-            fi
-          done < "$tmpfile"
-          rm -f "$tmpfile"
-        done
-        if [ -n "$VIOLATIONS" ]; then
-          echo ""
-          echo "✖  New table(s) missing ENABLE ROW LEVEL SECURITY:"
-          printf "$VIOLATIONS"
-          echo ""
-          echo ""
-          echo "   Every table must explicitly enable RLS, even if no policies are"
-          echo "   added yet. Add to the migration:"
-          echo "   ALTER TABLE <table_name> ENABLE ROW LEVEL SECURITY;"
-          echo ""
-          echo "   Bypass: LEFTHOOK_EXCLUDE=rls-table-guard git commit"
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/rls-table-guard.mjs {staged_files}
 
     # ── 4. SQL: SECURITY DEFINER must set search_path ─────────────────────────
-    # A SECURITY DEFINER function without SET search_path = '' is exploitable:
-    # a malicious user can manipulate the search path to hijack the function.
-    # https://www.postgresql.org/docs/current/sql-createfunction.html#id-1.9.3.67.7
+    # Body: scripts/hooks/sql-security-definer-guard.mjs
     sql-security-definer-guard:
       priority: 4
       glob: "supabase/migrations/*.sql"
-      run: |
-        VIOLATIONS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          # Find SECURITY DEFINER occurrences
-          LINES=$(grep -n "SECURITY DEFINER" "$f" 2>/dev/null | cut -d: -f1 || true)
-          if [ -n "$LINES" ]; then
-            for lineno in $LINES; do
-              # Check ±10 lines around the SECURITY DEFINER for SET search_path
-              start=$((lineno - 5))
-              [ "$start" -lt 1 ] && start=1
-              end=$((lineno + 10))
-              context=$(sed -n "${start},${end}p" "$f" 2>/dev/null || true)
-              if ! echo "$context" | grep -qi "SET search_path"; then
-                VIOLATIONS="$VIOLATIONS\n  $f:$lineno"
-              fi
-            done
-          fi
-        done
-        if [ -n "$VIOLATIONS" ]; then
-          echo ""
-          echo "✖  SECURITY DEFINER function without SET search_path:"
-          printf "$VIOLATIONS"
-          echo ""
-          echo ""
-          echo "   Add SET search_path = '' to the function definition:"
-          echo "   LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';"
-          echo ""
-          echo "   This prevents search_path hijacking attacks."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/sql-security-definer-guard.mjs {staged_files}
 
     # ── 5. Security-path console.log audit ───────────────────────────────────
-    # console.log in webhook/API/admin/middleware paths leaks payment data,
-    # session tokens, and PII into production logs.
+    # Body: scripts/hooks/no-debug-logs.mjs
     no-debug-logs:
       priority: 5
       glob: "{src/app/api/**,src/app/admin/**,middleware}.{ts,tsx}"
-      run: |
-        FOUND=$(grep -n "console\.log" {staged_files} 2>/dev/null || true)
-        if [ -n "$FOUND" ]; then
-          echo ""
-          echo "✖  console.log in security-critical path:"
-          echo "$FOUND"
-          echo ""
-          echo "   Use console.error / console.warn for intentional logging."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/no-debug-logs.mjs {staged_files}
 
     # ── 6. No @ts-ignore / eslint-disable in security-critical paths ─────────
-    # Type suppressions in API routes, middleware, and admin paths mean TypeScript
-    # cannot catch type errors in the code that processes payments and auth.
-    # There is currently 0 suppressions in these paths — this keeps it at 0.
+    # Body: scripts/hooks/no-suppressions-in-security-paths.mjs
     no-suppressions-in-security-paths:
       priority: 6
       glob: "{src/app/api/**,src/app/admin/**,middleware}.{ts,tsx}"
-      run: |
-        FOUND=$(grep -n "@ts-ignore\|@ts-nocheck\|eslint-disable\|biome-ignore" {staged_files} 2>/dev/null || true)
-        if [ -n "$FOUND" ]; then
-          echo ""
-          echo "✖  Type/lint suppression in security-critical path:"
-          echo "$FOUND"
-          echo ""
-          echo "   Fix the underlying type error instead of suppressing it."
-          echo "   Security paths must have full type coverage."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/no-suppressions-in-security-paths.mjs {staged_files}
 
     # ── 7. process.env must not be accessed outside src/lib/env.ts ───────────
-    # Direct process.env access bypasses the Zod validation in env.ts and can
-    # silently return undefined in production. All env access must go through
-    # the validated `env` object exported from src/lib/env.ts.
-    # Exception: NEXT_PUBLIC_ vars in metadata (framework pattern) and
-    #            supabase-server.ts which needs raw access for SSR client init.
+    # Body: scripts/hooks/no-raw-env-access.mjs
     no-raw-env-access:
       priority: 7
       glob: "src/**/*.{ts,tsx}"
-      run: |
-        VIOLATIONS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          # Skip the env definition file itself and supabase server init
-          case "$f" in
-            src/lib/env.ts|src/lib/supabase-server.ts|src/lib/supabase.ts) continue ;;
-          esac
-          # Find process.env accesses for non-NEXT_PUBLIC_ vars (server secrets)
-          FOUND=$(grep -n "process\.env\." "$f" 2>/dev/null \
-            | grep -v "NEXT_PUBLIC_" \
-            | grep -v "NODE_ENV" \
-            | grep -v "NEXT_SKIP_ENV_VALIDATION" \
-            || true)
-          if [ -n "$FOUND" ]; then
-            VIOLATIONS="$VIOLATIONS\n--- $f ---\n$FOUND"
-          fi
-        done
-        if [ -n "$VIOLATIONS" ]; then
-          echo ""
-          echo "✖  Direct process.env access outside validated env layer:"
-          printf "$VIOLATIONS"
-          echo ""
-          echo ""
-          echo "   Import the validated env object instead:"
-          echo "   import { env } from '@/lib/env';"
-          echo "   env.STRIPE_SECRET_KEY  (not process.env.STRIPE_SECRET_KEY)"
-          echo ""
-          echo "   Add env.ts entries for any new secrets."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/no-raw-env-access.mjs {staged_files}
 
     # ── 8. New pages must be covered by metadata (page or route layout) ────────
-    # Client pages ('use client') cannot export metadata — metadata is
-    # server-only and silently ignored there. The codebase pattern is metadata
-    # in the route's layout.tsx for client routes, page-level metadata for
-    # server routes. Every route is currently covered one way or the other;
-    # this guard keeps it that way for new routes.
-    # The AGENTS.md spec requires: "Every dynamic page MUST implement
-    # generateMetadata for unique titles and descriptions."
+    # Body: scripts/hooks/metadata-coverage.mjs
     metadata-coverage:
       priority: 8
       glob: "src/app/**/page.tsx"
-      run: |
-        VIOLATIONS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          # Only check newly added files (A) — not modified existing ones
-          status=$(git diff --cached --name-status -- "$f" 2>/dev/null | cut -f1)
-          [ "$status" = "A" ] || continue
-          if grep -q "generateMetadata\|export const metadata" "$f" 2>/dev/null; then
-            continue
-          fi
-          # A colocated route layout covers client pages, where a page-level
-          # metadata export would be silently ignored by Next.js.
-          layout="$(dirname "$f")/layout.tsx"
-          if [ -f "$layout" ] && grep -q "generateMetadata\|export const metadata" "$layout" 2>/dev/null; then
-            continue
-          fi
-          VIOLATIONS="$VIOLATIONS\n  $f"
-        done
-        if [ -n "$VIOLATIONS" ]; then
-          echo ""
-          echo "✖  New page(s) with no metadata coverage (page or route layout):"
-          printf "$VIOLATIONS"
-          echo ""
-          echo ""
-          echo "   Server pages — export from page.tsx:"
-          echo ""
-          echo "   // Static metadata:"
-          echo "   export const metadata: Metadata = {"
-          echo "     title: 'Page Title — Indivisible Fair Oaks-Carmichael',"
-          echo "     description: 'Description for SEO and social sharing.',"
-          echo "   };"
-          echo ""
-          echo "   // Dynamic metadata (for pages with params):"
-          echo "   export async function generateMetadata({ params }) {"
-          echo "     return { title: \`\${item.name} — Indivisible Fair Oaks-Carmichael\` };"
-          echo "   }"
-          echo ""
-          echo "   Client pages ('use client') — export from the route layout.tsx"
-          echo "   instead. A page-level export there is silently ignored."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/metadata-coverage.mjs {staged_files}
 
     # ── 9. use client guard — hooks without directive ────────────────────────
-    # useState/useEffect/useReducer in a file without 'use client' is a Next.js
-    # App Router runtime error: "You're importing a component that needs X".
-    # The error only surfaces at request time, not at build time.
+    # Body: scripts/hooks/use-client-guard.mjs
     use-client-guard:
       priority: 9
       glob: "src/**/*.{ts,tsx}"
-      run: |
-        VIOLATIONS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          # Skip server-side files by definition
-          case "$f" in
-            src/app/api/**|src/lib/actions/**|src/app/*/actions.ts) continue ;;
-          esac
-          if grep -qE "useState|useEffect|useReducer|useRef|useCallback|useMemo|useContext" "$f" 2>/dev/null; then
-            if ! grep -q "'use client'" "$f" 2>/dev/null && ! grep -q '"use client"' "$f" 2>/dev/null; then
-              VIOLATIONS="$VIOLATIONS\n  $f"
-            fi
-          fi
-        done
-        if [ -n "$VIOLATIONS" ]; then
-          echo ""
-          echo "✖  React hooks used without 'use client' directive:"
-          printf "$VIOLATIONS"
-          echo ""
-          echo ""
-          echo "   Add to the top of the file:"
-          echo "   'use client';"
-          echo ""
-          echo "   Or move the hook usage into a child Client Component."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/use-client-guard.mjs {staged_files}
 
     # ── 10. Admin client scope guard ──────────────────────────────────────────
-    # createAdminClient() bypasses Row Level Security entirely. It must only
-    # appear in the explicitly audited files below. Any new usage outside this
-    # allowlist is a potential data exposure and requires a security review.
-    #
-    # Current allowlist (from audit):
-    #   src/app/admin/         — admin dashboard (is_admin check required)
-    #   src/app/api/webhooks/  — stripe webhook (server-to-server, no user session)
-    #   src/app/products/page.tsx — public product listing (read-only, no write)
-    #   src/app/account/page.tsx  — profile fetch with user-id scoping
-    #   src/lib/admin-auth.ts     — admin-only chokepoint: verifies is_admin
-    #                              BEFORE issuing the admin client, then hands
-    #                              it only to /admin routes and actions.
-    #   src/app/api/crm/unsubscribe/ — public RFC 8058 landing zone: no user
-    #                              session exists; token is an unguessable
-    #                              per-contact UUID, update is idempotent and
-    #                              rate-limited (20/10min/IP). Read + opt-out
-    #                              write only — cannot escalate or exfiltrate.
+    # Body: scripts/hooks/admin-client-scope.mjs
     admin-client-scope:
       priority: 10
       glob: "src/**/*.{ts,tsx}"
-      run: |
-        ALLOWLIST="src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/products/page.tsx|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts"
-        VIOLATIONS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          # Test files are excluded, and the reasoning is narrow rather than
-          # convenient. A file under `__tests__` is never shipped, so it cannot
-          # bypass RLS in production; and the only way the symbol appears in one
-          # is as the *name* of a `vi.mock('@/lib/supabase-server', …)` factory
-          # — which is the thing that stops the real privileged client from ever
-          # being constructed. Flagging that is a false positive on the exact
-          # pattern that makes a test safe.
-          #
-          # Residual risk, stated: a test that called the *real*
-          # `createAdminClient()` would need live credentials in the test
-          # environment, and none are injected — `env.ts` validates on import and
-          # the server-only key is absent. The same `__tests__` exclusion is
-          # already used by `suppress-count` below, so this follows an existing
-          # precedent rather than inventing one.
-          echo "$f" | grep -q "__tests__" && continue
-          if grep -q "createAdminClient" "$f" 2>/dev/null; then
-            if ! echo "$f" | grep -qE "$ALLOWLIST"; then
-              VIOLATIONS="$VIOLATIONS\n  $f"
-            fi
-          fi
-        done
-        if [ -n "$VIOLATIONS" ]; then
-          echo ""
-          echo "✖  createAdminClient() used outside approved scope:"
-          printf "$VIOLATIONS"
-          echo ""
-          echo ""
-          echo "   createAdminClient bypasses Row Level Security entirely."
-          echo "   Use createServerClient() for user-scoped operations."
-          echo ""
-          echo "   If this usage is intentional, add the file to the ALLOWLIST"
-          echo "   in lefthook.yml with a security review comment explaining why."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/admin-client-scope.mjs {staged_files}
 
     # ── 11. Server actions must have 'use server' directive ───────────────────
-    # A file that exports async functions calling Supabase or revalidatePath
-    # without 'use server' will be treated as a Client Component, causing the
-    # server-only imports to leak to the browser bundle.
+    # Body: scripts/hooks/server-action-directive.mjs
     server-action-directive:
       priority: 11
       glob: "src/**/{actions,action}.{ts,tsx}"
-      run: |
-        VIOLATIONS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          if grep -qE "revalidatePath|revalidateTag|createServerClient|createAdminClient" "$f" 2>/dev/null; then
-            if ! grep -q "'use server'" "$f" 2>/dev/null && ! grep -q '"use server"' "$f" 2>/dev/null; then
-              VIOLATIONS="$VIOLATIONS\n  $f"
-            fi
-          fi
-        done
-        if [ -n "$VIOLATIONS" ]; then
-          echo ""
-          echo "✖  Server action file missing 'use server' directive:"
-          printf "$VIOLATIONS"
-          echo ""
-          echo ""
-          echo "   Add as the very first line of the file:"
-          echo "   'use server';"
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/server-action-directive.mjs {staged_files}
 
     # ── 12. dangerouslySetInnerHTML without sanitize guard ────────────────────
-    # All dangerouslySetInnerHTML must be paired with sanitizeWPContent on the
-    # same or immediately preceding line. The 3 existing uses are protected.
+    # Body: scripts/hooks/no-raw-innerhtml.mjs
     no-raw-innerhtml:
       priority: 12
       glob: "*.{ts,tsx}"
-      run: |
-        VIOLATIONS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          tmpfile=$(mktemp)
-          grep -n "dangerouslySetInnerHTML" "$f" 2>/dev/null > "$tmpfile" || true
-          while IFS= read -r match; do
-            lineno=$(echo "$match" | cut -d: -f1)
-            start=$((lineno - 2))
-            [ "$start" -lt 1 ] && start=1
-            end=$((lineno + 2))
-            context=$(sed -n "${start},${end}p" "$f" 2>/dev/null || true)
-            # JSON-LD is not CMS content: it is a structure we build and escape
-            # ourselves via serializeJsonLd, so it must not be wrapped in
-            # sanitizeWPContent (which would mangle the markup). Allow it only
-            # when the same block declares the ld+json script type — so a CMS
-            # body injected into a real <div> is still caught.
-            if echo "$context" | grep -q "application/ld+json"; then
-              continue
-            fi
-            if ! echo "$context" | grep -q "sanitizeWPContent"; then
-              VIOLATIONS="$VIOLATIONS\n  $f:$lineno"
-            fi
-          done < "$tmpfile"
-          rm -f "$tmpfile"
-        done
-        if [ -n "$VIOLATIONS" ]; then
-          echo ""
-          echo "✖  dangerouslySetInnerHTML without sanitizeWPContent:"
-          printf "$VIOLATIONS"
-          echo ""
-          echo ""
-          echo "   Wrap with: sanitizeWPContent(yourContent)"
-          echo "   (JSON-LD <script type=\"application/ld+json\"> is exempt — it is"
-          echo "    escaped by serializeJsonLd, not CMS content.)"
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/no-raw-innerhtml.mjs {staged_files}
 
     # ── 13. Env integrity check ───────────────────────────────────────────────
-    # Every key in .env.example must exist in .env.local.
+    # Body: scripts/hooks/env-integrity.mjs
     env-integrity:
       priority: 13
       glob: ".env*"
-      run: |
-        if [ ! -f ".env.local" ]; then
-          echo ""
-          echo "⚠️   .env.local not found. Copy .env.example and fill in values:"
-          echo "    cp .env.example .env.local"
-          echo ""
-          exit 1
-        fi
-        MISSING=""
-        while IFS= read -r line; do
-          [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-          key=$(echo "$line" | cut -d= -f1)
-          if ! grep -q "^${key}=" .env.local 2>/dev/null; then
-            MISSING="$MISSING\n  - $key"
-          fi
-        done < .env.example
-        if [ -n "$MISSING" ]; then
-          echo ""
-          echo "✖  Keys in .env.example missing from .env.local:"
-          printf "$MISSING"
-          echo ""
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/env-integrity.mjs
 
     # ── 14. Hardcoded Supabase project ref guard (new files only) ────────────
+    # Body: scripts/hooks/no-new-hardcoded-ref.mjs
     no-new-hardcoded-ref:
       priority: 14
       glob: "*.{ts,tsx,js,mjs}"
-      run: |
-        PROJECT_REF="mojsubkqjdruhpxbzgme"
-        NEW_FILES=$(git diff --cached --name-only --diff-filter=A -- "*.ts" "*.tsx" "*.js" "*.mjs" 2>/dev/null || true)
-        if [ -z "$NEW_FILES" ]; then exit 0; fi
-        FOUND=$(echo "$NEW_FILES" | xargs grep -ln "$PROJECT_REF" 2>/dev/null || true)
-        if [ -n "$FOUND" ]; then
-          echo ""
-          echo "✖  Hardcoded Supabase project ref '$PROJECT_REF' in new file(s):"
-          echo "$FOUND"
-          echo ""
-          echo "   Use process.env.NEXT_PUBLIC_SUPABASE_URL instead."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/no-new-hardcoded-ref.mjs
 
     # ── 15. GitHub Actions env contract ───────────────────────────────────────
     # Catches a workflow referencing a secret/variable that does not exist, a
     # half-applied rename, a NEXT_PUBLIC_* value parked in the secrets store
     # (public by construction, and withheld from fork PRs), and a credentialed
     # workflow with no explicit least-privilege `permissions:` block.
-    # ── 16. Vercel environment contract ───────────────────────────────────────
-    # Catches a var the app reads but nothing declares, a declared var no code
-    # reads, a NEXT_PUBLIC_* value marked as a secret (it ships to the browser),
-    # a CI-only test switch sitting in the local-dev template, and a required var
-    # missing from .env.example.
     vercel-env-contract:
       glob: "{src/**/*.ts,src/**/*.tsx,.env.example,scripts/vercel-env.mjs,scripts/check-vercel-env.mjs}"
       run: bun scripts/check-vercel-env.mjs
       stage_fixed: false
 
-    # ── 17. Supabase edge function secret contract ────────────────────────────
+    # ── 16. Supabase edge function secret contract ────────────────────────────
     # Catches a secret the edge code reads but neither the manifest nor
     # env.example.md documents, a manifest entry no function reads, a deployed
     # function missing from the manifest, and stale entries in the example file.
@@ -536,7 +145,7 @@ pre-commit:
       run: bun scripts/check-ci-env.mjs
       stage_fixed: false
 
-    # ── 18. Secrets registry consistency ─────────────────────────────────────
+    # ── 17. Secrets registry consistency ─────────────────────────────────────
     # The three gates above are all offline: each proves a manifest agrees with
     # the source, and none can see a dashboard. This one asserts the layer they
     # cannot express — that every credential has an owner, a blast radius, and
@@ -550,270 +159,79 @@ pre-commit:
       run: bun scripts/secrets-audit.mjs --offline
       stage_fixed: false
 
-    # ── 19. Large file guard ──────────────────────────────────────────────────
+    # ── 18. Large file guard ──────────────────────────────────────────────────
+    # Body: scripts/hooks/no-large-files.mjs
     no-large-files:
       priority: 16
-      run: |
-        LIMIT_KB=500
-        OVERSIZED=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          size_kb=$(du -k "$f" | cut -f1)
-          if [ "$size_kb" -gt "$LIMIT_KB" ]; then
-            OVERSIZED="$OVERSIZED\n  $f  (${size_kb}KB)"
-          fi
-        done
-        if [ -n "$OVERSIZED" ]; then
-          echo ""
-          echo "✖  Staged files exceed ${LIMIT_KB}KB limit:"
-          printf "$OVERSIZED"
-          echo ""
-          echo ""
-          echo "   Large assets belong in Supabase Storage, not in the repo."
-          echo "   Bypass: LEFTHOOK_EXCLUDE=no-large-files git commit"
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/no-large-files.mjs {staged_files}
 
-    # ── 17. Empty API route directory guard ──────────────────────────────────
+    # ── 19. Empty API route directory guard ──────────────────────────────────
+    # Body: scripts/hooks/no-empty-api-routes.mjs
     no-empty-api-routes:
       priority: 17
       glob: "src/app/api/**"
-      run: |
-        EMPTY_DIRS=""
-        find src/app/api -mindepth 1 -maxdepth 3 -type d 2>/dev/null | sort > /tmp/indivisiblefairoaks_api_dirs.txt || true
-        while IFS= read -r dir; do
-          [ -z "$dir" ] && continue
-          if ! ls "$dir"/route.{ts,tsx,js} 2>/dev/null | grep -q .; then
-            [ "$dir" = "src/app/api" ] && continue
-            EMPTY_DIRS="$EMPTY_DIRS\n  $dir"
-          fi
-        done < /tmp/indivisiblefairoaks_api_dirs.txt
-        rm -f /tmp/indivisiblefairoaks_api_dirs.txt
-        if [ -n "$EMPTY_DIRS" ]; then
-          echo ""
-          echo "⚠️   API route directories with no route.ts:"
-          printf "$EMPTY_DIRS"
-          echo ""
-          echo ""
-          echo "   Add a route.ts or delete the directory."
-          echo ""
-          # Warn only — directory may be an intentional scaffold
-        fi
+      run: bun scripts/hooks/no-empty-api-routes.mjs
 
-    # ── 17b. Edge function import scope ─────────────────────────────────────
-    # Supabase edge functions are bundled by the CLI at deploy time. Only
-    # jsr:/npm: specifiers and the shared src/config/ module are bundled
-    # correctly. Importing app code (src/lib, src/components…) from a function
-    # breaks the bundle (this caused BOOT_ERROR on earlier deployments).
+    # ── 20. Edge function import scope ─────────────────────────────────────
+    # Body: scripts/hooks/edge-import-scope.mjs
     edge-import-scope:
       priority: 18
       glob: "supabase/functions/**/*.ts"
-      run: |
-        VIOLATIONS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          tmpfile=$(mktemp)
-          grep -nE "from ['\"]|import ['\"]" "$f" 2>/dev/null || true > "$tmpfile"
-          while IFS= read -r line; do
-            # Match import targets: from '...' or import '...'
-            target=$(echo "$line" | sed -nE "s/.*from[[:space:]]+['\"]([^'\"]+)['\"].*/\1/p; s/^[[:space:]]*import[[:space:]]+['\"]([^'\"]+)['\"].*/\1/p" | head -1)
-            [ -z "$target" ] && continue
-            case "$target" in
-              jsr:*|npm:*) continue ;;
-              ./*|../*)
-                case "$target" in
-                  *src/config/*) continue ;;
-                  *) VIOLATIONS="$VIOLATIONS\n  $f → $target" ;;
-                esac
-                ;;
-              *) continue ;;
-            esac
-          done < "$tmpfile"
-          rm -f "$tmpfile"
-        done
-        if [ -n "$VIOLATIONS" ]; then
-          echo ""
-          echo "✖  Edge function imports app code outside supabase/functions + src/config:"
-          printf "$VIOLATIONS"
-          echo ""
-          echo ""
-          echo "   Only jsr:/npm: specifiers and the shared src/config/ module"
-          echo "   are bundled reliably by the CLI. Move shared logic into src/config/"
-          echo "   or supabase/functions/_shared/ and import from there."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/edge-import-scope.mjs {staged_files}
 
-    # ── 17c. Merge conflict markers ─────────────────────────────────────────
-    # A leftover conflict marker compiles fine in most grammars but ships
-    # broken code. Fail the commit if any staged file contains one.
+    # ── 21. Merge conflict markers ─────────────────────────────────────────
+    # Body: scripts/hooks/no-conflict-markers.mjs
     no-conflict-markers:
       priority: 19
-      run: |
-        FOUND=$(grep -rn "^<<<<<<< \|^=======$\|^>>>>>>> " {staged_files} 2>/dev/null || true)
-        if [ -n "$FOUND" ]; then
-          echo ""
-          echo "✖  Merge conflict markers in staged files:"
-          echo "$FOUND"
-          echo ""
-          echo "   Resolve the conflict first (git mergetool), then re-stage."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/no-conflict-markers.mjs {staged_files}
 
-    # ── 17d. Workflow YAML sanity ───────────────────────────────────────────
-    # A malformed .github/workflows/*.yml silently disables a pipeline
-    # (GitHub drops invalid workflow files). Parse-check any staged workflow
-    # so a broken pipeline never ships.
+    # ── 22. Workflow YAML sanity ───────────────────────────────────────────
+    # Body: scripts/hooks/workflow-yaml.mjs
     workflow-yaml:
       priority: 20
       glob: ".github/workflows/*.{yml,yaml}"
-      run: |
-        ERRORS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          if ! ruby -e 'require "yaml"; YAML.load_file(ARGV[0]); puts "ok"' "$f" >/dev/null 2>&1; then
-            ERRORS="$ERRORS\n  $f (invalid YAML)"
-          fi
-        done
-        if [ -n "$ERRORS" ]; then
-          echo ""
-          echo "✖  Invalid YAML in workflow file(s):"
-          printf "$ERRORS"
-          echo ""
-          echo ""
-          echo "   GitHub silently ignores broken workflow files — a malformed"
-          echo "   deploy.yml would disable CI without anyone noticing."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/workflow-yaml.mjs {staged_files}
 
-    # ── 17. Biome – format + lint staged files ────────────────────────────────
+    # ── 23. Biome – format + lint staged files ────────────────────────────────
     biome-check:
       priority: 21
       glob: "*.{js,jsx,ts,tsx,json,css}"
       run: bun biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
 
-    # ── 18. oxlint – React / hooks / Next.js rules ───────────────────────────
+    # ── 24. oxlint – React / hooks / Next.js rules ───────────────────────────
     oxlint:
       priority: 22
       glob: "*.{ts,tsx}"
       run: bun oxlint {staged_files}
 
-    # ── 19. TypeScript – type-check without full build ────────────────────────
+    # ── 25. TypeScript – type-check without full build ────────────────────────
     typecheck:
       priority: 23
       glob: "*.{ts,tsx}"
       run: bun tsc --noEmit --incremental false
 
-    # ── 19b. E2E spec list check (no browsers) ────────────────────────────────
-    # Cheap commit-time guard: `playwright test --list` parses every spec and
-    # fails on import/syntax errors without launching a browser. The full
-    # suite is the pre-push delivery gate (see `e2e` under pre-push).
+    # ── 26. E2E spec list check (no browsers) ────────────────────────────────
+    # Body: scripts/hooks/e2e-spec-list.mjs
     e2e-spec-list:
       priority: 24
       glob: "e2e/**/*.spec.ts"
-      run: |
-        if ./node_modules/.bin/playwright test --list >/tmp/ifo-e2e-list.out 2>/tmp/ifo-e2e-list.err; then
-          exit 0
-        fi
-        echo ""
-        echo "✖  Playwright specs failed to list (import/syntax error):"
-        cat /tmp/ifo-e2e-list.err 2>/dev/null || true
-        echo ""
-        echo "   Fix the spec before committing."
-        echo "   Full suite runs as the pre-push e2e delivery gate."
-        echo ""
-        exit 1
+      run: bun scripts/hooks/e2e-spec-list.mjs
 
-    # ── 20. Env usage coverage ────────────────────────────────────────────────
-    # Every env var referenced in code must be declared in .env.example.
-    # A referenced-but-undeclared var is silently undefined in CI/deploy
-    # (validation-layer drift) — the Vault/edge secrets only cover declared
-    # keys, so undeclared access would ship a runtime bug.
-    # Allowed raw-access files (env.ts, supabase init) are already exempted
-    # by no-raw-env-access; this closes the NEXT_PUBLIC + declaration gap.
+    # ── 27. Env usage coverage ────────────────────────────────────────────────
+    # Body: scripts/hooks/env-usage-coverage.mjs
     env-usage-coverage:
       priority: 25
       glob: "src/**/*.{ts,tsx}"
-      run: |
-        VIOLATIONS=""
-        for f in {staged_files}; do
-          [ -f "$f" ] || continue
-          FOUND=$(grep -oE "process\.env\.[A-Z_][A-Z0-9_]*" "$f" 2>/dev/null | sed 's/process\.env\.//' | sort -u || true)
-          if [ -n "$FOUND" ]; then
-            for var in $FOUND; do
-              case "$var" in
-                NEXT_PUBLIC_*|NODE_ENV|NEXT_SKIP_ENV_VALIDATION) continue ;;
-              esac
-              if ! grep -q "^${var}=" .env.example 2>/dev/null; then
-                VIOLATIONS="$VIOLATIONS\n  $f → process.env.$var"
-              fi
-            done
-          fi
-        done
-        if [ -n "$VIOLATIONS" ]; then
-          echo ""
-          echo "✖  Env vars used in code but missing from .env.example:"
-          printf "$VIOLATIONS"
-          echo ""
-          echo ""
-          echo "   Add the key to .env.example (and a value to .env.local)."
-          echo "   Secrets live in the Supabase Vault / edge secrets and in"
-          echo "   Vercel Env Variables for the app — .env.example is the"
-          echo "   contract every environment must honour."
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/env-usage-coverage.mjs {staged_files}
 
-    # ── 21. Lockfile pairing ──────────────────────────────────────────────────
-    # A package.json change without a bun.lock change ships a frozen-lockfile
-    # CI failure (or worse, drift). Require them to move together on commit.
+    # ── 28. Lockfile pairing ──────────────────────────────────────────────────
+    # Body: scripts/hooks/lockfile-pair.mjs
     lockfile-pair:
       priority: 26
-      run: |
-        STAGED=$(git diff --cached --name-only 2>/dev/null || true)
-        if ! echo "$STAGED" | grep -qx "package.json"; then exit 0; fi
-        if echo "$STAGED" | grep -qx "bun.lock"; then exit 0; fi
+      run: bun scripts/hooks/lockfile-pair.mjs
 
-        # Only DEPENDENCY changes affect `bun install --frozen-lockfile`, which is
-        # the failure this hook exists to prevent. Adding a script leaves the
-        # resolved graph identical, and `git add bun.lock` then stages nothing — so
-        # the naive "both files present" check could never pass for a script-only
-        # commit.
-        #
-        # Compared by parsing both versions rather than grepping the diff: the diff
-        # contains the changed version line, not the `"dependencies": {` header, so
-        # a line-based check matches nothing and silently passes a real bump.
-        DEP_CHANGE=$(bun -e "
-          const { execSync } = require('node:child_process');
-          const read = (ref) => JSON.parse(execSync('git show ' + ref + ':package.json', { encoding: 'utf8' }));
-          const staged = read('');
-          const base = read('HEAD');
-          const keys = [
-            'dependencies', 'devDependencies', 'peerDependencies',
-            'optionalDependencies', 'overrides', 'resolutions',
-            'trustedDependencies', 'patchedDependencies',
-          ];
-          const differs = keys.some(
-            (k) => JSON.stringify(staged[k] ?? null) !== JSON.stringify(base[k] ?? null)
-          );
-          console.log(differs ? 'yes' : 'no');
-        " 2>/dev/null || echo "yes")
-        # If the comparison could not run, fail closed: a broken check must not
-        # become a silently skipped one.
-        if [ "$DEP_CHANGE" != "yes" ]; then exit 0; fi
-
-        echo ""
-        echo "✖  package.json dependency changes staged without bun.lock."
-        echo "   Run: bun install   (updates the lockfile) then re-stage bun.lock."
-        echo "   CI installs with --frozen-lockfile and will fail otherwise."
-        echo ""
-        exit 1
-
-    # ── 22. Documentation numeric claims ──────────────────────────────────────
+    # ── 29. Documentation numeric claims ──────────────────────────────────────
     # AGENTS.md and docs/ state how many pre-commit guards exist, how long
     # lefthook.yml runs to, and how many specs the delivery gate executes. Those
     # numbers drift silently, and AGENTS.md once carried two that disagreed with
@@ -839,21 +257,7 @@ pre-commit:
 commit-msg:
   commands:
     conventional:
-      run: |
-        msg=$(cat {1})
-        clean_msg=$(echo "$msg" | grep -v "^#" | sed '/^[[:space:]]*$/d' | head -1)
-        pattern="^(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\(.+\))?(!)?: .{1,100}$"
-        if ! echo "$clean_msg" | grep -qE "$pattern"; then
-          echo ""
-          echo "✖  Commit message doesn't follow Conventional Commits."
-          echo "   Format : type(scope?): subject  (max 100 chars)"
-          echo "   Types  : feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert"
-          echo "   Breaking: append !  →  feat(api)!: redesign checkout"
-          echo ""
-          echo "   Your message: $clean_msg"
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/commit-msg.mjs {1}
 
 # ─── post-commit ──────────────────────────────────────────────────────────────
 # Auto-regenerate TypeScript types when a migration is committed.
@@ -861,28 +265,7 @@ commit-msg:
 post-commit:
   commands:
     regen-types-on-migration:
-      run: |
-        CHANGED=$(git diff-tree -r --name-only --no-commit-id HEAD -- "supabase/migrations/*.sql" 2>/dev/null || true)
-        if [ -z "$CHANGED" ]; then
-          exit 0
-        fi
-        # Guard: only regenerate if .env.local points at the canonical project.
-        CANONICAL="mojsubkqjdruhpxbzgme"
-        SUPABASE_URL=$(grep -E "^NEXT_PUBLIC_SUPABASE_URL=" .env.local 2>/dev/null | cut -d= -f2- | tr -d '"'"'" | tr -d ' ')
-        if [ -n "$SUPABASE_URL" ]; then
-          DERIVED=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)
-          if [ "$DERIVED" != "$CANONICAL" ]; then
-            echo "⚠️   Skipping type regen — .env.local points to a different project ($DERIVED ≠ $CANONICAL)."
-            exit 0
-          fi
-        fi
-        echo ""
-        echo "🗄️   Migration committed — regenerating TypeScript types..."
-        if bun run types:generate 2>/dev/null; then
-          echo "✔   src/types/supabase.ts updated."
-        else
-          echo "⚠️   Type generation failed. Run manually: bun run types:generate"
-        fi
+      run: bun scripts/hooks/post-commit-regen-types.mjs
 
 # ─── pre-push ─────────────────────────────────────────────────────────────────
 pre-push:
@@ -890,53 +273,23 @@ pre-push:
   commands:
 
     # ── 1. Block direct pushes to main ───────────────────────────────────────
+    # Body: scripts/hooks/no-direct-main-push.mjs
     no-direct-main-push:
       priority: 27
-      run: |
-        if [ "${CI:-}" = "true" ]; then exit 0; fi
-        current_branch=$(git rev-parse --abbrev-ref HEAD)
-        if [ "$current_branch" = "main" ]; then
-          echo ""
-          echo "✖  Direct push to main is not allowed."
-          echo "   Open a pull request: gh pr create"
-          echo "   Bypass: LEFTHOOK_EXCLUDE=no-direct-main-push git push"
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/no-direct-main-push.mjs
 
     # ── 2. Lock file sync check ───────────────────────────────────────────────
+    # Body: scripts/hooks/lockfile-sync.mjs
     lockfile-sync:
       priority: 28
-      run: |
-        if git diff --name-only HEAD..@{u} 2>/dev/null | grep -q "package.json"; then
-          if ! git diff --name-only HEAD..@{u} 2>/dev/null | grep -q "bun.lock"; then
-            echo "✖  package.json changed but bun.lock not updated. Run: bun install"
-            exit 1
-          fi
-        fi
-        if git diff --name-only HEAD 2>/dev/null | grep -q "package.json"; then
-          if ! git diff --name-only HEAD 2>/dev/null | grep -q "bun.lock"; then
-            echo "✖  package.json has local changes but bun.lock is unchanged. Run: bun install"
-            exit 1
-          fi
-        fi
+      run: bun scripts/hooks/lockfile-sync.mjs
 
     # ── 3. Migration verify script ────────────────────────────────────────────
+    # Body: scripts/hooks/migration-verify.mjs
     migration-verify:
       priority: 29
       glob: "supabase/migrations/*.sql"
-      run: |
-        if [ ! -f ".env.local" ]; then
-          echo "ℹ️   No .env.local — skipping migration verification."; exit 0
-        fi
-        if ! grep -q "^SUPABASE_SECRET_KEY=.\{5,\}" .env.local 2>/dev/null; then
-          echo "ℹ️   SUPABASE_SECRET_KEY not configured — skipping migration verification."; exit 0
-        fi
-        echo "🗄️   Verifying migrations against live schema..."
-        bun scripts/verify_migration.mjs && echo "✔   Migrations verified." || {
-          echo "✖  Migration verification failed. Fix before pushing."
-          exit 1
-        }
+      run: bun scripts/hooks/migration-verify.mjs
 
     # ── 4. Suppression count gate ─────────────────────────────────────────────
     # Tracks @ts-ignore / biome-ignore / eslint-disable across all of src/.
@@ -1010,40 +363,17 @@ pre-push:
         fi
         echo "✔  Suppression count: ${COUNT}/${BASELINE}"
 
-     # ── 5. CI parity – mirrors the lint and build gates in .github/workflows/ci.yml ──
+    # ── 5. CI parity – mirrors the lint and build gates in .github/workflows/ci.yml ──
     lint-ci:
       priority: 31
       run: bun run lint:check
 
-    # oxlint already runs via lint:check above; kept separate for fast
-    # iteration on the React/hooks/Next rule set.
-    # Just-in-time migration dry-run — mirrors the CI token-only flow:
-    # supabase link + db push --linked --dry-run. Skips silently when the
-    # local machine has no link state / token (CI covers it there).
-    # ── 5b. Just-in-time migration dry-run ────────────────────────────────────
-    # Mirrors the CI token-only flow: supabase link + db push --linked
-    # --dry-run. Skips silently when the local machine has no link state /
-    # token (CI covers it there).
+    # ── 6. Just-in-time migration dry-run ────────────────────────────────────
+    # Body: scripts/hooks/migration-dryrun.mjs
     migration-dryrun:
       priority: 32
       glob: "supabase/migrations/*.sql"
-      run: |
-        if [ ! -f "supabase/.temp/linked-project.json" ]; then
-          echo "ℹ️   No linked Supabase project — skipping migration dry-run."
-          exit 0
-        fi
-        if ! grep -q "^SUPABASE_ACCESS_TOKEN=.\{5,\}" .env.local 2>/dev/null; then
-          echo "ℹ️   SUPABASE_ACCESS_TOKEN not configured — skipping migration dry-run."
-          exit 0
-        fi
-        echo "🗄️   Migrations changed — dry-running local → remote diff..."
-        bun x supabase@latest db push --linked --dry-run --yes 2>&1 && \
-          echo "✔   Migration dry-run passed." || {
-            echo ""
-            echo "✖  Migration dry-run failed (see output above)."
-            echo "   Fix before pushing — CI will fail otherwise."
-            exit 1
-          }
+      run: bun scripts/hooks/migration-dryrun.mjs
 
     tests:
       priority: 33
@@ -1053,135 +383,46 @@ pre-push:
       priority: 34
       run: bun tsc --noEmit
 
-    # ── 6. Coverage threshold ─────────────────────────────────────────────────
+    # ── 7. Coverage threshold ─────────────────────────────────────────────────
     # Vitest enforces the configured statement, branch, function, and line gates.
     coverage:
       priority: 35
       run: bun run test:coverage
 
-    # ── 7. Build smoke-test ───────────────────────────────────────────────────
+    # ── 8. Build smoke-test ───────────────────────────────────────────────────
     build-check:
       priority: 36
       run: NEXT_E2E_BUILD=true NEXT_SKIP_ENV_VALIDATION=1 bun run build
 
-    # ── 8. Peer-dependency compatibility ──────────────────────────────────────
-     # Checks the installed dependency graph before a build can reach deployment.
+    # ── 9. Peer-dependency compatibility ──────────────────────────────────────
+    # Checks the installed dependency graph before a build can reach deployment.
     peer-deps:
       priority: 37
       run: bun scripts/check-peer-deps.mjs --all
 
-    # ── 9. Playwright e2e delivery gate ───────────────────────────────────────
-    # Runs last so build-check has already produced a warm .next; Playwright's
-    # webServer starts `next start` against that build (reuseExistingServer).
-    # Change-aware: full suite only when the push range can affect runtime.
-    # Bypass (emergency only): LEFTHOOK_EXCLUDE=e2e git push
+    # ── 10. Playwright e2e delivery gate ───────────────────────────────────────
+    # Body: scripts/hooks/e2e-gate.mjs
     e2e:
       priority: 38
-      run: |
-        # Push range: upstream when available, otherwise the tip commit.
-        if git rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
-          RANGE_DIFF=$(git diff --name-only '@{u}...HEAD' 2>/dev/null || true)
-        else
-          RANGE_DIFF=$(git diff --name-only 'HEAD~1...HEAD' 2>/dev/null || true)
-        fi
-        if [ -z "$RANGE_DIFF" ]; then
-          RANGE_DIFF=$(git show --name-only --format= HEAD 2>/dev/null || true)
-        fi
-
-        # Anything that can change served behaviour or the suite itself forces
-        # a full run. Docs-only pushes skip cleanly (README, AGENTS, comments).
-        if echo "$RANGE_DIFF" | grep -qE '^(src/|e2e/|public/|supabase/|scripts/mock-notify-contact\.mjs|playwright\.config\.ts|next\.config\.ts|middleware\.ts|package\.json|bun\.lock)'; then
-          RUN_E2E=1
-        else
-          RUN_E2E=0
-        fi
-
-        if [ "$RUN_E2E" != "1" ]; then
-          echo "ℹ️   No runtime/e2e changes in push range — skipping Playwright."
-          echo "    Range touched: $(echo "$RANGE_DIFF" | tr '\n' ' ' | head -c 240)"
-          exit 0
-        fi
-
-        if [ ! -f ".next/BUILD_ID" ]; then
-          echo ""
-          echo "✖  No production build at .next/BUILD_ID — e2e cannot run."
-          echo "   Run: NEXT_SKIP_ENV_VALIDATION=1 bun run build"
-          echo ""
-          exit 1
-        fi
-
-        echo "🎭  Playwright e2e delivery gate (workers=2)..."
-        # workers=2: higher parallelism caused intermittent header-clearance
-        # flakes under load; CI keeps CI=true → retries + 2 workers in config.
-        if ./node_modules/.bin/playwright test --workers=2; then
-          echo "✔   E2E suite passed."
-        else
-          echo ""
-          echo "✖  E2E suite failed."
-          echo "   Report : npx playwright show-report"
-          echo "   Single : ./node_modules/.bin/playwright test e2e/<spec>.spec.ts --headed --debug"
-          echo "   Bypass : LEFTHOOK_EXCLUDE=e2e git push"
-          echo ""
-          exit 1
-        fi
+      run: bun scripts/hooks/e2e-gate.mjs
 
 # ─── post-checkout ────────────────────────────────────────────────────────────
 post-checkout:
   commands:
     deps-changed:
-      run: |
-        prev=$1; curr=$2; is_branch_checkout=$3
-        if [ "$is_branch_checkout" = "1" ]; then
-          changed=$(git diff --name-only "$prev" "$curr" -- package.json bun.lock 2>/dev/null || true)
-          if [ -n "$changed" ]; then
-            echo ""; echo "📦  Dependencies changed on this branch. Run: bun install"; echo ""
-          fi
-        fi
+      run: bun scripts/hooks/post-checkout-deps.mjs {1} {2} {3}
 
 # ─── post-merge ───────────────────────────────────────────────────────────────
 post-merge:
   commands:
     auto-install:
-      run: |
-        changed=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD -- bun.lock package.json 2>/dev/null || true)
-        if [ -n "$changed" ]; then
-          echo "📦  Lock file changed — running bun install..."
-          bun install
-        fi
+      run: bun scripts/hooks/post-merge-auto-install.mjs
 
     regen-types-on-merge:
-      run: |
-        changed=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD -- "supabase/migrations/*.sql" 2>/dev/null || true)
-        if [ -n "$changed" ]; then
-          # Guard: only regenerate if the Supabase URL resolves to the correct
-          # project ref. If .env.local points at a different project (e.g. a
-          # personal workspace), skip silently to avoid clobbering committed types.
-          CANONICAL="mojsubkqjdruhpxbzgme"
-          SUPABASE_URL=$(grep -E "^NEXT_PUBLIC_SUPABASE_URL=" .env.local 2>/dev/null | cut -d= -f2- | tr -d '"'"'" | tr -d ' ')
-          if [ -n "$SUPABASE_URL" ]; then
-            DERIVED=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)
-            if [ "$DERIVED" != "$CANONICAL" ]; then
-              echo "⚠️   Skipping type regen — .env.local points to a different project ($DERIVED ≠ $CANONICAL)."
-              echo "    Run manually if needed: bun run types:generate"
-              exit 0
-            fi
-          fi
-          echo "🗄️   Migrations pulled — regenerating TypeScript types..."
-          bun run types:generate 2>/dev/null && \
-            echo "✔   src/types/supabase.ts updated." || \
-            echo "⚠️   Type generation failed. Run: bun run types:generate"
-        fi
+      run: bun scripts/hooks/post-merge-regen-types.mjs
 
 # ─── pre-rebase ───────────────────────────────────────────────────────────────
 pre-rebase:
   commands:
     warn-rebase-main:
-      run: |
-        upstream=$1
-        if [ "$upstream" = "main" ] || [ "$upstream" = "origin/main" ]; then
-          echo ""
-          echo "⚠️   Rebasing onto main rewrites history."
-          echo "    Only do this on private unshared branches."
-          echo "    Proceeding in 3 seconds... (Ctrl+C to abort)"
-          sleep 3
-        fi
+      run: bun scripts/hooks/pre-rebase-warn-main.mjs {1}

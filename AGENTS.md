@@ -509,6 +509,16 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
+- **`lefthook.yml` is 428 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+  guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
+  its rationale comment moved into that file's header — where it sits beside the code it
+  explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can
+  know: the `glob` that decides when a guard runs, its `priority`, and the staged-file
+  arguments. The number above is re-derived from the file on every commit, so it cannot
+  drift silently. Two things stayed inline deliberately: the `suppress-count` gate, because
+  its `BASELINE=12` is what `check-doc-claims.mjs` parses, and the eight guards that were
+  already one-line `bun scripts/check-*.mjs` calls. **Adding a guard means adding a file
+  under `scripts/hooks/`, not writing bash in YAML.**
 - **pre-push**: lint → unit → typecheck → coverage → production build → peer-deps → **Playwright e2e delivery gate** (full suite, `workers=2`) when the push range touches `src/`, `e2e/`, `public/`, `supabase/`, app configs, or the lockfile. Docs-only pushes skip e2e with an explicit note.
 - **The coverage gate is per-file, not a global percentage, and that is deliberate.**
   Vitest's bare `statements: 90` is checked against the *aggregate* over every included
@@ -599,16 +609,7 @@ Deliberately left undone. None block the apex cutover.
    and never exercised in a real browser. A seeded admin session in e2e is the
    highest-value next test investment, and it is also the thing that would let
    `sendBlockedInE2E()` be verified end to end rather than by inspection.
-9. **`lefthook.yml` is 1,187 lines because the logic lives in YAML.** 22 of the
-   30 pre-commit guards are inline `run: |` bash
-   blocks, and nearly every one carries a five-to-fifteen-line rationale comment
-   and a multi-line remediation block. The content is right; the shape is drift,
-   visible in duplicated section numbers and orphan comments. Moving each body
-   into `scripts/hooks/*.mjs` would take it to roughly 400 lines. Worth doing
-   before the next guard is added rather than after. The guard count is written
-   in digits rather than words on purpose: `scripts/check-doc-claims.mjs` checks
-   it against `lefthook.yml` on every commit, and it cannot read "twenty-nine".
-10. **Pre-existing CMS images still carry no `width` / `height`.** New and edited
+9. **Pre-existing CMS images still carry no `width` / `height`.** New and edited
     images are measured from their bytes at upload, and a hand-typed URL is
     measured client-side, so nothing added from here on shifts. The content
     migrated from Google Sites does not: those images sit on external hosts that
@@ -616,7 +617,7 @@ Deliberately left undone. None block the apex cutover.
     a revision per row — for what would mostly be no-op measurements. It is also
     a production data change, which belongs to the chapter rather than to a
     deploy. Cheaper when an author touches the page anyway.
-11. **The checkout rate limit is not a control on Stripe sessions.** The 10/min/IP
+10. **The checkout rate limit is not a control on Stripe sessions.** The 10/min/IP
     limit in `AGENTS.md`'s table is on the Next route. `supabase/functions/checkout`
     has no rate limit of any kind, is deployed with JWT verification **on**, and
     Supabase's `verify_jwt` accepts the publishable/anon key — which is public by
@@ -625,7 +626,7 @@ Deliberately left undone. None block the apex cutover.
     and the CORS `origin` restriction is inert for a non-browser client. Closing it
     means rate limiting inside an Edge Function, which has no shared in-memory
     state — a design decision, not a patch.
-12. **Three CRM suites still hand-roll their Supabase mock.** `crm.test.ts`,
+11. **Three CRM suites still hand-roll their Supabase mock.** `crm.test.ts`,
     `crm-mutations.test.ts` and `crm-reads.test.ts` each carry their own
     `createMockQueryBuilder`, and each asserts on the *arguments* a builder
     received rather than on the rows a query would match. That is a legitimate
