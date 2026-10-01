@@ -45,9 +45,16 @@ import { vi } from 'vitest';
 
 /** A filter recorded by `.eq()` / `.is()` / `.like()`, applied by the terminal. */
 interface Filter {
-  kind: 'eq' | 'is' | 'like';
+  kind: 'eq' | 'is' | 'like' | 'neq' | 'lt' | 'in';
   column: string;
   value: unknown;
+}
+
+/** One `.order()` clause, in the order it was declared. */
+interface Order {
+  column: string;
+  ascending: boolean;
+  nullsFirst?: boolean;
 }
 
 /**
@@ -87,6 +94,23 @@ export interface MockTableConfig {
   onInsert?: (row: Record<string, unknown>) => void;
   /** Force an error for the terminal operation, to exercise the failure path. */
   error?: { message: string; code?: string } | null;
+  /**
+   * `.or()` / `.contains()` / `.textSearch()` are not modelled.
+   *
+   * They are PostgREST *query-string* languages — `email.ilike.%x%,due_at.is.null`
+   * with parenthesised grouping — and reproducing them means reimplementing
+   * PostgREST's parser, at which point this file is no longer "a stand-in for
+   * the builder's chaining semantics" and is a database with none of a
+   * database's guarantees. A filter that silently matched everything would be
+   * worse than an absent one, so a test that reaches one must say so: set
+   * `filterRows` to the rows that filter actually selects, and the mock serves
+   * exactly those.
+   *
+   * It is a list rather than a predicate so the intent stays legible in the
+   * test — "this contact matched the search" — instead of becoming an
+   * `unfilteredPredicate` that passes on a filter which matches nothing.
+   */
+  filterRows?: Record<string, unknown>[];
 }
 
 /** Whether a row satisfies every recorded filter. */
@@ -98,6 +122,33 @@ function matches(row: Record<string, unknown>, filters: readonly Filter[]): bool
     // difference is the point; a mock that treats them alike would let a
     // null-precondition bug pass.
     if (kind === 'like') return likeMatches(actual, String(value));
+    if (kind === 'in') {
+      // A null *inside* the list is the trap, not a null list: `in.(null,'CA-03')`
+      // still matches the non-null entries, but the null entry compares as
+      // unknown and matches nothing. So the row's own value is what has to be
+      // non-null here — guarding the list instead would let a null column satisfy
+      // a membership test, which is the bug the guard was meant to catch.
+      if (!Array.isArray(value)) return false;
+      if (actual === null || actual === undefined) return false;
+      return value.includes(actual);
+    }
+    if (kind === 'neq') {
+      // Same shape, opposite sign: `s <> 'active'` is UNKNOWN — not true — when
+      // `s` is null, so a null row is excluded rather than kept as "different".
+      // It is a NULL operand (`col=neq.null`) that matches nothing at all.
+      if (value === null || value === undefined) return false;
+      if (actual === null || actual === undefined) return false;
+      return actual !== value;
+    }
+    if (kind === 'lt') {
+      // Both sides are `unknown` on the row and the filter, but `lt` is only
+      // ever applied to ordered scalars here — an ISO timestamp or a number —
+      // and `a < b` is exactly Postgres's comparison for those. A null operand
+      // is UNKNOWN and therefore not true, on either side.
+      if (actual === null || actual === undefined) return false;
+      if (value === null || value === undefined) return false;
+      return (actual as number | string) < (value as number | string);
+    }
     if (kind === 'eq') {
       if (value === null || value === undefined) return false;
       return actual === value;
@@ -107,17 +158,57 @@ function matches(row: Record<string, unknown>, filters: readonly Filter[]): bool
   });
 }
 
+/**
+ * Apply the `.order()` clauses in declaration order.
+ *
+ * A stable sort is required, not a stylistic choice: `.range()` pages by offset,
+ * so a query that orders on a column with ties — `created_at` across a hundred
+ * rows inserted in one CSV import — must fall back to the previous clause's
+ * order or two identical `.range()` calls return different rows. That
+ * instability is what `applyAudienceFilters` was fixed for.
+ */
+function applyOrder<T extends Record<string, unknown>>(rows: T[], orders: readonly Order[]): T[] {
+  if (orders.length === 0) return rows;
+  return [...rows].sort((a, b) => {
+    for (const { column, ascending, nullsFirst } of orders) {
+      const left = a[column];
+      const right = b[column];
+      const leftNull = left === null || left === undefined;
+      const rightNull = right === null || right === undefined;
+      // Postgres defaults to NULLS LAST for ASC and NULLS FIRST for DESC; the
+      // mock follows that default and honours an explicit override.
+      if (leftNull || rightNull) {
+        if (leftNull && rightNull) continue;
+        const nullsLast = ascending ? true : false;
+        const nullIsFirst = nullsFirst ?? !nullsLast;
+        return leftNull ? (nullIsFirst ? -1 : 1) : nullIsFirst ? 1 : -1;
+      }
+      if (left === right) continue;
+      const cmp = left < right ? -1 : 1;
+      return ascending ? cmp : -cmp;
+    }
+    return 0;
+  });
+}
+
 export class MockQueryBuilder {
   private filters: Filter[] = [];
+  private orders: Order[] = [];
   private columns: string | null = null;
   private limitCount: number | null = null;
-  private payload: Record<string, unknown> | null = null;
+  private rangeBounds: { from: number; to: number } | null = null;
+  private headOnly = false;
+  /** An insert takes one object or a chunk of them, as PostgREST does. */
+  private payload: Record<string, unknown> | Record<string, unknown>[] | null = null;
   private mode: 'select' | 'update' | 'insert' | 'delete' = 'select';
+  /** True once `.or()` / `.contains()` / `.textSearch()` has been called. */
+  private unmodelledFilter = false;
 
   constructor(private readonly config: MockTableConfig) {}
 
-  select(columns = '') {
+  select(columns = '', options?: { count?: string; head?: boolean }) {
     this.columns = columns;
+    if (options?.head) this.headOnly = true;
     // `select` after `update`/`insert` is what asks for the affected rows back.
     // It must not reset the operation, or a chain like
     // `.update(row).eq(id, 1).select('id')` would become a read.
@@ -131,6 +222,21 @@ export class MockQueryBuilder {
     return this;
   }
 
+  neq(column: string, value: unknown) {
+    this.filters.push({ kind: 'neq', column, value });
+    return this;
+  }
+
+  lt(column: string, value: unknown) {
+    this.filters.push({ kind: 'lt', column, value });
+    return this;
+  }
+
+  in(column: string, values: readonly unknown[]) {
+    this.filters.push({ kind: 'in', column, value: values });
+    return this;
+  }
+
   like(column: string, pattern: string) {
     this.filters.push({ kind: 'like', column, value: pattern });
     return this;
@@ -141,13 +247,58 @@ export class MockQueryBuilder {
     return this;
   }
 
+  order(column: string, options?: { ascending?: boolean; nullsFirst?: boolean }) {
+    this.orders.push({
+      column,
+      ascending: options?.ascending ?? true,
+      ...(options?.nullsFirst === undefined ? {} : { nullsFirst: options.nullsFirst }),
+    });
+    return this;
+  }
+
+  /**
+   * `.range(from, to)` is an **inclusive** 0-indexed slice, as in PostgREST —
+   * `.range(0, 49)` is fifty rows, and `.range(50, 99)` the next fifty.
+   *
+   * Off-by-one here is invisible in a test that reads one page and invisible in
+   * a test that asserts a total, so it is modelled explicitly rather than left
+   * to whichever arithmetic the mock happened to use.
+   */
+  range(from: number, to: number) {
+    this.rangeBounds = { from, to };
+    return this;
+  }
+
+  /**
+   * The three filter languages this mock does not implement.
+   *
+   * Recording that they were called is what stops `filterRows` being silently
+   * ignored: a test that forgot to declare the result set gets **no rows**,
+   * which fails loudly, rather than every row, which would pass without ever
+   * exercising the filter.
+   */
+  or(_filter: string): this {
+    this.unmodelledFilter = true;
+    return this;
+  }
+
+  contains(_column: string, _values: readonly unknown[]): this {
+    this.unmodelledFilter = true;
+    return this;
+  }
+
+  textSearch(_column: string, _query: string, _options?: unknown): this {
+    this.unmodelledFilter = true;
+    return this;
+  }
+
   update(payload: Record<string, unknown>) {
     this.payload = payload;
     this.mode = 'update';
     return this;
   }
 
-  insert(payload: Record<string, unknown>) {
+  insert(payload: Record<string, unknown> | Record<string, unknown>[]) {
     this.payload = payload;
     this.mode = 'insert';
     return this;
@@ -186,20 +337,58 @@ export class MockQueryBuilder {
         const at = found.indexOf(row);
         if (at >= 0) found.splice(at, 1);
       }
-      // No `.select()` on a delete in PostgREST, so there is no row to return.
-      return { error: null, count: affected.length, data: null };
+      // Without a `.select()` there is no row to return — but *with* one there
+      // is. supabase-js sends `Prefer: return=representation` for
+      // `.delete().select(...)`, which PostgREST honours, and
+      // `deleteCRMTask` depends on it: it chains `.select('contact_id')` and
+      // needs the deleted row to write an activity against. Returning `null`
+      // unconditionally made `.single()` a PGRST116 and the action reported
+      // failure for a delete that had worked — a mock narrower than the client
+      // failing correct code, which is the failure mode this file exists to
+      // prevent.
+      if (this.columns === null) return { error: null, count: affected.length, data: null };
+      return {
+        error: null,
+        count: affected.length,
+        data: affected.map((row) => this.#project(row)),
+      };
     }
 
     if (this.mode === 'insert') {
-      const row = { ...config.insert, ...this.payload };
-      config.onInsert?.(row);
-      config.rows?.push(row);
-      const projected = this.#project(row);
-      return { error: null, count: 1, data: this.columns === null ? null : projected };
+      // `.insert()` takes an object *or* an array, and PostgREST answers an
+      // insert that asked for the rows back with an array either way — a
+      // chunked CSV import does `(created || []).map(...)` on the result, so a
+      // single-row reply here would break a correct caller with
+      // `map is not a function`. `.single()` unwraps the one-element array, so
+      // returning an array does not disturb the `.insert().select().single()`
+      // chains elsewhere.
+      const payloads = Array.isArray(this.payload)
+        ? this.payload
+        : [this.payload ?? ({} as Record<string, unknown>)];
+      const inserted: Record<string, unknown>[] = [];
+      for (const entry of payloads) {
+        const row = { ...config.insert, ...entry };
+        config.onInsert?.(row);
+        config.rows?.push(row);
+        inserted.push(row);
+      }
+      if (this.columns === null) return { error: null, count: inserted.length, data: null };
+      return {
+        error: null,
+        count: inserted.length,
+        data: inserted.map((row) => this.#project(row)),
+      };
     }
 
+    // `.or()` / `.contains()` / `.textSearch()` narrow the result set to
+    // `filterRows`, but they compose with the filters the mock *does* model: a
+    // search narrowed to one contact must still honour the `.eq('id', …)` the
+    // code put in front of it, or the test would pass a query that returns
+    // every row.
+    const base = this.unmodelledFilter ? config.filterRows : config.rows;
+
     if (this.mode === 'update') {
-      const affected = (config.rows ?? []).filter((row) => matches(row, this.filters));
+      const affected = (base ?? []).filter((row) => matches(row, this.filters));
       for (const row of affected) {
         Object.assign(row, this.payload ?? {});
         config.onUpdate?.(row);
@@ -215,10 +404,27 @@ export class MockQueryBuilder {
       };
     }
 
-    let found = (config.rows ?? []).filter((row) => matches(row, this.filters));
-    if (this.limitCount !== null) found = found.slice(0, this.limitCount);
-    const projected = found.map((row) => this.#project(row));
-    return { error: null, count: found.length, data: projected };
+    const ordered = applyOrder(base ?? [], this.orders);
+    const filtered = ordered.filter((row) => matches(row, this.filters));
+
+    // `.range()` and `.limit()` are both slice operators and both apply *after*
+    // ordering; `.range()` wins when both are present because it is the more
+    // specific of the two in the chains this codebase writes.
+    let page = filtered;
+    if (this.rangeBounds) {
+      const { from, to } = this.rangeBounds;
+      page = page.slice(from, to + 1);
+    } else if (this.limitCount !== null) {
+      page = page.slice(0, this.limitCount);
+    }
+
+    // `head: true` asks for the count and no rows — which is how the KPI cards
+    // are read. Returning rows there would let a test pass against a page of
+    // data the real query never fetches.
+    if (this.headOnly) return { error: null, count: filtered.length, data: null };
+
+    const projected = page.map((row) => this.#project(row));
+    return { error: null, count: filtered.length, data: projected };
   }
 
   /** Narrow to the requested columns, leaving `*` and `''` as the whole row. */
@@ -265,10 +471,18 @@ export class MockQueryBuilder {
    * with no terminal method at all, so a mock without this throws `TypeError:
    * not a function` on a line that is correct. Modelling the thenable is the
    * whole reason this file exists.
+   *
+   * `PostgrestSingleResponse` is the resolved type, and the signature is a real
+   * `PromiseLike` rather than a hand-rolled `(value) => unknown`. The looser
+   * shape did not merely read worse: it made the builder unassignable to
+   * `PromiseLike<T>`, so a test could not await one without a cast.
    */
   // biome-ignore lint/suspicious/noThenProperty: intentional thenable, see above
-  then(onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) {
-    return Promise.resolve(this.terminal()).then(onFulfilled, onRejected);
+  then<TResult1 = PostgrestSingleResponse, TResult2 = never>(
+    onfulfilled?: ((value: PostgrestSingleResponse) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+  ): PromiseLike<TResult1 | TResult2> {
+    return Promise.resolve(this.terminal()).then(onfulfilled, onrejected);
   }
 }
 
@@ -283,16 +497,82 @@ export class MockQueryBuilder {
  * });
  * ```
  */
-export function createMockAdminClient(tables: Record<string, MockTableConfig>): {
+export interface MockAdminClient {
   // A plain function type rather than a bare `vi.fn()`: tests legitimately wrap
   // `from` to make a row appear or vanish between a read and the write that
   // follows it, and Vitest's untyped `Mock<Procedure | Constructable>` is not
   // assignable to a callable signature.
   from: (table: string) => MockQueryBuilder;
-} {
-  return {
-    from: vi.fn((table: string) => new MockQueryBuilder(tables[table] ?? {})),
-  };
+  /**
+   * Every `.or()` / `.contains()` / `.textSearch()` the client was asked for, in
+   * order. Empty unless `recordFilters` was requested.
+   *
+   * There is a narrow class of test a row-based mock cannot serve: one about the
+   * *contents of the filter* rather than the rows it selects. The CRM search is
+   * built by stripping `,`, `(` and `)` out of the user's term before it becomes
+   * `email.ilike.%…%`, and a term that produced a 400 instead of a result would
+   * pass every assertion about rows. So those tests need the arguments.
+   *
+   * It lives here rather than in each suite because it is a property of the
+   * builder, and two copies of a recorder is one more thing to keep in step.
+   */
+  filterCalls: { method: UnmodelledFilterMethod; args: unknown[] }[];
+  /**
+   * Every `.order(column, options)` the client was asked for, in order. Empty
+   * unless `recordFilters` was requested.
+   *
+   * `.order()` **is** evaluated by this mock — it has to be, or offset paging
+   * would be untestable. So why record it? For the case where the rows a query
+   * selects cannot show whether the query *ordered* them.
+   * `resolveBroadcastRecipients` pages with `.range()` and hands its result
+   * straight to the caller: the resolved audience is never returned by any
+   * action, only counted, and a count is identical whether the pages were taken
+   * in primary-key order or in whatever order the rows arrived. Deleting
+   * `.order('id', …)` — the fix for a contact being mailed twice across a page
+   * boundary — therefore fails no assertion about rows anywhere in the suite.
+   */
+  orderCalls: { column: string; ascending: boolean }[];
+}
+
+/** The three PostgREST filter languages this mock records but does not evaluate. */
+export type UnmodelledFilterMethod = 'or' | 'contains' | 'textSearch';
+
+/** The shape every terminal operation resolves to, as `PostgrestFilterResponse`. */
+export interface PostgrestSingleResponse {
+  error: { message: string; code?: string } | null;
+  count: number | null;
+  data: unknown;
+}
+
+export function createMockAdminClient(
+  tables: Record<string, MockTableConfig>,
+  options?: { recordFilters?: boolean }
+): MockAdminClient {
+  const filterCalls: { method: UnmodelledFilterMethod; args: unknown[] }[] = [];
+  const orderCalls: { column: string; ascending: boolean }[] = [];
+  const from = vi.fn((table: string) => {
+    const builder = new MockQueryBuilder(tables[table] ?? {});
+    if (!options?.recordFilters) return builder;
+    // Each wrapper must return the builder (not an opaque `unknown`) so the
+    // chain keeps type-checking after it has been wrapped — a recorder that
+    // broke `.select()` on every call would be worse than no recorder.
+    const record =
+      <A extends unknown[], R>(method: UnmodelledFilterMethod, inner: (...args: A) => R) =>
+      (...args: A): R => {
+        filterCalls.push({ method, args });
+        return inner(...args);
+      };
+    builder.or = record('or', builder.or.bind(builder));
+    builder.contains = record('contains', builder.contains.bind(builder));
+    builder.textSearch = record('textSearch', builder.textSearch.bind(builder));
+    const innerOrder = builder.order.bind(builder);
+    builder.order = (column: string, orderOptions?: { ascending?: boolean }) => {
+      orderCalls.push({ column, ascending: orderOptions?.ascending ?? true });
+      return innerOrder(column, orderOptions);
+    };
+    return builder;
+  });
+  return { from, filterCalls, orderCalls };
 }
 
 /**
