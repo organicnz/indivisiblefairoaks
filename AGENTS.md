@@ -12,6 +12,7 @@
 - **Client Components** are scoped to interactive leaves: Cart, Wishlist, command palette, Stripe checkout.
 - Dynamic pages use `[slug]` routing; `generateMetadata` is mandatory on every dynamic route.
 - `cacheLife` profiles are set to `"hours"` across all catalog and content fetches — do not change to `"minutes"` until the project moves to Vercel Pro (see Conservation Mode below).
+- **The `/products` sidebar categories query is cached, and that is the end of it.** An uncached inline fetch here used to log a prerender warning on every build; `0e65c6a` lifted it out of the page into `getCategories()` with `'use cache'`, `cacheLife('hours')` and `cacheTag('categories')`, and a clean build is now silent. A follow-up once asked for it to move inside a Suspense boundary, and that half is moot: `/products` sets `export const instant = false` — a deliberate Block opt-out, because per-category SEO titles require awaiting `searchParams` in `generateMetadata` — so there is no prerender pass to warn about, and the segment's boundary is `src/app/products/loading.tsx`, which already covers the whole page. Adding a second boundary would trade a warning that no longer exists for a flash of an empty sidebar. Re-verified 2026-09-30 with `rm -rf .next && NEXT_E2E_BUILD=true NEXT_SKIP_ENV_VALIDATION=1 bun run build`: `/products` prerenders as `◐`, build silent.
 
 ### Site identity — one source of truth
 **`src/config/site.ts` owns "where does this site live".** `metadataBase`, every
@@ -615,22 +616,19 @@ Deliberately left undone. None block the apex cutover.
    Zealand tariff. See `src/config/commerce.ts`.
 5. **HSTS `preload` + `includeSubDomains`** pins every subdomain to HTTPS for
    ~12 months once submitted, including staging.
-6. **`/products` categories query logs a prerender warning** during builds. It is
-   caught and degrades gracefully, but the fetch should move inside the
-   Suspense boundary that actually needs it.
-7. **Tags are not case-normalised in the CRM.** The CSV importer lowercases them,
+6. **Tags are not case-normalised in the CRM.** The CSV importer lowercases them,
    but a tag typed into the contact editor is stored as written, so `Choir` and
    `choir` are two different tags in the database and the filter offers both. The
    fix is a one-time `UPDATE … lower(tags)` plus lowercasing at the editor
-   boundary — a data change, so it belongs to the chapter, not to a deploy.
-8. **The admin surfaces have no axe coverage and no seeded session.** `/admin` is
+   boundary — a   data change, so it belongs to the chapter, not to a deploy.
+7. **The admin surfaces have no axe coverage and no seeded session.** `/admin` is
    excluded from `e2e/a11y.spec.ts` because the auth-gated routes have no session,
    so the editor and the CRM have zero browser coverage: the preview, the
    revision diff, the slash menu and the broadcast composer are all unit-tested
    and never exercised in a real browser. A seeded admin session in e2e is the
    highest-value next test investment, and it is also the thing that would let
    `sendBlockedInE2E()` be verified end to end rather than by inspection.
-9. **`lefthook.yml` is 1,187 lines because the logic lives in YAML.** 22 of the
+8. **`lefthook.yml` is 1,187 lines because the logic lives in YAML.** 22 of the
    30 pre-commit guards are inline `run: |` bash
    blocks, and nearly every one carries a five-to-fifteen-line rationale comment
    and a multi-line remediation block. The content is right; the shape is drift,
@@ -639,7 +637,7 @@ Deliberately left undone. None block the apex cutover.
    before the next guard is added rather than after. The guard count is written
    in digits rather than words on purpose: `scripts/check-doc-claims.mjs` checks
    it against `lefthook.yml` on every commit, and it cannot read "twenty-nine".
-10. **Pre-existing CMS images still carry no `width` / `height`.** New and edited
+9. **Pre-existing CMS images still carry no `width` / `height`.** New and edited
     images are measured from their bytes at upload, and a hand-typed URL is
     measured client-side, so nothing added from here on shifts. The content
     migrated from Google Sites does not: those images sit on external hosts that
@@ -647,7 +645,7 @@ Deliberately left undone. None block the apex cutover.
     a revision per row — for what would mostly be no-op measurements. It is also
     a production data change, which belongs to the chapter rather than to a
     deploy. Cheaper when an author touches the page anyway.
-11. **The checkout rate limit is not a control on Stripe sessions.** The 10/min/IP
+10. **The checkout rate limit is not a control on Stripe sessions.** The 10/min/IP
     limit in `AGENTS.md`'s table is on the Next route. `supabase/functions/checkout`
     has no rate limit of any kind, is deployed with JWT verification **on**, and
     Supabase's `verify_jwt` accepts the publishable/anon key — which is public by
