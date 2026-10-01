@@ -83,3 +83,44 @@ export function validatePromoCode(
   }
   return { ok: true };
 }
+
+/**
+ * Build the checkout wire payload from the client's cart store.
+ *
+ * Two call sites POST to `/api/checkout` — the cart page's button and
+ * `StripeExpressCheckout` — and both previously inlined this six-line mapping.
+ * Hand-copied shape between two sites is how this storefront shipped `nzd`
+ * checkout alongside `USD` structured data once already (see
+ * `config/commerce.ts`), so the mapping now lives beside the `CartItemInput`
+ * type its output is validated against.
+ *
+ * Two details are worth stating, because neither is visible at the call site:
+ *
+ * - `variationId ?? undefined` — the store carries `number | null`
+ *   (`AddToCartButton` writes `selectedVariation?.id ?? null`), while
+ *   `validateCartItems` accepts only a positive integer or `undefined`. A null
+ *   reaching it turns a normal checkout into a 400 reading "Invalid item:
+ *   variationId must be a positive integer". This one is load-bearing.
+ * - `productId ?? item.id` mirrors the store's own line identity: `sameLine()`
+ *   in `store/cart.ts` resolves it exactly this way, so the payload names the
+ *   same product the cart just used to merge duplicate lines. `productId` is
+ *   optional on `CartItem` and `id` is its fallback, and today
+ *   `AddToCartButton` sets both to the product id — so the ordering is
+ *   defensive rather than load-bearing, but it must not be inverted, which
+ *   would make `productId` dead and change the lookup for any future writer
+ *   that sets the two differently.
+ */
+export function buildCheckoutItems(
+  items: ReadonlyArray<{
+    id: number;
+    productId?: number;
+    variationId?: number | null;
+    quantity: number;
+  }>
+): CartItemInput[] {
+  return items.map((item) => ({
+    id: item.productId ?? item.id,
+    variationId: item.variationId ?? undefined,
+    quantity: item.quantity,
+  }));
+}

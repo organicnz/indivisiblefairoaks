@@ -7,6 +7,7 @@ import { useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { StripeExpressCheckout } from '@/components/checkout/StripeExpressCheckout';
 import { SHIPPING_RATES } from '@/config/commerce';
+import { buildCheckoutItems } from '@/lib/checkout-validation';
 import { MAX_ITEM_QUANTITY, useCartStore } from '@/lib/store/cart';
 import { getStorageUrl } from '@/lib/supabase';
 
@@ -32,13 +33,7 @@ export default function CartPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          items: items.map((item) => ({
-            id: item.productId ?? item.id,
-            variationId: item.variationId ?? undefined,
-            quantity: item.quantity,
-          })),
-        }),
+        body: JSON.stringify({ items: buildCheckoutItems(items) }),
       });
       const data = await response.json();
 

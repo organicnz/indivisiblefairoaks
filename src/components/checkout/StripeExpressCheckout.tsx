@@ -5,6 +5,7 @@ import type { StripeExpressCheckoutElementConfirmEvent } from '@stripe/stripe-js
 import { loadStripe } from '@stripe/stripe-js';
 import { useState } from 'react';
 import { CURRENCY } from '@/config/commerce';
+import { buildCheckoutItems } from '@/lib/checkout-validation';
 import { env } from '@/lib/env';
 import { useCartStore } from '@/lib/store/cart';
 
@@ -31,13 +32,7 @@ export function StripeExpressCheckout() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          items: items.map((item) => ({
-            id: item.productId ?? item.id,
-            variationId: item.variationId ?? undefined,
-            quantity: item.quantity,
-          })),
-        }),
+        body: JSON.stringify({ items: buildCheckoutItems(items) }),
       });
 
       const data = await response.json();

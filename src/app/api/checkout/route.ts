@@ -172,6 +172,27 @@ export async function POST(req: Request) {
     });
 
     // Create Stripe Checkout Session
+    //
+    // No idempotency key here, and the omission is deliberate rather than an
+    // oversight. Stripe asks for one on every POST that creates a resource, and
+    // the obvious candidate — a hash of the cart — is actively wrong for
+    // Checkout. Stripe returns the cached response for a key for 24 hours, so a
+    // shopper who buys the same cart twice inside a day would be handed the
+    // *first* session back, be shown a checkout that is already completed, and
+    // silently not be charged for the second order. A fix that loses sales is
+    // worse than the problem it solves.
+    //
+    // What a key would prevent: an orphan session when a response is lost after
+    // Stripe has already created one. That is cosmetic — a session is only
+    // settled when its own URL is completed, and the client only ever receives
+    // one URL per successful response, so a lost response cannot double-charge
+    // anybody. The dangerous case, two submissions from a single click, is
+    // already closed on the client: the button carries `disabled={isLoading}`
+    // in `src/app/cart/page.tsx`.
+    //
+    // If this is ever revisited, the correct shape is a client-generated nonce
+    // per checkout *attempt* — regenerated whenever the cart changes, reused
+    // only by a retry of that same attempt. Never a hash of the contents.
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,

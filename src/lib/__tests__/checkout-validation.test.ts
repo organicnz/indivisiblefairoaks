@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { validateCartItems, validatePromoCode } from '@/lib/checkout-validation';
+import {
+  buildCheckoutItems,
+  validateCartItems,
+  validatePromoCode,
+} from '@/lib/checkout-validation';
 
 describe('validateCartItems()', () => {
   it('accepts a well-formed cart', () => {
@@ -60,5 +64,44 @@ describe('validatePromoCode()', () => {
     expect(validatePromoCode(42).ok).toBe(false);
     expect(validatePromoCode('x'.repeat(51)).ok).toBe(false);
     expect(validatePromoCode('SAVE10').ok).toBe(true);
+  });
+});
+
+describe('buildCheckoutItems()', () => {
+  // AddToCartButton writes `variationId: selectedVariation?.id ?? null`, so a
+  // plain product line carries null. validateCartItems accepts only a positive
+  // integer or `undefined` — null is a hard 400. This conversion is the reason
+  // the mapping is shared instead of hand-inlined at two call sites.
+  it('converts the store null to undefined, which is what the server accepts', () => {
+    const built = buildCheckoutItems([{ id: 16, productId: 16, variationId: null, quantity: 2 }]);
+
+    expect(built).toEqual([{ id: 16, variationId: undefined, quantity: 2 }]);
+    expect(validateCartItems(built).ok).toBe(true);
+
+    // The same cart line without the conversion is rejected outright, which is
+    // the failure the shared builder exists to prevent.
+    expect(validateCartItems([{ id: 16, variationId: null, quantity: 2 }]).ok).toBe(false);
+  });
+
+  it('keeps a selected variation id intact', () => {
+    const built = buildCheckoutItems([{ id: 16, productId: 16, variationId: 7, quantity: 1 }]);
+    expect(built).toEqual([{ id: 16, variationId: 7, quantity: 1 }]);
+    expect(validateCartItems(built).ok).toBe(true);
+  });
+
+  it('names the product by productId, falling back to id — as sameLine() does', () => {
+    // store/cart.ts resolves line identity as `productId ?? id`. The payload
+    // has to name the same product the cart merged duplicate lines against.
+    expect(buildCheckoutItems([{ id: 3, productId: 16, quantity: 1 }])[0]?.id).toBe(16);
+    expect(buildCheckoutItems([{ id: 16, quantity: 1 }])[0]?.id).toBe(16);
+  });
+
+  it('is the only mapping the two checkout call sites use', () => {
+    // The cart button and StripeExpressCheckout used to each inline this shape.
+    // Pinning the output shape keeps a future edit to one from drifting the
+    // other, since both now go through this function.
+    expect(buildCheckoutItems([{ id: 5, quantity: 3 }])).toEqual([
+      { id: 5, variationId: undefined, quantity: 3 },
+    ]);
   });
 });

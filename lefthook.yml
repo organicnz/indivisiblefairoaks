@@ -813,6 +813,28 @@ pre-commit:
         echo ""
         exit 1
 
+    # ── 22. Documentation numeric claims ──────────────────────────────────────
+    # AGENTS.md and docs/ state how many pre-commit guards exist, how long
+    # lefthook.yml runs to, and how many specs the delivery gate executes. Those
+    # numbers drift silently, and AGENTS.md once carried two that disagreed with
+    # each other — "24 pre-commit guards" four hundred lines from "the
+    # twenty-nine". The script owns the pattern list, so the prose stays the
+    # source of truth and this cannot become a second list to keep in sync.
+    #
+    # Deliberately no glob: a gate that only runs when docs change is a gate that
+    # stops guarding the moment a spec is added without touching them. It costs
+    # ~0.5s, most of it `playwright test --list`.
+    #
+    # It does not check the unit-test count on purpose. `vitest list` enumerates
+    # 848 declarations where `vitest run` executes 961, because dynamically
+    # generated cases are absent from the listing — so the obvious cheap source
+    # of truth is simply wrong, and a wrong ground truth fails correct documents.
+    # The reasoning lives in scripts/check-doc-claims.mjs so nobody "fixes" the
+    # omission by wiring it in.
+    doc-claims:
+      priority: 27
+      run: bun scripts/check-doc-claims.mjs
+
 # ─── commit-msg ───────────────────────────────────────────────────────────────
 commit-msg:
   commands:
