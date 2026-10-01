@@ -30,6 +30,8 @@ import {
   sendCRMDirectEmail,
 } from '@/lib/actions/crm';
 import { env } from '@/lib/env';
+import type { MockTableConfig } from './supabase-mock';
+import { createMockAdminClient } from './supabase-mock';
 
 const mockEnv = env as unknown as Record<string, string | undefined>;
 
@@ -41,33 +43,19 @@ const mockEnv = env as unknown as Record<string, string | undefined>;
  * risk — a failed import that reports success, a merge that drops a consent
  * flag, a direct email sent to someone who opted out.
  */
-/**
- * `vi.fn()` without type arguments types its `mock.calls` as `[][]`, so a direct
- * `calls[0]?.[0]` is a type error. One helper, rather than an `as unknown as`
- * at every assertion site.
- */
-function callArg<T>(fn: { mock: { calls: unknown[][] } }, index = 0): T {
-  return fn.mock.calls[index]?.[0] as T;
-}
 
-function createMockQueryBuilder(terminalResult: Record<string, unknown> = {}) {
-  const promise = Promise.resolve(terminalResult);
-  const qb = Object.assign(promise, {
-    select: vi.fn(() => qb),
-    insert: vi.fn(() => qb),
-    update: vi.fn(() => qb),
-    delete: vi.fn(() => qb),
-    eq: vi.fn(() => qb),
-    in: vi.fn(() => qb),
-    or: vi.fn(() => qb),
-    order: vi.fn(() => qb),
-    limit: vi.fn(() => qb),
-    range: vi.fn(() => Promise.resolve(terminalResult)),
-    single: vi.fn(() => Promise.resolve(terminalResult)),
-    maybeSingle: vi.fn(() => Promise.resolve(terminalResult)),
-  });
-  return qb;
-}
+/**
+ * Row sets per table, rebuilt for each test.
+ *
+ * These suites used to hand-roll a `createMockQueryBuilder(terminalResult)` and
+ * assert on the response it was told to return, which cannot tell a correct
+ * query from one naming the wrong column — the assertion is satisfied by the
+ * stub, not by the rows. Describing the *rows* instead means the query has to
+ * actually select them: "the row was deleted" is `rows: []`, not
+ * `{ data: null }`, and the two are only distinguishable because the mock
+ * evaluates `.eq()` against real row data.
+ */
+let tables: Record<string, MockTableConfig>;
 
 describe('CRM mutation failure paths', () => {
   beforeEach(() => {
@@ -79,6 +67,12 @@ describe('CRM mutation failure paths', () => {
     // drops the whole implementation.
     mockAdminClient.from.mockReset();
     mockAdminClient.rpc.mockReset();
+
+    // Fresh tables per test, and a `from` that builds a row-backed query over
+    // them. Nothing is queued across tests, so nothing can leak either.
+    tables = {};
+    mockAdminClient.from.mockImplementation(createMockAdminClient(tables).from);
+
     mockEnv.RESEND_API_KEY = 're_test_key_dummy';
     mockEnv.RESEND_FROM_EMAIL = 'contact@indivisiblefairoaks.org';
     mockEnv.ADMIN_ORDER_EMAIL = 'contact@indivisiblefairoaks.org';
@@ -91,9 +85,10 @@ describe('CRM mutation failure paths', () => {
     it('refuses an update to a row that has since been deleted', async () => {
       // The author has a form open on a contact somebody else removed. Writing
       // blind would either resurrect the row or report a save that never
-      // happened.
-      const qb = createMockQueryBuilder({ data: null, error: null });
-      mockAdminClient.from.mockReturnValue(qb);
+      // happened. The update runs `.eq('id', id).select('id').maybeSingle()`,
+      // so an empty table is what produces the no-match — asserted here as the
+      // absence of the row rather than as a canned `data: null`.
+      tables.crm_contacts = { rows: [] };
 
       const res = await saveCRMContact({
         id: '11111111-2222-4333-8444-555555555555',
@@ -106,7 +101,6 @@ describe('CRM mutation failure paths', () => {
     });
 
     it('rejects an email that is not an email before touching the database', async () => {
-      mockAdminClient.from.mockReturnValue(createMockQueryBuilder({ data: null, error: null }));
       const res = await saveCRMContact({ email: 'not-an-email', first_name: 'Robin' });
       expect(res.success).toBe(false);
       expect(mockAdminClient.from).not.toHaveBeenCalled();
@@ -115,8 +109,7 @@ describe('CRM mutation failure paths', () => {
     it('surfaces a duplicate email as a sentence rather than a Postgres code', async () => {
       // 23505 is what the database says. "That email is already in the
       // directory" is what the volunteer needs.
-      const qb = createMockQueryBuilder({ data: null, error: { code: '23505' } });
-      mockAdminClient.from.mockReturnValue(qb);
+      tables.crm_contacts = { rows: [], error: { code: '23505', message: 'duplicate key' } };
 
       const res = await saveCRMContact({
         id: '11111111-2222-4333-8444-555555555555',
@@ -133,40 +126,49 @@ describe('CRM mutation failure paths', () => {
     it('reports a delete that failed', async () => {
       // A silent success here leaves a row the author believes is gone, and the
       // next export will still contain their address.
-      mockAdminClient.from.mockReturnValue(
-        createMockQueryBuilder({ data: null, error: { message: 'fk violation' } })
-      );
+      tables.crm_contacts = { error: { message: 'fk violation' } };
+
       const res = await deleteCRMContact('11111111-2222-4333-8444-555555555555');
       expect(res.success).toBe(false);
       expect(res.error).toBe('fk violation');
     });
 
-    it('deletes cleanly', async () => {
-      const qb = createMockQueryBuilder({ data: null, error: null });
-      mockAdminClient.from.mockReturnValue(qb);
+    it('deletes cleanly, and the row is actually gone afterwards', async () => {
+      // Asserting the row left the table is the point: the old suite asserted
+      // that `.delete()` had been *called*, which is true whether or not the
+      // filter matched anything.
+      tables.crm_contacts = { rows: [{ id: '11111111-2222-4333-8444-555555555555' }] };
+
       await expect(deleteCRMContact('11111111-2222-4333-8444-555555555555')).resolves.toEqual({
         success: true,
       });
-      expect(qb.delete).toHaveBeenCalled();
+      expect(tables.crm_contacts.rows).toHaveLength(0);
+    });
+
+    it('reports success for a row that was already gone, without failing the delete', async () => {
+      // PostgREST deletes zero rows and reports no error, so the action cannot
+      // distinguish "deleted" from "was not there". It must not invent an error.
+      tables.crm_contacts = { rows: [] };
+
+      await expect(deleteCRMContact('missing')).resolves.toEqual({ success: true });
     });
   });
 
   describe('addCRMNote', () => {
     it('refuses a note with no title', async () => {
-      mockAdminClient.from.mockReturnValue(createMockQueryBuilder({ data: null, error: null }));
       const res = await addCRMNote({ contactId: 'c1', title: '   ', description: '' });
       expect(res.success).toBe(false);
       expect(mockAdminClient.from).not.toHaveBeenCalled();
     });
 
     it('trims the title so the timeline is not full of padded headings', async () => {
-      const qb = createMockQueryBuilder({ data: { id: 'a1' }, error: null });
-      mockAdminClient.from.mockReturnValue(qb);
+      const inserted: Record<string, unknown>[] = [];
+      tables.crm_activities = { rows: [], insert: {}, onInsert: (row) => inserted.push(row) };
 
       await addCRMNote({ contactId: 'c1', title: '  Spoke at the fair  ', description: 'body' });
 
-      const insert = callArg<Record<string, unknown>>(qb.insert);
-      expect(insert.title).toBe('Spoke at the fair');
+      // The row that reached the database, not the arguments a stub was handed.
+      expect(inserted[0]?.title).toBe('Spoke at the fair');
     });
   });
 
@@ -198,9 +200,7 @@ describe('CRM mutation failure paths', () => {
       // and — because an insert chunk is all-or-nothing — poisons a hundred good
       // rows along with it. A lookup error must stop the import, not skip the
       // check and insert anyway.
-      mockAdminClient.from.mockReturnValue(
-        createMockQueryBuilder({ data: null, error: { message: 'timeout' } })
-      );
+      tables.crm_contacts = { rows: [], error: { message: 'timeout' } };
 
       const res = await importCRMContacts({ csv });
 
@@ -209,9 +209,10 @@ describe('CRM mutation failure paths', () => {
     });
 
     it('reports no success when every insert was rejected', async () => {
-      mockAdminClient.from.mockReturnValue(
-        createMockQueryBuilder({ data: null, error: { message: 'permission denied' } })
-      );
+      // One config serves both the pre-check read and the insert, so the
+      // pre-check would fail here too — this asserts the outcome, not which
+      // step rejected it.
+      tables.crm_contacts = { rows: [], error: { message: 'permission denied' } };
 
       const res = await importCRMContacts({ csv });
 
@@ -221,24 +222,30 @@ describe('CRM mutation failure paths', () => {
       expect(res.error).toBeTruthy();
     });
 
+    it('writes nothing when the insert is rejected', async () => {
+      tables.crm_contacts = { rows: [], error: { message: 'permission denied' } };
+
+      await importCRMContacts({ csv });
+
+      expect(tables.crm_contacts.rows).toHaveLength(0);
+    });
+
     it('carries the address column, so a restored backup keeps it', async () => {
       const withAddress = [
         'email,first_name,address',
         'a@example.org,Robin,4821 Fair Oaks Blvd',
       ].join('\n');
-      // One builder for every call: the importer makes a pre-check read and then
-      // a chunked insert, and a `Once` queue here leaks into the next test
-      // because `vi.clearAllMocks` does not drain unconsumed one-shot values.
-      const qb = createMockQueryBuilder({ data: [], error: null });
-      mockAdminClient.from.mockReturnValue(qb);
+      // The importer makes a pre-check read (`.in('email', …)`, which matches
+      // nothing here — `rows: []`) and then a chunked insert, both against the
+      // same table. That used to need a `Once` queue, which leaked into the
+      // next test because `vi.clearAllMocks` does not drain unconsumed values.
+      tables.crm_contacts = { rows: [] };
 
       await importCRMContacts({ csv: withAddress });
 
       // The address the exporter wrote has to reach the row, or a restored
       // backup loses every street address in the chapter.
-      const insert = callArg<Record<string, unknown>[]>(qb.insert);
-      expect(Array.isArray(insert)).toBe(true);
-      expect(insert?.[0]?.address).toBe('4821 Fair Oaks Blvd');
+      expect(tables.crm_contacts.rows?.[0]?.address).toBe('4821 Fair Oaks Blvd');
     });
   });
 
@@ -254,15 +261,14 @@ describe('CRM mutation failure paths', () => {
     it('reports a merge whose second step failed', async () => {
       // The first step has already moved activities by the time a later call
       // fails, so the operator needs to know the merge is half-applied rather
-      // than being told it worked.
-      const lookups = createMockQueryBuilder({ data: [], error: null });
-      const update = createMockQueryBuilder({ data: null, error: null });
-      const fail = createMockQueryBuilder({ data: null, error: { message: 'fk violation' } });
-      mockAdminClient.from
-        .mockReturnValueOnce(lookups)
-        .mockReturnValueOnce(update)
-        .mockReturnValueOnce(update)
-        .mockReturnValueOnce(fail);
+      // than being told it worked. The failure is on the activities update, so
+      // `crm_activities` carries the error and the rest behave.
+      tables.crm_contacts = { rows: [{ id: 'keep-1' }, { id: 'dup-1' }] };
+      tables.crm_activities = {
+        rows: [{ id: 'a1', contact_id: 'dup-1' }],
+        error: { message: 'fk violation' },
+      };
+      tables.crm_tasks = { rows: [] };
 
       const res = await mergeCRMContacts({ keepId: 'keep-1', removeId: 'dup-1' });
 
@@ -285,12 +291,10 @@ describe('CRM mutation failure paths', () => {
       freshAdmin();
       // The single most important guard in the file: a person who asked not to
       // be emailed. This has to be checked before the provider is called, not
-      // after.
-      const optedOut = createMockQueryBuilder({
-        data: { id: 'c1', email: 'a@b.co', do_not_email: true },
-        error: null,
-      });
-      mockAdminClient.from.mockReturnValue(optedOut);
+      // after. The opt-out is a *row property*, so the row has to be there — a
+      // stubbed `{ do_not_email: true }` response would have proved nothing
+      // about whether the query could find it.
+      tables.crm_contacts = { rows: [{ id: 'c1', email: 'a@b.co', do_not_email: true }] };
 
       const res = await sendCRMDirectEmail({ contactId: 'c1', subject: 'Hi', message: 'There' });
 
@@ -301,23 +305,25 @@ describe('CRM mutation failure paths', () => {
 
     it('reports a contact that does not exist', async () => {
       freshAdmin();
-      mockAdminClient.from.mockReturnValue(createMockQueryBuilder({ data: null, error: null }));
+      tables.crm_contacts = { rows: [] };
+
       const res = await sendCRMDirectEmail({
         contactId: 'missing',
         subject: 'Hi',
         message: 'There',
       });
+
       expect(res.success).toBe(false);
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
     it('surfaces a provider rejection instead of reporting a send', async () => {
       freshAdmin();
-      const contact = createMockQueryBuilder({
-        data: { id: 'c1', email: 'a@b.co', do_not_email: false, first_name: 'Robin' },
-        error: null,
-      });
-      mockAdminClient.from.mockReturnValue(contact);
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', email: 'a@b.co', do_not_email: false, first_name: 'Robin' }],
+      };
+      const activities: Record<string, unknown>[] = [];
+      tables.crm_activities = { rows: [], insert: {}, onInsert: (row) => activities.push(row) };
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 422,
@@ -329,7 +335,7 @@ describe('CRM mutation failure paths', () => {
 
       expect(res.success).toBe(false);
       // The activity row must not claim a delivery that did not happen.
-      expect(contact.insert).not.toHaveBeenCalled();
+      expect(activities).toHaveLength(0);
     });
 
     it('builds the plain-text alternative from the configured site, not a literal', async () => {
@@ -338,11 +344,9 @@ describe('CRM mutation failure paths', () => {
       // hardcoded the apex, so a staging build mailed a link that 302s to a
       // Google Sites page. One source of truth, both places.
       mockEnv.NEXT_PUBLIC_SITE_URL = 'https://staging.indivisiblefairoaks.org';
-      const contact = createMockQueryBuilder({
-        data: { id: 'c1', email: 'a@b.co', do_not_email: false, first_name: 'Robin' },
-        error: null,
-      });
-      mockAdminClient.from.mockReturnValue(contact);
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', email: 'a@b.co', do_not_email: false, first_name: 'Robin' }],
+      };
       let payload: { text?: string } = {};
       // Two arguments: `fetch(url, init)`. A one-parameter mock silently receives
       // the URL as its first argument, the body is never read, and the action

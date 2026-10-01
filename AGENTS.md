@@ -556,11 +556,42 @@ deployed green and broke silently.
   shape PostgREST requires to report whether an UPDATE matched a row at all — while
   `content-revisions`' `update()` returned `{ eq: () => Promise.resolve(...) }`, so
   correct code failed a green suite. `src/lib/__tests__/supabase-mock.ts` is the
-  shared row-based replacement. It also reproduces `.eq(col, null)` matching
-  *nothing* (`.is()` is the null-aware form), `LIKE`'s `%` without SQL's `_`, and
-  `limit(n)` as a filter rather than decoration. The three CRM suites that assert
-  on call *arguments* rather than rows are still on their own builders — a
-  legitimate style, but one that cannot catch a query naming the wrong column.
+  shared row-based replacement, and **all eight action suites now use it**: the
+  three CRM suites were converted, so nothing asserts on call *arguments* any
+  more. The conversion was worth its cost immediately — it found four places
+  where the shared mock was wrong rather than merely narrow:
+
+  - `.in()` and `.neq()` matched a **null** row. PostgREST's `in.(null,…)` still
+    matches the non-null entries but never the null one, and `s <> 'active'` is
+    UNKNOWN rather than true when `s` is null. Both are now excluded, and
+    `supabase-mock.test.ts` pins it.
+  - A **chunked insert** answered with a single row. PostgREST returns an array
+    from an insert with `RETURNING`, so the CSV importer's `(created || []).map(…)`
+    hit `map is not a function` on a correct caller.
+  - A **`DELETE … RETURNING`** answered `data: null` unconditionally. supabase-js
+    sends `Prefer: return=representation` for `.delete().select(…)`, and
+    `deleteCRMTask` depends on the deleted row, so the action reported failure
+    for a delete that had worked.
+  - The builder was **not a `PromiseLike`**, so a test could not `await` one
+    without a cast.
+
+  The mock still deliberately does **not** model `.or()`, `.contains()` or
+  `.textSearch()`: those are PostgREST query-string languages, and reproducing
+  them means reimplementing PostgREST's parser. A test reaching one must declare
+  `filterRows` — the rows that filter actually selects — and reaching one without
+  declaring it returns **no rows**, so the omission fails loudly instead of
+  passing. The handful of tests about a filter *string's contents*
+  (search-term sanitisation) record the arguments via `{ recordFilters: true }`
+  alongside the rows, because a string that would produce a 400 satisfies every
+  assertion about rows.
+
+  **One thing a row-based mock cannot show is pinned explicitly.** Deleting the
+  `.order('id', …)` from `resolveBroadcastRecipients` — the fix for a contact
+  being mailed twice across a page boundary — fails nothing about rows, because
+  the resolved audience never leaves the resolver and a count is identical either
+  way. `crm.test.ts` asserts it through `orderCalls` for that reason. Mutating
+  the source to delete that `.order()` fails that test and no other in the file,
+  which is the evidence it is doing the job no row assertion could.
 - Bypasses (documented in `lefthook.yml`): `LEFTHOOK=0`, `LEFTHOOK_EXCLUDE=<command>`.
 
 ---
@@ -626,16 +657,6 @@ Deliberately left undone. None block the apex cutover.
     and the CORS `origin` restriction is inert for a non-browser client. Closing it
     means rate limiting inside an Edge Function, which has no shared in-memory
     state — a design decision, not a patch.
-11. **Three CRM suites still hand-roll their Supabase mock.** `crm.test.ts`,
-    `crm-mutations.test.ts` and `crm-reads.test.ts` each carry their own
-    `createMockQueryBuilder`, and each asserts on the *arguments* a builder
-    received rather than on the rows a query would match. That is a legitimate
-    style for testing the shape of a call, but it cannot detect a query that
-    names the wrong column — `content-media.test.ts` could assert "keeps a
-    referenced file" while the query checked nothing at all, and did.
-    `src/lib/__tests__/supabase-mock.ts` is the row-based replacement; converting
-    these three means rewriting their assertions, not swapping a helper.
-
 ---
 
 ## Agent Skills
