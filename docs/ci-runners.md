@@ -131,14 +131,24 @@ real and runs on every push:
 
 | Gate | Command |
 |---|---|
-| 24 pre-commit guards | lefthook, on `git commit` |
+| 30 pre-commit guards | lefthook, on `git commit` |
+| documentation claims | `bun scripts/check-doc-claims.mjs` — guards, baseline, spec counts |
 | suppression ratchet | pre-push, baseline 12 |
 | lint | `bun run lint:check` |
-| unit + coverage | `bun run test:coverage` — 823 tests, per-file thresholds |
+| unit + coverage | `bun run test:coverage` — full suite, per-file thresholds |
 | types | `bunx tsc --noEmit` |
 | production build | `NEXT_E2E_BUILD=true bun run build` |
 | peer deps | `bun scripts/check-peer-deps.mjs --all` |
 | e2e | `playwright test --workers=2` — 112 specs |
+
+The unit-test count is deliberately absent from this table. It moved three times
+in as many rounds, and the obvious cheap source of truth cannot reproduce it:
+`vitest list` enumerates 848 tests while `vitest run` executes 965, of which 75
+is `it.each` expansion the listing does not perform (measured per file —
+`blocks.test.ts` alone reports 43 against 67). A figure nothing checks is a
+figure that will be wrong. `scripts/check-doc-claims.mjs` verifies the claims
+that *can* be re-derived — guard count, baseline, `lefthook.yml` length, spec
+total and both coverage floors — and records why this one is not among them.
 
 The Playwright gate is the meaningful one and it does run, which is why the
 delivered work was verifiable end to end: 112 e2e specs, including the real

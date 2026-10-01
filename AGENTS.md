@@ -84,6 +84,23 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
   The site previously charged `nzd` with Auckland pickup addresses while its
   structured data advertised `USD`; do not reintroduce a per-site currency
   literal. Shipping rates are placeholders pending the chapter's confirmation.
+- **The checkout wire payload is built in exactly one place.**
+  `buildCheckoutItems()` in `src/lib/checkout-validation.ts` serves both
+  `cart/page.tsx` and `StripeExpressCheckout`, which previously inlined the same
+  six-line mapping. Two hand-copied shapes is how this storefront shipped `nzd`
+  checkout beside `USD` structured data; a parity test cannot catch a field one
+  site forgot to send, but a shared function can. Its `variationId ?? undefined`
+  is load-bearing — the cart store carries `number | null` while the validator
+  accepts only a positive integer or `undefined`, so a null reaching the server
+  is a 400 on a perfectly ordinary cart.
+- **There is deliberately no idempotency key on `checkout.sessions.create`.**
+  The obvious candidate — a hash of the cart — is wrong: Stripe returns the
+  cached response for a key for 24 hours, so buying the same cart twice in a day
+  hands back the *first*, already-completed session and charges nothing for the
+  second. The orphan session a key would prevent is cosmetic, and the
+  parallel-submit case is already closed by `disabled={isLoading}` on the cart
+  button. The full reasoning sits at the call site in
+  `src/app/api/checkout/route.ts`. **Do not "fix" this without reading it.**
 
 ### Sanitization layer
 `sanitizeWPContent` in `src/lib/` must wrap **all** HTML from the `content` table before render. It:
@@ -451,7 +468,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   hand-registered ARM64 Mac satisfies the selector and then fails in
   `Prepare workflow directory`.
 - **The local lefthook gates are therefore the real gates**, and they do run on
-  every push: 24 pre-commit guards, then lint → unit → coverage → types → build →
+  every push: 30 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 112 Playwright specs. Migrations and Edge Functions are deployed
   deliberately with the Supabase CLI rather than by `supabase.yml`.
 - **Every workflow declares an explicit `permissions:` block.** Two that hold
@@ -491,14 +508,14 @@ deployed green and broke silently.
 
 ## Delivery Gates (lefthook)
 
-- **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
+- **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
 - **pre-push**: lint → unit → typecheck → coverage → production build → peer-deps → **Playwright e2e delivery gate** (full suite, `workers=2`) when the push range touches `src/`, `e2e/`, `public/`, `supabase/`, app configs, or the lockfile. Docs-only pushes skip e2e with an explicit note.
 - **The coverage gate is per-file, not a global percentage, and that is deliberate.**
   Vitest's bare `statements: 90` is checked against the *aggregate* over every included
   file, so a stricter file cannot raise it and a looser one silently lowers it for
   everything else. `vitest.config.ts` therefore names globs: 90 across the board, with
   `src/lib/actions/crm.ts` on an explicit floor of **88 / 76 / 100 / 93** and
-  `src/lib/actions/content.ts` on **53 / 50 / 53 / 59**. Both were in **no threshold
+  `src/lib/actions/content.ts` on **58 / 54 / 61 / 65**. Both were in **no threshold
   at all** until recently — neither was in the `include` list — which is how a
   ceiling refusal stayed dead code and a `created_by` column stayed unwritten with
   the pipeline green. Their remaining uncovered branches are `?? 0` / `?? 'draft'`
@@ -582,13 +599,15 @@ Deliberately left undone. None block the apex cutover.
    and never exercised in a real browser. A seeded admin session in e2e is the
    highest-value next test investment, and it is also the thing that would let
    `sendBlockedInE2E()` be verified end to end rather than by inspection.
-9. **`lefthook.yml` is 1,100 lines because the logic lives in YAML.** About
-   twenty-five of the twenty-nine pre-commit guards are inline `run: |` bash
+9. **`lefthook.yml` is 1,187 lines because the logic lives in YAML.** 22 of the
+   30 pre-commit guards are inline `run: |` bash
    blocks, and nearly every one carries a five-to-fifteen-line rationale comment
    and a multi-line remediation block. The content is right; the shape is drift,
    visible in duplicated section numbers and orphan comments. Moving each body
-into `scripts/hooks/*.mjs` would take it to roughly 400 lines. Worth doing
-    before the next guard is added rather than after.
+   into `scripts/hooks/*.mjs` would take it to roughly 400 lines. Worth doing
+   before the next guard is added rather than after. The guard count is written
+   in digits rather than words on purpose: `scripts/check-doc-claims.mjs` checks
+   it against `lefthook.yml` on every commit, and it cannot read "twenty-nine".
 10. **Pre-existing CMS images still carry no `width` / `height`.** New and edited
     images are measured from their bytes at upload, and a hand-typed URL is
     measured client-side, so nothing added from here on shifts. The content
