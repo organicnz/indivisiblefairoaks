@@ -1,46 +1,45 @@
 # CI runners
 
-> Why every workflow in this repository queues forever, and what it would take to
-> fix. Read this before changing a `runs-on:` line.
+> What actually runs this repository's workflows, what stops them, and how to
+> tell the difference. Read this before changing a `runs-on:` line.
 
 ## The short version
 
 **`runs-on: [self-hosted, linux, X64, …]` is correct. Do not change it.**
 
-No job in this repository has ever executed. Not "was slow", not "flaked" — could
-not run. The selectors are fine; the machine that would satisfy them does not
-serve this repository.
+This repository **is** served. A runner exists, it is `X64`, it accepts jobs, and
+those jobs check out the repository and start running. That was not true for most
+of this repository's life, and the reason it stayed invisible is the part worth
+keeping.
+
+What is still true, and is the current constraint: **the runner host cannot
+finish the work.** See [The host is the ceiling](#the-host-is-the-ceiling).
 
 ## Where the runners come from
 
 Self-hosted runners for this organisation are not hand-registered. They are
 provisioned by **`ghrunner`**, a fleet manager that runs as rootless Podman +
-Quadlet units on a single x86_64 VPS behind Tailscale. A repository is served only
-when it has an `instances/<id>.env` declaring its `REPO_URL`; an organisation can
-also be served org-wide from `org/*.env`.
+Quadlet units on a single x86_64 VPS behind Tailscale. A repository is served when
+it has an `instances/<id>.env` declaring its `REPO_URL`; an organisation can also
+be served org-wide from `org/*.env`.
 
-The fleet ships a coverage auditor that answers the question directly:
+This repository's instance is `instances/indivisiblefairoaks.env`, and its
+runner registers as **`indivisiblefairoaks-runner-1`** — deliberately *not* the
+name `personal-organicnz`, which is the Apple-silicon Mac. The collision matters;
+see below.
+
+The fleet ships a coverage auditor that answers the served-or-not question
+directly:
 
 ```bash
 cd ../ghrunner
 cargo run -q -p fleet-coverage -- --root .
 ```
 
-For this repository it says:
+## Why it looked like nothing could ever run
 
-```
-organicnz/indivisiblefairoaks      [self-hosted, linux, X64, frontend-runner], [self-hosted, linux, X64, backend-runner]
-                                     no runner serves this repository, and `UNSERVED` says that is intended.
-                                     Its jobs queue until the declaration is removed.
-```
-
-**This repository is listed in `ghrunner`'s `UNSERVED` file.** It is a recorded
-decision, not an accident. Six repositories are in that state, alongside
-`portfolio`, `careecho-web` and others.
-
-## Why it stayed invisible
-
-Three separate things conspire, and each one individually looks fine:
+Five separate defects stacked, and each one on its own looked like a healthy
+system. This is the record, because the failure mode is what generalises.
 
 1. **A `runs-on` selector that matches nothing does not error.** The job waits
    indefinitely. There is no error to notice.
@@ -55,35 +54,40 @@ control, because it is indistinguishable from passing. The same rule as
 `ChoirAudioPlayer`'s progress bar and the featured image that no public route
 rendered.
 
-`ghrunner`'s own `instances/ghrunner.env` documents having been bitten by
-exactly this, in exactly these words:
+Once a runner *was* deployed, four more defects hid behind that first one, and
+each only became visible after the previous was fixed:
 
-> with no instance here, the job that provisions the whole fleet had no runner to
-> run on, and queued forever. Every other signal was green: the units rendered,
-> the collector ran, the watchdog was happy.
->
-> The blind spot was structural rather than a mistake anyone made. The coverage
-> auditor read the *first* `runs-on:` in each workflow file … So the request was
-> never read, and a repository with a self-hosted job looked like one with none.
+4. **An unrelated empty organisation blocked every runner on the host.**
+   `ghrunner`'s deploy refuses to install anything unless it can register in
+   *every* declared org, and `RUNNER_ACCESS_TOKEN` had no access to an org with
+   zero repositories. One empty org meant no personal runner started, on any
+   repository. A shared-fleet gate failing closed is correct; failing closed on
+   something irrelevant is not.
+5. **Two runners claimed one name.** The VPS runner and the Mac both registered
+   as `personal-organicnz` in the same repository, so the broker answered
+   `HTTP 409: A session for this runner already exists` — while the runner still
+   reported `status=online`, which is why it looked healthy while doing nothing.
+   Fixed by declaring `RUNNER_NAME=indivisiblefairoaks-runner-1`.
+6. **Checkout died at its first `git` call.** git's dubious-ownership guard
+   (CVE-2022-24765) refuses a repository owned by a different uid and reports it
+   as `fatal: --local can only be used inside a git repository`. The job
+   workspace is owned by uid 1001 and the job's `git` can run as root, so every
+   checkout failed with an empty workspace and no fetch.
+7. **The runner user had no `HOME` of its own.** The privilege drop switched uid
+   without touching the environment, leaving uid 1001 with `HOME=/root`, mode
+   0700. That surfaced as `EACCES: permission denied, stat '/root/.gitconfig'`
+   *after* (6) was fixed, so it presented as a second, unrelated checkout
+   failure.
 
-## The hand-registered runner is not a way out
+A fifth fleet-side defect — the installer's prune deleting the Podman network
+file on every install, so no runner could start after any deploy — is fixed in
+`ghrunner` as well. The pattern across all of them: **each fix exposed the next
+defect, and none of them was visible from the run list.** Defects 6 and 7 in
+particular would both have been diagnosed as "checkout is broken" from the logs
+alone, and neither was checkout.
 
-A runner for this repository does exist: `personal-organicnz`, an Apple-silicon
-macOS machine with labels `self-hosted, Linux, ARM64, frontend-runner,
-backend-runner`.
-
-It is **not** a usable substitute, and the failure mode is instructive:
-
-- Its label set does not match `X64`, so selectors that ask for `X64` skip it.
-- If a workflow is changed to `ARM64` to match it, jobs *are* dispatched, and then
-  fail in `Prepare workflow directory` with
-  `Access to the path '/tmp/runner/_PipelineMapping/…' is denied` — its install
-  directory has been wiped, and macOS refuses the path. A freshly reinstalled
-  runner at `~/actions-runner` registers, accepts a job, and then fails its OAuth
-  handshake with `VssOAuthTokenRequestException: The signature is not valid`.
-
-So **a green runner list is not evidence that a job can run**, in either
-direction. The only reliable questions are the ones below.
+**A green runner list is not evidence that a job can run**, in either direction.
+The only reliable questions are the ones below.
 
 ## How to check whether CI can actually run
 
@@ -102,32 +106,41 @@ cd ../ghrunner && cargo run -q -p fleet-coverage -- --root .
 If (1) is empty or the labels do not match, and (2) reports `UNSERVED`, nothing in
 this repository will run.
 
-## Serving this repository, if that is wanted
+Two more checks worth doing, because both have produced failures here that the run
+list summarised as a single red job:
 
-This is an infrastructure decision, not a code change: it puts this repository's
-builds and its secrets onto a shared host that, by ghrunner's own design
-principle, is *"not any organisation's"*. The steps:
+```bash
+# 3. Is the fleet's own support unit installed? A missing one is not visible
+#    in any run list; it shows up only as a runner that will not start.
+ssh <host> systemctl --user is-active ghrunner-network.service
 
-1. Write `instances/<id>.env` in `../ghrunner`:
+# 4. Is the job failing, or failing to start? These have different fixes.
+gh run view <id> --log-failed | tail -40
+```
 
-   ```ini
-   REPO_URL=https://github.com/organicnz/indivisiblefairoaks
-   LABELS=self-hosted,linux,X64,frontend-runner,backend-runner
-   ```
+## The host is the ceiling
 
-2. Delete the `organicnz/indivisiblefairoaks` entry from `UNSERVED`. Skipping
-   this makes the auditor report the entry as stale.
+The runner is a **887 MiB / 2 vCPU** VPS. Jobs are dispatched and start, and the
+typecheck then dies:
 
-3. `runner-fleet sync`.
+```
+FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
+bunx tsc --noEmit  →  Aborted (core dumped)
+```
 
-The auditor will then report the repository as served, and will complain if the
-labels in step 1 stop matching what the workflows ask for — which is the property
-that makes this maintainable rather than a thing to re-derive.
+This is a capacity fact, not a defect, and no amount of runner plumbing changes
+it. `bunx tsc --noEmit` on this codebase needs more memory than the machine has,
+before the 997 unit tests, the production build, or the 112 e2e specs are
+considered. Raising the heap trades the abort for swap thrashing on two cores.
+
+So the honest current state is: **CI runs, and cannot complete.** Until the host
+is resized, the local gates below are the only ones that reach a verdict — not
+because the pipeline is broken, but because the pipeline is too small.
 
 ## What this means for the delivery gates
 
-Until it is served, **the local gates are the only gates.** Every one of them is
-real and runs on every push:
+The local gates are real, they run on every push, and they are currently the only
+ones that finish:
 
 | Gate | Command |
 |---|---|
@@ -141,22 +154,21 @@ real and runs on every push:
 | peer deps | `bun scripts/check-peer-deps.mjs --all` |
 | e2e | `playwright test --workers=2` — 112 specs |
 
-The unit-test count is deliberately absent from this table. It moved three times
-in as many rounds, and the obvious cheap source of truth cannot reproduce it:
-`vitest list` enumerates 848 tests while `vitest run` executes 965, of which 75
-is `it.each` expansion the listing does not perform (measured per file —
-`blocks.test.ts` alone reports 43 against 67). A figure nothing checks is a
-figure that will be wrong. `scripts/check-doc-claims.mjs` verifies the claims
+A merge is only as trustworthy as the last full local run, so run all of them
+before merging anything that CI would otherwise have gated.
+
+The unit-test count is deliberately absent from this table. It moved four times in
+as many rounds, and the obvious cheap source of truth cannot reproduce it:
+`vitest list` enumerates 884 tests while `vitest run` executes 997, the difference
+being `it.each` expansion the listing does not perform. A figure nothing checks is
+a figure that will be wrong. `scripts/check-doc-claims.mjs` verifies the claims
 that *can* be re-derived — guard count, baseline, `lefthook.yml` length, spec
 total and both coverage floors — and records why this one is not among them.
 
-The Playwright gate is the meaningful one and it does run, which is why the
-delivered work was verifiable end to end: 112 e2e specs, including the real
-Chromium session that caught the carousel's touch-target regression during this
-branch.
+## Migrations and Edge Functions are deployed by hand
 
-Migrations and Edge Function deploys therefore **cannot** come from
-`supabase.yml`. Apply them deliberately:
+`supabase.yml` runs on the same fleet, so nothing it does is a substitute for
+applying a migration deliberately:
 
 ```bash
 supabase db push --linked --dry-run     # always first

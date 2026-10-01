@@ -458,16 +458,21 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
-- **No workflow in this repository can currently run.** `runs-on:
-  [self-hosted, linux, X64, …]` is correct, but this repository is listed in
-  `ghrunner`'s `UNSERVED` file, so no runner is provisioned for it and every job
-  queues forever. `cancel-in-progress` hides the queue, and the Vercel /
-  GitGuardian / CodeRabbit checks still report green, so a merged PR looks
-  healthy. Full diagnosis, the two commands that answer it, and the fix are in
-  [`docs/ci-runners.md`](./docs/ci-runners.md). **Do not "fix" this by changing
-  the platform label** — that is what `67a4e08` nearly did in reverse, and a
-  hand-registered ARM64 Mac satisfies the selector and then fails in
-  `Prepare workflow directory`.
+- **CI runs, and cannot finish.** `runs-on: [self-hosted, linux, X64, …]` is
+  correct and stays that way. This repository *is* served — it was removed from
+  `ghrunner`'s `UNSERVED` list, `instances/indivisiblefairoaks.env` is deployed,
+  and the runner registers as `indivisiblefairoaks-runner-1`. Jobs are
+  dispatched, check out, install, and start. The blocker is the host: it is an
+  **887 MiB / 2 vCPU** VPS, and `bunx tsc --noEmit` exhausts it
+  (`FATAL ERROR: Reached heap limit … out of memory`). Raising the heap trades
+  the abort for swap thrashing. The full record of the five stacked defects that
+  hid this for so long — an unrelated empty org blocking every runner on the
+  host, a duplicate runner name returning HTTP 409 while reporting `online`, and
+  two separate checkout failures that each presented as *the* checkout failure —
+  is in [`docs/ci-runners.md`](./docs/ci-runners.md). **Do not "fix" this by
+  changing the platform label.** A hand-registered ARM64 Mac satisfies an
+  `ARM64` selector and then fails in `Prepare workflow directory`; the answer is
+  host capacity, not labels.
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 30 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 112 Playwright specs. Migrations and Edge Functions are deployed
