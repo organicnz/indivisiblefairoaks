@@ -567,6 +567,21 @@ describe('Civic CRM Server Actions', () => {
       const res = await saveCRMSegment({ name: '  ' });
       expect(res.success).toBe(false);
     });
+
+    it('normalises tag case, because the filter chips compare against lowercase', async () => {
+      tables.crm_segments = { rows: [], insert: { id: 'seg-2' } };
+
+      const res = await saveCRMSegment({
+        name: 'Choir',
+        query: '',
+        statuses: [],
+        districts: [],
+        tags: ['Choir', ' CHOIR ', 'Donor'],
+      });
+
+      expect(res.success).toBe(true);
+      expect(tables.crm_segments.rows?.[0]).toMatchObject({ tags: ['choir', 'donor'] });
+    });
   });
 
   describe('consent', () => {
@@ -1515,10 +1530,15 @@ describe('Broadcast drafts are a document, not a log entry', () => {
   it('inserts once when there is no id yet', async () => {
     tables.crm_broadcasts = { rows: [], insert: { id: 'draft-1' } };
 
-    const res = await saveCRMBroadcastDraft({ subject: 'Draft', body: 'Later' });
+    const res = await saveCRMBroadcastDraft({
+      subject: 'Draft',
+      body: 'Later',
+      targetTags: ['Choir', ' DONOR '],
+    });
 
     expect(res.success).toBe(true);
     expect(res.broadcastId).toBe('draft-1');
+    expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({ target_tags: ['choir', 'donor'] });
     // One row, and it is a draft. The old assertion was that `.insert()` had been
     // called once and `.update()` not at all; "the table holds exactly one draft"
     // says the same thing about the state a reload would find.

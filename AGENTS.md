@@ -631,18 +631,22 @@ Deliberately left undone. None block the apex cutover.
    Zealand tariff. See `src/config/commerce.ts`.
 5. **HSTS `preload` + `includeSubDomains`** pins every subdomain to HTTPS for
    ~12 months once submitted, including staging.
-6. **Tags are not case-normalised in the CRM.** The CSV importer lowercases them,
-   but a tag typed into the contact editor is stored as written, so `Choir` and
-   `choir` are two different tags in the database and the filter offers both. The
-   fix is a one-time `UPDATE … lower(tags)` plus lowercasing at the editor
-   boundary — a   data change, so it belongs to the chapter, not to a deploy.
-7. **The admin surfaces have no axe coverage and no seeded session.** `/admin` is
-   excluded from `e2e/a11y.spec.ts` because the auth-gated routes have no session,
-   so the editor and the CRM have zero browser coverage: the preview, the
-   revision diff, the slash menu and the broadcast composer are all unit-tested
-   and never exercised in a real browser. A seeded admin session in e2e is the
-   highest-value next test investment, and it is also the thing that would let
-   `sendBlockedInE2E()` be verified end to end rather than by inspection.
+6. **Existing CRM tags are not lowercased.** Every write boundary now
+   normalises — contact schema, segment schema, broadcast audiences, merge,
+   and the filter parser all run through `normalizeTags` — but rows written
+   before that fix still hold `Choir` next to `choir`. The remainder is the
+   one-time `UPDATE … lower(tags)`, a data change that belongs to the chapter,
+   not to a deploy.
+7. **The admin surfaces have no seeded session yet.** `e2e/admin-authenticated.spec.ts`
+    now exists and drives a real password sign-in into a stored session, but it
+    skips unless `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` are set — and nothing
+    sets them, because that needs a non-MFA-enrolled admin user seeded on the
+    target Supabase project. Until those two env vars exist in CI secrets, `/admin`
+    still has the zero browser coverage: the preview, the revision diff, the
+    slash menu and the broadcast composer are all unit-tested and never exercised
+    in a real browser. Providing the seeded user is the remaining step, and it
+    also unlocks `sendBlockedInE2E()` verified end to end rather than by
+    inspection.
 8. **Pre-existing CMS images still carry no `width` / `height`.** New and edited
     images are measured from their bytes at upload, and a hand-typed URL is
     measured client-side, so nothing added from here on shifts. The content
@@ -651,15 +655,13 @@ Deliberately left undone. None block the apex cutover.
     a revision per row — for what would mostly be no-op measurements. It is also
     a production data change, which belongs to the chapter rather than to a
     deploy. Cheaper when an author touches the page anyway.
-9. **The checkout rate limit is not a control on Stripe sessions.** The 10/min/IP
-    limit in `AGENTS.md`'s table is on the Next route. `supabase/functions/checkout`
-    has no rate limit of any kind, is deployed with JWT verification **on**, and
-    Supabase's `verify_jwt` accepts the publishable/anon key — which is public by
-    construction in the client bundle. So `POST /functions/v1/checkout` with the
-    anon bearer creates a real Stripe Checkout Session on every call, unthrottled,
-    and the CORS `origin` restriction is inert for a non-browser client. Closing it
-    means rate limiting inside an Edge Function, which has no shared in-memory
-    state — a design decision, not a patch.
+9. **The edge `checkout` function is now rate-limited.** It shares the
+    `search_rate_limit` rolling-window table with the search and WALL-E
+    functions under a `checkout:` ip prefix, 10/min/IP — the same limit the
+    Next route carries. `verify_jwt` still accepts the publishable key (public
+    by construction), so the CORS `origin` restriction remains inert for a
+    non-browser client; the table-backed window is the working control. Rows
+    are never cleaned up, same as the existing `search_rate_limit` uses.
 ---
 
 ## Agent Skills
@@ -790,6 +792,16 @@ CRM send paths are *refused in code*: `sendCRMBroadcast`,
 `isE2EMode()` is true, because they dispatch to a live Edge Function that talks
 to Resend and there is no redirect for them. That matters the moment e2e gains a
 seeded admin session. Any new send path needs the second mechanism;
+
+**The e2e flags must never reach a Vercel environment.** `isE2EMode()` requires
+both `CONTACT_SUBMISSION_TEST_MODE` and `NEXT_E2E_BUILD`, and Playwright sets
+both only on the server process it spawns. If either ever appears in a Vercel
+env var, that deployment becomes a site where CRM sends silently fail and the
+contact form posts to a mock — with no UI signal. The admin layout now renders
+a loud amber banner whenever `isE2EMode()` is true, so an accidental e2e build
+announces itself to the first admin who loads `/admin` rather than reading as
+a broken CRM. The two vars themselves are never a "config knob" anyone should
+flip on purpose; they are a property of the test harness.
 
   A preview stays in the campaign history — hiding it would leave a campaign with
   no visible trace — so every column has to say what happened. Its audience reads

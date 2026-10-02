@@ -39,3 +39,6 @@ docs/*.pdf
 docs/*.docx
 docs/*.doc
 docs/*.xlsx
+
+# Seeded e2e sessions
+e2e/.auth/

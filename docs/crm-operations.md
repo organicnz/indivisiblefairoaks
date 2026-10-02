@@ -283,6 +283,31 @@ gains a seeded admin session — the obvious next step for testing the CRM.
 would be a production switch that silently stops delivering, the second is true
 of any CI build, where sending is exactly what is wanted.
 
+### If an admin says the CRM "can't send"
+
+Check one thing first: is `/admin` showing the amber **E2E test build** banner
+(`src/app/admin/layout.tsx`)? It renders whenever `isE2EMode()` is true, and it is
+the difference between "the CRM is broken" and "this deployment has the test
+harness's environment variables set". The fix for the second is to remove
+`CONTACT_SUBMISSION_TEST_MODE` / `NEXT_E2E_BUILD` from the Vercel project — they
+are a property of Playwright's spawned server and should never be environment
+variables a human sets. Do not delete the banner: without it the same failure
+reports itself as a broken product.
+
+## Tags are stored lowercase, everywhere
+
+`contains('tags', [...])` compares against stored values, so `Choir` and `choir`
+are different tags in the database. Every path that can write or match a tag runs
+through `normalizeTags` (`src/lib/crm-import.ts`): the contact schema, the segment
+schema, the broadcast audiences (`saveCRMBroadcastDraft`, `sendCRMBroadcast`,
+`getBroadcastRecipientCount`, the recipient resolver), the contact merge, and the
+directory filter parser — so a hand-typed `Choir`, a CSV row, and a `?tag=Choir`
+link all resolve to the same chip.
+
+Rows written before that landed still hold mixed case, which is why the filter
+can show a chip that matches nothing. The one-time `UPDATE … lower(tags)` is a
+data change and belongs to the chapter, not to a deploy.
+
 ## The follow-up board
 
 `crm_tasks.contact_id` is nullable. A follow-up belongs either to a
