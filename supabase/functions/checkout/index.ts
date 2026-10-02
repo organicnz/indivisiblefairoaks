@@ -48,6 +48,29 @@ function supabaseAdmin() {
 const MAX_LINE_ITEMS = 50
 const MAX_QUANTITY_PER_ITEM = 50
 
+// Per-IP throttle on session creation. verify_jwt accepts the publishable key —
+// public by construction — so the CORS origin check is inert for a non-browser
+// caller and this is the only brake on session flooding. Same rolling-window
+// table the search and WALL-E functions use, namespaced by a `checkout:` ip
+// prefix. Per-instance isolates make an in-memory counter unreliable; the
+// table is the shared store.
+const RATE_WINDOW_MS = 60_000
+const RATE_MAX = 10
+
+async function checkCheckoutRateLimit(
+  client: ReturnType<typeof supabaseAdmin>,
+  ip: string,
+): Promise<boolean> {
+  const cutoff = new Date(Date.now() - RATE_WINDOW_MS).toISOString()
+  await client.from('search_rate_limit').insert({ ip: `checkout:${ip}` })
+  const { count } = await client
+    .from('search_rate_limit')
+    .select('id', { count: 'exact', head: true })
+    .eq('ip', `checkout:${ip}`)
+    .gt('created_at', cutoff)
+  return (count ?? 0) <= RATE_MAX
+}
+
 type NormalizedItem = { id: number; variationId?: number; quantity: number }
 
 const app = new Hono()
@@ -79,6 +102,13 @@ app.post('*', async (c) => {
 
   assertRuntimeConfig()
   const supabase = supabaseAdmin()
+
+  const forwarded = c.req.header('x-forwarded-for') ?? ''
+  const ip =
+    c.req.header('x-real-ip')?.trim() || forwarded.split(',').pop()?.trim() || 'unknown'
+  if (!(await checkCheckoutRateLimit(supabase, ip))) {
+    throw new HTTPException(429, { message: 'Too many checkout attempts. Try again in a minute.' })
+  }
 
   const variationIds = items
     .map((item) => item.variationId)
