@@ -122,7 +122,19 @@ async function probeGithub(kind) {
 
 async function probeEdge() {
   try {
-    const { stdout } = await run('supabase', ['secrets', 'list', '-o', 'json'], {
+    // Address the project explicitly on CI, where there is no `supabase link`
+    // state and should not be — link state is interactive, machine-local, and
+    // has no place in a runner image. Falls back to link state when the ref is
+    // absent so a linked local checkout keeps working.
+    //
+    // This reads a *public* project ref, not a credential. Auth is unchanged:
+    // whatever `SUPABASE_ACCESS_TOKEN` the caller provides.
+    const args =
+      typeof process.env.SUPABASE_PROJECT_REF === 'string' &&
+      process.env.SUPABASE_PROJECT_REF.length > 0
+        ? ['secrets', 'list', '--project-ref', process.env.SUPABASE_PROJECT_REF, '-o', 'json']
+        : ['secrets', 'list', '-o', 'json'];
+    const { stdout } = await run('supabase', args, {
       maxBuffer: 1 << 20,
     });
     const parsed = JSON.parse(stdout);
