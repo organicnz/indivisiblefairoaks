@@ -89,7 +89,11 @@ const segmentSchema = z.object({
   query: z.string().trim().max(100).default(''),
   statuses: z.array(z.string()).max(10).default([]),
   districts: z.array(z.string()).max(10).default([]),
-  tags: z.array(z.string()).max(20).default([]),
+  tags: z
+    .array(tagSchema)
+    .max(MAX_TAGS_PER_CONTACT, `A segment may filter on at most ${MAX_TAGS_PER_CONTACT} tags`)
+    .transform(normalizeTags)
+    .default([]),
 });
 
 export interface CRMStats {
@@ -195,7 +199,7 @@ async function resolveBroadcastRecipients(
   adminClient: AdminClient,
   target: BroadcastTarget
 ): Promise<{ recipients: BroadcastRecipient[]; exhausted: boolean }> {
-  const targetTags = target.targetTags ?? [];
+  const targetTags = normalizeTags(target.targetTags ?? []);
   const targetStatus = target.targetStatus ?? [];
   const targetDistricts = target.targetDistricts ?? [];
   const PAGE = 1000;
@@ -341,7 +345,7 @@ function resolveFilters({
   const districts = districtList?.length
     ? districtList
     : splitList(district).filter((d) => d !== 'all');
-  const tags = tagList?.length ? tagList : splitList(tag).filter((t) => t !== 'all');
+  const tags = normalizeTags(tagList?.length ? tagList : splitList(tag).filter((t) => t !== 'all'));
   return { statuses, districts, tags, q: query.trim().slice(0, 100) };
 }
 
@@ -1013,7 +1017,7 @@ export async function mergeCRMContacts({
     return { success: false, error: 'Both contacts must exist to merge' };
   }
 
-  const unionTags = [...new Set([...(keep.tags || []), ...(remove.tags || [])])];
+  const unionTags = normalizeTags([...(keep.tags || []), ...(remove.tags || [])]);
   const mergedNotes = [keep.notes, remove.notes].filter(Boolean).join('\n\n---\n\n') || null;
   const lastContacted =
     keep.last_contacted_at && remove.last_contacted_at
@@ -1269,6 +1273,7 @@ export async function saveCRMBroadcastDraft({
   if (!cleanSubject) return { success: false, error: 'Subject is required' };
   if (!body.trim()) return { success: false, error: 'Message body is required' };
 
+  targetTags = normalizeTags(targetTags);
   const row = {
     subject: cleanSubject,
     body: body.trim(),
@@ -1374,6 +1379,7 @@ export async function sendCRMBroadcast({
   const limited = sendRateLimited(adminUserId, BROADCAST_LIMIT);
   if (limited) return { success: false, error: limited };
 
+  targetTags = normalizeTags(targetTags);
   let audience: { recipients: BroadcastRecipient[]; exhausted: boolean };
   try {
     audience = await resolveBroadcastRecipients(adminClient, {
@@ -1697,6 +1703,8 @@ export async function getBroadcastRecipientCount({
   targetDistricts?: string[];
 }): Promise<number> {
   const { adminClient } = await requireAdmin();
+
+  targetTags = normalizeTags(targetTags);
 
   let qb = adminClient
     .from('crm_contacts')
