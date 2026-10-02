@@ -3,7 +3,11 @@
 name: cms-editor-and-crm
 description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, src/lib/sanitize.ts, src/lib/trusted-links.ts, src/lib/own-media.ts, src/lib/image-size.ts, src/lib/__tests__/supabase-mock.ts,
 supabase/functions/_shared/broadcast.ts, supabase/functions/crm-broadcast-send/, the
-unsubscribe route, or a coverage threshold in `vitest.config.ts`, or a coverage threshold in vitest.config.ts — and whenever a change could make CMS content vanish on publish, change a page's publish state, lose an author's keystrokes, lose or re-date a revision, widen who receives an email, shift an image's layout, or leave a file outside the coverage gate.
+unsubscribe route, or a coverage threshold in `vitest.config.ts`, or a coverage threshold in vitest.config.ts, or
+src/app/admin/layout.tsx, e2e/admin-authenticated.spec.ts, or supabase/functions/checkout/ — and
+whenever a change could make CMS content vanish on publish, change a page's publish state, lose an
+author's keystrokes, lose or re-date a revision, widen who receives an email, disable an email path by
+accident, shift an image's layout, or leave a file outside the coverage gate.
 ---
 # CMS editor & CRM
 
@@ -590,6 +594,60 @@ how two wrong fixes got applied here before the ordering was found.
 
 Any sweep that runs to the end of the input (unclosed tags) must be scoped to the
 tags where that actually happened, or one unclosed `<form>` deletes a page.
+
+### 29. Every tag write boundary normalises, and the UI must not care
+
+Tags compare with `contains()` against stored values, so `Choir` and `choir` are
+two different tags in the database and the filter chips show both. `Choir` was
+stored as written from the contact editor until every write path ran through
+`normalizeTags` (trim, lowercase, dedupe, cap):
+
+- contact schema (`contactSchema.tags` transform),
+- **segment schema** — it took `z.array(z.string())` and normalised nothing, so
+  a saved segment could filter on a tag string that matched no contact,
+- **broadcast audiences** — `saveCRMBroadcastDraft`, `sendCRMBroadcast`,
+  `getBroadcastRecipientCount`, and `resolveBroadcastRecipients` (which
+  normalises its own argument because it is also reached from the draft preview),
+- **`mergeCRMContacts`** — the union of two rows' tags, which is a re-derivation
+  rather than user input but lands in the same column,
+- the **directory filter parser**, so a `?tag=Choir` link matches what the chips
+  show.
+
+A new path that accepts tags must normalise. The one-time `UPDATE … lower(tags)`
+for rows written before the fix is a chapter data change, deliberately not a
+deploy.
+
+### 30. An e2e build announces itself; the flags never reach Vercel
+
+`isE2EMode()` needs **both** `CONTACT_SUBMISSION_TEST_MODE` and
+`NEXT_E2E_BUILD`, and Playwright sets both only on the server process it spawns.
+If either reaches a Vercel env var, the deployment quietly becomes a site where
+`sendCRMBroadcast` returns "Sending is disabled in test builds" and the contact
+form posts to the mock URL — which reads as a broken CRM, and an admin who does
+not know the stack reports it as one.
+
+So the admin layout renders an amber banner whenever `isE2EMode()` is true. Keep
+it. If you ever see that banner in an environment you did not intend to be an e2e
+build, the fix is removing the variable from the Vercel project, not deleting the
+banner — the banner is the only signal that the failure mode has.
+
+The mirror-image guard is that a guard which fails closed on a legitimate action
+looks exactly like an outage. That is why the suppression is one banner plus one
+error string, and why the CRM send paths refuse *before* doing any work.
+
+### 31. An Edge Function needs a rate limit that survives isolates
+
+`supabase/functions/checkout` accepted the publishable key (public by
+construction), so `verify_jwt` was not an access control and CORS `origin` is
+inert for any non-browser client: every anonymous POST created a real Stripe
+session. It now writes a row into the shared `search_rate_limit` rolling-window
+table under a `checkout:` ip prefix and counts the last 60 seconds — 10/min,
+the same limit the Next route carries.
+
+An in-memory window (`src/lib/rate-limit.ts` for the route, `@hono` middleware
+for the function) is **not** enough: isolates are per-instance, so the limit
+becomes N × the intended limit. The table is shared; rows are never cleaned up,
+same as the existing uses.
 
 ## Before you finish
 

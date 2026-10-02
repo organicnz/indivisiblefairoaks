@@ -793,6 +793,16 @@ CRM send paths are *refused in code*: `sendCRMBroadcast`,
 to Resend and there is no redirect for them. That matters the moment e2e gains a
 seeded admin session. Any new send path needs the second mechanism;
 
+**The e2e flags must never reach a Vercel environment.** `isE2EMode()` requires
+both `CONTACT_SUBMISSION_TEST_MODE` and `NEXT_E2E_BUILD`, and Playwright sets
+both only on the server process it spawns. If either ever appears in a Vercel
+env var, that deployment becomes a site where CRM sends silently fail and the
+contact form posts to a mock — with no UI signal. The admin layout now renders
+a loud amber banner whenever `isE2EMode()` is true, so an accidental e2e build
+announces itself to the first admin who loads `/admin` rather than reading as
+a broken CRM. The two vars themselves are never a "config knob" anyone should
+flip on purpose; they are a property of the test harness.
+
   A preview stays in the campaign history — hiding it would leave a campaign with
   no visible trace — so every column has to say what happened. Its audience reads
   `Nobody — sent only to you`, never `All Constituents`, because a preview row has
