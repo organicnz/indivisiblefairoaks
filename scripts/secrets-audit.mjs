@@ -157,22 +157,66 @@ async function probeEdge() {
   }
 }
 
+async function probeVercelApi(projectId, teamId, token) {
+  // Explicit REST read. Two reasons it exists. The CLI aborts on the runner
+  // (it cannot run there), and it needs `vercel link` state that must not
+  // exist on a runner — the same class of link-state reliance the Supabase
+  // probe just stopped having. This addresses the project directly.
+  //
+  // Names only, by construction: this endpoint returns keys and types, and
+  // the values it does return are redacted for secret-typed entries. The
+  // classification mirrors parseVercelTable so the two paths agree.
+  const params = teamId ? `?teamId=${encodeURIComponent(teamId)}` : '';
+  const res = await fetch(
+    `https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}/env${params}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) throw new Error(`vercel API ${res.status}`);
+  const body = await res.json();
+  const out = { plain: [], secret: [], unknown: [] };
+  for (const e of body.envs ?? []) {
+    const t = String(e.type ?? '').toLowerCase();
+    if (t === 'secret' || t === 'encrypted' || t === 'sensitive') out.secret.push(e.key);
+    else if (t === 'plain') out.plain.push(e.key);
+    else out.unknown.push(e.key);
+  }
+  return out;
+}
+
 async function probeVercel() {
   const results = [];
+  // Prefer the API when the project is addressed explicitly. Fall back to the
+  // CLI — and its link state — for a local checkout that never sets these.
+  const api =
+    typeof process.env.VERCEL_PROJECT_ID === 'string' &&
+    process.env.VERCEL_PROJECT_ID.length > 0 &&
+    typeof process.env.VERCEL_TOKEN === 'string' &&
+    process.env.VERCEL_TOKEN.length > 0
+      ? {
+          projectId: process.env.VERCEL_PROJECT_ID,
+          teamId:
+            typeof process.env.VERCEL_ORG_ID === 'string' &&
+            process.env.VERCEL_ORG_ID.length > 0
+              ? process.env.VERCEL_ORG_ID
+              : '',
+          token: process.env.VERCEL_TOKEN,
+        }
+      : null;
   for (const [store, expected] of [
     ['vercel-var', 'plain'],
     ['vercel-secret', 'secret'],
   ]) {
     try {
-      const { stdout } = await run('vercel', ['env', 'ls'], { maxBuffer: 1 << 20 });
-      const names = parseVercelTable(stdout);
+      const names = api
+        ? await probeVercelApi(api.projectId, api.teamId, api.token)
+        : parseVercelTable((await run('vercel', ['env', 'ls'], { maxBuffer: 1 << 20 })).stdout);
       results.push({ store, status: 'ok', names: names[expected] ?? [], all: names });
     } catch (err) {
       results.push({
         store,
         status: 'unreachable',
         names: null,
-        detail: firstLine(err.stderr) || firstLine(err.message) || 'vercel CLI failed',
+        detail: firstLine(err.stderr) || firstLine(err.message) || 'vercel read failed',
       });
     }
   }

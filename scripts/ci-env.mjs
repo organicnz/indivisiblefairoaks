@@ -48,6 +48,18 @@ export const VARIABLES = {
     required: true,
     example: '<project-ref>',
   },
+  /** Vercel project identity. Public identifiers from the dashboard, never
+   * credentials. Let the secret audit address the project through the REST
+   * API instead of depending on `vercel link` state that cannot exist on a
+   * runner (and on a CLI that cannot run there). */
+  VERCEL_PROJECT_ID: {
+    required: true,
+    example: 'prj_…',
+  },
+  VERCEL_ORG_ID: {
+    required: true,
+    example: 'team_…',
+  },
 };
 
 export const SECRETS = {

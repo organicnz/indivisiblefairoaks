@@ -300,6 +300,23 @@ export const REGISTRY = {
       'A project ref is a hostname, not a credential. Must be a *variable*: the ' +
       'deploy workflow needs it on fork PRs, where secrets are withheld.',
   },
+  VERCEL_PROJECT_ID: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS.platform,
+    stores: ['github-var'],
+    note:
+      'A project identifier, not a credential. Must be a *variable*: the audit ' +
+      'addresses the project through the REST API on runners where `vercel link` ' +
+      'state cannot exist, and needs this to do so.',
+  },
+  VERCEL_ORG_ID: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS.platform,
+    stores: ['github-var'],
+    note:
+      'A team identifier, not a credential. Scopes the API read alongside the ' +
+      'project ID for tokens that span multiple teams.',
+  },
   VERCEL_TOKEN: {
     exposure: EXPOSURE.privileged,
     owner: OWNERS.platform,

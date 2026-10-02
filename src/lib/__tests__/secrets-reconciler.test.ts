@@ -342,6 +342,8 @@ describe('reconcile: full declared contract', () => {
           'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
           'NEXT_PUBLIC_SITE_URL',
           'SUPABASE_PROJECT_REF',
+          'VERCEL_PROJECT_ID',
+          'VERCEL_ORG_ID',
         ],
       ],
       [
