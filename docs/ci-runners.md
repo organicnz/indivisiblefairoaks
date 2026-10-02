@@ -130,7 +130,7 @@ bunx tsc --noEmit  →  Aborted (core dumped)
 
 This is a capacity fact, not a defect, and no amount of runner plumbing changes
 it. `bunx tsc --noEmit` on this codebase needs more memory than the machine has,
-before the 997 unit tests, the production build, or the 112 e2e specs are
+before the 997 unit tests, the production build, or the 117 e2e specs are
 considered. Raising the heap trades the abort for swap thrashing on two cores.
 
 So the honest current state is: **CI runs, and cannot complete.** Until the host
@@ -152,7 +152,7 @@ ones that finish:
 | types | `bunx tsc --noEmit` |
 | production build | `NEXT_E2E_BUILD=true bun run build` |
 | peer deps | `bun scripts/check-peer-deps.mjs --all` |
-| e2e | `playwright test --workers=2` — 112 specs |
+| e2e | `playwright test --workers=2` — 117 specs |
 
 A merge is only as trustworthy as the last full local run, so run all of them
 before merging anything that CI would otherwise have gated.
