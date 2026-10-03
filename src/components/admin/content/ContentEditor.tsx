@@ -96,6 +96,33 @@ interface EditorFields {
 /** The failure branch of a save, so `persist` keeps a narrow union return type. */
 type SaveFailure = { success: false; error: string };
 
+/**
+ * A save whose promise *rejected*, which is a different animal from a save that
+ * returned `{ success: false }`.
+ *
+ * The returned failure is a handled branch: the action ran, answered, and every
+ * call site already reports it. A rejection means the request never produced an
+ * answer — a dropped connection, a session that expired mid-edit (`requireAdmin`
+ * redirects), a proxy that closed the socket. Nothing reported those: `handleSave`
+ * awaited `persist` with nothing around it, so `setSaving(false)` never ran, the
+ * Save button stayed `disabled` and its spinner kept turning until the page was
+ * reloaded — and reloading is what throws the afternoon away. The admin's only
+ * route forward was the one action guaranteed to lose their work.
+ *
+ * So the wording does the work a status code cannot: it says the change is not
+ * saved, says the text is still on screen, and says to copy it before reloading.
+ * A volunteer who reads that knows what to do; one reading "Failed to fetch" does
+ * not.
+ */
+function describeUnreachableSave(err: unknown): string {
+  const detail = err instanceof Error && err.message ? ` (${err.message})` : '';
+  return (
+    'Could not reach the server, so this change was not saved. Your text is still on ' +
+    'screen — copy it before you reload. If this keeps happening, your session may have ' +
+    `expired and you will need to sign in again.${detail}`
+  );
+}
+
 function snapshotOf(fields: EditorFields): string {
   return JSON.stringify(fields);
 }
@@ -478,7 +505,17 @@ export function ContentEditor({ initial, siteHost }: Props) {
         },
       });
       if (result.success) {
-        setSavedSnapshot(snapshotOf(fields));
+        // Snapshot the document *as it was written*, which includes the status
+        // this save just set. `fields` is the render-time value, so its `status`
+        // is the one from before the write — snapshotting it left `dirty` true
+        // after a successful publish. The visible consequences, in order: the
+        // toast said "Published", the indicator immediately contradicted it with
+        // "Unsaved changes" in red, `beforeunload` started warning about work
+        // that was already stored, and 2.5s later the autosave effect wrote the
+        // identical document again — minting a second `content_revisions` row for
+        // a revision that changed nothing. `handleSetStatus` gets this right at
+        // its own `setSavedSnapshot`; this was the copy that did not.
+        setSavedSnapshot(snapshotOf({ ...fields, status: nextStatus }));
         setStatus(nextStatus);
         // Adopt the version the trigger just wrote, so the next autosave
         // compares against this save rather than against the one before it.
@@ -516,7 +553,24 @@ export function ContentEditor({ initial, siteHost }: Props) {
       }
       setSaving(true);
       setError(null);
-      const result = await persist(nextStatus ?? status);
+      // The `catch` is load-bearing. `setSaving(false)` on the line after the
+      // await is not a guaranteed statement — a rejected promise skips it — and
+      // `saving` is what disables the Save button. One unreachable save used to
+      // leave the editor permanently unable to save itself, recoverable only by
+      // reloading and losing the document.
+      let result: Awaited<ReturnType<typeof persist>>;
+      try {
+        result = await persist(nextStatus ?? status);
+      } catch (err) {
+        const message = describeUnreachableSave(err);
+        setSaving(false);
+        setError(message);
+        // Keyed by snapshot, so the author keeps their hands on the text and the
+        // next real change retries the write.
+        setSaveFailure({ snapshot, message });
+        toast.error(message);
+        return;
+      }
       setSaving(false);
 
       if (!result.success) {
@@ -559,7 +613,9 @@ export function ContentEditor({ initial, siteHost }: Props) {
    * earlier version hardcoded `draft` here, which meant that editing a live
    * page and pausing for two seconds quietly took it offline — the worst
    * possible failure for a feature whose entire purpose is to be uneventful.
-   * Taking a page down stays a deliberate act, via the Save button.
+   * Taking a page down stays a deliberate act, named through
+   * `handleSetStatus` — the Publish button or the Status select, which is why
+   * that function takes the target state instead of toggling it.
    */
   useEffect(() => {
     // Nothing worth saving yet. A title with no body is not a page.
@@ -574,10 +630,22 @@ export function ContentEditor({ initial, siteHost }: Props) {
 
     const timer = setTimeout(() => {
       setSaveState('saving');
-      void persist(status).then((result) => {
-        setSaveState(result.success ? 'saved' : 'idle');
-        setSaveFailure(result.success ? null : { snapshot, message: result.error });
-      });
+      void persist(status)
+        .then((result) => {
+          setSaveState(result.success ? 'saved' : 'idle');
+          setSaveFailure(result.success ? null : { snapshot, message: result.error });
+        })
+        // A rejection is the autosave equivalent of the caught branch in
+        // `handleSave`. Without it the indicator sat on "Saving…" for the rest of
+        // the session — the author was told their work was being stored while
+        // none of it was — and `activeSaveFailure` was never set, so the banner
+        // explaining why stayed hidden too. Same state, same wording: the write
+        // did not happen, and the fix is to change something and let it retry.
+        .catch((err: unknown) => {
+          const message = describeUnreachableSave(err);
+          setSaveState('idle');
+          setSaveFailure({ snapshot, message });
+        });
     }, 2500);
 
     return () => clearTimeout(timer);
@@ -609,45 +677,64 @@ export function ContentEditor({ initial, siteHost }: Props) {
     router.refresh();
   }, [initial.id, router]);
 
-  const handleToggleStatus = useCallback(async () => {
-    const next = status === 'publish' ? 'draft' : 'publish';
-    if (!initial.id) {
-      // An unsaved new page has no server row to flip, so hold the change in
-      // local state and let Save carry it through.
+  /**
+   * The one path that changes a page's publish state. Takes the target state
+   * explicitly rather than toggling, because there are now two controls that
+   * name a state — the Publish/Move-to-draft button and the Status select — and
+   * a control that takes no argument can only serve one of them.
+   *
+   * It previously existed only as `handleToggleStatus()`, computing `next` from
+   * the current status. The select could not call it, so it called `setStatus`
+   * directly instead, which is local state: `status` is part of `fields`, so
+   * `dirty` flipped and the autosave effect fired `persist(status)` 2.5s later —
+   * publishing a live page, or taking one down, from a dropdown. That is the
+   * exact failure the comment below was written to prevent, reintroduced
+   * through the door the toggle signature closed.
+   */
+  const handleSetStatus = useCallback(
+    async (next: 'publish' | 'draft') => {
+      if (!initial.id) {
+        // An unsaved new page has no server row to flip, so hold the change in
+        // local state and let Save carry it through.
+        setStatus(next);
+        return;
+      }
+
+      // Publishing is a claim about the document you are looking at.
+      //
+      // `setContentStatus` writes `status` and `published_at` and nothing else, so
+      // toggling it while edits were unsaved published the *last saved* version
+      // and dropped the rest. It then called `setSavedSnapshot` over the whole
+      // field set, which marked the editor clean — so the autosave effect
+      // short-circuited on `if (!dirty) return`, `beforeunload` stopped warning,
+      // and the indicator read "All changes saved". A publish that discards an
+      // afternoon of writing and reports success is the worst failure this editor
+      // can produce, and it was the default outcome of the button most likely to
+      // be pressed at the end of a writing session.
+      //
+      // When anything is unsaved, publish the whole document instead. That is the
+      // same guarded path the Save button and Cmd+S already use, so the title and
+      // body rules apply here too.
+      if (dirty) {
+        await handleSave(next);
+        return;
+      }
+
+      const result = await setContentStatus(initial.id, next);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
       setStatus(next);
-      return;
-    }
-
-    // Publishing is a claim about the document you are looking at.
-    //
-    // `setContentStatus` writes `status` and `published_at` and nothing else, so
-    // toggling it while edits were unsaved published the *last saved* version
-    // and dropped the rest. It then called `setSavedSnapshot` over the whole
-    // field set, which marked the editor clean — so the autosave effect
-    // short-circuited on `if (!dirty) return`, `beforeunload` stopped warning,
-    // and the indicator read "All changes saved". A publish that discards an
-    // afternoon of writing and reports success is the worst failure this editor
-    // can produce, and it was the default outcome of the button most likely to
-    // be pressed at the end of a writing session.
-    //
-    // When anything is unsaved, publish the whole document instead. That is the
-    // same guarded path the Save button and Cmd+S already use, so the title and
-    // body rules apply here too.
-    if (dirty) {
-      await handleSave(next);
-      return;
-    }
-
-    const result = await setContentStatus(initial.id, next);
-    if (!result.success) {
-      toast.error(result.error);
-      return;
-    }
-    setStatus(next);
-    setSavedSnapshot(snapshotOf({ ...fields, status: next }));
-    toast.success(next === 'publish' ? 'Published' : 'Moved to drafts');
-    router.refresh();
-  }, [dirty, fields, handleSave, initial.id, router, status]);
+      // Matches the snapshot `persist` takes, deliberately. Two snapshots of the
+      // same document that disagree on `status` is precisely what made a publish
+      // report success and then claim it was unsaved.
+      setSavedSnapshot(snapshotOf({ ...fields, status: next }));
+      toast.success(next === 'publish' ? 'Published' : 'Moved to drafts');
+      router.refresh();
+    },
+    [dirty, fields, handleSave, initial.id, router]
+  );
 
   const loadRevisions = useCallback(async () => {
     if (!initial.id) return;
@@ -789,7 +876,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
             <>
               <button
                 type="button"
-                onClick={handleToggleStatus}
+                onClick={() => handleSetStatus(status === 'publish' ? 'draft' : 'publish')}
                 className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
               >
                 {status === 'publish' ? 'Move to draft' : 'Publish'}
@@ -1000,9 +1087,17 @@ export function ContentEditor({ initial, siteHost }: Props) {
 
             <label className="block text-xs font-medium text-slate-600">
               Status
+              {/* This control and the Publish button both name a publish state,
+                  so both route through `handleSetStatus`. It previously called
+                  `setStatus` — local state only — which flipped `dirty` and let
+                  the autosave effect publish or unpublish 2.5s later, taking a
+                  live page down from a dropdown with no confirmation and no
+                  toast. Selecting a value here now gets the same guard, the same
+                  unsaved-edits handling and the same confirmation toast as the
+                  button. */}
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as 'publish' | 'draft')}
+                onChange={(e) => void handleSetStatus(e.target.value as 'publish' | 'draft')}
                 className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <option value="draft">Draft</option>

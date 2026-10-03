@@ -733,6 +733,27 @@ own docs, because their failure modes are invisible to review and to unit tests.
   page). The editor keeps it in a ref and adopts it from each save's response,
   and a revision restore adopts the version it re-reads — but undo, redo and
   draft recovery deliberately do not, because they never write the row.
+- **A status control has to reach the guard, and a snapshot has to match the
+  write.** The Status `<select>` sat next to the Publish button and called
+  `setStatus` — local state — for years. `status` is part of the document
+  snapshot, so `dirty` flipped and the autosave effect published 2.5 seconds
+  later: choosing "Draft" on a live page took it off the site with no
+  confirmation and no toast. It could not reach the guarded path because that
+  function was a no-argument *toggle*, and a toggle cannot express "the author
+  picked Draft" — hence `handleSetStatus(next)`. Separately, `persist` snapshotted
+  `fields`, whose `status` predates the write, so a successful publish left
+  `dirty` true: the toast said "Published", the indicator contradicted it, and
+  autosave rewrote the document 2.5s later, minting a second `content_revisions`
+  row per publish. Both are pinned in `ContentEditor.safety.test.tsx`.
+- **A rejected promise is not a failed result.** `saveContent` returning
+  `{success:false}` was always reported. A *rejection* was not: `handleSave` set
+  `saving = false` on the line after the `await`, which a rejection skips, and
+  `saving` is what disables the Save button — so one dropped connection left the
+  editor permanently unable to save itself, recoverable only by reloading, which
+  discards the document. The autosave effect was `void persist().then()` with no
+  `.catch()` at all, so it claimed "Saving…" for the rest of the session while
+  writing nothing. Both now report, and the message names the three things a
+  volunteer can act on: not saved, text still on screen, copy it before reloading.
 - **CRM and broadcasting** — [`docs/crm-operations.md`](./docs/crm-operations.md).
   Delivery is off the request path: the action writes a `queued` row and the
   `crm-broadcast-send` Edge Function owns delivery and progress. A self-test

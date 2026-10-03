@@ -7,7 +7,8 @@ unsubscribe route, or a coverage threshold in `vitest.config.ts`, or a coverage 
 src/app/admin/layout.tsx, e2e/admin-authenticated.spec.ts, or supabase/functions/checkout/ — and
 whenever a change could make CMS content vanish on publish, change a page's publish state, lose an
 author's keystrokes, lose or re-date a revision, widen who receives an email, disable an email path by
-accident, shift an image's layout, or leave a file outside the coverage gate.
+accident, shift an image's layout, strand an editor on an unsaved document, or leave a file outside the
+coverage gate.
 ---
 # CMS editor & CRM
 
@@ -57,8 +58,8 @@ saving a page never deletes content it cannot edit.
 Autosave persists with the document's *current* `status`.
 
 Passing `'draft'` unconditionally was a live bug: editing a published page and
-pausing 2.5s quietly unpublished it. Taking a page down stays a deliberate act
-via the Save button.
+pausing 2.5s quietly unpublished it. Taking a page down stays a deliberate act,
+named through `handleSetStatus`.
 
 **Neither may the Publish button.** `setContentStatus` writes `status` and
 `published_at` and nothing else, so toggling it with unsaved edits published the
@@ -67,8 +68,49 @@ short-circuited autosave, stopped the unload warning, and left the indicator
 reading "All changes saved". When anything is unsaved, publish the whole document
 through `handleSave(next)`, the same guarded path as the button and Cmd+S.
 
+**Neither may the Status `<select>`**, which is the subtler version of the same
+trap. It called `setStatus` — local state — but `status` is part of the document
+snapshot, so `dirty` flipped and autosave published 2.5s later. It could not call
+the guard because the guard was a no-argument *toggle*, and a toggle cannot
+express "the author picked Draft". Hence `handleSetStatus(next)`: **if a second
+control names the same state, it takes the same path, and the write must be
+immediately observable.** A snapshot write with no feedback reads as a broken
+control even when it is merely late.
+
 The general rule: **a status-only action must never mark a whole document
 saved.** If it writes two fields, it may only re-snapshot two fields.
+
+### 2a. A rejected promise is not a failed result, and only one was handled
+
+`saveContent` returning `{success:false}` is a handled branch — every call site
+reports it. A **rejection** means the request never answered: dropped wifi, an
+expired session (`requireAdmin` redirects), a socket that closed.
+
+`await persist(...)` followed by `setSaving(false)` on the next line is not a
+guaranteed statement, because a rejection skips it. And `saving` is what disables
+the Save button — so one unreachable save left the editor permanently unable to
+save itself, recoverable only by reloading, which discards the document. The
+autosave path was `void persist(...).then(...)` with no `.catch()`: the indicator
+sat on "Saving…" for the rest of the session while nothing was written, and
+`activeSaveFailure` was never set, so the banner explaining why stayed hidden too.
+
+Both are caught now. Report through the existing `setSaveFailure` + toast path,
+and **say the three things a volunteer acts on**: the change is not saved, the
+text is still on screen, and to copy it before reloading. The reflex on a failed
+save is to reload, and reload is what loses the work.
+
+### 2b. The snapshot a save adopts must be the one the write produced
+
+`persist` snapshotted `fields`, whose `status` is the value from *before* the
+write, so `dirty` stayed true after a successful publish: the toast said
+"Published", the indicator contradicted it, `beforeunload` warned about stored
+work, and autosave rewrote the identical document 2.5s later — a second
+`content_revisions` row for a revision that changed nothing, on every publish.
+`handleSetStatus` got this right at its own snapshot; `persist` did not.
+
+Snapshot `{...fields, status: nextStatus}` — the document **as written**. Two
+snapshots of one document that disagree is a whole class of bug, and the
+failure-only branch must not adopt the optimistic snapshot.
 
 ### 3. Deleting an image checks every reference first
 
