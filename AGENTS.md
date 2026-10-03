@@ -458,21 +458,32 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
-- **CI runs, and cannot finish.** `runs-on: [self-hosted, linux, X64, …]` is
-  correct and stays that way. This repository *is* served — it was removed from
-  `ghrunner`'s `UNSERVED` list, `instances/indivisiblefairoaks.env` is deployed,
-  and the runner registers as `indivisiblefairoaks-runner-1`. Jobs are
-  dispatched, check out, install, and start. The blocker is the host: it is an
-  **887 MiB / 2 vCPU** VPS, and `bunx tsc --noEmit` exhausts it
-  (`FATAL ERROR: Reached heap limit … out of memory`). Raising the heap trades
-  the abort for swap thrashing. The full record of the five stacked defects that
-  hid this for so long — an unrelated empty org blocking every runner on the
-  host, a duplicate runner name returning HTTP 409 while reporting `online`, and
-  two separate checkout failures that each presented as *the* checkout failure —
-  is in [`docs/ci-runners.md`](./docs/ci-runners.md). **Do not "fix" this by
+- **CI does not start, and could not finish if it did.**
+  `runs-on: [self-hosted, linux, X64, …]` is correct and stays that way. This
+  repository *is* served — it was removed from `ghrunner`'s `UNSERVED` list,
+  `instances/indivisiblefairoaks.env` is deployed, and the runner registers as
+  `indivisiblefairoaks-runner-1`. Two separate faults, in this order:
+  **(1) The runner is offline.** As of 2026-10-03 every workflow — CI, Runner
+  Health, Secret audit, WALL-E refresh — sits `queued` and no job starts; the
+  `ARM64` Mac cannot satisfy `X64`. **(2) The host is too small.** It is an
+  **887 MiB / 2 vCPU** VPS and `bunx tsc --noEmit` exhausts it
+  (`FATAL ERROR: Reached heap limit … out of memory`). The abort there is Node's
+  own ~448 MB default cap rather than the machine's limit, and the instance
+  declares `MEMORY_SWAP=2048M`, so the lint job now sets
+  `NODE_OPTIONS: --max-old-space-size=768` — scoped to that one job, because a
+  workflow-level value would also raise `vitest`'s and the build's. **Neither the
+  heap change nor the build/e2e jobs has been observed to pass in CI**, because
+  those jobs are gated behind lint and every run so far has skipped them. The full
+  record of the five stacked defects that hid all of this for so long — an
+  unrelated empty org blocking every runner on the host, a duplicate runner name
+  returning HTTP 409 while reporting `online`, and two separate checkout failures
+  that each presented as *the* checkout failure — is in
+  [`docs/ci-runners.md`](./docs/ci-runners.md). **Do not "fix" this by
   changing the platform label.** A hand-registered ARM64 Mac satisfies an
   `ARM64` selector and then fails in `Prepare workflow directory`; the answer is
-  host capacity, not labels.
+  host capacity and runner availability, not labels. Never diagnose it from the
+  run list — a queued job and an unservable selector are identical there; ask
+  `gh api repos/:owner/:repo/actions/runners -q '.runners[].status'`.
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 30 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 112 Playwright specs. Migrations and Edge Functions are deployed

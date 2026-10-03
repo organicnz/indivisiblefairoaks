@@ -19,11 +19,11 @@ on:
 # **`organicnz/indivisiblefairoaks` IS declared** in
 # `instances/indivisiblefairoaks.env` with
 # `LABELS=self-hosted,Linux,X64,ghrunner,personal,personal-organicnz,frontend-runner,backend-runner`.
-# The coverage auditor reports it as served. But the fleet's deploy is currently
-# broken (ghrunner `Deploy Runner` is failing — `RUNNER_ACCESS_TOKEN` is
-# revoked/expired or lacks `admin:org`), so **no runner is actually registered**
-# for this repository. Jobs queue because no runner exists, not because the
-# selector matches nothing.
+# The coverage auditor reports it as served. But as of 2026-10-03 the runner
+# (`indivisiblefairoaks-runner-1`) reports **status=offline**, so every job here
+# waits indefinitely — CI, Runner Health, Secret audit and WALL-E refresh are all
+# `queued` with nothing started. That is a fleet/host fault, not a selector
+# mismatch, and it is not fixable from this file.
 #
 # A `runs-on` selector that matches nothing does not error — it waits forever —
 # and `cancel-in-progress: true` below cancels the previous run as the next push
@@ -34,7 +34,7 @@ on:
 # **Do not diagnose this from the run list.** A queued job and an unservable
 # selector look identical there. Ask the two questions that can tell them apart:
 #
-#   gh api repos/$REPO/actions/runners -q '.runners[].labels[].name'
+#   gh api repos/$REPO/actions/runners -q '.runners[] | {name, status, busy}'
 #   cargo run -q -p fleet-coverage -- --root .        # in ../ghrunner
 #
 # Note also that a hand-registered runner for this repository exists
