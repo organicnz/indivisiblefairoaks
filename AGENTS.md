@@ -458,21 +458,37 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
-- **CI runs, and cannot finish.** `runs-on: [self-hosted, linux, X64, …]` is
+- **CI starts, and cannot finish.** `runs-on: [self-hosted, linux, X64, …]` is
   correct and stays that way. This repository *is* served — it was removed from
   `ghrunner`'s `UNSERVED` list, `instances/indivisiblefairoaks.env` is deployed,
-  and the runner registers as `indivisiblefairoaks-runner-1`. Jobs are
-  dispatched, check out, install, and start. The blocker is the host: it is an
-  **887 MiB / 2 vCPU** VPS, and `bunx tsc --noEmit` exhausts it
-  (`FATAL ERROR: Reached heap limit … out of memory`). Raising the heap trades
-  the abort for swap thrashing. The full record of the five stacked defects that
-  hid this for so long — an unrelated empty org blocking every runner on the
-  host, a duplicate runner name returning HTTP 409 while reporting `online`, and
-  two separate checkout failures that each presented as *the* checkout failure —
-  is in [`docs/ci-runners.md`](./docs/ci-runners.md). **Do not "fix" this by
+  and the runner registers as `indivisiblefairoaks-runner-1`. Two faults, and
+  they are not the same fault:
+  **(1) The `ghrunner` podman network went missing** (found and fixed
+  2026-10-03). Every `podman run --network=ghrunner` exited 125 with
+  `network not found`, the runner service failed, systemd hit its restart limit
+  and GitHub showed the runner `offline` with all workflows `queued` — which
+  reads exactly like a bad label. One `systemctl --user restart` of the instance
+  service over SSH brings it back. **(2) The host is too small.** It is an
+  **887 MiB / 2 vCPU** VPS: `tsc` peaks at ~598 MB RSS, so Node's ~448 MB default
+  cap aborted it, and the lint job now sets
+  `NODE_OPTIONS: --max-old-space-size=768` — scoped to that one job, because a
+  workflow-level value would also raise `vitest`'s and the build's. The instance
+  already declares `MEMORY_SWAP=2048M`, so the cap has room. **What still fails is
+  not the typecheck.** `EPHEMERAL=true` means one job per container, so each job
+  re-runs `bun install` while the previous container's swap is still draining;
+  load hits ~7 on 2 vCPU with 1.9 GB of 2 GB swap used and jobs end
+  **`cancelled`, not `failed`**. `build` and `e2e` remain unproven on this host —
+  they are gated behind `lint` and `test`, so no run has ever reached them. The
+  full record of the five stacked defects that hid all of this for so long — an
+  unrelated empty org blocking every runner on the host, a duplicate runner name
+  returning HTTP 409 while reporting `online`, and two separate checkout failures
+  that each presented as *the* checkout failure — is in
+  [`docs/ci-runners.md`](./docs/ci-runners.md). **Do not "fix" this by
   changing the platform label.** A hand-registered ARM64 Mac satisfies an
   `ARM64` selector and then fails in `Prepare workflow directory`; the answer is
-  host capacity, not labels.
+  host capacity and runner availability, not labels. Never diagnose it from the
+  run list — a queued job and an unservable selector are identical there; ask
+  `gh api repos/:owner/:repo/actions/runners -q '.runners[].status'`.
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 30 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 112 Playwright specs. Migrations and Edge Functions are deployed
@@ -733,6 +749,27 @@ own docs, because their failure modes are invisible to review and to unit tests.
   page). The editor keeps it in a ref and adopts it from each save's response,
   and a revision restore adopts the version it re-reads — but undo, redo and
   draft recovery deliberately do not, because they never write the row.
+- **A status control has to reach the guard, and a snapshot has to match the
+  write.** The Status `<select>` sat next to the Publish button and called
+  `setStatus` — local state — for years. `status` is part of the document
+  snapshot, so `dirty` flipped and the autosave effect published 2.5 seconds
+  later: choosing "Draft" on a live page took it off the site with no
+  confirmation and no toast. It could not reach the guarded path because that
+  function was a no-argument *toggle*, and a toggle cannot express "the author
+  picked Draft" — hence `handleSetStatus(next)`. Separately, `persist` snapshotted
+  `fields`, whose `status` predates the write, so a successful publish left
+  `dirty` true: the toast said "Published", the indicator contradicted it, and
+  autosave rewrote the document 2.5s later, minting a second `content_revisions`
+  row per publish. Both are pinned in `ContentEditor.safety.test.tsx`.
+- **A rejected promise is not a failed result.** `saveContent` returning
+  `{success:false}` was always reported. A *rejection* was not: `handleSave` set
+  `saving = false` on the line after the `await`, which a rejection skips, and
+  `saving` is what disables the Save button — so one dropped connection left the
+  editor permanently unable to save itself, recoverable only by reloading, which
+  discards the document. The autosave effect was `void persist().then()` with no
+  `.catch()` at all, so it claimed "Saving…" for the rest of the session while
+  writing nothing. Both now report, and the message names the three things a
+  volunteer can act on: not saved, text still on screen, copy it before reloading.
 - **CRM and broadcasting** — [`docs/crm-operations.md`](./docs/crm-operations.md).
   Delivery is off the request path: the action writes a `queued` row and the
   `crm-broadcast-send` Edge Function owns delivery and progress. A self-test

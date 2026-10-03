@@ -28,6 +28,12 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
   const [csvText, setCsvText] = useState('');
   const [fileName, setFileName] = useState('');
   const [importing, setImporting] = useState(false);
+  // The last attempt's outcome, rendered in place. Success used to close the
+  // modal on the spot, which discarded the file and the one thing the author
+  // actually needed from a partial import: *which* rows were skipped.
+  const [lastResult, setLastResult] = useState<Awaited<
+    ReturnType<typeof importCRMContacts>
+  > | null>(null);
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
@@ -48,24 +54,49 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
     setImporting(true);
     try {
       const res = await importCRMContacts({ csv: csvText });
+      setLastResult(res);
       if (!res.success) {
         toast.error(res.error || 'Import failed');
-        if (res.errors?.length) {
-          toast.error(res.errors[0].message);
-        }
       } else {
-        toast.success(`Imported ${res.imported ?? 0}, skipped ${res.skipped ?? 0}`);
-        if (res.errors?.length) {
-          toast.warning(`${res.errors.length} row warning(s) — first: ${res.errors[0].message}`);
-        }
+        const invalid = res.invalidRows ?? 0;
+        toast.success(
+          invalid > 0
+            ? `Imported ${res.imported ?? 0}, skipped ${res.skipped ?? 0} existing, ${invalid} row(s) had problems`
+            : `Imported ${res.imported ?? 0}, skipped ${res.skipped ?? 0} existing`
+        );
         router.refresh();
-        onClose();
       }
     } catch {
-      toast.error('Import failed');
+      toast.error('Import failed — nothing was written');
     } finally {
       setImporting(false);
     }
+  };
+
+  const outcomeRows = () => {
+    const rows: { tone: 'bad' | 'warn' | 'ok'; text: string }[] = [];
+    if (!lastResult) return rows;
+    if (lastResult.imported) rows.push({ tone: 'ok', text: `${lastResult.imported} imported` });
+    if (lastResult.skipped)
+      rows.push({ tone: 'warn', text: `${lastResult.skipped} already in the directory, skipped` });
+    if (lastResult.invalidRows)
+      rows.push({
+        tone: 'bad',
+        text: `${lastResult.invalidRows} row(s) could not be imported — see the reasons below`,
+      });
+    if (lastResult.errors) {
+      for (const e of lastResult.errors.slice(0, 10)) {
+        rows.push({ tone: 'bad', text: e.line > 0 ? `Line ${e.line}: ${e.message}` : e.message });
+      }
+      if (lastResult.errors.length > 10) {
+        rows.push({
+          tone: 'warn',
+          text: `…and ${lastResult.errors.length - 10} more. The first 50 are listed in the result of this action; fix the file and re-import to resolve them.`,
+        });
+      }
+    }
+    if (lastResult.error) rows.push({ tone: 'bad', text: lastResult.error });
+    return rows;
   };
 
   return (
@@ -89,8 +120,10 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
         <div className="space-y-4">
           <p className="text-xs text-slate-500 leading-relaxed">
             Required column: <code className="text-primary font-bold">email</code>. Optional:{' '}
-            first_name, last_name, phone, city, zip_code, district, status, tags (semicolon
-            separated), notes. Existing emails are skipped, never overwritten.
+            first_name, last_name, phone, address, city, zip_code, district, status, tags (semicolon
+            separated), notes, do_not_email (yes/no). Existing emails are skipped, never
+            overwritten. Restore imports preserve each contact&apos;s opted-out flag. Limits: 500
+            KB, 2000 rows.
           </p>
 
           <div>
@@ -128,13 +161,47 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
             />
           </div>
 
+          {lastResult && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-1"
+            >
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                Result
+              </p>
+              <ul className="text-xs leading-relaxed">
+                {outcomeRows().map((row) => (
+                  <li
+                    key={`${row.tone}:${row.text}`}
+                    className={
+                      row.tone === 'bad'
+                        ? 'text-red-700'
+                        : row.tone === 'warn'
+                          ? 'text-amber-700'
+                          : 'text-emerald-700'
+                    }
+                  >
+                    {row.text}
+                  </li>
+                ))}
+              </ul>
+              {lastResult.success && (
+                <p className="text-[11px] text-slate-400">
+                  The CSV is still in the box above — fix any bad rows in it and import again to
+                  pick up the remainder.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
               className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors"
             >
-              Cancel
+              {lastResult ? 'Done' : 'Cancel'}
             </button>
             <button
               type="button"
