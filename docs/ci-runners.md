@@ -7,13 +7,25 @@
 
 **`runs-on: [self-hosted, linux, X64, …]` is correct. Do not change it.**
 
-This repository **is** served. A runner exists, it is `X64`, it accepts jobs, and
-those jobs check out the repository and start running. That was not true for most
+This repository **is** served — a runner exists, it is `X64`, and when it is up it
+accepts jobs, checks out the repository and runs them. That was not true for most
 of this repository's life, and the reason it stayed invisible is the part worth
 keeping.
 
-What is still true, and is the current constraint: **the runner host cannot
-finish the work.** See [The host is the ceiling](#the-host-is-the-ceiling).
+Two independent things can stop it, and they need different fixes:
+
+- **The runner is offline.** As of 2026-10-03 `indivisiblefairoaks-runner-1`
+  reports `status=offline`, so every workflow — CI, Runner Health, Secret audit,
+  WALL-E refresh — sits `queued` indefinitely and no job starts. This is a fleet
+  / host problem, not a `runs-on` problem. (The Apple-silicon `personal-organicnz`
+  runner is `online` but is `ARM64`, so it cannot satisfy the `X64` selector.)
+- **The runner host is too small to finish the work even when it is up.** See
+  [The host is the ceiling](#the-host-is-the-ceiling).
+
+Check which one you are looking at with the two commands under
+[How to check whether CI can actually run](#how-to-check-whether-ci-can-actually-run) —
+never from the run list, because a queued job and an unservable selector look
+identical there.
 
 ## Where the runners come from
 
@@ -120,22 +132,41 @@ gh run view <id> --log-failed | tail -40
 
 ## The host is the ceiling
 
-The runner is a **887 MiB / 2 vCPU** VPS. Jobs are dispatched and start, and the
-typecheck then dies:
+The runner is a **887 MiB / 2 vCPU** VPS. When it is up, jobs are dispatched and
+start, and the typecheck then dies:
 
 ```
 FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
 bunx tsc --noEmit  →  Aborted (core dumped)
 ```
 
-This is a capacity fact, not a defect, and no amount of runner plumbing changes
-it. `bunx tsc --noEmit` on this codebase needs more memory than the machine has,
-before the 997 unit tests, the production build, or the 117 e2e specs are
-considered. Raising the heap trades the abort for swap thrashing on two cores.
+The abort is Node's *own* default cap, not the machine's: on a host this size V8
+gives the old space roughly 448 MB, and `tsc` over this program (~295 files,
+`skipLibCheck` on) needs more. The instance already declares the headroom to fix
+that — `MEMORY=1024M` plus **`MEMORY_SWAP=2048M`** — so the lint job now caps the
+heap explicitly:
 
-So the honest current state is: **CI runs, and cannot complete.** Until the host
-is resized, the local gates below are the only ones that reach a verdict — not
-because the pipeline is broken, but because the pipeline is too small.
+```yaml
+# .github/workflows/ci.yml — the lint job only
+env:
+  NODE_OPTIONS: --max-old-space-size=768
+```
+
+It is scoped to that one job on purpose. A workflow-level `NODE_OPTIONS` would
+also raise the ceiling for `bun install`, `vitest` and the Next build, which have
+their own memory profiles and share one 887 MB machine.
+
+**This has not been observed to pass in CI yet** — the runner went offline before
+the change could be exercised, so treat it as the fix the evidence points to
+rather than a verified green. The build and e2e jobs remain unproven on this host
+too: they are gated behind `lint` and `test`, so every run so far has skipped
+them. The first run that clears lint is the first time this document's remaining
+questions get answered.
+
+So the honest current state is: **CI cannot complete, and today it does not
+start at all.** Until the host is resized *and* the runner is back, the local
+gates below are the only ones that reach a verdict — not because the pipeline is
+broken, but because the pipeline is too small and currently absent.
 
 ## What this means for the delivery gates
 

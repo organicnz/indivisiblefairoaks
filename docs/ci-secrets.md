@@ -42,6 +42,27 @@ each one, the build did not fail — it silently succeeded against placeholder
 credentials. Green CI that proved nothing. Repository *variables* are available
 to fork PRs, so the build is now deterministic in every case.
 
+### This drifted, and nothing local caught it (fixed 2026-10-03)
+
+On 2026-10-02 the three `NEXT_PUBLIC_*` values were **secrets** in the live
+repository while `ci.yml` read them as `vars.*`. Every job that needed them got
+empty strings, and the symptom appeared in the least obvious place possible — not
+in the build, which `env.ts`'s `.default()` absorbed, but in `vitest`, which
+validates the same schema and threw a `ZodError` on three `invalid_format`
+issues. The run failed as "Tests & Coverage" while the real fault was
+configuration. It is now fixed by creating the three variables; the redundant
+secrets of the same names remain and can be deleted.
+
+Two things about that worth keeping:
+
+- **The offline checker cannot see this class of fault.** `check-ci-env.mjs`
+  proves `scripts/ci-env.mjs` agrees with the workflow files. Every file was
+  correct the whole time; only the dashboard was wrong. The live reconciliation
+  (`bun run secrets:audit`) is the thing that catches it, and it was already
+  reporting `public-in-secret-store` as CRITICAL for exactly these three names.
+- **A `ZodError` naming three env vars is a configuration failure wearing a test
+  failure's clothes.** Read the paths in the error before blaming the suite.
+
 ## Secrets
 
 **Settings → Secrets and variables → Actions → Secrets → New repository secret**
