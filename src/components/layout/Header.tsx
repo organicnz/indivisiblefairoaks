@@ -101,6 +101,10 @@ function HeaderInner() {
     }
   }, [pathname]);
 
+  // The drawer must hand focus back to the control that opened it; see
+  // `onCloseAutoFocus` on Dialog.Content for why Radix does not do it alone.
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
   return (
     <>
       {/* NOTE: the drawer must stay a sibling of <header>, not a child — the
@@ -109,8 +113,8 @@ function HeaderInner() {
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out ${
           isScrolled
-            ? 'bg-secondary/95 backdrop-blur-md py-3 shadow-header border-b border-white/10'
-            : 'bg-secondary/90 backdrop-blur-sm py-4 border-b border-white/10'
+            ? 'site-header-padding-compact bg-secondary/95 backdrop-blur-md shadow-header border-b border-white/10'
+            : 'site-header-padding bg-secondary/90 backdrop-blur-sm border-b border-white/10'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -191,6 +195,7 @@ function HeaderInner() {
 
               <button
                 type="button"
+                ref={menuButtonRef}
                 // 44px minimum target: p-2 + a 24px glyph is only 40px.
                 className={`2xl:hidden inline-flex items-center justify-center size-11 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
                 onClick={() => setIsMenuOpen(true)}
@@ -214,15 +219,32 @@ function HeaderInner() {
         lock.
 
         Radix Dialog supplies all of that: `aria-modal`, focus containment, Escape
-        to dismiss, scroll locking, `inert` on everything behind it, and focus
-        restoration to the hamburger on close. It is already a dependency.
+        to dismiss, scroll locking, and `inert` on everything behind it. It is
+        already a dependency.
+
+        Focus restoration is the one it does NOT supply here, despite appearing
+        to: this list once claimed it did, and that claim was never tested. The
+        drawer is portalled and the hamburger is not, so Radix restores onto a
+        node the modal has only just un-hidden and focus falls through to
+        `<body>`. See `onCloseAutoFocus` below, and
+        `e2e/mobile-navigation.spec.ts`, which now fails if this regresses.
       */}
       <Dialog.Root open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[100] bg-secondary/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 2xl:hidden" />
           <Dialog.Content
             id={DRAWER_ID}
-            className="fixed inset-0 z-[110] bg-secondary flex flex-col p-6 sm:p-8 2xl:hidden focus:outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=open]:duration-300 data-[state=closed]:duration-200"
+            // Radix restores focus to whatever was focused when the dialog opened,
+            // but the drawer is portalled and the trigger is not, so on close the
+            // restore lands on a node the modal has just un-hidden and focus falls
+            // through to <body>. Verified, not assumed: a keyboard user who opened
+            // the drawer and pressed Escape was returned to the top of the document
+            // with their place lost. Restore explicitly instead.
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              menuButtonRef.current?.focus();
+            }}
+            className="fixed inset-0 z-[110] bg-secondary flex flex-col drawer-safe-padding 2xl:hidden focus:outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=open]:duration-300 data-[state=closed]:duration-200"
           >
             <Dialog.Title className="sr-only">Navigation menu</Dialog.Title>
             <Dialog.Description className="sr-only">

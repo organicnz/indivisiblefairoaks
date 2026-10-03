@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Outfit } from 'next/font/google';
 import { Suspense } from 'react';
 import './globals.css';
@@ -9,6 +9,7 @@ import { SettingsHydrator } from '@/components/account/SettingsHydrator';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
+import { BRAND } from '@/config/brand';
 import {
   organizationJsonLd,
   rootRobots,
@@ -90,6 +91,13 @@ export const metadata: Metadata = {
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
   manifest: '/manifest.webmanifest',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: BRAND.surfaceDark,
 };
 
 async function SettingsLoader() {

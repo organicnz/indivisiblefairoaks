@@ -110,7 +110,7 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="bg-secondary text-white min-h-screen pt-24 pb-20">
+    <div className="bg-secondary text-white min-h-screen pt-(--header-clearance) pb-20">
       {/* Hero Header with VGPU Constellation Network */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />

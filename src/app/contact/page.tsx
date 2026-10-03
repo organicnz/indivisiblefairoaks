@@ -48,7 +48,7 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="w-full bg-slate-950 text-white min-h-screen pt-24 pb-20">
+    <div className="w-full bg-slate-950 text-white min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner */}
       <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

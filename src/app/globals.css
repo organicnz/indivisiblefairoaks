@@ -54,13 +54,18 @@
   --primary-on-dark: #8ec5ff; /* display / hero highlight — replaces text-blue-300 */
   --primary-on-dark-muted: #50a2ff; /* eyebrow + label — replaces text-blue-400 */
 
-  /* Fixed-header clearance. */
-  --header-h: 5.5rem; /* 88px */
+  /* Fixed-header clearance and iOS safe-area contracts. */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --header-h: 5.5rem; /* 88px, excluding the notch inset */
+  --header-clearance: calc(var(--header-h) + var(--safe-area-top));
 }
 
 @media (min-width: 48rem) {
   :root {
-    --header-h: 6.5rem; /* 104px */
+    --header-h: 6.5rem; /* 104px, excluding the notch inset */
   }
 }
 
@@ -114,6 +119,10 @@
 }
 
 @layer base {
+  html {
+    background: var(--secondary);
+  }
+
   body {
     background: var(--background);
     color: var(--foreground);
@@ -127,6 +136,43 @@
   h5,
   h6 {
     font-family: var(--font-outfit), sans-serif;
+  }
+}
+
+@layer components {
+  .site-header-padding {
+    padding-block-start: calc(1rem + var(--safe-area-top));
+    padding-block-end: 1rem;
+  }
+
+  .site-header-padding-compact {
+    padding-block-start: calc(0.75rem + var(--safe-area-top));
+    padding-block-end: 0.75rem;
+  }
+
+  .drawer-safe-padding {
+    padding-block-start: calc(1.5rem + var(--safe-area-top));
+    padding-block-end: calc(1.5rem + var(--safe-area-bottom));
+    padding-inline-start: calc(1.5rem + var(--safe-area-left));
+    padding-inline-end: calc(1.5rem + var(--safe-area-right));
+  }
+
+  .floating-safe-position {
+    inset-inline-end: calc(1rem + var(--safe-area-right));
+    inset-block-end: calc(1rem + var(--safe-area-bottom));
+  }
+
+  .floating-safe-position-panel {
+    inset-inline-end: calc(1rem + var(--safe-area-right));
+    inset-block-end: calc(1rem + var(--safe-area-bottom));
+  }
+
+  @media (min-width: 40rem) {
+    .floating-safe-position,
+    .floating-safe-position-panel {
+      inset-inline-end: calc(1.5rem + var(--safe-area-right));
+      inset-block-end: calc(1.5rem + var(--safe-area-bottom));
+    }
   }
 }
 

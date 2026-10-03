@@ -13,6 +13,7 @@ try {
 
 const PORT = 3100;
 const MOCK_PORT = 3101;
+const includeOptionalMobileBrowsers = process.env.PW_MOBILE_BROWSERS === '1';
 
 export default defineConfig({
   testDir: './e2e',
@@ -26,7 +27,15 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    ...(includeOptionalMobileBrowsers
+      ? [
+          { name: 'webkit-mobile', use: { ...devices['iPhone 13'] } },
+          { name: 'chromium-android', use: { ...devices['Pixel 7'] } },
+        ]
+      : []),
+  ],
   webServer: [
     {
       command: `bunx next start -p ${PORT}`,
