@@ -13,6 +13,7 @@ export interface CRMImportRow {
   status: string;
   tags: string[];
   notes: string | null;
+  do_not_email: boolean;
 }
 
 export interface CRMImportError {
@@ -133,7 +134,11 @@ function cell(row: string[], index: number): string {
 
 /**
  * Parse a CRM import CSV. Requires an `email` header column (order-insensitive).
- * Optional: first_name, last_name, phone, city, zip_code, district, status, tags, notes.
+ * Optional: first_name, last_name, phone, address, city, zip_code, district,
+ * status, tags, notes, do_not_email.
+ *
+ * `do_not_email` accepts the exporter's 'yes'/'no'; absent column means
+ * everyone is treated as opted in, matching the column's DEFAULT.
  */
 export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
   const parsed = parseCsv(csvText);
@@ -164,6 +169,17 @@ export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
   const statusIdx = idx('status');
   const tagsIdx = idx('tags');
   const notesIdx = idx('notes');
+  // The exporter has written this column since the round-trip was made
+  // survivable without it — and the importer has never read it. Restoring the
+  // chapter's only off-platform backup therefore reset every opted-out contact
+  // to opted-IN, and the next broadcast mailed everyone who had asked to stop
+  // hearing from the chapter.
+  const doNotEmailIdx = idx('do_not_email');
+
+  /** Accept the export's 'yes'/'no' and the obvious coercions a hand-written
+   *  backup CSV might use. Anything unrecognised reads as opted-in, which
+   *  matches the column's DEFAULT and the previous importer's behaviour. */
+  const parseDoNotEmail = (raw: string): boolean => /^(yes|y|true|t|1|x)$/i.test(raw.trim());
 
   const rows: CRMImportRow[] = [];
   const errors: CRMImportError[] = [];
@@ -216,6 +232,7 @@ export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
       status,
       tags: tagsIdx >= 0 ? splitTags(cell(raw, tagsIdx)) : [],
       notes: notesIdx >= 0 ? cell(raw, notesIdx) || null : null,
+      do_not_email: doNotEmailIdx >= 0 ? parseDoNotEmail(cell(raw, doNotEmailIdx)) : false,
     });
   }
 

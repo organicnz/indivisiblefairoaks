@@ -876,6 +876,11 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
   success: boolean;
   imported?: number;
   skipped?: number;
+  /** Rows the parser could not turn into a contact at all — distinct from
+   *  `skipped`, which counts valid rows already in the directory. `skipped +
+   *  invalidRows + imported + (rows that failed at insert) === rows parsed`,
+   *  so the volunteer can reconcile the four numbers against their file. */
+  invalidRows?: number;
   errors?: CRMImportError[];
   error?: string;
 }> {
@@ -940,6 +945,10 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
       status: r.status,
       tags: r.tags,
       notes: r.notes,
+      // The exporter writes this column and the importer used to drop it — so a
+      // backup round-trip silently re-subscribed everyone who had opted out, and
+      // the next broadcast mailed them anyway. Carry it through.
+      do_not_email: r.do_not_email,
       source: 'import',
     }));
 
@@ -957,7 +966,12 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
       .select('id');
 
     if (error) {
-      insertErrors.push({ line: 0, message: `Insert failed: ${error.message}` });
+      insertErrors.push({
+        line: 0,
+        message:
+          `Insert failed for a batch of ${chunk.length} rows ` +
+          `(rows ${i + 1}–${i + chunk.length} of ${toInsert.length} new contacts): ${error.message}`,
+      });
       continue;
     }
     const ids = (created || []).map((c) => c.id);
@@ -986,6 +1000,7 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
     success,
     imported,
     skipped,
+    invalidRows: errors.length,
     errors: insertErrors.slice(0, 50),
     error: success
       ? undefined
