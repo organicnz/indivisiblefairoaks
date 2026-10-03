@@ -171,7 +171,7 @@ never finishes" to "the build is killed", and each step has been measured:
 | Every workflow `queued`, nothing starts | `ghrunner` podman network `ghrunner` was absent; every `podman run --network=ghrunner` exited 125 (`network not found`) until the service was restarted | **Fixed** — `systemctl --user restart ghrunner-personal-indivisiblefairoaks.service` |
 | `bun install` never returns; job dies at 20 min | Every ephemeral container refetched the whole tree — ~13 min cold, before any verification ran | **Fixed** by caching `~/.bun/install/cache`: **30 s** warm |
 | `tsc` aborts, `Reached heap limit` (exit 134) | Node's ~448 MB default cap < 598 MB measured peak | **Fixed** by the 768 MB cap |
-| `bun run build` killed, exit 137 | The cgroup OOM-killer: SIGKILL once RSS passes `MEMORY=1024M`. V8 grows the heap rather than collecting | **Attempted** — build heap capped; never observed to pass |
+| `bun run build` killed, exit 137 | The cgroup OOM-killer: SIGKILL once RSS passes the container's total `MEMORY + MEMORY_SWAP` ceiling. V8 grows the heap rather than collecting | **Partly fixable** — see below |
 | Lint passes sometimes, cancelled other times | `tsc` takes 8m28s here against **1.4 s** locally. The host runs at load ~12 on 2 vCPU | **Not fixable here** — shared, undersized host |
 | Queue never drains | One runner for all four workflows, five jobs per run, and `cancel-in-progress` only cancels within a single ref — so main and every open PR compete | **Workaround only** — cancel superseded runs by hand |
 
@@ -200,6 +200,44 @@ behaviour: same commit, same configuration, green then cancelled.
 That ratio is the whole problem. Nothing in this repository causes a 360× slowdown;
 it is swap. The host has 887 MiB of RAM against 2047 MiB of swap, and it is
 shared — load average 11.87 on 2 vCPU with 7 MiB free was observed mid-run.
+
+### The build needs 1.8 GB and a floor of 768 MB — measured, not guessed
+
+`next build` peaks at **~1.8 GB RSS on every configuration tried**, which is the
+whole reason exit 137 appears. Measured on a workstation, peak RSS and outcome for
+each heap cap:
+
+| `--max-old-space-size` | Outcome | Peak RSS |
+|---|---|---|
+| 512 MB | ❌ fails during type check | — |
+| 640 MB | ❌ fails during type check | 1795 MB |
+| 704 MB | ❌ fails during type check | 1852 MB |
+| **768 MB** | ✅ succeeds | 1816 MB |
+| uncapped | ✅ succeeds | 1807 MB |
+
+Two things follow, and the first one is the useful one.
+
+**768 MB is a floor, not a preference.** Below it the build does not merely run
+slowly — it fails inside `next build`'s own type-check phase. That makes the cap
+load-bearing in a way the lint job's is not.
+
+**The cap barely moves peak RSS, and `cpus: 1` does not move it at all.** Peak
+stays ~1.8 GB whether the heap is capped at 768 MB or uncapped, and
+`experimental.cpus: 1` measured 1813 MB. The reason is that `next build` spawns
+worker processes for static generation, so `NODE_OPTIONS` caps each one separately
+and total RSS is their sum. Anyone expecting a heap cap to bring this under
+`MEMORY=1024M` is wrong by 800 MB.
+
+**So it fits, but only just, and only alone.** The container ceiling is
+`--memory=1024M --memory-swap 2048M` — 1024 MB of RAM plus up to 1024 MB of swap,
+2048 MB total. The build's 1816 MB peak is under that, so it *can* complete, but
+it needs the host to lend roughly 800 MB of swap. With a neighbour runner up there
+is no swap to lend, and the kernel kills the process. That is the exit 137.
+
+This is also the trap in measuring a peak RSS: a **failed** build still reports one.
+The 512 MB row looked like a 1738 MB win until the exit code was checked, at which
+point it was a build that did not finish. Any memory figure here is only meaningful
+alongside whether the build exited 0.
 
 ### Why it is contention, and why the results look random
 
