@@ -152,6 +152,20 @@ export function CRMBroadcastComposer({
     };
   }, [selectedStatuses, selectedDistricts, selectedTags]);
 
+  // A campaign that is mid-send when this page loads still deserves a progress
+  // readout. Progress lived in a callback reached only from the send action, so a
+  // reload between "queued" and "sent" stranded the row reading `sending`
+  // forever — with the only progress number sitting unused on the row itself.
+  useEffect(() => {
+    const inFlight = initialBroadcasts.find(
+      (b) => !b.test_only && (b.status === 'queued' || b.status === 'sending')
+    );
+    if (inFlight) void followProgress(inFlight.id);
+    // One-shot: the in-tab follow loop owns the row once it starts, and the row
+    // itself cannot change underneath this tab to a state that needs a second
+    // loop.
+  }, [initialBroadcasts]);
+
   const toggleStatus = (id: string) => {
     setSelectedStatuses((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
@@ -351,12 +365,13 @@ export function CRMBroadcastComposer({
       });
 
       if (res.success) {
-        // Delivery continues in the background. Reporting "sent" here would be a
-        // lie — the request only queued it — so say what happened and let the
-        // progress readout below report the rest.
+        // The sender is still finishing the recipient loop after this toast; the
+        // progress readout below reports the rest.
         toast.success(
-          `Broadcast queued for ${res.recipientCount ?? 0} constituents. Delivery is running in the background.`
+          `Broadcast accepted for ${res.recipientCount ?? 0} constituents. It is being delivered; this page reports progress.`
         );
+        // The sender computed this warning; it used to go nowhere.
+        if (res.warning) toast.warning(res.warning);
         setSubject('');
         setBody('');
         setDraftId(null);
@@ -845,8 +860,34 @@ export function CRMBroadcastComposer({
               <span className="font-bold text-slate-500">Subject:</span> {subject}
             </div>
             <div>
-              <span className="font-bold text-slate-500">Sender:</span>{' '}
-              contact@indivisiblefairoaks.org
+              {/* `contact@…` here used to be a hardcoded literal. The real sender is
+                  the `RESEND_FROM_EMAIL` secret on the crm-broadcast-send function,
+                  which can be onboarding@resend.dev while a domain is being set up.
+                  An author who confirms "contact@…" deserves to know which of the two
+                  they are actually sending as. */}
+              <span className="font-bold text-slate-500">Sender:</span> the chapter&apos;s
+              configured Resend address — set in the Edge Function secrets, fix it there if it reads
+              as onboarding or a placeholder.
+            </div>
+            <div>
+              <span className="font-bold text-slate-500">Audience:</span>{' '}
+              {selectedStatuses.length === 0 &&
+              selectedDistricts.length === 0 &&
+              selectedTags.length === 0 ? (
+                'All constituents'
+              ) : (
+                <>
+                  {selectedStatuses.length > 0 &&
+                    `Statuses: ${
+                      AVAILABLE_STATUSES.filter((s) => selectedStatuses.includes(s.id))
+                        .map((s) => s.label)
+                        .join(', ') || selectedStatuses.join(', ')
+                    } · `}
+                  {selectedDistricts.length > 0 && `Districts: ${selectedDistricts.join(', ')} · `}
+                  {selectedTags.length > 0 && `Tags: ${selectedTags.join(', ')} · `}
+                  all of them required to match
+                </>
+              )}
             </div>
           </div>
 
@@ -1043,9 +1084,17 @@ export function CRMBroadcastComposer({
                             ) : (
                               b.recipient_count
                             )}
+                            {!b.test_only && b.sent_count > 0 && (
+                              // "Accepted by the provider" — not "delivered". Resend returning
+                              // 2xx is an acceptance, not a delivery; bounces land later, and a
+                              // claim of delivery would be a promise the system cannot keep.
+                              <span className="ml-1.5 text-[10px] font-black text-emerald-700">
+                                {b.sent_count} accepted
+                              </span>
+                            )}
                             {b.failed_count > 0 && (
                               <span className="ml-1.5 text-[10px] font-black text-red-600">
-                                {b.failed_count} failed
+                                {b.failed_count} did not send
                               </span>
                             )}
                           </td>
