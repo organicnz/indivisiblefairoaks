@@ -149,6 +149,24 @@ describe('ContentEditor autosave', () => {
     expect(saveContent).toHaveBeenCalledTimes(1);
   });
 
+  it('names a stale autosave as an autosave failure, and offers reload instead of retry', async () => {
+    saveContent.mockResolvedValue({
+      success: false,
+      error:
+        'Someone else saved this page while you were editing it. Reload to see their version, then reapply your changes.',
+    });
+    render();
+    type('Meeting notes v2');
+    await settle();
+    expect(saveContent).toHaveBeenCalledTimes(1);
+
+    expect(container.textContent).toMatch(/Autosave failed/);
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toMatch(/Another editor saved this page/);
+    expect(alert?.textContent).toContain('Reload onto their version');
+    expect(alert?.textContent).not.toContain('Try again');
+  });
+
   it('stops reporting a failure once the document changes', async () => {
     saveContent.mockResolvedValue({ success: false, error: 'slug is already taken' });
     render();

@@ -94,6 +94,27 @@ says the change is **not saved**, that the text is **still on screen**, and to
 reload, and reload is what loses the work. Pinned by
 `__tests__/ContentEditor.safety.test.tsx`.
 
+### A failed save names its source; a stale version offers only reload
+
+The same banner serves manual saves and autosave, but a failed Cmd+S is not an
+autosave failure. `saveFailure` therefore records whether the write came `via:
+'manual'` or `via: 'autosave'`, and both the status indicator and the banner use
+that source in their wording.
+
+A stale optimistic-concurrency refusal is a different failure from a validation
+or connectivity failure. It is recognised by `STALE_SAVE_CONFLICT_PREFIX`, and
+its banner:
+
+- explains that another editor saved first;
+- tells the author to copy unsaved text before reloading;
+- offers **Reload onto their version**, not **Try again**;
+- has no dismiss control that would simply re-arm the same failed write.
+
+Another edit naturally changes the document snapshot and can trigger another
+save attempt, but the UI never invites an immediate retry against a version it
+already knows is outdated. Pinned by `ContentEditor.autosave.test.tsx` and
+`ContentEditor.safety.test.tsx`.
+
 ### A successful save records what it wrote, not what was on screen
 
 `persist` snapshots the document *as written*, including the status it just set.

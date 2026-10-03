@@ -112,6 +112,20 @@ Snapshot `{...fields, status: nextStatus}` — the document **as written**. Two
 snapshots of one document that disagree is a whole class of bug, and the
 failure-only branch must not adopt the optimistic snapshot.
 
+### 2c. A shared failure banner must name its write path, and a stale version must not offer retry
+
+A failed Cmd+S is not an autosave failure. Record `via: 'manual' | 'autosave'`
+on `saveFailure` and use it in both the status indicator and the banner. The old
+shared label named only autosave, so an author who had just pressed Cmd+S was
+told the editor had failed on its own.
+
+Recognise an optimistic-concurrency refusal with `STALE_SAVE_CONFLICT_PREFIX`.
+Its recovery is reload, not retry: explain that another editor saved first, tell
+the author to copy unsaved text before reloading, show **Reload onto their
+version**, and do not show **Try again** or a dismiss control that re-arms the
+same outdated write. Cover manual and autosave sources separately; the source is
+part of the user-visible contract.
+
 ### 3. Deleting an image checks every reference first
 
 `deleteContentImage` must refuse when `content.body`, `content.featured_image`

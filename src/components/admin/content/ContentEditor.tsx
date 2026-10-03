@@ -97,6 +97,13 @@ interface EditorFields {
 type SaveFailure = { success: false; error: string };
 
 /**
+ * The prefix `saveContent` uses for an optimistic-concurrency refusal. Matching
+ * on the message is deliberately narrow: this UI branch must recognise only the
+ * failure whose only safe recovery is reloading onto the newer row.
+ */
+const STALE_SAVE_CONFLICT_PREFIX = 'Someone else saved this page';
+
+/**
  * A save whose promise *rejected*, which is a different animal from a save that
  * returned `{ success: false }`.
  *
@@ -368,15 +375,23 @@ export function ContentEditor({ initial, siteHost }: Props) {
   }, [initial.id]);
 
   /**
-   * A failed autosave belongs to the document that produced it, so it records the
+   * A failed save belongs to the document that produced it, so it records the
    * snapshot it was written against. The next edit produces a different snapshot
    * and the failure stops applying — no clearing effect, and no way for a stale
    * error to be showing against content that has since changed.
    */
-  const [saveFailure, setSaveFailure] = useState<{ snapshot: string; message: string } | null>(
-    null
-  );
-  const activeSaveFailure = saveFailure?.snapshot === snapshot ? saveFailure.message : null;
+  const [saveFailure, setSaveFailure] = useState<{
+    snapshot: string;
+    message: string;
+    /** Which path hit it. The banner is shared, but a Cmd+S failure is not
+     *  the same experience as an autosave failure, and named only the latter it
+     *  mislabelled the former. */
+    via: 'manual' | 'autosave';
+  } | null>(null);
+  const activeSaveFailure = saveFailure?.snapshot === snapshot ? saveFailure : null;
+  const staleSaveConflict =
+    activeSaveFailure?.message.startsWith(STALE_SAVE_CONFLICT_PREFIX) ?? false;
+  const saveFailureLabel = activeSaveFailure?.via === 'manual' ? 'Save failed' : 'Autosave failed';
 
   const handleSaveRef = useRef<() => void>(() => {});
   const undoRef = useRef<() => void>(() => {});
@@ -567,7 +582,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
         setError(message);
         // Keyed by snapshot, so the author keeps their hands on the text and the
         // next real change retries the write.
-        setSaveFailure({ snapshot, message });
+        setSaveFailure({ snapshot, message, via: 'manual' });
         toast.error(message);
         return;
       }
@@ -575,7 +590,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
 
       if (!result.success) {
         setError(result.error);
-        setSaveFailure({ snapshot, message: result.error });
+        setSaveFailure({ snapshot, message: result.error, via: 'manual' });
         toast.error(result.error);
         return;
       }
@@ -633,7 +648,9 @@ export function ContentEditor({ initial, siteHost }: Props) {
       void persist(status)
         .then((result) => {
           setSaveState(result.success ? 'saved' : 'idle');
-          setSaveFailure(result.success ? null : { snapshot, message: result.error });
+          setSaveFailure(
+            result.success ? null : { snapshot, message: result.error, via: 'autosave' }
+          );
         })
         // A rejection is the autosave equivalent of the caught branch in
         // `handleSave`. Without it the indicator sat on "Saving…" for the rest of
@@ -644,7 +661,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
         .catch((err: unknown) => {
           const message = describeUnreachableSave(err);
           setSaveState('idle');
-          setSaveFailure({ snapshot, message });
+          setSaveFailure({ snapshot, message, via: 'autosave' });
         });
     }, 2500);
 
@@ -853,7 +870,11 @@ export function ContentEditor({ initial, siteHost }: Props) {
             {activeSaveFailure ? (
               <>
                 <AlertCircle size={13} aria-hidden="true" />
-                Autosave failed
+                {/* The banner is shared by the button and the autosave effect. The old
+                    label named only the smaller of the two, so a failed Cmd+S read as
+                    "Autosave failed" — the failure the author had just hit was mislabelled
+                    as one the editor hit on its own. */}
+                {saveFailureLabel}
               </>
             ) : saveState === 'saving' ? (
               <>
@@ -995,16 +1016,32 @@ export function ContentEditor({ initial, siteHost }: Props) {
         >
           <AlertCircle size={16} className="shrink-0 text-accent-red" aria-hidden="true" />
           <p className="min-w-0 flex-1 text-sm font-medium text-accent-red">
-            Autosave failed: {activeSaveFailure}
+            {staleSaveConflict
+              ? 'Another editor saved this page after you opened it. Retrying from here would fail against the same outdated version, so copy your unsaved text first, then reload to see their version and reapply your changes.'
+              : `${saveFailureLabel}: ${activeSaveFailure.message}`}
           </p>
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={saving}
-            className="rounded-lg border border-accent-red px-3 py-1.5 text-xs font-bold text-accent-red transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
-          >
-            Try again
-          </button>
+          {staleSaveConflict ? (
+            // No dismiss, and no retry. The document underneath has moved, so any
+            // write from here fails against the same stale version until it does,
+            // and a dismiss only re-arms that failure for the next idle timer. The
+            // only way forward is the reload.
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-lg border border-accent-red px-3 py-1.5 text-xs font-bold text-accent-red transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+            >
+              Reload onto their version
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void handleSave()}
+              disabled={saving}
+              className="rounded-lg border border-accent-red px-3 py-1.5 text-xs font-bold text-accent-red transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+            >
+              Try again
+            </button>
+          )}
         </div>
       )}
 

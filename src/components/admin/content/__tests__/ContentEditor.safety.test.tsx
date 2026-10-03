@@ -296,6 +296,50 @@ describe('The editor cannot silently lose, unpublish, or misreport a page', () =
   });
 
   // ---------------------------------------------------------------------
+  // A failed manual save is not an autosave failure, and a stale version is
+  // not an ordinary failure. The banner is shared by both write paths, so it
+  // has to name the path that actually failed — and a colleague's newer save
+  // has no working "try again".
+  // ---------------------------------------------------------------------
+
+  it('names a failed manual save as a save failure, not an autosave failure', async () => {
+    render();
+    await editBody('<p>Half an afternoon of work</p>');
+    saveContent.mockResolvedValue({ success: false, error: 'slug is already taken' });
+
+    await act(async () => {
+      click(buttonLabelled('Save'));
+    });
+
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    expect(bodyText()).toMatch(/Save failed: slug is already taken/);
+    expect(bodyText()).not.toMatch(/Autosave failed/);
+    const alert = container.querySelector('div[role="alert"]') as HTMLElement;
+    expect(alert.textContent).toContain('Try again');
+  });
+
+  it('offers reload, not retry, when a colleague saved first', async () => {
+    render();
+    await editBody('<p>Half an afternoon of work</p>');
+    saveContent.mockResolvedValue({
+      success: false,
+      error:
+        'Someone else saved this page while you were editing it. Reload to see their version, then reapply your changes.',
+    });
+
+    await act(async () => {
+      click(buttonLabelled('Save'));
+    });
+
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    expect(bodyText()).toMatch(/Another editor saved this page/);
+    expect(bodyText()).toMatch(/copy your unsaved text first/);
+    const alert = container.querySelector('div[role="alert"]') as HTMLElement;
+    expect(alert.textContent).toContain('Reload onto their version');
+    expect(alert.textContent).not.toContain('Try again');
+  });
+
+  // ---------------------------------------------------------------------
   // A save that never came back. A rejected promise is not a failed result,
   // and only the returned failure was being handled.
   // ---------------------------------------------------------------------
