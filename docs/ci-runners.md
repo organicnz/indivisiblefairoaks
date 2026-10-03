@@ -201,6 +201,44 @@ That ratio is the whole problem. Nothing in this repository causes a 360× slowd
 it is swap. The host has 887 MiB of RAM against 2047 MiB of swap, and it is
 shared — load average 11.87 on 2 vCPU with 7 MiB free was observed mid-run.
 
+### Why it is contention, and why the results look random
+
+The host is oversubscribed *by design*. `ghrunner` runs on-demand runners under a
+`MAX_CONCURRENT_RUNNERS` ceiling, and its capacity gate asks whether the
+**concurrent peak** fits rather than the sum of every declared ceiling — here
+`2 × 1024 MB = 2048 ≤ 2422 MB` (RAM + swap), which passes. So two runner
+containers are meant to be up at once, each capped at 1024 MB, on **887 MiB of
+actual RAM**. Six repositories declare instances on this host.
+
+That is the whole explanation for the coin-flip. `tsc` needs ~598 MB RSS by
+itself, so it fits when this repository's runner has the machine largely to
+itself and does not when a neighbour's container comes up. Both states were
+observed on the same commit with the same configuration:
+
+| Host state | Result |
+|---|---|
+| load 0.73, 590 MB available, this runner alone | `Lint & Types` ✅ 10m21s |
+| load 11.87, 7 MB free, a `foodshareclub` runner starting | `Lint & Types` ❌ |
+| load 5.90, lint ✅ — then every job cancelled by the next push | — |
+
+Nothing in this repository can fix that. Every lever is outside it:
+
+- **Resize the host.** 887 MiB / 2 vCPU, and per the fleet's own notes a Standard D
+  family VPS with **0 vCPU quota** — so it cannot be scaled up in place.
+- **Give this repository a dedicated runner**, so a 598 MB typecheck is not
+  competing with a neighbour's container for the same 887 MiB.
+- **Drop `MAX_CONCURRENT_RUNNERS` to 1.** Trades fleet throughput for the guarantee
+  that whatever is running has the machine to itself.
+
+Until one of those happens, expect `Lint & Types` to pass intermittently and
+`Tests & Coverage` to pass reliably — it is the lighter job and tolerates sharing.
+
+**Do not merge to `main` while a run you care about is in flight.** The third row
+above is self-inflicted: a docs commit landed while the run testing the build cap
+was executing, the new push joined the same `ci-refs/heads/main` concurrency
+group, and `cancel-in-progress: true` killed all five jobs of the run in flight —
+including the one that would have answered the open question.
+
 ### Do not read `cancelled` as `failed`
 
 - **`cancelled`** — the ephemeral container hit its ~20-minute wall clock, or the
