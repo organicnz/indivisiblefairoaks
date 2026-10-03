@@ -163,50 +163,57 @@ their own memory profiles and share one 887 MB machine.
 ### Two faults, and they are not the same fault
 
 On 2026-10-03 the runner was brought back and the pipeline was observed for the
-first time. What it showed is that the heap cap fixes the *typecheck* and nothing
-else:
+first time. Caching bun's dependency cache then moved the failure from "install
+never finishes" to "the build is killed", and each step has been measured:
 
 | Symptom | Cause | Status |
 |---|---|---|
-| `tsc` aborts, `Reached heap limit` | Node's ~448 MB default cap < 598 MB measured peak | **Fixed** by the 768 MB cap — but see below |
-| Jobs end `cancelled`, not `failed` | `EPHEMERAL=true` → one job per container with a ~20-minute window; `bun install` alone exceeds it, so the container is torn down mid-step | **Not fixed** — host too small |
 | Every workflow `queued`, nothing starts | `ghrunner` podman network `ghrunner` was absent; every `podman run --network=ghrunner` exited 125 (`network not found`) until the service was restarted | **Fixed** — `systemctl --user restart ghrunner-personal-indivisiblefairoaks.service` |
+| `bun install` never returns; job dies at 20 min | Every ephemeral container refetched the whole tree — ~13 min cold, before any verification ran | **Fixed** by caching `~/.bun/install/cache`: **30 s** warm |
+| `tsc` aborts, `Reached heap limit` (exit 134) | Node's ~448 MB default cap < 598 MB measured peak | **Fixed** by the 768 MB cap |
+| `bun run build` killed, exit 137 | The cgroup OOM-killer: SIGKILL once RSS passes `MEMORY=1024M`. V8 grows the heap rather than collecting | **Attempted** — build heap capped; never observed to pass |
+| Lint passes sometimes, cancelled other times | `tsc` takes 8m28s here against **1.4 s** locally. The host runs at load ~12 on 2 vCPU | **Not fixable here** — shared, undersized host |
 | Queue never drains | One runner for all four workflows, five jobs per run, and `cancel-in-progress` only cancels within a single ref — so main and every open PR compete | **Workaround only** — cancel superseded runs by hand |
 
-So `Lint & Types` now clears `biome` and `oxlint` and reaches the TypeScript step
-before the worker is cancelled — evidence the heap fix is sized correctly, but
-**not a green run**. Build and e2e remain unproven on this host: they are gated
-behind `lint` and `test`, so no run has ever reached them.
+### What a passing run costs
 
-The load average during a run reaches ~7 on 2 vCPU with 1.9 GB of 2 GB swap in
-use. That is the ceiling: the pipeline needs more memory and more cores than this
-box has, and no `NODE_OPTIONS` value changes that. **Do not diagnose this from a
-cancelled job** — `cancelled` here means the host ran out of room, not that the
-code or the workflow is wrong.
+Measured on the first run to clear lint and test (2026-10-03):
 
-### The per-job budget is ~20 minutes, and `bun install` spends all of it
+| Step | Lint & Types | Tests & Coverage |
+|---|---|---|
+| `checkout` | 22 s | 4 s |
+| `setup-bun` | 9 s | 11 s |
+| `Cache bun dependencies` | 39 s | 1 s |
+| `Install dependencies` | **30 s** (hit) | 6m45s (miss — seeds the cache) |
+| `biome` + `oxlint` | 3 s | — |
+| **`tsc --noEmit`** | **8m28s** | — |
+| verification | — | 1m49s |
+| **total** | **10m21s** | **10m10s** |
 
-Measured on the run that carried the dependency cache (2026-10-03, job
-`Lint & Types`):
+Two numbers carry the argument. The cache took `bun install` from ~13 minutes to
+**30 seconds**, which is what made any of this reachable. And `tsc` takes **8m28s
+on the runner against 1.4 s on a workstation** — roughly 360× — against a
+per-job ceiling of about 20 minutes. Lint clears it with 10m21s to spare when the
+host is quiet and loses it when the host is loaded, which is exactly the observed
+behaviour: same commit, same configuration, green then cancelled.
 
-| Step | Outcome |
-|---|---|
-| `Set up job` → `checkout` → `setup-bun` | 21 s |
-| `Cache bun dependencies` | 2 s — a miss; nothing to restore from |
-| `Install dependencies` | started 21:34:05, **never returned**; killed at 19.5 min |
-| everything after it | never started |
+That ratio is the whole problem. Nothing in this repository causes a 360× slowdown;
+it is swap. The host has 887 MiB of RAM against 2047 MiB of swap, and it is
+shared — load average 11.87 on 2 vCPU with 7 MiB free was observed mid-run.
 
-The job lived exactly 20 minutes, and the *next* job of the same run started
-immediately afterwards — so the run was never cancelled. What happens is that
-`EPHEMERAL=true` gives each container a single job and a roughly 20-minute wall
-clock, and `bun install` alone consumes the whole of it. Every one of the four
-installing jobs starts from the same cold cache, because no install has ever
-finished to seed one.
+### Do not read `cancelled` as `failed`
 
-This is the number to check first when sizing the host: the install needs to fit
-inside the per-job window with room left for the step that actually verifies
-something. Until it does, no amount of caching helps — a cache can only be read
-after a successful install has written it.
+- **`cancelled`** — the ephemeral container hit its ~20-minute wall clock, or the
+  cgroup removed the process. The host ran out of room. Nothing is wrong with the
+  code.
+- **exit 137** — `128+9`, SIGKILL from the OOM-killer. A memory ceiling, not a
+  configuration fault.
+- **exit 134** — V8 asserting its own heap ceiling. That one *is* configuration,
+  and the lint job now fixes it.
+
+These three look identical in a run list and have three different fixes.
+`Build` and e2e remain unproven here: the build has never passed, and e2e is
+gated behind it, so no run has ever reached the browser suite on this host.
 
 ### Draining the queue by hand
 
@@ -230,9 +237,10 @@ This buys time; it does not make a run succeed. It is worth knowing precisely
 *why* — a `cancelled` job here means the box is too small, and reading it as a
 red build sends you looking for a defect that does not exist.
 
-So the honest current state is: **CI starts, and cannot finish.** Until the host
-is resized, the local gates below are the only ones that reach a verdict — not
-because the pipeline is broken, but because the pipeline is too small.
+So the honest current state is: **lint and test pass when the host is quiet, and
+nothing downstream has ever run.** Until the host is resized, the local gates
+below remain the only ones that reach a verdict reliably — not because the
+pipeline is broken, but because the pipeline is too small.
 
 ## What this means for the delivery gates
 
