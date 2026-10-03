@@ -70,6 +70,11 @@ jobs:
     name: Lint & Types
     runs-on: [self-hosted, linux, X64, frontend-runner]
     timeout-minutes: 15
+    env:
+      # tsc's program (~295 files) exceeds Node's default heap cap on the
+      # 887 MiB runner (~448 MB) and aborts. Scoped to this job only — a
+      # global NODE_OPTIONS would also raise the build's workers.
+      NODE_OPTIONS: --max-old-space-size=768
     steps:
       - uses: actions/checkout@v4
         with:
