@@ -169,19 +169,66 @@ else:
 | Symptom | Cause | Status |
 |---|---|---|
 | `tsc` aborts, `Reached heap limit` | Node's ~448 MB default cap < 598 MB measured peak | **Fixed** by the 768 MB cap — but see below |
-| Jobs end `cancelled`, not `failed` | `EPHEMERAL=true` → one job per container; each does a fresh `bun install`, the next container starts before swap recovers, and the broker drops the worker mid-step | **Not fixed** — host too small |
+| Jobs end `cancelled`, not `failed` | `EPHEMERAL=true` → one job per container with a ~20-minute window; `bun install` alone exceeds it, so the container is torn down mid-step | **Not fixed** — host too small |
 | Every workflow `queued`, nothing starts | `ghrunner` podman network `ghrunner` was absent; every `podman run --network=ghrunner` exited 125 (`network not found`) until the service was restarted | **Fixed** — `systemctl --user restart ghrunner-personal-indivisiblefairoaks.service` |
+| Queue never drains | One runner for all four workflows, five jobs per run, and `cancel-in-progress` only cancels within a single ref — so main and every open PR compete | **Workaround only** — cancel superseded runs by hand |
 
-So `Lint & Types` now clears `biome`, `oxlint` and `bun install` and reaches the
-TypeScript step before the worker is cancelled — evidence the heap fix is sized
-correctly, but **not a green run**. Build and e2e remain unproven on this host:
-they are gated behind `lint` and `test`, so no run has ever reached them.
+So `Lint & Types` now clears `biome` and `oxlint` and reaches the TypeScript step
+before the worker is cancelled — evidence the heap fix is sized correctly, but
+**not a green run**. Build and e2e remain unproven on this host: they are gated
+behind `lint` and `test`, so no run has ever reached them.
 
 The load average during a run reaches ~7 on 2 vCPU with 1.9 GB of 2 GB swap in
 use. That is the ceiling: the pipeline needs more memory and more cores than this
 box has, and no `NODE_OPTIONS` value changes that. **Do not diagnose this from a
 cancelled job** — `cancelled` here means the host ran out of room, not that the
 code or the workflow is wrong.
+
+### The per-job budget is ~20 minutes, and `bun install` spends all of it
+
+Measured on the run that carried the dependency cache (2026-10-03, job
+`Lint & Types`):
+
+| Step | Outcome |
+|---|---|
+| `Set up job` → `checkout` → `setup-bun` | 21 s |
+| `Cache bun dependencies` | 2 s — a miss; nothing to restore from |
+| `Install dependencies` | started 21:34:05, **never returned**; killed at 19.5 min |
+| everything after it | never started |
+
+The job lived exactly 20 minutes, and the *next* job of the same run started
+immediately afterwards — so the run was never cancelled. What happens is that
+`EPHEMERAL=true` gives each container a single job and a roughly 20-minute wall
+clock, and `bun install` alone consumes the whole of it. Every one of the four
+installing jobs starts from the same cold cache, because no install has ever
+finished to seed one.
+
+This is the number to check first when sizing the host: the install needs to fit
+inside the per-job window with room left for the step that actually verifies
+something. Until it does, no amount of caching helps — a cache can only be read
+after a successful install has written it.
+
+### Draining the queue by hand
+
+`concurrency: cancel-in-progress: true` is scoped to `ci-${{ github.ref }}`, so it
+only ever cancels a *previous run on the same ref*. A push to `main` and the
+`pull_request` run for every open PR are different refs, so they all queue against
+the same single runner and none of them cancel the others. Five runs were observed
+queued at once, and the runner worked them oldest-first regardless of which commit
+was current.
+
+When that happens, the superseded runs are safe to cancel — they are for branches
+already merged, so their verdicts describe code identical to `main`:
+
+```bash
+gh run list --limit 10 --json databaseId,status,event,headBranch \
+  -q '.[] | "\(.databaseId) \(.status) \(.event) \(.headBranch)"'
+gh run cancel <id>            # only for merged branches
+```
+
+This buys time; it does not make a run succeed. It is worth knowing precisely
+*why* — a `cancelled` job here means the box is too small, and reading it as a
+red build sends you looking for a defect that does not exist.
 
 So the honest current state is: **CI starts, and cannot finish.** Until the host
 is resized, the local gates below are the only ones that reach a verdict — not
