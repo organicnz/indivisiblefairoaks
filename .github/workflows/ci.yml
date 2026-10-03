@@ -159,6 +159,14 @@ jobs:
     runs-on: [self-hosted, linux, X64, frontend-runner]
     needs: [lint, test]
     timeout-minutes: 20
+    env:
+      # The build is killed by the cgroup, not by V8: exit 137 / SIGKILL once
+      # RSS passes the container's MEMORY=1024M. Left unbounded, V8 grows the
+      # heap rather than collecting, so the process walks into the ceiling and
+      # the kernel takes it. Capping the heap makes GC work harder and keeps RSS
+      # under the limit — the same lever as the lint job, opposite direction.
+      # Unproven: this is a hypothesis until a build actually completes here.
+      NODE_OPTIONS: --max-old-space-size=768
     steps:
       - uses: actions/checkout@v4
         with:
