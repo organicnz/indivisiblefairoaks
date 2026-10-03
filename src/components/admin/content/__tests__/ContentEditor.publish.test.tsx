@@ -6,7 +6,7 @@ import { ContentEditor } from '@/components/admin/content/ContentEditor';
 /**
  * Publishing must publish the document on screen.
  *
- * `handleToggleStatus` called `setContentStatus`, which writes `status` and
+ * `handleSetStatus` called `setContentStatus`, which writes `status` and
  * `published_at` and nothing else, and then called `setSavedSnapshot` over the
  * whole field set. That marked the editor clean, so the autosave effect
  * short-circuited on `if (!dirty) return`, `beforeunload` stopped warning, and
@@ -15,7 +15,9 @@ import { ContentEditor } from '@/components/admin/content/ContentEditor';
  * session was the one that threw the work away and reported success.
  *
  * These tests pin the behaviour that replaced it: unsaved work goes out with
- * the publish.
+ * the publish, and every control that names a publish state routes through that
+ * one function — including the Status dropdown, which is covered in
+ * `ContentEditor.safety.test.tsx` because its failure mode was invisible here.
  */
 
 const saveContent = vi.hoisted(() => vi.fn());

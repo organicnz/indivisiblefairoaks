@@ -56,7 +56,13 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
 
   const mergeMessage = (other: CRMContact) =>
     `Merge ${displayName(other)} into ${displayName(keep)}? ` +
-    'The duplicate record will be removed; its timeline, tasks, tags, and giving history move to this profile. This cannot be undone.';
+    'The duplicate record will be removed; its timeline, tasks, tags, and giving history move to this profile. ' +
+    // Consent is OR-ed by the merge (`keep.do_not_email || remove.do_not_email`), so a
+    // profile that receives a merged-in opt-out can silently go dark for every future
+    // broadcast. The volunteer deserves to hear that in the confirm, not discover it
+    // when the next campaign skips them.
+    'If either record has opted out of email, the surviving profile will be opted out too. ' +
+    'This cannot be undone.';
 
   const handleMerge = () => {
     if (!candidate) return;

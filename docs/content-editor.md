@@ -33,7 +33,8 @@ An earlier version passed `'draft'` unconditionally, so editing a live page and
 pausing for 2.5 seconds quietly unpublished it. The one failure mode a feature
 whose entire purpose is to be uneventful must not have.
 
-Taking a page down stays deliberate, via the Save button. Pinned by
+Taking a page down stays deliberate, named through `handleSetStatus` — the
+Publish button or the Status dropdown. Pinned by
 `ContentEditor.autosave.test.tsx`.
 
 **And neither may the Publish button.** The same bug in a worse place.
@@ -46,12 +47,87 @@ publish that discards an afternoon of writing and reports success, on the button
 most likely to be pressed at the end of a writing session, is the worst failure
 this editor can produce.
 
-When anything is unsaved, `handleToggleStatus` now calls `handleSave(next)` — the
+When anything is unsaved, `handleSetStatus` now calls `handleSave(next)` — the
 same guarded path as the button and Cmd+S, so the title and body rules apply there
 too. Pinned by `__tests__/ContentEditor.publish.test.tsx`: the whole document goes
 out at the new status; a body edit is flushed, not just a title; a clean document
 still takes the narrow status-only path; and a failed publish leaves the unsaved
 indicator up.
+
+**And neither may the Status dropdown.** It is the same state change behind a
+second control, and for a long time it did not go through the guard at all. It
+called `setStatus`, which is local state — but `status` is part of the document
+snapshot, so `dirty` flipped and the autosave effect above fired
+`persist(status)` 2.5 seconds later. Choosing "Draft" on a live page took it off
+the site with no confirmation, no toast, and nothing on screen saying it had
+happened.
+
+It could not call the guarded function because the guarded function was a
+no-argument *toggle*, and a toggle cannot express "the author picked Draft". It is
+now `handleSetStatus(next)`, which takes the target state, and both controls call
+it. **The rule for the next control that names a publish state: it goes through
+`handleSetStatus`, and the write must be observable.** A snapshot write with no
+immediate feedback reads as a broken control even when it is merely late.
+
+Pinned by `__tests__/ContentEditor.safety.test.tsx`.
+
+### A rejected save must not strand the editor
+
+`saveContent` returning `{ success: false }` is a handled branch, and every call
+site reports it. A **rejected** promise is a different animal: the request never
+produced an answer — a dropped connection, an expired session (`requireAdmin`
+redirects), a proxy that closed the socket.
+
+Neither `handleSave` nor the autosave effect handled that. `handleSave` awaited
+`persist` and set `saving = false` on the next line, which is not a guaranteed
+statement — a rejection skips it — and `saving` is what disables the Save button.
+One unreachable save left the editor permanently unable to save itself, and the
+only recovery was a reload, which discards the document. The autosave path was
+`void persist(...).then(...)` with no `.catch()` at all, so its indicator sat on
+"Saving…" for the rest of the session while nothing was written, and
+`activeSaveFailure` was never set, so the banner explaining why stayed hidden too.
+
+Both are caught now, and both report through the same `setSaveFailure` + toast
+path as a returned failure. The wording does the work a status code cannot: it
+says the change is **not saved**, that the text is **still on screen**, and to
+**copy it before reloading** — because the reflex on seeing a failed save is to
+reload, and reload is what loses the work. Pinned by
+`__tests__/ContentEditor.safety.test.tsx`.
+
+### A failed save names its source; a stale version offers only reload
+
+The same banner serves manual saves and autosave, but a failed Cmd+S is not an
+autosave failure. `saveFailure` therefore records whether the write came `via:
+'manual'` or `via: 'autosave'`, and both the status indicator and the banner use
+that source in their wording.
+
+A stale optimistic-concurrency refusal is a different failure from a validation
+or connectivity failure. It is recognised by `STALE_SAVE_CONFLICT_PREFIX`, and
+its banner:
+
+- explains that another editor saved first;
+- tells the author to copy unsaved text before reloading;
+- offers **Reload onto their version**, not **Try again**;
+- has no dismiss control that would simply re-arm the same failed write.
+
+Another edit naturally changes the document snapshot and can trigger another
+save attempt, but the UI never invites an immediate retry against a version it
+already knows is outdated. Pinned by `ContentEditor.autosave.test.tsx` and
+`ContentEditor.safety.test.tsx`.
+
+### A successful save records what it wrote, not what was on screen
+
+`persist` snapshots the document *as written*, including the status it just set.
+It used to snapshot `fields`, whose `status` is the value from *before* the write,
+so `dirty` stayed true after a successful publish. In order: the toast said
+"Published", the indicator immediately contradicted it in red, `beforeunload`
+started warning about work that was already stored, and 2.5s later the autosave
+effect wrote the identical document again — a second `content_revisions` row for
+a revision that changed nothing, on every publish. `handleSetStatus` got this
+right at its own `setSavedSnapshot`; `persist` did not.
+
+The general rule: the snapshot a save adopts must be the same one the write
+produced. Two snapshots of one document that disagree is a whole class of bug.
 
 ### Autosave backs off, and stops on failure
 
@@ -488,6 +564,30 @@ unmount-safe (state lives in the button, not a portal), keyboard accessible
 while an async action is in flight.
 
 - `__tests__/ConfirmAction.test.tsx` — idle label, confirm-only fire, cancel backs out, busy disables
+
+### A status control has to reach the guard, and a snapshot has to match the write
+
+Both halves of this one are the same mistake wearing different clothes: something
+looked like it reported what it did, and did not.
+
+The **Status `<select>`** sat next to the Publish button and called `setStatus` —
+local state. `status` is part of the document snapshot, so `dirty` flipped and the
+autosave effect fired `persist(status)` 2.5 seconds later. Choosing "Draft" on a
+live page took it off the site with no confirmation and no toast. It could not
+call the guarded path because that path was a no-argument *toggle*, and a toggle
+cannot express "the author picked Draft". Hence `handleSetStatus(next)`: two
+controls naming one state take one path, and the write is observable at the moment
+of the click.
+
+The **snapshot** `persist` adopted recorded `fields`, whose `status` is the value
+from before the write. `dirty` therefore stayed true after a successful publish:
+toast "Published", indicator contradicting it in red, `beforeunload` warning about
+stored work, and 2.5s later a second write of the identical document — a second
+`content_revisions` row for a revision that changed nothing, on every publish.
+`handleSetStatus` already got this right at its own snapshot; `persist` did not.
+
+Pinned by `__tests__/ContentEditor.safety.test.tsx` (16 tests, 15 of which fail
+against the code that shipped with these two bugs).
 
 ### A control must name the state it will actually reach
 

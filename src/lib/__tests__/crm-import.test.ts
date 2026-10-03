@@ -178,7 +178,48 @@ describe('export columns round-trip through the importer', () => {
       zip_code: '95608',
       district: 'CA-06',
       notes: 'Prefers phone, not email',
+      do_not_email: false,
     });
+  });
+
+  it('keeps an opted-out constituent opted out through the round trip', () => {
+    // The backup is useless if restoring it quietly re-subscribes everyone who
+    // had refused email. This is the column the exporter wrote and the importer
+    // dropped for the first three releases of that export.
+    const csv = [
+      EXPORT_HEADER.join(','),
+      [
+        'c-3',
+        'Tammy',
+        'Okafor',
+        'tammy@example.org',
+        '',
+        '',
+        'CA-06',
+        'Carmichael',
+        '95608',
+        'supporter',
+        '',
+        '',
+        'yes',
+        '0',
+        'manual',
+        '2026-03-01T00:00:00.000Z',
+      ].join(','),
+    ].join('\r\n');
+
+    const { rows, errors } = parseCRMImportCsv(csv);
+    expect(errors).toEqual([]);
+    expect(rows[0].do_not_email).toBe(true);
+  });
+
+  it('reads the obvious coercions of a yes, and treats anything else as opted in', () => {
+    expect(parseCRMImportCsv('email,do_not_email\na@b.co,YES').rows[0].do_not_email).toBe(true);
+    expect(parseCRMImportCsv('email,do_not_email\na@b.co,true').rows[0].do_not_email).toBe(true);
+    expect(parseCRMImportCsv('email,do_not_email\na@b.co,1').rows[0].do_not_email).toBe(true);
+    expect(parseCRMImportCsv('email,do_not_email\na@b.co,').rows[0].do_not_email).toBe(false);
+    expect(parseCRMImportCsv('email,do_not_email\na@b.co,no').rows[0].do_not_email).toBe(false);
+    expect(parseCRMImportCsv('email\na@b.co').rows[0].do_not_email).toBe(false);
   });
 
   it('quotes a note containing a comma, so the columns do not shift', () => {

@@ -1259,6 +1259,20 @@ describe('CRM sends are blocked in an e2e build', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  it('refuses a direct email too', async () => {
+    envState.CONTACT_SUBMISSION_TEST_MODE = '1';
+    envState.NEXT_E2E_BUILD = 'true';
+    global.fetch = mockFetch;
+    const res = await sendCRMDirectEmail({
+      contactId: 'c-1',
+      subject: 'Hi',
+      message: 'There',
+    });
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/disabled in test builds/i);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('needs both flags, so CI cannot disable delivery by setting one', async () => {
     // NEXT_E2E_BUILD alone is true of any CI build, where sending is wanted.
     envState.CONTACT_SUBMISSION_TEST_MODE = undefined;

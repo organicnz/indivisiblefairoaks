@@ -876,6 +876,11 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
   success: boolean;
   imported?: number;
   skipped?: number;
+  /** Rows the parser could not turn into a contact at all — distinct from
+   *  `skipped`, which counts valid rows already in the directory. `skipped +
+   *  invalidRows + imported + (rows that failed at insert) === rows parsed`,
+   *  so the volunteer can reconcile the four numbers against their file. */
+  invalidRows?: number;
   errors?: CRMImportError[];
   error?: string;
 }> {
@@ -940,6 +945,10 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
       status: r.status,
       tags: r.tags,
       notes: r.notes,
+      // The exporter writes this column and the importer used to drop it — so a
+      // backup round-trip silently re-subscribed everyone who had opted out, and
+      // the next broadcast mailed them anyway. Carry it through.
+      do_not_email: r.do_not_email,
       source: 'import',
     }));
 
@@ -957,7 +966,12 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
       .select('id');
 
     if (error) {
-      insertErrors.push({ line: 0, message: `Insert failed: ${error.message}` });
+      insertErrors.push({
+        line: 0,
+        message:
+          `Insert failed for a batch of ${chunk.length} rows ` +
+          `(rows ${i + 1}–${i + chunk.length} of ${toInsert.length} new contacts): ${error.message}`,
+      });
       continue;
     }
     const ids = (created || []).map((c) => c.id);
@@ -986,6 +1000,7 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
     success,
     imported,
     skipped,
+    invalidRows: errors.length,
     errors: insertErrors.slice(0, 50),
     error: success
       ? undefined
@@ -1365,6 +1380,9 @@ export async function sendCRMBroadcast({
   success: boolean;
   recipientCount?: number;
   broadcastId?: string;
+  /** Present when the sender reports the delivery finished but its bookkeeping
+   *  did not; carries the sender's own warning, not an error. */
+  warning?: string;
   error?: string;
 }> {
   const blocked = sendBlockedInE2E();
@@ -1457,7 +1475,12 @@ export async function sendCRMBroadcast({
   }
 
   revalidateCRMRoutes();
-  return { success: true, recipientCount: recipients.length, broadcastId: broadcast.id };
+  return {
+    success: true,
+    recipientCount: recipients.length,
+    broadcastId: broadcast.id,
+    warning: dispatched.warning,
+  };
 }
 
 /**
@@ -1536,12 +1559,17 @@ export async function sendCRMBroadcastSelfTest({
 /**
  * Hand the send to the `crm-broadcast-send` Edge Function.
  *
- * The function owns delivery, progress and the final status from here, so the
- * request that queues the broadcast can return immediately.
+ * The function is deliberately synchronous: the response carries the delivery
+ * outcome of the whole campaign, and the `sent_count`/`failed_count` it writes to
+ * the row first are the same numbers in the response. A fire-and-forget request
+ * would report "queued" and never the truth of what happened,
+ * and the function has no way to say it ran unless someone reads what it said.
+ * On the client both ends wait — the composer reports progress through its
+ * own polling of the row after this resolves.
  */
 async function dispatchBroadcastSender(
   broadcastId: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; warning?: string } | { ok: false; error: string }> {
   const functionUrl = env.CRM_BROADCAST_FUNCTION_URL;
   if (!functionUrl) {
     return { ok: false, error: 'the broadcast sender is not configured on this deployment' };
@@ -1563,7 +1591,28 @@ async function dispatchBroadcastSender(
       body: JSON.stringify({ broadcast_id: broadcastId }),
     });
     if (!response.ok) return { ok: false, error: `sender responded ${response.status}` };
-    return { ok: true };
+    // The dispatcher used to check only `response.ok` and return, which threw away
+    // the body — and with it the one thing the function was careful to compute:
+    // *when the mail went out but its record did not*, in the form of
+    // `activityWriteFailures`/`activityRowsLost` and a plain-language warning. A
+    // broadcast can therefore ship green and leave every contact without a
+    // timeline entry, and no one would ever be told. The warning rides the
+    // result out to the admin from here.
+    try {
+      const payload = (await response.json()) as {
+        skipped?: boolean;
+        reason?: string;
+        warning?: string;
+      };
+      return {
+        ok: true,
+        warning: typeof payload.warning === 'string' ? payload.warning : undefined,
+      };
+    } catch {
+      // The function answered 200 with a non-JSON body; treat as a bare success,
+      // same as before.
+      return { ok: true };
+    }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'sender unreachable' };
   }

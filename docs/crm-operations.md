@@ -43,6 +43,14 @@ and the final status. The claim is the conditional
 `.is('dispatched_at', null)` update — a second dispatch is refused, so a retry
 cannot double-send.
 
+"Off the request path" is about responsibility, not time: the action awaits the
+dispatch fetch, and the function's response is the delivery summary — so the
+success toast only appears once the sender has very nearly finished. That is
+deliberate. It is why the composer's
+progress panel resumes on mount via a poll of the same row the sender writes, and
+it is why the function's `activityWriteFailures`/`warning` rides the response
+body back to the admin instead of an optimistic "sent".
+
 **The sender is deployed by CI, and for its whole life it was not.** It is absent
 from no deploy workflow now, but it was absent from all of them:
 `.github/workflows/supabase.yml` deploys seven functions and this was not one of

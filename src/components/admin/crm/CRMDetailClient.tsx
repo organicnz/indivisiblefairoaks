@@ -418,7 +418,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
 
               <ConfirmAction
                 label={`Delete ${fullName}`}
-                message={`Delete ${fullName}? This cannot be undone.`}
+                message={`Delete ${fullName}? This cannot be undone. Everything this profile holds goes with it — the timeline, every note, every follow-up task, and the giving history. The list cannot be recovered from anywhere.`}
                 danger
                 busy={deleting}
                 idleClassName="inline-flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"

@@ -279,7 +279,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
               <option value="choir">Resistance Choir Member</option>
               <option value="donor">Grassroots Donor</option>
               <option value="organizer">Chapter Organizer / Board</option>
-              <option value="inactive">Inactive / Unsubscribed</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
 
