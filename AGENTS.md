@@ -491,7 +491,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   `gh api repos/:owner/:repo/actions/runners -q '.runners[].status'`.
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 30 pre-commit guards, then lint → unit → coverage → types → build →
-  peer-deps → 112 Playwright specs. Migrations and Edge Functions are deployed
+  peer-deps → 119 Playwright specs. Migrations and Edge Functions are deployed
   deliberately with the Supabase CLI rather than by `supabase.yml`.
 - **Every workflow declares an explicit `permissions:` block.** Two that hold
   credentials previously inherited the repository default, which may grant
