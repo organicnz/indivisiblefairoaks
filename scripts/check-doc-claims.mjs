@@ -23,9 +23,10 @@
  *     Both are anchored on the digit following the word, so `secrets:baseline`
  *     and `secrets-baseline.json` cannot be mistaken for a count.
  *   - "`lefthook.yml` is N lines" — a single occurrence in Known Follow-ups.
- *   - `— N specs` / `N e2e specs` — the em-dash separates the two forms; a bare
- *     `N specs` does not match "112 e2e specs" because `specs` is not adjacent
- *     to the digits, so both patterns are required.
+ *   - `— N specs` / `N e2e specs` / `N Playwright specs` — the em-dash separates
+ *     the table form from the prose forms. A bare `N specs` does not match
+ *     "112 e2e specs" because `specs` is not adjacent to the digits, so each
+ *     phrasing present in the docs needs its own pattern.
  *   - the `crm.ts` and `content.ts` coverage floors — the four values are
  *     re-derived from `vitest.config.ts`. These are ratchets, so a doc ahead of
  *     the config invites someone to "fix" a red gate by editing prose.
@@ -196,7 +197,15 @@ const CLAIMS = [
   },
   {
     label: 'e2e spec count (prose)',
-    pattern: /(\d+) e2e specs/g,
+    // Two spellings are in use: "N e2e specs" and "N Playwright specs". Only the
+    // first was matched, and AGENTS.md used the second — so that count was
+    // unguarded and drifted to 112 while the table claim, which IS matched, went
+    // stale at 117 and was the only one that reported. A claim in a phrasing no
+    // pattern recognises is worse than no claim, because the warning below reads
+    // "no document currently states it" and is true only of the recognised
+    // spellings. Both forms are anchored on the digits directly preceding
+    // "specs", so neither can match a spec *name*.
+    pattern: /(\d+) (?:e2e|Playwright) specs/g,
     source: () => once(e2eSpecCount),
     fix: 'run `bunx playwright test --list` and use that number',
   },
