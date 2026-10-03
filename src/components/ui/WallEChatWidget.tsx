@@ -103,11 +103,11 @@ export function WallEChatWidget() {
   */
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
-      <div className="fixed right-4 bottom-4 z-[60] sm:right-6 sm:bottom-6">
+      <div className="fixed z-[60] floating-safe-position">
         <Dialog.Portal>
           <Dialog.Content
             aria-describedby={undefined}
-            className="fixed bottom-4 right-4 z-[70] flex h-[min(38rem,calc(100vh-7rem))] w-[min(25rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-primary/20 bg-white shadow-float data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-4 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom-4 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200 sm:bottom-6 sm:right-6"
+            className="fixed z-[70] floating-safe-position-panel flex h-[min(38rem,calc(100dvh-7rem-var(--safe-area-top)-var(--safe-area-bottom)))] w-[min(25rem,calc(100vw-2rem-var(--safe-area-left)-var(--safe-area-right)))] flex-col overflow-hidden rounded-xl border border-primary/20 bg-white shadow-float data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-4 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom-4 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200"
           >
             <Dialog.Title className="sr-only">WALL-E site assistant</Dialog.Title>
             <header className="relative overflow-hidden bg-secondary px-5 py-4 text-white">

@@ -109,8 +109,8 @@ function HeaderInner() {
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-out ${
           isScrolled
-            ? 'bg-secondary/95 backdrop-blur-md py-3 shadow-header border-b border-white/10'
-            : 'bg-secondary/90 backdrop-blur-sm py-4 border-b border-white/10'
+            ? 'site-header-padding-compact bg-secondary/95 backdrop-blur-md shadow-header border-b border-white/10'
+            : 'site-header-padding bg-secondary/90 backdrop-blur-sm border-b border-white/10'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -222,7 +222,7 @@ function HeaderInner() {
           <Dialog.Overlay className="fixed inset-0 z-[100] bg-secondary/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 2xl:hidden" />
           <Dialog.Content
             id={DRAWER_ID}
-            className="fixed inset-0 z-[110] bg-secondary flex flex-col p-6 sm:p-8 2xl:hidden focus:outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=open]:duration-300 data-[state=closed]:duration-200"
+            className="fixed inset-0 z-[110] bg-secondary flex flex-col drawer-safe-padding 2xl:hidden focus:outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=open]:duration-300 data-[state=closed]:duration-200"
           >
             <Dialog.Title className="sr-only">Navigation menu</Dialog.Title>
             <Dialog.Description className="sr-only">

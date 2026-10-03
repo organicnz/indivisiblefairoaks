@@ -61,6 +61,23 @@ bun run test:coverage
 bun run types:generate  # regenerate Supabase types
 ```
 
+### Mobile web/PWA validation
+
+The default Playwright run uses the locally available Chromium project and
+includes narrow, landscape, drawer, and header-clearance checks. Optional
+real-device browser profiles are opt-in so ordinary local runs do not require
+extra browser downloads:
+
+```bash
+bunx playwright install webkit chromium
+PW_MOBILE_BROWSERS=1 bun run test:e2e
+```
+
+This repository intentionally remains a Next.js mobile web/PWA, not a native
+iOS or Android application. The manifest and safe-area contracts improve
+installable mobile web behavior; native shells, push plumbing, and offline
+service-worker behavior are outside the current boundary.
+
 ---
 
 ## CI/CD

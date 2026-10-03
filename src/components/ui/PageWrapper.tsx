@@ -8,13 +8,17 @@ interface PageWrapperProps {
 }
 
 /**
- * Consistent page wrapper that clears the fixed navbar (pt-28)
+ * Consistent page wrapper that clears the fixed navbar and iOS safe area.
  * and provides standard bottom padding. Use on every top-level page.
  */
 export function PageWrapper({ children, className = '', bg = 'white' }: PageWrapperProps) {
   const bgClass = bg === 'white' ? 'bg-white' : bg === 'dark' ? 'bg-secondary' : '';
 
-  return <div className={`${bgClass} min-h-screen pt-28 pb-16 ${className}`}>{children}</div>;
+  return (
+    <div className={`${bgClass} min-h-screen pt-(--header-clearance) pb-16 ${className}`}>
+      {children}
+    </div>
+  );
 }
 
 /** Standard max-width content container */

@@ -83,7 +83,7 @@ export default function FAQPage() {
   };
 
   return (
-    <div className="bg-secondary text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
+    <div className="bg-secondary text-white pt-(--header-clearance) pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
       {/* JSON-LD. biome's noDangerouslySetInnerHtml is suppressed for this file
           (see biome.json); the value is escaped by serializeJsonLd, which handles
           <, >, & and the JS line separators so it cannot break out of the tag. */}
