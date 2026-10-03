@@ -19,11 +19,14 @@ on:
 # **`organicnz/indivisiblefairoaks` IS declared** in
 # `instances/indivisiblefairoaks.env` with
 # `LABELS=self-hosted,Linux,X64,ghrunner,personal,personal-organicnz,frontend-runner,backend-runner`.
-# The coverage auditor reports it as served. But as of 2026-10-03 the runner
-# (`indivisiblefairoaks-runner-1`) reports **status=offline**, so every job here
-# waits indefinitely — CI, Runner Health, Secret audit and WALL-E refresh are all
-# `queued` with nothing started. That is a fleet/host fault, not a selector
-# mismatch, and it is not fixable from this file.
+# The coverage auditor reports it as served. On 2026-10-03 the runner was
+# `status=offline` and every job here waited indefinitely — the cause was NOT a
+# label mismatch. The `ghrunner` podman network was missing, so every
+# `podman run --network=ghrunner` exited 125 with
+# `unable to find network with name or ID ghrunner: network not found`, the
+# runner unit failed, and systemd hit its restart limit. Fix over SSH with:
+#
+#   systemctl --user restart ghrunner-personal-indivisiblefairoaks.service
 #
 # A `runs-on` selector that matches nothing does not error — it waits forever —
 # and `cancel-in-progress: true` below cancels the previous run as the next push
@@ -35,12 +38,18 @@ on:
 # selector look identical there. Ask the two questions that can tell them apart:
 #
 #   gh api repos/$REPO/actions/runners -q '.runners[] | {name, status, busy}'
-#   cargo run -q -p fleet-coverage -- --root .        # in ../ghrunner
+#   ssh organic@100.111.249.64 podman network ls       # is `ghrunner` there?
+#   cargo run -q -p fleet-coverage -- --root .         # in ../ghrunner
 #
 # Note also that a hand-registered runner for this repository exists
 # (`personal-organicnz`, an Apple-silicon Mac). It is ARM64 and cannot satisfy
 # the `X64` requirement, so it will never pick up these jobs — a green runner
 # list is not evidence that a job can run.
+#
+# With the runner restored, the host is the remaining ceiling: it is 887 MiB /
+# 2 vCPU, and jobs end `cancelled` rather than `failed` once swap is exhausted.
+# `cancelled` here means the host ran out of room — it is not a verdict on the
+# code. See docs/ci-runners.md.
 
 concurrency:
   group: ci-${{ github.ref }}

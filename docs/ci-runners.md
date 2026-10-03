@@ -7,20 +7,23 @@
 
 **`runs-on: [self-hosted, linux, X64, …]` is correct. Do not change it.**
 
-This repository **is** served — a runner exists, it is `X64`, and when it is up it
-accepts jobs, checks out the repository and runs them. That was not true for most
-of this repository's life, and the reason it stayed invisible is the part worth
-keeping.
+This repository **is** served — a runner exists, it is `X64`, and it accepts jobs,
+checks out the repository and runs them. That was not true for most of this
+repository's life, and the reason it stayed invisible is the part worth keeping.
 
 Two independent things can stop it, and they need different fixes:
 
-- **The runner is offline.** As of 2026-10-03 `indivisiblefairoaks-runner-1`
-  reports `status=offline`, so every workflow — CI, Runner Health, Secret audit,
-  WALL-E refresh — sits `queued` indefinitely and no job starts. This is a fleet
-  / host problem, not a `runs-on` problem. (The Apple-silicon `personal-organicnz`
-  runner is `online` but is `ARM64`, so it cannot satisfy the `X64` selector.)
+- **The `ghrunner` podman network went missing (fixed 2026-10-03).** When it is
+  absent, every container start fails with `unable to find network with name or
+  ID ghrunner: network not found` and podman exits 125, so the runner service
+  fails, systemd hits its restart limit, and GitHub shows the runner
+  `offline` while every workflow sits `queued`. The remedy is one command:
+  `systemctl --user restart ghrunner-personal-<instance>.service` over SSH. The
+  `ARM64` Mac is `online` but cannot satisfy the `X64` selector, so a green
+  runner list is not evidence a job can run.
 - **The runner host is too small to finish the work even when it is up.** See
-  [The host is the ceiling](#the-host-is-the-ceiling).
+  [The host is the ceiling](#the-host-is-the-ceiling). Jobs now start, reach the
+  typecheck, and are cancelled when the host runs out of memory and swap.
 
 Check which one you are looking at with the two commands under
 [How to check whether CI can actually run](#how-to-check-whether-ci-can-actually-run) —
@@ -141,10 +144,11 @@ bunx tsc --noEmit  →  Aborted (core dumped)
 ```
 
 The abort is Node's *own* default cap, not the machine's: on a host this size V8
-gives the old space roughly 448 MB, and `tsc` over this program (~295 files,
-`skipLibCheck` on) needs more. The instance already declares the headroom to fix
-that — `MEMORY=1024M` plus **`MEMORY_SWAP=2048M`** — so the lint job now caps the
-heap explicitly:
+gives the old space roughly 448 MB. Measured, `bunx tsc --noEmit` over this
+program (~295 files, `skipLibCheck` on) peaks at **~598 MB RSS in ~1.4 s** — so
+the default cap is genuinely too small. The instance already declares the
+headroom to fix that — `MEMORY=1024M` plus **`MEMORY_SWAP=2048M`** — so the lint
+job now caps the heap explicitly:
 
 ```yaml
 # .github/workflows/ci.yml — the lint job only
@@ -156,17 +160,32 @@ It is scoped to that one job on purpose. A workflow-level `NODE_OPTIONS` would
 also raise the ceiling for `bun install`, `vitest` and the Next build, which have
 their own memory profiles and share one 887 MB machine.
 
-**This has not been observed to pass in CI yet** — the runner went offline before
-the change could be exercised, so treat it as the fix the evidence points to
-rather than a verified green. The build and e2e jobs remain unproven on this host
-too: they are gated behind `lint` and `test`, so every run so far has skipped
-them. The first run that clears lint is the first time this document's remaining
-questions get answered.
+### Two faults, and they are not the same fault
 
-So the honest current state is: **CI cannot complete, and today it does not
-start at all.** Until the host is resized *and* the runner is back, the local
-gates below are the only ones that reach a verdict — not because the pipeline is
-broken, but because the pipeline is too small and currently absent.
+On 2026-10-03 the runner was brought back and the pipeline was observed for the
+first time. What it showed is that the heap cap fixes the *typecheck* and nothing
+else:
+
+| Symptom | Cause | Status |
+|---|---|---|
+| `tsc` aborts, `Reached heap limit` | Node's ~448 MB default cap < 598 MB measured peak | **Fixed** by the 768 MB cap — but see below |
+| Jobs end `cancelled`, not `failed` | `EPHEMERAL=true` → one job per container; each does a fresh `bun install`, the next container starts before swap recovers, and the broker drops the worker mid-step | **Not fixed** — host too small |
+| Every workflow `queued`, nothing starts | `ghrunner` podman network `ghrunner` was absent; every `podman run --network=ghrunner` exited 125 (`network not found`) until the service was restarted | **Fixed** — `systemctl --user restart ghrunner-personal-indivisiblefairoaks.service` |
+
+So `Lint & Types` now clears `biome`, `oxlint` and `bun install` and reaches the
+TypeScript step before the worker is cancelled — evidence the heap fix is sized
+correctly, but **not a green run**. Build and e2e remain unproven on this host:
+they are gated behind `lint` and `test`, so no run has ever reached them.
+
+The load average during a run reaches ~7 on 2 vCPU with 1.9 GB of 2 GB swap in
+use. That is the ceiling: the pipeline needs more memory and more cores than this
+box has, and no `NODE_OPTIONS` value changes that. **Do not diagnose this from a
+cancelled job** — `cancelled` here means the host ran out of room, not that the
+code or the workflow is wrong.
+
+So the honest current state is: **CI starts, and cannot finish.** Until the host
+is resized, the local gates below are the only ones that reach a verdict — not
+because the pipeline is broken, but because the pipeline is too small.
 
 ## What this means for the delivery gates
 
