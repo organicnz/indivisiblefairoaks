@@ -505,9 +505,27 @@ describe('CRM reads and bookkeeping', () => {
      * page and look like a person who does not exist.
      */
     it('reads one contact’s tasks, and throws rather than returning an error object', async () => {
-      const mine = { id: 't1', title: 'Call back', contact_id: 'c1', status: 'done' };
-      const upcoming = { id: 't2', title: 'Confirm the venue', contact_id: 'c1', status: 'open' };
-      const theirs = { id: 't3', title: 'Chase the clerk', contact_id: 'c2', status: 'done' };
+      const mine = {
+        id: 't1',
+        title: 'Call back',
+        contact_id: 'c1',
+        status: 'done',
+        due_at: '2026-01-01',
+      };
+      const upcoming = {
+        id: 't2',
+        title: 'Confirm the venue',
+        contact_id: 'c1',
+        status: 'open',
+        due_at: '2026-02-01',
+      };
+      const theirs = {
+        id: 't3',
+        title: 'Chase the clerk',
+        contact_id: 'c2',
+        status: 'done',
+        due_at: '2026-01-15',
+      };
       tables.crm_tasks = {
         rows: [mine, upcoming, theirs],
         // `.or('status.eq.done,and(status.eq.open,due_at.gte.<today>)')` is a
