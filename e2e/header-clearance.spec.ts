@@ -3,9 +3,17 @@ import { expect, test } from '@playwright/test';
 /**
  * Fixed-header clearance guards.
  *
- * The header is position:fixed and ~112px tall on mobile / ~144px on md+
- * (logo h-16/h-24 + py-6). Pages must pad their first heading with
- * pt-(--header-h) so titles never render behind the navbar.
+ * The header is position:fixed and measures 77px unscrolled / 69px scrolled
+ * (measured 2026-10-04 at 390 and 1280 wide — the older 112/144px figures
+ * describe a header this is not). Pages clear it through PageWrapper's
+ * `pt-(--header-clearance)`: 88px below 48rem, 104px at and above, plus the
+ * iOS safe-area inset. The clearance deliberately over-estimates the 77px
+ * header by 11–27px — margin, not exact fit — so a taller scrolled state or a
+ * notched device still clears.
+ *
+ * What this guards is the geometry, not the constants: every assertion below
+ * measures the real banner and the real h1. Rename the figures here when a
+ * measurement changes them; do not tune the CSS to match the comment.
  *
  * Home and gallery are intentionally excluded: their heroes are designed to
  * sit under the transparent header.
@@ -57,7 +65,7 @@ async function expectHeadingClearOfHeader(page: import('@playwright/test').Page)
   ).toBeGreaterThanOrEqual(header.y + header.height - 2);
 }
 
-test.describe('desktop clearance (144px header)', () => {
+test.describe('desktop clearance (104px clearance vs 77px header)', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   for (const route of guardedRoutes) {
@@ -72,7 +80,7 @@ test.describe('desktop clearance (144px header)', () => {
   }
 });
 
-test.describe('mobile clearance (112px header)', () => {
+test.describe('mobile clearance (88px clearance vs 77px header)', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   for (const route of [guardedRoutes[0], guardedRoutes[1], guardedRoutes[7]]) {

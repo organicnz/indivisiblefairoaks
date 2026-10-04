@@ -150,7 +150,9 @@ Entry: `.agents/skills/vgpu/SKILL.md`
 ### `cms-editor-and-crm`
 **Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, `src/lib/trusted-links.ts`, `src/lib/own-media.ts`, `src/lib/image-size.ts`, `src/lib/__tests__/supabase-mock.ts`,
 `supabase/functions/_shared/broadcast.ts`, `supabase/functions/crm-broadcast-send/`, the
-unsubscribe route, or a coverage threshold in `vitest.config.ts`.
+unsubscribe route, a coverage threshold in `vitest.config.ts`,
+`src/components/layout/Header.tsx`, or `e2e/mobile-navigation.spec.ts`
+(the drawer focus trap lives there now — §32).
 
 **Project-specific, not vendored.** Unlike the skills above, this one is written
 for this codebase and is not pinned in `skills-lock.json` — so it *can* be edited,
