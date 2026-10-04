@@ -331,7 +331,7 @@ ones that finish:
 
 | Gate | Command |
 |---|---|
-| 30 pre-commit guards | lefthook, on `git commit` |
+| 31 pre-commit guards | lefthook, on `git commit` |
 | documentation claims | `bun scripts/check-doc-claims.mjs` — guards, baseline, spec counts |
 | suppression ratchet | pre-push, baseline 12 |
 | lint | `bun run lint:check` |
