@@ -98,6 +98,8 @@ export function CRMBroadcastComposer({
   // Audience size
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [calculatingCount, setCalculatingCount] = useState(false);
+  const [countFailed, setCountFailed] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
 
   // Sending status
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -137,9 +139,16 @@ export function CRMBroadcastComposer({
         });
         if (active) {
           setRecipientCount(count);
+          setCountFailed(false);
         }
       } catch {
-        if (active) setRecipientCount(0);
+        if (active) {
+          // Zero would be a lie: the audience is unknown, not empty. Keep the
+          // last good number hidden and tell the author the count could not be
+          // taken — an empty badge reads as "no one matches".
+          setRecipientCount(null);
+          setCountFailed(true);
+        }
       } finally {
         if (active) setCalculatingCount(false);
       }
@@ -202,17 +211,28 @@ export function CRMBroadcastComposer({
     // The sender batches ten at a time, so the worst case is the full ceiling
     // plus slack for the audience query and the final status write.
     const maxAttempts = Math.ceil(BROADCAST_RECIPIENT_CEILING / 10) + 30;
-    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      const current = await getBroadcastProgress(broadcastId);
-      if (!current) return;
-      setProgress(current);
-      if (current.status !== 'queued' && current.status !== 'sending') {
-        startTransition(() => router.refresh());
-        return;
+    try {
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const current = await getBroadcastProgress(broadcastId);
+        if (!current) return;
+        setProgress(current);
+        if (current.status !== 'queued' && current.status !== 'sending') {
+          startTransition(() => router.refresh());
+          return;
+        }
+        await new Promise((resolve) => {
+          setTimeout(resolve, 2000);
+        });
       }
-      await new Promise((resolve) => {
-        setTimeout(resolve, 2000);
-      });
+    } catch {
+      // One failed poll used to end the readout permanently with the last
+      // number frozen on screen. Freeze is still possible — reloading is the
+      // recovery — but the author is told instead of left to read a stale
+      // "Sending 120 of 5,000".
+      setProgress((current) => (current ? { ...current, stillWatching: false } : current));
+      toast.error('Lost the progress feed — reload to check the campaign');
+      startTransition(() => router.refresh());
+      return;
     }
 
     // Still in flight after roughly half an hour. Not an error — the send may
@@ -234,6 +254,7 @@ export function CRMBroadcastComposer({
   useEffect(() => {
     if (!previewMode) {
       setPreviewHtml(null);
+      setPreviewFailed(false);
       return;
     }
     let active = true;
@@ -241,9 +262,15 @@ export function CRMBroadcastComposer({
       setPreviewLoading(true);
       try {
         const result = await previewCRMBroadcast({ subject, body });
-        if (active) setPreviewHtml(result.html);
+        if (active) {
+          setPreviewHtml(result.html);
+          setPreviewFailed(false);
+        }
       } catch {
-        if (active) setPreviewHtml(null);
+        if (active) {
+          setPreviewHtml(null);
+          setPreviewFailed(true);
+        }
       } finally {
         if (active) setPreviewLoading(false);
       }
@@ -275,6 +302,7 @@ export function CRMBroadcastComposer({
         toast.success(`Test sent to ${res.recipient}. Nobody else received it.`, {
           duration: 6000,
         });
+        startTransition(() => router.refresh());
       } else {
         toast.error(res.error || 'Test could not be sent');
       }
@@ -291,21 +319,58 @@ export function CRMBroadcastComposer({
       return;
     }
     setSavingDraft(true);
-    const res = await saveCRMBroadcastDraft({
-      subject,
-      body,
-      targetStatus: selectedStatuses,
-      targetDistricts: selectedDistricts,
-      targetTags: selectedTags,
-    });
-    setSavingDraft(false);
-    if (!res.success) {
-      toast.error(res.error || 'Failed to save draft');
-      return;
+    try {
+      const res = await saveCRMBroadcastDraft({
+        broadcastId: draftId,
+        subject,
+        body,
+        targetStatus: selectedStatuses,
+        targetDistricts: selectedDistricts,
+        targetTags: selectedTags,
+      });
+      if (!res.success) {
+        toast.error(res.error || 'Failed to save draft');
+        return;
+      }
+      setDraftId(res.broadcastId ?? null);
+      // The composer's `drafts` state is the only list of unsent drafts on
+      // screen: `initialDrafts` seeds it once and router.refresh() does not
+      // re-initialise it, so a save that returned only an id would leave the
+      // row it just wrote invisible, and a loaded-then-saved draft would look
+      // new again. Fold the saved row in here.
+      setDrafts((current) => {
+        const id = res.broadcastId;
+        if (!id) return current;
+        const index = current.findIndex((d) => d.id === id);
+        const previous = index >= 0 ? current[index] : {};
+        const row = {
+          ...previous,
+          id,
+          subject,
+          body,
+          target_status: selectedStatuses,
+          target_districts: selectedDistricts,
+          target_tags: selectedTags,
+          status: 'draft',
+          updated_at: new Date().toISOString(),
+        } as CRMBroadcast;
+        if (index >= 0) {
+          const next = [...current];
+          next[index] = row;
+          return next;
+        }
+        return [row, ...current];
+      });
+      toast.success('Draft saved');
+      startTransition(() => router.refresh());
+    } catch {
+      // Without this, a dropped connection left the button reading
+      // "Saving…" forever — the same dead-button class the editor fixed
+      // in Phase 0.
+      toast.error('Draft could not be saved — the text is still in the composer');
+    } finally {
+      setSavingDraft(false);
     }
-    setDraftId(res.broadcastId ?? null);
-    toast.success('Draft saved');
-    startTransition(() => router.refresh());
   };
 
   /**
@@ -346,6 +411,11 @@ export function CRMBroadcastComposer({
   const handleSend = async () => {
     if (!subject.trim() || !body.trim()) {
       toast.error('Please provide both subject and message body');
+      return;
+    }
+
+    if (countFailed) {
+      toast.error('The audience could not be counted — Send is withheld');
       return;
     }
 
@@ -440,6 +510,8 @@ export function CRMBroadcastComposer({
             <div className="text-lg font-black text-white">
               {calculatingCount ? (
                 <span className="text-slate-400 text-sm">Calculating...</span>
+              ) : countFailed ? (
+                <span className="text-accent-red text-sm font-bold">Count unavailable</span>
               ) : (
                 <span>{recipientCount ?? 0} constituents</span>
               )}
@@ -689,6 +761,13 @@ export function CRMBroadcastComposer({
                     srcDoc={previewHtml}
                     className="h-[32rem] w-full rounded-2xl border border-slate-200 bg-white"
                   />
+                ) : previewFailed ? (
+                  <div
+                    role="alert"
+                    className="flex h-40 items-center justify-center rounded-2xl border border-accent-red bg-rose-50 text-sm font-medium text-accent-red"
+                  >
+                    The preview could not be built — check the connection and try again.
+                  </div>
                 ) : (
                   <div className="flex h-40 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-500">
                     Add a subject and message to see the preview.
@@ -706,6 +785,12 @@ export function CRMBroadcastComposer({
                   Opted-out contacts are excluded automatically. Every email includes a one-click
                   unsubscribe link.
                 </span>
+                {countFailed && (
+                  <span role="alert" className="mt-1 block font-bold text-accent-red">
+                    The audience could not be counted, so Send is withheld until it can be. Change a
+                    filter to try again.
+                  </span>
+                )}
                 {overCeiling && (
                   <span role="alert" className="mt-1 block font-bold text-accent-red">
                     This is over the {BROADCAST_RECIPIENT_CEILING.toLocaleString()}-recipient limit
@@ -963,13 +1048,16 @@ export function CRMBroadcastComposer({
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleLoadDraft(draft)}
-                      className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
+                    <ConfirmAction
+                      label={`Resume draft ${draft.subject || 'untitled'}`}
+                      message={`Loading “${draft.subject || 'Untitled'}” replaces whatever is in the composer now. Unsaved typing in the composer will be lost.`}
+                      confirmLabel="Load draft"
+                      disabled={loaded}
+                      idleClassName="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                      onConfirm={() => handleLoadDraft(draft)}
                     >
                       {loaded ? 'Loaded' : 'Resume'}
-                    </button>
+                    </ConfirmAction>
                     <ConfirmAction
                       label={`Delete draft ${draft.subject || 'untitled'}`}
                       message={`Delete the unsent draft “${draft.subject || 'Untitled'}”. Anything written in it is gone.`}
