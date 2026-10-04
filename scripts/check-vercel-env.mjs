@@ -58,13 +58,24 @@ for (const file of await walk(SRC)) {
 
 // Read inside env.ts but consumed by nobody is fine — the schema is the contract.
 // NODE_ENV and the validation switch are framework/build concerns, not config.
-const FRAMEWORK = new Set(['NODE_ENV', 'NEXT_SKIP_ENV_VALIDATION']);
+// NEXT_RUNTIME joins them: Next.js sets it to `nodejs` or `edge` per runtime,
+// no operator ever sets it, and src/instrumentation.ts branches on it to load
+// the matching Sentry config.
+const FRAMEWORK = new Set(['NODE_ENV', 'NEXT_SKIP_ENV_VALIDATION', 'NEXT_RUNTIME']);
 
 // `.env.example` legitimately carries BOTH Next app vars and Edge Function vars:
 // `supabase functions serve` reads the same file when running edge code locally.
 // So a var read only by an edge function (ZAI_API_KEY, GROQ_API_KEY, …) is not
 // dead config. Scanning `src/` alone wrongly flagged those.
 const edgeOwned = new Set(EDGE_SECRET_NAMES);
+
+// Build-time-only secrets, read by next.config.ts — which lives at the repo
+// root, cannot resolve the `@/` alias, and is outside the `src/` tree this
+// checker scans. SENTRY_AUTH_TOKEN is the first of the kind: the Sentry build
+// plugin reads it during `next build`, and no runtime code may touch it. A name
+// lands here only with a reader named in its vercel-env.mjs note; anything else
+// is the half-finished rename rule 2 exists to catch.
+const buildTimeOwned = new Set(['SENTRY_AUTH_TOKEN']);
 
 if (LIST_ONLY) {
   console.log('\nVercel VARIABLES (Project → Settings → Environment Variables → Plain)');
@@ -105,6 +116,7 @@ for (const [name, files] of readInCode) {
 // 2. Declared, never read.
 for (const name of [...ALL_VARS, ...ALL_SECRETS]) {
   if (readInCode.has(name)) continue;
+  if (buildTimeOwned.has(name)) continue;
   problems.push(
     `scripts/vercel-env.mjs declares ${name} but no code reads it` +
       `\n    either remove it, or a rename was applied in the manifest only`

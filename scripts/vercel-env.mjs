@@ -62,6 +62,16 @@ export const VARS = {
     example: 'pk_live_…',
     note: 'Publishable counterpart to STRIPE_SECRET_KEY. Safe as a var.',
   },
+  NEXT_PUBLIC_SENTRY_DSN: {
+    required: true,
+    example: 'https://<key>@o4509901022691328.ingest.de.sentry.io/<projectId>',
+    note:
+      'Sentry error monitoring for the indivisiblefairoaks-web project. Public ' +
+      'by construction — the client SDK ships it in the bundle — so a var, ' +
+      'never a secret. Absent, the SDK never initialises, which is how local ' +
+      'dev and the CI/e2e builds stay quiet: neither may file events against ' +
+      'the production project.',
+  },
   RESEND_FROM_EMAIL: {
     required: true,
     example: 'contact@indivisiblefairoaks.org',
@@ -109,6 +119,17 @@ export const SECRETS = {
     required: true,
     example: 're_…',
     note: 'Contact form delivery and order confirmation. src/lib/email.ts.',
+  },
+  SENTRY_AUTH_TOKEN: {
+    required: true,
+    example: 'sntryu_…',
+    note:
+      'Build-time only: the Sentry Next.js plugin uploads source maps with ' +
+      'it during Vercel builds. Never inlined, never read by runtime code — ' +
+      'its only reader is next.config.ts, which next.config callers outside ' +
+      'src/ do not show to the offline checker, so this entry documents a ' +
+      'deliberate exception to the "declared but unread" rule rather than ' +
+      'drift. CI builds read their own copy from GitHub Secrets.',
   },
 }
 

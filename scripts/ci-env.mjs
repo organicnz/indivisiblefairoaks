@@ -117,5 +117,16 @@ export const SECRETS = {
     required: false,
     note: 'Fine-grained PAT, repository permissions limited to Actions -> Secrets: read. Read-only.',
   },
+  /**
+   * Sentry user auth token. Build-time only: the Sentry Next.js plugin reads it
+   * to upload source maps, and to nothing else — it never reaches the client
+   * bundle or any runtime code. `next.config.ts` passes `undefined` instead for
+   * e2e builds, so a bundle that is never deployed never uploads maps under the
+   * release its production twin uses.
+   */
+  SENTRY_AUTH_TOKEN: {
+    required: true,
+    note: 'sntryu_ user token. Used by the ci.yml build job; Vercel builds read their own copy from Vercel env.',
+  },
 };
 

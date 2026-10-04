@@ -326,13 +326,20 @@ describe('reconcile: full declared contract', () => {
           'NEXT_PUBLIC_SUPABASE_URL',
           'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
           'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
+          'NEXT_PUBLIC_SENTRY_DSN',
           'RESEND_FROM_EMAIL',
         ],
       ],
       [
         'vercel-secret',
         'ok',
-        ['SUPABASE_SECRET_KEY', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'RESEND_API_KEY'],
+        [
+          'SUPABASE_SECRET_KEY',
+          'STRIPE_SECRET_KEY',
+          'STRIPE_WEBHOOK_SECRET',
+          'RESEND_API_KEY',
+          'SENTRY_AUTH_TOKEN',
+        ],
       ],
       [
         'github-var',
@@ -357,6 +364,7 @@ describe('reconcile: full declared contract', () => {
           'RUNNERS_TOKEN',
           'VERCEL_TOKEN',
           'GH_AUDIT_TOKEN',
+          'SENTRY_AUTH_TOKEN',
         ],
       ],
       [

@@ -1,3 +1,4 @@
+import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
 import { LEGACY_REDIRECTS } from './src/config/legacy-redirects';
 
@@ -34,7 +35,10 @@ const csp = [
   `img-src 'self' data: blob: https://${supabaseHost} https://images.unsplash.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`,
   "font-src 'self' data:",
   // Same-origin `/_vercel/*` covers the RUM beacons, so no extra origins needed.
-  `connect-src 'self' https://${supabaseHost} https://api.stripe.com https://m.stripe.com`,
+  // Sentry ingest is the exception: the client SDK POSTs events there, and the
+  // exact per-project host (not a wildcard) so a misconfigured DSN fails closed
+  // instead of reporting somewhere unexpected.
+  `connect-src 'self' https://${supabaseHost} https://api.stripe.com https://m.stripe.com https://o4509901022691328.ingest.de.sentry.io`,
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://js.stripe.com https://hooks.stripe.com https://secure.actblue.com https://www.mobilize.us",
   "worker-src 'self' blob:",
   "object-src 'none'",
@@ -165,4 +169,15 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: 'organicnz',
+  project: 'indivisiblefairoaks-web',
+  // Build-time source-map upload. The token is a CI/Vercel secret, never
+  // inlined: e2e builds deliberately get none, so a bundle that is never
+  // deployed never uploads maps under the release its production twin uses.
+  authToken: process.env.NEXT_E2E_BUILD === 'true' ? undefined : process.env.SENTRY_AUTH_TOKEN,
+  // Only print upload logs where someone reads CI output.
+  silent: !process.env.CI,
+  // Readable stack traces for minified client code.
+  widenClientFileUpload: true,
+});

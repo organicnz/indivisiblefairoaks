@@ -1,5 +1,6 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { reportClientError } from '@/lib/error-report';
@@ -13,6 +14,9 @@ export default function RouteError({
 }) {
   useEffect(() => {
     reportClientError(error, { digest: error.digest });
+    // Same dual-reporting contract as global-error.tsx: first-party log plus
+    // source-mapped Sentry trace. No-ops when no DSN is set.
+    Sentry.captureException(error);
   }, [error]);
 
   return (

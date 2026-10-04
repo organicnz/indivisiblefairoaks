@@ -74,6 +74,7 @@ Two things about that worth keeping:
 | `SUPABASE_POOLER_URL` | Supavisor connection string | `supabase.yml` — pooled migration path |
 | `SUPABASE_SECRET_KEY` | Service-role key (**bypasses RLS**) | `walle-refresh.yml` |
 | `RUNNERS_TOKEN` | Fine-grained PAT | `runner-health.yml` (optional — falls back to `GITHUB_TOKEN`) |
+| `SENTRY_AUTH_TOKEN` | Sentry user token (`sntryu_`) | `ci.yml` build job — source-map upload only; never inlined, never read by runtime code. `next.config.ts` passes `undefined` for e2e builds so undeployed bundles never upload. Vercel builds read their own copy from Vercel env. |
 
 ### The one that will hurt you
 

@@ -201,11 +201,11 @@ That ratio is the whole problem. Nothing in this repository causes a 360× slowd
 it is swap. The host has 887 MiB of RAM against 2047 MiB of swap, and it is
 shared — load average 11.87 on 2 vCPU with 7 MiB free was observed mid-run.
 
-### The build needs 1.8 GB and a floor of 768 MB — measured, not guessed
+### The build needs ~2.2 GB and a floor of 768 MB — measured, not guessed
 
 `next build` peaks at **~1.8 GB RSS on every configuration tried**, which is the
 whole reason exit 137 appears. Measured on a workstation, peak RSS and outcome for
-each heap cap:
+each heap cap (before the Sentry integration landed):
 
 | `--max-old-space-size` | Outcome | Peak RSS |
 |---|---|---|
@@ -214,6 +214,12 @@ each heap cap:
 | 704 MB | ❌ fails during type check | 1852 MB |
 | **768 MB** | ✅ succeeds | 1816 MB |
 | uncapped | ✅ succeeds | 1807 MB |
+
+The Sentry plugin adds roughly 300–500 MB on top — 2122 and 2310 MB across two
+runs, both exiting 0. That moves the peak from "under the 2048 MB container
+ceiling with swap to spare" to over it, so the self-hosted build's margin, such
+as it was, is gone. Local and Vercel builds are unaffected; only the 887 MB
+host ever needed that margin.
 
 Two things follow, and the first one is the useful one.
 
