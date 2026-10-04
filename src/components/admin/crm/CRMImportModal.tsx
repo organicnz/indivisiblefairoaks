@@ -4,6 +4,7 @@ import { Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
   Dialog,
   DialogContent,
@@ -91,13 +92,34 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
       if (lastResult.errors.length > 10) {
         rows.push({
           tone: 'warn',
-          text: `…and ${lastResult.errors.length - 10} more. The first 50 are listed in the result of this action; fix the file and re-import to resolve them.`,
+          text: `…and ${lastResult.errors.length - 10} more. The action reports at most 50; fix the file and re-import to resolve them.`,
         });
       }
     }
     if (lastResult.error) rows.push({ tone: 'bad', text: lastResult.error });
     return rows;
   };
+
+  // Data rows in the current input, header excluded. A bulk import is the one
+  // directory mutation with no undo — every other destructive action in the CRM
+  // confirms first — so pasting more than a hundred rows gets a confirm step
+  // that names the number about to be written.
+  const pendingRowCount = csvText
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line, index) => index > 0 && line.length > 0).length;
+
+  const importButton = (
+    <button
+      type="button"
+      onClick={handleImport}
+      disabled={importing || !csvText.trim()}
+      className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-widest rounded-xl shadow-md transition-colors disabled:opacity-50"
+    >
+      <Upload size={14} />
+      {importing ? 'Importing...' : 'Import Contacts'}
+    </button>
+  );
 
   return (
     <Dialog
@@ -203,15 +225,21 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
             >
               {lastResult ? 'Done' : 'Cancel'}
             </button>
-            <button
-              type="button"
-              onClick={handleImport}
-              disabled={importing || !csvText.trim()}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-widest rounded-xl shadow-md transition-colors disabled:opacity-50"
-            >
-              <Upload size={14} />
-              {importing ? 'Importing...' : 'Import Contacts'}
-            </button>
+            {pendingRowCount > 100 ? (
+              <ConfirmAction
+                label="Import contacts"
+                message={`This will add up to ${pendingRowCount} contacts to the directory in one batch. Existing emails are skipped, but there is no undo for the rest.`}
+                confirmLabel="Import"
+                busy={importing}
+                idleClassName="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-widest rounded-xl shadow-md transition-colors disabled:opacity-50"
+                onConfirm={handleImport}
+              >
+                <Upload size={14} />
+                {importing ? 'Importing...' : 'Import Contacts'}
+              </ConfirmAction>
+            ) : (
+              importButton
+            )}
           </div>
         </div>
       </DialogContent>
