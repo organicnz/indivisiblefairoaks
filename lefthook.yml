@@ -159,79 +159,96 @@ pre-commit:
       run: bun scripts/secrets-audit.mjs --offline
       stage_fixed: false
 
-    # ── 18. Large file guard ──────────────────────────────────────────────────
+    # ── 18. Auth redirect origin guard ───────────────────────────────────────
+    # The hosted `site_url` and `uri_allow_list` decide where a magic link goes
+    # and whether its callback is accepted. Neither is readable from the
+    # repository, and this project shipped with both naming an unrelated domain —
+    # so login was broken in a way no test, build or review could surface.
+    #
+    # Offline it proves the code-side cause cannot return: an absolute
+    # `/auth/callback` URL baked into application source. The live settings are
+    # reconciled nightly by the same script's --live mode in
+    # .github/workflows/secret-audit.yml, where the token exists.
+    # Body: scripts/check-auth-redirects.mjs
+    auth-redirects:
+      priority: 15
+      glob: "{src/**/*.ts,src/**/*.tsx,scripts/check-auth-redirects.mjs}"
+      run: bun scripts/check-auth-redirects.mjs
+      stage_fixed: false
+
+    # ── 19. Large file guard ──────────────────────────────────────────────────
     # Body: scripts/hooks/no-large-files.mjs
     no-large-files:
       priority: 16
       run: bun scripts/hooks/no-large-files.mjs {staged_files}
 
-    # ── 19. Empty API route directory guard ──────────────────────────────────
+    # ── 20. Empty API route directory guard ──────────────────────────────────
     # Body: scripts/hooks/no-empty-api-routes.mjs
     no-empty-api-routes:
       priority: 17
       glob: "src/app/api/**"
       run: bun scripts/hooks/no-empty-api-routes.mjs
 
-    # ── 20. Edge function import scope ─────────────────────────────────────
+    # ── 21. Edge function import scope ─────────────────────────────────────
     # Body: scripts/hooks/edge-import-scope.mjs
     edge-import-scope:
       priority: 18
       glob: "supabase/functions/**/*.ts"
       run: bun scripts/hooks/edge-import-scope.mjs {staged_files}
 
-    # ── 21. Merge conflict markers ─────────────────────────────────────────
+    # ── 22. Merge conflict markers ─────────────────────────────────────────
     # Body: scripts/hooks/no-conflict-markers.mjs
     no-conflict-markers:
       priority: 19
       run: bun scripts/hooks/no-conflict-markers.mjs {staged_files}
 
-    # ── 22. Workflow YAML sanity ───────────────────────────────────────────
+    # ── 23. Workflow YAML sanity ───────────────────────────────────────────
     # Body: scripts/hooks/workflow-yaml.mjs
     workflow-yaml:
       priority: 20
       glob: ".github/workflows/*.{yml,yaml}"
       run: bun scripts/hooks/workflow-yaml.mjs {staged_files}
 
-    # ── 23. Biome – format + lint staged files ────────────────────────────────
+    # ── 24. Biome – format + lint staged files ────────────────────────────────
     biome-check:
       priority: 21
       glob: "*.{js,jsx,ts,tsx,json,css}"
       run: bun biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
 
-    # ── 24. oxlint – React / hooks / Next.js rules ───────────────────────────
+    # ── 25. oxlint – React / hooks / Next.js rules ───────────────────────────
     oxlint:
       priority: 22
       glob: "*.{ts,tsx}"
       run: bun oxlint {staged_files}
 
-    # ── 25. TypeScript – type-check without full build ────────────────────────
+    # ── 26. TypeScript – type-check without full build ────────────────────────
     typecheck:
       priority: 23
       glob: "*.{ts,tsx}"
       run: bun tsc --noEmit --incremental false
 
-    # ── 26. E2E spec list check (no browsers) ────────────────────────────────
+    # ── 27. E2E spec list check (no browsers) ────────────────────────────────
     # Body: scripts/hooks/e2e-spec-list.mjs
     e2e-spec-list:
       priority: 24
       glob: "e2e/**/*.spec.ts"
       run: bun scripts/hooks/e2e-spec-list.mjs
 
-    # ── 27. Env usage coverage ────────────────────────────────────────────────
+    # ── 28. Env usage coverage ────────────────────────────────────────────────
     # Body: scripts/hooks/env-usage-coverage.mjs
     env-usage-coverage:
       priority: 25
       glob: "src/**/*.{ts,tsx}"
       run: bun scripts/hooks/env-usage-coverage.mjs {staged_files}
 
-    # ── 28. Lockfile pairing ──────────────────────────────────────────────────
+    # ── 29. Lockfile pairing ──────────────────────────────────────────────────
     # Body: scripts/hooks/lockfile-pair.mjs
     lockfile-pair:
       priority: 26
       run: bun scripts/hooks/lockfile-pair.mjs
 
-    # ── 29. Documentation numeric claims ──────────────────────────────────────
+    # ── 30. Documentation numeric claims ──────────────────────────────────────
     # AGENTS.md and docs/ state how many pre-commit guards exist, how long
     # lefthook.yml runs to, and how many specs the delivery gate executes. Those
     # numbers drift silently, and AGENTS.md once carried two that disagreed with

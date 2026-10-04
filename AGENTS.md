@@ -77,6 +77,29 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
   project's `site_url` / `additional_redirect_urls` live in the dashboard —
   Authentication → URL Configuration. Magic links and OAuth callbacks fail
   closed against that list, so an apex cutover that misses it strands every user.
+- **The hosted Site URL and redirect allow-list drifted to an unrelated domain,
+  and nothing in the repository could see it.** Both read
+  `https://ai.foodshare.club` while the app served
+  `https://test.indivisiblefairoaks.org`, so every magic link went to a host with
+  broken TLS *and* this project's own callback was rejected, because the
+  allow-list named only the wrong host. Login was broken end to end with no
+  failing test, build or review — the state lives in a dashboard. Fixed by
+  `PATCH /v1/projects/<ref>/config/auth`, and `scripts/check-auth-redirects.mjs`
+  now reconciles both settings nightly from `secret-audit.yml`, with an offline
+  pre-commit half proving no absolute `/auth/callback` URL returns to source.
+  The login page builds its callback from `window.location.origin`, so the app
+  is correct on every host by construction and the hosted settings are the only
+  place the origin can go wrong.
+- **The Management API can express exactly one redirect entry, and it fails
+  silently when given more.** It accepts `uri_allow_list` as a string, not an
+  array (an array is a 400), and it *strips the newlines* from a multi-line
+  value before storing it — leaving one concatenated string that GoTrue parses
+  as a single entry matching nothing. Comma separation is stored verbatim and
+  fails the same way, because GoTrue splits on newlines. So a three-host list
+  cannot be written programmatically: **additional hosts go in the dashboard.**
+  The distinction matters because the broken result *looks* configured while
+  rejecting every callback, which is strictly worse than an obviously empty
+  list. The live check treats a multi-URL stored value as drift for this reason.
 - **RLS role-repair pattern**: after project restore/re-provisioning, policy→role OID references can orphan (`pg_policies` shows `{public}` but matches nobody). Playbook: `DROP POLICY … ; CREATE POLICY … TO authenticated …`. There is no dedicated migration for this — the pattern responds to a re-provisioning event rather than a schema change, so it lives in `scripts/rls-role-repair.mjs` and not in `migrations/`.
 
 ### Commerce
@@ -490,7 +513,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   run list — a queued job and an unservable selector are identical there; ask
   `gh api repos/:owner/:repo/actions/runners -q '.runners[].status'`.
 - **The local lefthook gates are therefore the real gates**, and they do run on
-  every push: 30 pre-commit guards, then lint → unit → coverage → types → build →
+  every push: 31 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 119 Playwright specs. Migrations and Edge Functions are deployed
   deliberately with the Supabase CLI rather than by `supabase.yml`.
 - **Every workflow declares an explicit `permissions:` block.** Two that hold
@@ -531,7 +554,7 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 428 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **`lefthook.yml` is 445 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can

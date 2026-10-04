@@ -20,6 +20,7 @@
     "types:generate": "node scripts/gen-types.mjs",
     "secrets:audit": "node scripts/secrets-audit.mjs",
     "secrets:baseline": "node scripts/secrets-audit.mjs --update-baseline",
+    "auth:check": "node scripts/check-auth-redirects.mjs --live",
     "vercel:env:sync": "node scripts/sync-vercel-env.mjs",
     "snap": "node scripts/snap.mjs",
     "palette": "node scripts/palette.mjs",
