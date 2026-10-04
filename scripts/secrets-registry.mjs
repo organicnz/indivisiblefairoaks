@@ -208,6 +208,17 @@ export const REGISTRY = {
     owner: OWNERS['app-runtime'],
     stores: ['vercel-var'],
   },
+  NEXT_PUBLIC_SENTRY_DSN: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS['app-runtime'],
+    stores: ['vercel-var'],
+    note:
+      'Error-monitoring DSN for the indivisiblefairoaks-web project. Public by ' +
+      'construction — the client SDK ships it in the bundle. Deliberately NOT ' +
+      'in github-var: CI and e2e builds carry no DSN so neither can file events ' +
+      'against the production project, and adding it there would silently ' +
+      're-enable exactly that.',
+  },
 
   // ── Next.js server secrets ────────────────────────────────────────────────
   // Read only by the Node runtime. Never inlined, never in the bundle.
@@ -348,6 +359,17 @@ export const REGISTRY = {
     owner: OWNERS['repo-maintainer'],
     stores: ['github-secret'],
     note: 'Fine-grained PAT, scoped to Actions -> Secrets: read. Grants no write and no code access.',
+  },
+  /**
+   * Build-time only. The Sentry Next.js plugin uploads source maps with it;
+   * nothing at runtime — client, server or edge — may read it, which is why it
+   * is absent from every schema and import graph. `next.config.ts` passes
+   * `undefined` for e2e builds so an undeployed bundle never uploads.
+   */
+  SENTRY_AUTH_TOKEN: {
+    exposure: EXPOSURE.privileged,
+    owner: OWNERS.platform,
+    stores: ['github-secret', 'vercel-secret'],
   },
 
   // ── Edge Function runtime ─────────────────────────────────────────────────

@@ -14,6 +14,14 @@ const publicSchema = z.object({
     .default('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder'),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_SITE_URL: z.string().url().default('https://indivisiblefairoaks.org'),
+  // Sentry error monitoring (indivisiblefairoaks-web project). Optional with
+  // no default: absent means the SDK never initialises, which is how local dev
+  // and the CI/e2e builds stay quiet — neither may file events against the
+  // production project. Production and preview builds get the real DSN from
+  // Vercel env; see scripts/vercel-env.mjs. The .catch swallows empty and
+  // malformed values to undefined (same precedent as RESEND_API_KEY) so a
+  // half-filled .env.local disables Sentry instead of failing validation.
+  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional().catch(undefined),
 });
 
 const serverSchema = publicSchema.extend({
@@ -54,6 +62,7 @@ const rawEnv: Record<string, string | undefined> = isClient
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
       NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+      NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
     }
   : { ...process.env };
 

@@ -196,6 +196,11 @@ jobs:
       - name: Build
         env:
           NEXT_E2E_BUILD: "true"
+          # Source-map upload for the Sentry plugin. The plugin skips upload
+          # when the token is absent; next.config.ts additionally passes
+          # undefined for e2e builds, so a bundle that is never deployed never
+          # uploads maps under the release its production twin uses.
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: bun run build
 
       # Upload the build artefact so the E2E job reuses it

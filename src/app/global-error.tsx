@@ -1,5 +1,6 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 import { reportClientError } from '@/lib/error-report';
 
@@ -12,6 +13,10 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     reportClientError(error, { digest: error.digest });
+    // Dual reporting is deliberate: error_reports is the admin-visible,
+    // rate-limited first-party log; Sentry carries source-mapped traces for
+    // debugging. Neither replaces the other. No-ops when no DSN is set.
+    Sentry.captureException(error);
   }, [error]);
 
   return (
