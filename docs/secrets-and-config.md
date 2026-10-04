@@ -314,3 +314,24 @@ That is a correct outcome rather than a pass, but it means the audit is half bli
 the Management API because the direct DB host is IPv6-only and the runner has no
 route. The fallback works, so the absence is a single point of failure that looks
 like a healthy pipeline.
+
+### 2026-10-04 — Sentry activation pending (code complete, stores not yet set)
+
+The `indivisiblefairoaks-web` (`javascript-nextjs`) project exists in the
+`organicnz` Sentry org, `SENTRY_AUTH_TOKEN` is in GitHub Secrets, and the repo
+integration is merged: SDK init in all three runtimes, dual reporting from both
+error boundaries, CSP allowlist entry, and both manifests declared. What remains
+is two Vercel variables — the Vercel CLI is unauthenticated on this machine, so
+this is a dashboard step (or `vercel login` first):
+
+- `NEXT_PUBLIC_SENTRY_DSN` as **Plain**, Production + Preview. Value: the DSN at
+  `https://organicnz.sentry.io/settings/projects/indivisiblefairoaks-web/keys/`.
+  Plain, not Secret — the client SDK ships it in the bundle, and `vercel env
+  add` stores Sensitive by default (the `--no-sensitive` lesson from the sync
+  script above applies verbatim here).
+- `SENTRY_AUTH_TOKEN` as **Secret**, Production + Preview (build-time
+  source-map upload only; never inlined).
+
+Until both are set, the daily audit correctly reports them as required-missing.
+That red is the system working — Sentry is code-complete but not yet live — not
+drift. Do not baseline it away.

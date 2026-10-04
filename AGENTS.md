@@ -871,7 +871,7 @@ Static pages (FAQs, About, Partners, Gallery), partner logos, community gallery,
 README/AGENTS/CLAUDE docs, ProductCard + Gallery design hardening, end-to-end QA, Stripe live keys.
 
 **Phase 5 — Stack Hardening** ✅
-- Error telemetry: `error_reports` table (anon insert-only RLS) + rate-limited `/api/report-error` wired into `error.tsx` / `global-error.tsx`.
+- Error telemetry: `error_reports` table (anon insert-only RLS) + rate-limited `/api/report-error` wired into `error.tsx` / `global-error.tsx`. Both boundaries now also file to Sentry (`indivisiblefairoaks-web` project) via `Sentry.captureException` — dual reporting, neither channel replaces the other; the SDK stays disabled wherever no DSN is set.
 - Full-text search: weighted `tsvector` generated columns + GIN indexes + ranked RPCs (`search_products`, `search_content`); `/search` uses FTS with ILIKE fallback.
 - A11y regression gate: `@axe-core/playwright` over 12 public routes; serious/critical violations fail CI. `/admin` is excluded — the auth-gated surfaces have no seeded session, so the editor and the CRM have no automated a11y coverage at all.
 - Contrast remediation: `--primary-ink` token for lime-on-light text; lime-bg CTAs use dark text; raw lime reserved for dark non-text accents.
