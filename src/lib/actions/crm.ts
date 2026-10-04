@@ -388,12 +388,21 @@ async function fetchContactPage(
   }
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
-  let result = await qb.order('created_at', { ascending: false }).range(from, to);
+  // Offsets are only coherent against a total order: created_at ties across
+  // a bulk insert, so id breaks the tie and a row cannot duplicate or vanish
+  // between pages.
+  let result = await qb
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .range(from, to);
 
   // Fallback: migration not applied yet, or FTS tokenization missed a partial match.
   if (filters.q && (result.error || !result.data?.length)) {
     qb = applyContactFilters(contactSelect(adminClient), filters);
-    result = await qb.order('created_at', { ascending: false }).range(from, to);
+    result = await qb
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to);
   }
 
   if (result.error) {
@@ -516,6 +525,7 @@ export async function getCRMTasks({
   const { data, count, error } = await qb
     .order('due_at', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .range(from, to);
 
   if (error) {
@@ -534,6 +544,7 @@ export async function getCRMTasksForContact(contactId: string): Promise<CRMTask[
     .or(`status.eq.done,and(status.eq.open,due_at.gte.${today})`)
     .order('due_at', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(50);
 
   if (error) {
@@ -615,6 +626,7 @@ export async function getCRMSegments(): Promise<CRMSegment[]> {
     .from('crm_segments')
     .select('*')
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(50);
   if (error) throw new Error(`Failed to load segments: ${error.message}`);
   return data || [];
@@ -684,13 +696,15 @@ export async function getCRMContactDetail(
       .from('crm_activities')
       .select('*')
       .eq('contact_id', id)
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false }),
     adminClient
       .from('crm_tasks')
       .select('*')
       .eq('contact_id', id)
       .order('due_at', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false }),
   ]);
 
   if (contactError || !contact) {
@@ -1688,6 +1702,7 @@ export async function getCRMBroadcasts(): Promise<CRMBroadcast[]> {
     .select('*')
     .neq('status', 'draft')
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(50);
 
   if (error) {

@@ -380,6 +380,19 @@ describe('Civic CRM Server Actions', () => {
       expect(orFilter.split(',').length).toBeGreaterThanOrEqual(5);
       expect(orFilter).toContain('foo bar baz');
     });
+
+    it('pages the directory by a total order — created_at, then id', async () => {
+      // created_at ties across a bulk insert, and offsets are only coherent
+      // against a total order. A row assertion cannot see this — the audience
+      // never leaves the resolver — so this asks the recorder.
+      tables.crm_contacts = { rows: [], filterRows: [] };
+      const recorder = createMockAdminClient(tables, { recordFilters: true });
+      mockAdminClient.from.mockImplementation(recorder.from);
+
+      await getCRMContacts({ pageSize: 10 });
+
+      expect(recorder.orderCalls).toContainEqual({ column: 'id', ascending: false });
+    });
   });
 
   describe('exportCRMContacts', () => {
