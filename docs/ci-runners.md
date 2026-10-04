@@ -40,6 +40,43 @@ Check which one you are looking at with the two commands under
 never from the run list, because a queued job and an unservable selector look
 identical there.
 
+### The current blocker: the live listener runs out of `/tmp`
+
+With the selectors corrected (2026-10-04) jobs stopped queueing and started
+executing, which proved the selector was the only reason nothing ran. They then
+failed in four seconds, in `Prepare workflow directory`:
+
+```
+##[error]Access to the path '/tmp/runner/_PipelineMapping/organicnz/indivisiblefairoaks/PipelineFolder.json' is denied.
+```
+
+That path is under the *live listener's* install root, and the root is
+**`/tmp/runner`** — not the permanent install at `/Users/organic/actions-runner`
+(`.runner` → `agentId` 787, `agentName` `personal-organicnz`, `workFolder`
+`_work`). Two pieces of evidence place the listener in `/tmp`: the error path
+itself, and the newest worker log in the permanent install's `_diag` dating from
+2026-09-30 with nothing from the failing run. That install also has no
+`.service` file, so it was never registered to start automatically.
+
+`/tmp` is not a durable location. macOS periodically purges it, and a runner
+listening from a directory the system has reclaimed fails exactly like this: the
+process is alive, answers GitHub, and cannot write its own pipeline mapping. The
+fix is to stop the stray listener and run the permanent install instead:
+
+```sh
+/Users/organic/actions-runner/run.sh          # foreground; proves it works
+```
+
+For persistence, register it as a user `LaunchAgent` rather than a
+system-level daemon — `sudo ./svc.sh install` is the documented route on macOS
+and needs privileges an agent should not hold, and a user agent is enough. Note
+that CI then depends on the machine staying awake; `caffeinate` around the
+listener, or a login item, keeps it honest.
+
+`scripts/setup-runner.sh` does **not** apply here: it installs a Linux arm64
+tarball and writes systemd/Quadlet units with `MemoryHigh`/`MemoryMax`, none of
+which exist on macOS.
+
 ## Where the runners come from
 
 Self-hosted runners for this organisation are not hand-registered. They are
