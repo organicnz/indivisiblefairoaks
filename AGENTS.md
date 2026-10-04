@@ -90,16 +90,27 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
   The login page builds its callback from `window.location.origin`, so the app
   is correct on every host by construction and the hosted settings are the only
   place the origin can go wrong.
-- **The Management API can express exactly one redirect entry, and it fails
-  silently when given more.** It accepts `uri_allow_list` as a string, not an
-  array (an array is a 400), and it *strips the newlines* from a multi-line
-  value before storing it — leaving one concatenated string that GoTrue parses
-  as a single entry matching nothing. Comma separation is stored verbatim and
-  fails the same way, because GoTrue splits on newlines. So a three-host list
-  cannot be written programmatically: **additional hosts go in the dashboard.**
-  The distinction matters because the broken result *looks* configured while
-  rejecting every callback, which is strictly worse than an obviously empty
-  list. The live check treats a multi-URL stored value as drift for this reason.
+- **The redirect allow-list is comma-separated, and getting that wrong fails
+  silently.** `GOTRUE_URI_ALLOW_LIST` is documented as "a comma separated list of
+  URIs" and GoTrue's config field is a `[]string` populated by go-envconfig,
+  which splits slices on commas. Newlines are **not** a separator: the Management
+  API strips them from a multi-line value before storing, collapsing three URLs
+  into one entry that matches nothing. `uri_allow_list` must also be a string —
+  an array is a `400`. So the correct write is one comma-separated string, and
+  this project carries all three hosts that way:
+  `site_url` is the origin the deployment serves, and the allow-list is the
+  staging, apex and `www` callbacks. `scripts/check-auth-redirects.mjs` parses on
+  commas for the same reason and reports a concatenated value as drift,
+  because the corrupted result *looks* configured while rejecting every
+  callback — strictly worse than an obviously empty list.
+- **Auth email is not configured on the hosted project.** A probe against
+  `/auth/v1/otp` returns `otp_disabled`, and `/authorize` reports every provider
+  as unsupported or disabled, so `signInWithOtp`, `signInWithOAuth` and
+  `resetPasswordForEmail` in `src/app/login/page.tsx` cannot currently
+  complete; only `signInWithPassword` works. The login page still offers the
+  other three paths, which means a resident can pick a method that fails for a
+  reason the UI does not explain. Standing up SMTP is a dashboard change and a
+  chapter decision, so it is recorded here rather than acted on.
 - **RLS role-repair pattern**: after project restore/re-provisioning, policy→role OID references can orphan (`pg_policies` shows `{public}` but matches nobody). Playbook: `DROP POLICY … ; CREATE POLICY … TO authenticated …`. There is no dedicated migration for this — the pattern responds to a re-provisioning event rather than a schema change, so it lives in `scripts/rls-role-repair.mjs` and not in `migrations/`.
 
 ### Commerce
