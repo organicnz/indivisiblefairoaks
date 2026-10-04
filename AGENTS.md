@@ -103,14 +103,18 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
   commas for the same reason and reports a concatenated value as drift,
   because the corrupted result *looks* configured while rejecting every
   callback — strictly worse than an obviously empty list.
-- **Auth email is not configured on the hosted project.** A probe against
-  `/auth/v1/otp` returns `otp_disabled`, and `/authorize` reports every provider
-  as unsupported or disabled, so `signInWithOtp`, `signInWithOAuth` and
-  `resetPasswordForEmail` in `src/app/login/page.tsx` cannot currently
-  complete; only `signInWithPassword` works. The login page still offers the
-  other three paths, which means a resident can pick a method that fails for a
-  reason the UI does not explain. Standing up SMTP is a dashboard change and a
-  chapter decision, so it is recorded here rather than acted on.
+- **`otp_disabled` is not evidence that auth email is off.** Auth email *is*
+  configured (`smtp.resend.com:465`, user `resend`, sender and admin address
+  set) and the mailer path authenticates — a live `AUTH LOGIN` against the relay
+  returns 235. GoTrue answers `otp_disabled` for an address that has no account,
+  because confirming it either way would enumerate users, so a probe using a
+  synthetic address "proves" nothing either way. An earlier revision of this file
+  asserted the opposite on exactly that evidence; it takes a real account to
+  test, and a guess here becomes a false statement in an authoritative document.
+  `/authorize` is the probe that does carry meaning: every provider reports
+  unsupported or disabled, so `signInWithOAuth` cannot complete until one is
+  configured. `signInWithOtp` and `resetPasswordForEmail` have a working mailer
+  behind them and are limited by whether the address has an account.
 - **RLS role-repair pattern**: after project restore/re-provisioning, policy→role OID references can orphan (`pg_policies` shows `{public}` but matches nobody). Playbook: `DROP POLICY … ; CREATE POLICY … TO authenticated …`. There is no dedicated migration for this — the pattern responds to a re-provisioning event rather than a schema change, so it lives in `scripts/rls-role-repair.mjs` and not in `migrations/`.
 
 ### Commerce

@@ -39,6 +39,11 @@ docs/*.pdf
 docs/*.docx
 docs/*.doc
 docs/*.xlsx
+# Mail-log exports carry resident email addresses and message subjects. The
+# 500KB no-large-files guard would block the commit, but only incidentally:
+# a smaller export would slip through, and a file full of constituents'
+# addresses has no reason to be tracked at all.
+docs/*.csv
 
 # Seeded e2e sessions
 e2e/.auth/
