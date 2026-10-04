@@ -897,6 +897,20 @@ describe('CRM defensive defaults', () => {
     await expect(getBroadcastRecipientCount({})).resolves.toEqual({ count: 3, excludedCount: 1 });
   });
 
+  it('reports an exclusion count even when every matching contact is opted out', async () => {
+    // The zero-audience case is the one that reads worst on screen: the bar has
+    // to be able to say "4 people, all excluded" rather than implying nobody
+    // opted out, because both states leave a badge reading 0.
+    tables.crm_contacts = {
+      rows: [
+        { id: 'c1', do_not_email: true },
+        { id: 'c2', do_not_email: true },
+      ],
+    };
+
+    await expect(getBroadcastRecipientCount({})).resolves.toEqual({ count: 0, excludedCount: 2 });
+  });
+
   it('throws when the recipient count itself fails', async () => {
     tables.crm_contacts = { rows: [{ id: 'c1' }], error: { message: 'statement timeout' } };
 

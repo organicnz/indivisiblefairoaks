@@ -50,6 +50,28 @@ const broadcast = (over: Partial<CRMBroadcast> = {}): CRMBroadcast =>
     ...over,
   }) as CRMBroadcast;
 
+const draft = (over: Partial<CRMBroadcast> = {}): CRMBroadcast =>
+  ({
+    id: crypto.randomUUID(),
+    subject: 'Untitled draft',
+    body: 'Half-written.',
+    target_tags: [],
+    target_status: [],
+    target_districts: [],
+    recipient_count: 0,
+    sent_count: 0,
+    failed_count: 0,
+    status: 'draft',
+    sent_at: null,
+    dispatched_at: null,
+    created_by: null,
+    created_at: '2026-09-20T18:00:00.000Z',
+    updated_at: '2026-09-20T18:00:00.000Z',
+    test_only: false,
+    test_recipient: null,
+    ...over,
+  }) as CRMBroadcast;
+
 /**
  * A preview sits in the same history as a real campaign, and every column has to
  * say so.
@@ -164,10 +186,15 @@ describe('broadcast composer failure states', () => {
     container.remove();
   });
 
-  const render = (broadcasts: CRMBroadcast[] = []) => {
+  const render = (broadcasts: CRMBroadcast[] = [], drafts: CRMBroadcast[] = []) => {
     act(() => {
       root.render(
-        <CRMBroadcastComposer initialBroadcasts={broadcasts} segments={[]} existingTags={[]} />
+        <CRMBroadcastComposer
+          initialBroadcasts={broadcasts}
+          initialDrafts={drafts}
+          segments={[]}
+          existingTags={[]}
+        />
       );
     });
   };
@@ -248,6 +275,37 @@ describe('broadcast composer failure states', () => {
     expect(text()).toContain('Opted-out contacts are excluded automatically');
   });
 
+  it('still names the exclusion when the whole audience is opted out', async () => {
+    // "Nobody opted out" and "everybody opted out" both leave a badge reading 0.
+    // Only the exclusion count distinguishes them, which is why it is rendered
+    // rather than inferred from the audience size.
+    vi.mocked(getBroadcastRecipientCount).mockResolvedValueOnce({
+      count: 0,
+      excludedCount: 4,
+    });
+
+    render();
+    await settle(400);
+
+    expect(text()).toContain('4 matching contacts are opted out and excluded');
+    expect(text()).toContain('Nobody on this list will receive it.');
+  });
+
+  it('keeps the unsubscribe note off the all-excluded case', async () => {
+    // "Every email includes a one-click unsubscribe link" describes an email
+    // nobody will receive. Harmless in itself, but it tells the author something
+    // untrue about the blast in front of them.
+    vi.mocked(getBroadcastRecipientCount).mockResolvedValueOnce({
+      count: 0,
+      excludedCount: 4,
+    });
+
+    render();
+    await settle(400);
+
+    expect(text()).not.toContain('one-click unsubscribe link');
+  });
+
   it('says the preview could not be built instead of asking for a subject', async () => {
     vi.mocked(previewCRMBroadcast).mockRejectedValueOnce(new Error('preview down'));
 
@@ -275,7 +333,48 @@ describe('broadcast composer failure states', () => {
     expect(text()).not.toContain('Saving…');
   });
 
+  it('confirms before a loaded draft replaces what is on screen', async () => {
+    // The composer holds exactly one draft, so loading replaces the message being
+    // typed — losing an afternoon of copy to the wrong row click is the failure
+    // mode this surface is prone to. Its docblock promised this confirm; the code
+    // had none.
+    render([], [draft({ subject: 'Half-written rally' })]);
+
+    clickButton('Resume');
+
+    // Names the consequence and the control that acts on it; nothing is loaded yet,
+    // so the confirm gates the load.
+    expect(text()).toContain('Loading “Half-written rally” replaces whatever is in the composer');
+    expect(text()).toContain('Loading “Half-written rally” replaces whatever is in the composer');
+    expect(text()).toContain('Load draft');
+    expect(text()).not.toContain('Discard draft');
+  });
+
+  it('a loaded draft becomes the working copy, with no second Save control', async () => {
+    // Both controls are driven by `draftId` and are mutually exclusive by design:
+    // a loaded draft is edited in place and sent from there. Rendering both would
+    // invite a second row for one draft — which is what the action's conditional
+    // update on `status = 'draft'` exists to catch.
+    render([], [draft({ id: 'draft-1', subject: 'Half-written rally' })]);
+
+    clickButton('Resume');
+    clickButton('Load draft');
+    await settle(100);
+
+    expect(text()).not.toContain('Save draft');
+    expect(text()).toContain('Discard draft');
+    // Loading is not saving: nothing was written by taking the confirm.
+    expect(vi.mocked(saveCRMBroadcastDraft)).not.toHaveBeenCalled();
+  });
+
   it('lists the draft it just saved under unsent drafts', async () => {
+    // A save that wrote a row nobody can see reads as though nothing happened, while
+    // the action bar has already become "Discard draft": the list and the button
+    // disagreed about whether the work existed.
+    //
+    // `initialDrafts` seeds the `drafts` state once and `router.refresh()` never
+    // re-initialises it, so the composer's own state is the only list on screen,
+    // and the row it just wrote has to be on it.
     vi.mocked(saveCRMBroadcastDraft).mockResolvedValueOnce({
       success: true,
       broadcastId: 'draft-1',

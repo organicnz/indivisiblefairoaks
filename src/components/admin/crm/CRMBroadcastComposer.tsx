@@ -788,7 +788,9 @@ export function CRMBroadcastComposer({
                     <>
                       {excludedCount.toLocaleString()} matching{' '}
                       {excludedCount === 1 ? 'contact is' : 'contacts are'} opted out and excluded.
-                      Every email includes a one-click unsubscribe link.
+                      {recipientCount === 0
+                        ? ' Nobody on this list will receive it.'
+                        : ' Every email includes a one-click unsubscribe link.'}
                     </>
                   ) : (
                     <>

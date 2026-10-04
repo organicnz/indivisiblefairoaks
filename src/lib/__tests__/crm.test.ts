@@ -382,9 +382,10 @@ describe('Civic CRM Server Actions', () => {
     });
 
     it('pages the directory by a total order — created_at, then id', async () => {
-      // created_at ties across a bulk insert, and offsets are only coherent
-      // against a total order. A row assertion cannot see this — the audience
-      // never leaves the resolver — so this asks the recorder.
+      // created_at ties across a bulk insert, and offsets are only coherent against a
+      // total order. A row assertion cannot see this — the page boundary is a
+      // property of the query rather than of any row — so this asks the recorder
+      // what it was told to order by.
       tables.crm_contacts = { rows: [], filterRows: [] };
       const recorder = createMockAdminClient(tables, { recordFilters: true });
       mockAdminClient.from.mockImplementation(recorder.from);
@@ -392,9 +393,10 @@ describe('Civic CRM Server Actions', () => {
       await getCRMContacts({ pageSize: 10 });
 
       expect(recorder.orderCalls).toContainEqual({ column: 'id', ascending: false });
-      // Last, not merely present: `.order()` clauses apply in declaration order,
-      // so an `id` tiebreak written *before* `created_at` is silently overridden
-      // by the very column that ties — present in the call list, absent in effect.
+      // Last, not merely present: `.order()` clauses apply in declaration order, so
+      // an `id` tiebreak written *before* `created_at` is silently overridden by the
+      // very column that ties — present in the call list, absent in effect.
+      // `toContainEqual` alone would pass that broken query.
       expect(recorder.orderCalls.at(-1)).toEqual({ column: 'id', ascending: false });
     });
 
