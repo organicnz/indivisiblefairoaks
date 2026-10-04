@@ -140,15 +140,30 @@ async function fetchAuthConfig() {
 }
 
 /**
+ * Split the stored allow-list the way GoTrue does: on commas.
+ *
+ * Deliberately not on newlines. Accepting a newline as a separator would mask
+ * the exact corruption this exists to catch, because the stripped-newline write
+ * leaves no separator to find.
+ */
+function parseAllowList(value) {
+  return String(value ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
  * Reconcile `site_url` and the redirect allow-list.
  *
- * GoTrue splits `uri_allow_list` on newlines, which is what makes two details
- * load-bearing. A comma-separated list is stored verbatim and then parsed as one
- * entry matching nothing, and the Management API strips newlines from a
- * multi-line value before storing it — so this endpoint can express exactly one
- * entry, and a second host has to be added through the dashboard. A stored value
- * holding several concatenated URLs is therefore a finding, not a partially
- * successful fix: it looks configured while rejecting every callback.
+ * GoTrue splits the allow-list on **commas** — `GOTRUE_URI_ALLOW_LIST` is
+ * documented as "a comma separated list of URIs" and the config field is a
+ * `[]string` populated by go-envconfig, which splits slices on commas. Newlines
+ * are not a separator at all: the Management API strips them from a multi-line
+ * value before storing, which silently collapses three URLs into one entry that
+ * matches nothing. So the parse here is comma-based, and a stored value holding
+ * several concatenated URLs is a finding rather than a partially successful fix —
+ * it looks configured while rejecting every callback.
  */
 async function checkLive() {
   const origin = expectedOrigin();
@@ -177,17 +192,28 @@ async function checkLive() {
     });
   }
 
-  const entries = String(config.uri_allow_list ?? '')
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const entries = parseAllowList(config.uri_allow_list);
 
   if (!entries.includes(expectedCallback)) {
     findings.push({
       label: 'redirect allow-list does not permit this deployment callback',
       detail: `expected ${expectedCallback}, allow-list is [${entries.join(', ') || 'empty'}]`,
-      fix: `Add ${expectedCallback} under Authentication → URL Configuration → Redirect URLs`,
+      fix: `Set uri_allow_list to a comma-separated list including ${expectedCallback}`,
     });
+  }
+
+  // Several URLs stored with no separator is the silent-corruption case: it is a
+  // single entry matching nothing, which reads as configured and rejects every
+  // callback. It can pass the membership test above when the first URL happens
+  // to be the right one, so it is counted separately.
+  for (const entry of entries) {
+    if ((entry.match(/https?:\/\//g) ?? []).length > 1) {
+      findings.push({
+        label: 'allow-list entries were concatenated rather than comma-separated',
+        detail: entry,
+        fix: 'Rewrite as a comma-separated list — newlines are stripped on write',
+      });
+    }
   }
 
   for (const entry of entries) {
