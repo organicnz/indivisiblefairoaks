@@ -270,6 +270,26 @@ pre-commit:
       priority: 27
       run: bun scripts/check-doc-claims.mjs
 
+    # ── 31. Edge Function type-check ─────────────────────────────────────────
+    # The command `supabase.yml` runs as its first deploy step, run locally so a
+    # type error cannot reach `main` on a runner that may be weeks behind. A
+    # `ReturnType<typeof createClient>` annotation in crm-broadcast-send sat on
+    # `main` through four merges for exactly that reason: the only gate was the
+    # deploy job, and the deploy job had not run since 2026-09-24.
+    #
+    # `--no-lock` is the one deliberate difference from CI. This runs mid-commit,
+    # and the committed `deno.lock` is stale enough that the locking form rewrites
+    # it on every edge-function commit, leaving the tree dirty behind a commit the
+    # developer believes is clean. CI keeps the locking form, because a deploy path
+    # should have integrity pinning and a throwaway checkout can absorb the write.
+    # Type resolution is identical either way; only the write differs.
+    #
+    # Sibling of `edge-import-scope` (priority 18), same glob.
+    edge-typecheck:
+      priority: 28
+      glob: "supabase/functions/**/*.ts"
+      run: bun run typecheck:edge
+
 # ─── commit-msg ───────────────────────────────────────────────────────────────
 commit-msg:
   commands:

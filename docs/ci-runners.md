@@ -389,7 +389,7 @@ ones that finish:
 
 | Gate | Command |
 |---|---|
-| 31 pre-commit guards | lefthook, on `git commit` |
+| 32 pre-commit guards | lefthook, on `git commit` |
 | documentation claims | `bun scripts/check-doc-claims.mjs` — guards, baseline, spec counts |
 | suppression ratchet | pre-push, baseline 12 |
 | lint | `bun run lint:check` |
@@ -410,10 +410,39 @@ a figure that will be wrong. `scripts/check-doc-claims.mjs` verifies the claims
 that *can* be re-derived — guard count, baseline, `lefthook.yml` length, spec
 total and both coverage floors — and records why this one is not among them.
 
-## Migrations and Edge Functions are deployed by hand
+## Migrations and Edge Functions ship through `supabase.yml`
 
-`supabase.yml` runs on the same fleet, so nothing it does is a substitute for
-applying a migration deliberately:
+`supabase.yml` is the only delivery path, and it applies to production. Its own
+header says so ("ALL Supabase-project delivery … lives HERE"), and it did push
+migrations to the hosted project at 20:56 on 2026-10-04. **An earlier revision of
+this file claimed the opposite** — that deployment is done by hand "rather than by
+`supabase.yml`" — which is the same class of error as a `CHECK` constraint that
+disagrees with the code that writes it: a confident instruction that sends the next
+agent somewhere the pipeline has already been.
+
+A push touching `supabase/**` is the trigger (`paths:` at the top of the workflow),
+so the fix and the deploy are one action, not two. `workflow_dispatch` exists for a
+redeploy after a rotation. Three jobs report independently, and that independence is
+deliberate — `verify` needs `deploy`, `migrate` does not:
+
+| Job | Does | On failure |
+|---|---|---|
+| `Deploy edge functions` | `deno check` first, then all 8 deploys, then asserts required secrets exist in the hosted project | nothing shipped; the type/secret error is in the log |
+| `Push database migrations` | route select → dry-run → `db push` → `apply-migrations.mjs` as the authoritative converger | schema may already be ahead of the code — check before re-running |
+| `Verify live edge functions` | probes every deployed route for its expected status | a 404 means not deployed; a 200 where a 401 is expected is worse |
+
+The ordering matters when a run fails partway, which is exactly what happened on
+2026-10-04: `migrate` **succeeded** and `deploy` failed on a type error, so
+production schema moved while the function did not.
+
+`deno check --node-modules-dir=auto supabase/functions/*/index.ts` is the gate that
+caught it, and it was the *only* one — nothing local ran it, which is why it reached
+`main` through four merges while the runner was offline. `bun run typecheck:edge`
+and the `edge-typecheck` pre-commit guard now run the same check locally.
+
+`apply-migrations.mjs` and the CLI dry-run remain the right tools for inspecting
+state, and this is the record of how the two CHECK constraints were verified live by
+attempting the insert they exist to forbid:
 
 ```bash
 supabase db push --linked --dry-run     # always first

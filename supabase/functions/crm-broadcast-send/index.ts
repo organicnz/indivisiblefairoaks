@@ -2,7 +2,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { Hono } from 'jsr:@hono/hono'
 import { HTTPException } from 'jsr:@hono/hono/http-exception'
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import {
   buildBroadcastEmail,
   BROADCAST_RECIPIENT_CEILING,
@@ -411,7 +411,14 @@ app.post('*', async (c) => {
 })
 
 async function finish(
-  supabase: ReturnType<typeof createClient>,
+  // `SupabaseClient<any>`, NOT `ReturnType<typeof createClient>`: the latter
+  // resolves the *generic* signature's constraints rather than the inferred
+  // client, erasing to `SupabaseClient<unknown, {PostgrestVersion: string},
+  // never, never, …>`, which the concrete `createClient(...)` below is not
+  // assignable to — `Type '"public"' is not assignable to type 'never'`, five
+  // times over, at every call site of this one function.
+  // `wall-e-chat` and `walle-refresh` already type their clients this way.
+  supabase: SupabaseClient<any>,
   broadcastId: string,
   status: 'sent' | 'failed',
   recipientCount: number,
