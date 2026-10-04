@@ -3,12 +3,13 @@
 name: cms-editor-and-crm
 description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, src/lib/sanitize.ts, src/lib/trusted-links.ts, src/lib/own-media.ts, src/lib/image-size.ts, src/lib/__tests__/supabase-mock.ts,
 supabase/functions/_shared/broadcast.ts, supabase/functions/crm-broadcast-send/, the
-unsubscribe route, or a coverage threshold in `vitest.config.ts`, or a coverage threshold in vitest.config.ts, or
-src/app/admin/layout.tsx, e2e/admin-authenticated.spec.ts, or supabase/functions/checkout/ — and
+unsubscribe route, a coverage threshold in `vitest.config.ts`,
+src/app/admin/layout.tsx, e2e/admin-authenticated.spec.ts, supabase/functions/checkout/,
+src/components/layout/Header.tsx, or e2e/mobile-navigation.spec.ts — and
 whenever a change could make CMS content vanish on publish, change a page's publish state, lose an
 author's keystrokes, lose or re-date a revision, widen who receives an email, disable an email path by
-accident, shift an image's layout, strand an editor on an unsaved document, or leave a file outside the
-coverage gate.
+accident, shift an image's layout, strand an editor on an unsaved document, break dialog focus
+restoration, or leave a file outside the coverage gate.
 ---
 # CMS editor & CRM
 
@@ -410,10 +411,20 @@ that only go up.
 `crm.ts` from 90.0% to 89.86%, so the run failed on coverage alone with every test
 green. **Cover the new file — never widen an exclusion to accommodate it.**
 
-`src/lib/actions/content.ts` was the second omission of the same kind: every CMS
-mutation, in no threshold at all. It is now on a floor of 53/50/53/59 — a floor at
-the measured value, not an exemption. **50% branches is not a rounding artefact**:
-most of the image storage paths, the revision queries, the list/pagination reads
+**Current floors, stated on single lines where the gate checks them.**
+`src/lib/actions/crm.ts` on an explicit floor of **88 / 76 / 100 / 93**; `src/lib/actions/content.ts` on **58 / 54 / 61 / 65** — both re-derived from
+`vitest.config.ts` by `scripts/check-doc-claims.mjs`, which fails on a mismatch.
+(The single-line rule matters: that script matches per line, so a guarded number
+split across two lines matches nothing and the staleness goes silent. That is
+how the previous sentence in this section drifted.) The content file was
+the second omission of the same kind: every CMS mutation, in no threshold at
+all. Its floor was raised once already, from 53/50/53/59, when the
+concurrent-edit and unsubscribe-route suites landed: **a floor that is not moved
+when the number moves is a comment, not a ratchet.** If you raise coverage, raise
+the floor in the same change.
+
+**54% branches is not a rounding artefact**: most of the image storage paths,
+the revision queries, the list/pagination reads
 and every failure branch are uncovered. The difference between "we have not
 looked" and "we have looked, and here is the number" is the whole point.
 
@@ -704,6 +715,38 @@ An in-memory window (`src/lib/rate-limit.ts` for the route, `@hono` middleware
 for the function) is **not** enough: isolates are per-instance, so the limit
 becomes N × the intended limit. The table is shared; rows are never cleaned up,
 same as the existing uses.
+
+### 32. A dialog that does not restore focus strands a keyboard user at the top of the page
+
+The mobile nav drawer is a Radix `Dialog` whose trigger — the hamburger — lives
+outside the portal. The code comment claimed Radix supplied "focus restoration
+to the hamburger on close". Measured: opening the drawer and pressing Escape
+left `document.activeElement` on `<body>`, not the button. Radix restores onto
+the node it recorded at open, but the modal un-hides everything behind it on
+close, so the restore lands nowhere and focus falls through. A keyboard user
+lost their place entirely.
+
+**Restore explicitly.** `menuButtonRef` on the trigger plus `onCloseAutoFocus`
+with `preventDefault()` and an explicit `.focus()`. `e2e/mobile-navigation.spec.ts`
+fails if this regresses — `await expect(trigger).toBeFocused()` after Escape —
+and that test is the only thing standing between this and silently re-breaking,
+because nothing about the drawer looks wrong when focus is lost.
+
+Two test-shape lessons from the same spec, both worth reusing anywhere a dialog
+or a computed style is asserted:
+
+- **Assert the contract, not a particular child.** Radix autofocuses the *first
+  tabbable node*, which here is the close button. The first version of the spec
+  asserted the logo link and failed for that reason alone, while proving nothing
+  about the trap. It now asserts focus is *inside* the dialog and that six Tab
+  presses stay there — stronger than the single assertion it replaced, because a
+  trap that leaks after the first cycle still fails it.
+- **Never assert unresolved CSS text.** `getComputedStyle().getPropertyValue()`
+  resolves `var()` and `env()` before anything is readable, so the clearance
+  assertion demanding the literal `var(--safe-area-top)` could never pass — the
+  CSSOM always returns `calc(6.5rem + 0px)`. Assert the resolved value is built
+  from the inputs instead (`--header-clearance` contains `--header-h`), which
+  still fails if the derivation is dropped.
 
 ## Before you finish
 
