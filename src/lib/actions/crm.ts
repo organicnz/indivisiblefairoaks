@@ -315,6 +315,8 @@ export interface GetCRMContactsParams {
   statusList?: string[];
   districtList?: string[];
   tagList?: string[];
+  /** Consent audit: who has opted out of email, and who has not. */
+  consent?: 'opted_out' | 'opted_in';
   page?: number;
   pageSize?: number;
 }
@@ -324,6 +326,7 @@ type ContactFilterState = {
   districts: string[];
   tags: string[];
   q: string;
+  doNotEmail?: boolean;
 };
 
 type AdminClient = Awaited<ReturnType<typeof requireAdmin>>['adminClient'];
@@ -340,13 +343,20 @@ function resolveFilters({
   statusList,
   districtList,
   tagList,
+  consent,
 }: GetCRMContactsParams): ContactFilterState {
   const statuses = statusList?.length ? statusList : splitList(status).filter((s) => s !== 'all');
   const districts = districtList?.length
     ? districtList
     : splitList(district).filter((d) => d !== 'all');
   const tags = normalizeTags(tagList?.length ? tagList : splitList(tag).filter((t) => t !== 'all'));
-  return { statuses, districts, tags, q: query.trim().slice(0, 100) };
+  return {
+    statuses,
+    districts,
+    tags,
+    q: query.trim().slice(0, 100),
+    doNotEmail: consent === 'opted_out' ? true : consent === 'opted_in' ? false : undefined,
+  };
 }
 
 function applyContactFilters(qb: ReturnType<typeof contactSelect>, filters: ContactFilterState) {
@@ -363,6 +373,9 @@ function applyContactFilters(qb: ReturnType<typeof contactSelect>, filters: Cont
   }
   if (filters.tags.length > 0) {
     out = out.contains('tags', filters.tags);
+  }
+  if (filters.doNotEmail !== undefined) {
+    out = out.eq('do_not_email', filters.doNotEmail);
   }
   if (filters.q) {
     const escaped = escapeIlikeOrValue(filters.q);
@@ -1757,6 +1770,16 @@ export async function getCRMExistingTags(): Promise<string[]> {
   return [...tags].sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * The audience a broadcast would reach, and how many matching contacts are
+ * excluded by consent.
+ *
+ * The exclusion number is the half the dispatch bar never showed: "opted-out
+ * contacts are excluded automatically" told the author a rule, not a fact,
+ * so a chapter that had quietly accumulated hundreds of opt-outs could mail
+ * an audience a fraction the size it was expecting without noticing. Both
+ * counts come from one target specification, so the two numbers reconcile.
+ */
 export async function getBroadcastRecipientCount({
   targetTags = [],
   targetStatus = [],
@@ -1765,32 +1788,36 @@ export async function getBroadcastRecipientCount({
   targetTags?: string[];
   targetStatus?: string[];
   targetDistricts?: string[];
-}): Promise<number> {
+}): Promise<{ count: number; excludedCount: number }> {
   const { adminClient } = await requireAdmin();
 
   targetTags = normalizeTags(targetTags);
 
-  let qb = adminClient
-    .from('crm_contacts')
-    .select('*', { count: 'exact', head: true })
-    .eq('do_not_email', false);
+  const targetQuery = () => {
+    let qb = adminClient.from('crm_contacts').select('*', { count: 'exact', head: true });
+    if (targetStatus.length > 0) {
+      qb = qb.in('status', targetStatus);
+    }
+    if (targetDistricts.length > 0) {
+      qb = qb.in('district', targetDistricts);
+    }
+    if (targetTags.length > 0) {
+      qb = qb.contains('tags', targetTags);
+    }
+    return qb;
+  };
 
-  if (targetStatus.length > 0) {
-    qb = qb.in('status', targetStatus);
-  }
+  const [{ count, error }, { count: excluded, error: excludedError }] = await Promise.all([
+    targetQuery().eq('do_not_email', false),
+    targetQuery().eq('do_not_email', true),
+  ]);
 
-  if (targetDistricts.length > 0) {
-    qb = qb.in('district', targetDistricts);
-  }
-
-  if (targetTags.length > 0) {
-    qb = qb.contains('tags', targetTags);
-  }
-
-  const { count, error } = await qb;
   if (error) {
     throw new Error(`Failed to count broadcast recipients: ${error.message}`);
   }
+  if (excludedError) {
+    throw new Error(`Failed to count excluded recipients: ${excludedError.message}`);
+  }
 
-  return count ?? 0;
+  return { count: count ?? 0, excludedCount: excluded ?? 0 };
 }

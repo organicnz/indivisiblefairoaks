@@ -678,6 +678,17 @@ Deliberately left undone. None block the apex cutover.
     by construction), so the CORS `origin` restriction remains inert for a
     non-browser client; the table-backed window is the working control. Rows
     are never cleaned up, same as the existing `search_rate_limit` uses.
+10. **Consent is now filterable and counted, but not reviewable.**
+    `getCRMContacts` takes `consent: 'opted_out' | 'opted_in'`, and the
+    dispatch bar names how many matching contacts were excluded rather than
+    asserting that exclusion happens. What is *not* recorded is *why*: a
+  volunteer answering a constituent's "why did I stop hearing from
+  you?" has nothing to read, and the answer lives only in an email
+  thread. That is a schema change plus a decision about what the chapter
+  will store, so it stays a chapter decision rather than a deploy. The
+  two numbers reconcile deliberately: `count + excludedCount` is every
+  contact the audience rules matched, because both come from one target
+  specification rather than two. See `docs/crm-operations.md`.
 ---
 
 ## Agent Skills

@@ -818,8 +818,9 @@ describe('CRM defensive defaults', () => {
 
     const count = await getBroadcastRecipientCount({});
 
-    expect(count).toBe(0);
-    expect(typeof count).toBe('number');
+    expect(count.count).toBe(0);
+    expect(typeof count.count).toBe('number');
+    expect(count.excludedCount).toBe(1);
   });
 
   it('applies every audience filter to the recipient count', async () => {
@@ -875,12 +876,15 @@ describe('CRM defensive defaults', () => {
       targetTags: ['choir'],
     });
 
-    expect(count).toBe(1);
+    expect(count.count).toBe(1);
+    expect(count.excludedCount).toBe(1);
   });
 
-  it('counts only opted-in contacts', async () => {
+  it('counts only opted-in contacts, and reports the opted-out ones it excluded', async () => {
     // The composer's number is what an organizer reads before they commit, so it
-    // has to exclude the same people the sender will exclude.
+    // has to exclude the same people the sender will exclude — and it has to say
+    // how many were withheld, or an audience that quietly halved has no
+    // explanation on screen.
     tables.crm_contacts = {
       rows: [
         { id: 'c1', do_not_email: false },
@@ -890,7 +894,21 @@ describe('CRM defensive defaults', () => {
       ],
     };
 
-    await expect(getBroadcastRecipientCount({})).resolves.toBe(3);
+    await expect(getBroadcastRecipientCount({})).resolves.toEqual({ count: 3, excludedCount: 1 });
+  });
+
+  it('reports an exclusion count even when every matching contact is opted out', async () => {
+    // The zero-audience case is the one that reads worst on screen: the bar has
+    // to be able to say "4 people, all excluded" rather than implying nobody
+    // opted out, because both states leave a badge reading 0.
+    tables.crm_contacts = {
+      rows: [
+        { id: 'c1', do_not_email: true },
+        { id: 'c2', do_not_email: true },
+      ],
+    };
+
+    await expect(getBroadcastRecipientCount({})).resolves.toEqual({ count: 0, excludedCount: 2 });
   });
 
   it('throws when the recipient count itself fails', async () => {

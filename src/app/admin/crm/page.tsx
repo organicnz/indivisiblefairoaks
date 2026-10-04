@@ -31,6 +31,7 @@ export default async function AdminCRMPage({
     status?: string;
     district?: string;
     tag?: string;
+    consent?: string;
     page?: string;
   }>;
 }) {
@@ -41,6 +42,12 @@ export default async function AdminCRMPage({
   const currentStatus = params.status || 'all';
   const currentDistrict = params.district || 'all';
   const currentTag = params.tag || 'all';
+  const currentConsent: 'all' | 'opted_out' | 'opted_in' =
+    params.consent === 'opted_out'
+      ? 'opted_out'
+      : params.consent === 'opted_in'
+        ? 'opted_in'
+        : 'all';
   const page = Math.max(1, parseInt(params.page || '1', 10) || 1);
   const pageSize = 50;
 
@@ -51,6 +58,7 @@ export default async function AdminCRMPage({
       status: currentStatus,
       district: currentDistrict,
       tag: currentTag,
+      consent: currentConsent === 'all' ? undefined : currentConsent,
       page,
       pageSize,
     }),
@@ -171,6 +179,7 @@ export default async function AdminCRMPage({
         currentStatus={currentStatus}
         currentDistrict={currentDistrict}
         currentTag={currentTag}
+        currentConsent={currentConsent}
         currentPage={page}
         pageSize={pageSize}
         existingTags={existingTags}
