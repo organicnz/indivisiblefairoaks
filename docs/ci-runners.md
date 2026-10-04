@@ -5,30 +5,77 @@
 
 ## The short version
 
-**`runs-on: [self-hosted, linux, X64, …]` is correct. Do not change it.**
+**`runs-on: [self-hosted, linux, ARM64, …]` is correct. Do not change it.**
 
-This repository **is** served — a runner exists, it is `X64`, and it accepts jobs,
-checks out the repository and runs them. That was not true for most of this
-repository's life, and the reason it stayed invisible is the part worth keeping.
+The only runner registered to this repository is **`personal-organicnz`**, an
+Apple-silicon Mac on Linux, carrying `frontend-runner` and `backend-runner`. The
+selector matches its real architecture rather than a different one, because a
+selector that matches nothing does not error — it waits forever.
 
-Two independent things can stop it, and they need different fixes:
+This file previously said the opposite: that the `X64` selector was correct and
+must not be changed, on the grounds that a hand-registered ARM64 Mac "fails in
+`Prepare workflow directory`". That advice was withdrawn because **the `X64`
+selector had no runner to match.** It was not protecting anything; it was the
+bug. The `X64` selector and the ARM64 Mac overlapped only partially —
+`frontend-runner` matched, `X64` did not — so every job sat `queued` with no
+error anywhere.
 
-- **The `ghrunner` podman network went missing (fixed 2026-10-03).** When it is
-  absent, every container start fails with `unable to find network with name or
-  ID ghrunner: network not found` and podman exits 125, so the runner service
-  fails, systemd hits its restart limit, and GitHub shows the runner
-  `offline` while every workflow sits `queued`. The remedy is one command:
-  `systemctl --user restart ghrunner-personal-<instance>.service` over SSH. The
-  `ARM64` Mac is `online` but cannot satisfy the `X64` selector, so a green
-  runner list is not evidence a job can run.
-- **The runner host is too small to finish the work even when it is up.** See
-  [The host is the ceiling](#the-host-is-the-ceiling). Jobs now start, reach the
-  typecheck, and are cancelled when the host runs out of memory and swap.
+- **The `ghrunner` x86 fleet is gone from this repository.** It went offline on
+  2026-10-03 because the `ghrunner` podman network was missing: every
+  `podman run --network=ghrunner` exited 125 with `network not found`, the runner
+  service failed and systemd hit its restart limit. GitHub shows an offline
+  runner and every workflow `queued`, which reads exactly like a bad label.
+  Restoring it is separate work in `../ghrunner`. Until then, this repository
+  runs on the Mac — which means **CI now depends on that machine being awake and
+  online**, and a sleeping host presents as the same silent queue.
+- **The host is no longer the ceiling it was.** The x86 VPS was 887 MiB / 2 vCPU,
+  where `tsc` peaked at ~598 MB RSS and jobs ended `cancelled` rather than
+  `failed` once swap was exhausted. The `NODE_OPTIONS: --max-old-space-size=768`
+  caps on `lint` and `build` existed for that cgroup (`MEMORY=1024M`) and are
+  gone with it; on this host 768 MB sits *below* Node's own default, so keeping
+  them would have invited a heap OOM the old container could never produce.
 
 Check which one you are looking at with the two commands under
 [How to check whether CI can actually run](#how-to-check-whether-ci-can-actually-run) —
 never from the run list, because a queued job and an unservable selector look
 identical there.
+
+### The current blocker: the live listener runs out of `/tmp`
+
+With the selectors corrected (2026-10-04) jobs stopped queueing and started
+executing, which proved the selector was the only reason nothing ran. They then
+failed in four seconds, in `Prepare workflow directory`:
+
+```
+##[error]Access to the path '/tmp/runner/_PipelineMapping/organicnz/indivisiblefairoaks/PipelineFolder.json' is denied.
+```
+
+That path is under the *live listener's* install root, and the root is
+**`/tmp/runner`** — not the permanent install at `/Users/organic/actions-runner`
+(`.runner` → `agentId` 787, `agentName` `personal-organicnz`, `workFolder`
+`_work`). Two pieces of evidence place the listener in `/tmp`: the error path
+itself, and the newest worker log in the permanent install's `_diag` dating from
+2026-09-30 with nothing from the failing run. That install also has no
+`.service` file, so it was never registered to start automatically.
+
+`/tmp` is not a durable location. macOS periodically purges it, and a runner
+listening from a directory the system has reclaimed fails exactly like this: the
+process is alive, answers GitHub, and cannot write its own pipeline mapping. The
+fix is to stop the stray listener and run the permanent install instead:
+
+```sh
+/Users/organic/actions-runner/run.sh          # foreground; proves it works
+```
+
+For persistence, register it as a user `LaunchAgent` rather than a
+system-level daemon — `sudo ./svc.sh install` is the documented route on macOS
+and needs privileges an agent should not hold, and a user agent is enough. Note
+that CI then depends on the machine staying awake; `caffeinate` around the
+listener, or a login item, keeps it honest.
+
+`scripts/setup-runner.sh` does **not** apply here: it installs a Linux arm64
+tarball and writes systemd/Quadlet units with `MemoryHigh`/`MemoryMax`, none of
+which exist on macOS.
 
 ## Where the runners come from
 

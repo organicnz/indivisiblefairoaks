@@ -6,50 +6,47 @@ on:
   pull_request:
     branches: [main, mainDeploy]
 
-# ── Why every job here has never run ───────────────────────────────────────
-# `runs-on: [self-hosted, linux, X64, …]` is correct and should stay. The
-# platform label is not the problem, so read this before touching it.
+# ── Why every job here used to wait forever ──────────────────────────────────
+# Read this before changing the selectors back.
 #
-# Self-hosted runners for this organisation are provisioned by **ghrunner**, a
-# fleet manager running as rootless Podman + Quadlet on one x86_64 VPS behind
-# Tailscale (../ghrunner). A repository is served only when it has an
-# `instances/<id>.env` declaring `REPO_URL`, and the fleet's own coverage auditor
-# is what tells you whether one exists.
+# `runs-on` names `[self-hosted, linux, ARM64, …]` because that is the only
+# runner registered to this repository: `personal-organicnz`, an Apple-silicon
+# Mac. It was previously excluded by an `X64` selector, which is a **partial**
+# overlap — `frontend-runner` matched, `X64` did not — so the jobs sat `queued`
+# with no error anywhere. PRs #53–#56 got further and failed at exactly
+# `20m0s`, a job timeout rather than a lint error, because an x86 runner was
+# still reachable then and has since gone away.
 #
-# **`organicnz/indivisiblefairoaks` IS declared** in
-# `instances/indivisiblefairoaks.env` with
-# `LABELS=self-hosted,Linux,X64,ghrunner,personal,personal-organicnz,frontend-runner,backend-runner`.
-# The coverage auditor reports it as served. On 2026-10-03 the runner was
-# `status=offline` and every job here waited indefinitely — the cause was NOT a
-# label mismatch. The `ghrunner` podman network was missing, so every
-# `podman run --network=ghrunner` exited 125 with
-# `unable to find network with name or ID ghrunner: network not found`, the
-# runner unit failed, and systemd hit its restart limit. Fix over SSH with:
-#
-#   systemctl --user restart ghrunner-personal-indivisiblefairoaks.service
-#
-# A `runs-on` selector that matches nothing does not error — it waits forever —
-# and `cancel-in-progress: true` below cancels the previous run as the next push
-# lands, so the queue never visibly grows. The run history reads as a series of
-# quiet `cancelled` runs with a green tick beside the merged PR, which is the
-# most dangerous kind of fake control: indistinguishable from passing.
+# **A `runs-on` selector that matches nothing does not error — it waits
+# forever**, and `cancel-in-progress: true` below cancels the previous run as the
+# next push lands, so the queue never visibly grows. The run history reads as a
+# series of quiet `cancelled` runs with a green tick beside the merged PR, which
+# is the most dangerous kind of fake control: indistinguishable from passing.
 #
 # **Do not diagnose this from the run list.** A queued job and an unservable
 # selector look identical there. Ask the two questions that can tell them apart:
 #
 #   gh api repos/$REPO/actions/runners -q '.runners[] | {name, status, busy}'
-#   ssh organic@100.111.249.64 podman network ls       # is `ghrunner` there?
-#   cargo run -q -p fleet-coverage -- --root .         # in ../ghrunner
+#   gh api repos/$REPO/actions/runners -q '.runners[].labels[].name'
 #
-# Note also that a hand-registered runner for this repository exists
-# (`personal-organicnz`, an Apple-silicon Mac). It is ARM64 and cannot satisfy
-# the `X64` requirement, so it will never pick up these jobs — a green runner
-# list is not evidence that a job can run.
+# A green runner list is not evidence that a job can run; the labels are the
+# only thing that decides it, which is why the two `gh` calls above are both
+# needed. `scripts/setup-runner.sh` documents the label sets.
 #
-# With the runner restored, the host is the remaining ceiling: it is 887 MiB /
-# 2 vCPU, and jobs end `cancelled` rather than `failed` once swap is exhausted.
-# `cancelled` here means the host ran out of room — it is not a verdict on the
-# code. See docs/ci-runners.md.
+# The x86 fleet this repository was originally served by (**ghrunner**, rootless
+# Podman + Quadlet on one VPS behind Tailscale) declared this repo in
+# `instances/indivisiblefairoaks.env` with an `X64` label, and on 2026-10-03 it
+# went offline because the `ghrunner` podman network was missing — every
+# `podman run --network=ghrunner` exited 125 with `network not found`. Nothing
+# about the selectors caused that, and restoring the fleet is a separate piece of
+# work in ../ghrunner. Until then these jobs run on the Mac, which means **CI now
+# depends on that machine being awake and online**; a sleeping host presents as
+# the same silent queue described above.
+#
+# The host is no longer the ceiling it was. The VPS was 887 MiB / 2 vCPU, where
+# `tsc` peaked around 598 MB and jobs ended `cancelled` once swap was exhausted;
+# `cancelled` there meant the host ran out of room, not that the code was wrong.
+# See docs/ci-runners.md.
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -77,13 +74,12 @@ jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64, frontend-runner]
     timeout-minutes: 15
-    env:
-      # tsc's program (~295 files) exceeds Node's default heap cap on the
-      # 887 MiB runner (~448 MB) and aborts. Scoped to this job only — a
-      # global NODE_OPTIONS would also raise the build's workers.
-      NODE_OPTIONS: --max-old-space-size=768
+    # The `NODE_OPTIONS: --max-old-space-size=768` this job used to carry is gone
+    # for the same reason as the build job's: it worked around a 448MB default
+    # heap cap on an 887 MiB container, and this runner sizes its own heap from
+    # the machine's RAM. See the note on the build job.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -122,7 +118,7 @@ jobs:
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
     name: Tests & Coverage
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64, frontend-runner]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -156,17 +152,17 @@ jobs:
   # ── 3. Build ─────────────────────────────────────────────────────────────────
   build:
     name: Next.js Build
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64, frontend-runner]
     needs: [lint, test]
     timeout-minutes: 20
-    env:
-      # The build is killed by the cgroup, not by V8: exit 137 / SIGKILL once
-      # RSS passes the container's MEMORY=1024M. Left unbounded, V8 grows the
-      # heap rather than collecting, so the process walks into the ceiling and
-      # the kernel takes it. Capping the heap makes GC work harder and keeps RSS
-      # under the limit — the same lever as the lint job, opposite direction.
-      # Unproven: this is a hypothesis until a build actually completes here.
-      NODE_OPTIONS: --max-old-space-size=768
+    # The `NODE_OPTIONS: --max-old-space-size=768` this job used to carry is gone
+    # with the host that needed it. It capped the heap because the build was
+    # killed by a cgroup at `MEMORY=1024M` — exit 137 / SIGKILL — not by V8, and
+    # the only runner registered here is a Mac with no such ceiling. Carrying the
+    # cap forward would have been actively unsafe: 768MB is *below* Node's own
+    # default on a machine with this much RAM, so it would invite a heap OOM that
+    # the old container could never produce. tsc's measured peak on the old host
+    # was ~598MB, so lint is unaffected either way.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -218,7 +214,7 @@ jobs:
   # ── 4. E2E Tests ─────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64, frontend-runner]
     needs: [build]
     timeout-minutes: 30
     steps:
@@ -286,7 +282,7 @@ jobs:
   # it (api-upload-free) into permanent red. Don't re-add it.
   health-probe:
     name: Live Health Probe
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, ARM64, frontend-runner]
     # CI build completion is the sync point: by then the Git-driven
     # Vercel deploy (~3-4 min) is settled or nearly so; the 90 s
     # retry loop below absorbs the remainder.

@@ -496,37 +496,44 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
-- **CI starts, and cannot finish.** `runs-on: [self-hosted, linux, X64, …]` is
-  correct and stays that way. This repository *is* served — it was removed from
-  `ghrunner`'s `UNSERVED` list, `instances/indivisiblefairoaks.env` is deployed,
-  and the runner registers as `indivisiblefairoaks-runner-1`. Two faults, and
-  they are not the same fault:
-  **(1) The `ghrunner` podman network went missing** (found and fixed
-  2026-10-03). Every `podman run --network=ghrunner` exited 125 with
-  `network not found`, the runner service failed, systemd hit its restart limit
-  and GitHub showed the runner `offline` with all workflows `queued` — which
-  reads exactly like a bad label. One `systemctl --user restart` of the instance
-  service over SSH brings it back. **(2) The host is too small.** It is an
-  **887 MiB / 2 vCPU** VPS: `tsc` peaks at ~598 MB RSS, so Node's ~448 MB default
-  cap aborted it, and the lint job now sets
-  `NODE_OPTIONS: --max-old-space-size=768` — scoped to that one job, because a
-  workflow-level value would also raise `vitest`'s and the build's. The instance
-  already declares `MEMORY_SWAP=2048M`, so the cap has room. **What still fails is
-  not the typecheck.** `EPHEMERAL=true` means one job per container, so each job
-  re-runs `bun install` while the previous container's swap is still draining;
-  load hits ~7 on 2 vCPU with 1.9 GB of 2 GB swap used and jobs end
-  **`cancelled`, not `failed`**. `build` and `e2e` remain unproven on this host —
-  they are gated behind `lint` and `test`, so no run has ever reached them. The
-  full record of the five stacked defects that hid all of this for so long — an
-  unrelated empty org blocking every runner on the host, a duplicate runner name
-  returning HTTP 409 while reporting `online`, and two separate checkout failures
-  that each presented as *the* checkout failure — is in
-  [`docs/ci-runners.md`](./docs/ci-runners.md). **Do not "fix" this by
-  changing the platform label.** A hand-registered ARM64 Mac satisfies an
-  `ARM64` selector and then fails in `Prepare workflow directory`; the answer is
-  host capacity and runner availability, not labels. Never diagnose it from the
-  run list — a queued job and an unservable selector are identical there; ask
-  `gh api repos/:owner/:repo/actions/runners -q '.runners[].status'`.
+- **CI runs on a hand-registered ARM64 Mac, and that is a deliberate reversal.**
+  `runs-on` names `[self-hosted, linux, ARM64, …]` because
+  `personal-organicnz` — an Apple-silicon Mac — is the only runner registered to
+  this repository, and it carries `frontend-runner` and `backend-runner`. It was
+  previously excluded by an `X64` selector, which was a **partial** overlap:
+  `frontend-runner` matched, `X64` did not, so every job sat `queued` with no
+  error anywhere. PRs #53–#56 got further and failed at exactly `20m0s` — a job
+  timeout, not a lint error — because the x86 fleet was still reachable then.
+
+  This reverses the earlier instruction in this file, which said not to change
+  the platform label on the grounds that an ARM64 Mac "fails in `Prepare workflow
+  directory`". The honest reason that advice no longer applies is not that it was
+  wrong about ARM64 support — Linux ARM64 self-hosted runners are supported — but
+  that the x86 fleet it was protecting has gone away. **The `X64` selector had
+  no runner to match, so it was not protecting anything; it was the bug.** What
+  was never wrong is the diagnostic habit: never read this from the run list. A
+  queued job and an unservable selector are identical there. Ask
+  `gh api repos/:owner/:repo/actions/runners -q '.runners[].status'` **and**
+  `-q '.runners[].labels[].name'` — a green runner list is not evidence a job can
+  run, and labels are the only thing that decides it.
+
+  Two consequences to keep in view. **CI now depends on that Mac being awake and
+  online**; a sleeping host presents as the same silent queue. And the
+  `NODE_OPTIONS: --max-old-space-size=768` caps on `lint` and `build` are gone with
+  the host that needed them — they capped the heap because the VPS build was
+  killed by a cgroup at `MEMORY=1024M`, and on this host 768 MB sits *below*
+  Node's own default, so keeping them would have invited a heap OOM the old
+  container could never produce.
+
+  The `ghrunner` x86 fleet (../ghrunner) declared this repo in
+  `instances/indivisiblefairoaks.env` and went offline on 2026-10-03 because the
+  `ghrunner` podman network was missing — every `podman run --network=ghrunner`
+  exited 125 with `network not found`, which reads exactly like a bad label.
+  Restoring it is separate work in that repo; the full record of the five stacked
+  defects that hid all of this for so long — an unrelated empty org blocking
+  every runner on the host, a duplicate runner name returning HTTP 409 while
+  reporting `online`, and two separate checkout failures that each presented as
+  *the* checkout failure — is in [`docs/ci-runners.md`](./docs/ci-runners.md).
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 31 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 119 Playwright specs. Migrations and Edge Functions are deployed
