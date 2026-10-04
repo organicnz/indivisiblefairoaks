@@ -534,9 +534,14 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   the cgroup ceiling. The full record is in
   [`docs/ci-runners.md`](./docs/ci-runners.md).
 - **The local lefthook gates are therefore the real gates**, and they do run on
-  every push: 31 pre-commit guards, then lint → unit → coverage → types → build →
-  peer-deps → 119 Playwright specs. Migrations and Edge Functions are deployed
-  deliberately with the Supabase CLI rather than by `supabase.yml`.
+  every push: 32 pre-commit guards, then lint → unit → coverage → types → build →
+  peer-deps → 119 Playwright specs. Migrations and Edge Functions are **not**
+  deployed by hand: `supabase.yml` is the only delivery path and a push touching
+  `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
+  migrations to the hosted project at 20:56 on 2026-10-04 while its sibling
+  `deploy` job failed on a type error — so after any partial failure, check whether
+  schema moved before re-running. See
+  [`docs/ci-runners.md`](./docs/ci-runners.md#migrations-and-edge-functions-ship-through-supabaseyml).
 - **Every workflow declares an explicit `permissions:` block.** Two that hold
   credentials previously inherited the repository default, which may grant
   write.
@@ -575,7 +580,7 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 445 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **`lefthook.yml` is 465 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can
