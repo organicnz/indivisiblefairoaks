@@ -4,15 +4,23 @@ import { toast as sonnerToast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CRMBroadcastComposer } from '@/components/admin/crm/CRMBroadcastComposer';
 import type { CRMBroadcast } from '@/lib/actions/crm';
+import {
+  getBroadcastProgress,
+  getBroadcastRecipientCount,
+  previewCRMBroadcast,
+  saveCRMBroadcastDraft,
+} from '@/lib/actions/crm';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), message: vi.fn(), info: vi.fn() },
+}));
 vi.mock('@/lib/actions/crm', () => ({
   deleteCRMBroadcastDraft: vi.fn(),
   getBroadcastProgress: vi.fn(),
-  getBroadcastRecipientCount: vi.fn(),
+  getBroadcastRecipientCount: vi.fn().mockResolvedValue({ count: 128, excludedCount: 0 }),
   previewCRMBroadcast: vi.fn(),
   saveCRMBroadcastDraft: vi.fn(),
   sendCRMBroadcast: vi.fn(),
@@ -55,7 +63,8 @@ describe('broadcast history labelling', () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  beforeEach(async () => {
+  beforeEach(() => {
+    vi.mocked(sonnerToast.error).mockClear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -136,6 +145,11 @@ describe('broadcast composer failure states', () => {
   const toast = vi.mocked(sonnerToast);
 
   beforeEach(() => {
+    // Each test below overrides the count, so `mockReset` restores the factory's
+    // default first — a queued rejection would otherwise fire in the next test.
+    vi.mocked(getBroadcastRecipientCount).mockReset();
+    vi.mocked(getBroadcastRecipientCount).mockResolvedValue({ count: 128, excludedCount: 0 });
+    vi.mocked(sonnerToast.error).mockClear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -197,7 +211,6 @@ describe('broadcast composer failure states', () => {
   };
 
   it('says the count is unavailable instead of showing zero when the count fails', async () => {
-    const { getBroadcastRecipientCount } = await import('@/lib/actions/crm');
     vi.mocked(getBroadcastRecipientCount).mockRejectedValueOnce(new Error('db down'));
 
     render();
@@ -207,8 +220,31 @@ describe('broadcast composer failure states', () => {
     expect(text()).toContain('The audience could not be counted');
   });
 
+  it('names how many matching contacts are opted out and excluded', async () => {
+    vi.mocked(getBroadcastRecipientCount).mockResolvedValueOnce({
+      count: 1200,
+      excludedCount: 37,
+    });
+
+    render();
+    await settle(400);
+
+    expect(text()).toContain('37 matching contacts are opted out and excluded');
+  });
+
+  it('falls back to the generic exclusion copy when nobody is opted out', async () => {
+    vi.mocked(getBroadcastRecipientCount).mockResolvedValueOnce({
+      count: 1200,
+      excludedCount: 0,
+    });
+
+    render();
+    await settle(400);
+
+    expect(text()).toContain('Opted-out contacts are excluded automatically');
+  });
+
   it('says the preview could not be built instead of asking for a subject', async () => {
-    const { previewCRMBroadcast } = await import('@/lib/actions/crm');
     vi.mocked(previewCRMBroadcast).mockRejectedValueOnce(new Error('preview down'));
 
     render();
@@ -221,7 +257,6 @@ describe('broadcast composer failure states', () => {
   });
 
   it('re-enables the save button and reports when a draft save throws', async () => {
-    const { saveCRMBroadcastDraft } = await import('@/lib/actions/crm');
     vi.mocked(saveCRMBroadcastDraft).mockRejectedValueOnce(new Error('network'));
 
     render();
@@ -237,7 +272,6 @@ describe('broadcast composer failure states', () => {
   });
 
   it('lists the draft it just saved under unsent drafts', async () => {
-    const { saveCRMBroadcastDraft } = await import('@/lib/actions/crm');
     vi.mocked(saveCRMBroadcastDraft).mockResolvedValueOnce({
       success: true,
       broadcastId: 'draft-1',
@@ -252,8 +286,7 @@ describe('broadcast composer failure states', () => {
   });
 
   it('tells the author when the progress feed is lost instead of freezing', async () => {
-    const { getBroadcastProgress } = await import('@/lib/actions/crm');
-    vi.mocked(getBroadcastProgress).mockRejectedValue(new Error('db down'));
+    vi.mocked(getBroadcastProgress).mockRejectedValueOnce(new Error('db down'));
 
     render([broadcast({ status: 'sending', recipient_count: 500, sent_count: 120 })]);
     await settle(100);

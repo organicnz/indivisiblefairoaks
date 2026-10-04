@@ -37,6 +37,7 @@ interface Props {
   currentStatus: string;
   currentDistrict: string;
   currentTag: string;
+  currentConsent: 'all' | 'opted_out' | 'opted_in';
   currentPage: number;
   pageSize: number;
   existingTags: string[];
@@ -79,6 +80,7 @@ export function CRMContactList({
   currentStatus,
   currentDistrict,
   currentTag,
+  currentConsent,
   currentPage,
   pageSize,
   existingTags,
@@ -99,6 +101,7 @@ export function CRMContactList({
   const [status, setStatus] = useState(currentStatus || 'all');
   const [district, setDistrict] = useState(currentDistrict || 'all');
   const [tag, setTag] = useState(currentTag || 'all');
+  const [consent, setConsent] = useState<'all' | 'opted_out' | 'opted_in'>(currentConsent || 'all');
 
   // Tags to offer in the filter: schema-known tags plus whatever is active now.
   const tagOptions = [...new Set([...existingTags, ...splitActiveTags(currentTag)])].sort((a, b) =>
@@ -111,6 +114,7 @@ export function CRMContactList({
     if (status && status !== 'all') params.set('status', status);
     if (district && district !== 'all') params.set('district', district);
     if (tag && tag !== 'all') params.set('tag', tag);
+    if (consent && consent !== 'all') params.set('consent', consent);
     return params;
   };
 
@@ -123,6 +127,7 @@ export function CRMContactList({
     if (currentStatus && currentStatus !== 'all') params.set('status', currentStatus);
     if (currentDistrict && currentDistrict !== 'all') params.set('district', currentDistrict);
     if (currentTag && currentTag !== 'all') params.set('tag', currentTag);
+    if (currentConsent && currentConsent !== 'all') params.set('consent', currentConsent);
     return params;
   };
 
@@ -254,7 +259,7 @@ export function CRMContactList({
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
         <form
           onSubmit={handleFilterSubmit}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3"
         >
           {/* Search Query */}
           <div className="lg:col-span-2 relative">
@@ -321,6 +326,20 @@ export function CRMContactList({
             </select>
           </div>
 
+          {/* Consent Filter */}
+          <div>
+            <select
+              value={consent}
+              onChange={(e) => setConsent(e.target.value as 'all' | 'opted_out' | 'opted_in')}
+              aria-label="Filter by email consent"
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
+            >
+              <option value="all">All Consent States</option>
+              <option value="opted_out">Opted Out of Email</option>
+              <option value="opted_in">Email Allowed</option>
+            </select>
+          </div>
+
           {/* Apply Button */}
           <div className="flex gap-2">
             <button
@@ -337,6 +356,7 @@ export function CRMContactList({
                 setStatus('all');
                 setDistrict('all');
                 setTag('all');
+                setConsent('all');
                 router.push('/admin/crm');
               }}
               className="px-3 py-2.5 text-xs text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors"
@@ -586,7 +606,7 @@ export function CRMContactList({
                           <span className="truncate">{contact.email}</span>
                           {contact.do_not_email && (
                             <span
-                              className="shrink-0 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[9px] font-black uppercase"
+                              className="shrink-0 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[10px] font-black uppercase leading-none"
                               title="Do not email — excluded from broadcasts"
                             >
                               opt-out

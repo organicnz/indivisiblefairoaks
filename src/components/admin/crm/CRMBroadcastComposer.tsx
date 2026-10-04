@@ -97,6 +97,7 @@ export function CRMBroadcastComposer({
 
   // Audience size
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
+  const [excludedCount, setExcludedCount] = useState(0);
   const [calculatingCount, setCalculatingCount] = useState(false);
   const [countFailed, setCountFailed] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
@@ -138,7 +139,8 @@ export function CRMBroadcastComposer({
           targetTags: selectedTags,
         });
         if (active) {
-          setRecipientCount(count);
+          setRecipientCount(count.count);
+          setExcludedCount(count.excludedCount);
           setCountFailed(false);
         }
       } catch {
@@ -782,8 +784,18 @@ export function CRMBroadcastComposer({
                 Will be delivered to{' '}
                 <strong className="text-secondary">{recipientCount ?? 0}</strong> constituents.
                 <span className="block text-[11px] text-slate-400 mt-0.5">
-                  Opted-out contacts are excluded automatically. Every email includes a one-click
-                  unsubscribe link.
+                  {excludedCount > 0 ? (
+                    <>
+                      {excludedCount.toLocaleString()} matching{' '}
+                      {excludedCount === 1 ? 'contact is' : 'contacts are'} opted out and excluded.
+                      Every email includes a one-click unsubscribe link.
+                    </>
+                  ) : (
+                    <>
+                      Opted-out contacts are excluded automatically. Every email includes a
+                      one-click unsubscribe link.
+                    </>
+                  )}
                 </span>
                 {countFailed && (
                   <span role="alert" className="mt-1 block font-bold text-accent-red">

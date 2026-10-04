@@ -393,6 +393,53 @@ describe('Civic CRM Server Actions', () => {
 
       expect(recorder.orderCalls).toContainEqual({ column: 'id', ascending: false });
     });
+
+    it('filters the directory by consent, so the opted-out list is auditable', async () => {
+      // "Who has opted out?" previously had no answer short of paging the whole
+      // directory reading 9px badges, or writing SQL.
+      const optedOut = {
+        id: 'c1',
+        email: 'quiet@example.com',
+        status: 'supporter',
+        do_not_email: true,
+        created_at: '2026-01-01T00:00:00Z',
+      };
+      const optedIn = {
+        id: 'c2',
+        email: 'loud@example.com',
+        status: 'supporter',
+        do_not_email: false,
+        created_at: '2026-01-02T00:00:00Z',
+      };
+      tables.crm_contacts = { rows: [optedOut, optedIn] };
+
+      const res = await getCRMContacts({ consent: 'opted_out' });
+
+      expect(res.contacts.map((c) => c.email)).toEqual(['quiet@example.com']);
+      expect(res.totalCount).toBe(1);
+    });
+
+    it('filters the directory by the contacts that may still be emailed', async () => {
+      const optedOut = {
+        id: 'c1',
+        email: 'quiet@example.com',
+        status: 'supporter',
+        do_not_email: true,
+        created_at: '2026-01-01T00:00:00Z',
+      };
+      const optedIn = {
+        id: 'c2',
+        email: 'loud@example.com',
+        status: 'supporter',
+        do_not_email: false,
+        created_at: '2026-01-02T00:00:00Z',
+      };
+      tables.crm_contacts = { rows: [optedOut, optedIn] };
+
+      const res = await getCRMContacts({ consent: 'opted_in' });
+
+      expect(res.contacts.map((c) => c.email)).toEqual(['loud@example.com']);
+    });
   });
 
   describe('exportCRMContacts', () => {
@@ -997,7 +1044,7 @@ describe('Civic CRM Server Actions', () => {
         targetTags: ['choir'],
       });
 
-      expect(count).toBe(1);
+      expect(count.count).toBe(1);
     });
 
     it('queues the broadcast and dispatches it to the background sender', async () => {
