@@ -64,7 +64,8 @@ describe('broadcast history labelling', () => {
   let root: Root;
 
   beforeEach(() => {
-    vi.mocked(sonnerToast.error).mockClear();
+    // The mock factory's neutral count stands: nothing here overrides it, so the
+    // audience readout renders a real number rather than "Count unavailable".
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -134,10 +135,13 @@ describe('broadcast history labelling', () => {
 });
 
 /**
- * The composer's failure paths. Every one of these used to end in a silent
- * wrong answer: a count that failed read as "0 constituents", a preview that
- * failed read as "add a subject and message", a draft save that left the
- * button spinning forever, and a progress feed that froze on its last number.
+ * The composer's own failure and half-truth surfaces. Every one of these used to
+ * end in a silent wrong answer: a count that failed read as "0 constituents", a
+ * preview that failed read as "add a subject and message", a draft save that left
+ * the button spinning forever, and a progress feed that froze on its last number.
+ *
+ * The two exclusion-count tests are the opposite case — the count succeeded, and
+ * the number that mattered was the one being withheld.
  */
 describe('broadcast composer failure states', () => {
   let container: HTMLDivElement;
@@ -145,11 +149,11 @@ describe('broadcast composer failure states', () => {
   const toast = vi.mocked(sonnerToast);
 
   beforeEach(() => {
-    // Each test below overrides the count, so `mockReset` restores the factory's
-    // default first — a queued rejection would otherwise fire in the next test.
+    // Several tests below replace the count with `mockResolvedValueOnce`, which
+    // queues. `mockReset` first, or an unconsumed rejection fires in whichever
+    // test happens to run next and fails it for the wrong reason.
     vi.mocked(getBroadcastRecipientCount).mockReset();
     vi.mocked(getBroadcastRecipientCount).mockResolvedValue({ count: 128, excludedCount: 0 });
-    vi.mocked(sonnerToast.error).mockClear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);

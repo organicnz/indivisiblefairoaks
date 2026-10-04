@@ -253,6 +253,39 @@ or a proxy log, and the mitigation is the contact's own re-subscribe rather than
 silent invalidation of links they may still be looking at. If that trade is ever
 revisited, it is a decision about the chapter's threat model, not a bug fix.
 
+## Consent is filterable and counted — the reasons are still not recorded
+
+`do_not_email` is enforced in four places and all four agree: the broadcast
+resolver, the recipient count, the direct-email action, and the sender itself. That
+part was already correct and is not what this section is about.
+
+What an organizer could not do was **check**. "Opted-out contacts are excluded
+automatically" told them a rule, not a fact: if a third of the chapter had quietly
+opted out since the last blast, the audience on screen was two thirds of what they
+expected and nothing said so. And answering "who has opted out?" meant paging the
+whole directory reading a 9px badge on each row, or writing SQL against production.
+
+Both are now first-class:
+
+- `getCRMContacts` takes `consent: 'opted_out' | 'opted_in'`, filtered on
+  `do_not_email` in the query rather than in JavaScript. The directory filter bar
+  has a **Consent** select for it, and the URL carries `consent=` so a filtered
+  view survives a reload, a shared link, and the pager.
+- `getBroadcastRecipientCount` returns `{ count, excludedCount }` instead of a bare
+  number. Both numbers come from one target specification — the same statuses,
+  districts and tags — so they reconcile: *count + excludedCount* is every contact
+  the audience rules matched. The dispatch bar names the exclusion
+  ("37 matching contacts are opted out and excluded") rather than asserting that
+  exclusion happens.
+
+**The count is not the same as an audit trail, and the difference matters.** An
+organizer can now prove *how many* are excluded and *who* they are. They still
+cannot read *why* someone opted out, because the reason lives in an email thread
+and nowhere else. If a constituent asks, the honest answer is "we have it in a
+thread somewhere". Recording it is a schema change and a decision about what the
+chapter is willing to store about its own members — so it is deliberately left
+undone rather than guessed at.
+
 ## Never send email from a test
 
 Two different mechanisms, because the two send paths are not alike.

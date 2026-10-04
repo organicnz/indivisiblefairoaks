@@ -392,6 +392,10 @@ describe('Civic CRM Server Actions', () => {
       await getCRMContacts({ pageSize: 10 });
 
       expect(recorder.orderCalls).toContainEqual({ column: 'id', ascending: false });
+      // Last, not merely present: `.order()` clauses apply in declaration order,
+      // so an `id` tiebreak written *before* `created_at` is silently overridden
+      // by the very column that ties — present in the call list, absent in effect.
+      expect(recorder.orderCalls.at(-1)).toEqual({ column: 'id', ascending: false });
     });
 
     it('filters the directory by consent, so the opted-out list is auditable', async () => {
