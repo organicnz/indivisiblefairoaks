@@ -496,44 +496,43 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
-- **CI runs on a hand-registered ARM64 Mac, and that is a deliberate reversal.**
-  `runs-on` names `[self-hosted, linux, ARM64, …]` because
-  `personal-organicnz` — an Apple-silicon Mac — is the only runner registered to
-  this repository, and it carries `frontend-runner` and `backend-runner`. It was
-  previously excluded by an `X64` selector, which was a **partial** overlap:
-  `frontend-runner` matched, `X64` did not, so every job sat `queued` with no
-  error anywhere. PRs #53–#56 got further and failed at exactly `20m0s` — a job
-  timeout, not a lint error — because the x86 fleet was still reachable then.
+- **CI waits forever when the runner cannot register, and that is not a label
+  problem.** `runs-on: [self-hosted, linux, X64, …]` is correct and stays that
+  way. The real runner is `indivisiblefairoaks-runner-1`, a Quadlet container on
+  the **ghrunner** host (an ARM64 Linux box over Tailscale) whose labels are
+  `self-hosted, Linux, X64, ghrunner, personal, personal-organicnz,
+  frontend-runner, backend-runner` — it advertises **X64 on ARM64 hardware**, so
+  `X64` is the right token and must not be "corrected" to match the host CPU.
 
-  This reverses the earlier instruction in this file, which said not to change
-  the platform label on the grounds that an ARM64 Mac "fails in `Prepare workflow
-  directory`". The honest reason that advice no longer applies is not that it was
-  wrong about ARM64 support — Linux ARM64 self-hosted runners are supported — but
-  that the x86 fleet it was protecting has gone away. **The `X64` selector had
-  no runner to match, so it was not protecting anything; it was the bug.** What
-  was never wrong is the diagnostic habit: never read this from the run list. A
-  queued job and an unservable selector are identical there. Ask
+  Every job here sat `queued` for weeks because that container never registered.
+  Its entrypoint mints a registration token from `api.github.com` before
+  starting; with no DNS it failed, so GitHub never saw an X64 runner at all. The
+  cause was the podman network: `ghrunner` had DNS enabled, so containers got
+  aardvark-dns on `10.89.0.1`, which forwards to the host's systemd-resolved stub
+  on `127.0.0.53` — a **loopback-only** address a bridge network cannot reach.
+  Recreating the network with `--disable-dns` makes podman inject the real
+  upstream itself, and the container registers within seconds.
+
+  **The diagnostic trap is the part worth keeping.** The runners page listed a
+  single runner — `personal-organicnz`, a hand-registered ARM64 Mac — and that
+  was *accurate* rather than misleading: the real runner was missing because it
+  had never registered. "The selector matches no runner" and "the runner does not
+  exist" are indistinguishable from the repository, and an ARM64/X64 partial
+  overlap looks exactly like a label bug. So never read this from the run list,
+  where a queued job and an unservable selector are identical. Ask
   `gh api repos/:owner/:repo/actions/runners -q '.runners[].status'` **and**
-  `-q '.runners[].labels[].name'` — a green runner list is not evidence a job can
-  run, and labels are the only thing that decides it.
+  `-q '.runners[].labels[].name'` — and check that the runner you *expect* is on
+  that list at all, not merely that its labels match.
 
-  Two consequences to keep in view. **CI now depends on that Mac being awake and
-  online**; a sleeping host presents as the same silent queue. And the
-  `NODE_OPTIONS: --max-old-space-size=768` caps on `lint` and `build` are gone with
-  the host that needed them — they capped the heap because the VPS build was
-  killed by a cgroup at `MEMORY=1024M`, and on this host 768 MB sits *below*
-  Node's own default, so keeping them would have invited a heap OOM the old
-  container could never produce.
-
-  The `ghrunner` x86 fleet (../ghrunner) declared this repo in
-  `instances/indivisiblefairoaks.env` and went offline on 2026-10-03 because the
-  `ghrunner` podman network was missing — every `podman run --network=ghrunner`
-  exited 125 with `network not found`, which reads exactly like a bad label.
-  Restoring it is separate work in that repo; the full record of the five stacked
-  defects that hid all of this for so long — an unrelated empty org blocking
-  every runner on the host, a duplicate runner name returning HTTP 409 while
-  reporting `online`, and two separate checkout failures that each presented as
-  *the* checkout failure — is in [`docs/ci-runners.md`](./docs/ci-runners.md).
+  The host is still the ceiling: the container runs with `Memory=1073741824`
+  (1024 MiB), so jobs end `cancelled` rather than `failed` once the cgroup is
+  exhausted. That is what the `NODE_OPTIONS: --max-old-space-size=768` caps on
+  `lint` and `build` exist for — verified with
+  `podman inspect personal-indivisiblefairoaks` — and they are load-bearing. An
+  earlier revision of this file removed them on the theory that the small host
+  was gone; it was not, and removing them would have walked `next build` into
+  the cgroup ceiling. The full record is in
+  [`docs/ci-runners.md`](./docs/ci-runners.md).
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 31 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 119 Playwright specs. Migrations and Edge Functions are deployed

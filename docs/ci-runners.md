@@ -5,77 +5,88 @@
 
 ## The short version
 
-**`runs-on: [self-hosted, linux, ARM64, …]` is correct. Do not change it.**
+**`runs-on: [self-hosted, linux, X64, …]` is correct. Do not change it.**
 
-The only runner registered to this repository is **`personal-organicnz`**, an
-Apple-silicon Mac on Linux, carrying `frontend-runner` and `backend-runner`. The
-selector matches its real architecture rather than a different one, because a
-selector that matches nothing does not error — it waits forever.
-
-This file previously said the opposite: that the `X64` selector was correct and
-must not be changed, on the grounds that a hand-registered ARM64 Mac "fails in
-`Prepare workflow directory`". That advice was withdrawn because **the `X64`
-selector had no runner to match.** It was not protecting anything; it was the
-bug. The `X64` selector and the ARM64 Mac overlapped only partially —
-`frontend-runner` matched, `X64` did not — so every job sat `queued` with no
-error anywhere.
-
-- **The `ghrunner` x86 fleet is gone from this repository.** It went offline on
-  2026-10-03 because the `ghrunner` podman network was missing: every
-  `podman run --network=ghrunner` exited 125 with `network not found`, the runner
-  service failed and systemd hit its restart limit. GitHub shows an offline
-  runner and every workflow `queued`, which reads exactly like a bad label.
-  Restoring it is separate work in `../ghrunner`. Until then, this repository
-  runs on the Mac — which means **CI now depends on that machine being awake and
-  online**, and a sleeping host presents as the same silent queue.
-- **The host is no longer the ceiling it was.** The x86 VPS was 887 MiB / 2 vCPU,
-  where `tsc` peaked at ~598 MB RSS and jobs ended `cancelled` rather than
-  `failed` once swap was exhausted. The `NODE_OPTIONS: --max-old-space-size=768`
-  caps on `lint` and `build` existed for that cgroup (`MEMORY=1024M`) and are
-  gone with it; on this host 768 MB sits *below* Node's own default, so keeping
-  them would have invited a heap OOM the old container could never produce.
-
-Check which one you are looking at with the two commands under
-[How to check whether CI can actually run](#how-to-check-whether-ci-can-actually-run) —
-never from the run list, because a queued job and an unservable selector look
-identical there.
-
-### The current blocker: the live listener runs out of `/tmp`
-
-With the selectors corrected (2026-10-04) jobs stopped queueing and started
-executing, which proved the selector was the only reason nothing ran. They then
-failed in four seconds, in `Prepare workflow directory`:
+The real runner is **`indivisiblefairoaks-runner-1`**, a Quadlet container
+(`ghrunner-personal-indivisiblefairoaks.service`) on the **ghrunner** host — an
+ARM64 Linux box reached over Tailscale. Its labels are:
 
 ```
-##[error]Access to the path '/tmp/runner/_PipelineMapping/organicnz/indivisiblefairoaks/PipelineFolder.json' is denied.
+self-hosted, Linux, X64, ghrunner, personal, personal-organicnz, frontend-runner, backend-runner
 ```
 
-That path is under the *live listener's* install root, and the root is
-**`/tmp/runner`** — not the permanent install at `/Users/organic/actions-runner`
-(`.runner` → `agentId` 787, `agentName` `personal-organicnz`, `workFolder`
-`_work`). Two pieces of evidence place the listener in `/tmp`: the error path
-itself, and the newest worker log in the permanent install's `_diag` dating from
-2026-09-30 with nothing from the failing run. That install also has no
-`.service` file, so it was never registered to start automatically.
+Note it advertises **X64 on ARM64 hardware**. That is not a mistake to correct:
+`X64` is the token every `runs-on` here asks for, and rewriting it to `ARM64`
+would exclude the only working runner.
 
-`/tmp` is not a durable location. macOS periodically purges it, and a runner
-listening from a directory the system has reclaimed fails exactly like this: the
-process is alive, answers GitHub, and cannot write its own pipeline mapping. The
-fix is to stop the stray listener and run the permanent install instead:
+### What actually went wrong, for weeks
+
+**The runner could not register itself, so no X64 runner existed.** Every job sat
+`queued`. Its entrypoint mints a registration token from `api.github.com` before
+starting, and it could not resolve the name:
+
+```
+curl: (6) Could not resolve host: api.github.com
+```
+
+The cause was the podman network, not the labels. `ghrunner` was created with
+DNS enabled, so containers received podman's embedded resolver at `10.89.0.1`
+(aardvark-dns). aardvark-dns forwards to the host's resolver — and this host runs
+systemd-resolved on `127.0.0.53`, a **loopback-only** stub that a bridge network
+cannot reach. No upstream, no DNS.
+
+Evidence that isolates it from everything else:
+
+| Check | Result |
+|---|---|
+| raw-IP egress from the `ghrunner` network | works (`http://1.1.1.1` → `301`) — NAT is fine |
+| default `podman` network (`dns_enabled: false`) | resolves — podman injects the real upstream itself |
+| `podman run --dns 1.1.1.1` on `ghrunner` | **silently ignored**; container still got `10.89.0.1` |
+| same network recreated with `--disable-dns` | container gets `nameserver 168.63.129.16`, resolves, `github=200` |
+
+`--dns` being ignored is the detail worth remembering: on a custom network podman
+takes the resolver from the network, so the only lever is the network's own
+`dns_enabled` setting, or a real nameserver on the host.
+
+**Fix applied 2026-10-04**, rootless, on the ghrunner host:
 
 ```sh
-/Users/organic/actions-runner/run.sh          # foreground; proves it works
+systemctl --user stop ghrunner-personal-indivisiblefairoaks.service ghrunner-foodshareclub-1.service
+podman network rm -f ghrunner
+podman network create --disable-dns --subnet 10.89.0.0/24 ghrunner
+systemctl --user start ghrunner-personal-indivisiblefairoaks.service ghrunner-foodshareclub-1.service
 ```
 
-For persistence, register it as a user `LaunchAgent` rather than a
-system-level daemon — `sudo ./svc.sh install` is the documented route on macOS
-and needs privileges an agent should not hold, and a user agent is enough. Note
-that CI then depends on the machine staying awake; `caffeinate` around the
-listener, or a login item, keeps it honest.
+Both containers went from crash-looping to `healthy` within seconds and the
+runner registered as `indivisiblefairoaks-runner-1`.
 
-`scripts/setup-runner.sh` does **not** apply here: it installs a Linux arm64
-tarball and writes systemd/Quadlet units with `MemoryHigh`/`MemoryMax`, none of
-which exist on macOS.
+> **This reverts on reboot.** `ghrunner-network.service` recreates the network
+> from the fleet definition, which does not pass `--disable-dns`. The durable fix
+> is that one flag in `../ghrunner`; until it lands, re-apply the commands above.
+
+### The diagnostic trap
+
+The runners page listed a **single** runner — `personal-organicnz`, a
+hand-registered ARM64 Mac — and nothing else. That was accurate rather than
+misleading: the real runner was missing because it had never registered.
+"The selector matches no runner" and "the runner does not exist" are
+indistinguishable from the repository, and an ARM64/X64 partial overlap looks
+exactly like a label bug.
+
+**Never diagnose this from the run list**, where a queued job and an unservable
+selector are identical. Ask for `.runners[].status` **and**
+`.runners[].labels[].name` — then confirm the runner you *expect* is on that
+list at all, rather than only that its labels match.
+
+### The host is still the ceiling
+
+The container runs with `Memory=1073741824` (1024 MiB),
+`MemorySwap=2147483648` and `CpuQuota=150000`. Jobs end `cancelled` rather than
+`failed` once the cgroup is exhausted, and `cancelled` there means the host ran
+out of room — it is not a verdict on the code. The
+`NODE_OPTIONS: --max-old-space-size=768` caps on `lint` and `build` exist for
+exactly this and are load-bearing; they were briefly removed on the mistaken
+theory that the small host was gone.
 
 ## Where the runners come from
 
