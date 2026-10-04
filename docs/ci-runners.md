@@ -230,7 +230,7 @@ never finishes" to "the build is killed", and each step has been measured:
 | `bun install` never returns; job dies at 20 min | Every ephemeral container refetched the whole tree — ~13 min cold, before any verification ran | **Fixed** by caching `~/.bun/install/cache`: **30 s** warm |
 | `tsc` aborts, `Reached heap limit` (exit 134) | Node's ~448 MB default cap < 598 MB measured peak | **Fixed** by the 768 MB cap |
 | `bun run build` killed, exit 137 | The cgroup OOM-killer: SIGKILL once RSS passes the container's total `MEMORY + MEMORY_SWAP` ceiling. V8 grows the heap rather than collecting | **Partly fixable** — see below |
-| Lint passes sometimes, cancelled other times | `tsc` takes 8m28s here against **1.4 s** locally. The host runs at load ~12 on 2 vCPU | **Not fixable here** — shared, undersized host |
+| Lint passes sometimes, cancelled other times | `tsc` takes 8m28s here against **1.4 s** locally. The host runs at load ~12 on 2 vCPU | **Wall clock fixed** (15 → 25 min); the load itself is not — shared, undersized host |
 | Queue never drains | One runner for all four workflows, five jobs per run, and `cancel-in-progress` only cancels within a single ref — so main and every open PR compete | **Workaround only** — cancel superseded runs by hand |
 
 ### What a passing run costs
@@ -250,10 +250,27 @@ Measured on the first run to clear lint and test (2026-10-03):
 
 Two numbers carry the argument. The cache took `bun install` from ~13 minutes to
 **30 seconds**, which is what made any of this reachable. And `tsc` takes **8m28s
-on the runner against 1.4 s on a workstation** — roughly 360× — against a
-per-job ceiling of about 20 minutes. Lint clears it with 10m21s to spare when the
-host is quiet and loses it when the host is loaded, which is exactly the observed
-behaviour: same commit, same configuration, green then cancelled.
+on the runner against 1.4 s on a workstation** — roughly 360× — which is what
+makes this job's wall clock the binding constraint rather than the code.
+
+**That ceiling was wrong, and it was wrong in the direction that hides a pass.**
+The job ran `timeout-minutes: 15` while this table measures a *passing* job at
+10m21s. Setup costs ~2 min, so `tsc` had ~13 min — and on 2026-10-04 it was
+**still running at 13m25s** and was killed. Two runs, `37233487021` (20:48Z) and
+`37240597987` (22:36Z), both ended `cancelled` at exactly 15 minutes with
+`oxlint` reporting **0 warnings and 0 errors** and `tsc` mid-flight. The job's own
+step log shows the split plainly:
+
+| | Lint & Types, 2026-10-04T20:48Z |
+|---|---|
+| job start → `oxlint` done | 1m58s (checkout, bun, cache hit, install, biome, oxlint) |
+| **`tsc --noEmit`** | started 21:19:28Z, **still running at 21:32:53Z** when killed |
+
+So the honest reading of this table is not "lint passes when the host is quiet" —
+it is that a 15-minute ceiling cannot distinguish a slow pass from a slow
+failure, and it picked the wrong answer twice. The ceiling is now **25 minutes**,
+which fits the worst observed `tsc` with room and still fails fast on a real error,
+because biome and oxlint finish in seconds and run first.
 
 That ratio is the whole problem. Nothing in this repository causes a 360× slowdown;
 it is swap. The host has 887 MiB of RAM against 2047 MiB of swap, and it is
@@ -378,9 +395,11 @@ This buys time; it does not make a run succeed. It is worth knowing precisely
 red build sends you looking for a defect that does not exist.
 
 So the honest current state is: **lint and test pass when the host is quiet, and
-nothing downstream has ever run.** Until the host is resized, the local gates
-below remain the only ones that reach a verdict reliably — not because the
-pipeline is broken, but because the pipeline is too small.
+nothing downstream has ever run.** The 25-minute ceiling makes lint's verdict
+*reliable*; it does not make it fast, and `next build` plus e2e still have to fit
+in 30 and 20 minutes respectively on a host this size. Until the host is resized,
+the local gates below remain the ones that reach a verdict quickly — not because
+the pipeline is broken, but because the pipeline is too small.
 
 ## What this means for the delivery gates
 

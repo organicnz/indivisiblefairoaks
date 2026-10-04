@@ -83,7 +83,14 @@ jobs:
   lint:
     name: Lint & Types
     runs-on: [self-hosted, linux, X64, frontend-runner]
-    timeout-minutes: 15
+    # 25, not 15. Setup (checkout + bun + cache hit + install) costs ~2 min, so a
+    # 15-minute ceiling left `tsc` about 13 — and tsc was measured at 8m28s on a
+    # quiet host and still running at 13m25s on a loaded one. That is a wall clock
+    # killing a job whose code is correct: biome and oxlint finish in seconds and
+    # fail first, so a real lint error still surfaces immediately. Measured on the
+    # runs of 2026-10-04T20:48 and T22:36, both killed by this ceiling, both with
+    # oxlint reporting 0 warnings and 0 errors. See docs/ci-runners.md.
+    timeout-minutes: 25
     env:
       # tsc's program (~295 files) exceeds Node's default heap cap under this
       # container's MEMORY=1024M and aborts. Scoped to this job only — a
