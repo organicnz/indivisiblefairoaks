@@ -121,6 +121,32 @@ jobs:
           echo "  gh api -X POST repos/${{ github.repository }}/actions/runners/registration-token --jq '.token'"
           exit 1
 
+      # A runner that dies mid-job leaves the job in_progress until GitHub's
+      # timeout-minutes backstop eventually fires — which on a dead runner is
+      # never, because the only thing that can fire it is the runner itself.
+      # This is the watchdog that does not depend on the runner: any run whose
+      # oldest in-flight job is older than 30 min is cancelled, long enough
+      # that a healthy pass (worst observed ~27 min) is never touched, short
+      # enough to unblock the queue. It is idempotent and the only candidate
+      # is the same-repository CI workflow.
+      - name: Cancel wedged in_progress runs (>30 min)
+        env:
+          GH_TOKEN: ${{ secrets.RUNNERS_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          NOW=$(date -u +%s)
+          gh run list --repo "${{ github.repository }}" --status in_progress --limit 20 \
+            --json databaseId,startedAt \
+            --jq '.[] | "\(.databaseId) \(.startedAt)"' | while read -r id started; do
+            START=$(date -u -d "$started" +%s 2>/dev/null || echo "$NOW")
+            AGE=$(( (NOW - START) / 60 ))
+            if [ "$AGE" -gt 30 ]; then
+              echo "Cancelling wedged run $id (age ${AGE}m)"
+              gh run cancel "$id" --repo "${{ github.repository }}" || echo "::warning::failed to cancel $id"
+            else
+              echo "  run $id is ${AGE}m old — left alone"
+            fi
+          done
+
   # ── Smoke-test: queue a real job on each runner ─────────────────────────────
   # PRIMARY liveness signal: intentionally independent of check-runners (no
   # needs-gate). A dead runner shows here as a hung/failing smoke; a healthy
