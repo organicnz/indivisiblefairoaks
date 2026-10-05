@@ -23,8 +23,25 @@ export default function MfaChallengePage() {
 
       if (data.nextLevel === data.currentLevel) {
         router.push('/account');
+        return;
       } else if (data.nextLevel === 'aal1') {
         router.push('/account');
+        return;
+      } else {
+        // AAL says step-up is required, but only render the challenge when a
+        // verified TOTP factor actually exists — otherwise the form is
+        // unanswerable and MfaChallengePage.verify always fails with
+        // "Invalid TOTP code" on a user who never enrolled 2FA.
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (factorsError) {
+          router.push('/login');
+          return;
+        }
+        const hasVerified = factors?.all?.some((f) => f.status === 'verified');
+        if (!hasVerified) {
+          router.push('/account');
+          return;
+        }
       }
       setChecking(false);
     }

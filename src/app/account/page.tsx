@@ -27,10 +27,15 @@ export default async function AccountPage(props: {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // MFA gate
+  // MFA gate — only send the user to the TOTP challenge when a verified
+  // factor actually exists. AAL alone can say nextLevel='aal2' if the user
+  // started (but never finished) enrollment; the challenge then shows an
+  // unanswerable form that always fails with "Invalid TOTP code".
   const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aalData?.nextLevel !== aalData?.currentLevel && aalData?.nextLevel === 'aal2') {
-    redirect('/auth/mfa');
+    const { data: factors } = await supabase.auth.mfa.listFactors();
+    const hasVerified = factors?.all?.some((f) => f.status === 'verified');
+    if (hasVerified) redirect('/auth/mfa');
   }
 
   // Profile via admin client (bypasses RLS)
