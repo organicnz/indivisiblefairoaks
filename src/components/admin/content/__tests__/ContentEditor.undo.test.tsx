@@ -24,6 +24,31 @@ vi.mock('next/navigation', () => ({
 // inside act() for the stack to reflect the edit before the next assertion.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+/**
+ * Per-test budget for this suite, in the spirit of `PROPERTY_TIMEOUT_MS` in
+ * `blocks.test.ts`: the budget is *stated* rather than the global timeout
+ * raised, because raising `testTimeout` globally would hide the same cost in
+ * every suite that does not have it.
+ *
+ * Every test here mounts the whole `ContentEditor` — block editor, history
+ * effect, autosave debounce — under `vi.useFakeTimers()`. Measured on the
+ * self-hosted runner (`37242482470`, 2026-10-04), sibling tests ran 97–841 ms
+ * and one ran **7208 ms** against Vitest's 5000 ms default, failing with
+ * `Test timed out in 5000ms`. No assertion failed; the redo-stack-discarded
+ * behaviour under test is correct. The same test is 60 ms on a workstation.
+ *
+ * It is a file-level `testTimeout` rather than a third argument on `describe`,
+ * because passing one makes Biome reindent the suite's entire body — ~170 lines
+ * of churn for a one-line change. Nor is it per-`it`: that leaves the
+ * next-slowest sibling to fail the same way on the next run.
+ *
+ * 30s is `blocks.test.ts`'s figure, reused rather than invented: the same
+ * cause (a real workload on an 887 MiB shared host) and the same remedy.
+ */
+const SUITE_TIMEOUT_MS = 30_000;
+
+vi.setConfig({ testTimeout: SUITE_TIMEOUT_MS });
+
 describe('ContentEditor undo/redo', () => {
   let container: HTMLDivElement;
   let root: Root;
