@@ -496,9 +496,11 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   are withheld from `pull_request` runs from forks, and `env.ts`'s `.default()`
   absorbed the empty value, so a fork PR built successfully against placeholder
   credentials.
-- **CI waits forever when the runner cannot register, and that is not a label
-  problem.** `runs-on: [self-hosted, linux, X64, …]` is correct and stays that
-  way. The real runner is `indivisiblefairoaks-runner-1`, a Quadlet container on
+- **CI waits forever when no runner can take the job, and that is not always a label
+  problem.** `runs-on: [self-hosted, linux, <frontend|backend>-runner]` is
+  arch-neutral on purpose (2026-10-05): both registered runners carry those
+  labels, so either can serve. Do not re-add an `X64`/`ARM64` token to pin jobs
+  to one runner. The real runner is `indivisiblefairoaks-runner-1`, a Quadlet container on
   the **ghrunner** host (an ARM64 Linux box over Tailscale) whose labels are
   `self-hosted, Linux, X64, ghrunner, personal, personal-organicnz,
   frontend-runner, backend-runner` — it advertises **X64 on ARM64 hardware**, so

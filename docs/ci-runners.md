@@ -5,7 +5,21 @@
 
 ## The short version
 
-**`runs-on: [self-hosted, linux, X64, …]` is correct. Do not change it.**
+**`runs-on: [self-hosted, linux, <frontend|backend>-runner]` is arch-neutral on
+purpose: it matches both registered runners, and GitHub routes each job to
+whichever is idle. Do not re-add an arch token (`X64` or `ARM64`)** — a pinned
+selector is a single point of failure, and one took the whole pipeline down on
+2026-10-05 when `indivisiblefairoaks-runner-1` went offline mid-`tsc`.
+
+| Runner | Distinguishing labels |
+|---|---|
+| `indivisiblefairoaks-runner-1` | `X64, ghrunner` (Quadlet container on the ghrunner host) |
+| `personal-organicnz` | `ARM64` (hand-registered Mac) |
+
+Both carry `self-hosted, linux, frontend-runner, backend-runner, personal,
+personal-organicnz`. The `frontend-runner` / `backend-runner` role split is
+what keeps frontend jobs off the deploy path and vice versa — that split
+stays; the arch token is what went.
 
 The real runner is **`indivisiblefairoaks-runner-1`**, a Quadlet container
 (`ghrunner-personal-indivisiblefairoaks.service`) on the **ghrunner** host — an
@@ -15,9 +29,11 @@ ARM64 Linux box reached over Tailscale. Its labels are:
 self-hosted, Linux, X64, ghrunner, personal, personal-organicnz, frontend-runner, backend-runner
 ```
 
-Note it advertises **X64 on ARM64 hardware**. That is not a mistake to correct:
-`X64` is the token every `runs-on` here asks for, and rewriting it to `ARM64`
-would exclude the only working runner.
+Note it advertises **X64 on ARM64 hardware**. That is not a mistake to correct,
+but since 2026-10-05 it is also not a token any `runs-on` asks for: the
+selector is arch-neutral so both runners can serve. Rewriting the selector to
+`ARM64` would exclude the container runner just as surely as `X64` excludes
+the Mac — either pin reintroduces the single point of failure.
 
 ### What actually went wrong, for weeks
 

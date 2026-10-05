@@ -7,8 +7,19 @@ on:
     branches: [main, mainDeploy]
 
 # ── Why every job here waited forever, and what actually fixed it ───────────
-# `runs-on: [self-hosted, linux, X64, …]` is correct and should stay. It is not
-# the problem, so read this before touching it.
+# `runs-on: [self-hosted, linux, <role>, …]` serves BOTH registered runners.
+# The `X64` token used to be in that list; it was dropped 2026-10-05 so that
+# `personal-organicnz` (ARM64 Mac, idle) can take jobs while
+# `indivisiblefairoaks-runner-1` (X64 labels on ARM64 hardware, offline since
+# ~03:40Z) is down, and so the two share load when both are up. Both runners
+# carry `self-hosted, linux, frontend-runner, backend-runner, personal,
+# personal-organicnz`; they differ only on `X64`+`ghrunner` vs `ARM64`. Do not
+# re-add an arch token to "pin" jobs to one runner — that reintroduces a
+# single point of failure, which is what took the whole pipeline down.
+#
+# What follows is the history of why `X64` was there, kept because the
+# misdiagnosis it warns against is still tempting. Read this before touching
+# `runs-on`.
 #
 # The real runner is `indivisiblefairoaks-runner-1`, a Quadlet container
 # (`ghrunner-personal-indivisiblefairoaks.service`) on the **ghrunner** host, an
@@ -82,7 +93,7 @@ jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, frontend-runner]
     # 25, not 15. Setup (checkout + bun + cache hit + install) costs ~2 min, so a
     # 15-minute ceiling left `tsc` about 13 — and tsc was measured at 8m28s on a
     # quiet host and still running at 13m25s on a loaded one. That is a wall clock
@@ -134,7 +145,7 @@ jobs:
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
     name: Tests & Coverage
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, frontend-runner]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -168,7 +179,7 @@ jobs:
   # ── 3. Build ─────────────────────────────────────────────────────────────────
   build:
     name: Next.js Build
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, frontend-runner]
     needs: [lint, test]
     timeout-minutes: 20
     env:
@@ -231,7 +242,7 @@ jobs:
   # ── 4. E2E Tests ─────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, frontend-runner]
     needs: [build]
     timeout-minutes: 30
     steps:
@@ -299,7 +310,7 @@ jobs:
   # it (api-upload-free) into permanent red. Don't re-add it.
   health-probe:
     name: Live Health Probe
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, frontend-runner]
     # CI build completion is the sync point: by then the Git-driven
     # Vercel deploy (~3-4 min) is settled or nearly so; the 90 s
     # retry loop below absorbs the remainder.
