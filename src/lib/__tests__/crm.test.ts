@@ -53,6 +53,30 @@ import { env } from '@/lib/env';
 import { createMockAdminClient, type MockTableConfig } from './supabase-mock';
 
 /**
+ * Per-test budget for this suite, in the spirit of `PROPERTY_TIMEOUT_MS` in
+ * `blocks.test.ts` and `SUITE_TIMEOUT_MS` in `ContentEditor.undo.test.tsx`:
+ * the budget is *stated* rather than the global timeout raised, because
+ * raising `testTimeout` globally would hide the same cost in every suite that
+ * does not have it.
+ *
+ * The `Broadcast blast radius > refuses an audience larger than the ceiling`
+ * test pages 6,000 rows through six full `.range()` pages to prove the
+ * resolver stops on permission rather than on a short page. It is ~40 ms on a
+ * workstation and exceeded Vitest's 5000 ms default on the self-hosted runner
+ * (`37249958031`, 2026-10-05), failing with `Test timed out in 5000ms` while
+ * the suite around it ran 118 s with jsdom setup at 47% of tracked time. No
+ * assertion failed; the ceiling-refusal behaviour under test is correct.
+ *
+ * It is a file-level `testTimeout` rather than a third argument on `describe`
+ * or per-`it`, for the same reason as the undo suite: that leaves the
+ * next-slowest sibling to fail the same way on the next loaded run.
+ *
+ * 30s is `blocks.test.ts`'s figure, reused rather than invented: the same
+ * cause (a real workload on a shared, undersized host) and the same remedy.
+ */
+vi.setConfig({ testTimeout: 30_000 });
+
+/**
  * Row sets per table, rebuilt for every test.
  *
  * This suite used to hand-roll `createMockQueryBuilder(terminalResult)` and
