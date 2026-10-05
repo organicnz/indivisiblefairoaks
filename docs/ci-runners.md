@@ -267,10 +267,37 @@ step log shows the split plainly:
 | **`tsc --noEmit`** | started 21:19:28Z, **still running at 21:32:53Z** when killed |
 
 So the honest reading of this table is not "lint passes when the host is quiet" —
-it is that a 15-minute ceiling cannot distinguish a slow pass from a slow
-failure, and it picked the wrong answer twice. The ceiling is now **25 minutes**,
-which fits the worst observed `tsc` with room and still fails fast on a real error,
-because biome and oxlint finish in seconds and run first.
+it is that a 15-minute ceiling cannot distinguish a slow pass from a slow failure,
+and it picked the wrong answer twice. The ceiling is now **25 minutes**, which fits
+that `tsc` case and still fails fast on a real error, because biome and oxlint
+finish in seconds and run first.
+
+**25 minutes is necessary and not sufficient.** The ceiling was raised on the
+strength of the `tsc` measurement above, and then the run that carried the change
+(`37245233357`, 25m24s) failed somewhere else entirely:
+
+```
+23:59:29Z  Cache hit for: bun-gmoqYqdUbaYsI0KujeXt7Zg/p0I=
+00:23:59Z  Install dependencies   ##[error]The operation was canceled.
+```
+
+It never reached `tsc`. **`bun install` took 24m30s with a warm cache** — the same
+step that took ~40 s in the run above, minutes earlier, on the same cache key. So
+the step that times out is not fixed:
+
+| Run | `bun install` | reached `tsc`? |
+|---|---|---|
+| `37233487021` 21:18Z | ~40 s | yes — killed 13m25s in |
+| `37245233357` 23:59Z | **24m30s, killed** | **never** |
+
+Forty seconds versus twenty-four and a half minutes, same step, same cache-hit
+state, is not a slow dependency tree. It is a container thrashing against
+`Memory=1024M` on a host with 887 MiB of RAM and load ~12. `Tests & Coverage` on
+that same run finished its own `bun install` and **passed in 3m29s**, minutes later
+— which is the contention observed rather than inferred.
+
+So `Lint & Types` on this host is intermittent for two different reasons, and only
+one of them lives in this repository. No ceiling value fixes the other.
 
 That ratio is the whole problem. Nothing in this repository causes a 360× slowdown;
 it is swap. The host has 887 MiB of RAM against 2047 MiB of swap, and it is
