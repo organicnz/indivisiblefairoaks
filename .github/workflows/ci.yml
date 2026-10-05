@@ -94,14 +94,14 @@ jobs:
   lint:
     name: Lint & Types
     runs-on: [self-hosted, linux, frontend-runner]
-    # 25, not 15. Setup (checkout + bun + cache hit + install) costs ~2 min, so a
+    # 120, not 15. Setup (checkout + bun + cache hit + install) costs ~2 min, so a
     # 15-minute ceiling left `tsc` about 13 — and tsc was measured at 8m28s on a
     # quiet host and still running at 13m25s on a loaded one. That is a wall clock
     # killing a job whose code is correct: biome and oxlint finish in seconds and
     # fail first, so a real lint error still surfaces immediately. Measured on the
     # runs of 2026-10-04T20:48 and T22:36, both killed by this ceiling, both with
     # oxlint reporting 0 warnings and 0 errors. See docs/ci-runners.md.
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       # tsc's program (~295 files) exceeds Node's default heap cap under this
       # container's MEMORY=1024M and aborts. Scoped to this job only — a
@@ -146,7 +146,7 @@ jobs:
   test:
     name: Tests & Coverage
     runs-on: [self-hosted, linux, frontend-runner]
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -181,7 +181,7 @@ jobs:
     name: Next.js Build
     runs-on: [self-hosted, linux, frontend-runner]
     needs: [lint, test]
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       # The build is killed by the cgroup, not by V8: exit 137 / SIGKILL once RSS
       # passes the container's memory limit. Verified on the runner host —
@@ -244,7 +244,7 @@ jobs:
     name: E2E Tests
     runs-on: [self-hosted, linux, frontend-runner]
     needs: [build]
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:

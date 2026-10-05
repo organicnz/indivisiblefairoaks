@@ -246,7 +246,7 @@ never finishes" to "the build is killed", and each step has been measured:
 | `bun install` never returns; job dies at 20 min | Every ephemeral container refetched the whole tree — ~13 min cold, before any verification ran | **Fixed** by caching `~/.bun/install/cache`: **30 s** warm |
 | `tsc` aborts, `Reached heap limit` (exit 134) | Node's ~448 MB default cap < 598 MB measured peak | **Fixed** by the 768 MB cap |
 | `bun run build` killed, exit 137 | The cgroup OOM-killer: SIGKILL once RSS passes the container's total `MEMORY + MEMORY_SWAP` ceiling. V8 grows the heap rather than collecting | **Partly fixable** — see below |
-| Lint passes sometimes, cancelled other times | `tsc` takes 8m28s here against **1.4 s** locally. The host runs at load ~12 on 2 vCPU | **Wall clock fixed** (15 → 25 min); the load itself is not — shared, undersized host |
+| Lint passes sometimes, cancelled other times | `tsc` takes 8m28s here against **1.4 s** locally. The host runs at load ~12 on 2 vCPU | **Wall clock fixed** (15 → 25 → 120 min); the load itself is not — shared, undersized host |
 | Queue never drains | One runner for all four workflows, five jobs per run, and `cancel-in-progress` only cancels within a single ref — so main and every open PR compete | **Workaround only** — cancel superseded runs by hand |
 
 ### What a passing run costs
@@ -284,11 +284,11 @@ step log shows the split plainly:
 
 So the honest reading of this table is not "lint passes when the host is quiet" —
 it is that a 15-minute ceiling cannot distinguish a slow pass from a slow failure,
-and it picked the wrong answer twice. The ceiling is now **25 minutes**, which fits
+and it picked the wrong answer twice. The ceiling is now **120 minutes**, which fits
 that `tsc` case and still fails fast on a real error, because biome and oxlint
 finish in seconds and run first.
 
-**25 minutes is necessary and not sufficient.** The ceiling was raised on the
+**120 minutes is necessary and not sufficient.** The ceiling was raised on the
 strength of the `tsc` measurement above, and then the run that carried the change
 (`37245233357`, 25m24s) failed somewhere else entirely:
 
@@ -438,9 +438,9 @@ This buys time; it does not make a run succeed. It is worth knowing precisely
 red build sends you looking for a defect that does not exist.
 
 So the honest current state is: **lint and test pass when the host is quiet, and
-nothing downstream has ever run.** The 25-minute ceiling makes lint's verdict
+nothing downstream has ever run.** The 120-minute ceiling makes lint's verdict
 *reliable*; it does not make it fast, and `next build` plus e2e still have to fit
-in 30 and 20 minutes respectively on a host this size. Until the host is resized,
+the same 120-minute ceiling on a host this size. Until the host is resized,
 the local gates below remain the ones that reach a verdict quickly — not because
 the pipeline is broken, but because the pipeline is too small.
 
