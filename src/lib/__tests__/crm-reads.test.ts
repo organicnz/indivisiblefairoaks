@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
+}));
 vi.mock('server-only', () => ({}));
 
 const session = vi.hoisted(() => ({
@@ -532,6 +537,19 @@ describe('CRM reads and bookkeeping', () => {
       expect(truncated).toBe(false);
     });
 
+    it('throws when the segments query fails', async () => {
+      tables.crm_segments = { rows: [], error: { message: 'relation not found' } };
+
+      await expect(getCRMSegments()).rejects.toThrow(/Failed to load segments/i);
+    });
+
+    it('returns a validation error for a segment with no name', async () => {
+      const res = await saveCRMSegment({ name: '' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBeTruthy();
+    });
+
     it('saves a segment', async () => {
       // `id`, `query`, the three array columns and `created_at` are database
       // defaults (`gen_random_uuid()`, `now()`, `'{}'`), so they are declared
@@ -573,6 +591,35 @@ describe('CRM reads and bookkeeping', () => {
       expect(res.error).not.toMatch(/23505|duplicate key/);
     });
 
+    it('returns the database error message when the insert fails for other reasons', async () => {
+      tables.crm_segments = { rows: [], error: { code: '42501', message: 'permission denied' } };
+
+      const res = await saveCRMSegment({ name: 'Canvassers' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('permission denied');
+    });
+
+    it('updates an existing segment by id', async () => {
+      tables.crm_segments = {
+        rows: [
+          {
+            id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+            name: 'Old name',
+            created_at: '2026-09-01T00:00:00.000Z',
+          },
+        ],
+      };
+
+      const res = await saveCRMSegment({
+        id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        name: 'New name',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.segmentId).toBe('a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d');
+    });
+
     it('deletes a segment', async () => {
       tables.crm_segments = {
         rows: [
@@ -592,6 +639,32 @@ describe('CRM reads and bookkeeping', () => {
 
       expect(res.success).toBe(false);
       expect(res.error).toBe('fk violation');
+    });
+
+    it('returns an error when the segment does not exist', async () => {
+      tables.crm_segments = {
+        rows: [{ id: 's2', name: 'Choir' }],
+      };
+
+      const res = await deleteCRMSegment('s1');
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/not found/i);
+      expect(tables.crm_segments.rows?.map((s) => s.id)).toEqual(['s2']);
+    });
+
+    it('returns an error when the segment was concurrently deleted (PGRST116)', async () => {
+      tables.crm_segments = {
+        rows: [],
+      };
+
+      const res = await saveCRMSegment({
+        id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        name: 'Updated name',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBeTruthy();
     });
   });
 
@@ -623,6 +696,34 @@ describe('CRM reads and bookkeeping', () => {
       tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
 
       await expect(getCRMContacts()).rejects.toThrow(/failed to load crm contacts/i);
+    });
+
+    it('filters contacts by consent=unasked using IS NULL', async () => {
+      // consent='unasked' maps to doNotEmail===null which uses .is('do_not_email', null)
+      // rather than .eq() — .eq(col, null) becomes `col=eq.null` in PostgREST which
+      // matches nothing. This test confirms only null-consent contacts are returned.
+      const neverAsked = { id: 'c1', email: 'a@example.com', do_not_email: null };
+      const optedIn = { id: 'c2', email: 'b@example.com', do_not_email: false };
+      tables.crm_contacts = { rows: [neverAsked, optedIn] };
+
+      const res = await getCRMContacts({ consent: 'unasked' });
+
+      expect(res.contacts.map((c) => c.id)).toEqual(['c1']);
+    });
+
+    it('throws when FTS errors on page 2 — does not fall back to ILIKE', async () => {
+      // The fallback only fires on page 1. A FTS error on page 2 has no fallback
+      // path and getCRMContacts re-throws the error.
+      tables.crm_contacts = {
+        rows: [],
+        error: { message: 'FTS unavailable' },
+      };
+
+      await expect(getCRMContacts({ query: 'rally', page: 2, pageSize: 10 })).rejects.toThrow(
+        /failed to load crm contacts/i
+      );
+      // Only one query was issued: no .from() calls beyond the single FTS attempt.
+      expect(mockAdminClient.from).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -737,6 +838,22 @@ describe('CRM reads and bookkeeping', () => {
       expect(row?.title).toBe('Print yard signs');
     });
 
+    it('returns a validation error when addCRMTask receives an empty title', async () => {
+      const res = await addCRMTask({ title: '  ' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBeTruthy();
+    });
+
+    it('returns a database error when the task insert fails', async () => {
+      tables.crm_tasks = { rows: [], error: { message: 'insert failed' } };
+
+      const res = await addCRMTask({ title: 'Call back' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('insert failed');
+    });
+
     it('deletes a task and reports a failure', async () => {
       // Two deletes, two database behaviours. The old suite queued two builders
       // with `mockReturnValueOnce`, which `vi.clearAllMocks` does not drain — so
@@ -767,6 +884,101 @@ describe('CRM reads and bookkeeping', () => {
       tables.crm_tasks = { rows: [{ id: 't1', contact_id: 'c1' }], error: { message: 'nope' } };
       const res = await deleteCRMTask('t1');
       expect(res).toEqual({ success: false, error: 'nope' });
+    });
+
+    describe('getCRMTasks scopes', () => {
+      const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+      const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+
+      it("scope: 'overdue' — returns open tasks with a past due_at", async () => {
+        tables.crm_tasks = {
+          rows: [
+            { id: 't-overdue', status: 'open', due_at: yesterday },
+            { id: 't-upcoming', status: 'open', due_at: tomorrow },
+            { id: 't-done', status: 'done', due_at: yesterday },
+            { id: 't-noduedate', status: 'open', due_at: null },
+          ],
+        };
+
+        const res = await getCRMTasks({ scope: 'overdue' });
+
+        // The select uses a join string (`'*, contact:crm_contacts(...)'`) which
+        // the mock's comma-splitter cannot project faithfully — `id` is lost.
+        // Asserting count + totalCount is the observable boundary the mock exposes.
+        expect(res.tasks).toHaveLength(1);
+        expect(res.totalCount).toBe(1);
+      });
+
+      it("scope: 'upcoming' — returns open tasks with a future due_at or null", async () => {
+        const upcoming = { id: 't-upcoming', status: 'open', due_at: tomorrow };
+        const nodue = { id: 't-nodue', status: 'open', due_at: null };
+        const overdue = { id: 't-overdue', status: 'open', due_at: yesterday };
+        const done = { id: 't-done', status: 'done', due_at: null };
+
+        tables.crm_tasks = {
+          rows: [upcoming, nodue, overdue, done],
+          // `.or('due_at.gte.${today},due_at.is.null')` is not modelled by the
+          // mock; declare which rows it selects. The `.eq('status', 'open')`
+          // IS modelled and will remove `done` from the result.
+          filterRows: [upcoming, nodue, done],
+        };
+
+        const res = await getCRMTasks({ scope: 'upcoming' });
+
+        // `done` is removed by `.eq('status', 'open')`, leaving upcoming + nodue.
+        expect(res.tasks).toHaveLength(2);
+        expect(res.totalCount).toBe(2);
+      });
+
+      it("scope: 'upcoming' — a task with due_at: null IS included", async () => {
+        const nodue = { id: 't-nodue', status: 'open', due_at: null };
+
+        tables.crm_tasks = {
+          rows: [nodue],
+          filterRows: [nodue],
+        };
+
+        const res = await getCRMTasks({ scope: 'upcoming' });
+
+        expect(res.tasks).toHaveLength(1);
+        expect(res.totalCount).toBe(1);
+      });
+
+      it("scope: 'done' — returns only completed tasks", async () => {
+        const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+        tables.crm_tasks = {
+          rows: [
+            { id: 't-done', status: 'done', due_at: yesterday },
+            { id: 't-open', status: 'open', due_at: null },
+          ],
+        };
+
+        const res = await getCRMTasks({ scope: 'done' });
+
+        expect(res.tasks).toHaveLength(1);
+        expect(res.totalCount).toBe(1);
+      });
+
+      it("scope: 'all' — returns every task regardless of status", async () => {
+        const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+        tables.crm_tasks = {
+          rows: [
+            { id: 't-done', status: 'done', due_at: yesterday },
+            { id: 't-open', status: 'open', due_at: null },
+          ],
+        };
+
+        const res = await getCRMTasks({ scope: 'all' });
+
+        expect(res.tasks).toHaveLength(2);
+        expect(res.totalCount).toBe(2);
+      });
+
+      it('throws when the task query errors', async () => {
+        tables.crm_tasks = { rows: [], error: { message: 'connection reset' } };
+
+        await expect(getCRMTasks({ scope: 'open' })).rejects.toThrow(/Failed to load tasks/i);
+      });
     });
   });
 
@@ -833,6 +1045,14 @@ describe('CRM reads and bookkeeping', () => {
       tables.crm_tasks = { rows: [], error: { message: 'connection reset' } };
 
       await expect(getCRMContactDetail('c1')).rejects.toThrow(/failed to load contact tasks/i);
+    });
+
+    it('throws when the activities query fails', async () => {
+      tables.crm_contacts = { rows: [{ id: 'c1', first_name: 'Robin' }] };
+      tables.crm_activities = { rows: [], error: { message: 'activity table offline' } };
+      tables.crm_tasks = { rows: [] };
+
+      await expect(getCRMContactDetail('c1')).rejects.toThrow(/failed to load contact activities/i);
     });
 
     it('throws when the open-task count fails even though the list succeeded', async () => {
@@ -934,6 +1154,23 @@ describe('CRM reads and bookkeeping', () => {
       // which is precisely what `truncated` exists to warn about.
       expect(tags).toEqual(['member']);
       expect(tags).not.toContain('canvasser');
+    });
+
+    it('throws when the tag query fails', async () => {
+      tables.crm_contacts = {
+        error: { message: 'db connection failed' },
+      };
+      await expect(getCRMExistingTags()).rejects.toThrow(
+        'Failed to load tags: db connection failed'
+      );
+    });
+
+    it('handles an empty table without error', async () => {
+      tables.crm_contacts = { rows: [] };
+      const { tags, truncated, scanned } = await getCRMExistingTags();
+      expect(tags).toEqual([]);
+      expect(truncated).toBe(false);
+      expect(scanned).toBe(0);
     });
   });
 

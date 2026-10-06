@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock next/cache
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
 }));
 
 // Mock requireAdmin
@@ -256,6 +259,16 @@ describe('Civic CRM Server Actions', () => {
       expect(stats.totalDonationsCents).toBe(0);
     });
 
+    it('maps null data to zeros rather than failing', async () => {
+      // Unusual path: RPC succeeds but returns null data (no rows). The `?? {}`
+      // fallback ensures every key resolves to 0 rather than throwing.
+      mockAdminClient.rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+
+      const stats = await getCRMStats();
+      expect(stats.totalContacts).toBe(0);
+      expect(stats.openTasks).toBe(0);
+    });
+
     it('falls back to per-table counts when the migration has not been applied', async () => {
       // Staged rollout: a database without crm_stats() must still render the
       // dashboard rather than 500 for every admin.
@@ -295,6 +308,23 @@ describe('Civic CRM Server Actions', () => {
       expect(stats.openTasks).toBe(2);
       // The legacy path never summed donations, so the card reads zero rather
       // than a made-up total.
+      expect(stats.totalDonationsCents).toBe(0);
+    });
+
+    it('returns all-zeros when the RPC fails and every fallback query also fails', async () => {
+      mockAdminClient.rpc = vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'function does not exist' },
+      });
+      tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
+      tables.crm_tasks = { rows: [], error: { message: 'connection reset' } };
+
+      const stats = await getCRMStats();
+
+      expect(stats.totalContacts).toBe(0);
+      expect(stats.activeVolunteers).toBe(0);
+      expect(stats.localDistrict).toBe(0);
+      expect(stats.openTasks).toBe(0);
       expect(stats.totalDonationsCents).toBe(0);
     });
   });
@@ -601,6 +631,85 @@ describe('Civic CRM Server Actions', () => {
       expect(res.truncated).toBe(false);
       expect(res.count).toBe(1);
       expect(res.matchedCount).toBe(1);
+    });
+
+    it('returns an error object when the database query fails', async () => {
+      tables.crm_contacts = { rows: [], error: { message: 'connection timeout' } };
+
+      const res = await exportCRMContacts({});
+
+      expect(res.error).toMatch(/connection timeout/i);
+      expect(res.count).toBe(0);
+      expect(res.csv).toBe('');
+    });
+
+    it('includes the unsubscribed_at column in both header and rows', async () => {
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'c1',
+            email: 'one@example.com',
+            first_name: 'One',
+            last_name: null,
+            phone: null,
+            address: null,
+            district: null,
+            city: null,
+            zip_code: null,
+            status: 'supporter',
+            tags: [],
+            notes: null,
+            do_not_email: false,
+            total_donated_cents: 0,
+            source: null,
+            created_at: '2026-01-01T00:00:00Z',
+            unsubscribed_at: '2026-09-15T00:00:00Z',
+          },
+        ],
+      };
+
+      const res = await exportCRMContacts({});
+
+      expect(res.csv).toContain('Unsubscribed At');
+      expect(res.csv).toContain('2026-09-15T00:00:00Z');
+    });
+
+    it('handles null first_name, tags, and do_not_email in CSV rows', async () => {
+      // Covers the || '' and ?? '' fallback branches on nullable fields.
+      // do_not_email === null → empty string (the round-trip safe null representation).
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'c2',
+            email: 'null-fields@example.com',
+            first_name: null,
+            last_name: null,
+            phone: null,
+            address: null,
+            district: null,
+            city: null,
+            zip_code: null,
+            status: 'supporter',
+            tags: null,
+            notes: null,
+            do_not_email: null,
+            total_donated_cents: 0,
+            source: null,
+            created_at: '2026-01-01T00:00:00Z',
+            unsubscribed_at: null,
+          },
+        ],
+      };
+
+      const res = await exportCRMContacts({});
+
+      expect(res.error).toBeUndefined();
+      expect(res.count).toBe(1);
+      // null do_not_email → empty string, not 'yes' or 'no'
+      const row = res.csv.split('\r\n')[1] ?? '';
+      // The do_not_email column should be an empty string between commas
+      expect(row).not.toContain('yes');
+      expect(row).not.toContain('no');
     });
   });
 
@@ -1282,9 +1391,10 @@ describe('Civic CRM Server Actions', () => {
       // both outside the audience, and neither is counted as delivered.
       expect(res.recipientCount).toBe(2);
       expect(res.broadcastId).toBe('broadcast-uuid-1');
-      // Exactly one call: the dispatch. This action must not send any mail.
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(JSON.parse((mockFetch.mock.calls[0][1] as { body: string }).body)).toEqual({
+      // Two fetch calls: the health pre-flight GET and the dispatch POST.
+      // This action must not send any mail itself.
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(JSON.parse((mockFetch.mock.calls[1][1] as { body: string }).body)).toEqual({
         broadcast_id: 'broadcast-uuid-1',
       });
       // The log row that was written is 'queued', not 'sending' — the sender
@@ -1339,6 +1449,103 @@ describe('Civic CRM Server Actions', () => {
       // No campaign row was written, so the history does not show a broadcast
       // that never had an audience.
       expect(tables.crm_broadcasts.rows).toHaveLength(0);
+    });
+
+    it('fails the broadcast when the recipient query errors', async () => {
+      // The recipient-resolution loop throws when the database errors mid-query,
+      // and sendCRMBroadcast must turn that into a failed row, not an uncaught throw.
+      // Use a distinct admin identity to avoid spending the shared rate-limit slot.
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-recip-err-uuid';
+      try {
+        tables.crm_contacts = { rows: [], error: { message: 'recipient query timeout' } };
+        tables.crm_broadcasts = { rows: [], insert: { id: 'b-err' } };
+
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
+
+        expect(res.success).toBe(false);
+        expect(res.error).toMatch(/recipient query timeout/i);
+      } finally {
+        session.adminUserId = savedId;
+      }
+    });
+
+    it('treats a 200 with a non-JSON body as a bare success (no warning)', async () => {
+      const rows = [
+        {
+          id: 'u1',
+          email: 'v@example.com',
+          first_name: 'V',
+          last_name: 'X',
+          unsubscribe_token: 't1',
+          do_not_email: false,
+          status: 'supporter',
+        },
+      ];
+      tables.crm_contacts = { rows };
+      tables.crm_broadcasts = { rows: [], insert: { id: 'b-nonjson' } };
+
+      mockEnv.CRM_BROADCAST_FUNCTION_URL =
+        'https://project.supabase.co/functions/v1/crm-broadcast-send';
+      mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+
+      // Both the health pre-flight GET and the dispatch POST return ok:true with
+      // no valid JSON body. The pre-flight's json() throw is caught by the outer
+      // try/catch (proceeds), and the dispatch's json() throw is caught by the
+      // inner try/catch (bare success, no warning).
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError('Unexpected token');
+        },
+      });
+
+      const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
+
+      expect(res.success).toBe(true);
+      expect(res.warning).toBeUndefined();
+    });
+
+    it('fails the broadcast when the health pre-flight reports missing secrets', async () => {
+      // Use a distinct admin identity to avoid spending the shared rate-limit slot.
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-preflight-test-uuid';
+      try {
+        const rows = [
+          {
+            id: 'u1',
+            email: 'v@example.com',
+            first_name: 'V',
+            last_name: 'X',
+            unsubscribe_token: 't1',
+            do_not_email: false,
+            status: 'supporter',
+          },
+        ];
+        tables.crm_contacts = { rows };
+        tables.crm_broadcasts = { rows: [], insert: { id: 'b-preflight' } };
+
+        mockEnv.CRM_BROADCAST_FUNCTION_URL =
+          'https://project.supabase.co/functions/v1/crm-broadcast-send';
+        mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+
+        // Health pre-flight returns ready: false — dispatch must not proceed.
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ ready: false, missing: ['RESEND_API_KEY'] }),
+        });
+
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
+
+        expect(res.success).toBe(false);
+        expect(res.error).toMatch(/RESEND_API_KEY/);
+        // The broadcast row must be marked failed, not left queued.
+        expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({ status: 'failed' });
+      } finally {
+        session.adminUserId = savedId;
+      }
     });
   });
 });
@@ -1427,10 +1634,11 @@ describe('sendCRMBroadcastSelfTest', () => {
   it('dispatches through the same sender, with only the id', async () => {
     const { mockFetch } = arrange();
     await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    // Two fetch calls: the health pre-flight GET and the dispatch POST.
+    expect(mockFetch).toHaveBeenCalledTimes(2);
     // The id dispatched is the id of the row in `tables.crm_broadcasts`, so this
     // also pins that the insert produced exactly one campaign.
-    expect(JSON.parse((mockFetch.mock.calls[0][1] as { body: string }).body)).toEqual({
+    expect(JSON.parse((mockFetch.mock.calls[1][1] as { body: string }).body)).toEqual({
       broadcast_id: 'test-broadcast-uuid',
     });
   });

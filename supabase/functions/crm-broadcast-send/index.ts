@@ -68,6 +68,17 @@ const RESEND_TIMEOUT_MS = 20_000
 
 const app = new Hono()
 
+// Health check — no auth required. Returns ready: true only when both
+// required secrets are present. Callers (dispatchBroadcastSender in crm.ts)
+// probe this before dispatching so a missing secret surfaces as a clear
+// configuration error rather than a failed broadcast row.
+app.get('*', (c) => {
+  const missing: string[] = []
+  if (!Deno.env.get('RESEND_API_KEY')) missing.push('RESEND_API_KEY')
+  if (!Deno.env.get('APP_URL')) missing.push('APP_URL')
+  return c.json({ ready: missing.length === 0, missing })
+})
+
 app.use('*', async (c, next) => {
   if (c.req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders() })
@@ -332,9 +343,9 @@ app.post('*', async (c) => {
             headers: isSelfTest
               ? { 'X-CRM-Test': 'true' }
               : {
-                  'List-Unsubscribe': `<${unsubscribe}>, <mailto:${ADMIN_ORDER_EMAIL}?subject=Unsubscribe>`,
-                  'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-                },
+                'List-Unsubscribe': `<${unsubscribe}>, <mailto:${ADMIN_ORDER_EMAIL}?subject=Unsubscribe>`,
+                'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+              },
             tags: [
               { name: 'type', value: isSelfTest ? 'crm-broadcast-test' : 'crm-broadcast' },
               { name: 'broadcast_id', value: broadcastId },
@@ -425,11 +436,11 @@ app.post('*', async (c) => {
     // delivery number it always did.
     ...(activityWriteFailures > 0
       ? {
-          activityWriteFailures,
-          activityRowsLost,
-          warning:
-            'delivery completed but some timeline entries could not be written; the guard in 20260929120000 may still be counting broadcast rows',
-        }
+        activityWriteFailures,
+        activityRowsLost,
+        warning:
+          'delivery completed but some timeline entries could not be written; the guard in 20260929120000 may still be counting broadcast rows',
+      }
       : {}),
   })
 })

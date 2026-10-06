@@ -11,6 +11,7 @@ export default defineConfig({
       '**/dist/**',
       '**/.trunk/**',
       '**/.next/**',
+      '**/.worktrees/**',
       'e2e/**',
       'playwright/tests/**', // Playwright E2E tests run via `playwright test`, not vitest
     ],
@@ -144,13 +145,12 @@ export default defineConfig({
          * functions / 93.6 lines. Raised 2026-10-05 to 89.5 / 78.2 / 100 / 93.7
          * by the merge RPC's replacements (the arithmetic moved into plpgsql, so
          * those branches left the file) plus tests for the paged history read
-         * and `markCRMBroadcastFailed`. The branch number moved most because the
-         * merge's union/lock/ordering logic is no longer JavaScript that could be
-         * measured here at all — see `docs/crm-operations.md`.
+         * and `markCRMBroadcastFailed`. Raised 2026-10-06 to 94.2 / 84 / 100 / 97.8
+         * with broadcast-send type validation and tag query coverage.
          */
         'src/lib/actions/crm.ts': {
           statements: 89,
-          branches: 78,
+          branches: 84,
           functions: 100,
           lines: 93,
         },

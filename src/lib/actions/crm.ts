@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { cacheLife, cacheTag, revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { requireAdmin } from '@/lib/admin-auth';
 import {
@@ -323,6 +323,7 @@ async function resolveBroadcastRecipients(
 }
 
 function revalidateCRMRoutes(contactId?: string | null): void {
+  revalidateTag('crm-tags', 'hours');
   revalidatePath('/admin/crm');
   revalidatePath('/admin/crm/tasks');
   revalidatePath('/admin/crm/broadcasts');
@@ -602,6 +603,7 @@ export async function exportCRMContacts(params: GetCRMContactsParams = {}): Prom
     'Lifetime Giving (cents)',
     'Source',
     'Created At',
+    'Unsubscribed At',
   ]);
   const lines = result.contacts.map((c) =>
     toCsvRow([
@@ -635,6 +637,7 @@ export async function exportCRMContacts(params: GetCRMContactsParams = {}): Prom
       c.total_donated_cents,
       c.source || '',
       c.created_at,
+      c.unsubscribed_at || '',
     ])
   );
   const matchedCount = result.totalCount;
@@ -890,8 +893,14 @@ export async function saveCRMSegment(
 
 export async function deleteCRMSegment(id: string): Promise<{ success: boolean; error?: string }> {
   const { adminClient } = await requireAdmin();
-  const { error } = await adminClient.from('crm_segments').delete().eq('id', id);
+  const { data, error } = await adminClient
+    .from('crm_segments')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
   if (error) return { success: false, error: error.message };
+  if (!data) return { success: false, error: 'Segment not found' };
   revalidateCRMRoutes();
   return { success: true };
 }
@@ -2162,6 +2171,30 @@ async function dispatchBroadcastSender(
   if (!key) {
     return { ok: false, error: 'the service key is unavailable' };
   }
+
+  // Pre-flight: probe the health endpoint (no auth required) before sending.
+  // A missing RESEND_API_KEY or APP_URL will surface here as a clear
+  // configuration error rather than a failed broadcast row.
+  try {
+    const healthRes = await fetch(`${functionUrl}/health`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (healthRes.ok) {
+      const health = (await healthRes.json()) as { ready: boolean; missing?: string[] };
+      if (health.ready === false) {
+        const missing = Array.isArray(health.missing) ? health.missing : [];
+        return {
+          ok: false,
+          error: `broadcast sender is missing required secrets: ${missing.join(', ')}`,
+        };
+      }
+    }
+    // A non-ok response (e.g. network error or unexpected status) is inconclusive;
+    // proceed with the actual dispatch.
+  } catch {
+    // Network error on the health probe is inconclusive; proceed.
+  }
+
   try {
     const response = await fetch(functionUrl, {
       method: 'POST',
@@ -2391,6 +2424,9 @@ export async function getCRMExistingTags(): Promise<{
   /** Rows actually read. Compare against the ceiling to tell. */
   scanned: number;
 }> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('crm-tags');
   const { adminClient } = await requireAdmin();
   const tags = new Set<string>();
   const PAGE = 1000;

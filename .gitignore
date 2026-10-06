@@ -47,3 +47,8 @@ docs/*.csv
 
 # Seeded e2e sessions
 e2e/.auth/
+
+# Local worktrees & scratch
+.worktrees/
+.vitest/
+.agents/tasks/

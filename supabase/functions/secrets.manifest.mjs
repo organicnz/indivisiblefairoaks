@@ -102,7 +102,9 @@ export const FUNCTION_SECRETS = {
       verify: true,
       note:
         'Delivers queued chapter broadcasts. Absent → the send fails immediately and the ' +
-        'broadcast is marked failed rather than silently doing nothing.',
+        'broadcast is marked failed rather than silently doing nothing. The GET health route ' +
+        'returns { ready: false, missing: ["RESEND_API_KEY"] } when this is unset, so ' +
+        'dispatchBroadcastSender() can surface the misconfiguration before queuing a send.',
     },
     RESEND_FROM_EMAIL: { verify: false, note: 'Defaults in code.' },
     ADMIN_ORDER_EMAIL: { verify: false, note: 'Reply-to and List-Unsubscribe mailto. Defaults in code.' },
@@ -110,7 +112,9 @@ export const FUNCTION_SECRETS = {
       verify: true,
       note:
         'Prefix for the per-recipient one-click unsubscribe URL. Defaults to the apex, which ' +
-        '302s to the legacy Google Site — see the _shared note above.',
+        '302s to the legacy Google Site — see the _shared note above. The GET health route ' +
+        'returns { ready: false, missing: ["APP_URL"] } when this is unset, giving ' +
+        'dispatchBroadcastSender() an early, actionable signal before any email is attempted.',
     },
   },
   search: {
