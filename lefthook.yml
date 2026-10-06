@@ -5,7 +5,8 @@
 # Skip one command     : LEFTHOOK_EXCLUDE=<name> git <action>
 #
 # ── Baseline metrics (update when intentionally changed) ─────────────────────
-# suppress-count baseline: 12  (checked in pre-push; +2 contact a11y ignores)
+    # suppress-count baseline: 15  (checked in pre-push; +3 CRM scrollable regions)
+
 # coverage threshold     : 90% (checked in pre-push + vitest.config.ts)
 # env contract           : every code-referenced env var exists in .env.example
 # lockfile contract      : package.json and bun.lock must move together
@@ -341,8 +342,20 @@ pre-push:
     suppress-count:
       priority: 30
       run: |
-        # Baseline 7 → 9 → 10 → 12. None of the additions is a workaround for a
+        # Baseline 7 → 9 → 10 → 12 → 15. None of the additions is a workaround for a
         # real defect; in two cases the rule is wrong rather than the code.
+        #
+        # Baseline 12 → 15, three more `noNoninteractiveTabindex` on the CRM
+        # surfaces in this branch:
+        #
+        #   CRMBroadcastComposer — the campaign history table.
+        #   CRMContactList, CRMDetailClient, CRMSubNav — the constituent
+        #   directory table, the contact profile timeline, and the CRM sub-nav.
+        #
+        # Same WAI-ARIA scrollable-region pattern, same reasoning as the two
+        # already baselined above: a wider-than-viewport region that is not a
+        # tab stop cannot be scrolled by a keyboard user, and the rule flags it
+        # precisely because it does not model the pattern.
         #
         # Baseline 10 → 12, both `noNoninteractiveTabindex`:
         #
@@ -384,7 +397,7 @@ pre-push:
         #   1x noDangerouslySetInnerHtml — ContentPreview renders the sanitized
         #      body through the same sanitizeWPContent boundary as the public
         #      page. The suppression is the security boundary, not a workaround.
-        BASELINE=12
+        BASELINE=15
         COUNT=$(grep -rn "@ts-ignore\|@ts-nocheck\|biome-ignore\|eslint-disable" \
           src --include="*.ts" --include="*.tsx" 2>/dev/null \
           | grep -v "__tests__" | wc -l | tr -d ' ')
