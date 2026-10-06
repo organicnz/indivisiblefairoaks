@@ -248,5 +248,5 @@ schedule    →  ops [ours]  secret-audit · runner-health (+issue) · walle  �
 3. **Neither runner was healthy while this was written**
    (`personal-organicnz` fails `_PipelineMapping` permissions;
    `indivisiblefairoaks-runner-1` offline), so none of it has run in CI yet.
-   Locally: `tsc` clean, 1257 tests pass, coverage exit 0, all workflows parse,
+   Locally: `tsc` clean, 1294 tests pass, coverage exit 0, all workflows parse,
    `check-migrations.mjs` exercised against a seeded bad directory.

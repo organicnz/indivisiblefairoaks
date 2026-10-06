@@ -651,11 +651,28 @@ ordering from 0.7 explicit in its message.
      app ships it immediately — a deploy before the migration turns the contact
      form into "Failed to send message" for every visitor. Land the migrations in
      their own commit first.
-   - **0.8 — `apply-migrations.mjs` atomicity**: the endpoint it posts to may not
-     wrap a `DROP FUNCTION` / `CREATE` pair in one transaction. If it does not,
-     a failure at line 149 leaves both arities gone — and the contact form is
-     completely dead. Nobody has verified which; an explicit `BEGIN;`/`COMMIT;`
-     wrapper is the fix if it does not.
+   - **0.8 — `apply-migrations.mjs` atomicity**: **fixed, with the defect
+     sharper than first assumed.** The open question was whether the Management
+     API's query endpoint wraps a batch in a transaction — unknowable from here,
+     and the same either way. The real defect was local and needed no such
+     answer: the migration and the row recording it were **two separate
+     requests** (`await api(sql)` then `await api(INSERT …)`). If the second
+     failed, the schema was applied and unrecorded, so the next run re-applied a
+     migration that had already succeeded — fatal for anything not written to be
+     re-runnable, and `20261005010000` is exactly that, replacing
+     `submit_contact_submission`'s arity via `DROP`/`CREATE`. The schema would be
+     correct, the retry would fail identically forever, and every later migration
+     would queue behind it. Both now travel in one explicitly `BEGIN;`…`COMMIT;`
+     batch, which is correct whether or not the endpoint wraps it itself:
+     `BEGIN` inside an open transaction is a warning, not an error, and the
+     trailing `COMMIT` still commits. Four tests in
+     `src/lib/__tests__/apply-migrations.test.ts` pin it — one asserts the shape
+     directly, one asserts no query contains a schema change without its history
+     row (a request count would still pass if the batch were split per
+     statement), and both were confirmed to fail against the two-request version.
+     The script also exports `main(env)` behind a direct-invoke guard now, so its
+     delivery path is reachable from a test at all — it was a floating
+     `main().catch()` at module scope before.
    - **2.6/2.8 — credential-free e2e tests**: **implemented.** Both tests moved
      into their own top-level describes outside the `test.skip`-gated ones:
      `the challenge is not reachable without a session` is now in
