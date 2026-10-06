@@ -421,4 +421,4 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-        run: bun scripts/check-vercel-deploy.mjs
+        run: bun scripts/check-vercel-deploy.mjs --sha=${{ github.sha }}

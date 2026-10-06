@@ -32,11 +32,16 @@
 const API_BASE = 'https://api.vercel.com';
 
 export class VercelApiError extends Error {
-  constructor(message, { status = null, cause = null } = {}) {
+  // Plain property access, not a destructuring default: `status = null` with no
+  // annotation infers the literal type `null`, so a caller passing
+  // `{ status: 502 }` is type-errored. This is the third time that inference
+  // trap appeared in this file's siblings — `checkDeploy`'s deps and
+  // `check-migrations`'s `main` both had it too.
+  constructor(message, options = {}) {
     super(message);
     this.name = 'VercelApiError';
-    this.status = status;
-    if (cause) this.cause = cause;
+    this.status = options.status ?? null;
+    if (options.cause) this.cause = options.cause;
   }
 }
 
@@ -174,7 +179,19 @@ export async function getBuildLog(idOrUrl, teamId, token) {
   }
 }
 
-/** Resolve credentials from the environment, or `null` when incomplete. */
+/**
+ * Resolve credentials from an environment, or `null` when incomplete.
+ *
+ * The parameter is annotated as a partial record for the same reason as
+ * `check-migrations`' `main`: an unannotated `env = process.env` infers
+ * `ProcessEnv`, which requires `NODE_ENV` and so rejects any caller passing the
+ * three keys actually read — including every test. It also lets a caller supply
+ * an environment without mutating the process one, which leaks across test files
+ * sharing a worker.
+ *
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {{projectId: string, teamId: string, token: string} | null}
+ */
 export function credentialsFromEnv(env = process.env) {
   const { VERCEL_PROJECT_ID, VERCEL_ORG_ID, VERCEL_TOKEN } = env;
   if (!VERCEL_PROJECT_ID || !VERCEL_TOKEN) return null;

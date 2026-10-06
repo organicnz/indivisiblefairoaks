@@ -47,18 +47,16 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const REF = process.env.SUPABASE_PROJECT_REF ?? '';
-const TOKEN = process.env.SUPABASE_ACCESS_TOKEN ?? '';
-const DIR = process.env.MIGRATIONS_DIR ?? 'supabase/migrations';
 const API = 'https://api.supabase.com';
 
 const notice = (m) => console.log(`::notice::${m}`);
 const error = (m) => console.log(`::error::${m}`);
+const warn = (m) => console.log(`::warning::${m}`);
 
-async function api(query) {
-  const res = await fetch(`${API}/v1/projects/${REF}/database/query`, {
+async function api(query, { ref, token }) {
+  const res = await fetch(`${API}/v1/projects/${ref}/database/query`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),
   });
   const text = await res.text();
@@ -76,26 +74,40 @@ async function api(query) {
   throw new Error(`Unrecognized API response shape (keys: ${Object.keys(parsed ?? {}).join(',')})`);
 }
 
-function localMigrations() {
+function localMigrations(dir) {
   let files;
   try {
-    files = readdirSync(DIR).filter((f) => f.endsWith('.sql')).sort();
+    files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
   } catch {
     return null;
   }
   return files.map((file) => ({ version: file.split('_')[0], file }));
 }
 
-async function main() {
+/**
+ * @param {Record<string, string | undefined>} [env]
+ *   Defaults to `process.env`. Annotated as a partial record rather than left to
+ *   inference: an unannotated `env = process.env` infers `ProcessEnv`, which
+ *   requires `NODE_ENV` and so rejects any caller passing the handful of keys
+ *   this actually reads — including every test.
+ * @returns {Promise<number>} process exit code
+ */
+export async function main(env = process.env) {
+  // Read inside main, not at module scope: a module-scope read captures the
+  // environment at import time, which makes every branch unreachable from a
+  // test and therefore untestable.
+  const ref = env.SUPABASE_PROJECT_REF ?? "";
+  const token = env.SUPABASE_ACCESS_TOKEN ?? "";
+  const dir = env.MIGRATIONS_DIR ?? "supabase/migrations";
   // Local invariants run FIRST and need no credentials and no network. A
   // malformed filename or a duplicate version is a fact about the checkout, so
   // reporting it must not depend on a token being present — otherwise the check
   // answers "cannot check" for a repository it could have diagnosed locally.
-  const local = localMigrations();
+  const local = localMigrations(dir);
   const problems = [];
 
   if (!local) {
-    error(`No migrations directory at ${DIR}.`);
+    error(`No migrations directory at ${dir}.`);
     return 1;
   }
 
@@ -109,7 +121,7 @@ async function main() {
     } else {
       seen.set(m.version, m.file);
     }
-    if (readFileSync(join(DIR, m.file), 'utf8').trim() === '') {
+    if (readFileSync(join(dir, m.file), 'utf8').trim() === '') {
       problems.push(`Empty migration file: ${m.file}`);
     }
   }
@@ -122,7 +134,7 @@ async function main() {
   }
 
   // Remote read, for the cross-checks that need history.
-  if (!REF || !TOKEN) {
+  if (!ref || !token) {
     notice(`${local.length} migration file(s) are locally well-formed.`);
     error('SUPABASE_PROJECT_REF / SUPABASE_ACCESS_TOKEN are not set — history cross-check skipped.');
     error('This is a configuration fault on our side, not a migration fault.');
@@ -132,7 +144,7 @@ async function main() {
   let applied = new Set();
   let historyReadable = true;
   try {
-    const rows = await api('SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;');
+    const rows = await api('SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;', { ref, token });
     applied = new Set(rows.map((r) => String(r.version ?? r[0])));
   } catch (e) {
     const msg = String(e?.message ?? e);
@@ -156,20 +168,42 @@ async function main() {
     for (const version of applied) {
       if (!seen.has(version)) {
         problems.push(
-          `Version ${version} is recorded as applied on the hosted project but has no file in ${DIR}. ` +
+          `Version ${version} is recorded as applied on the hosted project but has no file in ${dir}. ` +
             `A migration was deleted or renamed after it shipped.`
         );
       }
     }
 
     for (const m of local) {
-      // The ordering trap: a NEW migration numbered below the highest applied
-      // one. `db push` compares histories and the divergence surfaces as an
-      // error that names a version rather than the file you added.
-      if (highest && m.version < highest && !applied.has(m.version)) {
-        problems.push(
-          `${m.file} is numbered below ${highest}, the highest version already applied. ` +
-            `Migration versions must increase monotonically — renumber this one above ${highest}.`
+      /*
+       * Out-of-order versions are reported, not failed.
+       *
+       * The hazard is real: a NEW migration numbered below the highest applied
+       * one makes the two histories diverge, and `db push` surfaces that as an
+       * error naming a version rather than the file you added.
+       *
+       * It is deliberately NOT a failure, because the same condition also
+       * describes a benign and common state — the hosted project's history table
+       * simply not listing every file in the repository (the canonical schema is
+       * bookkeeping, some migrations predate the table, a restore records a
+       * different set). Distinguishing "someone added this late" from "the remote
+       * list is short" needs the PR's changed-file set, which this script does
+       * not have and must not guess at.
+       *
+       * A gate that blocks merges on the benign case is worse than a gate that
+       * under-reports a rare one: it gets ignored, and then it catches nothing.
+       * `scripts/apply-migrations.mjs` already applies in filename order and
+       * verifies convergence afterwards, so the divergence is caught for real at
+       * delivery time rather than here.
+       *
+       * The all-zeros baseline is exempt regardless — it exists to sort first.
+       */
+      const isBaseline = /^0+$/.test(m.version);
+      if (highest && !isBaseline && m.version < highest && !applied.has(m.version)) {
+        warn(
+          `${m.file} is numbered below ${highest}, the highest version applied on the hosted ` +
+            `project, and is not recorded there. If it is new, renumber it above ${highest}; if ` +
+            `it has simply never been listed remotely, no action is needed.`
         );
       }
     }
@@ -192,4 +226,11 @@ async function main() {
   return 0;
 }
 
-process.exit(await main());
+// Auto-run only when invoked directly — importing this from a test must not
+// execute the check. `main` is exported because its decision table (which
+// conditions fail, and which are reported without a token) is the part worth
+// pinning.
+const invokedDirectly = process.argv[1]?.endsWith('check-migrations.mjs');
+if (invokedDirectly) {
+  process.exit(await main());
+}

@@ -86,29 +86,49 @@ async function probeHealth(origin) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function main() {
-  const creds = credentialsFromEnv();
+export async function main(deps = {}) {
+  // All of these are read inside `main` rather than at module scope: a
+  // module-scope read of the environment captures it at import time, and makes
+  // every branch unreachable from a test. `deps` overrides are injectable so the
+  // decision tables can be exercised without real time or real credentials.
+  const list = deps.listDeployments ?? listDeployments;
+  const log = deps.getBuildLog ?? getBuildLog;
+  const budget = deps.budget ?? budgetMs;
+  const interval = deps.interval ?? intervalMs;
+  // Separate from `budget`: once Vercel says READY the app needs a moment to
+  // boot, and deriving that window from the poll interval would make it zero for
+  // a fast poll — the probe would be skipped entirely rather than run once.
+  const healthBudget = deps.healthBudget ?? 120_000;
+
+  const creds = credentialsFromEnv(deps.env ?? process.env);
   if (!creds) {
     console.error('✖  VERCEL_PROJECT_ID / VERCEL_TOKEN are not set — cannot verify the deploy.');
     console.error('   This is a configuration fault on our side, not a deploy failure.');
     return 1;
   }
 
-  const sha = shaArg || process.env.GITHUB_SHA || '';
+  // The SHA is required as an argument, not read from the environment.
+  //
+  // `GITHUB_SHA` would work — GitHub injects it — but reading `process.env`
+  // outside the validated env layer is exactly what
+  // `scripts/hooks/no-raw-env-access.mjs` exists to prevent, and adding a
+  // CI-injected variable to `.env.example` would be worse: it would describe an
+  // app setting that does not exist. The workflow knows the SHA and can state it.
+  const sha = deps.shaArg ?? shaArg;
   if (!sha) {
-    console.error('✖  No commit SHA available (set GITHUB_SHA or pass --sha=).');
+    console.error('✖  No commit SHA given. Pass --sha=<full-sha>.');
     return 1;
   }
 
   console.log(`🔍 Looking for the Vercel deployment of ${sha.slice(0, 8)}…`);
 
-  const deadline = Date.now() + budgetMs;
+  const deadline = Date.now() + budget;
   let deployment = null;
   let lastSeen = null;
 
   while (Date.now() < deadline) {
     try {
-      const found = await listDeployments(creds.projectId, creds.teamId, creds.token, { sha });
+      const found = await list(creds.projectId, creds.teamId, creds.token, { sha });
       if (found.length > 0) {
         deployment = found[0];
         if (TERMINAL_STATES.has(deployment.state)) break;
@@ -129,11 +149,11 @@ async function main() {
       }
       throw err;
     }
-    await sleep(intervalMs);
+    await sleep(interval);
   }
 
   if (!deployment) {
-    console.error(`✖  No deployment for ${sha.slice(0, 8)} after ${Math.round(budgetMs / 1000)}s.`);
+    console.error(`✖  No deployment for ${sha.slice(0, 8)} after ${Math.round(budget / 1000)}s.`);
     console.error('   Either Vercel has not started one, or it was superseded by a newer push.');
     return 1;
   }
@@ -149,10 +169,10 @@ async function main() {
     const reason = failureReason(deployment);
     if (reason) console.error(`   Vercel says: ${reason}`);
     // Then the raw log, for detail. Best-effort only — see `getBuildLog`.
-    const log = await getBuildLog(deployment.url ?? deployment.uid, creds.teamId, creds.token);
-    if (log) {
+    const buildLog = await log(deployment.url ?? deployment.uid, creds.teamId, creds.token);
+    if (buildLog) {
       console.error('--- Vercel build log (tail) ---');
-      console.error(log.split('\n').slice(-60).join('\n'));
+      console.error(buildLog.split('\n').slice(-60).join('\n'));
       console.error('-------------------------------');
     }
     if (deployment.inspectorUrl) console.error(`   Inspect: ${deployment.inspectorUrl}`);
@@ -172,13 +192,21 @@ async function main() {
   }
 
   // Stage 2 — the part no build log can do.
-  const healthDeadline = Date.now() + 120_000;
+  //
+  // `do…while`, not `while`: the first probe must happen unconditionally. With a
+  // plain `while` against a deadline computed from the clock, a short budget
+  // could elapse before the loop body ever ran and the script would report
+  // "never served" without having asked once. The retry gap is `interval` and
+  // the loop re-checks the deadline *before* sleeping, so it cannot overrun the
+  // budget the way a fixed sleep did.
+  const healthDeadline = Date.now() + healthBudget;
   let last = null;
-  while (Date.now() < healthDeadline) {
+  do {
     last = await probeHealth(url);
     if (last.ok) break;
-    await sleep(10_000);
-  }
+    if (Date.now() >= healthDeadline) break;
+    await sleep(interval);
+  } while (Date.now() < healthDeadline);
 
   if (!last?.ok) {
     console.error(`✖  Deployment is READY but ${url}/api/health never served (${last?.reason}).`);
@@ -199,4 +227,11 @@ async function main() {
   return 0;
 }
 
-process.exit(await main());
+// Auto-run only when invoked directly. Importing this module from a test must
+// not execute the check — the exit-code contract below is the thing CI acts on,
+// so it is the thing most worth pinning with a test, and it cannot be reached
+// through a module that runs on import.
+const invokedDirectly = process.argv[1]?.endsWith('check-vercel-deploy.mjs');
+if (invokedDirectly) {
+  process.exit(await main());
+}
