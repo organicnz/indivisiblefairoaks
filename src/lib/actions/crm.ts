@@ -8,8 +8,11 @@ import {
   broadcastSubject,
   buildBroadcastEmail,
 } from '@/lib/crm-broadcast';
+import type { ConsentState } from '@/lib/crm-filters';
+import { isInAudience, splitActiveValues } from '@/lib/crm-filters';
 import {
   type CRMImportError,
+  MAX_CONTACT_NOTES_LENGTH,
   MAX_TAG_LENGTH,
   MAX_TAGS_PER_CONTACT,
   normalizeTags,
@@ -17,6 +20,13 @@ import {
   TAG_PATTERN,
   toCsvRow,
 } from '@/lib/crm-import';
+import {
+  BROADCAST_DISPATCH_TIMEOUT_MS,
+  BROADCAST_HISTORY_MAX_PAGE_SIZE,
+  BROADCAST_HISTORY_PAGE_SIZE,
+  CRM_EXPORT_LIMIT,
+  TAG_SCAN_LIMIT,
+} from '@/lib/crm-limits';
 import { isE2EMode } from '@/lib/e2e-mode';
 import { brandShell, escapeHtml, LOGO_URL, safeSubject, sendEmail } from '@/lib/email';
 import { env } from '@/lib/env';
@@ -27,9 +37,36 @@ export type CRMContact = Database['public']['Tables']['crm_contacts']['Row'];
 export type CRMContactInsert = Database['public']['Tables']['crm_contacts']['Insert'];
 export type CRMContactUpdate = Database['public']['Tables']['crm_contacts']['Update'];
 export type CRMActivity = Database['public']['Tables']['crm_activities']['Row'];
-export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'];
+/**
+ * A campaign row.
+ *
+ * `marked_failed_at` / `marked_failed_by` arrive with migration 20261005000000
+ * and are intersected in for the same reason as `CRMSegment` below: the generated
+ * types come from the live project, so they do not know a column until the
+ * migration carrying it has been applied. The composer reads `marked_failed_at`
+ * to decide whether a stranded row still needs clearing, so it is not optional.
+ */
+export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'] & {
+  marked_failed_at?: string | null;
+  marked_failed_by?: string | null;
+};
 export type CRMTask = Database['public']['Tables']['crm_tasks']['Row'];
-export type CRMSegment = Database['public']['Tables']['crm_segments']['Row'];
+/**
+ * A saved filter.
+ *
+ * The generated row type is the base, with `consent` intersected rather than
+ * replaced. `src/types/supabase.ts` is derived from the *live* project by
+ * `scripts/gen-types.mjs`, so it does not know about a column until the migration
+ * carrying it has been applied — and a build must not depend on migration order.
+ * The intersection is what makes `consent` optional and nullable here, which is
+ * exactly how it behaves: NULL on rows written before the column existed.
+ *
+ * Delete the `&` once the migration has been applied and the types regenerated;
+ * leaving it costs nothing but a comment.
+ */
+export type CRMSegment = Database['public']['Tables']['crm_segments']['Row'] & {
+  consent?: 'opted_out' | 'opted_in' | 'unasked' | null;
+};
 
 /**
  * Tag shape is enforced identically on both write paths. The CSV importer already
@@ -62,7 +99,20 @@ const contactSchema = z.object({
     .max(MAX_TAGS_PER_CONTACT, `A contact may carry at most ${MAX_TAGS_PER_CONTACT} tags`)
     .transform(normalizeTags)
     .default([]),
-  notes: z.string().nullable().optional(),
+  // Bounded, unlike before. An arbitrarily large blob reached `crm_contacts.notes`
+  // from three directions at once — this schema, the CSV importer, and an editor
+  // textarea with no `maxLength` — and it is rendered in the 360 panel *and*
+  // emitted in every CSV export of the directory. `taskSchema` caps `details` at
+  // 2000 for comparison; a free-text organizer note does not need more than the
+  // importer's own row limit.
+  notes: z.string().max(MAX_CONTACT_NOTES_LENGTH).nullable().optional(),
+  /**
+   * The version this edit was based on — the `updated_at` the editor was opened
+   * with. Optional, so an existing caller without it keeps the old behaviour, but
+   * the editor always sends it and it is what turns two organizers editing one
+   * contact from last-write-wins into a reported conflict.
+   */
+  updated_at: z.string().nullable().optional(),
 });
 
 const taskSchema = z.object({
@@ -83,6 +133,18 @@ const taskSchema = z.object({
     .optional(),
 });
 
+/**
+ * A reusable filter. `consent` is a first-class member, not a spare column:
+ * "everyone who opted out" is the audit a chapter most often needs to repeat,
+ * and while the field was absent an opt-out filter could be applied but not
+ * saved — so the only way to re-run it was to remember the dropdown.
+ */
+/** Shape of the `.select('id').single()` result both segment writes return. */
+type SegmentWriteResult = {
+  data: { id: string } | null;
+  error: { message: string; code?: string } | null;
+};
+
 const segmentSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(60),
@@ -94,6 +156,13 @@ const segmentSchema = z.object({
     .max(MAX_TAGS_PER_CONTACT, `A segment may filter on at most ${MAX_TAGS_PER_CONTACT} tags`)
     .transform(normalizeTags)
     .default([]),
+  /*
+   * All three states, so "everyone we have never asked" is a segment you can
+   * save and re-run. It was two when this field was added, which meant the audit
+   * a chapter most often wants — who is in the audience without ever having said
+   * yes — could be produced on screen but not kept.
+   */
+  consent: z.enum(['opted_out', 'opted_in', 'unasked']).optional(),
 });
 
 export interface CRMStats {
@@ -133,14 +202,6 @@ function escapeIlike(value: string): string {
  */
 function escapeIlikeOrValue(value: string): string {
   return escapeIlike(value.replace(/[(),]/g, ' ').replace(/\s+/g, ' ').trim());
-}
-
-function splitList(v: string | undefined | null): string[] {
-  if (!v) return [];
-  return v
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 /**
@@ -216,7 +277,7 @@ async function resolveBroadcastRecipients(
   for (let offset = 0; offset <= BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
     let qb = adminClient
       .from('crm_contacts')
-      .select('id, email, first_name, last_name, unsubscribe_token')
+      .select('id, email, first_name, last_name, unsubscribe_token, do_not_email')
       .eq('do_not_email', false)
       .order('id', { ascending: true });
 
@@ -232,7 +293,23 @@ async function resolveBroadcastRecipients(
       exhausted = true;
       break;
     }
-    recipients.push(...(data as BroadcastRecipient[]));
+    /*
+     * Defense in depth, not redundancy. The query above already carries
+     * `.eq('do_not_email', false)` — the SQL expression of `isInAudience()`.
+     * This filter is the row expression of the same rule, and it is what holds
+     * the invariant if anyone ever loosens the query: without it, dropping the
+     * predicate silently re-adds every opted-out and never-asked contact to the
+     * audience, with no error and no test noticing (the mock serves whatever
+     * rows it is given). `isInAudience` is "the rule every send path depends
+     * on, expressed once" — this is the once, used. `do_not_email` is selected
+     * for exactly this filter; removing it from the select turns the filter
+     * into a pass-through.
+     */
+    recipients.push(
+      ...(data as (BroadcastRecipient & { do_not_email: boolean | null })[]).filter((r) =>
+        isInAudience(r.do_not_email)
+      )
+    );
     // Past the ceiling: stop collecting and leave `exhausted` false, so the
     // caller refuses rather than sending a silently shortened audience.
     if (recipients.length > BROADCAST_RECIPIENT_CEILING) break;
@@ -315,8 +392,8 @@ export interface GetCRMContactsParams {
   statusList?: string[];
   districtList?: string[];
   tagList?: string[];
-  /** Consent audit: who has opted out of email, and who has not. */
-  consent?: 'opted_out' | 'opted_in';
+  /** Consent audit: opt-outs, opt-ins, and the never-asked third state. */
+  consent?: ConsentState;
   page?: number;
   pageSize?: number;
 }
@@ -326,7 +403,14 @@ type ContactFilterState = {
   districts: string[];
   tags: string[];
   q: string;
-  doNotEmail?: boolean;
+  /**
+   * Tri-state, so `undefined` (no consent filter) is no longer the only way to
+   * say "not filtering". `null` means "consent IS null", and it needs `.is()`:
+   * `.eq('do_not_email', null)` is `col=eq.null` in PostgREST and matches
+   * nothing, so the `unasked` filter would have silently returned the whole
+   * directory instead of the unasked contacts.
+   */
+  doNotEmail?: boolean | null;
 };
 
 type AdminClient = Awaited<ReturnType<typeof requireAdmin>>['adminClient'];
@@ -345,17 +429,25 @@ function resolveFilters({
   tagList,
   consent,
 }: GetCRMContactsParams): ContactFilterState {
-  const statuses = statusList?.length ? statusList : splitList(status).filter((s) => s !== 'all');
-  const districts = districtList?.length
-    ? districtList
-    : splitList(district).filter((d) => d !== 'all');
-  const tags = normalizeTags(tagList?.length ? tagList : splitList(tag).filter((t) => t !== 'all'));
+  const statuses = statusList?.length ? statusList : splitActiveValues(status ?? '');
+  const districts = districtList?.length ? districtList : splitActiveValues(district ?? '');
+  const tags = normalizeTags(tagList?.length ? tagList : splitActiveValues(tag ?? ''));
   return {
     statuses,
     districts,
     tags,
     q: query.trim().slice(0, 100),
-    doNotEmail: consent === 'opted_out' ? true : consent === 'opted_in' ? false : undefined,
+    // `unasked` maps to `null`, which is a *value* the filter uses rather than
+    // the absence of one — hence `null` rather than `undefined` here, and `.is()`
+    // below.
+    doNotEmail:
+      consent === 'opted_out'
+        ? true
+        : consent === 'opted_in'
+          ? false
+          : consent === 'unasked'
+            ? null
+            : undefined,
   };
 }
 
@@ -375,7 +467,12 @@ function applyContactFilters(qb: ReturnType<typeof contactSelect>, filters: Cont
     out = out.contains('tags', filters.tags);
   }
   if (filters.doNotEmail !== undefined) {
-    out = out.eq('do_not_email', filters.doNotEmail);
+    // `.is()` for the null case, never `.eq(col, null)`. PostgREST serialises the
+    // latter as `col=eq.null`, which matches nothing — so the `unasked` filter
+    // would return the entire directory and an organiser auditing opt-outs would
+    // be shown every constituent, labelled as though none of them had been asked.
+    if (filters.doNotEmail === null) out = out.is('do_not_email', null);
+    else out = out.eq('do_not_email', filters.doNotEmail);
   }
   if (filters.q) {
     const escaped = escapeIlikeOrValue(filters.q);
@@ -409,8 +506,18 @@ async function fetchContactPage(
     .order('id', { ascending: false })
     .range(from, to);
 
-  // Fallback: migration not applied yet, or FTS tokenization missed a partial match.
-  if (filters.q && (result.error || !result.data?.length)) {
+  /*
+   * Fallback: migration not applied yet, or FTS tokenization missed a partial
+   * match. First page only, and only when it is empty or errored.
+   *
+   * The old condition fired on *any* empty page. Search a term whose FTS
+   * matches fill exactly one page: page 1 returns FTS rows with `count: 50`,
+   * page 2 comes back empty, the fallback runs ILIKE — a broader predicate —
+   * and returns *those* rows with `count: 500`. The pager then reads "page 2 of
+   * 10" on a list whose page 1 said "of 1", and neither page is wrong on its
+   * own, which is why nobody caught it by looking at one page at a time.
+   */
+  if (filters.q && page === 1 && (result.error || !result.data?.length)) {
     qb = applyContactFilters(contactSelect(adminClient), filters);
     result = await qb
       .order('created_at', { ascending: false })
@@ -444,15 +551,38 @@ export async function getCRMContacts(params: GetCRMContactsParams = {}): Promise
   return { contacts: result.contacts, totalCount: result.totalCount };
 }
 
-export async function exportCRMContacts(
-  params: GetCRMContactsParams = {}
-): Promise<{ csv: string; count: number; error?: string }> {
+export async function exportCRMContacts(params: GetCRMContactsParams = {}): Promise<{
+  csv: string;
+  /** Rows actually written to the file. Never the matched total. */
+  count: number;
+  /** Rows the filter matched, which is ≥ `count` whenever `truncated`. */
+  matchedCount: number;
+  /** True when the cap dropped rows. `matchedCount` then exceeds `count`. */
+  truncated: boolean;
+  error?: string;
+}> {
   const { adminClient } = await requireAdmin();
   const filters = resolveFilters(params);
-  // Full filtered export (not just the visible page), hard-capped.
-  const result = await fetchContactPage(adminClient, filters, 1, 10000);
+  /*
+   * The full filtered set, not just the visible page — but capped, because a
+   * chapter with tens of thousands of rows would otherwise hold the whole
+   * directory in the Next server's memory to build one string.
+   *
+   * The cap is only defensible because it is *reported*. `range(0, 9999)` used to
+   * truncate with nothing on screen saying so, and this file is the one artefact
+   * that leaves the building: it looks like a complete backup, it re-imports
+   * cleanly, and it is missing rows. Nothing in the CSV, the toast or the
+   * filename would have said so, so the failure would surface at restore time —
+   * weeks later, to a volunteer, with no way to know what is absent.
+   *
+   * `matchedCount` comes from `fetchContactPage`'s `totalCount`, which is the
+   * filter's own count and not the rows read. That distinction is the whole
+   * point: a `truncated` flag whose number is derived from the same read as
+   * `count` could not detect its own truncation.
+   */
+  const result = await fetchContactPage(adminClient, filters, 1, CRM_EXPORT_LIMIT);
   if (result.error) {
-    return { csv: '', count: 0, error: result.error };
+    return { csv: '', count: 0, matchedCount: 0, truncated: false, error: result.error };
   }
 
   const header = toCsvRow([
@@ -492,13 +622,32 @@ export async function exportCRMContacts(
       c.status,
       (c.tags || []).join('; '),
       c.notes || '',
-      c.do_not_email ? 'yes' : 'no',
+      /*
+       * Tri-state, and the export is where it has to survive.
+       *
+       * `c.do_not_email ? 'yes' : 'no'` wrote `no` for a null row, and re-importing
+       * that file would have converted every "never asked" constituent into an
+       * explicit yes — a backup and restore cycle silently enrolling people in
+       * broadcast mail. The importer reads a blank cell as null, so the blank here
+       * is the round-trip.
+       */
+      c.do_not_email === null ? '' : c.do_not_email ? 'yes' : 'no',
       c.total_donated_cents,
       c.source || '',
       c.created_at,
     ])
   );
-  return { csv: [header, ...lines].join('\r\n'), count: result.contacts.length };
+  const matchedCount = result.totalCount;
+  return {
+    csv: [header, ...lines].join('\r\n'),
+    count: result.contacts.length,
+    matchedCount,
+    // `contacts.length === totalCount` is the untruncated case. Comparing the
+    // read against the count rather than against the constant is what makes this
+    // correct if the cap is ever raised: two rows short of the cap is not
+    // truncated, and only the mismatch knows the difference.
+    truncated: result.contacts.length < matchedCount,
+  };
 }
 
 export interface CRMTaskWithContact extends CRMTask {
@@ -633,16 +782,33 @@ export async function deleteCRMTask(id: string): Promise<{ success: boolean; err
   return { success: true };
 }
 
-export async function getCRMSegments(): Promise<CRMSegment[]> {
+/**
+ * Saved segments, newest first — with the true total alongside.
+ *
+ * The read used to be `.limit(50)` with no count and no pager, so a chapter
+ * past 50 saved segments silently lost the oldest. And since the directory only
+ * lists what this returns, an unreachable segment was also undeletable: no UI
+ * path could reach its delete control. That is precisely the failure the docs
+ * claim was fixed for drafts; it was not carried to segments.
+ *
+ * Segments grow one row per deliberate save — not per campaign, per contact,
+ * or per import — so the honest fix is a cap high enough to never bind (500)
+ * with a truncation flag, rather than a pager for a list nobody pages. If the
+ * flag ever fires, that is the signal to build the pager, not to raise the cap
+ * again.
+ */
+const SEGMENT_LIMIT = 500;
+
+export async function getCRMSegments(): Promise<{ segments: CRMSegment[]; truncated: boolean }> {
   const { adminClient } = await requireAdmin();
-  const { data, error } = await adminClient
+  const { data, error, count } = await adminClient
     .from('crm_segments')
-    .select('*')
+    .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
-    .limit(50);
+    .limit(SEGMENT_LIMIT);
   if (error) throw new Error(`Failed to load segments: ${error.message}`);
-  return data || [];
+  return { segments: data || [], truncated: (count ?? 0) > (data?.length ?? 0) };
 }
 
 export async function saveCRMSegment(
@@ -654,34 +820,70 @@ export async function saveCRMSegment(
     return { success: false, error: parsed.error.issues[0]?.message || 'Invalid input' };
   }
 
-  const { id, name, query, statuses, districts, tags } = parsed.data;
+  const { id, name, query, statuses, districts, tags, consent } = parsed.data;
   const row = {
     name: name.trim(),
     query,
     statuses,
     districts,
     tags,
+    // Written as SQL NULL rather than omitted, so clearing a segment's consent
+    // filter on edit actually clears it. Omitting the key would leave the
+    // previous value in place on an UPDATE.
+    consent: consent ?? null,
+  };
+
+  /*
+    Cast for the same reason as `CRMSegment` above: the generated row type does
+    not know `consent` until migration 20261005000000 has been applied to the
+    project the types were derived from. The value is written as SQL NULL, not
+    omitted — omitting the key would leave the previous consent filter in place
+    when a segment's filter is cleared, which is the edit the field exists for.
+  */
+  const segments = adminClient as unknown as {
+    from: (table: 'crm_segments') => {
+      update: (values: typeof row) => {
+        eq: (
+          col: string,
+          value: string
+        ) => {
+          select: (cols: string) => {
+            single: () => Promise<SegmentWriteResult>;
+          };
+        };
+      };
+      insert: (values: typeof row) => {
+        select: (cols: string) => {
+          single: () => Promise<SegmentWriteResult>;
+        };
+      };
+    };
   };
 
   if (id) {
-    const { data, error } = await adminClient
+    const { data, error } = await segments
       .from('crm_segments')
       .update(row)
       .eq('id', id)
       .select('id')
       .single();
     if (error) return { success: false, error: error.message };
+    // Belt and braces: a concurrent delete between the read and the write matches
+    // no row, which `.single()` reports as an error — but a defensive check here
+    // costs nothing and the alternative is `data.id` on a null.
+    if (!data) return { success: false, error: 'That segment no longer exists' };
     revalidateCRMRoutes();
     return { success: true, segmentId: data.id };
   }
 
-  const { data, error } = await adminClient.from('crm_segments').insert(row).select('id').single();
+  const { data, error } = await segments.from('crm_segments').insert(row).select('id').single();
   if (error) {
     if (error.code === '23505') {
       return { success: false, error: 'A segment with that name already exists' };
     }
     return { success: false, error: error.message };
   }
+  if (!data) return { success: false, error: 'The segment could not be created' };
   revalidateCRMRoutes();
   return { success: true, segmentId: data.id };
 }
@@ -694,30 +896,78 @@ export async function deleteCRMSegment(id: string): Promise<{ success: boolean; 
   return { success: true };
 }
 
-export async function getCRMContactDetail(
-  id: string
-): Promise<{ contact: CRMContact; activities: CRMActivity[]; tasks: CRMTask[] }> {
+/**
+ * How many timeline entries one contact's 360 shows.
+ *
+ * The read was unbounded, and `CRMDetailClient` rendered every row it got. A
+ * recipient of one 5,000-recipient broadcast therefore had 5,000 timeline
+ * entries on their profile page: no pagination, no cap, and a payload that
+ * grows with the chapter's largest campaign rather than with the contact. Tasks
+ * beside it were already capped at 50, so the two panels of the same view had
+ * opposite bounds and nobody noticed, because the tasks panel behaved.
+ *
+ * `exact` because the panel needs the true total to say "showing 50 of 5,000"
+ * rather than implying the list ended.
+ */
+const CONTACT_ACTIVITY_LIMIT = 50;
+
+const CONTACT_TASK_LIMIT = 50;
+
+export async function getCRMContactDetail(id: string): Promise<{
+  contact: CRMContact;
+  activities: CRMActivity[];
+  /** True when `activities` was cut at `CONTACT_ACTIVITY_LIMIT`. */
+  activitiesTruncated: boolean;
+  activityCount: number;
+  tasks: CRMTask[];
+  /** True when `tasks` was cut at `CONTACT_TASK_LIMIT`. */
+  tasksTruncated: boolean;
+  taskCount: number;
+  /** Open tasks on record — the tab label counts open, not total. */
+  openTaskCount: number;
+}> {
   const { adminClient } = await requireAdmin();
 
   const [
     { data: contact, error: contactError },
     { data: activities, error: actError },
+    { count: activityCount, error: countError },
     { data: tasks, error: taskError },
+    { count: taskCount, error: taskCountError },
+    { count: openTaskCount, error: openTaskCountError },
   ] = await Promise.all([
     adminClient.from('crm_contacts').select('*').eq('id', id).single(),
     adminClient
       .from('crm_activities')
       .select('*')
       .eq('contact_id', id)
+      // `created_at DESC` alone is not a total order: `crm_activities` is written
+      // by trigger in batches, so ties are routine, and a non-unique sort key
+      // makes `.limit()` return an arbitrary subset across calls.
       .order('created_at', { ascending: false })
-      .order('id', { ascending: false }),
+      .order('id', { ascending: false })
+      .limit(CONTACT_ACTIVITY_LIMIT),
+    adminClient
+      .from('crm_activities')
+      .select('*', { count: 'exact', head: true })
+      .eq('contact_id', id),
     adminClient
       .from('crm_tasks')
       .select('*')
       .eq('contact_id', id)
       .order('due_at', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
-      .order('id', { ascending: false }),
+      .order('id', { ascending: false })
+      .limit(CONTACT_TASK_LIMIT),
+    // The activities panel beside this one already reports its true count with
+    // a truncation flag; the tasks panel rendered the capped number as the
+    // total instead. A contact with 80 open follow-ups read "Follow-ups (50)".
+    adminClient.from('crm_tasks').select('*', { count: 'exact', head: true }).eq('contact_id', id),
+    adminClient
+      .from('crm_tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('contact_id', id)
+      .eq('status', 'open'),
   ]);
 
   if (contactError || !contact) {
@@ -727,20 +977,52 @@ export async function getCRMContactDetail(
   if (actError) {
     throw new Error(`Failed to load contact activities: ${actError.message}`);
   }
+  if (countError) {
+    throw new Error(`Failed to count contact activities: ${countError.message}`);
+  }
   if (taskError) {
     throw new Error(`Failed to load contact tasks: ${taskError.message}`);
+  }
+  if (taskCountError) {
+    throw new Error(`Failed to count contact tasks: ${taskCountError.message}`);
+  }
+  if (openTaskCountError) {
+    throw new Error(`Failed to count open contact tasks: ${openTaskCountError.message}`);
   }
 
   return {
     contact,
     activities: activities || [],
+    activityCount: activityCount ?? 0,
+    activitiesTruncated: (activityCount ?? 0) > (activities?.length ?? 0),
     tasks: tasks || [],
+    taskCount: taskCount ?? 0,
+    tasksTruncated: (taskCount ?? 0) > (tasks?.length ?? 0),
+    openTaskCount: openTaskCount ?? 0,
   };
 }
 
+export type SaveCRMContactResult = {
+  success: boolean;
+  contactId?: string;
+  error?: string;
+  /**
+   * Why the save was refused. `conflict` is the optimistic-concurrency refusal —
+   * a colleague saved the same contact while this form was open — and the editor
+   * needs it to say something other than "failed to save".
+   */
+  reason?: 'conflict';
+  /**
+   * The row's new `updated_at`, written by the `touch_updated_at` trigger. The
+   * editor adopts it so its next save is based on the database's version rather
+   * than on a timestamp its own clock produced.
+   */
+  updatedAt?: string | null;
+};
+
 export async function saveCRMContact(
   rawInput: z.input<typeof contactSchema>
-): Promise<{ success: boolean; contactId?: string; error?: string }> {
+): Promise<SaveCRMContactResult> {
   const { adminClient, adminUserId } = await requireAdmin();
 
   const parsed = contactSchema.safeParse(rawInput);
@@ -752,9 +1034,31 @@ export async function saveCRMContact(
   const normalizedEmail = data.email.trim().toLowerCase();
 
   if (id) {
+    /*
+      Optimistic concurrency, mirroring `saveContent`'s `expectedUpdatedAt`.
+
+      The read-then-update here was last-write-wins with no signal: two organizers
+      editing one contact both read, both wrote, and the second silently discarded
+      the first's changes. That is the default outcome of the one surface whose
+      purpose is to look after other people's data, and `saveContent` fixed the
+      identical problem for CMS pages while the CRM kept it.
+
+      The precondition rides on the UPDATE rather than on a SELECT-then-UPDATE,
+      which would leave a window in which a colleague's save still lands between
+      the check and the write. `crm_contacts.updated_at` is maintained by the
+      `touch_updated_at` trigger (migration 20260930140000), so the value the
+      editor sends back is the database's, not a second clock's.
+
+      A null claim uses `.is()`, never `.eq()`: `.eq('updated_at', null)` is
+      `col=eq.null` in PostgREST and matches nothing, so the guard would fire
+      against every untouched row. Same trap `saveContent`'s version precondition
+      documents, and the reason it is written down at all.
+    */
+    const expectedUpdatedAt = data.updated_at ?? null;
+
     const { data: previous, error: previousError } = await adminClient
       .from('crm_contacts')
-      .select('status, email, tags, notes')
+      .select('status, email, tags, notes, updated_at')
       .eq('id', id)
       .single();
 
@@ -771,20 +1075,41 @@ export async function saveCRMContact(
 
     const statusChanged = previous.status !== data.status;
 
-    const { data: updated, error } = await adminClient
-      .from('crm_contacts')
-      .update({
-        ...data,
-        email: normalizedEmail,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select('id')
-      .single();
+    // `updated_at` is deliberately *not* in this payload. It is the expected
+    // version, not the new one: writing it back would overwrite the value the
+    // `touch_updated_at` trigger is about to write with the stale one, which makes
+    // the next save by anyone conflict with itself. The trigger owns the column.
+    // (`id` was already destructured out of `data` above.)
+    const { updated_at: _expected, ...writable } = data;
+    const updatePayload: CRMContactUpdate = {
+      ...writable,
+      email: normalizedEmail,
+    };
 
+    // `.maybeSingle()`, not `.single()`. `.single()` turns "matched no row" into
+    // a PGRST116 *error*, which is indistinguishable from a genuine failure — and
+    // a conflict reported as "JSON object requested, multiple (or no) rows
+    // returned" tells the volunteer nothing about the two-organizers case this
+    // guard exists for. `maybeSingle()` resolves `{ data: null }` for zero rows,
+    // which is the one shape that means exactly that.
+    let updateQuery = adminClient.from('crm_contacts').update(updatePayload).eq('id', id);
+    if (expectedUpdatedAt) updateQuery = updateQuery.eq('updated_at', expectedUpdatedAt);
+    else updateQuery = updateQuery.is('updated_at', null);
+
+    const { data: updated, error } = await updateQuery.select('id').maybeSingle();
+
+    // The read above already proved the row exists, so "matched no row" here can
+    // only mean the precondition failed — somebody else saved in between. That is
+    // the conflict. Anything else is a real failure and reported as one.
+    if (!error && !updated) {
+      return {
+        success: false,
+        error:
+          'Someone else saved this contact while you were editing. Reload to see their changes, then re-apply yours.',
+        reason: 'conflict',
+      };
+    }
     if (error) return { success: false, error: error.message };
-    // Belt and braces: a concurrent delete between the read and the write
-    // matches no row and still returns no error.
     if (!updated) return { success: false, error: 'That contact no longer exists' };
 
     await adminClient.from('crm_activities').insert({
@@ -799,14 +1124,24 @@ export async function saveCRMContact(
     });
 
     revalidateCRMRoutes(id);
-    return { success: true, contactId: updated.id };
+    // The new version, so the editor's next save is based on what the trigger
+    // just wrote rather than on the timestamp it arrived with.
+    const { data: fresh } = await adminClient
+      .from('crm_contacts')
+      .select('updated_at')
+      .eq('id', id)
+      .single();
+    return { success: true, contactId: updated.id, updatedAt: fresh?.updated_at ?? null };
   }
 
-  // Insert new contact
+  // Insert new contact. `updated_at` is dropped for the same reason as the update
+  // path: it is the precondition, not a value, and the column is maintained by
+  // `touch_updated_at`.
+  const { updated_at: _expected, ...insertable } = data;
   const { data: created, error } = await adminClient
     .from('crm_contacts')
     .insert({
-      ...data,
+      ...insertable,
       email: normalizedEmail,
       source: 'manual',
     })
@@ -864,34 +1199,81 @@ export async function addCRMNote({
   return { success: true };
 }
 
+/**
+ * An admin's decision about one contact's email consent.
+ *
+ * Three values because the column stores three (migration 20261005020000), and
+ * the middle one is the point: `'unasked'` records "we have never put this to
+ * them", which is a true statement about the relationship and not a synonym for
+ * a yes.
+ *
+ * Reachable from the 360 panel. Before this it was a boolean toggle, so an
+ * organiser could mark somebody opted out or opted in but had no way to say
+ * "unknown" — and the nearest thing they could do, clearing the flag, recorded a
+ * *yes* they had not been given.
+ */
+export type ConsentDecision = 'opted_out' | 'opted_in' | 'unasked';
+
 export async function setCRMEmailConsent({
   contactId,
   doNotEmail,
 }: {
   contactId: string;
-  doNotEmail: boolean;
+  doNotEmail: ConsentDecision;
 }): Promise<{ success: boolean; error?: string }> {
   const { adminClient, adminUserId } = await requireAdmin();
   const now = new Date().toISOString();
 
+  const storedValue = doNotEmail === 'unasked' ? null : doNotEmail === 'opted_out';
+
+  /*
+    Cast, because `src/types/supabase.ts` is generated from the live project and
+    types `do_not_email` as `boolean` until migration 20261005020000 has been
+    applied. The `CRMContactUpdate` shape is spelled out here rather than left to
+    inference so a future removal of the cast fails on the *value*, not silently
+    on the type.
+  */
+  const consentPayload = {
+    do_not_email: storedValue,
+    /*
+     * The timestamp follows the consent rather than being cleared on any
+     * non-opt-out. Restoring consent is not the same as erasing the evidence
+     * that somebody once unsubscribed, and an organiser reading this profile
+     * six months later is better served by a date than by a blank. The
+     * unsubscribe route keeps its own behaviour — it is the only thing that
+     * creates one.
+     */
+    ...(doNotEmail === 'opted_out' ? { unsubscribed_at: now } : {}),
+    updated_at: now,
+  } as CRMContactUpdate;
+
   const { error } = await adminClient
     .from('crm_contacts')
-    .update({
-      do_not_email: doNotEmail,
-      unsubscribed_at: doNotEmail ? now : null,
-      updated_at: now,
-    })
+    .update(consentPayload)
     .eq('id', contactId);
 
   if (error) return { success: false, error: error.message };
 
+  const ACTIVITY: Record<ConsentDecision, { title: string; description: string }> = {
+    opted_out: {
+      title: 'Email Consent Revoked',
+      description: 'Marked do-not-email — excluded from all broadcasts.',
+    },
+    opted_in: {
+      title: 'Email Consent Restored',
+      description: 'Re-subscribed for chapter email broadcasts.',
+    },
+    unasked: {
+      title: 'Email Consent Marked Unknown',
+      description:
+        'Consent reset to "never asked" — excluded from broadcasts until this person opts in.',
+    },
+  };
+
   await adminClient.from('crm_activities').insert({
     contact_id: contactId,
     type: 'note',
-    title: doNotEmail ? 'Email Consent Revoked' : 'Email Consent Restored',
-    description: doNotEmail
-      ? 'Marked do-not-email — excluded from all broadcasts.'
-      : 'Re-subscribed for chapter email broadcasts.',
+    ...ACTIVITY[doNotEmail],
     created_by: adminUserId,
   });
 
@@ -941,7 +1323,11 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
     const { data: existing, error: lookupError } = await adminClient
       .from('crm_contacts')
       .select('email')
-      .or(orFilter);
+      .or(orFilter)
+      // Bounded by construction — the chunk holds 50 emails and `email` is
+      // unique — but stated rather than implied, so a later chunk-size change
+      // cannot silently unbound it.
+      .limit(LOOKUP_CHUNK);
     if (lookupError) {
       return {
         success: false,
@@ -975,6 +1361,10 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
       // The exporter writes this column and the importer used to drop it — so a
       // backup round-trip silently re-subscribed everyone who had opted out, and
       // the next broadcast mailed them anyway. Carry it through.
+      //
+      // `null` is carried too, not flattened to `false`: a restore has to
+      // preserve "never asked", or the second round-trip of the same file
+      // enrols everybody who was never asked.
       do_not_email: r.do_not_email,
       source: 'import',
     }));
@@ -987,9 +1377,14 @@ export async function importCRMContacts({ csv }: { csv: string }): Promise<{
   const CHUNK = 100;
   for (let i = 0; i < toInsert.length; i += CHUNK) {
     const chunk = toInsert.slice(i, i + CHUNK);
+    // The generated `Insert` type says `do_not_email?: boolean` until migration
+    // 20261005020000 is applied; the value genuinely is `boolean | null` now, and
+    // the column is nullable in the database the moment it lands. Casting the
+    // payload rather than the client keeps the rest of the chain typed.
+    const payload = chunk as unknown as CRMContactInsert[];
     const { data: created, error } = await adminClient
       .from('crm_contacts')
-      .insert(chunk)
+      .insert(payload)
       .select('id');
 
     if (error) {
@@ -1059,48 +1454,46 @@ export async function mergeCRMContacts({
     return { success: false, error: 'Both contacts must exist to merge' };
   }
 
-  const unionTags = normalizeTags([...(keep.tags || []), ...(remove.tags || [])]);
-  const mergedNotes = [keep.notes, remove.notes].filter(Boolean).join('\n\n---\n\n') || null;
-  const lastContacted =
-    keep.last_contacted_at && remove.last_contacted_at
-      ? keep.last_contacted_at > remove.last_contacted_at
-        ? keep.last_contacted_at
-        : remove.last_contacted_at
-      : keep.last_contacted_at || remove.last_contacted_at;
+  /*
+    Four statements, previously with no transaction and no lock.
 
-  // Move timeline + open tasks onto the survivor, then delete the duplicate.
-  const [{ error: actErr }, { error: taskErr }] = await Promise.all([
-    adminClient.from('crm_activities').update({ contact_id: keepId }).eq('contact_id', removeId),
-    adminClient.from('crm_tasks').update({ contact_id: keepId }).eq('contact_id', removeId),
-  ]);
-  if (actErr) return { success: false, error: `Failed to move activities: ${actErr.message}` };
-  if (taskErr) return { success: false, error: `Failed to move tasks: ${taskErr.message}` };
+    A failure at step three or four left the duplicate alive with its activities
+    and tasks already re-pointed at the survivor: a double-counted timeline, the
+    same follow-up appearing twice on the board, and an error message naming only
+    the step that happened to fail. Two concurrent merges of the same pair both
+    read, both wrote, and both added `total_donated_cents` — so the survivor's
+    giving total was inflated by one copy.
 
-  const { error: updErr } = await adminClient
-    .from('crm_contacts')
-    .update({
-      tags: unionTags,
-      notes: mergedNotes,
-      total_donated_cents: (keep.total_donated_cents || 0) + (remove.total_donated_cents || 0),
-      last_contacted_at: lastContacted,
-      do_not_email: keep.do_not_email || remove.do_not_email,
-      unsubscribed_at: keep.unsubscribed_at || remove.unsubscribed_at || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', keepId);
-  if (updErr) return { success: false, error: updErr.message };
+    `rpc('merge_crm_contacts', …)` runs the whole thing inside the database as
+    one statement, so it either commits or it does not, and it takes the survivor
+    row `FOR UPDATE` first so a concurrent merge of the same pair serialises
+    behind it and then reads the already-merged state. See migration
+    20261005030000_merge_crm_contacts.sql.
 
-  const { error: delErr } = await adminClient.from('crm_contacts').delete().eq('id', removeId);
-  if (delErr) return { success: false, error: delErr.message };
-
-  await adminClient.from('crm_activities').insert({
-    contact_id: keepId,
-    type: 'merge',
-    title: 'Merged Duplicate Contact',
-    description: `Consolidated ${remove.email} into ${keep.email}`,
-    metadata: { removed_id: removeId, removed_email: remove.email },
-    created_by: adminUserId,
+    The RPC is `SECURITY DEFINER` and service-role-only; `requireAdmin()` above is
+    the actual authorization boundary, exactly as for every other action here.
+    The RLS policies remain as defence in depth for any future direct client path.
+  */
+  // Cast, because `src/types/supabase.ts` is generated from the live project and
+  // does not list the RPC until migration 20261005030000 has been applied. The
+  // signature is declared here rather than left to inference so the parameters
+  // are checked at this call site; remove the cast when the types are
+  // regenerated against a database that has it.
+  const rpc = adminClient as unknown as {
+    rpc: (
+      fn: 'merge_crm_contacts',
+      args: { p_keep_id: string; p_remove_id: string; p_actor_id: string | null }
+    ) => Promise<{ error: { message: string } | null }>;
+  };
+  const { error: mergeError } = await rpc.rpc('merge_crm_contacts', {
+    p_keep_id: keepId,
+    p_remove_id: removeId,
+    p_actor_id: adminUserId,
   });
+
+  if (mergeError) {
+    return { success: false, error: `Merge failed: ${mergeError.message}` };
+  }
 
   revalidateCRMRoutes(keepId);
   return { success: true };
@@ -1137,8 +1530,23 @@ export async function sendCRMDirectEmail({
     return { success: false, error: 'Contact not found' };
   }
 
-  if (contact.do_not_email) {
-    return { success: false, error: 'Contact has unsubscribed — email sending is blocked' };
+  /*
+   * `!== false`, not truthiness. `do_not_email` is tri-state since the consent
+   * migration: `false` means the contact agreed, `true` means they opted out,
+   * and `NULL` means they were never asked. `NULL` is falsy in JS, so a
+   * truthiness test mails every contact whose record says "never asked" — which
+   * is exactly what profile signups and store orders produce. Every other send
+   * path uses `IS FALSE` (`resolveBroadcastRecipients`, the Edge Function, the
+   * recipient count); this was the sole exception, and the UI agreed with it.
+   */
+  if (contact.do_not_email !== false) {
+    return {
+      success: false,
+      error:
+        contact.do_not_email === true
+          ? 'Contact has unsubscribed — email sending is blocked'
+          : 'No consent on file for this contact — email sending is blocked until they opt in',
+    };
   }
 
   const cleanSubject = safeSubject(subject.trim());
@@ -1234,6 +1642,10 @@ export interface BroadcastTarget {
   targetStatus?: string[];
   targetDistricts?: string[];
 }
+
+// `PROGRESS_POLL_TIMEOUT_MS` and the other numeric bounds live in
+// `@/lib/crm-limits`, not here: this is a `'use server'` module, and Next rejects
+// any non-async export from one — including a constant a client component needs.
 
 export interface BroadcastProgress {
   id: string;
@@ -1489,9 +1901,16 @@ export async function sendCRMBroadcast({
   if (!dispatched.ok) {
     // Mark it failed rather than leaving it queued forever: the admin needs to
     // see that it did not go out, and be able to try again.
+    // `failed_count` is the unsent remainder, matching `markCRMBroadcastFailed`.
+    // Without it the row reads "N recipients, none accepted, none rejected"
+    // rather than "nothing was attempted" — and nothing was.
     await adminClient
       .from('crm_broadcasts')
-      .update({ status: 'failed', sent_at: new Date().toISOString() })
+      .update({
+        status: 'failed',
+        sent_at: new Date().toISOString(),
+        failed_count: recipients.length,
+      })
       .eq('id', broadcast.id);
     return {
       success: false,
@@ -1574,7 +1993,7 @@ export async function sendCRMBroadcastSelfTest({
   if (!dispatched.ok) {
     await adminClient
       .from('crm_broadcasts')
-      .update({ status: 'failed', sent_at: new Date().toISOString() })
+      .update({ status: 'failed', sent_at: new Date().toISOString(), failed_count: 1 })
       .eq('id', data.id);
     return { success: false, error: `Test could not be sent: ${dispatched.error}` };
   }
@@ -1594,6 +2013,144 @@ export async function sendCRMBroadcastSelfTest({
  * On the client both ends wait — the composer reports progress through its
  * own polling of the row after this resolves.
  */
+/**
+ * Declare a stranded campaign failed, by hand.
+ *
+ * `docs/crm-operations.md` documents the recovery for a row stuck at `sending`
+ * as "send a new, narrower broadcast" and is emphatic that the stuck row must not
+ * be re-dispatched — clearing `dispatched_at` re-sends to everyone already
+ * delivered to. That guidance is correct and was unactionable from the UI: the
+ * composer had no control that could mark a row failed, so two organizers staring
+ * at a stuck campaign had to choose between doing nothing and editing the
+ * database by hand.
+ *
+ * Deliberately one-directional. It can only move a row to `failed`, never back to
+ * a sendable state, because the one irreversible mistake available here is
+ * restarting a campaign. It refuses on a row the sender still owns (`queued` or
+ * `sending` with a live `dispatched_at` inside the dispatch window), so it cannot
+ * be used to cut short a send that is merely slow.
+ *
+ * `marked_failed_at` / `marked_failed_by` are written rather than `status` alone,
+ * so the record distinguishes "the sender reported failure" from "an organizer
+ * decided this one was stuck" — a distinction that matters when reading a history
+ * row six months later.
+ */
+export async function markCRMBroadcastFailed(
+  broadcastId: string
+): Promise<{ success: boolean; error?: string }> {
+  const { adminClient, adminUserId } = await requireAdmin();
+
+  const { data: existing, error: readError } = await adminClient
+    .from('crm_broadcasts')
+    .select('id, subject, status, sent_count, recipient_count, dispatched_at, test_only')
+    .eq('id', broadcastId)
+    .maybeSingle();
+
+  if (readError) return { success: false, error: readError.message };
+  if (!existing) return { success: false, error: 'That campaign no longer exists' };
+
+  /*
+   * The composer hides this control for `test_only` rows, but hiding is not a
+   * boundary — the action is. A preview stranded at `sending` is a stuck
+   * preview, not a stuck campaign, and marking it failed writes an organizer's
+   * fingerprints onto a row whose only reader is the sender's own poll loop.
+   */
+  if (existing.test_only) {
+    return {
+      success: false,
+      error: 'This is a preview, not a campaign — re-send the test instead.',
+    };
+  }
+
+  if (existing.status === 'sent' || existing.status === 'failed') {
+    return {
+      success: false,
+      error: `This campaign already finished as "${existing.status}" — nothing to clear.`,
+    };
+  }
+  if (existing.status === 'draft') {
+    return {
+      success: false,
+      error: 'This is an unsent draft, not a stuck campaign. Discard it instead.',
+    };
+  }
+
+  // A row dispatched recently is assumed healthy: 5,000 recipients at ten per
+  // round trip is a long send, and "fail" here would mark a working campaign dead.
+  const dispatchedAt = existing.dispatched_at ? Date.parse(existing.dispatched_at) : null;
+  if (
+    dispatchedAt !== null &&
+    !Number.isNaN(dispatchedAt) &&
+    Date.now() - dispatchedAt < BROADCAST_DISPATCH_TIMEOUT_MS
+  ) {
+    return {
+      success: false,
+      error:
+        'This campaign was dispatched less than 15 minutes ago and may still be delivering. Only use this for a send that is genuinely stuck.',
+    };
+  }
+
+  // Cast for the same reason as `CRMSegment`: `marked_failed_at` and
+  // `marked_failed_by` arrive with migration 20261005000000 and are absent from
+  // the generated row type until that migration has been applied to the project
+  // the types came from. `failed_count` is the arithmetic that matters — the
+  // undelivered remainder, so the history row's two counts still reconcile.
+  const broadcasts = adminClient as unknown as {
+    from: (table: 'crm_broadcasts') => {
+      update: (values: Record<string, unknown>) => {
+        eq: (
+          col: string,
+          value: string
+        ) => {
+          in: (
+            col: string,
+            values: string[]
+          ) => {
+            select: (cols: string) => {
+              maybeSingle: () => Promise<{
+                data: { id: string } | null;
+                error: { message: string } | null;
+              }>;
+            };
+          };
+        };
+      };
+    };
+  };
+  /*
+   * The status predicate is the write, not the read above. The guard was
+   * evaluated on a read, but this update matched on `.eq('id', …)` alone — so
+   * a sender `finish()` landing between the two turned a campaign that reached
+   * every recipient into `failed` with `failed_count = 0`. The docs' "refuses a
+   * row already sent or failed" held at read time only. Scoping the write to
+   * the still-stranded states makes the refusal atomic: zero rows matched means
+   * the campaign finished while the organizer was deciding, and nothing is
+   * changed.
+   */
+  const { data: marked, error } = await broadcasts
+    .from('crm_broadcasts')
+    .update({
+      status: 'failed',
+      failed_count: Math.max((existing.recipient_count ?? 0) - (existing.sent_count ?? 0), 0),
+      marked_failed_at: new Date().toISOString(),
+      marked_failed_by: adminUserId,
+    })
+    .eq('id', broadcastId)
+    .in('status', ['queued', 'sending'])
+    .select('id')
+    .maybeSingle();
+
+  if (error) return { success: false, error: error.message };
+  if (!marked)
+    return {
+      success: false,
+      error: 'That campaign finished while you were deciding — nothing was changed.',
+    };
+
+  revalidateCRMRoutes();
+  return { success: true };
+}
+
 async function dispatchBroadcastSender(
   broadcastId: string
 ): Promise<{ ok: true; warning?: string } | { ok: false; error: string }> {
@@ -1616,6 +2173,14 @@ async function dispatchBroadcastSender(
         apikey: key,
       },
       body: JSON.stringify({ broadcast_id: broadcastId }),
+      // Bounded, like every other outbound call in the app. `sendEmail` uses
+      // `AbortSignal.timeout(SEND_TIMEOUT_MS)` and the contact form uses 8s;
+      // this one had nothing, so a hung Edge Function hung the server action —
+      // the composer's button stayed disabled indefinitely, the row stayed
+      // `queued`, and there was no failure and no message. A timeout turns that
+      // into the reportable failure the caller already knows how to handle
+      // (it marks the row failed and names the reason).
+      signal: AbortSignal.timeout(BROADCAST_DISPATCH_TIMEOUT_MS),
     });
     if (!response.ok) return { ok: false, error: `sender responded ${response.status}` };
     // The dispatcher used to check only `response.ok` and return, which threw away
@@ -1707,33 +2272,88 @@ export async function triggerHistoricalCRMSync(): Promise<{
  *
  * `getCRMBroadcastDrafts()` is the other half — resuming a draft is a real
  * workflow, and it needs its own read rather than a filter over this one.
+ *
+ * The read these two comments used to sit on is gone. It was `.limit(25)` with no
+ * offset, and the composer called it while `getCRMBroadcastHistoryPage` sat unused
+ * — so a chapter past twenty-five campaigns could not see, or even confirm the
+ * existence of, its own history, and the heading rendered the rows read so it read
+ * as a complete list. A second unpaged history read is the shape of that bug
+ * returning, so it was removed rather than left for a caller to find. Anything that
+ * wants "the recent campaigns" calls
+ * `getCRMBroadcastHistoryPage({ page: 1 })` and uses its `totalCount`.
  */
-export async function getCRMBroadcasts(): Promise<CRMBroadcast[]> {
+
+/*
+ * One page of campaign history.
+ *
+ * The read was `.limit(50)` with no offset, no count and no pager, so a chapter
+ * past fifty campaigns could not see its fifty-first — the failure mode
+ * `deleteCRMBroadcastDraft`'s own comment describes for drafts, where an
+ * unreachable row could not even be deleted. The count comes back so the
+ * composer can say how many campaigns exist rather than implying the list ends.
+ */
+export async function getCRMBroadcastHistoryPage({
+  page = 1,
+  pageSize = BROADCAST_HISTORY_PAGE_SIZE,
+}: {
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<{ broadcasts: CRMBroadcast[]; totalCount: number; page: number }> {
   const { adminClient } = await requireAdmin();
-  const { data, error } = await adminClient
+  /*
+   * Clamped, and the NaN case is the one that actually bites.
+   *
+   * `Math.max(1, Math.trunc(NaN))` is `NaN`, not 1 — `Math.trunc` and `Math.max`
+   * both propagate NaN. So `?page=abc` produced `from = NaN`, `range(NaN, NaN)`,
+   * and a history that rendered as empty. An empty history is the single most
+   * misleading thing this page can show: it reads as "you have never sent a
+   * campaign", and an organizer who was told their history had vanished would
+   * reasonably go looking for the bug in their own account rather than in a URL.
+   *
+   * `Number.isFinite` first, then clamp. The page does its own parse, but this is
+   * a `'use server'` boundary — it is callable directly, not only through the page.
+   */
+  const size = Math.min(
+    Math.max(1, Number.isFinite(pageSize) ? Math.trunc(pageSize) : BROADCAST_HISTORY_PAGE_SIZE),
+    BROADCAST_HISTORY_MAX_PAGE_SIZE
+  );
+  const current = Number.isFinite(page) ? Math.max(1, Math.trunc(page)) : 1;
+  const from = (current - 1) * size;
+
+  const { data, error, count } = await adminClient
     .from('crm_broadcasts')
-    .select('*')
+    .select('*', { count: 'exact' })
     .neq('status', 'draft')
+    // Offset paging needs a total order, and `created_at` ties across a batch of
+    // self-tests sent in the same second. `id` breaks it.
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
-    .limit(50);
+    .range(from, from + size - 1);
 
   if (error) {
-    throw new Error(`Failed to fetch broadcasts: ${error.message}`);
+    throw new Error(`Failed to fetch broadcast history: ${error.message}`);
   }
 
-  return data || [];
+  return { broadcasts: data || [], totalCount: count ?? 0, page: current };
 }
 
 /** Unsent work in progress, newest first. Resumable, and removable. */
 export async function getCRMBroadcastDrafts(): Promise<CRMBroadcast[]> {
   const { adminClient } = await requireAdmin();
+  // No `count: 'exact'` here, unlike the history read. A count is a second
+  // thing to keep honest on a bounded list whose count is not displayed; the
+  // history read needs it because the pager renders "page 3 of 30".
   const { data, error } = await adminClient
     .from('crm_broadcasts')
     .select('*')
     .eq('status', 'draft')
     .order('updated_at', { ascending: false })
-    .limit(20);
+    // `id` breaks `updated_at` ties. Two drafts saved in the same millisecond is
+    // not exotic — the button debounces, and a double-click lands both — and
+    // without a total order the resumable draft can be whichever row the planner
+    // returned first.
+    .order('id', { ascending: false })
+    .limit(BROADCAST_HISTORY_PAGE_SIZE);
 
   if (error) {
     throw new Error(`Failed to fetch broadcast drafts: ${error.message}`);
@@ -1742,13 +2362,42 @@ export async function getCRMBroadcastDrafts(): Promise<CRMBroadcast[]> {
   return data || [];
 }
 
-/** Distinct tags across the directory — powers filter + broadcast chips. */
-export async function getCRMExistingTags(): Promise<string[]> {
+/**
+ * Distinct tags across the directory — powers the filter and composer chips.
+ *
+ * This scans the whole table on every CRM page load, because Postgres cannot
+ * return distinct array elements from a plain select and there is no RPC for it.
+ * `.order('id')` is load-bearing rather than cosmetic: offset paging is coherent
+ * only against a total order, and without it a row inserted mid-scan shifts the
+ * boundary and a tag is read twice or not at all.
+ *
+ * Returns `{ tags, truncated, scanned }` rather than a bare array. The ceiling is
+ * a resource limit on an unindexable scan, so a chapter large enough to hit it
+ * would silently get a partial tag list — and a missing tag chip means a
+ * constituent with that tag cannot be targeted at all, with nothing on screen
+ * saying so. Making the return type carry the flag means neither call site can
+ * forget to check.
+ */
+export async function getCRMExistingTags(): Promise<{
+  tags: string[];
+  /**
+   * True when the ceiling stopped the scan, so `tags` may be incomplete.
+   *
+   * Distinct in meaning from a hidden tag in the composer: the 40-chip cap hides
+   * a tag that *was* read and is selectable by typing, whereas this hides a tag
+   * that was never read at all and cannot be found by any means.
+   */
+  truncated: boolean;
+  /** Rows actually read. Compare against the ceiling to tell. */
+  scanned: number;
+}> {
   const { adminClient } = await requireAdmin();
   const tags = new Set<string>();
   const PAGE = 1000;
+  let scanned = 0;
+  let exhausted = false;
 
-  for (let offset = 0; offset < 20_000; offset += PAGE) {
+  for (let offset = 0; offset < TAG_SCAN_LIMIT; offset += PAGE) {
     const { data, error } = await adminClient
       .from('crm_contacts')
       .select('tags')
@@ -1758,16 +2407,40 @@ export async function getCRMExistingTags(): Promise<string[]> {
     if (error) {
       throw new Error(`Failed to load tags: ${error.message}`);
     }
-    if (!data || data.length === 0) break;
+    // A short page is the only reliable "that was the last one" signal, and the
+    // only thing that distinguishes "hit the ceiling" from "read everything".
+    if (!data || data.length === 0) {
+      exhausted = true;
+      break;
+    }
     for (const row of data) {
       for (const t of row.tags || []) {
         if (t) tags.add(t);
       }
     }
-    if (data.length < PAGE) break;
+    scanned += data.length;
+    // A short page means the table ended, which is what separates "hit the
+    // ceiling" from "read everything". Without it the two are indistinguishable
+    // and the flag below is always false — a warning that can never fire reads as
+    // safety.
+    if (data.length < PAGE) {
+      exhausted = true;
+      break;
+    }
   }
 
-  return [...tags].sort((a, b) => a.localeCompare(b));
+  /*
+   * If the scan stopped at the ceiling, some constituent's tags were never read,
+   * and a tag that appears only there cannot be selected in the composer's chips.
+   * The consequence is quiet and bad: a chapter sees no "canvasser" tag, concludes
+   * nobody has it, and either campaigns to nobody or assumes the data is gone.
+   *
+   * Returning a sentinel rather than a bare `string[]` is what makes that visible
+   * — the type changes from "the tags" to "the tags, possibly not all of them",
+   * so the two call sites have to decide what to render.
+   */
+  const truncated = scanned >= TAG_SCAN_LIMIT && !exhausted;
+  return { tags: [...tags].sort((a, b) => a.localeCompare(b)), truncated, scanned };
 }
 
 /**
@@ -1807,9 +2480,34 @@ export async function getBroadcastRecipientCount({
     return qb;
   };
 
+  /*
+  Two counts from one target specification, so `count + excludedCount` is every
+  contact the audience rules matched — deliberately one specification, because
+  the dispatch bar's claim is that the two reconcile, and two separately-built
+  queries would be two chances to disagree.
+
+  The audience is `.eq('do_not_email', false)`: an explicit yes. A NULL row was
+  never asked and is not mailed. In SQL `col = false` is NULL for a null row and
+  NULL is not true, so the nulls fall out of the audience without being named —
+  which is a property of SQL rather than of this code, and the tests pin it.
+
+  The exclusion is therefore the complement: `.not('do_not_email', 'is', false)`,
+  i.e. `IS NOT FALSE`, which covers `true` **and** `NULL` in one query. It used to
+  be `.eq('do_not_email', true)` alone, which was exact while the column was NOT
+  NULL and stopped being exact the moment NULL became expressible: the bar would
+  have said "0 excluded" while every never-asked contact was in fact being
+  dropped, which is the one number an organiser would use to decide whether
+  anything was silently missing.
+
+  `.not(…, 'is', false)` and not `.neq('do_not_email', false)`. The two are
+  opposites on a null row — `IS DISTINCT FROM` includes it, `<>` excludes it as
+  UNKNOWN — and picking the wrong one turns this from an audit into a mail run.
+  Two queries rather than three is also one fewer round trip on a count that runs
+  on every chip click.
+  */
   const [{ count, error }, { count: excluded, error: excludedError }] = await Promise.all([
     targetQuery().eq('do_not_email', false),
-    targetQuery().eq('do_not_email', true),
+    targetQuery().not('do_not_email', 'is', false),
   ]);
 
   if (error) {

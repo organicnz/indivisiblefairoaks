@@ -289,6 +289,15 @@ jobs:
         run: ./node_modules/.bin/playwright test
         env:
           CI: "true"
+          # Seeded admin sessions, so /admin and /auth/mfa stop being the two
+          # surfaces with no browser coverage. Both specs test.skip when these
+          # are absent rather than weakening an assertion, so an unseeded project
+          # runs the rest of the suite unchanged. Declared in scripts/ci-env.mjs.
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MFA_ADMIN_EMAIL: ${{ secrets.E2E_MFA_ADMIN_EMAIL }}
+          E2E_MFA_ADMIN_PASSWORD: ${{ secrets.E2E_MFA_ADMIN_PASSWORD }}
+          E2E_MFA_TOTP_SECRET: ${{ secrets.E2E_MFA_TOTP_SECRET }}
 
       - name: Upload Playwright report
         if: always()

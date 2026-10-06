@@ -45,7 +45,7 @@ import { vi } from 'vitest';
 
 /** A filter recorded by `.eq()` / `.is()` / `.like()`, applied by the terminal. */
 interface Filter {
-  kind: 'eq' | 'is' | 'like' | 'neq' | 'lt' | 'in';
+  kind: 'eq' | 'is' | 'like' | 'neq' | 'lt' | 'in' | 'notIs';
   column: string;
   value: unknown;
 }
@@ -94,6 +94,28 @@ export interface MockTableConfig {
   onInsert?: (row: Record<string, unknown>) => void;
   /** Force an error for the terminal operation, to exercise the failure path. */
   error?: { message: string; code?: string } | null;
+  /**
+   * Errors keyed on the *filter* that triggers them.
+   *
+   * `error` fails every query against the table, which is right for a single read
+   * and useless for a function that issues several against one table and reports
+   * each separately — `getBroadcastRecipientCount` is exactly that: an audience
+   * count and an exclusion count over the same column, and a failure in one must
+   * not be reported as the other.
+   *
+   * Matching on the operator as well as the column is what makes that possible:
+   * both queries filter `do_not_email`, and they do it differently.
+   *
+   * ```ts
+   * errors: [
+   *   { kind: 'notIs', column: 'do_not_email', error: { message: 'scan failed' } },
+   * ]
+   * ```
+   *
+   * A list rather than a record so two entries can name the same column with
+   * different operators. First match wins, so order is the precedence.
+   */
+  errors?: { kind: Filter['kind']; column: string; error: { message: string; code?: string } }[];
   /**
    * `.or()` / `.contains()` / `.textSearch()` are not modelled.
    *
@@ -153,6 +175,12 @@ function matches(row: Record<string, unknown>, filters: readonly Filter[]): bool
       if (value === null || value === undefined) return false;
       return actual === value;
     }
+    // `IS NOT FALSE` / `IS DISTINCT FROM false`: true for `NULL` as well as for
+    // every non-false value. The explicit null branch is what makes this differ
+    // from `neq`, which drops a null row entirely.
+    if (kind === 'notIs') {
+      return actual !== value;
+    }
     if (value === null) return actual === null || actual === undefined;
     return actual === value;
   });
@@ -179,7 +207,7 @@ function applyOrder<T extends Record<string, unknown>>(rows: T[], orders: readon
       // mock follows that default and honours an explicit override.
       if (leftNull || rightNull) {
         if (leftNull && rightNull) continue;
-        const nullsLast = ascending ? true : false;
+        const nullsLast = ascending;
         const nullIsFirst = nullsFirst ?? !nullsLast;
         return leftNull ? (nullIsFirst ? -1 : 1) : nullIsFirst ? 1 : -1;
       }
@@ -209,6 +237,18 @@ export class MockQueryBuilder {
   select(columns = '', options?: { count?: string; head?: boolean }) {
     this.columns = columns;
     if (options?.head) this.headOnly = true;
+    // `count: 'exact'` makes PostgREST report the number of rows the *filters*
+    // matched, which is not the number of rows returned once `.range()` has sliced
+    // them. That distinction is the whole basis of a pager: a caller rendering
+    // `data.length` as the total tells a chapter with 72 campaigns it has 25, and
+    // the older 47 become unreachable with nothing on screen saying why.
+    //
+    // Modelled as the pre-slice count, which the terminal already computes.
+    // (`filtered.length` below is already the pre-slice count — exactly what
+    // PostgREST returns. No flag needed, and no empty branch either: the note
+    // that used to sit in an `if (options?.count) {}` read as an unfinished
+    // implementation, so it lives here as prose instead.)
+    void options?.count;
     // `select` after `update`/`insert` is what asks for the affected rows back.
     // It must not reset the operation, or a chain like
     // `.update(row).eq(id, 1).select('id')` would become a read.
@@ -244,6 +284,35 @@ export class MockQueryBuilder {
 
   is(column: string, value: unknown) {
     this.filters.push({ kind: 'is', column, value });
+    return this;
+  }
+
+  /**
+   * `.not(column, operator, value)` — the PostgREST `not.<op>.<value>` form.
+   *
+   * Only `is` is modelled, because only `is` is used with it:
+   * `not.is.false` is SQL `IS NOT FALSE`, which is true for `NULL` as well as for
+   * `true`. That is the one that matters — it is how a query says "every state
+   * except this one", which `.neq` cannot express at all.
+   *
+   * `.neq` and this are genuinely different, which is the trap:
+   * `.neq(col, false)` is `col <> false`, and a NULL row is UNKNOWN rather than
+   * true, so it is **excluded** — the opposite of what "everything except opted
+   * in" means. Getting that backwards turns a consent audit into a mail run.
+   */
+  not(column: string, operator: string, value: unknown) {
+    /*
+     * Unmodelled operators fail loudly rather than degrading. The old code set
+     * `unmodelledFilter` *and* pushed the filter as `notIs`, so
+     * `.not('x','eq','y')` against a declared `filterRows` silently got `IS
+     * NOT` semantics — the exact inversion the `neq`-vs-`not` note above
+     * warns about, manufactured by the mock itself.
+     */
+    if (operator !== 'is') {
+      this.unmodelledFilter = true;
+      return this;
+    }
+    this.filters.push({ kind: 'notIs', column, value });
     return this;
   }
 
@@ -327,6 +396,13 @@ export class MockQueryBuilder {
   private terminal() {
     const config = this.config;
     if (config.error) return { error: config.error, count: null, data: null };
+    if (config.errors) {
+      for (const { kind, column, error } of config.errors) {
+        if (this.filters.some((f) => f.kind === kind && f.column === column)) {
+          return { error, count: null, data: null };
+        }
+      }
+    }
 
     if (this.mode === 'delete') {
       const found = config.rows ?? [];
@@ -410,6 +486,13 @@ export class MockQueryBuilder {
     // `.range()` and `.limit()` are both slice operators and both apply *after*
     // ordering; `.range()` wins when both are present because it is the more
     // specific of the two in the chains this codebase writes.
+    //
+    // Both counts below come from `filtered`, never from `page`. That is the
+    // distinction a pager depends on: `count: 'exact'` reports how many rows the
+    // *filters* matched, while `data` holds the slice. A mock returning the slice
+    // length would make `totalCount === data.length` always true, and a test
+    // asserting a pager would pass while the real UI told a chapter with 72
+    // campaigns it had 25 and made the other 47 unreachable.
     let page = filtered;
     if (this.rangeBounds) {
       const { from, to } = this.rangeBounds;

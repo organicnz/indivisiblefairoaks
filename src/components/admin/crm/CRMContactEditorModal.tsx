@@ -2,7 +2,7 @@
 
 import { Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { type CRMContact, saveCRMContact } from '@/lib/actions/crm';
+import { MAX_CONTACT_NOTES_LENGTH } from '@/lib/crm-import';
 
 interface Props {
   contact?: CRMContact;
@@ -37,6 +38,23 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
     tags: contact?.tags || [],
     notes: contact?.notes || '',
   });
+
+  /**
+   * The version this edit was based on.
+   *
+   * Held in a ref, not state: it never changes while the modal is open — it is
+   * replaced from each save's response, and the component is re-keyed per contact
+   * by its parents. State would invite it into the form's dirty-tracking, and a
+   * `useEffect` resetting it on every render is the pattern that silently drops
+   * the guard.
+   *
+   * A successful save adopts the *database's* new `updated_at` rather than a
+   * timestamp computed here. The `touch_updated_at` trigger writes the row's
+   * version; a second clock disagrees with it by milliseconds, and then this
+   * editor's own next save conflicts with itself — which is the exact false
+   * positive that teaches people to ignore the conflict message.
+   */
+  const baseVersionRef = useRef<string | null>(contact?.updated_at ?? null);
 
   const handleAddTag = () => {
     const trimmed = tagInput.trim().toLowerCase();
@@ -82,11 +100,23 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
           | 'inactive',
         tags: formData.tags,
         notes: formData.notes || null,
+        // Sent only on an edit. On create there is no row to be stale against,
+        // and sending `null` would ask the action to match a row whose
+        // `updated_at` is not null.
+        ...(contact ? { updated_at: baseVersionRef.current } : {}),
       });
 
       if (!res.success) {
-        toast.error(res.error || 'Failed to save contact');
+        // A conflict is not a generic failure and gets its own copy: the save was
+        // refused deliberately, and "Failed to save contact" tells the volunteer
+        // nothing about what to do next.
+        if (res.reason === 'conflict') {
+          toast.error(res.error || 'Someone else saved this contact while you were editing.');
+        } else {
+          toast.error(res.error || 'Failed to save contact');
+        }
       } else {
+        baseVersionRef.current = res.updatedAt ?? null;
         toast.success(contact ? 'Constituent updated' : 'Constituent created');
         router.refresh();
         onClose();
@@ -345,9 +375,19 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
               rows={3}
               value={formData.notes}
               onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))}
+              // The server caps this at 5,000 (matching the CSV importer's row
+              // budget). Stated here too, because a cap the client cannot see is
+              // a 400 after a volunteer has typed a paragraph — and these notes
+              // render in the 360 panel and in every directory CSV export.
+              maxLength={MAX_CONTACT_NOTES_LENGTH}
               placeholder="Meeting notes, preferred contact times, organizing skills..."
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
             />
+            {formData.notes.length > MAX_CONTACT_NOTES_LENGTH * 0.9 && (
+              <p className="mt-1 text-[10px] font-bold text-slate-400 text-right">
+                {formData.notes.length} / {MAX_CONTACT_NOTES_LENGTH}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">

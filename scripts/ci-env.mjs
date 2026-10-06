@@ -118,6 +118,54 @@ export const SECRETS = {
     note: 'Fine-grained PAT, repository permissions limited to Actions -> Secrets: read. Read-only.',
   },
   /**
+   * Seeded admin credentials for the authenticated e2e suite.
+   *
+   * Two roles, deliberately, because they exercise gates that are mutually
+   * exclusive in the product:
+   *
+   *   - the plain admin has **no** MFA factor. Every admin route resolves, so
+   *     the CRM can be driven end to end.
+   *   - the MFA admin has a **verified TOTP factor** whose seed secret is in
+   *     `E2E_MFA_TOTP_SECRET`. AAL1 sessions get bounced to `/auth/mfa`, which
+   *     is the only way to cover the step-up path.
+   *
+   * All optional, and all absent by default. Both specs `test.skip` rather than
+   * weaken an assertion, so an unseeded project skips instead of failing — and
+   * a skipped auth suite must never be read as a passing one, which is why
+   * these are declared here rather than discovered at 3am.
+   *
+   * These are credentials for the *test* Supabase project, not production.
+   */
+  E2E_ADMIN_EMAIL: {
+    required: false,
+    note: 'Non-MFA-enrolled admin on the test project. Enables e2e/admin-authenticated.spec.ts.',
+  },
+  E2E_ADMIN_PASSWORD: {
+    required: false,
+    note: 'Password for E2E_ADMIN_EMAIL. Must not be enrolled in MFA, or the admin gate redirects.',
+  },
+  E2E_MFA_ADMIN_EMAIL: {
+    required: false,
+    note: 'Admin with one verified TOTP factor. Enables e2e/mfa-challenge.spec.ts.',
+  },
+  E2E_MFA_ADMIN_PASSWORD: {
+    required: false,
+    note: 'Password for E2E_MFA_ADMIN_EMAIL.',
+  },
+  /**
+   * Base32 TOTP seed for `E2E_MFA_ADMIN_EMAIL`'s only factor.
+   *
+   * The spec derives each current code locally (HMAC-SHA1 over the 30-second
+   * counter) rather than shelling to a provisioning service, so the suite holds
+   * no dependency and no network round trip. A real enrollment would have this
+   * value only once, at QR-scan time — which is why it has to be seeded, not
+   * captured.
+   */
+  E2E_MFA_TOTP_SECRET: {
+    required: false,
+    note: 'Base32 secret of the MFA test factor. Without it the step-up spec skips.',
+  },
+  /**
    * Sentry user auth token. Build-time only: the Sentry Next.js plugin reads it
    * to upload source maps, and to nothing else — it never reaches the client
    * bundle or any runtime code. `next.config.ts` passes `undefined` instead for

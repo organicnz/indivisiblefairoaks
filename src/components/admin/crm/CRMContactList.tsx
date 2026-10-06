@@ -29,6 +29,17 @@ import {
   saveCRMSegment,
   triggerHistoricalCRMSync,
 } from '@/lib/actions/crm';
+import {
+  type ConsentFilter,
+  type ContactFilters,
+  filterArgs,
+  filterParams,
+  filtersFromSegment,
+  hasActiveFilters as hasAnyFilters,
+  pageRange,
+  splitActiveValues,
+  totalPages,
+} from '@/lib/crm-filters';
 
 interface Props {
   initialContacts: CRMContact[];
@@ -37,11 +48,24 @@ interface Props {
   currentStatus: string;
   currentDistrict: string;
   currentTag: string;
-  currentConsent: 'all' | 'opted_out' | 'opted_in';
+  currentConsent: ConsentFilter;
   currentPage: number;
   pageSize: number;
   existingTags: string[];
+  /**
+   * The tag scan hit its row ceiling, so a tag present in the database may have no
+   * chip here. On this page that is not a display gap: the filter bar is how the
+   * constituents carrying that tag are found at all, so an absent chip reads as
+   * "this chapter has no such tag".
+   */
+  tagsMayBeIncomplete?: boolean;
   segments: CRMSegment[];
+  /**
+   * True when the server cut the segment list at its cap. An unreachable
+   * segment is also undeletable — the chips below are the only delete path —
+   * so the flag renders rather than staying a quiet boolean.
+   */
+  segmentsTruncated?: boolean;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -65,13 +89,14 @@ function downloadCsv(csv: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function splitActiveTags(raw: string): string[] {
-  if (!raw || raw === 'all') return [];
-  return raw
-    .split(',')
-    .map((t) => t.trim())
-    .filter(Boolean);
-}
+/**
+ * Split a multi-value filter param into its parts.
+ *
+ * Named for what it does rather than what it is applied to: it is called on
+ * `status` and `district` as well as on `tag`, which is what let a reader of the
+ * old call sites believe `status` was being tag-parsed. The behaviour is
+ * identical for all three.
+ */
 
 export function CRMContactList({
   initialContacts,
@@ -84,7 +109,9 @@ export function CRMContactList({
   currentPage,
   pageSize,
   existingTags,
+  tagsMayBeIncomplete = false,
   segments,
+  segmentsTruncated = false,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -101,42 +128,42 @@ export function CRMContactList({
   const [status, setStatus] = useState(currentStatus || 'all');
   const [district, setDistrict] = useState(currentDistrict || 'all');
   const [tag, setTag] = useState(currentTag || 'all');
-  const [consent, setConsent] = useState<'all' | 'opted_out' | 'opted_in'>(currentConsent || 'all');
+  const [consent, setConsent] = useState<ConsentFilter>(currentConsent || 'all');
 
   // Tags to offer in the filter: schema-known tags plus whatever is active now.
-  const tagOptions = [...new Set([...existingTags, ...splitActiveTags(currentTag)])].sort((a, b) =>
-    a.localeCompare(b)
+  const tagOptions = [...new Set([...existingTags, ...splitActiveValues(currentTag)])].sort(
+    (a, b) => a.localeCompare(b)
   );
 
-  const currentFilters = () => {
-    const params = new URLSearchParams();
-    if (query.trim()) params.set('q', query.trim());
-    if (status && status !== 'all') params.set('status', status);
-    if (district && district !== 'all') params.set('district', district);
-    if (tag && tag !== 'all') params.set('tag', tag);
-    if (consent && consent !== 'all') params.set('consent', consent);
-    return params;
-  };
+  const totalRows = totalPages(totalCount, pageSize);
+  const [firstRow, lastRow] = pageRange(currentPage, pageSize, totalCount);
 
-  // The pager must continue the result set the user is actually looking at, which is
-  // the one the server ran — not the uncommitted form state. Paging off currentFilters()
-  // silently jumped to a different set whenever a filter was typed but not yet applied.
-  const appliedFilters = () => {
-    const params = new URLSearchParams();
-    if (currentQuery) params.set('q', currentQuery);
-    if (currentStatus && currentStatus !== 'all') params.set('status', currentStatus);
-    if (currentDistrict && currentDistrict !== 'all') params.set('district', currentDistrict);
-    if (currentTag && currentTag !== 'all') params.set('tag', currentTag);
-    if (currentConsent && currentConsent !== 'all') params.set('consent', currentConsent);
-    return params;
+  // The uncommitted form state — what the user has typed or picked but not yet
+  // applied. Only the submit handler uses this.
+  const draftFilters = (): ContactFilters => ({ query, status, district, tag, consent });
+
+  // The pager must continue the result set the user is actually looking at, which
+  // is the one the server ran — not the uncommitted form state. Paging off the
+  // draft silently jumped to a different set whenever a filter was typed but not
+  // yet applied.
+  const appliedFilters = (): ContactFilters => ({
+    query: currentQuery,
+    status: currentStatus,
+    district: currentDistrict,
+    tag: currentTag,
+    consent: currentConsent,
+  });
+
+  const applyFilters = (next: ContactFilters) => {
+    const params = filterParams(next);
+    startTransition(() => {
+      router.push(`/admin/crm?${params.toString()}`);
+    });
   };
 
   const handleFilterSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const params = currentFilters();
-    startTransition(() => {
-      router.push(`/admin/crm?${params.toString()}`);
-    });
+    applyFilters(draftFilters());
   };
 
   const handleSyncData = async () => {
@@ -163,12 +190,12 @@ export function CRMContactList({
     }
     setExporting(true);
     try {
-      const res = await exportCRMContacts({
-        query: currentQuery,
-        status: currentStatus,
-        district: currentDistrict,
-        tag: currentTag,
-      });
+      // Off the *applied* filters, not the draft, for the same reason the pager
+      // is: the export must be the set on screen. And `consent` has to be here:
+      // exporting from the "Opted out of email" view used to produce a file of
+      // every contact, which is both wrong and the one export a chapter takes
+      // off-platform.
+      const res = await exportCRMContacts(filterArgs(appliedFilters()));
       if (res.error || !res.csv) {
         toast.error(res.error || 'Export failed');
         return;
@@ -177,7 +204,30 @@ export function CRMContactList({
         res.csv,
         `indivisible-crm-constituents-${new Date().toISOString().split('T')[0]}.csv`
       );
-      toast.success(`Exported ${res.count} constituents to CSV`);
+      /*
+       * Truncation is a warning, not a success message.
+       *
+       * This file is the chapter's only off-platform copy of its constituent
+       * data. "Exported 10,000 constituents" for a 12,341-row filter reads as
+       * complete, and the file itself carries nothing that says otherwise — so the
+       * toast is the only place the shortfall can be named, and it has to name
+       * both numbers. A backup that is quietly short is discovered at restore
+       * time, to a volunteer, with no way to know what is missing.
+       *
+       * A plain `toast.success` with a second line for the cap would be worse: the
+       * green tick is what gets read.
+       */
+      if (res.truncated) {
+        toast.warning(
+          `Exported ${res.count.toLocaleString()} of ${res.matchedCount.toLocaleString()} — the file is incomplete`,
+          {
+            description:
+              'This export hit its row limit, so it does not contain every matching constituent. Narrow the filters and export again, or raise CRM_EXPORT_LIMIT.',
+          }
+        );
+      } else {
+        toast.success(`Exported ${res.count} constituents to CSV`);
+      }
     } catch {
       toast.error('Export failed');
     } finally {
@@ -193,13 +243,21 @@ export function CRMContactList({
     }
     setSavingSegment(true);
     try {
+      // Off the *applied* filters, not the local form state. Saving from the
+      // draft let a volunteer save a segment that differs from the one on screen
+      // — the button sits beside the filter bar, so the segment reads as "what
+      // I am looking at". Consent is included for the same reason it is included
+      // in the URL: an opt-out audit is a filter, so it has to be saveable.
+      const filters = appliedFilters();
       const res = await saveCRMSegment({
         name,
-        query: query.trim(),
-        statuses: splitActiveTags(status),
-        districts: splitActiveTags(district),
-        tags: splitActiveTags(tag),
+        query: filters.query.trim(),
+        statuses: splitActiveValues(filters.status),
+        districts: splitActiveValues(filters.district),
+        tags: splitActiveValues(filters.tag),
+        consent: filters.consent === 'all' ? undefined : filters.consent,
       });
+
       if (res.success) {
         toast.success(`Segment "${name}" saved`);
         setSegmentName('');
@@ -216,18 +274,13 @@ export function CRMContactList({
   };
 
   const handleApplySegment = (segment: CRMSegment) => {
-    const params = new URLSearchParams();
-    if (segment.query) params.set('q', segment.query);
-    if (segment.statuses.length) params.set('status', segment.statuses.join(','));
-    if (segment.districts.length) params.set('district', segment.districts.join(','));
-    if (segment.tags.length) params.set('tag', segment.tags.join(','));
-    setQuery(segment.query);
-    setStatus(segment.statuses.join(',') || 'all');
-    setDistrict(segment.districts.join(',') || 'all');
-    setTag(segment.tags.join(',') || 'all');
-    startTransition(() => {
-      router.push(`/admin/crm?${params.toString()}`);
-    });
+    const next = filtersFromSegment(segment);
+    setQuery(next.query);
+    setStatus(next.status);
+    setDistrict(next.district);
+    setTag(next.tag);
+    setConsent(next.consent);
+    applyFilters(next);
   };
 
   const handleDeleteSegment = async (segment: CRMSegment) => {
@@ -242,16 +295,7 @@ export function CRMContactList({
     }
   };
 
-  const hasActiveFilters = Boolean(
-    (query.trim() && query.trim() !== currentQuery) ||
-      (status !== 'all' && status !== currentStatus) ||
-      (district !== 'all' && district !== currentDistrict) ||
-      (tag !== 'all' && tag !== currentTag) ||
-      currentQuery ||
-      (currentStatus && currentStatus !== 'all') ||
-      (currentDistrict && currentDistrict !== 'all') ||
-      (currentTag && currentTag !== 'all')
-  );
+  const hasActiveFilters = hasAnyFilters(draftFilters(), appliedFilters());
 
   return (
     <div className="space-y-6">
@@ -281,6 +325,7 @@ export function CRMContactList({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
+              aria-label="Filter by engagement status"
               className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
             >
               <option value="all">All Engagement Statuses</option>
@@ -298,6 +343,10 @@ export function CRMContactList({
             <select
               value={district}
               onChange={(e) => setDistrict(e.target.value)}
+              // The Tag and Consent selects below already had these; Status and
+              // District did not, so a screen reader announced two bare combo
+              // boxes in a row with nothing to say what either filtered.
+              aria-label="Filter by district"
               className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
             >
               <option value="all">All Districts</option>
@@ -324,19 +373,42 @@ export function CRMContactList({
               ))}
               {tag !== 'all' && !tagOptions.includes(tag) && <option value={tag}>#{tag}</option>}
             </select>
+            {/*
+   Sits under the select rather than in the empty state, because the empty state
+   only appears *after* the organiser has already concluded the tag does not
+   exist. "0 constituents" and "this tag is not in the list because the list is
+   partial" look identical otherwise, and the reader has no reason to doubt the
+   list.
+
+   Deliberately not an error colour. Nothing failed, and a chapter with a large
+   directory is an ordinary situation rather than a fault.
+*/}
+            {tagsMayBeIncomplete && (
+              <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+                This directory is large enough that the tag list is partial. If a tag is missing,
+                search by name above — a tag with no entry here does not mean no constituent has it.
+              </p>
+            )}
           </div>
 
           {/* Consent Filter */}
           <div>
             <select
               value={consent}
-              onChange={(e) => setConsent(e.target.value as 'all' | 'opted_out' | 'opted_in')}
+              onChange={(e) => setConsent(e.target.value as ConsentFilter)}
               aria-label="Filter by email consent"
               className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
             >
               <option value="all">All Consent States</option>
               <option value="opted_out">Opted Out of Email</option>
-              <option value="opted_in">Email Allowed</option>
+              <option value="opted_in">Agreed to Email</option>
+              {/*
+                The third state is reachable and filterable since the column became
+                nullable. It was not before, which meant an organiser asking "who
+                have we never actually asked?" had no way to find out — the only
+                question the directory could answer was who had said no.
+              */}
+              <option value="unasked">Never Asked</option>
             </select>
           </div>
 
@@ -352,12 +424,19 @@ export function CRMContactList({
             <button
               type="button"
               onClick={() => {
+                const cleared: ContactFilters = {
+                  query: '',
+                  status: 'all',
+                  district: 'all',
+                  tag: 'all',
+                  consent: 'all',
+                };
                 setQuery('');
                 setStatus('all');
                 setDistrict('all');
                 setTag('all');
                 setConsent('all');
-                router.push('/admin/crm');
+                applyFilters(cleared);
               }}
               className="px-3 py-2.5 text-xs text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors"
             >
@@ -390,16 +469,26 @@ export function CRMContactList({
                 key={pill.label}
                 type="button"
                 onClick={() => {
-                  setStatus(pill.s);
-                  setDistrict(pill.d);
-                  const params = new URLSearchParams();
-                  if (query.trim()) params.set('q', query.trim());
-                  if (pill.s !== 'all') params.set('status', pill.s);
-                  if (pill.d !== 'all') params.set('district', pill.d);
-                  if (tag !== 'all') params.set('tag', tag);
-                  startTransition(() => {
-                    router.push(`/admin/crm?${params.toString()}`);
-                  });
+                  /*
+                   * A pill changes the status and district and leaves the rest of
+                   * the filter alone — that is what makes it a quick filter
+                   * rather than a reset. It builds on `appliedFilters()`, the
+                   * set the server actually ran, and not on `draftFilters()`:
+                   * the pager, the export and save-as-segment all read the
+                   * applied set, and the pill was the one path that could act
+                   * on unsubmitted form state. Type a name, do not press Apply,
+                   * click a pill — the typed name used to go out with it.
+                   *
+                   * The visible controls follow the applied set too, so what is
+                   * on screen is what was sent.
+                   */
+                  const next = { ...appliedFilters(), status: pill.s, district: pill.d };
+                  setQuery(next.query);
+                  setStatus(next.status);
+                  setDistrict(next.district);
+                  setTag(next.tag);
+                  setConsent(next.consent);
+                  applyFilters(next);
                 }}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                   isActive
@@ -419,6 +508,14 @@ export function CRMContactList({
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">
               Saved:
             </span>
+            {segmentsTruncated && (
+              <span
+                role="status"
+                className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1"
+              >
+                Showing the 500 most recent — older saved segments exist but are not listed here.
+              </span>
+            )}
             {segments.map((seg) => (
               <span
                 key={seg.id}
@@ -493,14 +590,13 @@ export function CRMContactList({
           </button>
         )}
 
-        {/* Action Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 text-xs">
-          <div className="text-slate-500 font-bold">
-            Showing <span className="text-secondary font-black">{initialContacts.length}</span> of{' '}
-            <span className="text-secondary font-black">{totalCount}</span> constituents
-            {currentPage > 1 && <span className="text-slate-400"> · page {currentPage}</span>}
-          </div>
-
+        {/*
+          Action header. No count here any more: this row and the pager each
+          printed their own version of the same fact, and on an empty result they
+          disagreed about what zero meant. The count belongs to the bottom of the
+          table, beside the thing it describes.
+        */}
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-100 text-xs">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -556,17 +652,65 @@ export function CRMContactList({
 
       {/* Directory Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        {/*
+          `tabIndex={0}` on the scroll container, per the WAI-ARIA Scrollable
+          Region pattern. Chrome and Firefox stopped focusing an `overflow-x-auto`
+          element by default, so without it a keyboard user cannot scroll the
+          table sideways at all — and this table has seven columns. `role="region"`
+          with a name is what gives that focus a purpose; a bare `tabIndex` on a
+          non-interactive element is a focus trap with nothing to do. The repo
+          already does this in `ContentList.tsx` and `BlockEditor.tsx`.
+        */}
+        {/*
+          A `<section>`, not a `<div role="region">` — same role, no ARIA to
+          keep in sync, and it is what `ContentList.tsx` and `BlockEditor.tsx`
+          already use for this pattern. The accessible name is the caption below,
+          so the region is "Constituent directory, page N" to a screen reader and
+          has a heading-like boundary in the document outline.
+        */}
+        <section
+          className="overflow-x-auto"
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: WAI-ARIA scrollable region, see AGENTS.md "Scrollable regions must be focusable"
+          tabIndex={0}
+          // Named, not implied by the caption below: a `<caption>` names the
+          // *table*, and this `<section>` is the scroll container wrapping it. A
+          // scroll region needs its own name for a screen reader to announce
+          // "region, Constituent directory, scrollable" when focus lands here.
+          aria-label="Constituent directory, scrollable"
+        >
           <table className="w-full text-left border-collapse">
+            {/*
+              A caption, because a seven-column table with no caption is announced
+              as an unlabelled grid. Visually hidden rather than visible: the
+              panel heading already names the table, and a visible caption would
+              say it twice.
+            */}
+            <caption className="sr-only">
+              Constituents matching the current filters, page {currentPage}
+            </caption>
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
-                <th className="py-3.5 px-4">Constituent</th>
-                <th className="py-3.5 px-4">District / City</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Tags & Roles</th>
-                <th className="py-3.5 px-4">Contributions</th>
-                <th className="py-3.5 px-4">Last Active</th>
-                <th className="py-3.5 px-4 text-right">Action</th>
+                <th scope="col" className="py-3.5 px-4">
+                  Constituent
+                </th>
+                <th scope="col" className="py-3.5 px-4">
+                  District / City
+                </th>
+                <th scope="col" className="py-3.5 px-4">
+                  Status
+                </th>
+                <th scope="col" className="py-3.5 px-4">
+                  Tags &amp; Roles
+                </th>
+                <th scope="col" className="py-3.5 px-4">
+                  Contributions
+                </th>
+                <th scope="col" className="py-3.5 px-4">
+                  Last Active
+                </th>
+                <th scope="col" className="py-3.5 px-4 text-right">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
@@ -604,12 +748,40 @@ export function CRMContactList({
                         </Link>
                         <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
                           <span className="truncate">{contact.email}</span>
-                          {contact.do_not_email && (
+                          {/*
+                            Both non-audience states get a badge, and they are
+                            different badges.
+
+                            Only `true` used to render one, so a "never asked"
+                            contact — which was not in any broadcast audience and
+                            could not say so — looked identical to one who had
+                            agreed. An organiser auditing opt-outs needs to tell
+                            those apart: one is a person who said no, the other is
+                            a person nobody has ever asked.
+
+                            The visible text is the badge; the consequence is
+                            `sr-only`, because `title` is a tooltip and is not
+                            reliably exposed to a screen reader.
+                          */}
+                          {contact.do_not_email === true && (
                             <span
                               className="shrink-0 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[10px] font-black uppercase leading-none"
                               title="Do not email — excluded from broadcasts"
                             >
                               opt-out
+                              <span className="sr-only"> — excluded from broadcasts</span>
+                            </span>
+                          )}
+                          {contact.do_not_email === null && (
+                            <span
+                              className="shrink-0 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-black uppercase leading-none"
+                              title="Never asked — not in any broadcast audience"
+                            >
+                              unasked
+                              <span className="sr-only">
+                                {' '}
+                                — never asked for email, excluded from broadcasts
+                              </span>
                             </span>
                           )}
                         </div>
@@ -694,9 +866,16 @@ export function CRMContactList({
                             type="button"
                             onClick={() => setEditingContact(contact)}
                             className="p-1.5 text-slate-400 hover:text-secondary rounded-lg hover:bg-slate-100 transition-colors"
+                            // `aria-label`, not just `title`. `title` is a tooltip:
+                            // it is not reliably exposed as the accessible name,
+                            // and this control has no other name at all — so a
+                            // screen reader announced "button". Naming it by
+                            // person also makes a list of six identical rows
+                            // distinguishable.
+                            aria-label={`Edit ${fullName}`}
                             title="Edit Contact"
                           >
-                            <Edit2 size={13} />
+                            <Edit2 size={13} aria-hidden="true" />
                           </button>
                           <Link
                             href={`/admin/crm/${contact.id}`}
@@ -712,15 +891,42 @@ export function CRMContactList({
               )}
             </tbody>
           </table>
-        </div>
+        </section>
 
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+          {/*
+            The count lives here, at the bottom, beside the pager — not in the
+            action header above the table.
+          */}
+          <p className="text-xs font-bold text-slate-500">
+            {totalCount === 0 ? (
+              'No constituents'
+            ) : (
+              <>
+                Showing{' '}
+                <span className="text-secondary font-black">
+                  {firstRow}–{lastRow}
+                </span>{' '}
+                of <span className="text-secondary font-black">{totalCount}</span> constituents
+                {totalRows > 1 && (
+                  <span className="text-slate-400">
+                    {' '}
+                    · page {currentPage} of {totalRows}
+                  </span>
+                )}
+              </>
+            )}
+          </p>
           <CRMPager
             page={currentPage}
             totalCount={totalCount}
             pageSize={pageSize}
             basePath="/admin/crm"
-            params={appliedFilters()}
+            // The *applied* filters, not the draft — paging off unsaved form
+            // state jumped to a different result set whenever a filter had been
+            // typed but not submitted. `filterParams` also keeps `consent` in
+            // the link, which is the filter most worth preserving across pages.
+            params={filterParams(appliedFilters())}
           />
         </div>
       </div>

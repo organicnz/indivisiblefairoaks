@@ -1,11 +1,12 @@
 'use client';
 
-import { Bell, CheckCircle2, Loader2, Mail, MapPin } from 'lucide-react';
+import { Bell, CheckCircle2, Loader2, Mail, MapPin, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
 import { CURRENCY_CODE } from '@/config/commerce';
 import { useSettingsStore } from '@/lib/store/settings';
 
 export function UserSettings() {
-  const { settings, isLoading, error, updateSettings } = useSettingsStore();
+  const { settings, isLoading, error, errorReason, updateSettings } = useSettingsStore();
 
   const handleToggle = async (key: keyof typeof settings) => {
     await updateSettings({ [key]: !settings[key] });
@@ -153,9 +154,29 @@ export function UserSettings() {
           className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-accent-red text-xs font-bold uppercase tracking-wider text-center motion-safe:animate-in motion-safe:slide-in-from-top-2 motion-safe:duration-300 motion-safe:ease-out"
         >
           {error}
-          <p className="mt-1 text-[11px] font-medium normal-case tracking-normal opacity-80">
-            If this persists, please try a hard reload (Cmd+Shift+R)
-          </p>
+          {/*
+            The advice under a failure is the whole point of the panel. It used to
+            say "try a hard reload (Cmd+Shift+R)" unconditionally, which is true
+            and useless when the cause is an AAL1 session: the reload cannot
+            change the assurance level, so the toggle just reverts again. A
+            step-up requirement gets the one action that does fix it; anything
+            else keeps the reload hint, because there the reload is the advice.
+          */}
+          {errorReason === 'step_up_required' ? (
+            <p className="mt-3">
+              <Link
+                href="/auth/mfa?next=/account?tab=settings"
+                className="inline-flex items-center gap-2 rounded-full bg-accent-red px-5 py-2.5 text-white normal-case tracking-normal transition-colors hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-red focus-visible:ring-offset-2"
+              >
+                <ShieldCheck size={14} aria-hidden="true" />
+                Complete the security check
+              </Link>
+            </p>
+          ) : (
+            <p className="mt-1 text-[11px] font-medium normal-case tracking-normal opacity-80">
+              If this persists, please try a hard reload (Cmd+Shift+R)
+            </p>
+          )}
         </div>
       )}
 

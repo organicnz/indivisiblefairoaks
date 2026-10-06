@@ -1,7 +1,13 @@
 'use server';
 
 import { revalidatePath, updateTag } from 'next/cache';
-import { assertMfaVerified } from '@/lib/mfa-guard';
+import { assertMfaVerified, isStepUpChallenge, MFA_STEP_UP_ERROR } from '@/lib/mfa-guard';
+
+// `MFA_STEP_UP_ERROR` and `isMfaStepUpError` live in `@/lib/mfa-guard`, not here.
+// A `'use server'` file may only export async functions, so neither a constant
+// nor a predicate can sit beside the actions it describes — and the client half
+// needs both, since a server action's rejection crosses a `startTransition` as an
+// opaque error and `OrderStatusSelect` has to render a link to `/auth/mfa` from it.
 import { getStorageUrl } from '@/lib/supabase';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 
@@ -45,7 +51,16 @@ async function requireAdminClient() {
   if (!user) throw new Error('Not authenticated');
 
   const mfa = await assertMfaVerified(supabase);
-  if (!mfa.ok) throw new Error(mfa.error);
+  // `step_up_required` is recoverable and needs to be *identifiable* by the
+  // client: an action that throws a bare Error reaches the caller as an
+  // unhandled rejection, which is how OrderStatusSelect silently failed to save
+  // an order status. Actions tagged with this reason can offer a link to
+  // /auth/mfa. Everything else is a fault and stays a plain error.
+  if (!mfa.ok) {
+    const error = new Error(mfa.error);
+    if (isStepUpChallenge(mfa)) error.name = MFA_STEP_UP_ERROR;
+    throw error;
+  }
 
   const adminClient = await createAdminClient();
   const { data: profile } = await adminClient

@@ -54,6 +54,17 @@ const PAGE = 500
 const BATCH = 10
 /** How often the row is updated so the composer's poll shows movement. */
 const PROGRESS_EVERY = 25
+/**
+ * Per-request budget for the Resend API.
+ *
+ * Generous for a single email send, and short relative to the isolate's own
+ * limit: the point is that one slow provider connection fails as *this batch*
+ * rather than stalling the whole campaign. A hang here is unrecoverable in
+ * practice — the row stays `sending` with `dispatched_at` set, which is the
+ * state docs/crm-operations.md says must never be re-dispatched — so the
+ * timeout has to be here rather than left to the platform.
+ */
+const RESEND_TIMEOUT_MS = 20_000
 
 const app = new Hono()
 
@@ -329,6 +340,13 @@ app.post('*', async (c) => {
               { name: 'broadcast_id', value: broadcastId },
             ],
           }),
+          // Bounded. Without it a hung provider connection strands the row at
+          // `sending` with `dispatched_at` set — the one state
+          // docs/crm-operations.md says must never be touched, because
+          // clearing it re-sends to everyone already delivered to. A timeout
+          // turns that unrecoverable hang into a counted failure this isolate
+          // can finish() and report.
+          signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
         })
         return { recipient, res }
       }),
@@ -366,12 +384,18 @@ app.post('*', async (c) => {
       // recipients had no timeline entry showing they were ever contacted. The
       // count is now tracked, logged, and reported so the discrepancy is
       // visible instead of inferred.
-      const { error: activityError } = await supabase
-        .from('crm_activities')
-        .insert(activityRows.splice(0))
+      //
+      // The rows are spliced *before* the write, so the loss count has to be the
+      // length captured first. It used to add `BATCH` — the batch size, not the
+      // number of rows — so a batch with two provider failures reported ten
+      // activities lost when eight were. Over-reporting here is not harmless: the
+      // number reaches the admin as a warning, and a warning that is wrong is
+      // what gets ignored.
+      const rowsToWrite = activityRows.splice(0)
+      const { error: activityError } = await supabase.from('crm_activities').insert(rowsToWrite)
       if (activityError) {
         activityWriteFailures += 1
-        activityRowsLost += BATCH
+        activityRowsLost += rowsToWrite.length
         console.error(
           `[crm-broadcast-send] activity write failed for broadcast ${broadcastId}:`,
           activityError.message,

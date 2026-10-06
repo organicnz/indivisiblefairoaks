@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  AlertTriangle,
   ArrowLeft,
   Calendar,
   CalendarCheck,
@@ -31,6 +30,7 @@ import { CRMMergeModal } from '@/components/admin/crm/CRMMergeModal';
 import {
   addCRMNote,
   addCRMTask,
+  type ConsentDecision,
   type CRMActivity,
   type CRMContact,
   type CRMTask,
@@ -44,11 +44,30 @@ interface Props {
   contact: CRMContact;
   activities: CRMActivity[];
   tasks: CRMTask[];
+  /** True when the server cut `activities` short of the full history. */
+  activitiesTruncated: boolean;
+  /** Every activity on record, which is more than `activities.length`. */
+  activityCount: number;
+  /** True when the server cut `tasks` at its cap. */
+  tasksTruncated: boolean;
+  /** Every task on record, which is more than `tasks.length` when truncated. */
+  taskCount: number;
+  /** Open tasks on record — the tab label counts open, not total. */
+  openTaskCount: number;
 }
 
 type TabId = 'timeline' | 'tasks' | 'email' | 'note';
 
-export function CRMDetailClient({ contact, activities, tasks }: Props) {
+export function CRMDetailClient({
+  contact,
+  activities,
+  tasks,
+  activitiesTruncated,
+  activityCount,
+  tasksTruncated,
+  taskCount,
+  openTaskCount,
+}: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>('timeline');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -88,6 +107,10 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
       const res = await deleteCRMContact(contact.id);
       if (res.success) {
         toast.success('Constituent deleted');
+        // `refresh()` first, so the redirect cannot resolve before this row is
+        // gone. The two race otherwise, and the redirect lands on a directory
+        // that still lists the row just deleted — which reads as a failed delete.
+        router.refresh();
         router.push('/admin/crm');
       } else {
         toast.error(res.error || 'Failed to delete');
@@ -99,16 +122,34 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
     }
   };
 
-  const handleConsentToggle = async () => {
-    const next = !contact.do_not_email;
-    // No confirm() here: the ConfirmAction only calls this from its inline
-    // confirm step. Consent is reversible, so this is not a danger action —
-    // but it still changes who receives chapter email, so it confirms.
+  /**
+   * Set one of the three consent states.
+   *
+   * Not a toggle. A toggle can only move between two values, and the third one —
+   * "we have never asked this person" — is exactly the state an organiser needs
+   * to be able to record and a toggle cannot reach. Its nearest equivalent, clearing
+   * the opt-out flag, wrote a *yes* nobody had given and put the person in the
+   * next broadcast.
+   *
+   * The switch replaces a `ConfirmAction`, deliberately: choosing a state here is
+   * a deliberate three-way decision, not a two-step destructive confirmation, and
+   * the select's own options each name their consequence. Opting *out* is the one
+   * direction that reduces someone's rights, and it is still one click — which is
+   * correct, because an opt-out is not destructive to the person and is
+   * reversible from the same control.
+   */
+  const handleConsentChange = async (next: ConsentDecision) => {
     setConsentBusy(true);
     try {
       const res = await setCRMEmailConsent({ contactId: contact.id, doNotEmail: next });
       if (res.success) {
-        toast.success(next ? 'Marked do-not-email' : 'Email consent restored');
+        toast.success(
+          next === 'opted_out'
+            ? 'Marked do-not-email'
+            : next === 'opted_in'
+              ? 'Email consent restored'
+              : 'Consent reset to "never asked"'
+        );
         router.refresh();
       } else {
         toast.error(res.error || 'Failed to update consent');
@@ -272,44 +313,46 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
               </span>
             </div>
 
-            {/* Consent badge */}
+            {/*
+              Three states, not two, and the control is a select rather than a
+              toggle because a two-state toggle cannot express the middle one.
+
+              The old toggle's only options were "opted out" and "opted in", so
+              the nearest an organiser could get to "we have never asked this
+              person" was to clear the flag — which recorded a **yes** nobody had
+              given, and put them in the next broadcast. That is the one state an
+              admin action must never invent.
+
+              Each of the three is reachable, and each names its consequence: two
+              of the three mean this person is in no broadcast audience, and the
+              copy says so rather than leaving it to be worked out.
+            */}
             <div className="flex items-center justify-between gap-3 p-3 rounded-xl border">
-              {contact.do_not_email ? (
-                <>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-red-700">
-                    <AlertTriangle size={13} /> Do Not Email
-                  </span>
-                  <ConfirmAction
-                    label={contact.do_not_email ? 'Re-subscribe' : 'Opt out'}
-                    message={
-                      contact.do_not_email
-                        ? `Re-subscribe ${fullName} for chapter broadcasts?`
-                        : `Opt ${fullName} out of all chapter email broadcasts?`
-                    }
-                    confirmLabel={contact.do_not_email ? 'Re-subscribe' : 'Opt out'}
-                    busy={consentBusy}
-                    idleClassName="text-[11px] font-bold text-slate-500 hover:text-emerald-700 transition-colors disabled:opacity-50"
-                    onConfirm={() => void handleConsentToggle()}
-                  >
-                    {consentBusy ? '…' : contact.do_not_email ? 'Re-subscribe' : 'Opt out'}
-                  </ConfirmAction>
-                </>
-              ) : (
-                <>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-700">
-                    <CheckCircle2 size={13} /> Email Opted-In
-                  </span>
-                  <ConfirmAction
-                    label="Opt out"
-                    message={`Opt ${fullName} out of all chapter email broadcasts?`}
-                    confirmLabel="Opt out"
-                    busy={consentBusy}
-                    idleClassName="text-[11px] font-bold text-slate-500 hover:text-red-600 transition-colors disabled:opacity-50"
-                    onConfirm={() => void handleConsentToggle()}
-                  >
-                    {consentBusy ? '…' : 'Opt out'}
-                  </ConfirmAction>
-                </>
+              <label htmlFor="consent-state" className="min-w-0">
+                <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Email consent
+                </span>
+                <select
+                  id="consent-state"
+                  value={contact.do_not_email === null ? 'unasked' : String(contact.do_not_email)}
+                  disabled={consentBusy}
+                  onChange={(e) => void handleConsentChange(e.target.value as ConsentDecision)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
+                >
+                  <option value="unasked">Never asked — not in the audience</option>
+                  <option value="true">Opted out — not in the audience</option>
+                  <option value="false">Agreed — receives broadcasts</option>
+                </select>
+              </label>
+              {contact.unsubscribed_at && (
+                <span className="shrink-0 text-[10px] font-medium text-slate-400">
+                  Unsubscribed{' '}
+                  {new Date(contact.unsubscribed_at).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </span>
               )}
             </div>
 
@@ -352,12 +395,15 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                 </span>
               </div>
 
-              {openTasks.length > 0 && (
+              {(tasksTruncated ? openTaskCount : openTasks.length) > 0 && (
                 <div className="flex items-center gap-2.5 text-slate-600">
                   <CalendarCheck size={15} className="text-amber-500 shrink-0" />
                   <span>
-                    <strong className="text-secondary">{openTasks.length}</strong> open follow-up
-                    {openTasks.length === 1 ? '' : 's'}
+                    <strong className="text-secondary">
+                      {tasksTruncated ? openTaskCount : openTasks.length}
+                    </strong>{' '}
+                    open follow-up
+                    {(tasksTruncated ? openTaskCount : openTasks.length) === 1 ? '' : 's'}
                   </span>
                 </div>
               )}
@@ -432,33 +478,55 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
 
         {/* Right Column — Tabbed Activities, Tasks, Email Sender, and Note Composer */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Navigation Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
+          {/*
+            Navigation tabs.
+
+            A `<fieldset>`/`<legend>` pair, `tabIndex={0}`, on the scroll
+            container: an `overflow-x-auto` element is no longer focusable by
+            default in Chrome or Firefox, so without it a keyboard user cannot
+            scroll four tabs sideways on a narrow viewport. The `<legend>` is what
+            gives that focus a purpose — see `ContentList.tsx` for the same
+            pattern, and AGENTS.md for why it exists.
+          */}
+          <fieldset
+            className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto"
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: WAI-ARIA scrollable region, see AGENTS.md "Scrollable regions must be focusable"
+            tabIndex={0}
+          >
+            {/*
+              Deliberately *not* `role="tablist"`. That pattern requires
+              `aria-selected`, `aria-controls` and arrow-key handling to behave
+              correctly, and claiming it without those announces tabs that do not
+              behave like tabs. A fieldset says "these four buttons are one group"
+              and is honest about what this is.
+            */}
+            <legend className="sr-only">Constituent profile sections</legend>
             <button
               type="button"
               onClick={() => setActiveTab('timeline')}
               className={tabClass('timeline')}
             >
-              <FileText size={14} /> Timeline ({activities.length})
+              <FileText size={14} aria-hidden="true" /> Timeline ({activityCount})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('tasks')}
               className={tabClass('tasks')}
             >
-              <CalendarCheck size={14} /> Follow-ups ({openTasks.length})
+              <CalendarCheck size={14} aria-hidden="true" /> Follow-ups (
+              {tasksTruncated ? openTaskCount : openTasks.length})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('email')}
               className={tabClass('email')}
             >
-              <Mail size={14} /> Email
+              <Mail size={14} aria-hidden="true" /> Email
             </button>
             <button type="button" onClick={() => setActiveTab('note')} className={tabClass('note')}>
-              <MessageSquare size={14} /> Note
+              <MessageSquare size={14} aria-hidden="true" /> Note
             </button>
-          </div>
+          </fieldset>
 
           {/* Tab: Timeline */}
           {activeTab === 'timeline' && (
@@ -467,6 +535,15 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                 Interaction History & Civic Record
               </h2>
 
+              {/*
+                The count is the *total*, not the rows on screen. The tab said
+                "Timeline (50)" against 5,000 activities and read as a complete
+                history; the read behind it was unbounded, so a recipient of one
+                chapter-wide broadcast loaded every one of those 5,000 rows and
+                rendered all of them. Now the query is capped, and the tab states
+                what is not being shown — a silently short list presented as a
+                whole one is worse than an obviously long one.
+              */}
               {activities.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-xs">
                   No recorded activities yet for this constituent.
@@ -526,6 +603,17 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                     );
                   })}
                 </div>
+              )}
+
+              {activitiesTruncated && (
+                <p
+                  role="status"
+                  className="mt-6 p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-medium text-amber-900"
+                >
+                  Showing the {activities.length} most recent of {activityCount} recorded
+                  activities. Older entries are still stored — a campaign blast to this constituent
+                  accounts for most of them.
+                </p>
               )}
             </div>
           )}
@@ -617,51 +705,66 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                   No follow-ups yet.
                 </div>
               ) : (
-                <ul className="divide-y divide-slate-100 border-t border-slate-100">
-                  {tasks.map((task) => (
-                    <li key={task.id} className="flex items-start gap-3 py-3">
-                      <button
-                        type="button"
-                        onClick={() => handleTaskToggle(task)}
-                        disabled={togglingTaskId === task.id}
-                        aria-label={task.status === 'done' ? 'Reopen task' : 'Complete task'}
-                        className="mt-0.5 rounded transition-colors hover:text-emerald-600 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-                      >
-                        {togglingTaskId === task.id ? (
-                          <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                        ) : task.status === 'done' ? (
-                          <CheckCircle2 size={16} className="text-emerald-500" aria-hidden="true" />
-                        ) : (
-                          <FileText size={16} aria-hidden="true" />
-                        )}
-                      </button>
-                      <div className="min-w-0 flex-1">
-                        <div
-                          className={`text-xs font-bold text-secondary ${
-                            task.status === 'done' ? 'line-through opacity-60' : ''
+                <>
+                  {tasksTruncated && (
+                    <p
+                      role="status"
+                      className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-medium text-amber-900"
+                    >
+                      Showing {tasks.length} of {taskCount} recorded follow-ups. Older entries are
+                      still stored — manage the full list on the tasks board.
+                    </p>
+                  )}
+                  <ul className="divide-y divide-slate-100 border-t border-slate-100">
+                    {tasks.map((task) => (
+                      <li key={task.id} className="flex items-start gap-3 py-3">
+                        <button
+                          type="button"
+                          onClick={() => handleTaskToggle(task)}
+                          disabled={togglingTaskId === task.id}
+                          aria-label={task.status === 'done' ? 'Reopen task' : 'Complete task'}
+                          className="mt-0.5 rounded transition-colors hover:text-emerald-600 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                        >
+                          {togglingTaskId === task.id ? (
+                            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                          ) : task.status === 'done' ? (
+                            <CheckCircle2
+                              size={16}
+                              className="text-emerald-500"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <FileText size={16} aria-hidden="true" />
+                          )}
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className={`text-xs font-bold text-secondary ${
+                              task.status === 'done' ? 'line-through opacity-60' : ''
+                            }`}
+                          >
+                            {task.title}
+                          </div>
+                          {task.details && (
+                            <p className="text-[11px] text-slate-500 mt-0.5">{task.details}</p>
+                          )}
+                        </div>
+                        <span
+                          className={`text-[11px] shrink-0 ${
+                            task.due_at ? 'text-slate-500 font-bold' : 'text-slate-300'
                           }`}
                         >
-                          {task.title}
-                        </div>
-                        {task.details && (
-                          <p className="text-[11px] text-slate-500 mt-0.5">{task.details}</p>
-                        )}
-                      </div>
-                      <span
-                        className={`text-[11px] shrink-0 ${
-                          task.due_at ? 'text-slate-500 font-bold' : 'text-slate-300'
-                        }`}
-                      >
-                        {task.due_at
-                          ? new Date(`${task.due_at}T00:00:00`).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                            })
-                          : '—'}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                          {task.due_at
+                            ? new Date(`${task.due_at}T00:00:00`).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })
+                            : '—'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
             </div>
           )}
@@ -681,10 +784,24 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                   using the Sensory Luxury email template from{' '}
                   <code className="text-primary font-bold">contact@indivisiblefairoaks.org</code>.
                 </p>
-                {contact.do_not_email && (
+                {contact.do_not_email === true && (
                   <p className="mt-2 text-xs font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                     This contact is marked do-not-email — sending is blocked until consent is
                     restored.
+                  </p>
+                )}
+                {/*
+                  `!== false`, not truthiness, in all three places below — and a
+                  banner here for the state the old code rendered as an enabled
+                  form. `NULL` means "never asked", and the consent select two
+                  panels up already says so ("Never asked — not in the
+                  audience"); a send form with no warning under it contradicted
+                  the panel on the same screen.
+                */}
+                {contact.do_not_email === null && (
+                  <p className="mt-2 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    No consent on file — this contact was never asked. Sending is blocked until they
+                    opt in.
                   </p>
                 )}
               </div>
@@ -701,7 +818,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                     id="email-subject"
                     type="text"
                     required
-                    disabled={contact.do_not_email}
+                    disabled={contact.do_not_email !== false}
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
                     placeholder="e.g. Next steps for our Postcard Blitz campaign"
@@ -720,7 +837,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                     id="email-message"
                     required
                     rows={8}
-                    disabled={contact.do_not_email}
+                    disabled={contact.do_not_email !== false}
                     value={emailMessage}
                     onChange={(e) => setEmailMessage(e.target.value)}
                     placeholder="Type your message to this constituent..."
@@ -735,7 +852,7 @@ export function CRMDetailClient({ contact, activities, tasks }: Props) {
                   </span>
                   <button
                     type="submit"
-                    disabled={sendingEmail || contact.do_not_email}
+                    disabled={sendingEmail || contact.do_not_email !== false}
                     className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-widest rounded-xl transition-colors shadow-md disabled:opacity-50"
                   >
                     <Send size={14} />

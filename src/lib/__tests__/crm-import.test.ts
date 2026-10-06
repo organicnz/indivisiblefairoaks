@@ -213,13 +213,44 @@ describe('export columns round-trip through the importer', () => {
     expect(rows[0].do_not_email).toBe(true);
   });
 
-  it('reads the obvious coercions of a yes, and treats anything else as opted in', () => {
-    expect(parseCRMImportCsv('email,do_not_email\na@b.co,YES').rows[0].do_not_email).toBe(true);
-    expect(parseCRMImportCsv('email,do_not_email\na@b.co,true').rows[0].do_not_email).toBe(true);
-    expect(parseCRMImportCsv('email,do_not_email\na@b.co,1').rows[0].do_not_email).toBe(true);
-    expect(parseCRMImportCsv('email,do_not_email\na@b.co,').rows[0].do_not_email).toBe(false);
-    expect(parseCRMImportCsv('email,do_not_email\na@b.co,no').rows[0].do_not_email).toBe(false);
-    expect(parseCRMImportCsv('email\na@b.co').rows[0].do_not_email).toBe(false);
+  /**
+   * Three states, and the middle one is the change.
+   *
+   * A blank cell and an absent column used to both read as `false` — "opted in".
+   * An import is how a chapter restores a backup or loads a membership list, and
+   * neither has asked anybody about email: recording a yes for every row enrolled
+   * a whole spreadsheet into chapter broadcast mail. So both are now `null`, and
+   * an unrecognised value is `null` too — a typo must not opt somebody in *or*
+   * out, because the honest answer to "this column says `maybe`" is that we do not
+   * know.
+   */
+  it('reads yes, reads no, and treats blank, absent and unrecognised as never asked', () => {
+    const read = (csv: string) => parseCRMImportCsv(csv).rows[0].do_not_email;
+    expect(read('email,do_not_email\na@b.co,YES')).toBe(true);
+    expect(read('email,do_not_email\na@b.co,true')).toBe(true);
+    expect(read('email,do_not_email\na@b.co,1')).toBe(true);
+    expect(read('email,do_not_email\na@b.co,x')).toBe(true);
+    expect(read('email,do_not_email\na@b.co,no')).toBe(false);
+    expect(read('email,do_not_email\na@b.co,0')).toBe(false);
+    // The three "we do not know" shapes.
+    expect(read('email,do_not_email\na@b.co,')).toBeNull();
+    expect(read('email\na@b.co')).toBeNull();
+    expect(read('email,do_not_email\na@b.co,perhaps')).toBeNull();
+  });
+
+  /**
+   * The export half of the round trip.
+   *
+   * `c.do_not_email ? 'yes' : 'no'` wrote `no` for a null row, so exporting and
+   * re-importing the chapter's own backup converted every "never asked"
+   * constituent into an explicit yes — and the *second* cycle mailed them. The
+   * importer reads a blank as null, so the blank here is what makes the file
+   * lossless.
+   */
+  it('exports a null consent as a blank, so a restore preserves it', () => {
+    const csv = ['email,do_not_email', 'a@b.co,', 'c@d.co,yes', 'e@f.co,no'].join('\n');
+    const { rows } = parseCRMImportCsv(csv);
+    expect(rows.map((r) => r.do_not_email)).toEqual([null, true, false]);
   });
 
   it('quotes a note containing a comma, so the columns do not shift', () => {

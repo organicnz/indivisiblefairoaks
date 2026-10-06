@@ -89,6 +89,10 @@ export async function submitContact(formData: FormData): Promise<ContactResult> 
   const email = formData.get('email') as string;
   const message = formData.get('message') as string;
   const wantsCopy = formData.get('sendCopy') === 'on';
+  // Read with the same `'on'` convention as every other checkbox. Absence is the
+  // answer: the submitter was shown the consent box and did not tick it, which is
+  // a decline rather than an unknown.
+  const consentToEmail = formData.get('consentToEmail') === 'on';
 
   // 2. Basic validation
   if (!name || !email || !message) {
@@ -139,6 +143,21 @@ export async function submitContact(formData: FormData): Promise<ContactResult> 
           p_email: email,
           p_message: message,
           p_wants_copy: wantsCopy,
+          /*
+           * The consent answer, and it is separate from `wantsCopy` on purpose.
+           *
+           * `wantsCopy` is transactional — a copy of *this* message, which the
+           * privacy copy on the form says so about. It was the only consent-ish
+           * signal the form ever sent, and the CRM read `do_not_email`'s column
+           * default instead, so every contact-form submitter landed in the next
+           * broadcast audience.
+           *
+           * Both answers are recorded. `false` is not "unknown": the resident
+           * was shown the box and declined, and the sync trigger writes
+           * `do_not_email = true` for that. There is no path from here to an
+           * explicit opt-in other than ticking it.
+           */
+          p_consent_to_email: consentToEmail,
         });
       })();
 

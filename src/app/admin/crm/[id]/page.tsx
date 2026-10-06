@@ -30,8 +30,28 @@ export default async function AdminCRMDetailPage({ params }: { params: Promise<{
   const { id } = await params;
 
   try {
-    const { contact, activities, tasks } = await getCRMContactDetail(id);
-    return <CRMDetailClient contact={contact} activities={activities} tasks={tasks} />;
+    const {
+      contact,
+      activities,
+      tasks,
+      activitiesTruncated,
+      activityCount,
+      tasksTruncated,
+      taskCount,
+      openTaskCount,
+    } = await getCRMContactDetail(id);
+    return (
+      <CRMDetailClient
+        contact={contact}
+        activities={activities}
+        tasks={tasks}
+        activitiesTruncated={activitiesTruncated}
+        activityCount={activityCount}
+        tasksTruncated={tasksTruncated}
+        taskCount={taskCount}
+        openTaskCount={openTaskCount}
+      />
+    );
   } catch {
     notFound();
   }

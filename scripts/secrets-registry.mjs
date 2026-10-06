@@ -372,6 +372,78 @@ export const REGISTRY = {
     stores: ['github-secret', 'vercel-secret'],
   },
 
+  /**
+   * Seeded credentials for the authenticated e2e suite.
+   *
+   * Two admin roles because the gates they exercise are mutually exclusive in
+   * the product: the plain admin has no MFA factor, so `/admin` resolves; the
+   * MFA admin has a verified TOTP factor, so an AAL1 session is bounced to
+   * `/auth/mfa`. Before these existed, `/admin` and `/auth/mfa` had no browser
+   * coverage at all.
+   *
+   * `privileged`, and deliberately so — possession is sign-in as an
+   * administrator on the test project, which is full read/write on the CRM and
+   * the order table. They must be credentials for a *test* Supabase project. A
+   * production admin's password here would make the test suite a way to reach
+   * production, and the suite has outbound network access on a shared runner.
+   *
+   * All five are optional. Both specs `test.skip` when they are absent rather
+   * than weakening an assertion, so an unseeded repository runs the rest of the
+   * suite unchanged. A skipped auth suite must never read as a passing one,
+   * which is what the registry entries make visible in the audit.
+   */
+  E2E_ADMIN_EMAIL: {
+    exposure: EXPOSURE.privileged,
+    owner: OWNERS['repo-maintainer'],
+    stores: ['github-secret'],
+    note:
+      'Non-MFA-enrolled admin on the test Supabase project. Enables ' +
+      'e2e/admin-authenticated.spec.ts, which is the only browser coverage for ' +
+      '/admin. `profiles.is_admin` must be true for this user.',
+  },
+  E2E_ADMIN_PASSWORD: {
+    exposure: EXPOSURE.privileged,
+    owner: OWNERS['repo-maintainer'],
+    stores: ['github-secret'],
+    note:
+      'Password for E2E_ADMIN_EMAIL. Must not be enrolled in MFA: an AAL2 ' +
+      'requirement would redirect the suite away from every admin route it ' +
+      'means to drive.',
+  },
+  E2E_MFA_ADMIN_EMAIL: {
+    exposure: EXPOSURE.privileged,
+    owner: OWNERS['repo-maintainer'],
+    stores: ['github-secret'],
+    note:
+      'Admin with one verified TOTP factor. Enables e2e/mfa-challenge.spec.ts, ' +
+      'the only coverage of the step-up path — which no unit test can reach, ' +
+      'because it depends on a real session whose AAL is set by GoTrue.',
+  },
+  E2E_MFA_ADMIN_PASSWORD: {
+    exposure: EXPOSURE.privileged,
+    owner: OWNERS['repo-maintainer'],
+    stores: ['github-secret'],
+    note: 'Password for E2E_MFA_ADMIN_EMAIL.',
+  },
+  /**
+   * The base32 TOTP seed for `E2E_MFA_ADMIN_EMAIL`'s only factor.
+   *
+   * The one that looks least like a secret and is the most sensitive of the
+   * five: it is a *current* credential for an admin account at every 30-second
+   * step, and it has no expiry. A real enrollment reveals it exactly once, at QR
+   * scan time, so it cannot be recovered later — hence seeding it rather than
+   * capturing it. Anyone holding it can mint valid codes and read the CRM.
+   */
+  E2E_MFA_TOTP_SECRET: {
+    exposure: EXPOSURE.privileged,
+    owner: OWNERS['repo-maintainer'],
+    stores: ['github-secret'],
+    note:
+      'Base32 secret of the MFA test factor. The spec derives each code locally ' +
+      '(HMAC-SHA1 over the 30-second counter) — no provisioning service, no ' +
+      'network call. Re-enrolling that factor invalidates this value.',
+  },
+
   // ── Edge Function runtime ─────────────────────────────────────────────────
   // Injected as env vars into the Deno isolate. Reachable by every function in
   // the project, which is why four of them are deployed `--no-verify-jwt`.

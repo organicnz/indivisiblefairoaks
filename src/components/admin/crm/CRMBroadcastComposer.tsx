@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { Fragment, useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { CRMPager } from '@/components/admin/crm/CRMPager';
 import {
   Dialog,
   DialogContent,
@@ -37,19 +38,45 @@ import {
   deleteCRMBroadcastDraft,
   getBroadcastProgress,
   getBroadcastRecipientCount,
+  markCRMBroadcastFailed,
   previewCRMBroadcast,
   saveCRMBroadcastDraft,
   sendCRMBroadcast,
   sendCRMBroadcastSelfTest,
 } from '@/lib/actions/crm';
 import { BROADCAST_RECIPIENT_CEILING } from '@/lib/crm-broadcast';
+import { countPages, pageRange } from '@/lib/crm-filters';
+import { BROADCAST_HISTORY_PAGE_SIZE, PROGRESS_POLL_TIMEOUT_MS } from '@/lib/crm-limits';
 
 interface Props {
   initialBroadcasts: CRMBroadcast[];
+  /**
+   * How many campaigns exist in total, not how many are on this page.
+   *
+   * The heading used to render `initialBroadcasts.length`, which reads as the size
+   * of the history — so a chapter with seventy campaigns saw "(25)" and had no way
+   * to know whether that was everything or a truncated read. The pager needs the
+   * real total for the same reason.
+   */
+  totalBroadcastCount: number;
+  /** 1-based page currently shown. */
+  historyPage: number;
   /** Unsent work in progress. Kept out of `initialBroadcasts` on purpose. */
   initialDrafts?: CRMBroadcast[];
   segments: CRMSegment[];
+  /** True when the server cut the segment list at its cap (see `getCRMSegments`). */
+  segmentsTruncated?: boolean;
   existingTags: string[];
+  /**
+   * `getCRMExistingTags` stopped at its row ceiling, so `existingTags` may be
+   * missing tags that exist in the database.
+   *
+   * This is not the same as the 40-chip cap below, which hides a tag that was
+   * read and remains reachable by typing. A tag missing from an exhausted scan is
+   * invisible by every route: no chip, no suggestion, and no way to discover that
+   * the constituents carrying it still exist.
+   */
+  tagsMayBeIncomplete?: boolean;
 }
 
 const AVAILABLE_STATUSES = [
@@ -72,9 +99,13 @@ const FALLBACK_TAGS = ['contact-form', 'registered-member', 'donor', 'organizer'
 
 export function CRMBroadcastComposer({
   initialBroadcasts,
+  totalBroadcastCount,
+  historyPage,
   initialDrafts = [],
   segments,
+  segmentsTruncated = false,
   existingTags,
+  tagsMayBeIncomplete = false,
 }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -110,15 +141,23 @@ export function CRMBroadcastComposer({
   // Expandable history rows
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Real tags from the directory, plus any currently selected (may be stale).
-  const tagChips = [
-    ...new Set([
-      ...existingTags,
-      ...FALLBACK_TAGS,
-      ...selectedTags,
-      ...(segments.flatMap((s) => s.tags) || []),
-    ]),
-  ].slice(0, 40);
+  /**
+   * Real tags from the directory, plus any currently selected (may be stale).
+   *
+   * Capped at 40 with no indication, which is its own bug: a chapter with more
+   * than 40 distinct tags gets chips that simply stop, and a tag that sorts past
+   * the cap is unselectable for a broadcast — so a constituent tagged only with
+   * it cannot be targeted at all. The cap now *says* it is a cap, and the
+   * currently-selected tags are added after it so an active selection is never
+   * the thing that disappeared.
+   */
+  const allTagChips = [...new Set([...existingTags, ...FALLBACK_TAGS])];
+  const TAG_CHIP_CAP = 40;
+  const tagChips = [...allTagChips].slice(0, TAG_CHIP_CAP);
+  const hiddenTagCount = Math.max(0, allTagChips.length - TAG_CHIP_CAP);
+  const tagsMissingFromChips = [...selectedTags, ...(segments.flatMap((s) => s.tags) || [])].filter(
+    (t) => !tagChips.includes(t)
+  );
 
   // Update recipient count when targeting changes.
   //
@@ -172,9 +211,12 @@ export function CRMBroadcastComposer({
       (b) => !b.test_only && (b.status === 'queued' || b.status === 'sending')
     );
     if (inFlight) void followProgress(inFlight.id);
-    // One-shot: the in-tab follow loop owns the row once it starts, and the row
-    // itself cannot change underneath this tab to a state that needs a second
-    // loop.
+    // One-shot, and `followProgress` is deliberately *not* a dependency. It closes
+    // over `selectedTags` and the tab state, so listing it re-ran the effect on
+    // every keystroke in the composer — and a second `followProgress` is a second
+    // poll loop racing the first over the same row. The row itself cannot change
+    // underneath this tab into a state that needs another loop, so the narrow
+    // dependency is the correct one.
   }, [initialBroadcasts]);
 
   const toggleStatus = (id: string) => {
@@ -215,8 +257,26 @@ export function CRMBroadcastComposer({
     const maxAttempts = Math.ceil(BROADCAST_RECIPIENT_CEILING / 10) + 30;
     try {
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        const current = await getBroadcastProgress(broadcastId);
-        if (!current) return;
+        // Each poll is bounded, *in the browser*. `getBroadcastProgress` is a
+        // server action with no client-side timeout, and the `catch` below is
+        // the only thing that could end the loop — so a request that hangs
+        // rather than rejects froze the loop with no fallback and a frozen
+        // "Sending 120 of 5,000". Racing a timeout turns a hang into the
+        // visible failure the catch was written for.
+        const current = await Promise.race([
+          getBroadcastProgress(broadcastId),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), PROGRESS_POLL_TIMEOUT_MS)),
+        ]);
+        // `null` is ambiguous: it is also what a finished-and-deleted row
+        // returns. Distinguish them by the attempt count — the give-up below
+        // handles exhaustion, so here it means the poll did not answer.
+        if (current === null) {
+          if (attempt >= maxAttempts) break;
+          setProgress((prev) => (prev ? { ...prev, stillWatching: false } : prev));
+          toast.error('Lost the progress feed — reload to check the campaign');
+          startTransition(() => router.refresh());
+          return;
+        }
         setProgress(current);
         if (current.status !== 'queued' && current.status !== 'sending') {
           startTransition(() => router.refresh());
@@ -408,6 +468,28 @@ export function CRMBroadcastComposer({
     startTransition(() => router.refresh());
   };
 
+  /**
+   * Declare a stranded campaign failed.
+   *
+   * The action refuses a row the sender may still own, so this reports rather
+   * than retries: a refusal here is a correct answer, not a failure to work
+   * around, and silently doing something else would be the dangerous version.
+   */
+  const handleMarkFailed = async (id: string) => {
+    try {
+      const res = await markCRMBroadcastFailed(id);
+      if (!res.success) {
+        toast.warning(res.error || 'That campaign could not be marked failed');
+        return;
+      }
+      toast.success('Campaign marked failed. Compose a new, narrower campaign for the rest.');
+      setProgress(null);
+      startTransition(() => router.refresh());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not mark the campaign failed');
+    }
+  };
+
   const overCeiling = (recipientCount ?? 0) > BROADCAST_RECIPIENT_CEILING;
 
   const handleSend = async () => {
@@ -446,11 +528,35 @@ export function CRMBroadcastComposer({
         if (res.warning) toast.warning(res.warning);
         setSubject('');
         setBody('');
-        setDraftId(null);
         setSelectedStatuses([]);
         setSelectedDistricts([]);
         setSelectedTags([]);
         setIsConfirmOpen(false);
+
+        /*
+          Delete the draft this send consumed, *before* clearing `draftId`.
+          `setDraftId(null)` only forgot it locally: the row stayed
+          `status = 'draft'` in the database, so it reappeared under "Unsent
+          drafts" offering Resume — loading copy that had already gone to the
+          whole list, with the same audience chips, into a composer one click
+          from Confirm & Blast again.
+
+          Fire-and-forget on purpose, and the local clear happens either way. A
+          failure here leaves a stale draft, which is the pre-existing behaviour
+          and recoverable; blocking the UI on it would report a delivered
+          campaign as a failure.
+        */
+        const sentDraftId = draftId;
+        setDraftId(null);
+        if (sentDraftId)
+          void deleteCRMBroadcastDraft(sentDraftId).then((r) => {
+            if (!r.success) {
+              toast.warning(
+                'The sent draft could not be cleared from your drafts — delete it manually so it cannot be sent twice.'
+              );
+            }
+          });
+
         if (res.broadcastId) void followProgress(res.broadcastId);
         startTransition(() => {
           router.refresh();
@@ -473,6 +579,23 @@ export function CRMBroadcastComposer({
    * reading as "campaigns sent to the list".
    */
   const testCount = initialBroadcasts.filter((b) => b.test_only).length;
+
+  const totalHistoryPages = countPages(totalBroadcastCount, BROADCAST_HISTORY_PAGE_SIZE);
+  // `pageRange` owns the zero-case (`0–0`, not `1–0`): the inline arithmetic
+  // this replaces omitted it, so an empty history read "Showing 1–0".
+  const [historyFirst, historyLast] = pageRange(
+    historyPage,
+    BROADCAST_HISTORY_PAGE_SIZE,
+    totalBroadcastCount
+  );
+  /*
+   * Nothing else lives in this page's query string today, and passing the pager an
+   * empty `URLSearchParams` rather than `undefined` is deliberate: `CRMPager` reads
+   * `params` to build every href, so omitting it produces bare paths that drop
+   * whatever a future filter adds. When a filter lands here, it goes in this
+   * object and the pager keeps it across pages for free.
+   */
+  const historyParams = new URLSearchParams();
 
   return (
     <div className="space-y-12">
@@ -534,12 +657,36 @@ export function CRMBroadcastComposer({
               </h2>
             </div>
 
-            {/* Saved segment prefill */}
+            {/*
+              Saved-segment prefill.
+
+              A segment with a search term cannot be pre-filled here, and this is
+              the second half of that: the old `onChange` set the status, district
+              and tag chips, ignored `seg.query`, and then announced success
+              *specifically when a query existed* — so the toast fired exactly
+              when the applied audience was wrong. A segment saved from a directory
+              search became a whole-segment blast in the composer, announced as
+              applied.
+
+              Now the audience that cannot be represented is named, and the live
+              count beside it is the real check: applying a query-only segment
+              leaves every chip empty, and an empty chip set against a saved
+              search segment is visibly not the same audience.
+            */}
             {segments.length > 0 && (
-              <div>
+              <div className="space-y-2">
+                {segmentsTruncated && (
+                  <p
+                    role="status"
+                    className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5"
+                  >
+                    Showing the 500 most recent saved segments — older ones exist but are not listed
+                    here.
+                  </p>
+                )}
                 <label
                   htmlFor="segment-prefill"
-                  className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2"
+                  className="block text-[11px] font-black uppercase tracking-wider text-slate-500"
                 >
                   Apply Saved Segment
                 </label>
@@ -552,7 +699,30 @@ export function CRMBroadcastComposer({
                     setSelectedStatuses(seg.statuses);
                     setSelectedDistricts(seg.districts);
                     setSelectedTags(seg.tags);
-                    if (seg.query) toast.message(`Segment "${seg.name}" applied`);
+                    /*
+                     * Consent is a directory filter, not a broadcast chip — the
+                     * composer has no control for it, because broadcasts only
+                     * reach people who agreed. Applying a segment saved from an
+                     * "Opted Out" view without saying so produces chips that
+                     * resolve to the *opted-in* people: the exact opposite of
+                     * the segment, announced with a success toast. `seg.query`
+                     * got this warning and a label; `seg.consent` got neither.
+                     */
+                    const inapplicable: string[] = [];
+                    if (seg.query) inapplicable.push(`text search "${seg.query}"`);
+                    if (seg.consent && seg.consent !== 'opted_in')
+                      inapplicable.push(
+                        seg.consent === 'opted_out'
+                          ? 'the "Opted Out of Email" filter (broadcasts only reach people who agreed)'
+                          : `the "${seg.consent}" consent filter (broadcasts only reach people who agreed)`
+                      );
+                    if (inapplicable.length > 0) {
+                      toast.message(
+                        `"${seg.name}" partially applied — it also filters on ${inapplicable.join(' and ')}, which broadcasts cannot target. Check the recipient count before sending.`
+                      );
+                    } else {
+                      toast.message(`Segment "${seg.name}" applied`);
+                    }
                   }}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
                 >
@@ -560,6 +730,9 @@ export function CRMBroadcastComposer({
                   {segments.map((seg) => (
                     <option key={seg.id} value={seg.id}>
                       {seg.name}
+                      {seg.query || (seg.consent && seg.consent !== 'opted_in')
+                        ? ' (partly not applicable here — see note after applying)'
+                        : ''}
                     </option>
                   ))}
                 </select>
@@ -631,6 +804,7 @@ export function CRMBroadcastComposer({
                       key={t}
                       type="button"
                       onClick={() => toggleTag(t)}
+                      aria-pressed={isSelected}
                       className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
                         isSelected
                           ? 'bg-primary text-white'
@@ -641,6 +815,60 @@ export function CRMBroadcastComposer({
                     </button>
                   );
                 })}
+
+                {/* Tags that would otherwise be unreachable. A cap that hides a
+                    tag means a constituent carrying only that tag cannot be
+                    targeted, which is a silent hole in the audience rather than a
+                    cosmetic one. */}
+                {hiddenTagCount > 0 && (
+                  <p className="w-full text-[11px] font-medium text-slate-500 mt-1">
+                    {hiddenTagCount} more tag{hiddenTagCount === 1 ? '' : 's'} not shown — this
+                    panel lists the first {TAG_CHIP_CAP} alphabetically. Target one from the{' '}
+                    <Link href="/admin/crm" className="text-primary font-bold hover:underline">
+                      directory
+                    </Link>
+                    .
+                  </p>
+                )}
+
+                {/*
+   A stronger claim than the cap above, and it has to be worded differently.
+
+   The cap hides tags that were *read* and remain reachable from the directory. An
+   exhausted scan hides tags that were never read: no chip, no suggestion, no
+   discovery route. So this does not point at the directory — a tag missing from
+   this list may be missing from the directory's filter too, since both read the
+   same scan — and it says the list may be incomplete rather than that tags are
+   hidden, because the chapter genuinely does not know which ones.
+*/}
+                {tagsMayBeIncomplete && (
+                  <p className="w-full text-[11px] font-bold text-accent-red mt-1">
+                    This chapter’s directory is too large to list every tag, so this list may be
+                    incomplete. A tag you cannot see here cannot be targeted from here — narrow the
+                    audience with status or district filters, or search the{' '}
+                    <Link href="/admin/crm" className="text-primary font-bold hover:underline">
+                      directory
+                    </Link>{' '}
+                    by name.
+                  </p>
+                )}
+
+                {tagsMissingFromChips.length > 0 && (
+                  <div className="w-full flex flex-wrap items-center gap-1.5 mt-2">
+                    <span className="text-[11px] font-bold text-primary">Also targeting:</span>
+                    {tagsMissingFromChips.map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => toggleTag(t)}
+                        aria-pressed
+                        className="px-2.5 py-1 rounded-md bg-primary text-white text-xs font-bold"
+                      >
+                        #{t} ×
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1095,7 +1323,25 @@ export function CRMBroadcastComposer({
         <div className="flex items-center gap-2">
           <Clock size={16} className="text-slate-400" />
           <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">
-            Past Campaigns & Dispatch History ({initialBroadcasts.length})
+            Past Campaigns &amp; Dispatch History
+            {/*
+   The total, not `initialBroadcasts.length`.
+
+   The page size is 25 and this list has no "load more", so rendering the rows
+   shown says "(25)" for a chapter that has sent seventy — which reads as
+   "twenty-five campaigns exist" and is the reason a chapter believed its whole
+   history had been deleted after losing access for a while.
+*/}
+            {totalBroadcastCount > initialBroadcasts.length ? (
+              <>
+                {' '}
+                <span className="text-secondary font-black">
+                  {totalBroadcastCount.toLocaleString()}
+                </span>
+              </>
+            ) : (
+              <> ({initialBroadcasts.length})</>
+            )}
           </h2>
         </div>
 
@@ -1113,20 +1359,66 @@ export function CRMBroadcastComposer({
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+            {/*
+              `tabIndex={0}` + `role="region"` on the scroll container. An
+              `overflow-x-auto` element is no longer focusable by default in
+              Chrome or Firefox, so without it a keyboard user cannot scroll this
+              five-column table sideways at all on a narrow viewport — and this is
+              the table an organizer reads to find out what has already gone out.
+              Same pattern as `CRMContactList`'s directory table; see AGENTS.md.
+            */}
+            <section
+              className="overflow-x-auto"
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: WAI-ARIA scrollable region, see AGENTS.md "Scrollable regions must be focusable"
+              tabIndex={0}
+              aria-label="Campaign history"
+            >
               <table className="w-full text-left text-xs">
+                <caption className="sr-only">
+                  Past campaigns, newest first, with the audience each reached and its outcome
+                </caption>
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    <th className="px-6 py-3">Campaign Subject</th>
-                    <th className="px-6 py-3">Audience Filters</th>
-                    <th className="px-6 py-3">Recipients</th>
-                    <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3">Sent Date</th>
+                    <th scope="col" className="px-6 py-3">
+                      Campaign Subject
+                    </th>
+                    <th scope="col" className="px-6 py-3">
+                      Audience Filters
+                    </th>
+                    <th scope="col" className="px-6 py-3">
+                      Recipients
+                    </th>
+                    <th scope="col" className="px-6 py-3">
+                      Status
+                    </th>
+                    <th scope="col" className="px-6 py-3">
+                      Sent Date
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
                   {initialBroadcasts.map((b) => {
                     const isExpanded = expandedId === b.id;
+                    /*
+                      A row an organizer may declare stuck.
+
+                      The trigger is the state, not the clock: `sending`/`queued`
+                      with no `marked_failed_at`. The timestamp is what *removes*
+                      the control, because marking the row failed is what sets it —
+                      so `marked_failed_at` here would look for the control's own
+                      effect and it would never appear.
+
+                      A test row is excluded: a self-test resolves in one request
+                      and "stranded" is not a state it can be in.
+
+                      The action itself refuses a row dispatched in the last
+                      fifteen minutes, so a campaign that is merely slow reports
+                      that refusal rather than being killed.
+                    */
+                    const canMarkStranded =
+                      !b.test_only &&
+                      (b.status === 'sending' || b.status === 'queued') &&
+                      !b.marked_failed_at;
                     return (
                       <Fragment key={b.id}>
                         <tr
@@ -1234,10 +1526,52 @@ export function CRMBroadcastComposer({
                         </tr>
                         {isExpanded && (
                           <tr className="bg-slate-50/60">
-                            <td colSpan={5} className="px-6 py-4">
+                            <td colSpan={5} className="px-6 py-4 space-y-3">
                               <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-line max-w-3xl border-l-2 border-primary pl-4">
                                 {b.body || '(no message body stored)'}
                               </div>
+
+                              {/*
+                                The documented recovery, made actionable. A row
+                                stuck at `sending` with `dispatched_at` set is the
+                                one state docs/crm-operations.md says must never be
+                                re-dispatched — clearing that flag re-mails everyone
+                                already delivered to. Until now the guidance was
+                                correct and unreachable: the composer had no control
+                                that could mark a row failed, so two organizers
+                                staring at a stuck campaign could do nothing or edit
+                                the database by hand.
+
+                                One-directional on purpose. `markCRMBroadcastFailed`
+                                can only move a row to `failed`, never back to a
+                                sendable state, and it refuses a row dispatched
+                                within the last fifteen minutes — so it cannot be
+                                used to cut short a send that is merely slow.
+                              */}
+                              {canMarkStranded && (
+                                <div className="max-w-3xl rounded-xl bg-amber-50 border border-amber-200 p-3">
+                                  <p className="text-xs font-bold text-amber-950">
+                                    This campaign has not finished.
+                                  </p>
+                                  <p className="text-[11px] text-amber-900 mt-1 mb-3">
+                                    {b.sent_count ?? 0} of {b.recipient_count ?? 0} accepted so far.
+                                    If it is genuinely stuck, mark it failed — that re-sends
+                                    nothing, and the remainder needs a new, narrower campaign. A
+                                    campaign dispatched in the last fifteen minutes will be refused.
+                                  </p>
+                                  <ConfirmAction
+                                    label={`Mark campaign ${b.subject} as failed`}
+                                    message="Mark this campaign failed? Nobody is emailed, and the remainder still needs a new, narrower campaign."
+                                    confirmLabel="Mark failed"
+                                    danger
+                                    idleClassName="inline-flex items-center gap-1.5 rounded-xl bg-amber-200 px-3 py-1.5 text-xs font-black text-amber-950 transition-colors hover:bg-amber-300 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                                    onConfirm={() => void handleMarkFailed(b.id)}
+                                  >
+                                    <AlertCircle size={13} aria-hidden="true" />
+                                    Mark as failed
+                                  </ConfirmAction>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         )}
@@ -1246,7 +1580,43 @@ export function CRMBroadcastComposer({
                   })}
                 </tbody>
               </table>
-            </div>
+            </section>
+
+            {/*
+   The pager, and it is here rather than "load more" on purpose.
+
+   `getCRMBroadcastHistoryPage` exists and the composer was not using it, so this
+   table rendered the first 25 campaigns and stopped — the same unreachable-row
+   problem `deleteCRMBroadcastDraft`'s comment describes for drafts, except here
+   the rows are read-only so nobody can tell they are missing. A chapter past 25
+   campaigns simply could not confirm what it had sent.
+
+   Reusing `CRMPager` is the point: numbered links reach page 6 directly, where
+   Next-only would mean five clicks, and it already renders an accessible
+   current-page state.
+*/}
+            {totalHistoryPages > 1 && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs font-bold text-slate-500">
+                  Showing{' '}
+                  <span className="text-secondary font-black">
+                    {historyFirst}–{historyLast}
+                  </span>{' '}
+                  of{' '}
+                  <span className="text-secondary font-black">
+                    {totalBroadcastCount.toLocaleString()}
+                  </span>{' '}
+                  campaigns
+                </p>
+                <CRMPager
+                  page={historyPage}
+                  totalCount={totalBroadcastCount}
+                  pageSize={BROADCAST_HISTORY_PAGE_SIZE}
+                  basePath="/admin/crm/broadcasts"
+                  params={historyParams}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

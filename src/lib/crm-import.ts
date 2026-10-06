@@ -13,7 +13,15 @@ export interface CRMImportRow {
   status: string;
   tags: string[];
   notes: string | null;
-  do_not_email: boolean;
+  /**
+   * Tri-state since migration 20261005020000: `null` is "never asked", which is
+   * different from `false` ("asked and agreed") and is *not* reachable by the
+   * audience resolver. It matters here because an import is how a chapter
+   * restores a backup or loads a membership list — and a spreadsheet with no
+   * consent column has not asked anybody anything, so recording `false` for every
+   * row would enrol a whole imported list into broadcast mail.
+   */
+  do_not_email: boolean | null;
 }
 
 export interface CRMImportError {
@@ -137,8 +145,13 @@ function cell(row: string[], index: number): string {
  * Optional: first_name, last_name, phone, address, city, zip_code, district,
  * status, tags, notes, do_not_email.
  *
- * `do_not_email` accepts the exporter's 'yes'/'no'; absent column means
- * everyone is treated as opted in, matching the column's DEFAULT.
+ * `do_not_email` accepts the exporter's 'yes'/'no'; a *blank cell* is
+ * "never asked" (null), and an absent column makes every row "never asked" too.
+ *
+ * Both blanks were `false` before migration 20261005020000, which meant an import
+ * of a membership spreadsheet opted the entire list into chapter broadcast mail
+ * that none of them had agreed to. The distinction matters for a restore as well:
+ * re-importing an export has to preserve a null rather than convert it to a yes.
  */
 export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
   const parsed = parseCsv(csvText);
@@ -179,7 +192,23 @@ export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
   /** Accept the export's 'yes'/'no' and the obvious coercions a hand-written
    *  backup CSV might use. Anything unrecognised reads as opted-in, which
    *  matches the column's DEFAULT and the previous importer's behaviour. */
-  const parseDoNotEmail = (raw: string): boolean => /^(yes|y|true|t|1|x)$/i.test(raw.trim());
+  /*
+   * Three states, so this returns null rather than a boolean:
+   *
+   *   'yes'/'y'/'true'/'t'/'1'/'x' → true   (opted out)
+   *   'no'/'n'/'false'/'f'/'0'      → false  (opted in — asked and agreed)
+   *   blank, or an unrecognised word → null   (never asked)
+   *
+   * An unrecognised value is "never asked" rather than a silent `false` for the
+   * same reason: a typo in a consent column must not enrol somebody, and it
+   * must not opt them out either — the honest answer is that we do not know.
+   */
+  const parseDoNotEmail = (raw: string): boolean | null => {
+    const value = raw.trim().toLowerCase();
+    if (/^(yes|y|true|t|1|x)$/.test(value)) return true;
+    if (/^(no|n|false|f|0)$/.test(value)) return false;
+    return null;
+  };
 
   const rows: CRMImportRow[] = [];
   const errors: CRMImportError[] = [];
@@ -231,12 +260,57 @@ export function parseCRMImportCsv(csvText: string): CRMImportParseResult {
       district,
       status,
       tags: tagsIdx >= 0 ? splitTags(cell(raw, tagsIdx)) : [],
-      notes: notesIdx >= 0 ? cell(raw, notesIdx) || null : null,
-      do_not_email: doNotEmailIdx >= 0 ? parseDoNotEmail(cell(raw, doNotEmailIdx)) : false,
+      // Truncated to the same budget `contactSchema` enforces, and reported as an
+      // error rather than silently shortened. An unbounded notes cell meant a
+      // spreadsheet with a pasted meeting transcript became a multi-megabyte
+      // value in `crm_contacts.notes`, which is then rendered in the 360 panel
+      // and emitted in every directory CSV export. Silently truncating organizer
+      // notes would lose information without saying so; refusing the row says so
+      // and lets them decide.
+      notes: truncateNotes(notesIdx >= 0 ? cell(raw, notesIdx) || null : null, line, errors),
+      // Absent column → null ("never asked"), matching a blank cell. This is the
+      // line that stops importing a membership list from enrolling it.
+      do_not_email: doNotEmailIdx >= 0 ? parseDoNotEmail(cell(raw, doNotEmailIdx)) : null,
     });
   }
 
   return { rows, errors };
+}
+
+/**
+ * The notes budget for one contact.
+ *
+ * Exported because three places must agree on it: `contactSchema` in
+ * `crm.ts` (the enforcement), the editor's `maxLength` (the affordance), and
+ * this clamp. It cannot live in `crm.ts` because a `'use server'` module may only
+ * export async functions — the build rejects anything else — so a client
+ * component cannot import it from there. Two literals with the same value is how
+ * a user's character counter and the server's rejection come to disagree.
+ *
+ * Matches the per-row budget a single CSV line represents, so an exported
+ * constituent can be re-imported.
+ */
+export const MAX_CONTACT_NOTES_LENGTH = 5000;
+
+/**
+ * Clamp a notes cell, recording why when it does.
+ *
+ * The row is kept rather than rejected: the constituent's name, district, status
+ * and tags are still good data, and a chapter restoring a backup should not lose
+ * two hundred contacts over one pasted transcript. The error entry is what makes
+ * the clamp visible in the import's per-row outcome list.
+ */
+function truncateNotes(
+  notes: string | null,
+  line: number,
+  errors: { line: number; message: string }[]
+): string | null {
+  if (!notes || notes.length <= MAX_CONTACT_NOTES_LENGTH) return notes;
+  errors.push({
+    line,
+    message: `Notes exceeded ${MAX_CONTACT_NOTES_LENGTH} characters and were truncated on import`,
+  });
+  return notes.slice(0, MAX_CONTACT_NOTES_LENGTH);
 }
 
 /** Serialize a row array to CSV with quoted fields (RFC 4180). */

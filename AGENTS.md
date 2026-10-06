@@ -354,7 +354,15 @@ it in the tab order while invisible on desktop. Gate the reveal with the
 5. **No layout shift** — always provide width/height on `next/image`; use `aspect-ratio` utilities for unknown-dimension embeds. For a CMS image, **measure the size rather than reserve a guess**: `measureImageSize` reads the intrinsic dimensions from the bytes, and a block that cannot be measured must render in a fixed frame — never neither. See [`docs/content-editor.md`](./docs/content-editor.md#an-image-is-measured-or-the-frame-is-fixed--never-neither).
 6. **Server-only env reads** — `process.env.SUPABASE_SECRET_KEY` etc. are accessed as dotted properties, never spread into objects, never imported into client modules. Public `NEXT_PUBLIC_*` vars are safe to access anywhere.
 7. **Exact dependency versions** — use `^` only; pin via `overrides` for any package with a known CVE.
-8. **MFA guards** — account-mutating operations must check MFA enrollment status server-side.
+8. **MFA guards** — account-mutating operations must check MFA enrollment status server-side. See [`docs/mfa.md`](./docs/mfa.md).
+9. **A `'use server'` module may only export async functions**, and the build
+   enforces it — `Error: Only async functions are allowed to be exported in a "use
+   server" file.` So a constant or a helper a *client* component needs cannot live
+   beside the actions it describes, however much it belongs there. The CRM's
+   numeric bounds live in [`src/lib/crm-limits.ts`](./src/lib/crm-limits.ts) and
+   the step-up error discriminant in
+   [`src/lib/mfa-guard.ts`](./src/lib/mfa-guard.ts). Each of those four was in the
+   wrong file first, and the build said so.
 
 ---
 
@@ -537,7 +545,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   [`docs/ci-runners.md`](./docs/ci-runners.md).
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 32 pre-commit guards, then lint → unit → coverage → types → build →
-  peer-deps → 119 Playwright specs. Migrations and Edge Functions are **not**
+  peer-deps → 135 Playwright specs. Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
   migrations to the hosted project at 20:56 on 2026-10-04 while its sibling
@@ -597,7 +605,7 @@ deployed green and broke silently.
   Vitest's bare `statements: 90` is checked against the *aggregate* over every included
   file, so a stricter file cannot raise it and a looser one silently lowers it for
   everything else. `vitest.config.ts` therefore names globs: 90 across the board, with
-  `src/lib/actions/crm.ts` on an explicit floor of **88 / 76 / 100 / 93** and
+  `src/lib/actions/crm.ts` on an explicit floor of **89 / 78 / 100 / 93** and
   `src/lib/actions/content.ts` on **58 / 54 / 61 / 65**. Both were in **no threshold
   at all** until recently — neither was in the `include` list — which is how a
   ceiling refusal stayed dead code and a `created_by` column stayed unwritten with
@@ -704,16 +712,19 @@ Deliberately left undone. None block the apex cutover.
    before that fix still hold `Choir` next to `choir`. The remainder is the
    one-time `UPDATE … lower(tags)`, a data change that belongs to the chapter,
    not to a deploy.
-7. **The admin surfaces have no seeded session yet.** `e2e/admin-authenticated.spec.ts`
-    now exists and drives a real password sign-in into a stored session, but it
-    skips unless `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` are set — and nothing
-    sets them, because that needs a non-MFA-enrolled admin user seeded on the
-    target Supabase project. Until those two env vars exist in CI secrets, `/admin`
-    still has the zero browser coverage: the preview, the revision diff, the
-    slash menu and the broadcast composer are all unit-tested and never exercised
-    in a real browser. Providing the seeded user is the remaining step, and it
-    also unlocks `sendBlockedInE2E()` verified end to end rather than by
-    inspection.
+7. **The admin surfaces need their seeded sessions to have browser coverage.**
+   `e2e/admin-authenticated.spec.ts` drives a real password sign-in into a stored
+   session and `e2e/mfa-challenge.spec.ts` drives the step-up handshake, but both
+   `test.skip` unless their credentials are set — and nothing sets them, because
+   that needs two seeded users on the target Supabase project. The MFA suite needs
+   **two** roles, and they are mutually exclusive: a non-MFA-enrolled admin (so
+   `/admin` resolves at all) and an admin with one verified TOTP factor plus its
+   `E2E_MFA_TOTP_SECRET` (so an AAL1 session can be bounced to `/auth/mfa`). The
+   five secrets are declared in `scripts/ci-env.mjs` and registered in
+   `scripts/secrets-registry.mjs`, so the audit sees them rather than finding five
+   undeclared names. Until they exist, the CRM mutation path, the contact editor's
+   optimistic-concurrency handshake and the AAL2 upgrade are unit-tested only —
+   and a skipped suite must never be read as a passing one.
 8. **Pre-existing CMS images still carry no `width` / `height`.** New and edited
     images are measured from their bytes at upload, and a hand-typed URL is
     measured client-side, so nothing added from here on shifts. The content
@@ -729,17 +740,60 @@ Deliberately left undone. None block the apex cutover.
     by construction), so the CORS `origin` restriction remains inert for a
     non-browser client; the table-backed window is the working control. Rows
     are never cleaned up, same as the existing `search_rate_limit` uses.
-10. **Consent is now filterable and counted, but not reviewable.**
-    `getCRMContacts` takes `consent: 'opted_out' | 'opted_in'`, and the
-    dispatch bar names how many matching contacts were excluded rather than
-    asserting that exclusion happens. What is *not* recorded is *why*: a
-  volunteer answering a constituent's "why did I stop hearing from
-  you?" has nothing to read, and the answer lives only in an email
-  thread. That is a schema change plus a decision about what the chapter
-  will store, so it stays a chapter decision rather than a deploy. The
-  two numbers reconcile deliberately: `count + excludedCount` is every
-  contact the audience rules matched, because both come from one target
-  specification rather than two. See `docs/crm-operations.md`.
+10. **Consent is filterable, countable, saveable, and captured — but the reason is
+    not recorded, and pre-existing rows are not backfilled.** `getCRMContacts` takes
+    `consent: 'opted_out' | 'opted_in' | 'unasked'`, the dispatch bar names how many
+    matching contacts were excluded rather than asserting that exclusion happens, and
+    `crm_segments.consent` (migration 20261005000000) means the audit can be saved as
+    a reusable segment. Migration `20261005020000` makes the column nullable and the
+    contact form carries a second checkbox, so "never asked" is now a state the
+    database can hold and a person who asked a question is no longer implicitly on
+    the mailing list. The two numbers reconcile deliberately: `count + excludedCount`
+    is every contact the audience rules matched, because both come from one target
+    specification rather than two.
+
+    Two things this deliberately did **not** do, and they are chapter decisions
+    rather than deploys. **Why** somebody declined is still unrecorded — a volunteer
+    answering "why did I stop hearing from you?" has nothing to read, and the answer
+    lives only in an email thread. And **existing rows keep their `false`**, so a
+    historical `false` still reads as `opted_in` when it may never have been an
+    agreement at all; nothing here converts it into one. Until the chapter decides
+    otherwise, use the `unasked` filter to find the genuinely unasked contacts and
+    treat pre-migration `false` values as unknown-but-reachable. See
+    `docs/crm-operations.md`.
+11. **The next campaign reaches fewer people than the last one, and that is
+    correct.** Migration `20261005020000` drops the `do_not_email` default, so every
+    contact created by a path that does not ask — profile signup, store order, a CSV
+    import with no consent column — is `NULL` ("never asked") and therefore excluded,
+    where previously the column default opted them in. Enforcement was never the
+    problem; capture was. A chapter-visible number changes on deploy, which is worth
+    knowing before the first campaign goes out rather than after.
+12. **`crm_sync_historical_records()` and the three `fn_sync_*_to_crm()` triggers
+    were the only privileged functions not pinned to `search_path = ''`.** All three
+    triggers fired on rows reachable from the public internet — the contact form's
+    RPC is `SECURITY DEFINER` and granted to `anon`, and the trigger fires on
+    its owner-privileged insert, with `RLS` bypassed and a `search_path` starting
+    at `public`. (An earlier draft of this note named a `WITH CHECK (true)` INSERT
+    policy for `anon`; that policy was dropped at 20260922050000 and never
+    recreated. The conclusion — pin the path — was right; the stated mechanism
+    was stale.) The pre-commit guard only checked that *a* `SET search_path` was
+    present, and `= public` satisfies that; it now checks the value and the
+    body's qualification. Fixed by migration 20261005010000, which re-declares
+    the three. Note: `fn_sync_contact_submission_to_crm()` is declared in
+    20261005020000 instead, because that version also writes `do_not_email`;
+    leaving it in 20261005010000 would have produced a dead intermediate
+    declaration on a partial apply.
+13. **The merge RPC's arithmetic is plpgsql and only a text test covers it.**
+    `merge_crm_contacts` is `SECURITY DEFINER`, `search_path = ''`,
+    `service_role`-only, and locks both rows survivor-first. No row-based mock can
+    execute it, so `merge-crm-contacts-migration.test.ts` reads the migration and
+    asserts the properties — a guard against editing the SQL, which is the
+    realistic regression. It does not execute it: `migration-dryrun.mjs` is
+    `supabase db push --dry-run`, which diffs the migration history against the
+    linked project and never applies a statement.
+    So nothing in the repository runs `merge_crm_contacts`, and the first execution is
+    the push itself. A test that reads SQL is not a test that runs it, and neither is
+    a diff.
 ---
 
 ## Agent Skills
@@ -777,6 +831,29 @@ Update: `npx skills update` · Restore: `npx skills experimental_install`
 
 Two admin surfaces own the material a volunteer actually edits. They have their
 own docs, because their failure modes are invisible to review and to unit tests.
+
+- **Two-factor authentication** — [`docs/mfa.md`](./docs/mfa.md). Enrolment,
+  the step-up contract, and the five gates. Read it before changing
+  `src/app/auth/mfa/`, `src/lib/mfa-guard.ts` or `MfaSettings.tsx`. Three things
+  there are load-bearing and each has failed visibly:
+
+  - **The challenge page answers TOTP only** and filters on `factor_type`. Picking
+    the first verified factor of *any* type made a phone factor send an SMS and then
+    reject the digits permanently, with no explanation.
+  - **A guard failure has a `reason`, and only `step_up_required` earns a redirect.**
+    Redirecting on every failure was a four-hop loop — a `listFactors` failure sent
+    the user to a page that could not read its factors either, then to `/login`,
+    then back to a gated route. `state_unknown` fails closed and is *shown* as a
+    fault.
+  - **Recovery is a second factor, not a code.** There are no backup codes; losing
+    every authenticator is still an out-of-band dashboard reset, and the panel says
+    so rather than implying otherwise.
+
+  `/account` and `/auth/mfa` read **live** `listFactors()` rather than AAL alone,
+  because AAL comes from the cookie snapshot and the two disagree after 2FA is
+  unenrolled elsewhere — which produced an unanswerable challenge. A commit
+  message on that gate named a cause that is unreachable on the installed SDK; the
+  comment above the gate now states the real one.
 
 - **Content editor** — [`docs/content-editor.md`](./docs/content-editor.md).
   Block model in `src/lib/blocks/`, shell in `ContentEditor.tsx`, server actions
@@ -867,6 +944,43 @@ own docs, because their failure modes are invisible to review and to unit tests.
   primary key, so the order is total — a non-unique column would still tie. The
   same file's `getCRMExistingTags` already did this, which is what made it an
   oversight rather than a decision.
+
+  **The directory's filters go through one helper, and the consent filter used to
+  be dropped by three of the four paths that build a URL.** `src/lib/crm-filters.ts`
+  owns the filter→URL, filter→action-argument and segment→filter mappings. The
+  quick pills, the saved-segment chips and **the CSV export** each omitted
+  `consent`, so an organiser auditing opt-outs clicked a district and the whole
+  opted-out population silently reappeared — and exporting from an "Opted Out of
+  Email" view produced a file of *every* contact, which is both wrong and the one
+  export a chapter takes off-platform. The export and "save as segment" also read
+  uncommitted form state rather than the applied filters, so both could act on a
+  set that was never on screen. Each omission is a wrong set of people with no
+  error, which is why it is one function and a test per path.
+
+  **Three unbounded reads, and one silently capped.** The contact 360 timeline had
+  no `.limit()` at all, so a recipient of one 5,000-recipient broadcast had 5,000
+  timeline entries on their profile; it is now capped at 50 with a true count and
+  a line saying what is not shown. Campaign history and drafts were `.limit(50)`
+  and `.limit(20)` with no pager, so a chapter past fifty campaigns could not see
+  its fifty-first and a twenty-first draft was unreachable *and* unremovable. The
+  composer's tag chips were `slice(0, 40)` with no indication, so a chapter with
+  more than 40 tags had constituents who could not be targeted at all. `BROADCAST_SITE_URL`
+  is still a hardcoded apex in both copies of the template — see above.
+
+  **Every wait in a send is now bounded, and two of them were not.** The dispatch
+  fetch, the Resend call per recipient, and each progress poll had no timeout. A
+  hung dispatch left the composer's button disabled forever with the row still
+  `queued`; a hung Resend call stranded the row at `sending` with
+  `dispatched_at` set — the one state that must never be re-dispatched; and a hung
+  poll froze the progress loop, because its only exit is a `catch` that a hang never
+  reaches. Bounds and reasoning: `docs/crm-operations.md`.
+
+  **`markCRMBroadcastFailed` is one-directional on purpose.** The documented
+  recovery for a stranded row was "send a new, narrower broadcast" and then mark
+  the old one failed — correct, and previously only reachable by editing the
+  database. The action can only move a row to `failed`, never back, and refuses a
+  row dispatched in the last fifteen minutes, because cutting short a slow send is
+  the one irreversible mistake available here.
 
   **A GET must never change state on the unsubscribe route.** It did: the
   `do_not_email` write sat *above* the method branch, so `GET` opted the contact
