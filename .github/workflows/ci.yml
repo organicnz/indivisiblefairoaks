@@ -107,9 +107,10 @@ jobs:
     timeout-minutes: 120
     env:
       # tsc's program (~295 files) exceeds Node's default heap cap under this
-      # container's MEMORY=1024M and aborts. Scoped to this job only — a
-      # workflow-level value would also raise `vitest`'s and the build's.
-      NODE_OPTIONS: --max-old-space-size=768
+      # container's MEMORY=1024M and aborts. With zswap (Phase 1) providing 3:1 RAM
+      # compression and 2047M MemorySwap, 1280M gives V8 the headroom it needs
+      # without hitting the ineffective mark-compacts allocation failure at 768M.
+      NODE_OPTIONS: --max-old-space-size=1280
     steps:
       - uses: actions/checkout@v4
         with:
