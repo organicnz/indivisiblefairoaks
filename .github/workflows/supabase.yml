@@ -6,7 +6,7 @@ name: Supabase
 # https://supabase.com/dashboard/project/mojsubkqjdruhpxbzgme/
 #
 # Triggers:
-#   - push to main/mainDeploy touching supabase/** or this workflow
+#   - push to main touching supabase/** or this workflow
 #   - manual dispatch (e.g. redeploy after a secret rotation)
 #
 # Runners: backend-runner ONLY ([self-hosted, linux, backend-runner]).
@@ -14,7 +14,9 @@ name: Supabase
 
 on:
   push:
-    branches: [main, mainDeploy]
+    # `mainDeploy` has no remote ref; see the note in ci.yml. Removed
+    # 2026-10-06.
+    branches: [main]
     paths:
       - 'supabase/**'
       - '.github/workflows/supabase.yml'
