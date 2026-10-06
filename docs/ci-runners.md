@@ -205,7 +205,73 @@ ssh <host> systemctl --user is-active ghrunner-network.service
 
 # 4. Is the job failing, or failing to start? These have different fixes.
 gh run view <id> --log-failed | tail -40
+
+# 5. Did it fail at "Set up job", with no checked-out files and no test output?
+#    That is the runner's filesystem, not the repository — see below.
+gh run view <id> --json jobs --jq '.jobs[] | "\(.name) \(.conclusion)"'
 ```
+
+## "`Set up job` failed" is not a code failure
+
+A distinct, recurring fault that the run list summarises as one red job and that
+`--log-failed` reports as a single annotation:
+
+```
+Set up job  ##[error]Access to the path
+'/tmp/runner/_PipelineMapping/organicnz/indivisiblefairoaks/PipelineFolder.json'
+is denied.
+```
+
+**What it is.** GitHub Actions writes a per-pipeline mapping directory during job
+setup, before `actions/checkout` runs. When that directory exists but is owned by
+a *different UID* than the account the runner service runs as, the runner cannot
+write it and the job dies at setup. It happens when a runner was first started
+as a different user, or after an OS upgrade remapped UIDs.
+
+**Why it is worth its own section.** It is easily mistaken for three other
+things, and each has a different fix:
+
+| It looks like | Why that reading is wrong |
+|---|---|
+| our code is broken | nothing was checked out; not one line of the repo ran |
+| the runner label selector is wrong | the runner *was* selected and *did* start |
+| the cgroup killed the job | that produces a 10-minute run with no failed step; this fails in ~4 s |
+
+**Confirm which runner took it** — the fix is per-host, so you need to know
+before touching anything:
+
+```bash
+gh api repos/:owner/:repo/actions/jobs/<job-id> --jq '.runner_name'
+```
+
+**Then, on that host** (not from a checkout of this repository — this is why an
+agent with only repo access cannot fix it):
+
+```bash
+# 1. Stop the runner service.
+#    macOS (runsvc.sh / the launchd unit) and Linux (systemd --user) differ;
+#    use whatever starts it there.
+
+# 2. Clear the stale mapping and hand the tree back to the runner's own user.
+#    Substitute the account the runner runs as — `$USER` is usually right.
+sudo rm -rf /tmp/runner/_PipelineMapping
+sudo chown -R "$USER:$USER" /tmp/runner
+
+# 3. Restart it and confirm it re-registers.
+# 4. Confirm from here — this is the check that matters:
+gh api repos/:owner/:repo/actions/runners \
+  -q '.runners[] | "\(.name) \(.status)"'
+```
+
+Clearing the whole `/tmp/runner/_work` is occasionally needed as well, but it
+discards the job cache and costs a full reinstall on the next run. Start with
+`_PipelineMapping` alone.
+
+**Seen on 2026-10-05/06** on `personal-organicnz` (`personal-p08`), taking every
+job handed to it while `indivisiblefairoaks-runner-1` was simultaneously
+`offline` — so the branch could not run at all, and no commit could be validated
+in CI. Both runners must be healthy; see `docs/ci-separation-plan.md` §4 for why
+this stays invisible until a run is expected to have happened.
 
 ## The host is the ceiling
 
