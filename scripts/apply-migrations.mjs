@@ -18,9 +18,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const REF = process.env.SUPABASE_PROJECT_REF ?? '';
-const TOKEN = process.env.SUPABASE_ACCESS_TOKEN ?? '';
-const DIR = process.env.MIGRATIONS_DIR ?? 'supabase/migrations';
 const API = 'https://api.supabase.com';
 
 const notice = (msg) => console.log(`::notice::${msg}`);
