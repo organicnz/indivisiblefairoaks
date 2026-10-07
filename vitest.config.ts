@@ -70,6 +70,11 @@ export default defineConfig({
         // each of them getting it slightly wrong.
         'src/lib/crm-filters.ts',
         'src/lib/crm-limits.ts',
+        // The cached tag scan, split out of `crm.ts` so authorization runs
+        // outside the cache. Measured so the split cannot hide the scan.
+        'src/lib/crm-tag-scan.ts',
+        // Webhook signature verification. Pinned to Svix's published vector.
+        'src/lib/svix-signature.ts',
         'src/lib/safe-redirect.ts',
         // The two step-up and settings surfaces. `settings.ts` imports
         // `mfa-guard.ts`, so a change to a guard branch moves this file's number

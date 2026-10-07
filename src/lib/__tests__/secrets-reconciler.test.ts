@@ -338,6 +338,7 @@ describe('reconcile: full declared contract', () => {
           'STRIPE_SECRET_KEY',
           'STRIPE_WEBHOOK_SECRET',
           'RESEND_API_KEY',
+          'RESEND_WEBHOOK_SECRET',
           'SENTRY_AUTH_TOKEN',
         ],
       ],

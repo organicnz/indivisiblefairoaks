@@ -35,9 +35,7 @@ process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key';
 
 const { getContentForEdit, deleteContent, duplicateContent, getContentRevisions, saveContent } =
   await import('@/lib/actions/content');
-const { createMockAdminClient, touchUpdatedAt, defaultInsertedUpdatedAt } = await import(
-  './supabase-mock'
-);
+const { createMockAdminClient, defaultInsertedUpdatedAt } = await import('./supabase-mock');
 
 // ---------------------------------------------------------------------------
 // getContentForEdit
