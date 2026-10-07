@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { main as checkDeploy } from '../../../scripts/check-vercel-deploy.mjs';
 import { scrubSecrets } from '../../../scripts/scrub-secrets.mjs';
-import { getFullBuildLog, VercelApiError } from '../../../scripts/vercel-api.mjs';
+import { eventText, getFullBuildLog, VercelApiError } from '../../../scripts/vercel-api.mjs';
 
 /**
  * Log capture for the post-merge deploy check: full-log pagination, secret
@@ -78,6 +78,44 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('eventText', () => {
+  it('reads the nested payload shape from the documented API', async () => {
+    expect(eventText({ type: 'stdout', created: 100, payload: { text: 'hi' } })).toBe('hi');
+  });
+
+  it('keeps reading the legacy top-level shape', async () => {
+    expect(eventText({ type: 'stdout', created: 100, text: 'hi' })).toBe('hi');
+  });
+
+  it('prefers top-level text when both shapes are present', async () => {
+    expect(eventText({ text: 'top', payload: { text: 'nested' } })).toBe('top');
+  });
+
+  it('yields empty for lifecycle events carrying no output', async () => {
+    expect(eventText({ type: 'delimiter', created: 100 })).toBe('');
+    expect(eventText(null)).toBe('');
+  });
+});
+
+describe('eventText', () => {
+  it('reads the nested payload shape from the documented API', async () => {
+    expect(eventText({ type: 'stdout', created: 100, payload: { text: 'hi' } })).toBe('hi');
+  });
+
+  it('keeps reading the legacy top-level shape', async () => {
+    expect(eventText({ type: 'stdout', created: 100, text: 'hi' })).toBe('hi');
+  });
+
+  it('prefers top-level text when both shapes are present', async () => {
+    expect(eventText({ text: 'top', payload: { text: 'nested' } })).toBe('top');
+  });
+
+  it('yields empty for lifecycle events carrying no output', async () => {
+    expect(eventText({ type: 'delimiter', created: 100 })).toBe('');
+    expect(eventText(null)).toBe('');
+  });
 });
 
 describe('getFullBuildLog pagination', () => {
@@ -396,5 +434,119 @@ describe('capture contract: verdict-neutral evidence', () => {
     });
     expect(exit).toBe(1);
     err.mockRestore();
+  });
+});
+
+describe('nested event shape end to end', () => {
+  it('joins payload.text lines and coerces string timestamps for the cursor', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        eventsPage([
+          { id: 'e1', created: '100', type: 'stdout', payload: { text: 'one' } },
+          { id: 'e2', created: '200', type: 'delimiter', payload: {} },
+        ])
+      )
+      .mockResolvedValueOnce(
+        eventsPage([{ id: 'e3', created: '300', type: 'stderr', payload: { text: 'three' } }])
+      )
+      .mockResolvedValueOnce(eventsPage([]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const out = await getFullBuildLog('dpl_1', 'team_test', 'tok_test_12345678');
+
+    expect(out.text).toBe('one\nthree');
+    expect(out).toMatchObject({ eventCount: 3, lineCount: 2, truncated: false });
+    const urls = fetchMock.mock.calls.map(([u]) => new URL(u as string));
+    expect(urls[1].searchParams.get('since')).toBe('200');
+  });
+});
+
+describe('Stage 2 origin: SSO-gated deployment URL', () => {
+  const SITE = 'https://prod.example';
+  const SSO = 'https://vercel.com/sso-api?url=x&nonce=y';
+
+  const redirect = (location: string, status = 302) => ({
+    ok: false,
+    status,
+    headers: { get: (name: string) => (name.toLowerCase() === 'location' ? location : null) },
+    json: async () => null,
+  });
+
+  const readyRun = (extra: Record<string, unknown> = {}) =>
+    checkDeploy({
+      env: env(),
+      shaArg: SHA,
+      budget: 1,
+      interval: 0,
+      healthBudget: 1,
+      listDeployments: async () => [deployment()],
+      getBuildLog: async () => '',
+      getFullBuildLog: async () => ({ text: '', truncated: false, eventCount: 0, lineCount: 0 }),
+      ...extra,
+    });
+
+  it('falls back to --site-url when the deployment URL is SSO-gated', async () => {
+    const dir = await freshTmpDir();
+    const seen: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (u: unknown) => {
+        seen.push(String(u));
+        return String(u).startsWith(SITE) ? jsonResponse({ status: 'ok' }) : redirect(SSO);
+      })
+    );
+
+    const exit = await readyRun({ outDir: dir, siteUrl: SITE });
+
+    expect(exit).toBe(0);
+    // Build-specificity is preserved: the deployment URL is still probed first.
+    expect(seen[0]).toContain('indivisible-fairoaks-abc123');
+    expect(seen.some((u) => u.startsWith(SITE))).toBe(true);
+    const summary = await readFile(path.join(dir, 'vercel-build-aaaaaaaa.summary.md'), 'utf8');
+    expect(summary).toMatch(/SSO-gated/);
+    expect(summary).toContain(SITE);
+  });
+
+  it('stays red on a non-SSO redirect even with --site-url given', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => redirect('https://sites.google.com/view/old-page'))
+    );
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const exit = await readyRun({ siteUrl: SITE });
+
+    expect(exit).toBe(1);
+    expect(err.mock.calls.flat().join(' ')).toMatch(/does not serve the app/i);
+    err.mockRestore();
+  });
+
+  it('stays red on SSO-gating when no --site-url is given', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => redirect(SSO))
+    );
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const exit = await readyRun();
+
+    expect(exit).toBe(1);
+    expect(err.mock.calls.flat().join(' ')).toMatch(/never served/i);
+    err.mockRestore();
+  });
+
+  it('warns in the summary when events carry no text lines', async () => {
+    const dir = await freshTmpDir();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ status: 'ok' })));
+
+    const exit = await readyRun({
+      outDir: dir,
+      getFullBuildLog: async () => ({ text: '', truncated: false, eventCount: 47, lineCount: 0 }),
+    });
+
+    expect(exit).toBe(0);
+    const summary = await readFile(path.join(dir, 'vercel-build-aaaaaaaa.summary.md'), 'utf8');
+    expect(summary).toMatch(/no text lines/i);
   });
 });
