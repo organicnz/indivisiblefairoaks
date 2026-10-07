@@ -55,7 +55,7 @@ jobs:
           deno-version: 2.9.6
 
       - name: Type-check Edge Functions
-        run: deno check --node-modules-dir=auto supabase/functions/*/index.ts
+        run: deno check --config supabase/functions/deno.json supabase/functions/*/index.ts
 
       - name: Install Supabase CLI
         run: |

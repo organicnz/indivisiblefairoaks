@@ -1,4 +1,3 @@
-// @deno-types="npm:@supabase/functions-js/edge-runtime.d.ts"
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
