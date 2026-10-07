@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Outfit } from 'next/font/google';
+import localFont from 'next/font/local';
 import { Suspense } from 'react';
 import './globals.css';
 import { Analytics } from '@vercel/analytics/react';
@@ -25,16 +25,18 @@ import { getSettings } from '@/lib/supabase-server';
 import { serializeJsonLd } from '@/lib/utils';
 import Providers from './providers';
 
-const inter = Inter({
-  subsets: ['latin'],
+const inter = localFont({
+  src: './fonts/Inter-Variable.woff2',
   variable: '--font-inter',
   display: 'swap',
+  weight: '100 900',
 });
 
-const outfit = Outfit({
-  subsets: ['latin'],
+const outfit = localFont({
+  src: './fonts/Outfit-Variable.woff2',
   variable: '--font-outfit',
   display: 'swap',
+  weight: '100 900',
 });
 
 export const metadata: Metadata = {
