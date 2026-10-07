@@ -206,6 +206,10 @@ describe('check-vercel-deploy exit-code contract', () => {
         return [deployment()];
       },
       getBuildLog: async () => '',
+      // The capture path calls the network too. Stub it here so this suite
+      // stays offline; the real paginator is covered in
+      // vercel-log-capture.test.ts with a sequenced fetch mock.
+      getFullBuildLog: async () => ({ text: '', truncated: false, eventCount: 0 }),
       // Spread last so a test can override any of the above. `...undefined` in
       // an object literal is a no-op, so no fallback is needed.
       ...opts.deps,

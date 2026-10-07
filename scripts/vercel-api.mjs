@@ -180,6 +180,90 @@ export async function getBuildLog(idOrUrl, teamId, token) {
 }
 
 /**
+ * The complete build-log text for a deployment, oldest event first.
+ *
+ * `getBuildLog` takes the last 200 events for the failure tail the poll loop
+ * prints. The artifact needs the whole thing instead, so this pages
+ * `direction=forward` from the first event until a page yields nothing new.
+ * A terminal deployment's log is static, so there is no live-tail race to
+ * handle — "no fresh events" means drained, not "wait for more".
+ *
+ * Two caps bound the artifact: `maxEvents` and `maxBytes`. Either cap sets
+ * `truncated: true`, which callers must surface rather than clipping silently.
+ *
+ * Best-effort like `getBuildLog`: a transport failure part-way returns what
+ * was collected with `truncated: true` instead of throwing. Capture is
+ * evidence, and evidence degrades to partial rather than aborting the verdict.
+ *
+ * @param {string} idOrUrl
+ * @param {string} teamId
+ * @param {string} token
+ * @param {{ maxEvents?: number, maxBytes?: number }} [opts]
+ * @returns {Promise<{ text: string, truncated: boolean, eventCount: number }>}
+ */
+export async function getFullBuildLog(idOrUrl, teamId, token, opts = {}) {
+  const maxEvents = opts.maxEvents ?? 5000;
+  const maxBytes = opts.maxBytes ?? 2_000_000;
+  const lines = [];
+  const seen = new Set();
+  let bytes = 0;
+  let truncated = false;
+  // ms epoch of the newest event served; null reads from the start. Advanced
+  // on every event whether or not it is new, so a page of retransmitted
+  // events still moves the cursor and the loop below can terminate on it.
+  let cursor = null;
+  for (;;) {
+    const params = new URLSearchParams();
+    if (teamId) params.set('teamId', teamId);
+    params.set('direction', 'forward');
+    params.set('limit', '100');
+    if (cursor !== null) params.set('since', String(cursor));
+    let page;
+    try {
+      const res = await fetch(
+        `${API_BASE}/v2/deployments/${encodeURIComponent(idOrUrl)}/events?${params.toString()}`,
+        { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }
+      );
+      if (!res.ok) {
+        truncated = true;
+        break;
+      }
+      const body = await res.json();
+      page = Array.isArray(body) ? body : [];
+    } catch {
+      truncated = true;
+      break;
+    }
+    let fresh = 0;
+    for (const e of page) {
+      if (typeof e?.created === 'number') {
+        cursor = cursor === null ? e.created : Math.max(cursor, e.created);
+      }
+      const key = e?.id ?? `${e?.created}:${e?.text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (seen.size > maxEvents) {
+        truncated = true;
+        break;
+      }
+      if (typeof e?.text !== 'string' || e.text === '') continue;
+      if (bytes + e.text.length + 1 > maxBytes) {
+        truncated = true;
+        break;
+      }
+      lines.push(e.text);
+      bytes += e.text.length + 1;
+      fresh++;
+    }
+    if (truncated) break;
+    // No new events: drained (duplicate retransmits also land here, via the
+    // cursor advance above, so this cannot spin on a stuck page).
+    if (fresh === 0) break;
+  }
+  return { text: lines.join('\n'), truncated, eventCount: seen.size };
+}
+
+/**
  * Resolve credentials from an environment, or `null` when incomplete.
  *
  * The parameter is annotated as a partial record for the same reason as

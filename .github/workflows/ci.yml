@@ -392,11 +392,16 @@ jobs:
   # spare preview duplicates while production shipped via git, doubled upload
   # consumption, and the free-tier upload API rate-limited it into permanent
   # red. Do not re-add it. This job reads the REST API instead, which is the
-  # only shape that works on the fleet — the CLI is not installed on a runner
-  # and needs `vercel link` state that must not exist there.
+  # only shape that works without `vercel link` state (the CLI aborts on CI).
+  #
+  # Runs on `ubuntu-latest`, not the fleet: this job is a sleep-poll over
+  # HTTPS plus two file writes. Nothing in it needs the tailnet, a warm bun
+  # cache, or any private network, and holding a self-hosted slot for a ~10
+  # minute poll blocks real jobs behind it. GitHub-hosted minutes for a
+  # push-to-main-only job are noise next to that.
   vercel-deploy:
     name: Vercel Deployment
-    runs-on: [self-hosted, linux, frontend-runner]
+    runs-on: ubuntu-latest
     # Deliberately NOT `needs: [build]`. This observes Vercel's deploy, which
     # has its own lifecycle; waiting on our build only gave it a reason to be
     # stale. Push-only, because a pull request has not shipped anything.
@@ -414,7 +419,7 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      # No dependency install: two small scripts on the built-in fetch. That is
+      # No dependency install: small scripts on the built-in fetch. That is
       # what makes the job cheap enough to keep — the old one needed nothing
       # either, but occupied a runner for a fixed sleep.
       - name: Confirm the deployment
@@ -422,4 +427,19 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-        run: bun scripts/check-vercel-deploy.mjs --sha=${{ github.sha }}
+        run: bun scripts/check-vercel-deploy.mjs --sha=${{ github.sha }} --out=vercel-logs
+
+      # Every production deploy leaves its evidence: the scrubbed full build
+      # log plus a summary (state, verdict, tail). `always()` because an ERROR
+      # deploy is when the log matters most; `continue-on-error` because a
+      # flaky upload must never flip a READY verdict red or hide an ERROR.
+      # The verdict lives in the step above — this step only publishes.
+      - name: Upload Vercel build log
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: vercel-build-${{ github.sha }}
+          path: vercel-logs/
+          if-no-files-found: warn
+          retention-days: 7
