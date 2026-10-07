@@ -54,6 +54,10 @@ jobs:
         with:
           deno-version: 2.9.6
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
       - name: Type-check Edge Functions
         run: deno check --config supabase/functions/deno.json supabase/functions/*/index.ts
 
