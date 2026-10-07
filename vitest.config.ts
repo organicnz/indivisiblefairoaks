@@ -11,6 +11,7 @@ export default defineConfig({
       '**/dist/**',
       '**/.trunk/**',
       '**/.next/**',
+      '**/.worktrees/**',
       'e2e/**',
       'playwright/tests/**', // Playwright E2E tests run via `playwright test`, not vitest
     ],
@@ -39,6 +40,12 @@ export default defineConfig({
       //   src/lib/supabase*.ts   — SSR client init needs Next.js cookies/headers
       //   src/lib/settings-server.ts — requires live Supabase + unstable_cache
       //
+      // `src/lib/mfa.ts` and `src/lib/mfa-guard.ts` were in neither the include
+      // list nor any threshold, despite each already having a dedicated suite.
+      // That is the same omission class as `crm.ts`: a file holding the step-up
+      // decision for every account-mutating action, measured by nothing. A suite
+      // that exists is not a gate that runs.
+      //
       // `src/config/site.ts` and `src/lib/metadata.ts` DO import `@/lib/env`, which
       // parses process.env at module load. Their tests set
       // NEXT_SKIP_ENV_VALIDATION=1 (the switch env.ts already exposes for exactly
@@ -57,6 +64,23 @@ export default defineConfig({
         'src/lib/utils.ts',
         'src/lib/validations.ts',
         'src/lib/metadata.ts',
+        'src/lib/mfa.ts',
+        'src/lib/mfa-guard.ts',
+        // The consent→URL mapping that three call sites used to build by hand,
+        // each of them getting it slightly wrong.
+        'src/lib/crm-filters.ts',
+        'src/lib/crm-limits.ts',
+        'src/lib/safe-redirect.ts',
+        // The two step-up and settings surfaces. `settings.ts` imports
+        // `mfa-guard.ts`, so a change to a guard branch moves this file's number
+        // too — they are measured together for that reason.
+        //
+        // `admin-auth.ts` holds the redirect-vs-throw decision `docs/mfa.md`
+        // calls load-bearing: only `step_up_required` earns a redirect, a fault
+        // throws. It was in no `include` entry — the same omission class as
+        // `crm.ts` before it — so the decision nothing else pins was measured
+        // by nothing.
+        'src/lib/admin-auth.ts',
         'src/lib/actions/settings.ts',
         'src/lib/actions/content.ts',
         'src/lib/actions/crm.ts',
@@ -108,21 +132,25 @@ export default defineConfig({
          * network boundary rather than a pure module, and most of its remaining
          * uncovered branches are `?? 0` / `?? 'draft'` defences against columns
          * that are `NOT NULL` in the schema. They are worth keeping and are not
-         * worth a test each, so the file sits at 76% branch rather than 90%.
+         * worth a test each, so the file sits at 78% branch rather than 90%.
          *
          * This is deliberately a floor rather than an exemption. Before this
          * entry the file was in no threshold at all — the include list did not
          * mention it — which is how a ceiling refusal stayed dead code and a
          * `created_by` column stayed unwritten while the pipeline stayed green.
-         * Being measured at 76% and unable to fall is strictly better than being
+         * Being measured at 78% and unable to fall is strictly better than being
          * invisible, and raising these numbers is a chore, not a negotiation.
          *
          * Achieved 2026-09-29: 88.55 statements / 76.2 branches / 100
-         * functions / 93.6 lines.
+         * functions / 93.6 lines. Raised 2026-10-05 to 89.5 / 78.2 / 100 / 93.7
+         * by the merge RPC's replacements (the arithmetic moved into plpgsql, so
+         * those branches left the file) plus tests for the paged history read
+         * and `markCRMBroadcastFailed`. Raised 2026-10-06 to 94.2 / 84 / 100 / 97.8
+         * with broadcast-send type validation and tag query coverage.
          */
         'src/lib/actions/crm.ts': {
-          statements: 88,
-          branches: 76,
+          statements: 89,
+          branches: 84,
           functions: 100,
           lines: 93,
         },

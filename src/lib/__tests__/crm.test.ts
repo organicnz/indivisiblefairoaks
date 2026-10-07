@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock next/cache
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
 }));
 
 // Mock requireAdmin
@@ -49,8 +52,33 @@ import {
   setCRMTaskStatus,
 } from '@/lib/actions/crm';
 
+import { CRM_EXPORT_LIMIT } from '@/lib/crm-limits';
 import { env } from '@/lib/env';
 import { createMockAdminClient, type MockTableConfig } from './supabase-mock';
+
+/**
+ * Per-test budget for this suite, in the spirit of `PROPERTY_TIMEOUT_MS` in
+ * `blocks.test.ts` and `SUITE_TIMEOUT_MS` in `ContentEditor.undo.test.tsx`:
+ * the budget is *stated* rather than the global timeout raised, because
+ * raising `testTimeout` globally would hide the same cost in every suite that
+ * does not have it.
+ *
+ * The `Broadcast blast radius > refuses an audience larger than the ceiling`
+ * test pages 6,000 rows through six full `.range()` pages to prove the
+ * resolver stops on permission rather than on a short page. It is ~40 ms on a
+ * workstation and exceeded Vitest's 5000 ms default on the self-hosted runner
+ * (`37249958031`, 2026-10-05), failing with `Test timed out in 5000ms` while
+ * the suite around it ran 118 s with jsdom setup at 47% of tracked time. No
+ * assertion failed; the ceiling-refusal behaviour under test is correct.
+ *
+ * It is a file-level `testTimeout` rather than a third argument on `describe`
+ * or per-`it`, for the same reason as the undo suite: that leaves the
+ * next-slowest sibling to fail the same way on the next loaded run.
+ *
+ * 30s is `blocks.test.ts`'s figure, reused rather than invented: the same
+ * cause (a real workload on a shared, undersized host) and the same remedy.
+ */
+vi.setConfig({ testTimeout: 30_000 });
 
 /**
  * Row sets per table, rebuilt for every test.
@@ -231,6 +259,16 @@ describe('Civic CRM Server Actions', () => {
       expect(stats.totalDonationsCents).toBe(0);
     });
 
+    it('maps null data to zeros rather than failing', async () => {
+      // Unusual path: RPC succeeds but returns null data (no rows). The `?? {}`
+      // fallback ensures every key resolves to 0 rather than throwing.
+      mockAdminClient.rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+
+      const stats = await getCRMStats();
+      expect(stats.totalContacts).toBe(0);
+      expect(stats.openTasks).toBe(0);
+    });
+
     it('falls back to per-table counts when the migration has not been applied', async () => {
       // Staged rollout: a database without crm_stats() must still render the
       // dashboard rather than 500 for every admin.
@@ -270,6 +308,23 @@ describe('Civic CRM Server Actions', () => {
       expect(stats.openTasks).toBe(2);
       // The legacy path never summed donations, so the card reads zero rather
       // than a made-up total.
+      expect(stats.totalDonationsCents).toBe(0);
+    });
+
+    it('returns all-zeros when the RPC fails and every fallback query also fails', async () => {
+      mockAdminClient.rpc = vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'function does not exist' },
+      });
+      tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
+      tables.crm_tasks = { rows: [], error: { message: 'connection reset' } };
+
+      const stats = await getCRMStats();
+
+      expect(stats.totalContacts).toBe(0);
+      expect(stats.activeVolunteers).toBe(0);
+      expect(stats.localDistrict).toBe(0);
+      expect(stats.openTasks).toBe(0);
       expect(stats.totalDonationsCents).toBe(0);
     });
   });
@@ -503,6 +558,159 @@ describe('Civic CRM Server Actions', () => {
       expect(res.csv).toContain('yes');
       expect(res.csv).not.toContain('donor@example.com');
     });
+
+    it('reports truncation instead of returning a silently short file', async () => {
+      /*
+       * The export is the chapter's only off-platform backup, and it is also the
+       * one list that leaves the building. A cap that truncates silently produces
+       * a file that looks complete, is re-importable, and is wrong — with nothing
+       * in the CSV, the toast, or the file name to say so. The failure surfaces
+       * when somebody tries to restore it.
+       *
+       * So the truncation is *returned*: `truncated` names the cap, and `count` is
+       * the number of rows actually in the file rather than the number matched.
+       * The toast then reads "10,000 of 12,341" rather than "10,000".
+       */
+      const many = Array.from({ length: CRM_EXPORT_LIMIT + 5 }, (_, i) => ({
+        id: `c${i}`,
+        email: `bulk${i}@example.com`,
+        first_name: `Bulk${i}`,
+        last_name: null,
+        phone: null,
+        address: null,
+        district: null,
+        city: null,
+        zip_code: null,
+        status: 'supporter',
+        tags: [],
+        notes: null,
+        do_not_email: false,
+        total_donated_cents: 0,
+        source: 'import',
+        created_at: '2026-01-01T00:00:00Z',
+      }));
+      tables.crm_contacts = { rows: many };
+
+      const res = await exportCRMContacts({});
+
+      expect(res.truncated).toBe(true);
+      expect(res.count).toBe(CRM_EXPORT_LIMIT);
+      // `count` is the rows in the file. Reporting the matched total as `count`
+      // next to a `truncated` flag would leave the two contradicting each other.
+      expect(res.matchedCount).toBe(CRM_EXPORT_LIMIT + 5);
+    });
+
+    it('does not flag truncation for a set that fits', async () => {
+      // The flag is load-bearing only if it is absent when nothing was dropped.
+      // A `truncated` that is always true trains an organiser to ignore it.
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'c1',
+            email: 'one@example.com',
+            first_name: 'One',
+            last_name: null,
+            phone: null,
+            address: null,
+            district: null,
+            city: null,
+            zip_code: null,
+            status: 'supporter',
+            tags: [],
+            notes: null,
+            do_not_email: false,
+            total_donated_cents: 0,
+            source: 'import',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+      };
+
+      const res = await exportCRMContacts({});
+
+      expect(res.truncated).toBe(false);
+      expect(res.count).toBe(1);
+      expect(res.matchedCount).toBe(1);
+    });
+
+    it('returns an error object when the database query fails', async () => {
+      tables.crm_contacts = { rows: [], error: { message: 'connection timeout' } };
+
+      const res = await exportCRMContacts({});
+
+      expect(res.error).toMatch(/connection timeout/i);
+      expect(res.count).toBe(0);
+      expect(res.csv).toBe('');
+    });
+
+    it('includes the unsubscribed_at column in both header and rows', async () => {
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'c1',
+            email: 'one@example.com',
+            first_name: 'One',
+            last_name: null,
+            phone: null,
+            address: null,
+            district: null,
+            city: null,
+            zip_code: null,
+            status: 'supporter',
+            tags: [],
+            notes: null,
+            do_not_email: false,
+            total_donated_cents: 0,
+            source: null,
+            created_at: '2026-01-01T00:00:00Z',
+            unsubscribed_at: '2026-09-15T00:00:00Z',
+          },
+        ],
+      };
+
+      const res = await exportCRMContacts({});
+
+      expect(res.csv).toContain('Unsubscribed At');
+      expect(res.csv).toContain('2026-09-15T00:00:00Z');
+    });
+
+    it('handles null first_name, tags, and do_not_email in CSV rows', async () => {
+      // Covers the || '' and ?? '' fallback branches on nullable fields.
+      // do_not_email === null → empty string (the round-trip safe null representation).
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'c2',
+            email: 'null-fields@example.com',
+            first_name: null,
+            last_name: null,
+            phone: null,
+            address: null,
+            district: null,
+            city: null,
+            zip_code: null,
+            status: 'supporter',
+            tags: null,
+            notes: null,
+            do_not_email: null,
+            total_donated_cents: 0,
+            source: null,
+            created_at: '2026-01-01T00:00:00Z',
+            unsubscribed_at: null,
+          },
+        ],
+      };
+
+      const res = await exportCRMContacts({});
+
+      expect(res.error).toBeUndefined();
+      expect(res.count).toBe(1);
+      // null do_not_email → empty string, not 'yes' or 'no'
+      const row = res.csv.split('\r\n')[1] ?? '';
+      // The do_not_email column should be an empty string between commas
+      expect(row).not.toContain('yes');
+      expect(row).not.toContain('no');
+    });
   });
 
   describe('tasks', () => {
@@ -663,7 +871,7 @@ describe('Civic CRM Server Actions', () => {
       };
       tables.crm_activities = { rows: [] };
 
-      const res = await setCRMEmailConsent({ contactId, doNotEmail: true });
+      const res = await setCRMEmailConsent({ contactId, doNotEmail: 'opted_out' });
 
       expect(res.success).toBe(true);
       expect(tables.crm_contacts.rows?.[0]).toMatchObject({ do_not_email: true });
@@ -840,79 +1048,85 @@ describe('Civic CRM Server Actions', () => {
       expect(mockAdminClient.from).not.toHaveBeenCalled();
     });
 
-    it('moves activities, combines tags/donations, deletes duplicate', async () => {
-      const keepContact = {
-        id: 'keep-uuid',
-        email: 'keep@example.com',
-        first_name: 'Keep',
-        last_name: null,
-        tags: ['choir'],
-        notes: 'keep note',
-        total_donated_cents: 500,
-        last_contacted_at: '2026-02-01T00:00:00Z',
-        do_not_email: false,
-        unsubscribed_at: null,
-      };
-      const removeContact = {
-        id: 'remove-uuid',
-        email: 'remove@example.com',
-        first_name: 'Remove',
-        last_name: null,
-        tags: ['donor'],
-        notes: 'remove note',
-        total_donated_cents: 250,
-        last_contacted_at: '2026-03-01T00:00:00Z',
-        do_not_email: true,
-        unsubscribed_at: '2026-03-05T00:00:00Z',
-      };
-      tables.crm_contacts = { rows: [keepContact, removeContact] };
-      // Two activities and one task on the duplicate, so "they moved" cannot be
-      // satisfied by a filter that matched nothing.
-      tables.crm_activities = {
+    /**
+     * The merge is one SQL statement now (`merge_crm_contacts`, migration
+     * 20261005030000), because four PostgREST statements could not be atomic: a
+     * failure after the activities update left the duplicate alive with its
+     * timeline and tasks already re-pointed at the survivor, and a concurrent
+     * merge of the same pair added `total_donated_cents` twice.
+     *
+     * Which means the *arithmetic* the merge performs is no longer observable
+     * from a mocked client — it is plpgsql inside the database, and no row-based
+     * mock can execute it. Asserting it here would be asserting the mock.
+     *
+     * So this suite asserts the action's half — that both rows are read, that
+     * the RPC is called with exactly these arguments including the acting
+     * organizer, and that no write statement is issued from the app — and the
+     * combination rules live as comments in the migration, where they can be
+     * read next to the code that implements them. `merge_crm_contacts` itself is
+     * exercised by `scripts/hooks/migration-dryrun.mjs` against a real database.
+     */
+    it('hands the whole merge to one RPC, with both ids and the acting admin', async () => {
+      tables.crm_contacts = {
         rows: [
-          { id: 'a1', contact_id: 'remove-uuid', type: 'note' },
-          { id: 'a2', contact_id: 'remove-uuid', type: 'note' },
-          { id: 'a3', contact_id: 'keep-uuid', type: 'note' },
+          {
+            id: 'keep-uuid',
+            email: 'keep@example.com',
+            tags: ['choir'],
+            notes: 'keep note',
+            total_donated_cents: 500,
+            last_contacted_at: '2026-02-01T00:00:00Z',
+            do_not_email: false,
+            unsubscribed_at: null,
+          },
+          {
+            id: 'remove-uuid',
+            email: 'remove@example.com',
+            tags: ['donor'],
+            notes: 'remove note',
+            total_donated_cents: 250,
+            last_contacted_at: '2026-03-01T00:00:00Z',
+            // The duplicate had opted out. The RPC ORs the flag, so this case is
+            // the reason the test rows still exist even though the assertions no
+            // longer read them: removing it would quietly stop testing anything.
+            do_not_email: true,
+            unsubscribed_at: '2026-03-05T00:00:00Z',
+          },
         ],
       };
-      tables.crm_tasks = {
-        rows: [
-          { id: 't1', contact_id: 'remove-uuid' },
-          { id: 't2', contact_id: 'keep-uuid' },
-        ],
-      };
+      mockAdminClient.rpc.mockResolvedValue({ error: null });
 
-      const res = await mergeCRMContacts({
-        keepId: 'keep-uuid',
-        removeId: 'remove-uuid',
-      });
+      const res = await mergeCRMContacts({ keepId: 'keep-uuid', removeId: 'remove-uuid' });
 
       expect(res.success).toBe(true);
-      // The timeline and the follow-ups actually moved. The old assertion was
-      // that `.update({contact_id})` had been called on each table, which a
-      // filter on the wrong column records identically.
-      expect(tables.crm_activities.rows?.every((a) => a.contact_id === 'keep-uuid')).toBe(true);
-      expect(tables.crm_tasks.rows?.every((t) => t.contact_id === 'keep-uuid')).toBe(true);
-      // Combined, not overwritten: the survivor keeps its own giving and inherits
-      // the duplicate's, and both notes are kept rather than one replacing the
-      // other.
-      const survivor = tables.crm_contacts.rows?.[0];
-      expect(survivor?.tags).toEqual(['choir', 'donor']);
-      expect(survivor?.total_donated_cents).toBe(750);
-      expect(survivor?.notes).toBe('keep note\n\n---\n\nremove note');
-      expect(survivor?.last_contacted_at).toBe('2026-03-01T00:00:00Z');
-      // Consent is unioned the same way. An opt-out on either side has to
-      // survive the merge, or the combined record is silently re-subscribed.
-      expect(survivor?.do_not_email).toBe(true);
-      expect(survivor?.unsubscribed_at).toBe('2026-03-05T00:00:00Z');
-      // The duplicate is gone from the table, not merely marked.
-      expect(tables.crm_contacts.rows?.map((c) => c.id)).toEqual(['keep-uuid']);
-      // And the merge is recorded against the survivor.
-      expect(tables.crm_activities.rows?.at(-1)).toMatchObject({
-        contact_id: 'keep-uuid',
-        type: 'merge',
-        title: 'Merged Duplicate Contact',
+      expect(mockAdminClient.rpc).toHaveBeenCalledWith('merge_crm_contacts', {
+        p_keep_id: 'keep-uuid',
+        p_remove_id: 'remove-uuid',
+        // `p_actor_id` is the admin who authorised the merge, not the function
+        // owner: the audit row on the survivor's timeline has to name a person.
+        p_actor_id: 'admin-user-uuid-1234',
       });
+
+      // Both rows are read first, so a missing contact is reported as a sentence
+      // rather than as the RPC's exception.
+      expect(mockAdminClient.from).toHaveBeenCalledTimes(2);
+
+      // And nothing is written outside the statement. This is the assertion that
+      // would fail if someone reintroduced the four-statement version: each of
+      // those was a separate transaction, and a mid-sequence failure left the
+      // duplicate alive with its children already moved.
+      expect(mockAdminClient.from).not.toHaveBeenCalledWith('crm_activities');
+      expect(mockAdminClient.from).not.toHaveBeenCalledWith('crm_tasks');
+    });
+
+    it('refuses when either contact is missing', async () => {
+      tables.crm_contacts = { rows: [{ id: 'keep-uuid' }] };
+
+      const res = await mergeCRMContacts({ keepId: 'keep-uuid', removeId: 'gone-uuid' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/must exist/i);
+      expect(mockAdminClient.rpc).not.toHaveBeenCalled();
     });
   });
 
@@ -1053,6 +1267,54 @@ describe('Civic CRM Server Actions', () => {
       expect(count.count).toBe(1);
     });
 
+    /**
+     * The three states, and the reconciliation the dispatch bar claims.
+     *
+     * `count + excludedCount` is the number of contacts the audience rules
+     * matched. That holds only if the exclusion covers *both* non-audience
+     * states, which it did not once NULL became expressible: the query was
+     * `.eq('do_not_email', true)` alone, so a never-asked contact was being
+     * dropped from the audience while the bar reported them as neither sent nor
+     * excluded. The organiser's only signal that people were missing would have
+     * been the number being wrong.
+     */
+    it('excludes never-asked contacts too, so the two counts reconcile', async () => {
+      const rows = [
+        { id: 'c1', email: 'a@example.com', do_not_email: false, status: 'supporter' },
+        { id: 'c2', email: 'b@example.com', do_not_email: true, status: 'supporter' },
+        { id: 'c3', email: 'c@example.com', do_not_email: null, status: 'supporter' },
+        { id: 'c4', email: 'd@example.com', do_not_email: false, status: 'supporter' },
+      ];
+      tables.crm_contacts = { rows, filterRows: rows };
+
+      const count = await getBroadcastRecipientCount({});
+
+      // Two agreed, one declined, one never asked.
+      expect(count.count).toBe(2);
+      expect(count.excludedCount).toBe(2);
+      // The claim the dispatch bar makes, asserted rather than assumed.
+      expect(count.count + count.excludedCount).toBe(rows.length);
+    });
+
+    /**
+     * A NULL row must not be counted as an audience member.
+     *
+     * This is the whole point of migration 20261005020000. `.eq('do_not_email',
+     * false)` in SQL is NULL for a null row and NULL is not true, so the resolver
+     * needed no change — but that is a property of SQL rather than of this code,
+     * and the mock evaluates `.eq`/`.is` separately precisely so a rewrite to
+     * `neq` or a client-side filter would be caught here.
+     */
+    it('never counts a never-asked contact as reachable', async () => {
+      const rows = [{ id: 'c1', email: 'a@example.com', do_not_email: null, status: 'supporter' }];
+      tables.crm_contacts = { rows, filterRows: rows };
+
+      const count = await getBroadcastRecipientCount({});
+
+      expect(count.count).toBe(0);
+      expect(count.excludedCount).toBe(1);
+    });
+
     it('queues the broadcast and dispatches it to the background sender', async () => {
       // Delivery no longer happens inside this action. It used to send five
       // recipients per sequential round-trip within one request, which the
@@ -1088,6 +1350,25 @@ describe('Civic CRM Server Actions', () => {
           do_not_email: true,
           status: 'active_volunteer',
         },
+        {
+          /*
+            Never asked. Added after the migration made NULL expressible, and
+            seeded with the *same* shape as the two reachable rows so that
+            dropping it from the audience cannot be an artefact of a field
+            differing for any other reason.
+
+            This is the assertion the whole tri-state change rests on: the
+            resolver requires `do_not_email IS FALSE`, and a person the chapter
+            has never asked must not be mailed.
+          */
+          id: 'u4',
+          email: 'never-asked@example.com',
+          first_name: 'Nia',
+          last_name: 'Unasked',
+          unsubscribe_token: 't4',
+          do_not_email: null,
+          status: 'active_volunteer',
+        },
       ];
       tables.crm_contacts = { rows };
       tables.crm_broadcasts = { rows: [], insert: { id: 'broadcast-uuid-1' } };
@@ -1106,11 +1387,14 @@ describe('Civic CRM Server Actions', () => {
       });
 
       expect(res.success).toBe(true);
+      // Four rows in, two recipients out: one declined and one never asked are
+      // both outside the audience, and neither is counted as delivered.
       expect(res.recipientCount).toBe(2);
       expect(res.broadcastId).toBe('broadcast-uuid-1');
-      // Exactly one call: the dispatch. This action must not send any mail.
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(JSON.parse((mockFetch.mock.calls[0][1] as { body: string }).body)).toEqual({
+      // Two fetch calls: the health pre-flight GET and the dispatch POST.
+      // This action must not send any mail itself.
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(JSON.parse((mockFetch.mock.calls[1][1] as { body: string }).body)).toEqual({
         broadcast_id: 'broadcast-uuid-1',
       });
       // The log row that was written is 'queued', not 'sending' — the sender
@@ -1165,6 +1449,103 @@ describe('Civic CRM Server Actions', () => {
       // No campaign row was written, so the history does not show a broadcast
       // that never had an audience.
       expect(tables.crm_broadcasts.rows).toHaveLength(0);
+    });
+
+    it('fails the broadcast when the recipient query errors', async () => {
+      // The recipient-resolution loop throws when the database errors mid-query,
+      // and sendCRMBroadcast must turn that into a failed row, not an uncaught throw.
+      // Use a distinct admin identity to avoid spending the shared rate-limit slot.
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-recip-err-uuid';
+      try {
+        tables.crm_contacts = { rows: [], error: { message: 'recipient query timeout' } };
+        tables.crm_broadcasts = { rows: [], insert: { id: 'b-err' } };
+
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
+
+        expect(res.success).toBe(false);
+        expect(res.error).toMatch(/recipient query timeout/i);
+      } finally {
+        session.adminUserId = savedId;
+      }
+    });
+
+    it('treats a 200 with a non-JSON body as a bare success (no warning)', async () => {
+      const rows = [
+        {
+          id: 'u1',
+          email: 'v@example.com',
+          first_name: 'V',
+          last_name: 'X',
+          unsubscribe_token: 't1',
+          do_not_email: false,
+          status: 'supporter',
+        },
+      ];
+      tables.crm_contacts = { rows };
+      tables.crm_broadcasts = { rows: [], insert: { id: 'b-nonjson' } };
+
+      mockEnv.CRM_BROADCAST_FUNCTION_URL =
+        'https://project.supabase.co/functions/v1/crm-broadcast-send';
+      mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+
+      // Both the health pre-flight GET and the dispatch POST return ok:true with
+      // no valid JSON body. The pre-flight's json() throw is caught by the outer
+      // try/catch (proceeds), and the dispatch's json() throw is caught by the
+      // inner try/catch (bare success, no warning).
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError('Unexpected token');
+        },
+      });
+
+      const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
+
+      expect(res.success).toBe(true);
+      expect(res.warning).toBeUndefined();
+    });
+
+    it('fails the broadcast when the health pre-flight reports missing secrets', async () => {
+      // Use a distinct admin identity to avoid spending the shared rate-limit slot.
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-preflight-test-uuid';
+      try {
+        const rows = [
+          {
+            id: 'u1',
+            email: 'v@example.com',
+            first_name: 'V',
+            last_name: 'X',
+            unsubscribe_token: 't1',
+            do_not_email: false,
+            status: 'supporter',
+          },
+        ];
+        tables.crm_contacts = { rows };
+        tables.crm_broadcasts = { rows: [], insert: { id: 'b-preflight' } };
+
+        mockEnv.CRM_BROADCAST_FUNCTION_URL =
+          'https://project.supabase.co/functions/v1/crm-broadcast-send';
+        mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+
+        // Health pre-flight returns ready: false — dispatch must not proceed.
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ ready: false, missing: ['RESEND_API_KEY'] }),
+        });
+
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
+
+        expect(res.success).toBe(false);
+        expect(res.error).toMatch(/RESEND_API_KEY/);
+        // The broadcast row must be marked failed, not left queued.
+        expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({ status: 'failed' });
+      } finally {
+        session.adminUserId = savedId;
+      }
     });
   });
 });
@@ -1253,10 +1634,11 @@ describe('sendCRMBroadcastSelfTest', () => {
   it('dispatches through the same sender, with only the id', async () => {
     const { mockFetch } = arrange();
     await sendCRMBroadcastSelfTest({ subject: 'Hi', body: 'There' });
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    // Two fetch calls: the health pre-flight GET and the dispatch POST.
+    expect(mockFetch).toHaveBeenCalledTimes(2);
     // The id dispatched is the id of the row in `tables.crm_broadcasts`, so this
     // also pins that the insert produced exactly one campaign.
-    expect(JSON.parse((mockFetch.mock.calls[0][1] as { body: string }).body)).toEqual({
+    expect(JSON.parse((mockFetch.mock.calls[1][1] as { body: string }).body)).toEqual({
       broadcast_id: 'test-broadcast-uuid',
     });
   });

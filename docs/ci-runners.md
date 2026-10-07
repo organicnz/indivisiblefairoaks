@@ -5,7 +5,21 @@
 
 ## The short version
 
-**`runs-on: [self-hosted, linux, X64, …]` is correct. Do not change it.**
+**`runs-on: [self-hosted, linux, <frontend|backend>-runner]` is arch-neutral on
+purpose: it matches both registered runners, and GitHub routes each job to
+whichever is idle. Do not re-add an arch token (`X64` or `ARM64`)** — a pinned
+selector is a single point of failure, and one took the whole pipeline down on
+2026-10-05 when `indivisiblefairoaks-runner-1` went offline mid-`tsc`.
+
+| Runner | Distinguishing labels |
+|---|---|
+| `indivisiblefairoaks-runner-1` | `X64, ghrunner` (Quadlet container on the ghrunner host) |
+| `personal-organicnz` | `ARM64` (hand-registered Mac) |
+
+Both carry `self-hosted, linux, frontend-runner, backend-runner, personal,
+personal-organicnz`. The `frontend-runner` / `backend-runner` role split is
+what keeps frontend jobs off the deploy path and vice versa — that split
+stays; the arch token is what went.
 
 The real runner is **`indivisiblefairoaks-runner-1`**, a Quadlet container
 (`ghrunner-personal-indivisiblefairoaks.service`) on the **ghrunner** host — an
@@ -15,9 +29,11 @@ ARM64 Linux box reached over Tailscale. Its labels are:
 self-hosted, Linux, X64, ghrunner, personal, personal-organicnz, frontend-runner, backend-runner
 ```
 
-Note it advertises **X64 on ARM64 hardware**. That is not a mistake to correct:
-`X64` is the token every `runs-on` here asks for, and rewriting it to `ARM64`
-would exclude the only working runner.
+Note it advertises **X64 on ARM64 hardware**. That is not a mistake to correct,
+but since 2026-10-05 it is also not a token any `runs-on` asks for: the
+selector is arch-neutral so both runners can serve. Rewriting the selector to
+`ARM64` would exclude the container runner just as surely as `X64` excludes
+the Mac — either pin reintroduces the single point of failure.
 
 ### What actually went wrong, for weeks
 
@@ -189,7 +205,73 @@ ssh <host> systemctl --user is-active ghrunner-network.service
 
 # 4. Is the job failing, or failing to start? These have different fixes.
 gh run view <id> --log-failed | tail -40
+
+# 5. Did it fail at "Set up job", with no checked-out files and no test output?
+#    That is the runner's filesystem, not the repository — see below.
+gh run view <id> --json jobs --jq '.jobs[] | "\(.name) \(.conclusion)"'
 ```
+
+## "`Set up job` failed" is not a code failure
+
+A distinct, recurring fault that the run list summarises as one red job and that
+`--log-failed` reports as a single annotation:
+
+```
+Set up job  ##[error]Access to the path
+'/tmp/runner/_PipelineMapping/organicnz/indivisiblefairoaks/PipelineFolder.json'
+is denied.
+```
+
+**What it is.** GitHub Actions writes a per-pipeline mapping directory during job
+setup, before `actions/checkout` runs. When that directory exists but is owned by
+a *different UID* than the account the runner service runs as, the runner cannot
+write it and the job dies at setup. It happens when a runner was first started
+as a different user, or after an OS upgrade remapped UIDs.
+
+**Why it is worth its own section.** It is easily mistaken for three other
+things, and each has a different fix:
+
+| It looks like | Why that reading is wrong |
+|---|---|
+| our code is broken | nothing was checked out; not one line of the repo ran |
+| the runner label selector is wrong | the runner *was* selected and *did* start |
+| the cgroup killed the job | that produces a 10-minute run with no failed step; this fails in ~4 s |
+
+**Confirm which runner took it** — the fix is per-host, so you need to know
+before touching anything:
+
+```bash
+gh api repos/:owner/:repo/actions/jobs/<job-id> --jq '.runner_name'
+```
+
+**Then, on that host** (not from a checkout of this repository — this is why an
+agent with only repo access cannot fix it):
+
+```bash
+# 1. Stop the runner service.
+#    macOS (runsvc.sh / the launchd unit) and Linux (systemd --user) differ;
+#    use whatever starts it there.
+
+# 2. Clear the stale mapping and hand the tree back to the runner's own user.
+#    Substitute the account the runner runs as — `$USER` is usually right.
+sudo rm -rf /tmp/runner/_PipelineMapping
+sudo chown -R "$USER:$USER" /tmp/runner
+
+# 3. Restart it and confirm it re-registers.
+# 4. Confirm from here — this is the check that matters:
+gh api repos/:owner/:repo/actions/runners \
+  -q '.runners[] | "\(.name) \(.status)"'
+```
+
+Clearing the whole `/tmp/runner/_work` is occasionally needed as well, but it
+discards the job cache and costs a full reinstall on the next run. Start with
+`_PipelineMapping` alone.
+
+**Seen on 2026-10-05/06** on `personal-organicnz` (`personal-p08`), taking every
+job handed to it while `indivisiblefairoaks-runner-1` was simultaneously
+`offline` — so the branch could not run at all, and no commit could be validated
+in CI. Both runners must be healthy; see `docs/ci-separation-plan.md` §4 for why
+this stays invisible until a run is expected to have happened.
 
 ## The host is the ceiling
 
@@ -230,7 +312,7 @@ never finishes" to "the build is killed", and each step has been measured:
 | `bun install` never returns; job dies at 20 min | Every ephemeral container refetched the whole tree — ~13 min cold, before any verification ran | **Fixed** by caching `~/.bun/install/cache`: **30 s** warm |
 | `tsc` aborts, `Reached heap limit` (exit 134) | Node's ~448 MB default cap < 598 MB measured peak | **Fixed** by the 768 MB cap |
 | `bun run build` killed, exit 137 | The cgroup OOM-killer: SIGKILL once RSS passes the container's total `MEMORY + MEMORY_SWAP` ceiling. V8 grows the heap rather than collecting | **Partly fixable** — see below |
-| Lint passes sometimes, cancelled other times | `tsc` takes 8m28s here against **1.4 s** locally. The host runs at load ~12 on 2 vCPU | **Wall clock fixed** (15 → 25 min); the load itself is not — shared, undersized host |
+| Lint passes sometimes, cancelled other times | `tsc` takes 8m28s here against **1.4 s** locally. The host runs at load ~12 on 2 vCPU | **Wall clock fixed** (15 → 25 → 120 min); the load itself is not — shared, undersized host |
 | Queue never drains | One runner for all four workflows, five jobs per run, and `cancel-in-progress` only cancels within a single ref — so main and every open PR compete | **Workaround only** — cancel superseded runs by hand |
 
 ### What a passing run costs
@@ -268,11 +350,11 @@ step log shows the split plainly:
 
 So the honest reading of this table is not "lint passes when the host is quiet" —
 it is that a 15-minute ceiling cannot distinguish a slow pass from a slow failure,
-and it picked the wrong answer twice. The ceiling is now **25 minutes**, which fits
+and it picked the wrong answer twice. The ceiling is now **120 minutes**, which fits
 that `tsc` case and still fails fast on a real error, because biome and oxlint
 finish in seconds and run first.
 
-**25 minutes is necessary and not sufficient.** The ceiling was raised on the
+**120 minutes is necessary and not sufficient.** The ceiling was raised on the
 strength of the `tsc` measurement above, and then the run that carried the change
 (`37245233357`, 25m24s) failed somewhere else entirely:
 
@@ -422,9 +504,9 @@ This buys time; it does not make a run succeed. It is worth knowing precisely
 red build sends you looking for a defect that does not exist.
 
 So the honest current state is: **lint and test pass when the host is quiet, and
-nothing downstream has ever run.** The 25-minute ceiling makes lint's verdict
+nothing downstream has ever run.** The 120-minute ceiling makes lint's verdict
 *reliable*; it does not make it fast, and `next build` plus e2e still have to fit
-in 30 and 20 minutes respectively on a host this size. Until the host is resized,
+the same 120-minute ceiling on a host this size. Until the host is resized,
 the local gates below remain the ones that reach a verdict quickly — not because
 the pipeline is broken, but because the pipeline is too small.
 
@@ -435,15 +517,15 @@ ones that finish:
 
 | Gate | Command |
 |---|---|
-| 31 pre-commit guards | lefthook, on `git commit` |
+| 32 pre-commit guards | lefthook, on `git commit` |
 | documentation claims | `bun scripts/check-doc-claims.mjs` — guards, baseline, spec counts |
-| suppression ratchet | pre-push, baseline 12 |
+| suppression ratchet | pre-push, baseline 15 |
 | lint | `bun run lint:check` |
 | unit + coverage | `bun run test:coverage` — full suite, per-file thresholds |
 | types | `bunx tsc --noEmit` |
 | production build | `NEXT_E2E_BUILD=true bun run build` |
 | peer deps | `bun scripts/check-peer-deps.mjs --all` |
-| e2e | `playwright test --workers=2` — 119 specs |
+| e2e | `playwright test --workers=2` — 135 specs |
 
 A merge is only as trustworthy as the last full local run, so run all of them
 before merging anything that CI would otherwise have gated.
@@ -456,10 +538,39 @@ a figure that will be wrong. `scripts/check-doc-claims.mjs` verifies the claims
 that *can* be re-derived — guard count, baseline, `lefthook.yml` length, spec
 total and both coverage floors — and records why this one is not among them.
 
-## Migrations and Edge Functions are deployed by hand
+## Migrations and Edge Functions ship through `supabase.yml`
 
-`supabase.yml` runs on the same fleet, so nothing it does is a substitute for
-applying a migration deliberately:
+`supabase.yml` is the only delivery path, and it applies to production. Its own
+header says so ("ALL Supabase-project delivery … lives HERE"), and it did push
+migrations to the hosted project at 20:56 on 2026-10-04. **An earlier revision of
+this file claimed the opposite** — that deployment is done by hand "rather than by
+`supabase.yml`" — which is the same class of error as a `CHECK` constraint that
+disagrees with the code that writes it: a confident instruction that sends the next
+agent somewhere the pipeline has already been.
+
+A push touching `supabase/**` is the trigger (`paths:` at the top of the workflow),
+so the fix and the deploy are one action, not two. `workflow_dispatch` exists for a
+redeploy after a rotation. Three jobs report independently, and that independence is
+deliberate — `verify` needs `deploy`, `migrate` does not:
+
+| Job | Does | On failure |
+|---|---|---|
+| `Deploy edge functions` | `deno check` first, then all 8 deploys, then asserts required secrets exist in the hosted project | nothing shipped; the type/secret error is in the log |
+| `Push database migrations` | route select → dry-run → `db push` → `apply-migrations.mjs` as the authoritative converger | schema may already be ahead of the code — check before re-running |
+| `Verify live edge functions` | probes every deployed route for its expected status | a 404 means not deployed; a 200 where a 401 is expected is worse |
+
+The ordering matters when a run fails partway, which is exactly what happened on
+2026-10-04: `migrate` **succeeded** and `deploy` failed on a type error, so
+production schema moved while the function did not.
+
+`deno check --node-modules-dir=auto supabase/functions/*/index.ts` is the gate that
+caught it, and it was the *only* one — nothing local ran it, which is why it reached
+`main` through four merges while the runner was offline. `bun run typecheck:edge`
+and the `edge-typecheck` pre-commit guard now run the same check locally.
+
+`apply-migrations.mjs` and the CLI dry-run remain the right tools for inspecting
+state, and this is the record of how the two CHECK constraints were verified live by
+attempting the insert they exist to forbid:
 
 ```bash
 supabase db push --linked --dry-run     # always first

@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
+}));
 vi.mock('server-only', () => ({}));
 
 const session = vi.hoisted(() => ({
@@ -30,7 +35,7 @@ import {
   getBroadcastProgress,
   getBroadcastRecipientCount,
   getCRMBroadcastDrafts,
-  getCRMBroadcasts,
+  getCRMBroadcastHistoryPage,
   getCRMContactDetail,
   getCRMContacts,
   getCRMExistingTags,
@@ -42,6 +47,7 @@ import {
   setCRMEmailConsent,
   triggerHistoricalCRMSync,
 } from '@/lib/actions/crm';
+import { BROADCAST_HISTORY_PAGE_SIZE, TAG_SCAN_LIMIT } from '@/lib/crm-limits';
 import { env } from '@/lib/env';
 import { createMockAdminClient, type MockTableConfig } from './supabase-mock';
 
@@ -127,7 +133,7 @@ describe('CRM reads and bookkeeping', () => {
     mockEnv.ADMIN_ORDER_EMAIL = 'contact@indivisiblefairoaks.org';
   });
 
-  describe('getCRMBroadcasts', () => {
+  describe('getCRMBroadcastHistoryPage', () => {
     /**
      * Drafts are excluded in the query, not filtered afterwards, because
      * `crm_broadcasts_recent_idx` is a partial index on `status <> 'draft'` and
@@ -155,13 +161,13 @@ describe('CRM reads and bookkeeping', () => {
         ],
       };
 
-      const history = await getCRMBroadcasts();
+      const history = await getCRMBroadcastHistoryPage();
 
-      expect(history.map((b) => b.id)).toEqual(['b1']);
+      expect(history.broadcasts.map((b) => b.id)).toEqual(['b1']);
       expect(tableCalls()).toEqual(['crm_broadcasts']);
     });
 
-    it('returns what the query gave it', async () => {
+    it('returns what the query gave it, newest first', async () => {
       // Newest first, and the seed is written in that order so the assertion
       // pins the sort rather than the declaration: the stub this replaced could
       // not tell `ascending: false` from `ascending: true`.
@@ -177,7 +183,9 @@ describe('CRM reads and bookkeeping', () => {
       ];
       tables.crm_broadcasts = { rows };
 
-      await expect(getCRMBroadcasts()).resolves.toEqual(rows);
+      await expect(getCRMBroadcastHistoryPage()).resolves.toMatchObject({
+        broadcasts: rows,
+      });
     });
 
     it('throws with the database message rather than returning an empty history', async () => {
@@ -185,7 +193,66 @@ describe('CRM reads and bookkeeping', () => {
       // the one interpretation an organizer must not draw from a failure.
       tables.crm_broadcasts = { rows: [], error: { message: 'connection reset' } };
 
-      await expect(getCRMBroadcasts()).rejects.toThrow('connection reset');
+      await expect(getCRMBroadcastHistoryPage()).rejects.toThrow('connection reset');
+    });
+
+    /**
+     * The count is the chapter's total, and it has to come from the query.
+     *
+     * This is what the composer's heading and pager render, and it is the number
+     * that distinguishes "you have sent 72 campaigns" from "here are 25 of them".
+     * Without it the table is silently truncated: a chapter past the page size
+     * cannot see its older campaigns and cannot tell that they exist.
+     */
+    it('reports the total number of campaigns, not the rows on this page', async () => {
+      // More rows than one page holds, so a read that returned `rows.length` rather
+      // than the query's count would report 25 and be wrong.
+      tables.crm_broadcasts = {
+        rows: Array.from({ length: 72 }, (_, i) => ({
+          id: `b${String(i).padStart(3, '0')}`,
+          subject: `Campaign ${i}`,
+          status: 'sent',
+          created_at: `2026-09-${String((i % 28) + 1).padStart(2, '0')}T00:00:00.000Z`,
+        })),
+      };
+
+      const history = await getCRMBroadcastHistoryPage();
+
+      expect(history.broadcasts).toHaveLength(BROADCAST_HISTORY_PAGE_SIZE);
+      expect(history.totalCount).toBe(72);
+    });
+
+    it('clamps a nonsense page from the URL rather than rendering an empty history', async () => {
+      /*
+       * `Math.max(1, Math.trunc(NaN))` is `NaN` — both `Math.trunc` and `Math.max`
+       * propagate it — so `?page=abc` produced `range(NaN, NaN)` and a history that
+       * read as "you have never sent a campaign". That is the most misleading thing
+       * this page can show: an organizer told their history had vanished goes
+       * looking for the bug in their own account, not in a URL.
+       *
+       * So the assertion is on the *rows*, not on `page`. `page: 1` alone would
+       * pass even while the query returned nothing, which is the bug.
+       */
+      const row = { id: 'b1', status: 'sent', created_at: '2026-09-01T00:00:00.000Z' };
+      tables.crm_broadcasts = { rows: [row] };
+
+      for (const page of [0, -5, Number.NaN, Number.POSITIVE_INFINITY]) {
+        const res = await getCRMBroadcastHistoryPage({ page });
+        expect(res.page, `page=${page} should clamp to 1`).toBe(1);
+        expect(res.broadcasts, `page=${page} should still read the first page`).toHaveLength(1);
+      }
+    });
+
+    it('falls back to the default page size rather than a NaN range', async () => {
+      // Same NaN propagation through `pageSize`. A `range(NaN, NaN)` returns
+      // nothing even where the page number is fine, so this is a separate
+      // expression with its own failure.
+      tables.crm_broadcasts = {
+        rows: [{ id: 'b1', status: 'sent', created_at: '2026-09-01T00:00:00.000Z' }],
+      };
+
+      const res = await getCRMBroadcastHistoryPage({ pageSize: Number.NaN });
+      expect(res.broadcasts).toHaveLength(1);
     });
   });
 
@@ -200,7 +267,11 @@ describe('CRM reads and bookkeeping', () => {
       // because `saveCRMBroadcastDraft` is an upsert: a week-old draft edited
       // today is the one the author wants. Ordering on the wrong column returns
       // a different list, so the assertion says which of the two it is.
-      const drafts = Array.from({ length: 21 }, (_, i) => ({
+      // One more draft than the page holds, so the bound is exercised. The bound
+      // is `BROADCAST_HISTORY_PAGE_SIZE` (25), shared with campaign history so
+      // one pager serves both reads — it was 20 here and 50 there, which is how a
+      // twenty-first draft became unreachable *and* unremovable.
+      const drafts = Array.from({ length: 26 }, (_, i) => ({
         id: `d${String(i).padStart(2, '0')}`,
         status: 'draft',
         created_at: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(),
@@ -220,9 +291,95 @@ describe('CRM reads and bookkeeping', () => {
 
       const result = await getCRMBroadcastDrafts();
 
-      // The twenty most recently touched drafts, in that order: the sent row is
-      // absent and `d20` — the oldest — is the one that falls off the end.
-      expect(result.map((d) => d.id)).toEqual(drafts.slice(0, 20).map((d) => d.id));
+      // The twenty-five most recently touched drafts, in that order: the sent row
+      // is absent and `d25` — the oldest — falls off the end. Asserting the exact
+      // bound matters: a `.limit()` that silently grew would hide a
+      // twenty-sixth draft the organizer can then never open or delete.
+      expect(result.map((d) => d.id)).toEqual(drafts.slice(0, 25).map((d) => d.id));
+    });
+  });
+
+  describe('getCRMBroadcastHistoryPage', () => {
+    /**
+     * `.limit(50)` with no offset, no count and no pager meant a chapter past
+     * fifty campaigns could not see its fifty-first — and a twenty-first draft
+     * was unreachable *and* unremovable, which is the failure mode the
+     * draft comment above records for a single row, at the scale of a list.
+     *
+     * The paged read is what makes both reachable, so these tests are about the
+     * two things that make it correct: the offset, and a total that is honest
+     * about how many campaigns exist rather than how many are on screen.
+     */
+    const campaigns = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        id: `b${String(i).padStart(2, '0')}`,
+        subject: `Campaign ${i}`,
+        status: 'sent',
+        created_at: new Date(Date.UTC(2026, 0, 1, 0, 0, 0) - i * 86_400_000).toISOString(),
+      }));
+
+    it('returns the requested page, newest first, with drafts excluded', async () => {
+      const rows = [
+        ...campaigns(30),
+        {
+          id: 'draft-1',
+          subject: 'Unsent',
+          status: 'draft',
+          // Newest, so dropping the exclusion puts it at the front and the
+          // assertion below fails.
+          created_at: '2027-01-01T00:00:00.000Z',
+        },
+      ];
+      tables.crm_broadcasts = { rows };
+
+      const page = await getCRMBroadcastHistoryPage({ page: 1, pageSize: 10 });
+
+      expect(page.broadcasts.map((b) => b.id)).toEqual(rows.slice(0, 10).map((b) => b.id));
+      // The count excludes drafts too, so `totalPages` derived from it does not
+      // promise pages that hold nothing but an empty tail.
+      expect(page.totalCount).toBe(30);
+      expect(page.page).toBe(1);
+    });
+
+    it('pages with an offset, so a later page holds different rows', async () => {
+      tables.crm_broadcasts = { rows: campaigns(30) };
+
+      const first = await getCRMBroadcastHistoryPage({ page: 1, pageSize: 10 });
+      const third = await getCRMBroadcastHistoryPage({ page: 3, pageSize: 10 });
+
+      expect(first.broadcasts.map((b) => b.id)).not.toEqual(third.broadcasts.map((b) => b.id));
+      expect(third.broadcasts).toHaveLength(10);
+      expect(third.page).toBe(3);
+      // Same total on every page — a count that varied per page would make the
+      // pager's "page 3 of N" disagree with itself as you moved through it.
+      expect(third.totalCount).toBe(first.totalCount);
+    });
+
+    it('clamps a hostile pageSize rather than reading the whole table', async () => {
+      // `pageSize` arrives from a URL. Unclamped, `?pageSize=100000` is the whole
+      // campaign history on one request — on a shared Fluid CPU budget.
+      tables.crm_broadcasts = { rows: campaigns(5) };
+
+      const page = await getCRMBroadcastHistoryPage({ pageSize: 100_000 });
+
+      expect(page.broadcasts.length).toBeLessThanOrEqual(100);
+    });
+
+    it('defaults to page 1 and a sane size when called with nothing', async () => {
+      tables.crm_broadcasts = { rows: campaigns(3) };
+
+      const page = await getCRMBroadcastHistoryPage();
+
+      expect(page.page).toBe(1);
+      expect(page.broadcasts.map((b) => b.id)).toEqual(['b00', 'b01', 'b02']);
+    });
+
+    it('reports a failure rather than an empty campaign history', async () => {
+      // "You have never sent anything" is the one interpretation an organizer
+      // must not draw from a database error.
+      tables.crm_broadcasts = { rows: [], error: { message: 'connection reset' } };
+
+      await expect(getCRMBroadcastHistoryPage()).rejects.toThrow('connection reset');
     });
   });
 
@@ -348,25 +505,49 @@ describe('CRM reads and bookkeeping', () => {
   });
 
   describe('segments', () => {
-    it('lists the most recent segments', async () => {
-      // 51 rows, so the `limit(50)` bound — which the old suite asserted as a
-      // call argument and never checked against a result — is visible as a
-      // truncated list. Distinct `created_at`s so the ordering cannot be
-      // satisfied by declaration order either.
-      const seeded = Array.from({ length: 51 }, (_, i) => ({
-        id: `s${String(i).padStart(2, '0')}`,
+    it('lists the most recent segments with a truncation flag', async () => {
+      // 501 rows against the 500 cap, so the bound is visible as a truncated
+      // list rather than asserted as a call argument. Distinct `created_at`s
+      // so the ordering cannot be satisfied by declaration order either.
+      const seeded = Array.from({ length: 501 }, (_, i) => ({
+        id: `s${String(i).padStart(3, '0')}`,
         name: `Segment ${i}`,
-        created_at: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(),
+        created_at: new Date(Date.UTC(2026, 0, 1) + i * 86_400_000).toISOString(),
       }));
       tables.crm_segments = { rows: seeded };
 
-      const segments = await getCRMSegments();
+      const { segments, truncated } = await getCRMSegments();
 
       expect(tableCalls()).toEqual(['crm_segments']);
-      expect(segments).toHaveLength(50);
-      expect(segments[0]?.id).toBe('s50');
-      // `s00` is the oldest, so it is the row the bound drops.
-      expect(segments[49]?.id).toBe('s01');
+      expect(segments).toHaveLength(500);
+      expect(segments[0]?.id).toBe('s500');
+      // `s000` is the oldest, so it is the row the bound drops.
+      expect(segments[499]?.id).toBe('s001');
+      expect(truncated).toBe(true);
+    });
+
+    it('reports no truncation when every segment fits', async () => {
+      tables.crm_segments = {
+        rows: [{ id: 's1', name: 'Choir', created_at: '2026-09-30T00:00:00.000Z' }],
+      };
+
+      const { segments, truncated } = await getCRMSegments();
+
+      expect(segments).toHaveLength(1);
+      expect(truncated).toBe(false);
+    });
+
+    it('throws when the segments query fails', async () => {
+      tables.crm_segments = { rows: [], error: { message: 'relation not found' } };
+
+      await expect(getCRMSegments()).rejects.toThrow(/Failed to load segments/i);
+    });
+
+    it('returns a validation error for a segment with no name', async () => {
+      const res = await saveCRMSegment({ name: '' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBeTruthy();
     });
 
     it('saves a segment', async () => {
@@ -410,6 +591,35 @@ describe('CRM reads and bookkeeping', () => {
       expect(res.error).not.toMatch(/23505|duplicate key/);
     });
 
+    it('returns the database error message when the insert fails for other reasons', async () => {
+      tables.crm_segments = { rows: [], error: { code: '42501', message: 'permission denied' } };
+
+      const res = await saveCRMSegment({ name: 'Canvassers' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('permission denied');
+    });
+
+    it('updates an existing segment by id', async () => {
+      tables.crm_segments = {
+        rows: [
+          {
+            id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+            name: 'Old name',
+            created_at: '2026-09-01T00:00:00.000Z',
+          },
+        ],
+      };
+
+      const res = await saveCRMSegment({
+        id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        name: 'New name',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.segmentId).toBe('a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d');
+    });
+
     it('deletes a segment', async () => {
       tables.crm_segments = {
         rows: [
@@ -429,6 +639,32 @@ describe('CRM reads and bookkeeping', () => {
 
       expect(res.success).toBe(false);
       expect(res.error).toBe('fk violation');
+    });
+
+    it('returns an error when the segment does not exist', async () => {
+      tables.crm_segments = {
+        rows: [{ id: 's2', name: 'Choir' }],
+      };
+
+      const res = await deleteCRMSegment('s1');
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/not found/i);
+      expect(tables.crm_segments.rows?.map((s) => s.id)).toEqual(['s2']);
+    });
+
+    it('returns an error when the segment was concurrently deleted (PGRST116)', async () => {
+      tables.crm_segments = {
+        rows: [],
+      };
+
+      const res = await saveCRMSegment({
+        id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        name: 'Updated name',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBeTruthy();
     });
   });
 
@@ -452,6 +688,42 @@ describe('CRM reads and bookkeeping', () => {
       // Newest first, and the first page: a second page would not start at the
       // newest contact.
       expect(res.contacts[0]?.id).toBe('c149');
+    });
+
+    it('throws when the contacts query fails rather than returning an empty directory', async () => {
+      // A read that shows zero contacts and reports no error is a chapter that
+      // believes it has no constituents. A failed read must say so.
+      tables.crm_contacts = { rows: [], error: { message: 'connection reset' } };
+
+      await expect(getCRMContacts()).rejects.toThrow(/failed to load crm contacts/i);
+    });
+
+    it('filters contacts by consent=unasked using IS NULL', async () => {
+      // consent='unasked' maps to doNotEmail===null which uses .is('do_not_email', null)
+      // rather than .eq() — .eq(col, null) becomes `col=eq.null` in PostgREST which
+      // matches nothing. This test confirms only null-consent contacts are returned.
+      const neverAsked = { id: 'c1', email: 'a@example.com', do_not_email: null };
+      const optedIn = { id: 'c2', email: 'b@example.com', do_not_email: false };
+      tables.crm_contacts = { rows: [neverAsked, optedIn] };
+
+      const res = await getCRMContacts({ consent: 'unasked' });
+
+      expect(res.contacts.map((c) => c.id)).toEqual(['c1']);
+    });
+
+    it('throws when FTS errors on page 2 — does not fall back to ILIKE', async () => {
+      // The fallback only fires on page 1. A FTS error on page 2 has no fallback
+      // path and getCRMContacts re-throws the error.
+      tables.crm_contacts = {
+        rows: [],
+        error: { message: 'FTS unavailable' },
+      };
+
+      await expect(getCRMContacts({ query: 'rally', page: 2, pageSize: 10 })).rejects.toThrow(
+        /failed to load crm contacts/i
+      );
+      // Only one query was issued: no .from() calls beyond the single FTS attempt.
+      expect(mockAdminClient.from).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -566,6 +838,22 @@ describe('CRM reads and bookkeeping', () => {
       expect(row?.title).toBe('Print yard signs');
     });
 
+    it('returns a validation error when addCRMTask receives an empty title', async () => {
+      const res = await addCRMTask({ title: '  ' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBeTruthy();
+    });
+
+    it('returns a database error when the task insert fails', async () => {
+      tables.crm_tasks = { rows: [], error: { message: 'insert failed' } };
+
+      const res = await addCRMTask({ title: 'Call back' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('insert failed');
+    });
+
     it('deletes a task and reports a failure', async () => {
       // Two deletes, two database behaviours. The old suite queued two builders
       // with `mockReturnValueOnce`, which `vi.clearAllMocks` does not drain — so
@@ -597,6 +885,101 @@ describe('CRM reads and bookkeeping', () => {
       const res = await deleteCRMTask('t1');
       expect(res).toEqual({ success: false, error: 'nope' });
     });
+
+    describe('getCRMTasks scopes', () => {
+      const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+      const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+
+      it("scope: 'overdue' — returns open tasks with a past due_at", async () => {
+        tables.crm_tasks = {
+          rows: [
+            { id: 't-overdue', status: 'open', due_at: yesterday },
+            { id: 't-upcoming', status: 'open', due_at: tomorrow },
+            { id: 't-done', status: 'done', due_at: yesterday },
+            { id: 't-noduedate', status: 'open', due_at: null },
+          ],
+        };
+
+        const res = await getCRMTasks({ scope: 'overdue' });
+
+        // The select uses a join string (`'*, contact:crm_contacts(...)'`) which
+        // the mock's comma-splitter cannot project faithfully — `id` is lost.
+        // Asserting count + totalCount is the observable boundary the mock exposes.
+        expect(res.tasks).toHaveLength(1);
+        expect(res.totalCount).toBe(1);
+      });
+
+      it("scope: 'upcoming' — returns open tasks with a future due_at or null", async () => {
+        const upcoming = { id: 't-upcoming', status: 'open', due_at: tomorrow };
+        const nodue = { id: 't-nodue', status: 'open', due_at: null };
+        const overdue = { id: 't-overdue', status: 'open', due_at: yesterday };
+        const done = { id: 't-done', status: 'done', due_at: null };
+
+        tables.crm_tasks = {
+          rows: [upcoming, nodue, overdue, done],
+          // `.or('due_at.gte.${today},due_at.is.null')` is not modelled by the
+          // mock; declare which rows it selects. The `.eq('status', 'open')`
+          // IS modelled and will remove `done` from the result.
+          filterRows: [upcoming, nodue, done],
+        };
+
+        const res = await getCRMTasks({ scope: 'upcoming' });
+
+        // `done` is removed by `.eq('status', 'open')`, leaving upcoming + nodue.
+        expect(res.tasks).toHaveLength(2);
+        expect(res.totalCount).toBe(2);
+      });
+
+      it("scope: 'upcoming' — a task with due_at: null IS included", async () => {
+        const nodue = { id: 't-nodue', status: 'open', due_at: null };
+
+        tables.crm_tasks = {
+          rows: [nodue],
+          filterRows: [nodue],
+        };
+
+        const res = await getCRMTasks({ scope: 'upcoming' });
+
+        expect(res.tasks).toHaveLength(1);
+        expect(res.totalCount).toBe(1);
+      });
+
+      it("scope: 'done' — returns only completed tasks", async () => {
+        const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+        tables.crm_tasks = {
+          rows: [
+            { id: 't-done', status: 'done', due_at: yesterday },
+            { id: 't-open', status: 'open', due_at: null },
+          ],
+        };
+
+        const res = await getCRMTasks({ scope: 'done' });
+
+        expect(res.tasks).toHaveLength(1);
+        expect(res.totalCount).toBe(1);
+      });
+
+      it("scope: 'all' — returns every task regardless of status", async () => {
+        const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+        tables.crm_tasks = {
+          rows: [
+            { id: 't-done', status: 'done', due_at: yesterday },
+            { id: 't-open', status: 'open', due_at: null },
+          ],
+        };
+
+        const res = await getCRMTasks({ scope: 'all' });
+
+        expect(res.tasks).toHaveLength(2);
+        expect(res.totalCount).toBe(2);
+      });
+
+      it('throws when the task query errors', async () => {
+        tables.crm_tasks = { rows: [], error: { message: 'connection reset' } };
+
+        await expect(getCRMTasks({ scope: 'open' })).rejects.toThrow(/Failed to load tasks/i);
+      });
+    });
   });
 
   describe('getCRMContactDetail', () => {
@@ -615,7 +998,7 @@ describe('CRM reads and bookkeeping', () => {
       };
       tables.crm_tasks = {
         rows: [
-          { id: 't1', title: 'Call back', contact_id: 'c1', due_at: '2026-08-01' },
+          { id: 't1', title: 'Call back', contact_id: 'c1', due_at: '2026-08-01', status: 'open' },
           { id: 't9', title: 'Chase the clerk', contact_id: 'c2', due_at: '2026-07-01' },
         ],
       };
@@ -626,6 +1009,68 @@ describe('CRM reads and bookkeeping', () => {
       // Newest first, and only this contact's.
       expect(res.activities.map((a) => a.id)).toEqual(['a1', 'a2']);
       expect(res.tasks.map((t) => t.id)).toEqual(['t1']);
+      // Nothing capped, so the counts are the list lengths and neither flag fires.
+      expect(res.taskCount).toBe(1);
+      expect(res.tasksTruncated).toBe(false);
+      expect(res.openTaskCount).toBe(1);
+    });
+
+    it('reports the true task totals when the list is capped', async () => {
+      // 51 open tasks against the 50 cap: the panel renders the capped number
+      // as the total unless the counts travel with it. A contact with 80 open
+      // follow-ups used to read "Follow-ups (50)".
+      const contact = { id: 'c1', first_name: 'Robin', email: 'robin@example.org' };
+      tables.crm_contacts = { rows: [contact] };
+      tables.crm_activities = { rows: [] };
+      tables.crm_tasks = {
+        rows: Array.from({ length: 51 }, (_, i) => ({
+          id: `t${String(i).padStart(2, '0')}`,
+          title: `Task ${i}`,
+          contact_id: 'c1',
+          status: 'open',
+        })),
+      };
+
+      const res = await getCRMContactDetail('c1');
+
+      expect(res.tasks).toHaveLength(50);
+      expect(res.taskCount).toBe(51);
+      expect(res.tasksTruncated).toBe(true);
+      expect(res.openTaskCount).toBe(51);
+    });
+
+    it('throws on a failed task list rather than rendering an empty panel', async () => {
+      tables.crm_contacts = { rows: [{ id: 'c1', first_name: 'Robin' }] };
+      tables.crm_activities = { rows: [] };
+      tables.crm_tasks = { rows: [], error: { message: 'connection reset' } };
+
+      await expect(getCRMContactDetail('c1')).rejects.toThrow(/failed to load contact tasks/i);
+    });
+
+    it('throws when the activities query fails', async () => {
+      tables.crm_contacts = { rows: [{ id: 'c1', first_name: 'Robin' }] };
+      tables.crm_activities = { rows: [], error: { message: 'activity table offline' } };
+      tables.crm_tasks = { rows: [] };
+
+      await expect(getCRMContactDetail('c1')).rejects.toThrow(/failed to load contact activities/i);
+    });
+
+    it('throws when the open-task count fails even though the list succeeded', async () => {
+      // The open count is a second head-query on the same table, so a
+      // table-level error fails the list first and never reaches it. Failing
+      // only queries filtered on `status` — which is just the open count —
+      // proves the count has its own error path rather than rendering a
+      // confident "0 open" over a read that never happened.
+      tables.crm_contacts = { rows: [{ id: 'c1', first_name: 'Robin' }] };
+      tables.crm_activities = { rows: [] };
+      tables.crm_tasks = {
+        rows: [{ id: 't1', title: 'Call back', contact_id: 'c1', status: 'open' }],
+        errors: [{ kind: 'eq', column: 'status', error: { message: 'index unavailable' } }],
+      };
+
+      await expect(getCRMContactDetail('c1')).rejects.toThrow(
+        /failed to count open contact tasks/i
+      );
     });
 
     it('throws for a contact that does not exist rather than rendering an empty page', async () => {
@@ -667,11 +1112,65 @@ describe('CRM reads and bookkeeping', () => {
       }));
       tables.crm_contacts = { rows: seeded };
 
-      const tags = await getCRMExistingTags();
+      const { tags, truncated, scanned } = await getCRMExistingTags();
 
       // `donor` lives only on page two. `Choir` is still upper-case next to
       // `canvasser`, which is the gap the note above is about.
       expect(tags).toEqual(['canvasser', 'Choir', 'donor', 'member']);
+      // 1001 rows read, which is past the first page and short of the ceiling —
+      // so this read was complete and must not claim otherwise.
+      expect(truncated).toBe(false);
+      expect(scanned).toBe(1001);
+    });
+
+    /**
+     * The ceiling is the one case where a partial tag list is a silent hole.
+     *
+     * A tag held only by an unscanned row gets no chip in the filter bar and none
+     * in the composer, so the constituents carrying it cannot be targeted from
+     * either surface — and the chapter concludes from an absent chip that nobody
+     * has that tag. Returning `truncated` is what makes that state visible; both
+     * call sites render it.
+     *
+     * `TAG_SCAN_LIMIT + 1` rows: one past the ceiling, so the loop reads exactly
+     * `TAG_SCAN_LIMIT` and stops. The seed is slow to build, so it is built once
+     * per file rather than per test — 20,001 objects is not something to allocate
+     * inside a test body on every run.
+     */
+    it('reports a partial scan when it stops at the row ceiling', async () => {
+      const seeded = Array.from({ length: TAG_SCAN_LIMIT + 1 }, (_, i) => ({
+        id: `c${String(i).padStart(6, '0')}`,
+        tags: ['member'],
+      }));
+      // The distinguishing tag sits on the very last row — past the ceiling.
+      seeded[seeded.length - 1].tags = ['canvasser'];
+      tables.crm_contacts = { rows: seeded };
+
+      const { tags, truncated, scanned } = await getCRMExistingTags();
+
+      expect(truncated).toBe(true);
+      expect(scanned).toBe(TAG_SCAN_LIMIT);
+      // `canvasser` is the point: it exists in the database and is not in the list,
+      // which is precisely what `truncated` exists to warn about.
+      expect(tags).toEqual(['member']);
+      expect(tags).not.toContain('canvasser');
+    });
+
+    it('throws when the tag query fails', async () => {
+      tables.crm_contacts = {
+        error: { message: 'db connection failed' },
+      };
+      await expect(getCRMExistingTags()).rejects.toThrow(
+        'Failed to load tags: db connection failed'
+      );
+    });
+
+    it('handles an empty table without error', async () => {
+      tables.crm_contacts = { rows: [] };
+      const { tags, truncated, scanned } = await getCRMExistingTags();
+      expect(tags).toEqual([]);
+      expect(truncated).toBe(false);
+      expect(scanned).toBe(0);
     });
   });
 
@@ -685,7 +1184,7 @@ describe('CRM reads and bookkeeping', () => {
       };
       tables.crm_activities = { rows: [], insert: {}, onInsert: (row) => activities.push(row) };
 
-      const res = await setCRMEmailConsent({ contactId: 'c1', doNotEmail: true });
+      const res = await setCRMEmailConsent({ contactId: 'c1', doNotEmail: 'opted_out' });
 
       expect(res.success).toBe(true);
       // The contact row itself, not the arguments a stub was handed: this is the
@@ -703,7 +1202,15 @@ describe('CRM reads and bookkeeping', () => {
       });
     });
 
-    it('clears the stamp when consent is restored', async () => {
+    /**
+     * Restoring consent keeps the unsubscribe timestamp.
+     *
+     * It used to clear it, which made "re-subscribed" and "never unsubscribed"
+     * indistinguishable on the row afterwards — so an organiser auditing a
+     * complaint ("I unsubscribed and kept getting mail") had no date to point at.
+     * The timestamp is evidence; `do_not_email` is the state.
+     */
+    it('keeps the unsubscribe stamp when consent is restored', async () => {
       const activities: Record<string, unknown>[] = [];
       // Seeded opted *out*, so an update that did not run leaves the row
       // saying the wrong thing rather than saying nothing.
@@ -712,13 +1219,35 @@ describe('CRM reads and bookkeeping', () => {
       };
       tables.crm_activities = { rows: [], insert: {}, onInsert: (row) => activities.push(row) };
 
-      await setCRMEmailConsent({ contactId: 'c1', doNotEmail: false });
+      await setCRMEmailConsent({ contactId: 'c1', doNotEmail: 'opted_in' });
 
-      expect(tables.crm_contacts.rows?.[0]).toMatchObject({
-        do_not_email: false,
-        unsubscribed_at: null,
-      });
+      expect(tables.crm_contacts.rows?.[0]?.do_not_email).toBe(false);
+      expect(tables.crm_contacts.rows?.[0]?.unsubscribed_at).toBe('2026-01-01T00:00:00.000Z');
       expect(activities[0]).toMatchObject({ title: 'Email Consent Restored' });
+    });
+
+    /**
+     * The third state, and the reason this action is not a toggle.
+     *
+     * `unasked` writes SQL NULL — "we have never put this to them" — and the
+     * timeline entry names it. A two-state control could not express it, and its
+     * nearest equivalent (clearing the flag) wrote a *yes* nobody had given, which
+     * is how an admin action can put somebody into a broadcast audience.
+     */
+    it('writes NULL and says so when consent is set to "never asked"', async () => {
+      const activities: Record<string, unknown>[] = [];
+      // Seeded opted *in*, so a coercion to `false` here would leave the row in
+      // the broadcast audience while the panel claimed otherwise.
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', do_not_email: false, unsubscribed_at: null }],
+      };
+      tables.crm_activities = { rows: [], insert: {}, onInsert: (row) => activities.push(row) };
+
+      const res = await setCRMEmailConsent({ contactId: 'c1', doNotEmail: 'unasked' });
+
+      expect(res.success).toBe(true);
+      expect(tables.crm_contacts.rows?.[0]?.do_not_email).toBeNull();
+      expect(activities[0]).toMatchObject({ title: 'Email Consent Marked Unknown' });
     });
 
     it('reports a failure instead of showing an opt-out that did not stick', async () => {
@@ -732,7 +1261,7 @@ describe('CRM reads and bookkeeping', () => {
       };
       tables.crm_activities = { rows: [], insert: {}, onInsert: (row) => activities.push(row) };
 
-      const res = await setCRMEmailConsent({ contactId: 'c1', doNotEmail: true });
+      const res = await setCRMEmailConsent({ contactId: 'c1', doNotEmail: 'opted_out' });
 
       expect(res.success).toBe(false);
       expect(res.error).toBeTruthy();
@@ -911,6 +1440,54 @@ describe('CRM defensive defaults', () => {
     await expect(getBroadcastRecipientCount({})).resolves.toEqual({ count: 0, excludedCount: 2 });
   });
 
+  /**
+   * The reconciliation, on the exclusion side.
+   *
+   * `count + excludedCount` is the claim the dispatch bar makes, and it only holds
+   * if the exclusion covers every non-audience state. It was `.eq('do_not_email',
+   * true)` alone, which was exact while the column was `NOT NULL` and stopped being
+   * exact the moment NULL became expressible: every never-asked contact was
+   * dropped from the audience while the bar reported them as neither sent nor
+   * excluded. The organiser's only clue that people were missing was a number that
+   * did not add up.
+   */
+  it('counts never-asked contacts as excluded, so the two numbers reconcile', async () => {
+    tables.crm_contacts = {
+      rows: [
+        { id: 'c1', do_not_email: false },
+        { id: 'c2', do_not_email: true },
+        { id: 'c3', do_not_email: null },
+      ],
+    };
+
+    await expect(getBroadcastRecipientCount({})).resolves.toEqual({ count: 1, excludedCount: 2 });
+  });
+
+  /**
+   * Every failure path reports, because each one is a number on a screen an
+   * organiser is about to trust. A silent zero on either exclusion count reads as
+   * "nobody was excluded".
+   *
+   * `errors` keys on the filter's *operator*, which is the only way to fail one of
+   * these two queries without failing the other: both filter `do_not_email`, and
+   * they do it differently — `.eq` for the audience, `.not(…, 'is', …)` for the
+   * exclusion. Keying on call order would have looked equivalent and broken
+   * silently the first time a query was added or reordered.
+   */
+  it.each([
+    ['audience count', 'eq', /failed to count broadcast recipients/i],
+    ['exclusion count', 'notIs', /failed to count excluded recipients/i],
+  ])('reports a failure in the %s rather than a silent zero', async (_which, kind, message) => {
+    tables.crm_contacts = {
+      rows: [{ id: 'c1', do_not_email: false }],
+      errors: [
+        { kind: kind as 'eq' | 'notIs', column: 'do_not_email', error: { message: 'scan failed' } },
+      ],
+    };
+
+    await expect(getBroadcastRecipientCount({})).rejects.toThrow(message);
+  });
+
   it('throws when the recipient count itself fails', async () => {
     tables.crm_contacts = { rows: [{ id: 'c1' }], error: { message: 'statement timeout' } };
 
@@ -960,6 +1537,22 @@ describe('CRM defensive defaults', () => {
     expect(orFilter).toMatch(/^email\.ilike/);
     // Two queries ran, which is the fallback being reached at all.
     expect(mockAdminClient.from).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not run the ilike fallback for an empty page past the first', async () => {
+    // The fallback exists for "the index missed", not for "there is no page
+    // 2". It used to fire on *any* empty page: a term whose FTS matches filled
+    // exactly one page returned page 1 with `count: 50` and page 2 from ILIKE —
+    // a broader predicate — with `count: 500`. The pager then read "page 2 of
+    // 10" on a list whose page 1 said "of 1".
+    tables.crm_contacts = { rows: [], filterRows: [] };
+
+    const res = await getCRMContacts({ query: 'robin', page: 2 });
+
+    expect(res.contacts).toEqual([]);
+    // One query ran: the FTS one. A second `from('crm_contacts')` is the
+    // fallback firing, which is what the old condition did here.
+    expect(mockAdminClient.from).toHaveBeenCalledTimes(1);
   });
 
   it('escapes a LIKE wildcard so a literal % is not a wildcard', async () => {

@@ -77,12 +77,19 @@ const mockFrom = vi.fn((table: string) => {
 
 const mockGetUser = vi.fn();
 const mockListFactors = vi.fn().mockResolvedValue({ data: { all: [] }, error: null });
+const mockGetAal = vi.fn().mockResolvedValue({
+  data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+  error: null,
+});
+const mockUnenroll = vi.fn().mockResolvedValue({ data: {}, error: null });
 
 const mockSupabase = {
   auth: {
     getUser: mockGetUser,
     mfa: {
       listFactors: mockListFactors,
+      getAuthenticatorAssuranceLevel: mockGetAal,
+      unenroll: mockUnenroll,
     },
   },
   from: mockFrom,
@@ -98,7 +105,7 @@ vi.mock('next/cache', () => ({
 
 import { revalidatePath } from 'next/cache';
 // Import AFTER mocks are registered
-import { updateUserSettingsAction } from '@/lib/actions/settings';
+import { unenrollMfaFactorAction, updateUserSettingsAction } from '@/lib/actions/settings';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -397,5 +404,122 @@ describe('Property 4: Email-fallback upsert error path', () => {
     const result = await updateUserSettingsAction({ order_updates: false });
 
     expect(result).toEqual({ error: 'email upsert also failed' });
+  });
+});
+
+// ─── unenrollMfaFactorAction: verified-factor removal behind the step-up gate ─
+// Every factor mutation used to be `supabase.auth.mfa.*` straight from the
+// browser — no server in the path, so no step-up could apply, and an AAL1
+// session holding only a stolen password could permanently remove the
+// account's 2FA. These pin the server half: the gate runs first, the write
+// second, and a refusal carries the `reason` the panel renders the step-up
+// link from.
+describe('unenrollMfaFactorAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupAuthenticatedUser();
+    // Defaults: no enrolled factors, AAL1 session, unenroll succeeds. Each test
+    // overrides the piece it exercises.
+    mockListFactors.mockResolvedValue({ data: { all: [] }, error: null });
+    mockGetAal.mockResolvedValue({
+      data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+      error: null,
+    });
+    mockUnenroll.mockResolvedValue({ data: {}, error: null });
+  });
+
+  it('rejects an empty factor id without touching the gate or the write', async () => {
+    expect(await unenrollMfaFactorAction('')).toEqual({ error: 'No factor to remove.' });
+    expect(mockListFactors).not.toHaveBeenCalled();
+    expect(mockUnenroll).not.toHaveBeenCalled();
+  });
+
+  it('rejects a signed-out caller before reading factors', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    expect(await unenrollMfaFactorAction('factor-1')).toEqual({
+      error: 'Not signed in. Sign in again and retry.',
+    });
+    expect(mockUnenroll).not.toHaveBeenCalled();
+  });
+
+  it('refuses an AAL1 session with a verified TOTP factor, with the reason attached', async () => {
+    mockListFactors.mockResolvedValue({
+      data: { all: [{ id: 'factor-1', status: 'verified', factor_type: 'totp' }] },
+      error: null,
+    });
+
+    const result = await unenrollMfaFactorAction('factor-1');
+
+    expect(result).toEqual({
+      error: 'MFA verification required. Please complete 2FA.',
+      reason: 'step_up_required',
+    });
+    // The refusal must precede the write, not merely accompany it.
+    expect(mockUnenroll).not.toHaveBeenCalled();
+  });
+
+  it('removes the factor for an AAL2 session', async () => {
+    mockListFactors.mockResolvedValue({
+      data: { all: [{ id: 'factor-1', status: 'verified', factor_type: 'totp' }] },
+      error: null,
+    });
+    mockGetAal.mockResolvedValue({
+      data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+      error: null,
+    });
+
+    expect(await unenrollMfaFactorAction('factor-1')).toEqual({ success: true });
+    expect(mockUnenroll).toHaveBeenCalledWith({ factorId: 'factor-1' });
+  });
+
+  it('removes the factor when nothing verified is enrolled, without demanding a code', async () => {
+    // Pass-through, matching the guard: an account with no verified TOTP
+    // factor has nothing to step up to, and must not be told to find an
+    // authenticator it never set up.
+    expect(await unenrollMfaFactorAction('factor-1')).toEqual({ success: true });
+    expect(mockUnenroll).toHaveBeenCalledWith({ factorId: 'factor-1' });
+  });
+
+  it('does not demand a step-up for a phone-only account the challenge cannot answer', async () => {
+    mockListFactors.mockResolvedValue({
+      data: { all: [{ id: 'factor-9', status: 'verified', factor_type: 'phone' }] },
+      error: null,
+    });
+
+    expect(await unenrollMfaFactorAction('factor-9')).toEqual({ success: true });
+  });
+
+  it('reports a fault as a fault, not as a code request', async () => {
+    mockListFactors.mockResolvedValue({ data: null, error: new Error('socket hang up') });
+
+    const result = await unenrollMfaFactorAction('factor-1');
+
+    expect(result).toEqual({
+      error: 'Unable to verify MFA enrollment.',
+      reason: 'state_unknown',
+    });
+    expect(mockUnenroll).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a GoTrue unenroll failure without a reason', async () => {
+    mockGetAal.mockResolvedValue({
+      data: { currentLevel: 'aal2', nextLevel: 'aal2' },
+      error: null,
+    });
+    mockUnenroll.mockResolvedValue({ data: null, error: { message: 'factor not found' } });
+
+    expect(await unenrollMfaFactorAction('factor-1')).toEqual({ error: 'factor not found' });
+  });
+
+  it('rejects a short password-shaped input at the same boundary', async () => {
+    // The length check lives in the action, not the page, so a direct caller
+    // cannot skip it. (Exercised here because this suite owns the action's
+    // contract; the password action itself is covered by update-password.test.tsx.)
+    const { updatePasswordAction } = await import('@/app/account/update-password/actions');
+    expect(await updatePasswordAction('short')).toEqual({
+      error: 'Password must be at least 8 characters.',
+    });
+    expect(mockListFactors).not.toHaveBeenCalled();
   });
 });

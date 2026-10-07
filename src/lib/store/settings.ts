@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import type { MfaFailureReason } from '@/lib/mfa-guard';
 import { createClient } from '@/lib/supabase';
 import { updateUserSettingsAction } from '../actions/settings';
 
@@ -12,6 +13,15 @@ interface SettingsState {
   settings: UserSettings;
   isLoading: boolean;
   error: string | null;
+  /**
+   * Why the last write failed, when the failure came from a step-up guard.
+   *
+   * `step_up_required` is recoverable by action — the user has an authenticator
+   * and this session is not yet stepped up to AAL2 — so the panel offers a link
+   * instead of the generic advice. Everything else is a fault, and a retry link
+   * to /auth/mfa would be a dead end.
+   */
+  errorReason?: MfaFailureReason;
   initialize: (initialSettings: Partial<UserSettings> | null) => void;
   updateSettings: (newSettings: Partial<UserSettings>) => Promise<void>;
   fetchSettings: () => Promise<void>;
@@ -29,6 +39,7 @@ export const useSettingsStore = create<SettingsState>()(
       settings: DEFAULT_SETTINGS,
       isLoading: false,
       error: null,
+      errorReason: undefined,
 
       initialize: (initialSettings) => {
         if (initialSettings) {
@@ -40,7 +51,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
 
       fetchSettings: async () => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, errorReason: undefined });
         const supabase = createClient();
 
         try {
@@ -93,19 +104,26 @@ export const useSettingsStore = create<SettingsState>()(
         const updatedSettings = { ...previousSettings, ...newSettings };
 
         // Optimistic update
-        set({ settings: updatedSettings, error: null });
+        set({ settings: updatedSettings, error: null, errorReason: undefined });
 
+        // The action's `reason` is read *before* the throw: once this is an
+        // Error instance the discriminant is gone, and a settings toggle that
+        // silently reverts is exactly the failure this exists to make visible.
+        let reason: MfaFailureReason | undefined;
         try {
           const result = await updateUserSettingsAction(newSettings);
-          if (result.error) throw new Error(result.error);
+          if (result.error) {
+            reason = 'reason' in result ? result.reason : undefined;
+            throw new Error(result.error);
+          }
         } catch (err: unknown) {
           // Revert on error
-          set({ settings: previousSettings, error: (err as Error).message });
+          set({ settings: previousSettings, error: (err as Error).message, errorReason: reason });
         }
       },
 
       reset: () => {
-        set({ settings: DEFAULT_SETTINGS, error: null, isLoading: false });
+        set({ settings: DEFAULT_SETTINGS, error: null, errorReason: undefined, isLoading: false });
       },
     }),
     {

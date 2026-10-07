@@ -183,20 +183,96 @@ export default function ContactPage() {
               />
             </div>
 
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                name="sendCopy"
-                id="sendCopy"
-                className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-950 accent-amber-500"
-              />
-              <label
-                htmlFor="sendCopy"
-                className="text-xs font-semibold text-slate-400 tracking-wide cursor-pointer select-none"
-              >
-                Send me a copy of this message for my records
-              </label>
-            </div>
+            {/*
+              Two checkboxes, and the distinction between them is the point.
+
+              `sendCopy` is transactional: a copy of *this message*, for the
+              sender's own records. It is not consent, and it never was — but it
+              was the only checkbox on the form, and the CRM had no way to ask for
+              marketing email at all. So every contact who wrote once was in the
+              chapter's next broadcast audience.
+
+              This one is the actual ask. Unticked is the answer too: it records a
+              decline rather than an unknown, because the resident was shown the
+              box and did not tick it. Either way they are excluded from
+              broadcasts, and the only way in is to tick this.
+
+              Separate control, separate sentence, no bundling. The consent copy
+              says what they would receive and who would see their address.
+            */}
+            <fieldset className="space-y-3 rounded-xl border border-slate-800 p-4">
+              <legend className="px-2 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                Email preferences
+              </legend>
+
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  name="sendCopy"
+                  id="sendCopy"
+                  className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-950 accent-amber-500"
+                />
+                <label
+                  htmlFor="sendCopy"
+                  className="text-xs font-semibold text-slate-400 tracking-wide cursor-pointer select-none"
+                >
+                  Send me a copy of this message for my records
+                </label>
+              </div>
+
+              {/*
+   Two separate checkboxes, and they have to stay separate.
+
+   `sendCopy` is transactional: a reply to this one message. `consentToEmail` is
+   marketing: a standing permission to be in future campaign audiences. Collapsing
+   them into one box — which is what a single "email me" checkbox invites — means
+   the consent that eventually reaches a broadcast audience was never separately
+   given, and a resident who wanted a receipt is on a mailing list. That is the
+   whole gap this migration closes, expressed as a form field.
+*/}
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  name="consentToEmail"
+                  id="consentToEmail"
+                  className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-950 accent-amber-500"
+                />
+                <label
+                  htmlFor="consentToEmail"
+                  className="text-xs font-semibold text-slate-300 tracking-wide cursor-pointer select-none"
+                >
+                  Yes, add me to chapter email about actions, meetings and volunteer opportunities.
+                  Every message carries an unsubscribe link.
+                </label>
+              </div>
+
+              {/*
+   The copy has to be accurate about what the address is used for, because the
+   alternative is a promise the code cannot keep.
+
+   It previously read "Your address is only ever used for this". Ticking the box
+   above does the opposite of that: it records a standing opt-in that adds the
+   address to broadcast audiences, and the address is what a broadcast is sent to.
+   An organiser reading a resident's consent record is entitled to believe the
+   resident was told what they agreed to.
+
+   So it says the two things that are actually true and are the two things worth
+   promising: it is never sold or shared, and leaving the box unticked keeps them
+   out of campaign audiences while still getting a reply.
+
+   `text-ink-muted-on-dark`, not `text-slate-500`. The latter is #64748b, which on
+   this surface is 3.81:1 — below the 4.5:1 WCAG AA threshold for text at this
+   size, and the axe gate in `e2e/a11y.spec.ts` fails on it. The token is #94a3b8:
+   7.08:1. Worth naming the direction of that trap: on a *dark* surface the muted
+   slate steps get darker, so `slate-500` reads as "muted" by name while sitting
+   one step past the line.
+*/}
+
+              <p className="text-[11px] leading-relaxed text-ink-muted-on-dark">
+                We never sell or share your address. Leaving the box unticked keeps you out of
+                campaign emails — we will still reply to this message.
+              </p>
+            </fieldset>
 
             <button
               type="submit"

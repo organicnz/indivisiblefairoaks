@@ -6,6 +6,9 @@ name: Runner Health
 # which may grant write. It uses a runner-management PAT.
 permissions:
   contents: read
+  # Only for the outage-issue step below. Scoped to this workflow so no other
+  # job inherits it.
+  issues: write
 
 on:
   schedule:
@@ -28,7 +31,7 @@ jobs:
     # Self-hosted ONLY per repo policy (no github-hosted runners anywhere).
     # Runs on backend-runner; if backend itself is down this job QUEUES —
     # which is itself the alert (visible as "queued" in Actions).
-    runs-on: [self-hosted, linux, X64, backend-runner]
+    runs-on: [self-hosted, linux, backend-runner]
     timeout-minutes: 5
     outputs:
       api_ok: ${{ steps.check.outputs.api_ok }}
@@ -121,13 +124,105 @@ jobs:
           echo "  gh api -X POST repos/${{ github.repository }}/actions/runners/registration-token --jq '.token'"
           exit 1
 
+      # ── Make the outage reachable ─────────────────────────────────────────
+      # A red workflow is not an alert. Nobody opens the Actions tab to confirm
+      # that a 30-minute cron is still red, which is exactly what happened on
+      # 2026-10-05: the container went offline, the next scheduled run queued
+      # behind the dead runner, and the failure was invisible until a CI run was
+      # expected and did not arrive.
+      #
+      # An issue is the only mechanism available here that reaches a human
+      # unprompted — issues notify watchers — and the repo is self-hosted-only by
+      # policy, so there is no GitHub-hosted cron that could watch the runners
+      # for us.
+      #
+      # Idempotent on purpose: this runs every 30 minutes for as long as the
+      # outage lasts. It comments on one long-lived issue rather than opening a
+      # new one per tick, so a night-long outage produces a readable timeline
+      # instead of dozens of duplicates.
+      #
+      # LIMITATION — read before relying on this. It fires only when this
+      # workflow RUNS and the API answers. If the offline runner is the one that
+      # would execute this job, the job queues and no issue is ever opened. That
+      # case is unobservable from inside this repository: self-hosted-only policy
+      # rules out the independent watcher that would catch it. Closing it needs
+      # an external uptime monitor against the runner host, not a workflow
+      # change. Until that exists, the residual gap is real — this narrows the
+      # window, it does not close it.
+      - name: Raise or update the runner-outage issue
+        if: always() && steps.check.outputs.api_ok == 'true' && steps.check.outputs.all_ok != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RUNNERS_TOKEN || secrets.GITHUB_TOKEN }}
+          FRONTEND: ${{ steps.check.outputs.frontend_status }}
+          BACKEND: ${{ steps.check.outputs.backend_status }}
+        run: |
+          TITLE="Runner fleet offline"
+          BODY=$(printf 'A self-hosted runner is offline or unregistered.\n\n| Runner | Status |\n|---|---|\n| frontend-runner | `%s` |\n| backend-runner | `%s` |\n\nCI jobs routed to an offline runner sit `queued` indefinitely.\n\n**Recovery:** SSH into the VPS and re-register:\n\n```\ncurl -fsSL https://raw.githubusercontent.com/%s/main/scripts/setup-runner.sh | bash -s -- --token <NEW_TOKEN> --name <NAME> --labels <LABELS>\n```\n\nThis issue closes itself when every runner reports `online` again.\n' "$FRONTEND" "$BACKEND" "${{ github.repository }}")
+
+          # One open issue, found by title. `--state open` so a closed outage
+          # does not get commented on.
+          EXISTING=$(gh issue list --repo "${{ github.repository }}" --state open \
+            --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Commenting on existing issue #$EXISTING"
+            gh issue comment "$EXISTING" --repo "${{ github.repository }}" \
+              --body "Still offline at $(date -u +%Y-%m-%dT%H:%M:%SZ) — frontend: \`$FRONTEND\`, backend: \`$BACKEND\`."
+          else
+            echo "Opening a new outage issue"
+            gh issue create --repo "${{ github.repository }}" \
+              --title "$TITLE" --body "$BODY" \
+              --label runner-health 2>/dev/null \
+              || gh issue create --repo "${{ github.repository }}" --title "$TITLE" --body "$BODY"
+          fi
+
+      # The inverse: when every runner is back, close the issue rather than
+      # leaving it to rot as a stale red. Skipped when the API could not be read,
+      # because "we could not check" must never be read as "recovered".
+      - name: Resolve the runner-outage issue when healthy
+        if: steps.check.outputs.api_ok == 'true' && steps.check.outputs.all_ok == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RUNNERS_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh issue list --repo "${{ github.repository }}" --state open \
+            --search "Runner fleet offline in:title" --json number --jq '.[0].number // empty')
+          [ -z "$EXISTING" ] && exit 0
+          echo "Fleet healthy again — closing #$EXISTING"
+          gh issue close "$EXISTING" --repo "${{ github.repository }}" \
+            --comment "All self-hosted runners report \`online\`. Closing."
+
+      # A runner that dies mid-job leaves the job in_progress until GitHub's
+      # timeout-minutes backstop eventually fires — which on a dead runner is
+      # never, because the only thing that can fire it is the runner itself.
+      # This is the watchdog that does not depend on the runner: any run whose
+      # oldest in-flight job is older than 30 min is cancelled, long enough
+      # that a healthy pass (worst observed ~27 min) is never touched, short
+      # enough to unblock the queue. It is idempotent and the only candidate
+      # is the same-repository CI workflow.
+      - name: Cancel wedged in_progress runs (>30 min)
+        env:
+          GH_TOKEN: ${{ secrets.RUNNERS_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          NOW=$(date -u +%s)
+          gh run list --repo "${{ github.repository }}" --status in_progress --limit 20 \
+            --json databaseId,startedAt \
+            --jq '.[] | "\(.databaseId) \(.startedAt)"' | while read -r id started; do
+            START=$(date -u -d "$started" +%s 2>/dev/null || echo "$NOW")
+            AGE=$(( (NOW - START) / 60 ))
+            if [ "$AGE" -gt 30 ]; then
+              echo "Cancelling wedged run $id (age ${AGE}m)"
+              gh run cancel "$id" --repo "${{ github.repository }}" || echo "::warning::failed to cancel $id"
+            else
+              echo "  run $id is ${AGE}m old — left alone"
+            fi
+          done
+
   # ── Smoke-test: queue a real job on each runner ─────────────────────────────
   # PRIMARY liveness signal: intentionally independent of check-runners (no
   # needs-gate). A dead runner shows here as a hung/failing smoke; a healthy
   # one proves itself even when the registration API is unreachable.
   smoke-frontend:
     name: Smoke test — frontend-runner
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, frontend-runner]
     timeout-minutes: 3
     steps:
       - name: Runner is alive
@@ -151,7 +246,7 @@ jobs:
 
   smoke-backend:
     name: Smoke test — backend-runner
-    runs-on: [self-hosted, linux, X64, backend-runner]
+    runs-on: [self-hosted, linux, backend-runner]
     timeout-minutes: 3
     steps:
       - name: Runner is alive

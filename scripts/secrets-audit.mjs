@@ -75,6 +75,7 @@ import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { STORES } from './secrets-registry.mjs';
+import { probeEnv as readVercelEnv } from './vercel-api.mjs';
 import {
   buildDeclared,
   reconcile,
@@ -158,29 +159,10 @@ async function probeEdge() {
 }
 
 async function probeVercelApi(projectId, teamId, token) {
-  // Explicit REST read. Two reasons it exists. The CLI aborts on the runner
-  // (it cannot run there), and it needs `vercel link` state that must not
-  // exist on a runner — the same class of link-state reliance the Supabase
-  // probe just stopped having. This addresses the project directly.
-  //
-  // Names only, by construction: this endpoint returns keys and types, and
-  // the values it does return are redacted for secret-typed entries. The
-  // classification mirrors parseVercelTable so the two paths agree.
-  const params = teamId ? `?teamId=${encodeURIComponent(teamId)}` : '';
-  const res = await fetch(
-    `https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}/env${params}`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  if (!res.ok) throw new Error(`vercel API ${res.status}`);
-  const body = await res.json();
-  const out = { plain: [], secret: [], unknown: [] };
-  for (const e of body.envs ?? []) {
-    const t = String(e.type ?? '').toLowerCase();
-    if (t === 'secret' || t === 'encrypted' || t === 'sensitive') out.secret.push(e.key);
-    else if (t === 'plain') out.plain.push(e.key);
-    else out.unknown.push(e.key);
-  }
-  return out;
+  // Moved to scripts/vercel-api.mjs so every Vercel read in the repository
+  // shares one client and one explanation of why the CLI is not an option.
+  // Behaviour is unchanged: same endpoint, same classification.
+  return await readVercelEnv(projectId, teamId, token);
 }
 
 async function probeVercel() {

@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { CRMContactList } from '@/components/admin/crm/CRMContactList';
 import { getCRMContacts, getCRMExistingTags, getCRMSegments, getCRMStats } from '@/lib/actions/crm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { parseConsentFilter } from '@/lib/crm-filters';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -42,16 +43,14 @@ export default async function AdminCRMPage({
   const currentStatus = params.status || 'all';
   const currentDistrict = params.district || 'all';
   const currentTag = params.tag || 'all';
-  const currentConsent: 'all' | 'opted_out' | 'opted_in' =
-    params.consent === 'opted_out'
-      ? 'opted_out'
-      : params.consent === 'opted_in'
-        ? 'opted_in'
-        : 'all';
+  // `parseConsentFilter`, not an inline ternary: the parser has to accept every
+  // value `filterParams` emits, and that set grew a third state. An inline
+  // parser quietly discarded the newest one and showed the whole directory.
+  const currentConsent = parseConsentFilter(params.consent);
   const page = Math.max(1, parseInt(params.page || '1', 10) || 1);
   const pageSize = 50;
 
-  const [stats, { contacts, totalCount }, segments, existingTags] = await Promise.all([
+  const [stats, { contacts, totalCount }, segmentRead, tagScan] = await Promise.all([
     getCRMStats(),
     getCRMContacts({
       query: currentQuery,
@@ -65,6 +64,12 @@ export default async function AdminCRMPage({
     getCRMSegments(),
     getCRMExistingTags(),
   ]);
+  // The scan behind `existingTags` may have hit its ceiling. On *this* page that
+  // matters more than on the composer: a tag in the filter bar is how an
+  // organiser finds the constituents carrying it, so an absent one reads as "this
+  // chapter has no such tag" — and the free-text search is the only remaining
+  // route to those people.
+  const tagsIncomplete = tagScan.truncated;
 
   return (
     <div className="space-y-8">
@@ -182,8 +187,10 @@ export default async function AdminCRMPage({
         currentConsent={currentConsent}
         currentPage={page}
         pageSize={pageSize}
-        existingTags={existingTags}
-        segments={segments}
+        existingTags={tagScan.tags}
+        segments={segmentRead.segments}
+        segmentsTruncated={segmentRead.truncated}
+        tagsMayBeIncomplete={tagsIncomplete}
       />
     </div>
   );

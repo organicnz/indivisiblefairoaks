@@ -73,6 +73,25 @@ describe('supabase-mock filters', () => {
     expect(rows.map((r) => r.s)).toEqual(['donor']);
   });
 
+  /**
+   * `.not(…, 'is', …)` and `.neq()` disagree on exactly the row that matters.
+   *
+   * `IS DISTINCT FROM false` is true for a NULL; `<> false` is UNKNOWN for a NULL,
+   * and UNKNOWN is not true, so the row is dropped. That single difference is why a
+   * consent query has to say which one it means — a mock that quietly implemented
+   * one as the other would pass whichever the author happened to write, and the
+   * failure would only appear against a real PostgREST.
+   */
+  it('matches .not(…, "is", …) where .neq() would drop the null row', async () => {
+    const rows = [{ s: 'active' }, { s: 'donor' }, { s: null }];
+    const { notIs, neq } = {
+      notIs: await rowsFor({ crm_contacts: { rows } }, (qb) => qb.not('s', 'is', 'donor')),
+      neq: await rowsFor({ crm_contacts: { rows } }, (qb) => qb.neq('s', 'donor')),
+    };
+    expect(notIs.map((r) => r.s)).toEqual(['active', null]);
+    expect(neq.map((r) => r.s)).toEqual(['active']);
+  });
+
   it('orders .lt() comparisons before paging', async () => {
     const rows = await rowsFor(
       { crm_contacts: { rows: [{ d: '2026-03-01' }, { d: '2026-01-01' }, { d: null }] } },

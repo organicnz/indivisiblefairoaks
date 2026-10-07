@@ -18,6 +18,9 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+/** The real tabs. Used to bound what the MFA gate reflects back as `?next=`. */
+const ALLOWED_TABS = new Set(['admin', 'orders', 'settings']);
+
 export default async function AccountPage(props: {
   searchParams: Promise<Record<string, string>>;
 }) {
@@ -27,10 +30,53 @@ export default async function AccountPage(props: {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // MFA gate
+  // Read before the gate: the challenge has to be able to send the user back to
+  // the tab they were on. `?tab=settings` is how someone reaches the 2FA panel
+  // at all, so bouncing to `/account` unqualified drops them on Orders.
+  const sp = await props.searchParams;
+
+  // MFA gate — only send the user to the TOTP challenge when a verified factor
+  // that this site can actually answer for exists.
+  //
+  // Why `listFactors()` and not AAL alone: `getAuthenticatorAssuranceLevel()`
+  // reads `session.user.factors` out of the **cookie snapshot**, and
+  // `listFactors()` reads **live** `/user` factors. When they disagree — 2FA
+  // unenrolled from another browser after this session was issued — the old
+  // AAL-only gate redirected to a challenge the user could not pass, producing
+  // an endless "Invalid TOTP code". (A commit message on this gate claimed AAL
+  // reports `aal2` for an *unfinished* enrollment; that is not reachable on
+  // @supabase/auth-js 2.115, which filters `status === 'verified'` before
+  // returning `aal2`. The snapshot-vs-live divergence is the real cause.)
+  //
+  // Why the TOTP filter: `all` mixes totp, phone and webauthn. A verified phone
+  // factor cannot be answered by a 6-digit code from an authenticator app, so
+  // redirecting there shows a form that can never succeed.
+  //
+  // Why this fails **closed** on an unreadable factor list, unlike the previous
+  // version which ignored the error and let an AAL1 session through: an
+  // unreadable state is a fault, and the fault must not become a bypass. The
+  // cost is that a Supabase blip locks a user out of /account until it clears;
+  // that is the correct trade for a surface that displays other people's data.
   const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aalData?.nextLevel !== aalData?.currentLevel && aalData?.nextLevel === 'aal2') {
-    redirect('/auth/mfa');
+  if (aalData?.nextLevel === 'aal2' && aalData.nextLevel !== aalData.currentLevel) {
+    const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+    if (factorsError) {
+      // Surface it. A silent `/account` render here looked like a working page
+      // while the mutation panels below it refused every write.
+      console.error('[Account] could not read MFA factors:', factorsError);
+      redirect('/auth/mfa');
+    }
+    const answerable = factors?.all?.some(
+      (f) => f.status === 'verified' && f.factor_type === 'totp'
+    );
+    if (answerable) {
+      // An allowlist, not `sp.tab` echoed back: `?next` is read by the challenge
+      // page through `getSafeNextPath`, and the value here originates in the URL
+      // a third party can hand a user. Restricting it to the three real tabs
+      // means a crafted `?tab=…` cannot smuggle anything into the return path.
+      const tab = ALLOWED_TABS.has(sp.tab) ? sp.tab : 'orders';
+      redirect(`/auth/mfa?next=${encodeURIComponent(`/account?tab=${tab}`)}`);
+    }
   }
 
   // Profile via admin client (bypasses RLS)
@@ -52,8 +98,10 @@ export default async function AccountPage(props: {
 
   const isAdmin = profile?.is_admin === true;
 
-  // Active tab from URL
-  const sp = await props.searchParams;
+  // Unchanged semantics — an unknown or absent `?tab` still falls back to the
+  // admin/orders default, and a non-admin asking for `?tab=admin` still renders
+  // the orders panel (the `panel` branch below requires `isAdmin`). The
+  // allowlist exists for the *return path* through /auth/mfa, not for this.
   const activeTab = sp.tab ?? (isAdmin ? 'admin' : 'orders');
 
   // Fetch data

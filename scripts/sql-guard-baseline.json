@@ -1,0 +1,30 @@
+{
+  "$comment": "Accepted SECURITY DEFINER guard findings. Each entry records that a human reviewed it. Regenerate with: bun scripts/hooks/sql-security-definer-guard.mjs --update-baseline",
+  "updated": "2026-10-06",
+  "accepted": {
+    "supabase/migrations/20260922000000_civic_crm.sql:158": {
+      "severity": "critical",
+      "summary": "supabase/migrations/20260922000000_civic_crm.sql:158  (declares = public)"
+    },
+    "supabase/migrations/20260922200000_crm_realtime_triggers.sql:9": {
+      "severity": "critical",
+      "summary": "supabase/migrations/20260922200000_crm_realtime_triggers.sql:9  (declares = public)"
+    },
+    "supabase/migrations/20260922200000_crm_realtime_triggers.sql:88": {
+      "severity": "critical",
+      "summary": "supabase/migrations/20260922200000_crm_realtime_triggers.sql:88  (declares = public)"
+    },
+    "supabase/migrations/20260922200000_crm_realtime_triggers.sql:163": {
+      "severity": "critical",
+      "summary": "supabase/migrations/20260922200000_crm_realtime_triggers.sql:163  (declares = public)"
+    },
+    "supabase/migrations/20260923140000_crm_fixes.sql:19": {
+      "severity": "critical",
+      "summary": "supabase/migrations/20260923140000_crm_fixes.sql:19  (declares = public)"
+    },
+    "supabase/migrations/20260923140000_crm_fixes.sql:121": {
+      "severity": "critical",
+      "summary": "supabase/migrations/20260923140000_crm_fixes.sql:121  (declares = public)"
+    }
+  }
+}

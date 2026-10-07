@@ -37,6 +37,23 @@ state the predicate, so the read degraded to a scan of every row the chapter had
 ever composed. The composer renders them in an "Unsent drafts" panel above the
 history, so excluding them from history does not strand them.
 
+**Sending a draft consumes it.** `handleSend` deletes the draft row *before*
+clearing `draftId` locally. It used to only clear the local id, so the row stayed
+`status = 'draft'` and reappeared under "Unsent drafts" offering **Resume** —
+loading copy that had already gone to the whole list, with the same audience chips,
+into a composer one click from Confirm & Blast again.
+
+The delete is fire-and-forget, and the local clear happens either way: a failure
+leaves a stale draft, which is the pre-existing behaviour and recoverable, whereas
+blocking the UI on it would report a delivered campaign as a failure.
+
+**History and drafts are both bounded at 25 rows and neither had a pager.** A
+chapter past 50 campaigns could not see its fifty-first, and a twenty-first draft
+was unreachable *and* unremovable — the exact failure the paragraph above records
+for a single draft row, at the scale of a whole list. `getCRMBroadcastHistoryPage`
+now returns a page with a count, and `BROADCAST_HISTORY_PAGE_SIZE` is shared so one
+pager serves both reads.
+
 Delivery is off the request path. The Next action writes a `queued` row and hands
 the id to the `crm-broadcast-send` Edge Function, which owns delivery, progress
 and the final status. The claim is the conditional
@@ -78,6 +95,22 @@ different error first. A CHECK that disagrees with the code is not a constraint,
 it is a trap: unit tests mock the client and never see it.
 
 **If you add a status, update the CHECK in a migration in the same change.**
+
+### A saved segment with a search term cannot become an audience
+
+`crm_segments.query` is a free-text filter — "everyone whose notes mention
+X". The broadcast composer's audience is status, district and tag chips; there is
+no text search, because a broadcast audience has to be re-resolvable at send time.
+
+The composer's "Apply Saved Segment" set the chips and **ignored `seg.query`**,
+and then announced success *specifically when a query existed* — so the toast fired
+exactly when the applied audience was wrong. A segment saved from a directory
+search became a whole-segment blast in the composer, reported as applied.
+
+Those segments are now labelled `(search only — not applicable here)` in the
+dropdown, and selecting one says plainly that it has no chips to apply and to check
+the recipient count. The live count beside the chips is the real check: applying a
+query-only segment leaves every chip empty.
 
 ## The self-test send
 
@@ -267,10 +300,11 @@ whole directory reading a 9px badge on each row, or writing SQL against producti
 
 Both are now first-class:
 
-- `getCRMContacts` takes `consent: 'opted_out' | 'opted_in'`, filtered on
+- `getCRMContacts` takes `consent: 'opted_out' | 'opted_in' | 'unasked'`, filtered on
   `do_not_email` in the query rather than in JavaScript. The directory filter bar
   has a **Consent** select for it, and the URL carries `consent=` so a filtered
-  view survives a reload, a shared link, and the pager.
+  view survives a reload, a shared link, and the pager. `unasked` uses `.is(…)`,
+  never `.eq(…, null)` — see the tri-state section below.
 - `getBroadcastRecipientCount` returns `{ count, excludedCount }` instead of a bare
   number. Both numbers come from one target specification — the same statuses,
   districts and tags — so they reconcile: *count + excludedCount* is every contact
@@ -433,6 +467,28 @@ this value the obvious way recreates the public-in-a-secret-store bug that
 
 No test sends through it: the CRM send paths refuse to run in an e2e build.
 
+---
+
+## Browser coverage
+
+`e2e/admin-authenticated.spec.ts` drives the CRM and the content editor through a
+real sign-in, seeded once per run and stored as a Playwright `storageState`. It
+requires `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` for a **non-MFA-enrolled** admin
+on the target Supabase project, and `test.skip`s without them.
+
+That admin must not be MFA-enrolled: an AAL2 requirement would redirect the suite
+away from every admin route it means to drive. The MFA step-up path has its own
+spec and its own seeded admin — see [`mfa.md`](./mfa.md).
+
+**A skipped auth suite is not a passing suite.** Without the seeds, `/admin` and
+`/auth/mfa` have no browser coverage at all, and `sendBlockedInE2E()` is what
+prevents a test run from mailing the real list in the meantime.
+
+`e2e/a11y.spec.ts` still excludes all of `/admin` from its route list, because that
+list is static and cannot be conditional on seeded credentials. The authenticated
+suite carries its own axe scan over `/admin/crm` instead, which is the surface where
+a contrast or label regression would actually land.
+
 ## Recovery
 
 A broadcast stuck in `sending` means the sender died mid-run. `sent_count` and
@@ -441,11 +497,53 @@ clearing `dispatched_at` to re-dispatch will **re-send to everyone already
 delivered to**. To finish a partial send, narrow the audience and send a new
 broadcast instead, then mark the old one failed.
 
+### Marking a stranded campaign failed
+
+That last step used to require editing the database by hand. `markCRMBroadcastFailed`
+now does it, from the expanded history row in the composer.
+
+It is **deliberately one-directional**, because the one irreversible mistake
+available here is restarting a campaign:
+
+- It can only move a row to `failed`, never back to a sendable state.
+- It refuses a row already `sent` or `failed`, and points a `draft` at Discard.
+- It refuses a row dispatched in the last **15 minutes**. 5,000 recipients at ten
+  per provider round-trip is a genuinely long send, so "still sending" is often
+  just "sending", and killing one of those would have the chapter believe the
+  remainder was never contacted.
+- `failed_count` is set to `recipient_count - sent_count`, so the row's two counts
+  still reconcile and the history does not claim a campaign went to everyone.
+- `marked_failed_at` / `marked_failed_by` are written alongside `status`, so a
+  reader six months later can tell a **sender-reported** failure from an
+  **organizer's decision**. A row that says only `failed` cannot.
+
+**It does not re-send anything, and it does not reach the remainder.** A new,
+narrower campaign is still the way to contact people the stranded one missed.
+
 A row sitting at `sending` is narrower than it used to be. Both refusal paths in
 the sender call `finish(..., 'failed', …)` before returning 422, so an
 over-ceiling audience and a self-test with no usable address both **terminate** the
 row rather than stranding it amber. A row that is *still* `sending` means the
 isolate died mid-loop, not that a guard fired.
+
+### Every step of a send is now bounded
+
+Three waits that had no timeout, each of which turned a failure into a silence:
+
+| Wait | Bound | What a hang used to be |
+|---|---|---|
+| `dispatchBroadcastSender` → Edge Function | 15 min | The action hung, the composer button stayed disabled forever, the row stayed `queued`, no failure and no message. |
+| Resend API, per recipient | 20 s | The row stranded at `sending` with `dispatched_at` set — the one state that must never be re-dispatched. |
+| Each progress poll, client-side | 15 s | The poll loop froze with no fallback, because its only exit is a `catch` a hang never reaches. |
+
+The dispatch bound is deliberately long: the function is synchronous by design and
+returns the whole campaign's outcome, so a bound shorter than a legitimate 5,000-recipient
+send would report a healthy campaign as failed. It is a **hang** detector, not a
+performance target.
+
+The poll bound is what makes "still sending" and "we lost the feed" distinguishable
+states. Losing the feed now says so, rather than leaving a frozen "Sending 120 of
+5,000".
 
 **The composer's tab stops watching, and says so.** `followProgress` runs
 `ceil(BROADCAST_RECIPIENT_CEILING / 10) + 30` attempts at 2 s — roughly half an
@@ -457,3 +555,247 @@ ten-at-a-time round-trips to the provider. Refresh the page, or read
 `sent_count` / `failed_count` directly, before concluding anything is stuck. The
 poll used to return silently without refreshing, so a large campaign left the row
 reading `sending` in that tab with no way to tell a slow send from a stuck one.
+
+---
+
+## Consent is enforced, counted, and captured
+
+Three states, not two, and this is the part of the CRM most likely to surprise a
+chapter reading this document for the first time.
+
+| Value    | Means                             | In a broadcast audience? |
+| -------- | --------------------------------- | ------------------------ |
+| `false`  | asked, and agreed                 | **yes**                  |
+| `true`   | asked and declined, or unsubscribed | no                     |
+| `NULL`   | **never asked**                   | no                       |
+
+**Enforced** in four places — the recipient resolver, the Edge Function, direct
+email, and the recipient count — via `.eq('do_not_email', false)`. That predicate was
+already correct for a column that could not then express its own third state: `col =
+false` is `NULL` for a null row, and `NULL` is not true, so never-asked contacts were
+already excluded. The resolver needed no change; it had been written for a stricter
+column than it had.
+
+**Counted** by `getBroadcastRecipientCount`, which returns `{ count, excludedCount }`
+from one target specification so the two numbers reconcile: `count + excludedCount`
+is every contact the audience rules matched. The exclusion half is
+`.not('do_not_email', 'is', false)` — `IS NOT FALSE`, one query covering both `true`
+and `NULL`. It was `.eq('do_not_email', true)` alone, which was exact while the
+column was `NOT NULL` and stopped being exact the moment `NULL` became expressible:
+the bar reported "0 excluded" while never-asked contacts were being dropped, which
+is the one number an organiser would use to decide whether anything was silently
+missing.
+
+Do not "simplify" that to `.neq('do_not_email', false)`. The two are opposites on a
+null row — `IS DISTINCT FROM` includes it, `<>` excludes it as `UNKNOWN` — and
+picking the wrong one turns the audit into a mail run.
+
+**Captured** by the contact form, which now has a second checkbox. `sendCopy` is
+transactional (a reply to this one message); `consentToEmail` is marketing (a
+standing opt-in). They were the same checkbox by omission, which meant the consent
+that reached a broadcast audience had never been separately given — a resident who
+wanted a receipt was on a mailing list.
+
+### What a submitter's answer does and does not change
+
+- A submitter who ticks the box is `false` — agreed.
+- A submitter who leaves it unticked is `true` — declined, **not** unknown. They were
+  shown the box. Recording silence as `NULL` would keep them in the unasked pool for
+  ever, re-asking about a question they had answered.
+- A contact created any other way — profile signup, store order, a CSV import with
+  no consent column — is `NULL`. The column has **no default**, deliberately, so any
+  INSERT that forgets to think about consent records "never asked" rather than
+  "agreed".
+
+The `ON CONFLICT` branch in `fn_sync_contact_submission_to_crm` fills in consent
+**only where the row has no answer yet** (`IS NULL`, not `IS NOT TRUE`). An existing
+decline is an answer, and a repeat form visit is not consent — overwriting it would
+resubscribe people who opted out. Leaving the branch entirely alone was right when
+the column had two states and wrong now, because `NULL` is precisely the state a form
+submission answers.
+
+`submit_contact_submission`'s old four-argument overload is **dropped**, not left
+alongside: `CREATE OR REPLACE` cannot change a function's arity, so a five-argument
+version would have been defined *next to* the original rather than in place of it,
+leaving a `GRANT EXECUTE … TO anon` on a function none of this migration revokes.
+
+### Existing rows keep their current answer
+
+The migration does not backfill. Every existing row holds `false` and keeps it, so
+the audience the day it deploys is exactly the audience the day before — and
+`opted_in` in the directory still means "the column is false" for those rows, **not**
+"this person agreed to be emailed". Nothing in this deployment turns that historical
+`false` into a real agreement; it only stops new unasked contacts from being treated
+as agreements. Converting the existing rows is a chapter decision about what the
+chapter can honestly claim about people who were never asked, not a deploy. Until it
+is made, treat the pre-migration `false` values as unknown-but-reachable and use the
+`unasked` filter to find the genuinely unasked ones.
+
+The visible effect of all this: **the next campaign reaches fewer people than the
+last one.** Every contact created by a path that does not ask is now excluded. That
+is the correct direction, and it is a chapter-visible number, so it is stated here
+rather than discovered mid-campaign.
+
+### A filter can be applied but not saved
+
+`crm_segments` had no `consent` column until migration `20261005000000`, and the
+"Save current filter as segment" button's enablement check did not read the field
+either. So the opt-out audit — the filter a chapter most often needs to repeat —
+could be applied on screen and could not be saved, and the button sat disabled
+beside four engaged controls.
+
+`consent` is now `NULL` or `opted_out` / `opted_in`, where **NULL means "no consent
+filter"**, not "opted in". An existing segment keeps its exact previous meaning,
+which is what a new column on a filter definition has to do: adding an opinion to
+a saved audience must not change that audience.
+
+---
+
+## Every read that caps, says so
+
+Four CRM reads hit a row limit, and each one was silent. A cap is a resource
+decision; the failure is not *having* one, it is a chapter being unable to tell the
+difference between a complete answer and a shortened one.
+
+| Read | Cap | What it returns now |
+|---|---|---|
+| `exportCRMContacts` | `CRM_EXPORT_LIMIT` (10,000) | `{ count, matchedCount, truncated }` — the toast reads "10,000 of 12,341", not "Exported 10,000" |
+| `getCRMExistingTags` | `TAG_SCAN_LIMIT` (20,000) | `{ tags, truncated, scanned }` — both surfaces say the tag list is partial |
+| `getCRMBroadcastHistoryPage` | none (paged) | `{ broadcasts, totalCount, page }` — a pager, and the heading names the total |
+| `getCRMBroadcastDrafts` | `BROADCAST_HISTORY_PAGE_SIZE` (25) | bounded, and drafts are deletable so an unreachable row is recoverable |
+
+**The export is the serious one.** It is the only CRM artefact that leaves the
+building, it re-imports cleanly, and nothing inside a CSV says it is short. A
+silent cap produced a file indistinguishable from a complete backup — the failure
+would surface when somebody tried to restore it, weeks later, with no way to know
+what was missing. `count` is the rows *in the file* and `matchedCount` is what the
+filter matched; reporting the matched total as `count` next to a `truncated` flag
+would leave the two contradicting each other.
+
+**The tag scan is quiet in a worse way.** Postgres cannot return distinct elements
+of an array column, so the chips are built by paging the whole directory on every
+CRM page load. Past the ceiling, a tag held only by unscanned rows has no chip — so
+a chapter cannot target those constituents at all and concludes from an absent chip
+that the tag does not exist. Both call sites render the flag, and the composer words
+it differently from the 40-chip cap on purpose: a capped chip list hides a tag that
+*was* read and is reachable from the directory, while an exhausted scan hides one
+that was never read and is reachable from nowhere.
+
+### The history pager, and a NaN that emptied it
+
+`getCRMBroadcastHistoryPage` existed and nothing called it. The page handed the
+composer `getCRMBroadcasts()` — `.limit(25)`, no offset — so a chapter past
+twenty-five campaigns could see its first twenty-five and no indication the list
+ended. The heading rendered `initialBroadcasts.length`, which reads as "twenty-five
+campaigns exist" rather than "twenty-five are shown". The unpaged read is now gone
+rather than left for a caller to find.
+
+The clamp that replaced it had its own bug worth recording:
+`Math.max(1, Math.trunc(NaN))` is `NaN`, not `1` — both functions propagate it. So
+`?page=abc` produced `range(NaN, NaN)` and a history that rendered **empty**. An
+empty history is the worst thing this page can show: it reads as "you have never
+sent a campaign", and an organizer told their history had vanished would go looking
+for the bug in their own account rather than in a URL. `Number.isFinite` first, then
+clamp — and the page parses the param too, because this is a `'use server' boundary
+callable directly rather than only through the page.
+
+## One filter, one URL
+
+`src/lib/crm-filters.ts` owns the mapping from a filter set to a URL, to an action
+argument, and to a saved segment. Three call sites used to build their own
+`URLSearchParams` and the omissions were different at each one:
+
+| Path | Dropped | Consequence |
+|---|---|---|
+| Form submit | — | — |
+| Quick pills | `consent` | An organiser auditing opt-outs clicks "CA-06 Local" and the whole opted-out population silently reappears. |
+| Apply saved segment | `consent` | Same, from the segment chips. |
+| **CSV export** | `consent` | Exporting from an "Opted Out of Email" view produced a CSV of **every** contact — the one file a chapter takes off-platform, and exactly the file `importCRMContacts` would round-trip. |
+| Save as segment | read `useState`, not the applied filters | You could save a segment that differs from what is on screen. |
+
+All five now go through one helper, and `src/lib/__tests__/crm-filters.test.ts`
+asserts the consent parameter survives each path. The export and the save-segment
+read the **applied** filters rather than the form state, for the same reason the
+pager does: the export must be the set on screen.
+
+A segment is applied as a **replacement**, not a merge. Merging meant applying a
+segment appeared to do nothing whenever the search box happened to hold something,
+and applying a second segment silently intersected with the first.
+
+---
+
+## Concurrent edits are refused, not merged
+
+Two organizers editing one contact used to be last-write-wins with no signal: both
+read, both wrote, and the second silently discarded the first's changes.
+
+`saveCRMContact` now takes an optional `updated_at` — the version the editor was
+opened with — and turns it into a precondition on the same UPDATE. A stale save is
+refused with `reason: 'conflict'` and a sentence that says what to do about it.
+
+Three details are load-bearing, and each fails silently without its own test
+(`src/lib/__tests__/crm-contact-concurrency.test.ts`):
+
+- **The precondition rides on the UPDATE**, not on a SELECT-then-UPDATE, which
+  would leave a window in which a colleague's save still lands between the check
+  and the write.
+- **The returned version is the one the `BEFORE UPDATE` trigger wrote**, not a
+  timestamp computed in JS. A second clock disagrees by milliseconds, and then the
+  editor's *next* save conflicts with itself — a false positive that teaches people
+  to ignore the message.
+- **A null claim uses `.is()`, never `.eq()`.** `.eq('updated_at', null)` is
+  `col=eq.null` in PostgREST and matches nothing, so the guard would fire against
+  every row that had never been edited.
+
+`.maybeSingle()` rather than `.single()` on the write: `.single()` reports "matched
+no row" as a PGRST116 *error*, indistinguishable from a genuine failure, and the
+caller would get PostgREST's "JSON object requested, multiple (or no) rows
+returned" instead of a sentence about the two-organizers case.
+
+---
+
+## Merging is one statement, and it locks
+
+`mergeCRMContacts` was four independent PostgREST statements: move activities, move
+tasks, update the survivor, delete the duplicate. Each is its own transaction, so a
+failure at step three or four left the duplicate alive with its activities *and*
+tasks already re-pointed at the survivor — a double-counted timeline, the same
+follow-up twice on the board, and an error naming only the step that happened to
+fail.
+
+It is now `merge_crm_contacts()` (migration `20261005030000`): one statement,
+`SECURITY DEFINER`, `search_path = ''`, `service_role` only. `requireAdmin()`
+remains the authorization boundary.
+
+A transaction alone does not fix the second failure. Two organizers merging the
+same pair concurrently both read, both wrote, and both added
+`total_donated_cents` to the same pre-merge value — inflating the survivor's
+giving total by one copy. `SELECT … FOR UPDATE` on both rows, **survivor first**,
+serialises them. Both orderings are asserted in the test.
+
+The combination rules, all in the migration next to the code that implements them:
+
+- Activities and tasks move **before** the delete. `crm_activities` and `crm_tasks`
+  both reference `crm_contacts(id)` with `ON DELETE CASCADE`, so a `DELETE` above
+  those two `UPDATE`s destroys the timeline and the follow-ups outright.
+- The audit row is written before the delete too, so a merge is always recorded.
+- `do_not_email` is **OR**ed. Taking the survivor's `false` over a duplicate's
+  `true` would put somebody who unsubscribed back into a broadcast audience.
+- `unsubscribe_token` is **not** copied. One-click URLs are already in inboxes; the
+  survivor keeps its own and the duplicate's stops working rather than silently
+  retargeting.
+- Tags are unioned through `lower(btrim(...))`, so a merge does not add more
+  mixed-case rows for the outstanding backfill to remove.
+
+**A text-asserting test is not a test that runs SQL.** The function is plpgsql
+inside the database and no row-based mock can execute it, so
+`src/lib/__tests__/merge-crm-contacts-migration.test.ts` reads the migration and
+asserts the properties that make it correct — a guard against editing the SQL,
+which is the realistic regression.
+
+Nothing else runs it either. `bun scripts/hooks/migration-dryrun.mjs` is
+`supabase db push --dry-run`, which diffs the migration history against the linked
+project and never applies a statement. So the first execution of
+`merge_crm_contacts` is the push that deploys it, and the plpgsql's arithmetic — the
+lock order, the survivor-first choice, the tri-state tag union — is reviewed rather
+than exercised until then.

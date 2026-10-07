@@ -2,7 +2,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { Hono } from 'jsr:@hono/hono'
 import { HTTPException } from 'jsr:@hono/hono/http-exception'
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import {
   buildBroadcastEmail,
   BROADCAST_RECIPIENT_CEILING,
@@ -54,8 +54,30 @@ const PAGE = 500
 const BATCH = 10
 /** How often the row is updated so the composer's poll shows movement. */
 const PROGRESS_EVERY = 25
+/**
+ * Per-request budget for the Resend API.
+ *
+ * Generous for a single email send, and short relative to the isolate's own
+ * limit: the point is that one slow provider connection fails as *this batch*
+ * rather than stalling the whole campaign. A hang here is unrecoverable in
+ * practice — the row stays `sending` with `dispatched_at` set, which is the
+ * state docs/crm-operations.md says must never be re-dispatched — so the
+ * timeout has to be here rather than left to the platform.
+ */
+const RESEND_TIMEOUT_MS = 20_000
 
 const app = new Hono()
+
+// Health check — no auth required. Returns ready: true only when both
+// required secrets are present. Callers (dispatchBroadcastSender in crm.ts)
+// probe this before dispatching so a missing secret surfaces as a clear
+// configuration error rather than a failed broadcast row.
+app.get('*', (c) => {
+  const missing: string[] = []
+  if (!Deno.env.get('RESEND_API_KEY')) missing.push('RESEND_API_KEY')
+  if (!Deno.env.get('APP_URL')) missing.push('APP_URL')
+  return c.json({ ready: missing.length === 0, missing })
+})
 
 app.use('*', async (c, next) => {
   if (c.req.method === 'OPTIONS') {
@@ -321,14 +343,21 @@ app.post('*', async (c) => {
             headers: isSelfTest
               ? { 'X-CRM-Test': 'true' }
               : {
-                  'List-Unsubscribe': `<${unsubscribe}>, <mailto:${ADMIN_ORDER_EMAIL}?subject=Unsubscribe>`,
-                  'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-                },
+                'List-Unsubscribe': `<${unsubscribe}>, <mailto:${ADMIN_ORDER_EMAIL}?subject=Unsubscribe>`,
+                'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+              },
             tags: [
               { name: 'type', value: isSelfTest ? 'crm-broadcast-test' : 'crm-broadcast' },
               { name: 'broadcast_id', value: broadcastId },
             ],
           }),
+          // Bounded. Without it a hung provider connection strands the row at
+          // `sending` with `dispatched_at` set — the one state
+          // docs/crm-operations.md says must never be touched, because
+          // clearing it re-sends to everyone already delivered to. A timeout
+          // turns that unrecoverable hang into a counted failure this isolate
+          // can finish() and report.
+          signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
         })
         return { recipient, res }
       }),
@@ -366,12 +395,18 @@ app.post('*', async (c) => {
       // recipients had no timeline entry showing they were ever contacted. The
       // count is now tracked, logged, and reported so the discrepancy is
       // visible instead of inferred.
-      const { error: activityError } = await supabase
-        .from('crm_activities')
-        .insert(activityRows.splice(0))
+      //
+      // The rows are spliced *before* the write, so the loss count has to be the
+      // length captured first. It used to add `BATCH` — the batch size, not the
+      // number of rows — so a batch with two provider failures reported ten
+      // activities lost when eight were. Over-reporting here is not harmless: the
+      // number reaches the admin as a warning, and a warning that is wrong is
+      // what gets ignored.
+      const rowsToWrite = activityRows.splice(0)
+      const { error: activityError } = await supabase.from('crm_activities').insert(rowsToWrite)
       if (activityError) {
         activityWriteFailures += 1
-        activityRowsLost += BATCH
+        activityRowsLost += rowsToWrite.length
         console.error(
           `[crm-broadcast-send] activity write failed for broadcast ${broadcastId}:`,
           activityError.message,
@@ -401,17 +436,24 @@ app.post('*', async (c) => {
     // delivery number it always did.
     ...(activityWriteFailures > 0
       ? {
-          activityWriteFailures,
-          activityRowsLost,
-          warning:
-            'delivery completed but some timeline entries could not be written; the guard in 20260929120000 may still be counting broadcast rows',
-        }
+        activityWriteFailures,
+        activityRowsLost,
+        warning:
+          'delivery completed but some timeline entries could not be written; the guard in 20260929120000 may still be counting broadcast rows',
+      }
       : {}),
   })
 })
 
 async function finish(
-  supabase: ReturnType<typeof createClient>,
+  // `SupabaseClient<any>`, NOT `ReturnType<typeof createClient>`: the latter
+  // resolves the *generic* signature's constraints rather than the inferred
+  // client, erasing to `SupabaseClient<unknown, {PostgrestVersion: string},
+  // never, never, …>`, which the concrete `createClient(...)` below is not
+  // assignable to — `Type '"public"' is not assignable to type 'never'`, five
+  // times over, at every call site of this one function.
+  // `wall-e-chat` and `walle-refresh` already type their clients this way.
+  supabase: SupabaseClient<any>,
   broadcastId: string,
   status: 'sent' | 'failed',
   recipientCount: number,

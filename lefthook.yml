@@ -5,7 +5,8 @@
 # Skip one command     : LEFTHOOK_EXCLUDE=<name> git <action>
 #
 # ── Baseline metrics (update when intentionally changed) ─────────────────────
-# suppress-count baseline: 12  (checked in pre-push; +2 contact a11y ignores)
+    # suppress-count baseline: 15  (checked in pre-push; +3 CRM scrollable regions)
+
 # coverage threshold     : 90% (checked in pre-push + vitest.config.ts)
 # env contract           : every code-referenced env var exists in .env.example
 # lockfile contract      : package.json and bun.lock must move together
@@ -270,6 +271,26 @@ pre-commit:
       priority: 27
       run: bun scripts/check-doc-claims.mjs
 
+    # ── 31. Edge Function type-check ─────────────────────────────────────────
+    # The command `supabase.yml` runs as its first deploy step, run locally so a
+    # type error cannot reach `main` on a runner that may be weeks behind. A
+    # `ReturnType<typeof createClient>` annotation in crm-broadcast-send sat on
+    # `main` through four merges for exactly that reason: the only gate was the
+    # deploy job, and the deploy job had not run since 2026-09-24.
+    #
+    # `--no-lock` is the one deliberate difference from CI. This runs mid-commit,
+    # and the committed `deno.lock` is stale enough that the locking form rewrites
+    # it on every edge-function commit, leaving the tree dirty behind a commit the
+    # developer believes is clean. CI keeps the locking form, because a deploy path
+    # should have integrity pinning and a throwaway checkout can absorb the write.
+    # Type resolution is identical either way; only the write differs.
+    #
+    # Sibling of `edge-import-scope` (priority 18), same glob.
+    edge-typecheck:
+      priority: 28
+      glob: "supabase/functions/**/*.ts"
+      run: bun run typecheck:edge
+
 # ─── commit-msg ───────────────────────────────────────────────────────────────
 commit-msg:
   commands:
@@ -321,8 +342,20 @@ pre-push:
     suppress-count:
       priority: 30
       run: |
-        # Baseline 7 → 9 → 10 → 12. None of the additions is a workaround for a
+        # Baseline 7 → 9 → 10 → 12 → 15. None of the additions is a workaround for a
         # real defect; in two cases the rule is wrong rather than the code.
+        #
+        # Baseline 12 → 15, three more `noNoninteractiveTabindex` on the CRM
+        # surfaces in this branch:
+        #
+        #   CRMBroadcastComposer — the campaign history table.
+        #   CRMContactList, CRMDetailClient, CRMSubNav — the constituent
+        #   directory table, the contact profile timeline, and the CRM sub-nav.
+        #
+        # Same WAI-ARIA scrollable-region pattern, same reasoning as the two
+        # already baselined above: a wider-than-viewport region that is not a
+        # tab stop cannot be scrolled by a keyboard user, and the rule flags it
+        # precisely because it does not model the pattern.
         #
         # Baseline 10 → 12, both `noNoninteractiveTabindex`:
         #
@@ -364,7 +397,7 @@ pre-push:
         #   1x noDangerouslySetInnerHtml — ContentPreview renders the sanitized
         #      body through the same sanitizeWPContent boundary as the public
         #      page. The suppression is the security boundary, not a workaround.
-        BASELINE=12
+        BASELINE=15
         COUNT=$(grep -rn "@ts-ignore\|@ts-nocheck\|biome-ignore\|eslint-disable" \
           src --include="*.ts" --include="*.tsx" 2>/dev/null \
           | grep -v "__tests__" | wc -l | tr -d ' ')

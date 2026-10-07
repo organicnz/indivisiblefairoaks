@@ -98,10 +98,24 @@ describe('broadcast history labelling', () => {
     container.remove();
   });
 
-  const render = (broadcasts: CRMBroadcast[]) => {
+  /**
+   * Renders with the history total and page, which the composer now needs for its
+   * heading and pager.
+   *
+   * `total` defaults to the rows given, because most assertions here are about one
+   * campaign's row and a total of 1 keeps the pager out of the way. The paging
+   * assertion passes a larger number explicitly.
+   */
+  const render = (broadcasts: CRMBroadcast[], total = broadcasts.length, page = 1) => {
     act(() => {
       root.render(
-        <CRMBroadcastComposer initialBroadcasts={broadcasts} segments={[]} existingTags={[]} />
+        <CRMBroadcastComposer
+          initialBroadcasts={broadcasts}
+          totalBroadcastCount={total}
+          historyPage={page}
+          segments={[]}
+          existingTags={[]}
+        />
       );
     });
   };
@@ -191,6 +205,8 @@ describe('broadcast composer failure states', () => {
       root.render(
         <CRMBroadcastComposer
           initialBroadcasts={broadcasts}
+          totalBroadcastCount={broadcasts.length}
+          historyPage={1}
           initialDrafts={drafts}
           segments={[]}
           existingTags={[]}
@@ -397,5 +413,93 @@ describe('broadcast composer failure states', () => {
     expect(toast.error).toHaveBeenCalledWith(
       'Lost the progress feed — reload to check the campaign'
     );
+  });
+});
+
+/**
+ * The history table's reachability.
+ *
+ * `getCRMBroadcastHistoryPage` existed and nothing called it — the page handed the
+ * composer `getCRMBroadcasts()`, a `.limit(25)` with no offset and no count. So a
+ * chapter past twenty-five campaigns saw its first twenty-five and no indication
+ * the list ended, and the heading rendered the rows shown, which reads as a
+ * complete history rather than a page of one.
+ *
+ * These assert the two halves of the fix: the count is the chapter's total, and
+ * the pager makes the other pages reachable.
+ */
+describe('campaign history paging', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  const text = () => container.textContent ?? '';
+
+  /** Mirrors the other suites' render, with the total and page the pager needs. */
+  const render = (broadcasts: CRMBroadcast[], total = broadcasts.length, page = 1) => {
+    act(() => {
+      root.render(
+        <CRMBroadcastComposer
+          initialBroadcasts={broadcasts}
+          totalBroadcastCount={total}
+          historyPage={page}
+          segments={[]}
+          existingTags={[]}
+        />
+      );
+    });
+  };
+
+  it('names the total number of campaigns, not the number on screen', () => {
+    // 25 rows shown, 72 in the chapter. The heading must say 72 — "(25)" is what
+    // let a chapter believe its history had been deleted.
+    const page = Array.from({ length: 25 }, () => broadcast());
+    render(page, 72);
+
+    expect(text()).toContain('72');
+    // The parenthetical form only appears when the two agree, so its absence here
+    // is the assertion.
+    expect(text()).not.toContain('(25)');
+  });
+
+  it('offers a pager when campaigns exist beyond this page', () => {
+    render([broadcast()], 72);
+
+    // Numbered links, so page 6 is one click rather than five — the same reasoning
+    // `CRMPager`'s own `WINDOW` comment records for the directory.
+    const pagerLinks = [...container.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+    expect(pagerLinks).toContain('/admin/crm/broadcasts?page=2');
+    expect(pagerLinks).toContain('/admin/crm/broadcasts?page=3');
+  });
+
+  it('renders no pager when every campaign fits on the page', () => {
+    // A pager over a single page is a control that does nothing, and one that
+    // trains an organiser to ignore the paged surface entirely.
+    render([broadcast(), broadcast()], 2);
+
+    const pagerLinks = [...container.querySelectorAll('a')]
+      .map((a) => a.getAttribute('href'))
+      .filter((href) => href?.includes('page='));
+    expect(pagerLinks).toEqual([]);
+  });
+
+  it('reports the visible range for the page it is on', () => {
+    // Page 3 of 72 at 25 per page: rows 51–72ish, with the last row clamped to the
+    // total so the readout never claims more campaigns than exist.
+    const page = Array.from({ length: 25 }, () => broadcast());
+    render(page, 72, 3);
+
+    expect(text()).toContain('51–72');
+    expect(text()).toContain('of');
   });
 });

@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
+}));
 vi.mock('server-only', () => ({}));
 
 const mockAdminClient = { from: vi.fn(), rpc: vi.fn() };
@@ -256,24 +261,37 @@ describe('CRM mutation failure paths', () => {
       const res = await mergeCRMContacts({ keepId: 'c1', removeId: 'c1' });
       expect(res.success).toBe(false);
       expect(mockAdminClient.from).not.toHaveBeenCalled();
+      expect(mockAdminClient.rpc).not.toHaveBeenCalled();
     });
 
-    it('reports a merge whose second step failed', async () => {
-      // The first step has already moved activities by the time a later call
-      // fails, so the operator needs to know the merge is half-applied rather
-      // than being told it worked. The failure is on the activities update, so
-      // `crm_activities` carries the error and the rest behave.
+    /**
+     * The merge is one RPC (migration 20261005030000) rather than four
+     * PostgREST statements, so the failure this suite used to exercise — the
+     * activities update succeeding and the contact update then failing, leaving
+     * a half-applied merge — is no longer reachable from this side. The whole
+     * point of the change is that there is no in-between state: the function is
+     * one statement, so it commits or it does not.
+     *
+     * What *is* still testable here is the action's half: it must report the
+     * RPC's error rather than claiming success, because "Merge failed: …" is the
+     * only thing the operator learns about a rolled-back merge.
+     */
+    it('reports the RPC error rather than claiming a rolled-back merge succeeded', async () => {
       tables.crm_contacts = { rows: [{ id: 'keep-1' }, { id: 'dup-1' }] };
-      tables.crm_activities = {
-        rows: [{ id: 'a1', contact_id: 'dup-1' }],
-        error: { message: 'fk violation' },
-      };
-      tables.crm_tasks = { rows: [] };
+      mockAdminClient.rpc.mockResolvedValue({
+        error: { message: 'the duplicate contact no longer exists' },
+      });
 
       const res = await mergeCRMContacts({ keepId: 'keep-1', removeId: 'dup-1' });
 
       expect(res.success).toBe(false);
-      expect(res.error).toBeTruthy();
+      expect(res.error).toMatch(/no longer exists/);
+      // Only the two existence reads reached the client. No write statement is
+      // issued from the app at all, which is the property the RPC bought: there
+      // is no window in which the duplicate's timeline has moved and the survivor
+      // has not been updated.
+      expect(mockAdminClient.from).toHaveBeenCalledTimes(2);
+      expect(mockAdminClient.from).toHaveBeenCalledWith('crm_contacts');
     });
   });
 
@@ -300,6 +318,24 @@ describe('CRM mutation failure paths', () => {
 
       expect(res.success).toBe(false);
       expect(res.error).toMatch(/do.not.email|unsubscribed|opted out/i);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The `NULL` case — and the one that actually mails people. `do_not_email`
+     * is tri-state since the consent migration, and `NULL` ("never asked") is
+     * what profile signups and store orders produce. `NULL` is falsy in JS, so
+     * the old truthiness guard mailed every one of them. This seeded only
+     * `true` until the fix, which is why the hole passed.
+     */
+    it('refuses to send to a contact who was never asked', async () => {
+      freshAdmin();
+      tables.crm_contacts = { rows: [{ id: 'c1', email: 'a@b.co', do_not_email: null }] };
+
+      const res = await sendCRMDirectEmail({ contactId: 'c1', subject: 'Hi', message: 'There' });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/no consent|never asked|opt in/i);
       expect(global.fetch).not.toHaveBeenCalled();
     });
 

@@ -2,13 +2,27 @@ name: CI
 
 on:
   push:
-    branches: [main, mainDeploy]
+    # `mainDeploy` was here for years and has no remote ref — a branch that
+    # cannot exist can never match, so the trigger silently did nothing. Removed
+    # 2026-10-06 rather than left to imply a second delivery path.
+    branches: [main]
   pull_request:
-    branches: [main, mainDeploy]
+    branches: [main]
 
 # ── Why every job here waited forever, and what actually fixed it ───────────
-# `runs-on: [self-hosted, linux, X64, …]` is correct and should stay. It is not
-# the problem, so read this before touching it.
+# `runs-on: [self-hosted, linux, <role>, …]` serves BOTH registered runners.
+# The `X64` token used to be in that list; it was dropped 2026-10-05 so that
+# `personal-organicnz` (ARM64 Mac, idle) can take jobs while
+# `indivisiblefairoaks-runner-1` (X64 labels on ARM64 hardware, offline since
+# ~03:40Z) is down, and so the two share load when both are up. Both runners
+# carry `self-hosted, linux, frontend-runner, backend-runner, personal,
+# personal-organicnz`; they differ only on `X64`+`ghrunner` vs `ARM64`. Do not
+# re-add an arch token to "pin" jobs to one runner — that reintroduces a
+# single point of failure, which is what took the whole pipeline down.
+#
+# What follows is the history of why `X64` was there, kept because the
+# misdiagnosis it warns against is still tempting. Read this before touching
+# `runs-on`.
 #
 # The real runner is `indivisiblefairoaks-runner-1`, a Quadlet container
 # (`ghrunner-personal-indivisiblefairoaks.service`) on the **ghrunner** host, an
@@ -82,20 +96,21 @@ jobs:
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
-    runs-on: [self-hosted, linux, X64, frontend-runner]
-    # 25, not 15. Setup (checkout + bun + cache hit + install) costs ~2 min, so a
+    runs-on: [self-hosted, linux, frontend-runner]
+    # 120, not 15. Setup (checkout + bun + cache hit + install) costs ~2 min, so a
     # 15-minute ceiling left `tsc` about 13 — and tsc was measured at 8m28s on a
     # quiet host and still running at 13m25s on a loaded one. That is a wall clock
     # killing a job whose code is correct: biome and oxlint finish in seconds and
     # fail first, so a real lint error still surfaces immediately. Measured on the
     # runs of 2026-10-04T20:48 and T22:36, both killed by this ceiling, both with
     # oxlint reporting 0 warnings and 0 errors. See docs/ci-runners.md.
-    timeout-minutes: 25
+    timeout-minutes: 120
     env:
       # tsc's program (~295 files) exceeds Node's default heap cap under this
-      # container's MEMORY=1024M and aborts. Scoped to this job only — a
-      # workflow-level value would also raise `vitest`'s and the build's.
-      NODE_OPTIONS: --max-old-space-size=768
+      # container's MEMORY=1024M and aborts. With zswap (Phase 1) providing 3:1 RAM
+      # compression and 2047M MemorySwap, 1280M gives V8 the headroom it needs
+      # without hitting the ineffective mark-compacts allocation failure at 768M.
+      NODE_OPTIONS: --max-old-space-size=1280
     steps:
       - uses: actions/checkout@v4
         with:
@@ -134,8 +149,8 @@ jobs:
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
     name: Tests & Coverage
-    runs-on: [self-hosted, linux, X64, frontend-runner]
-    timeout-minutes: 15
+    runs-on: [self-hosted, linux, frontend-runner]
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -165,12 +180,69 @@ jobs:
       - name: Run tests with coverage
         run: bun vitest run --coverage
 
-  # ── 3. Build ─────────────────────────────────────────────────────────────────
+  # ── 3. Migration history (pre-merge gate) ──────────────────────────────────
+  # Runs on EVERY pull request with no path filter. That is the whole point: a
+  # required status check has to report on every PR, and `supabase.yml`'s
+  # `migrate` cannot be that check because it only triggers on `supabase/**`
+  # pushes. Requiring a check that skips would block every PR that does not
+  # touch that path.
+  #
+  # Read-only. It writes nothing to any database — it compares the repository's
+  # migration filenames against the versions recorded in the hosted project's
+  # `supabase_migrations.schema_migrations`, over the Management API that
+  # `scripts/apply-migrations.mjs` already proves works on this fleet. No CLI,
+  # no database connection.
+  #
+  # It does NOT verify that the SQL is correct, and it does NOT order the app
+  # against its schema — the application and its migrations ship in one commit,
+  # so no check in CI can separate them. `scripts/check-migrations.mjs` states
+  # both limits in its header; read them before trusting a green.
+  schema-check:
+    name: Migration History
+    runs-on: [self-hosted, linux, backend-runner]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      # Deliberately no `bun install`: the script is two stdlib imports and the
+      # Management API. Installing the full tree to run it would make this the
+      # slowest gate on the fleet, which is the opposite of what a pre-merge
+      # check should cost.
+      - name: Check migration history consistency
+        env:
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: bun scripts/check-migrations.mjs
+
+  # ── 4. Build — E2E's fixture, NOT a merge gate ────────────────────────────
+  # DO NOT add this to branch protection's required checks.
+  #
+  # Vercel builds the Next.js app, on far more compute, and a compile failure
+  # there already blocks the deploy. This job exists for one reason: `e2e`
+  # downloads its output as the `next-build` artifact and runs a browser suite
+  # against it, which is a different purpose than shipping.
+  #
+  # It must NOT become a required check, because it is the most memory-hungry
+  # job in the pipeline — it is the one the container's 1024 MiB ceiling kills
+  # first. Making it gate merges would put the least reliable job on the critical
+  # path of every PR.
+  #
+  # The E2E build is also NOT redundant with Vercel's: it is compiled with the
+  # e2e flags that make sending impossible (`isE2EMode()` requires
+  # NEXT_E2E_BUILD **and** CONTACT_SUBMISSION_TEST_MODE). A Vercel preview is
+  # production-mode, so pointing E2E at one would send real broadcasts and real
+  # email to real constituents. See docs/ci-separation-plan.md.
   build:
     name: Next.js Build
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, frontend-runner]
     needs: [lint, test]
-    timeout-minutes: 20
+    timeout-minutes: 120
     env:
       # The build is killed by the cgroup, not by V8: exit 137 / SIGKILL once RSS
       # passes the container's memory limit. Verified on the runner host —
@@ -231,9 +303,9 @@ jobs:
   # ── 4. E2E Tests ─────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
-    runs-on: [self-hosted, linux, X64, frontend-runner]
+    runs-on: [self-hosted, linux, frontend-runner]
     needs: [build]
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -278,6 +350,15 @@ jobs:
         run: ./node_modules/.bin/playwright test
         env:
           CI: "true"
+          # Seeded admin sessions, so /admin and /auth/mfa stop being the two
+          # surfaces with no browser coverage. Both specs test.skip when these
+          # are absent rather than weakening an assertion, so an unseeded project
+          # runs the rest of the suite unchanged. Declared in scripts/ci-env.mjs.
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MFA_ADMIN_EMAIL: ${{ secrets.E2E_MFA_ADMIN_EMAIL }}
+          E2E_MFA_ADMIN_PASSWORD: ${{ secrets.E2E_MFA_ADMIN_PASSWORD }}
+          E2E_MFA_TOTP_SECRET: ${{ secrets.E2E_MFA_TOTP_SECRET }}
 
       - name: Upload Playwright report
         if: always()
@@ -287,53 +368,78 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-  # ── 5. Live Health Probe (Next.js app) ──────────────────────────────────────
-  # The Next.js app lives on test.indivisiblefairoaks.org (see
-  # docs/infrastructure-and-email-recovery-log.md). The apex + www deliberately
-  # 302 to a Google Site — probing them would always fail. Verify the host
-  # that actually serves this codebase.
+  # ── 5. Vercel deployment confirmation ─────────────────────────────────────
+  # Ownership: Vercel builds and deploys the Next.js app. This job builds
+  # nothing, deploys nothing, and triggers nothing — it asks Vercel what
+  # happened, then checks the one thing a build log cannot: whether the
+  # deployed app reaches the database.
   #
-  # NOTE: a CLI deploy-vercel job used to live here. Removed: it only
-  # produced spare preview duplicates while production shipped via git, it
-  # doubled upload consumption, and the free-tier upload API rate-limited
-  # it (api-upload-free) into permanent red. Don't re-add it.
-  health-probe:
-    name: Live Health Probe
-    runs-on: [self-hosted, linux, X64, frontend-runner]
-    # CI build completion is the sync point: by then the Git-driven
-    # Vercel deploy (~3-4 min) is settled or nearly so; the 90 s
-    # retry loop below absorbs the remainder.
-    needs: [build]
+  # It replaces a job that slept a fixed 90 s and curled a *guessed* host
+  # (vars.NEXT_PUBLIC_SITE_URL, with a hardcoded staging fallback and an entire
+  # branch detecting that the apex 302s to Google Sites). Four defects came from
+  # guessing: the 90 s was a guess at build duration, the host was a guess, a
+  # failure carried no attribution, and it could not say which build it probed.
+  # Asking Vercel removes all four.
+  #
+  # Stage 2 (/api/health) is retained deliberately. It fetches
+  # products?select=id&limit=1 from Supabase, so it proves the deployed app can
+  # reach the database with production env values. "READY" means the code
+  # compiled — it does not mean the site works.
+  #
+  # Full boundary and rationale: docs/ci-separation-plan.md
+  #
+  # NOTE: a CLI deploy-vercel job used to live here. Removed: it only produced
+  # spare preview duplicates while production shipped via git, doubled upload
+  # consumption, and the free-tier upload API rate-limited it into permanent
+  # red. Do not re-add it. This job reads the REST API instead, which is the
+  # only shape that works without `vercel link` state (the CLI aborts on CI).
+  #
+  # Runs on `ubuntu-latest`, not the fleet: this job is a sleep-poll over
+  # HTTPS plus two file writes. Nothing in it needs the tailnet, a warm bun
+  # cache, or any private network, and holding a self-hosted slot for a ~10
+  # minute poll blocks real jobs behind it. GitHub-hosted minutes for a
+  # push-to-main-only job are noise next to that.
+  vercel-deploy:
+    name: Vercel Deployment
+    runs-on: ubuntu-latest
+    # Deliberately NOT `needs: [build]`. This observes Vercel's deploy, which
+    # has its own lifecycle; waiting on our build only gave it a reason to be
+    # stale. Push-only, because a pull request has not shipped anything.
     if: github.event_name == 'push'
-    timeout-minutes: 5
+    # A build we do not control, so the ceiling must exceed a slow one. The old
+    # 5-minute cap was the wrong shape for a ~3-4 minute deploy that runs longer
+    # under load: it killed the job instead of reporting a state.
+    timeout-minutes: 15
     steps:
-      - name: Probe app deployment
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      # No dependency install: small scripts on the built-in fetch. That is
+      # what makes the job cheap enough to keep — the old one needed nothing
+      # either, but occupied a runner for a fixed sleep.
+      - name: Confirm the deployment
         env:
-          SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
-        run: |
-          # Fallback is the staging host that serves this app — NOT the apex
-          # (apex intentionally redirects to Google Sites).
-          URL="${SITE_URL:-https://test.indivisiblefairoaks.org}"
-          URL="${URL%/}"
-          # Allow up to 90 s for the Git-driven Vercel deploy to settle
-          for i in $(seq 1 9); do
-            STATUS=$(curl -o /dev/null -sw '%{http_code}' "${URL}/api/health" || echo 000)
-            echo "Attempt $i: HTTP $STATUS ($URL)"
-            # 200 = healthy. 503 = serving but degraded (DB blip) — the
-            # deploy is up, so that passes; the warning flags the DB side.
-            # 302 = hit the apex Google-Sites redirect (wrong host).
-            if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
-              echo "✅ App is serving (HTTP $STATUS)"
-              if [ "$STATUS" = "503" ]; then
-                echo "::warning::/api/health reports degraded — check Supabase, not the deploy"
-              fi
-              exit 0
-            fi
-            if [ "$STATUS" = "302" ] || [ "$STATUS" = "301" ]; then
-              echo "::error::Redirect (HTTP $STATUS) — probe host is not the Next.js app (apex points at Google Sites). Check NEXT_PUBLIC_SITE_URL."
-              exit 1
-            fi
-            sleep 10
-          done
-          echo "❌ App health check failed after 90 s (last HTTP $STATUS from $URL)"
-          exit 1
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+        run: bun scripts/check-vercel-deploy.mjs --sha=${{ github.sha }} --out=vercel-logs
+
+      # Every production deploy leaves its evidence: the scrubbed full build
+      # log plus a summary (state, verdict, tail). `always()` because an ERROR
+      # deploy is when the log matters most; `continue-on-error` because a
+      # flaky upload must never flip a READY verdict red or hide an ERROR.
+      # The verdict lives in the step above — this step only publishes.
+      - name: Upload Vercel build log
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: vercel-build-${{ github.sha }}
+          path: vercel-logs/
+          if-no-files-found: warn
+          retention-days: 7
