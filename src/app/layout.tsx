@@ -20,6 +20,7 @@ import {
   SITE_URL,
   webSiteJsonLd,
 } from '@/config/site';
+import { env } from '@/lib/env';
 import type { UserSettings } from '@/lib/store/settings';
 import { getSettings } from '@/lib/supabase-server';
 import { serializeJsonLd } from '@/lib/utils';
@@ -147,8 +148,12 @@ export default function RootLayout({
           <WallEChatWidget />
         </Providers>
         <Toaster position="bottom-right" richColors theme="light" />
-        <Analytics />
-        <SpeedInsights />
+        {env.NEXT_E2E_BUILD !== 'true' && (
+          <>
+            <Analytics />
+            <SpeedInsights />
+          </>
+        )}
       </body>
     </html>
   );
