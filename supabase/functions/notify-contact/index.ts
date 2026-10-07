@@ -37,6 +37,10 @@ const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'contact@indivisiblefair
 const TO_EMAIL = Deno.env.get('ADMIN_ORDER_EMAIL') ?? 'contact@indivisiblefairoaks.org'
 
 // Max notifications per rolling 10 minutes, globally.
+// Same per-call bound as crm-broadcast-send. Every other outbound call in the
+// repo carries one; these two were the exception.
+const RESEND_TIMEOUT_MS = 20_000
+
 const NOTIFY_VOLUME_CAP = 5
 
 // Max notifications per UTC day, globally. The Resend free tier allows
@@ -214,20 +218,34 @@ app.post('*', async (c) => {
     hour12: true,
   })
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: [TO_EMAIL],
-      reply_to: contactEmail,
-      subject: `New message from ${contactName} — indivisiblefairoaks.org`,
-      html: buildEmail(contactName, contactEmail, claimed.message, receivedPt),
-    }),
-  })
+  // Bounded, and a thrown fetch releases the claim. Before this, a hung or
+  // reset connection threw past `releaseClaim`, so the row stayed claimed with
+  // `email_sent_at` set and the notification was never retried: the chapter
+  // silently never heard about the message. The idempotency key makes that
+  // retry safe if the timeout fired after Resend had in fact accepted the send.
+  let res: Response
+  try {
+    res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `contact-notify/${id}`,
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: [TO_EMAIL],
+        reply_to: contactEmail,
+        subject: `New message from ${contactName} — indivisiblefairoaks.org`,
+        html: buildEmail(contactName, contactEmail, claimed.message, receivedPt),
+      }),
+      signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
+    })
+  } catch (err) {
+    console.error(`[contact:${id}] Resend request failed:`, err)
+    await releaseClaim(id)
+    return c.json({ ok: false, error: 'send-failed' }, 502)
+  }
 
   if (!res.ok) {
     const err = await res.text()
@@ -243,11 +261,14 @@ app.post('*', async (c) => {
   // — a failed copy never un-delivers the admin notification.
   let copied = false
   if (claimed.wants_copy) {
+    // Best-effort, so a thrown or timed-out copy is reported as `copied:
+    // false` rather than turning a delivered notification into a 500.
     const copyRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
+        'Idempotency-Key': `contact-copy/${id}`,
       },
       body: JSON.stringify({
         from: FROM_EMAIL,
@@ -261,9 +282,13 @@ app.post('*', async (c) => {
           receivedPt
         ),
       }),
+      signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
+    }).catch((err: unknown) => {
+      console.error(`[contact:${id}] sender copy request failed:`, err)
+      return null
     })
-    copied = copyRes.ok
-    if (!copied) {
+    copied = copyRes?.ok ?? false
+    if (copyRes && !copied) {
       console.error(`[contact:${id}] sender copy failed:`, await copyRes.text())
     }
   }
