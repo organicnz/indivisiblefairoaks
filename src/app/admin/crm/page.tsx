@@ -11,6 +11,7 @@ import { CRMContactList } from '@/components/admin/crm/CRMContactList';
 import { getCRMContacts, getCRMExistingTags, getCRMSegments, getCRMStats } from '@/lib/actions/crm';
 import { requireAdmin } from '@/lib/admin-auth';
 import { parseConsentFilter } from '@/lib/crm-filters';
+import { CRM_DIRECTORY_PAGE_SIZE } from '@/lib/crm-limits';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -48,7 +49,7 @@ export default async function AdminCRMPage({
   // parser quietly discarded the newest one and showed the whole directory.
   const currentConsent = parseConsentFilter(params.consent);
   const page = Math.max(1, parseInt(params.page || '1', 10) || 1);
-  const pageSize = 50;
+  const pageSize = CRM_DIRECTORY_PAGE_SIZE;
 
   const [stats, { contacts, totalCount }, segmentRead, tagScan] = await Promise.all([
     getCRMStats(),

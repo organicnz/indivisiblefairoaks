@@ -15,6 +15,19 @@ const session = vi.hoisted(() => ({
 
 const mockAdminClient = { from: vi.fn(), rpc: vi.fn() };
 
+// The cached wrapper builds its own service-role client, which a unit test
+// cannot. Route it through the real, uncached scan over the shared mock instead,
+// so the paging and ceiling logic is still exercised end to end.
+vi.mock('@/lib/crm-tag-scan', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/crm-tag-scan')>();
+  return {
+    ...actual,
+    getCachedCRMTags: vi.fn(async () =>
+      actual.scanCRMTags(mockAdminClient as unknown as Parameters<typeof actual.scanCRMTags>[0])
+    ),
+  };
+});
+
 vi.mock('@/lib/admin-auth', () => ({
   requireAdmin: vi.fn(async () => ({
     adminClient: mockAdminClient,
@@ -1163,6 +1176,33 @@ describe('CRM reads and bookkeeping', () => {
       await expect(getCRMExistingTags()).rejects.toThrow(
         'Failed to load tags: db connection failed'
       );
+    });
+
+    it('authorizes on every call, before the cached read', async () => {
+      // The regression: `'use cache'` sat on this exported server action with
+      // `requireAdmin()` inside the cached body, so a cache hit returned the tags
+      // without checking the caller. The check has to run on every call.
+      const { requireAdmin } = await import('@/lib/admin-auth');
+      const { getCachedCRMTags } = await import('@/lib/crm-tag-scan');
+      tables.crm_contacts = { rows: [] };
+      vi.mocked(requireAdmin).mockClear();
+      vi.mocked(getCachedCRMTags).mockClear();
+
+      await getCRMExistingTags();
+      await getCRMExistingTags();
+
+      expect(requireAdmin).toHaveBeenCalledTimes(2);
+      expect(getCachedCRMTags).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not read tags when the caller is not an admin', async () => {
+      const { requireAdmin } = await import('@/lib/admin-auth');
+      const { getCachedCRMTags } = await import('@/lib/crm-tag-scan');
+      vi.mocked(getCachedCRMTags).mockClear();
+      vi.mocked(requireAdmin).mockRejectedValueOnce(new Error('NEXT_REDIRECT'));
+
+      await expect(getCRMExistingTags()).rejects.toThrow('NEXT_REDIRECT');
+      expect(getCachedCRMTags).not.toHaveBeenCalled();
     });
 
     it('handles an empty table without error', async () => {

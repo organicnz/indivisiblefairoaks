@@ -16,6 +16,18 @@ import { expect, test } from '@playwright/test';
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL;
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD;
 const STORAGE_STATE = path.join(__dirname, '.auth', 'admin.json');
+/**
+ * Opt-in for the one test that writes data.
+ *
+ * Staging and production share one Supabase project, so a test that creates and
+ * deletes a `crm_contacts` row is writing to the real constituent directory. A
+ * failure between create and delete leaves an `e2e-directory-*@example.com` row
+ * behind. `isE2EMode()` stops sends, but nothing stops writes — so the write
+ * test needs its own explicit switch, separate from the credentials that let the
+ * read-only tests run. Set `E2E_ALLOW_DB_WRITES=1` only against a project where
+ * that row is acceptable.
+ */
+const ALLOW_DB_WRITES = process.env.E2E_ALLOW_DB_WRITES === '1';
 
 test.describe('admin surfaces with a seeded session', () => {
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run');
@@ -64,6 +76,10 @@ test.describe('admin surfaces with a seeded session', () => {
    * same way a person would.
    */
   test('a constituent can be created, edited and reloaded', async ({ page }) => {
+    test.skip(
+      !ALLOW_DB_WRITES,
+      'writes a real crm_contacts row — set E2E_ALLOW_DB_WRITES=1 to run (see the note above)'
+    );
     const stamp = `${Date.now()}`;
     const email = `e2e-directory-${stamp}@example.com`;
 

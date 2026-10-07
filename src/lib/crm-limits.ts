@@ -81,6 +81,16 @@ export const BROADCAST_DISPATCH_TIMEOUT_MS = 15 * 60_000;
 export const BROADCAST_HISTORY_PAGE_SIZE = 25;
 
 /**
+ * Rows per page in the constituent directory, and the most a caller may ask for.
+ *
+ * The page and `getCRMContacts` each carried their own literal `50`, and the
+ * clamp its own `100`, while every broadcast size already lived here. Two
+ * literals for one number is how a pager and the read behind it drift apart.
+ */
+export const CRM_DIRECTORY_PAGE_SIZE = 50;
+export const CRM_DIRECTORY_MAX_PAGE_SIZE = 100;
+
+/**
  * Clamp for `pageSize` on the paged history read.
  *
  * `BROADCAST_HISTORY_PAGE_SIZE` is the default, not the maximum: a pager asks

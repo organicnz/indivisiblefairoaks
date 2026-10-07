@@ -98,6 +98,7 @@ export type Database = {
       }
       contact_submissions: {
         Row: {
+          consent_to_email: boolean
           created_at: string | null
           email: string
           email_sent_at: string | null
@@ -107,6 +108,7 @@ export type Database = {
           wants_copy: boolean | null
         }
         Insert: {
+          consent_to_email?: boolean
           created_at?: string | null
           email: string
           email_sent_at?: string | null
@@ -116,6 +118,7 @@ export type Database = {
           wants_copy?: boolean | null
         }
         Update: {
+          consent_to_email?: boolean
           created_at?: string | null
           email?: string
           email_sent_at?: string | null
@@ -387,7 +390,7 @@ export type Database = {
           city: string | null
           created_at: string
           district: string | null
-          do_not_email: boolean
+          do_not_email: boolean | null
           email: string
           first_name: string | null
           id: string
@@ -410,7 +413,7 @@ export type Database = {
           city?: string | null
           created_at?: string
           district?: string | null
-          do_not_email?: boolean
+          do_not_email?: boolean | null
           email: string
           first_name?: string | null
           id?: string
@@ -433,7 +436,7 @@ export type Database = {
           city?: string | null
           created_at?: string
           district?: string | null
-          do_not_email?: boolean
+          do_not_email?: boolean | null
           email?: string
           first_name?: string | null
           id?: string
@@ -452,6 +455,57 @@ export type Database = {
           zip_code?: string | null
         }
         Relationships: []
+      }
+      crm_email_events: {
+        Row: {
+          id: string
+          contact_id: string
+          broadcast_id: string | null
+          event_type: string
+          provider_id: string | null
+          svix_id: string | null
+          metadata: Json
+          occurred_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          contact_id: string
+          broadcast_id?: string | null
+          event_type: string
+          provider_id?: string | null
+          svix_id?: string | null
+          metadata?: Json
+          occurred_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          contact_id?: string
+          broadcast_id?: string | null
+          event_type?: string
+          provider_id?: string | null
+          svix_id?: string | null
+          metadata?: Json
+          occurred_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_email_events_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "crm_broadcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_email_events_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "crm_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crm_segments: {
         Row: {
@@ -1150,6 +1204,10 @@ export type Database = {
         }
         Returns: string
       }
+      merge_crm_contacts: {
+        Args: { p_actor_id?: string; p_keep_id: string; p_remove_id: string }
+        Returns: string
+      }
       move_to_dlq: { Args: never; Returns: undefined }
       search_content: {
         Args: { max_rows?: number; search_query: string }
@@ -1178,6 +1236,7 @@ export type Database = {
       }
       submit_contact_submission: {
         Args: {
+          p_consent_to_email?: boolean
           p_email: string
           p_message: string
           p_name: string

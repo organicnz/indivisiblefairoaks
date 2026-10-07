@@ -34,11 +34,20 @@
  * the server-only key is absent. The same `__tests__` exclusion is
  * already used by `suppress-count` below, so this follows an existing
  * precedent rather than inventing one.
+ *
+ * `src/lib/crm-tag-scan.ts` is on the allowlist because it is the cached
+ * half of `getCRMExistingTags`. The exported `getCachedCRMTags()` takes no
+ * arguments and builds its own service-role client; it is reachable only
+ * from `getCRMExistingTags` in `actions/crm.ts`, which calls
+ * `requireAdmin()` first. The cache key is the arguments (none), so the
+ * entry is the same for every admin and the tags are the same for every
+ * admin. The scan reads `crm_contacts.tags` only — no writes, no
+ * user-scoped data.
  */
 import { readFileSync } from 'node:fs';
 
 const ALLOWLIST =
-  'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/products/page.tsx|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts';
+  'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/products/page.tsx|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts|src/lib/crm-tag-scan.ts';
 
 const files = process.argv.slice(2);
 const violations = [];

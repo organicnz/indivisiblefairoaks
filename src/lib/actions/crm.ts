@@ -1,6 +1,6 @@
 'use server';
 
-import { cacheLife, cacheTag, revalidatePath, revalidateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { requireAdmin } from '@/lib/admin-auth';
 import {
@@ -24,9 +24,11 @@ import {
   BROADCAST_DISPATCH_TIMEOUT_MS,
   BROADCAST_HISTORY_MAX_PAGE_SIZE,
   BROADCAST_HISTORY_PAGE_SIZE,
+  CRM_DIRECTORY_MAX_PAGE_SIZE,
+  CRM_DIRECTORY_PAGE_SIZE,
   CRM_EXPORT_LIMIT,
-  TAG_SCAN_LIMIT,
 } from '@/lib/crm-limits';
+import { type CRMTagScan, getCachedCRMTags } from '@/lib/crm-tag-scan';
 import { isE2EMode } from '@/lib/e2e-mode';
 import { brandShell, escapeHtml, LOGO_URL, safeSubject, sendEmail } from '@/lib/email';
 import { env } from '@/lib/env';
@@ -537,7 +539,10 @@ export async function getCRMContacts(params: GetCRMContactsParams = {}): Promise
   // directory. `getContentList` has clamped its pair since it was written; this
   // one had not, so the same request was safe on the content side and not here.
   const page = Math.max(1, Math.floor(Number(params.page) || 1));
-  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(params.pageSize) || 50)));
+  const pageSize = Math.min(
+    CRM_DIRECTORY_MAX_PAGE_SIZE,
+    Math.max(1, Math.floor(Number(params.pageSize) || CRM_DIRECTORY_PAGE_SIZE))
+  );
   const filters = resolveFilters(params);
   const result = await fetchContactPage(adminClient, filters, page, pageSize);
   if (result.error) {
@@ -2405,72 +2410,12 @@ export async function getCRMBroadcastDrafts(): Promise<CRMBroadcast[]> {
  * saying so. Making the return type carry the flag means neither call site can
  * forget to check.
  */
-export async function getCRMExistingTags(): Promise<{
-  tags: string[];
-  /**
-   * True when the ceiling stopped the scan, so `tags` may be incomplete.
-   *
-   * Distinct in meaning from a hidden tag in the composer: the 40-chip cap hides
-   * a tag that *was* read and is selectable by typing, whereas this hides a tag
-   * that was never read at all and cannot be found by any means.
-   */
-  truncated: boolean;
-  /** Rows actually read. Compare against the ceiling to tell. */
-  scanned: number;
-}> {
-  'use cache';
-  cacheLife('hours');
-  cacheTag('crm-tags');
-  const { adminClient } = await requireAdmin();
-  const tags = new Set<string>();
-  const PAGE = 1000;
-  let scanned = 0;
-  let exhausted = false;
-
-  for (let offset = 0; offset < TAG_SCAN_LIMIT; offset += PAGE) {
-    const { data, error } = await adminClient
-      .from('crm_contacts')
-      .select('tags')
-      .order('id', { ascending: true })
-      .range(offset, offset + PAGE - 1);
-
-    if (error) {
-      throw new Error(`Failed to load tags: ${error.message}`);
-    }
-    // A short page is the only reliable "that was the last one" signal, and the
-    // only thing that distinguishes "hit the ceiling" from "read everything".
-    if (!data || data.length === 0) {
-      exhausted = true;
-      break;
-    }
-    for (const row of data) {
-      for (const t of row.tags || []) {
-        if (t) tags.add(t);
-      }
-    }
-    scanned += data.length;
-    // A short page means the table ended, which is what separates "hit the
-    // ceiling" from "read everything". Without it the two are indistinguishable
-    // and the flag below is always false — a warning that can never fire reads as
-    // safety.
-    if (data.length < PAGE) {
-      exhausted = true;
-      break;
-    }
-  }
-
-  /*
-   * If the scan stopped at the ceiling, some constituent's tags were never read,
-   * and a tag that appears only there cannot be selected in the composer's chips.
-   * The consequence is quiet and bad: a chapter sees no "canvasser" tag, concludes
-   * nobody has it, and either campaigns to nobody or assumes the data is gone.
-   *
-   * Returning a sentinel rather than a bare `string[]` is what makes that visible
-   * — the type changes from "the tags" to "the tags, possibly not all of them",
-   * so the two call sites have to decide what to render.
-   */
-  const truncated = scanned >= TAG_SCAN_LIMIT && !exhausted;
-  return { tags: [...tags].sort((a, b) => a.localeCompare(b)), truncated, scanned };
+export async function getCRMExistingTags(): Promise<CRMTagScan> {
+  // Authorize first, outside any cache. A server action is callable by anyone
+  // who can POST to it, so the check has to run on every call; only the data
+  // behind it is cached. See `getCachedCRMTags` for why the two are separate.
+  await requireAdmin();
+  return getCachedCRMTags();
 }
 
 /**

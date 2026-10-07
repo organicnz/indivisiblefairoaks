@@ -107,10 +107,10 @@ jobs:
     timeout-minutes: 120
     env:
       # tsc's program (~295 files) exceeds Node's default heap cap under this
-      # container's MEMORY=1024M and aborts. With zswap (Phase 1) providing 3:1 RAM
-      # compression and 2047M MemorySwap, 1280M gives V8 the headroom it needs
-      # without hitting the ineffective mark-compacts allocation failure at 768M.
-      NODE_OPTIONS: --max-old-space-size=1280
+      # container's MEMORY=1024M and aborts. With 4096M MemorySwap on the host
+      # (backed by 6 GB host swap), 2048M gives V8 the headroom it needs
+      # without hitting the ineffective mark-compacts allocation failure.
+      NODE_OPTIONS: --max-old-space-size=2048
     steps:
       - uses: actions/checkout@v4
         with:
@@ -245,13 +245,11 @@ jobs:
     timeout-minutes: 120
     env:
       # The build is killed by the cgroup, not by V8: exit 137 / SIGKILL once RSS
-      # passes the container's memory limit. Verified on the runner host —
-      # `podman inspect personal-indivisiblefairoaks` reports
-      # `Memory=1073741824` (1024 MiB) and `MemorySwap=2147483648`. Left
-      # unbounded, V8 grows the heap rather than collecting, so the process walks
-      # into the ceiling and the kernel takes it. Capping the heap makes GC work
-      # harder and keeps RSS under the limit — the same lever as the lint job.
-      NODE_OPTIONS: --max-old-space-size=768
+      # passes the container's memory limit. With the runner container allocated
+      # MEMORY=1024M and MEMORY_SWAP=4096M on the 6 GB swap host, 2048 MB gives
+      # V8 the headroom it needs for Next.js and Sentry compilation without
+      # hitting the cgroup ceiling or ineffective mark-compacts failures.
+      NODE_OPTIONS: --max-old-space-size=2048
     steps:
       - uses: actions/checkout@v4
         with:
@@ -277,6 +275,14 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}-${{ hashFiles('src/**') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}-
 
       - name: Build
         env:

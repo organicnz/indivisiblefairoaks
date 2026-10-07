@@ -332,6 +332,12 @@ app.post('*', async (c) => {
           headers: {
             Authorization: `Bearer ${RESEND_API_KEY}`,
             'Content-Type': 'application/json',
+            // One key per (campaign, recipient). A retry of this exact request —
+            // e.g. after the 20s timeout fired but Resend had in fact accepted it —
+            // is answered from Resend's 24h cache instead of mailing twice. Unlike
+            // the checkout case in AGENTS.md, the key cannot collide with a
+            // legitimate second send: every campaign is a new broadcast row.
+            'Idempotency-Key': `crm-broadcast/${broadcastId}/${recipient.id}`,
           },
           body: JSON.stringify({
             from: RESEND_FROM_EMAIL,
