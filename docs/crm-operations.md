@@ -477,7 +477,14 @@ requires `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` for a **non-MFA-enrolled** adm
 on the target Supabase project, and `test.skip`s without them.
 
 That admin must not be MFA-enrolled: an AAL2 requirement would redirect the suite
-away from every admin route it means to drive. The MFA step-up path has its own
+away from every admin route it means to drive.
+
+**The create/edit/delete test also needs `E2E_ALLOW_DB_WRITES=1`.** Staging and
+production share one Supabase project, so that test writes to the real
+constituent directory, and a failure mid-test leaves an
+`e2e-directory-*@example.com` row behind. `isE2EMode()` blocks sends, not
+writes, so credentials alone are not enough. The other admin tests are
+read-only and run once the credentials exist. The MFA step-up path has its own
 spec and its own seeded admin — see [`mfa.md`](./mfa.md).
 
 **A skipped auth suite is not a passing suite.** Without the seeds, `/admin` and
@@ -799,3 +806,100 @@ project and never applies a statement. So the first execution of
 `merge_crm_contacts` is the push that deploys it, and the plpgsql's arithmetic — the
 lock order, the survivor-first choice, the tri-state tag union — is reviewed rather
 than exercised until then.
+
+---
+
+## Delivery events: bounces and complaints suppress
+
+`POST /api/webhooks/resend` receives Resend's delivery events. Migration
+`20261006000000` adds `crm_email_events` and widens the `crm_activities.type`
+CHECK with `email_bounced` / `email_complained`. **The migration ships before the
+route, and that order matters.** Without it, the suppression `UPDATE` still lands,
+but the event row and the activity row are refused.
+
+- **It authenticates by signature only.** It checks the Svix HMAC over
+  `id.timestamp.body` against `RESEND_WEBHOOK_SECRET`. A timestamp outside five
+  minutes is refused before anything is written, because a signature that
+  verifies against a stale timestamp is a replay.
+- **It can only suppress.** A permanent bounce, a spam complaint, or an
+  `email.suppressed` (Resend dropped the send because the address is on its own
+  suppression list) writes `do_not_email = true` when the stored value is
+  anything other than `true`. That includes `NULL`: the mail went out, so the
+  question was asked, and a hard failure is the answer. Nothing here can write
+  `false` or `NULL`, so a forged event is at worst a mailing-list DoS, never a
+  re-subscription.
+- **Only a `Permanent` bounce suppresses.** Resend sends `email.bounced` for
+  temporary bounces too (full inbox, greylisting). A temporary bounce is
+  recorded and changes nothing. Otherwise one full inbox would lose a supporter
+  for good.
+- **A retry is a no-op.** Resend retries with the same `svix-id`.
+  `crm_email_events` is unique on `(svix_id, contact_id)`, so the event insert
+  is the claim: a duplicate key writes nothing further.
+- **Events link to the campaign** through `data.tags.broadcast_id`, our id, which
+  `crm-broadcast-send` tags on each message. `data.broadcast_id` is Resend's own
+  id and is ignored. A tag naming no campaign keeps the event and drops the link.
+- `unsubscribed_at` keeps the **earliest** evidence. This is the same rule as
+  the merge RPC and `setCRMEmailConsent`.
+- The recipient is lowercased before the lookup, because emails are stored
+  lowercase.
+- Opens, clicks and delays are recorded and change nothing.
+
+**The key is the decoded secret, not the string.** Svix keys its HMAC with the
+base64-decoded part of the secret after `whsec_`. The first version of this
+route keyed with the raw string, and its tests signed the same wrong way, so
+the suite passed while every real event would have failed with a 400.
+`svix-signature.test.ts` now checks Svix's published vector, which a
+consistent-but-wrong implementation cannot pass.
+
+**State as of 2026-10-06.** Resend webhook `736ff3a2-5703-4426-afe4-1e78627de44d`
+exists. It points at `https://test.indivisiblefairoaks.org/api/webhooks/resend`,
+subscribes to the six events the route handles, and is **disabled**. `RESEND_WEBHOOK_SECRET`
+is set in Vercel as `sensitive` for production and preview. The webhook stays
+disabled until the route is deployed, because an endpoint that answers 404 or
+400 gets retried and then auto-disabled by Svix, with nothing to say why. After
+the deploy:
+
+```bash
+node scripts/enable-resend-webhook.mjs           # dry run: webhook, secret, live probe
+node scripts/enable-resend-webhook.mjs --apply   # upsert the secret; enable once the probe passes
+```
+
+The script reads the signing secret back from Resend, so it never touches a
+file. It enables the webhook only when the live route answers
+`400 Missing signature headers.`. That exact answer proves the route is deployed
+**and** that the deployment has the secret, because an unset secret answers
+`Webhook secret not configured.` first.
+
+It addresses the Vercel project by id (`prj_8RtMjuARvtBuUnepj9oEVyovXyb5`, team
+`organicnz2222`). The local `.vercel/project.json` points at a stale project in
+another team, which is why the `vercel` CLI reports the codebase as unlinked.
+**At the apex cutover, `PATCH` the webhook's `endpoint` to the apex.**
+
+## Each send carries an idempotency key
+
+`crm-broadcast-send` sends `Idempotency-Key: crm-broadcast/<broadcast>/<contact>`
+on each Resend call. If a request times out at 20 s after Resend had already
+accepted it, a retry is answered from Resend's 24-hour cache and nobody is
+mailed twice. The checkout rule in AGENTS.md (no idempotency key) does not apply
+here. Every campaign is a new broadcast row, so a deliberate second send always
+gets a new key.
+
+## The tag list is cached, and the caller check is not
+
+`getCRMExistingTags` used to carry `'use cache'` with `requireAdmin()` inside
+the cached body. It is an exported server action, so anyone can POST to it
+directly. On a cache hit the body did not run, so the admin check did not run
+either. The scan now lives in `src/lib/crm-tag-scan.ts`, which has no
+arguments and builds its own service-role client. The action checks the caller
+first and then reads the cached data. `crm-reads.test.ts` asserts the check
+runs on every call, and that a refused caller never reaches the scan.
+
+## Not ported from `crm-improvements`, on purpose
+
+- **Realtime progress.** `crm_broadcasts` is in no `supabase_realtime`
+  publication, so the channel would never fire. The composer would have fallen
+  back to its 10 s heartbeat, which is slower than the existing 2 s poll.
+- **`useActionState` in the contact editor.** The branch rewrite dropped the
+  `updated_at` precondition, so two organizers would be back to
+  last-write-wins. The task form version only changes style, so it was not
+  ported either.

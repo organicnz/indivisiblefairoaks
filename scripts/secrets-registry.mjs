@@ -135,6 +135,7 @@ export const ROTATION_INTERVALS = {
   STRIPE_SECRET_KEY: 90,
   STRIPE_WEBHOOK_SECRET: 90,
   RESEND_API_KEY: 180,
+  RESEND_WEBHOOK_SECRET: 180,
   SUPABASE_SECRET_KEY: 90,
   SUPABASE_ACCESS_TOKEN: 90,
   SUPABASE_DB_PASSWORD: 90,
@@ -256,6 +257,16 @@ export const REGISTRY = {
     exposure: EXPOSURE.server,
     owner: OWNERS.commerce,
     stores: ['vercel-secret', 'edge-secret', 'github-secret'],
+  },
+  RESEND_WEBHOOK_SECRET: {
+    exposure: EXPOSURE.server,
+    owner: OWNERS.commerce,
+    stores: ['vercel-secret'],
+    note:
+      'Verifies Resend delivery-event signatures on /api/webhooks/resend. ' +
+      'Possession lets an attacker forge bounce/complaint events and suppress ' +
+      'contacts (mailing-list DoS), but cannot unsuppress or read data — the ' +
+      'route only ever sets do_not_email = true, never false.',
   },
 
   /**

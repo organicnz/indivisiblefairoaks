@@ -42,6 +42,11 @@ const serverSchema = publicSchema.extend({
   CONTACT_RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
   // Resend email delivery
   RESEND_API_KEY: z.string().min(1).optional().catch(undefined),
+  // Verifies Resend webhook signatures on /api/webhooks/resend. Optional at
+  // build time for the same reason as the Stripe secrets: the route validates
+  // explicitly and answers 400 when absent, so preview builds without it stay
+  // green.
+  RESEND_WEBHOOK_SECRET: z.string().min(1).optional().catch(undefined),
   RESEND_FROM_EMAIL: z.string().min(1).optional().default('contact@indivisiblefairoaks.org'),
   ADMIN_ORDER_EMAIL: z.string().email().optional().catch(undefined),
 });
