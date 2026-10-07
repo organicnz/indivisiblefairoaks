@@ -97,12 +97,12 @@ list at all, rather than only that its labels match.
 ### The host is still the ceiling
 
 The container runs with `Memory=1073741824` (1024 MiB),
-`MemorySwap=2147483648` and `CpuQuota=150000`. Jobs end `cancelled` rather than
-`failed` once the cgroup is exhausted, and `cancelled` there means the host ran
-out of room — it is not a verdict on the code. The
-`NODE_OPTIONS: --max-old-space-size=768` caps on `lint` and `build` exist for
-exactly this and are load-bearing; they were briefly removed on the mistaken
-theory that the small host was gone.
+`MemorySwap=4294967296` (4096 MiB, backed by 6 GB host swap) and `CpuQuota=150000`.
+Jobs end `cancelled` rather than `failed` once the cgroup is exhausted, and
+`cancelled` there means the host ran out of room — it is not a verdict on the code.
+The `NODE_OPTIONS: --max-old-space-size=2048` caps on `lint` and `build` exist for
+exactly this and are load-bearing to keep V8 old space within the container ceiling
+without suffering allocation failures or excessive GC pauses.
 
 ## Where the runners come from
 

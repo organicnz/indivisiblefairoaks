@@ -535,14 +535,13 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   that list at all, not merely that its labels match.
 
   The host is still the ceiling: the container runs with `Memory=1073741824`
-  (1024 MiB), so jobs end `cancelled` rather than `failed` once the cgroup is
-  exhausted. That is what the `NODE_OPTIONS: --max-old-space-size=768` caps on
-  `lint` and `build` exist for — verified with
-  `podman inspect personal-indivisiblefairoaks` — and they are load-bearing. An
-  earlier revision of this file removed them on the theory that the small host
-  was gone; it was not, and removing them would have walked `next build` into
-  the cgroup ceiling. The full record is in
-  [`docs/ci-runners.md`](./docs/ci-runners.md).
+  (1024 MiB) and `MemorySwap=4294967296` (4096 MiB, backed by 6 GB host swap),
+  so jobs end `cancelled` rather than `failed` once the cgroup is exhausted.
+  That is what the `NODE_OPTIONS: --max-old-space-size=2048` caps on `lint` and
+  `build` exist for — verified with `podman inspect personal-indivisiblefairoaks`
+  — and they are load-bearing to keep V8 old space within the container ceiling
+  while preventing "Ineffective mark-compacts" allocation failures. The full
+  record is in [`docs/ci-runners.md`](./docs/ci-runners.md).
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 32 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 135 Playwright specs. Migrations and Edge Functions are **not**
