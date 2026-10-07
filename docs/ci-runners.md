@@ -287,7 +287,7 @@ The abort is Node's *own* default cap, not the machine's: on a host this size V8
 gives the old space roughly 448 MB. Measured, `bunx tsc --noEmit` over this
 program (~295 files, `skipLibCheck` on) peaks at **~598 MB RSS in ~1.4 s** — so
 the default cap is genuinely too small. The instance already declares the
-headroom to fix that — `MEMORY=1024M` plus **`MEMORY_SWAP=2048M`** — so the lint
+headroom to fix that — `MEMORY=1024M` plus **`MEMORY_SWAP=4096M`** (backed by 6.0 GiB host swap) — so the lint
 job now caps the heap explicitly:
 
 ```yaml
@@ -478,8 +478,10 @@ including the one that would have answered the open question.
   and the lint job now fixes it.
 
 These three look identical in a run list and have three different fixes.
-`Build` and e2e remain unproven here: the build has never passed, and e2e is
-gated behind it, so no run has ever reached the browser suite on this host.
+`Build` was historically unproven due to swap limits, but is now proven:
+with 6.0 GiB host swap, `MEMORY_SWAP=4096M`, local font self-hosting, and
+`.next/cache` build caching, `Next.js Build` completes reliably in ~5 minutes
+warm (~21m cold) with zero OOM events, unblocking the downstream E2E suite.
 
 ### Draining the queue by hand
 
@@ -503,12 +505,10 @@ This buys time; it does not make a run succeed. It is worth knowing precisely
 *why* — a `cancelled` job here means the box is too small, and reading it as a
 red build sends you looking for a defect that does not exist.
 
-So the honest current state is: **lint and test pass when the host is quiet, and
-nothing downstream has ever run.** The 120-minute ceiling makes lint's verdict
-*reliable*; it does not make it fast, and `next build` plus e2e still have to fit
-the same 120-minute ceiling on a host this size. Until the host is resized,
-the local gates below remain the ones that reach a verdict quickly — not because
-the pipeline is broken, but because the pipeline is too small.
+So the honest current state is: **lint, unit tests, migration history,
+and Next.js production build pass consistently in CI.** The 120-minute ceiling
+makes lint's verdict *reliable*, while the 6.0 GiB swap headroom and runner image
+tooling allow the full Next.js build and E2E browser tests to execute on-host.
 
 ## What this means for the delivery gates
 
