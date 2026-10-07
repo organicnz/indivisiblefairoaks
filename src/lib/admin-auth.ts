@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
 import { assertMfaVerified, isStepUpChallenge } from '@/lib/mfa-guard';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 
@@ -8,7 +9,26 @@ export type AdminSession = {
   adminClient: Awaited<ReturnType<typeof createAdminClient>>;
 };
 
-export async function requireAdmin(): Promise<AdminSession> {
+/**
+ * The admin gate, run once per request.
+ *
+ * An admin page used to run it once from `admin/layout.tsx`, once from the
+ * page, and once more from every server read the page awaited. The CRM directory
+ * did it six times per render, and each run is a `getUser()`, an MFA read
+ * (factors plus AAL) and a profile query — every one of them on the shared
+ * Fluid CPU budget. React's `cache()` scopes the result to the request, so
+ * those calls share one answer.
+ *
+ * It does not widen anything. The cache lives for one request and is keyed on
+ * nothing, because every call in a request is the same user. A redirect or a
+ * fault is cached too, so the layout and the page fail the same way. A server
+ * action invoked from the browser is its own request, so it still runs its own
+ * check. Outside a React server render (the unit tests), `cache` passes the call
+ * straight through.
+ */
+export const requireAdmin = cache(requireAdminUncached);
+
+async function requireAdminUncached(): Promise<AdminSession> {
   const supabase = await createServerClient();
   const {
     data: { user },
