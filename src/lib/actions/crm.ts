@@ -54,19 +54,13 @@ export type CRMTask = Database['public']['Tables']['crm_tasks']['Row'];
 /**
  * A saved filter.
  *
- * The generated row type is the base, with `consent` intersected rather than
- * replaced. `src/types/supabase.ts` is derived from the *live* project by
- * `scripts/gen-types.mjs`, so it does not know about a column until the migration
- * carrying it has been applied — and a build must not depend on migration order.
- * The intersection is what makes `consent` optional and nullable here, which is
- * exactly how it behaves: NULL on rows written before the column existed.
- *
- * Delete the `&` once the migration has been applied and the types regenerated;
- * leaving it costs nothing but a comment.
+ * The `consent` intersection used to live here because the generated row type
+ * did not know the column until its migration was applied. Migration
+ * 20261005000000 is applied and the types regenerated, so the row carries
+ * `consent: string | null` itself and the shim — which narrowed it to the
+ * literal union and broke the read path — is gone.
  */
-export type CRMSegment = Database['public']['Tables']['crm_segments']['Row'] & {
-  consent?: 'opted_out' | 'opted_in' | 'unasked' | null;
-};
+export type CRMSegment = Database['public']['Tables']['crm_segments']['Row'];
 
 /**
  * Tag shape is enforced identically on both write paths. The CSV importer already

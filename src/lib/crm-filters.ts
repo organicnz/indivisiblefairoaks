@@ -152,6 +152,11 @@ export function filterArgs(filters: ContactFilters): {
  * `consent ?? 'all'` rather than `consent || 'all'`: rows written before the
  * column existed come back with `null`, and a segment with no consent filter is
  * the neutral value, not "opted out".
+ *
+ * Parsed, not passed through: the column has no CHECK constraint, so a stored
+ * string is only *usually* one of the three literals — a hand-edited row is
+ * not. An unknown value resolves to the neutral `'all'` rather than reaching
+ * a filter typed for the allowlist.
  */
 export function filtersFromSegment(segment: CRMSegment): ContactFilters {
   return {
@@ -159,7 +164,7 @@ export function filtersFromSegment(segment: CRMSegment): ContactFilters {
     status: segment.statuses?.length ? segment.statuses.join(',') : 'all',
     district: segment.districts?.length ? segment.districts.join(',') : 'all',
     tag: segment.tags?.length ? segment.tags.join(',') : 'all',
-    consent: segment.consent ?? 'all',
+    consent: parseConsentFilter(segment.consent),
   };
 }
 

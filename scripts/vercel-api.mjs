@@ -70,6 +70,32 @@ export async function probeEnv(projectId, teamId, token) {
 }
 
 /**
+ * The log line an event carries, or `''` when it carries none.
+ *
+ * Two shapes exist in the wild. The documented `/v3` shape nests the output
+ * under `payload.text` (`{ created, type: 'stdout', payload: { text } }`);
+ * older responses carry a top-level `text`. Reading only the top level is how
+ * a successful production deploy once captured 47 events and zero lines — the
+ * artifact proved the request worked and the extraction did not.
+ */
+export function eventText(e) {
+  if (typeof e?.text === 'string' && e.text !== '') return e.text;
+  const nested = e?.payload?.text;
+  return typeof nested === 'string' ? nested : '';
+}
+
+/** Millisecond timestamp of an event, tolerating the documented string form. */
+function eventTime(e) {
+  const t = typeof e?.created === 'number' ? e.created : Number(e?.created);
+  return Number.isFinite(t) ? t : null;
+}
+
+/** Stable dedupe key across both event shapes. */
+function eventKey(e, text) {
+  return e?.id ?? e?.payload?.id ?? `${e?.created}:${text}`;
+}
+
+/**
  * Terminal deployment states — everything else means "still working".
  *
  * `BLOCKED` and `DELETED` are terminal too, and both are failure outcomes for
@@ -171,7 +197,7 @@ export async function getBuildLog(idOrUrl, teamId, token) {
     if (!res.ok) return '';
     const body = await res.json();
     return (Array.isArray(body) ? body : [])
-      .map((e) => (typeof e?.text === 'string' ? e.text : ''))
+      .map((e) => eventText(e))
       .filter(Boolean)
       .join('\n');
   } catch {
@@ -199,7 +225,7 @@ export async function getBuildLog(idOrUrl, teamId, token) {
  * @param {string} teamId
  * @param {string} token
  * @param {{ maxEvents?: number, maxBytes?: number }} [opts]
- * @returns {Promise<{ text: string, truncated: boolean, eventCount: number }>}
+ * @returns {Promise<{ text: string, truncated: boolean, eventCount: number, lineCount: number }>}
  */
 export async function getFullBuildLog(idOrUrl, teamId, token, opts = {}) {
   const maxEvents = opts.maxEvents ?? 5000;
@@ -236,23 +262,23 @@ export async function getFullBuildLog(idOrUrl, teamId, token, opts = {}) {
     }
     let fresh = 0;
     for (const e of page) {
-      if (typeof e?.created === 'number') {
-        cursor = cursor === null ? e.created : Math.max(cursor, e.created);
-      }
-      const key = e?.id ?? `${e?.created}:${e?.text}`;
+      const text = eventText(e);
+      const t = eventTime(e);
+      if (t !== null) cursor = cursor === null ? t : Math.max(cursor, t);
+      const key = eventKey(e, text);
       if (seen.has(key)) continue;
       seen.add(key);
       if (seen.size > maxEvents) {
         truncated = true;
         break;
       }
-      if (typeof e?.text !== 'string' || e.text === '') continue;
-      if (bytes + e.text.length + 1 > maxBytes) {
+      if (text === '') continue;
+      if (bytes + text.length + 1 > maxBytes) {
         truncated = true;
         break;
       }
-      lines.push(e.text);
-      bytes += e.text.length + 1;
+      lines.push(text);
+      bytes += text.length + 1;
       fresh++;
     }
     if (truncated) break;
@@ -260,7 +286,7 @@ export async function getFullBuildLog(idOrUrl, teamId, token, opts = {}) {
     // cursor advance above, so this cannot spin on a stuck page).
     if (fresh === 0) break;
   }
-  return { text: lines.join('\n'), truncated, eventCount: seen.size };
+  return { text: lines.join('\n'), truncated, eventCount: seen.size, lineCount: lines.length };
 }
 
 /**

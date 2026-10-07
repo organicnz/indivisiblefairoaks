@@ -427,7 +427,7 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-        run: bun scripts/check-vercel-deploy.mjs --sha=${{ github.sha }} --out=vercel-logs
+        run: bun scripts/check-vercel-deploy.mjs --sha=${{ github.sha }} --out=vercel-logs --site-url=${{ vars.NEXT_PUBLIC_SITE_URL }}
 
       # Every production deploy leaves its evidence: the scrubbed full build
       # log plus a summary (state, verdict, tail). `always()` because an ERROR

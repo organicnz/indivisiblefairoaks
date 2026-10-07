@@ -249,6 +249,15 @@ describe('filtersFromSegment', () => {
     expect(filtersFromSegment(segment({ consent: 'opted_out' })).consent).toBe('opted_out');
   });
 
+  /**
+   * The column has no CHECK constraint, so a stored string is only usually one
+   * of the three literals. An unknown value resolves to the neutral filter
+   * rather than reaching a filter typed for the allowlist.
+   */
+  it('reads an unknown stored consent as no filter', () => {
+    expect(filtersFromSegment(segment({ consent: 'sometimes' })).consent).toBe('all');
+  });
+
   it('applies a consent-bearing segment without losing it', () => {
     const filters = filtersFromSegment(segment({ consent: 'opted_in', districts: ['CA-03'] }));
     expect(filterParams(filters).get('consent')).toBe('opted_in');

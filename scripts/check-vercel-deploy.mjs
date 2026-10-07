@@ -32,6 +32,13 @@
  * reach the database with production environment values. Vercel reporting
  * `READY` means the code compiled, not that the site works.
  *
+ * The probe targets the deployment URL first — that proves *this build*
+ * serves. Team SSO protection gates `*.vercel.app` behind a vercel.com login,
+ * so on exactly that redirect (and only that one) the check falls back to the
+ * declared production origin (`--site-url`, the repo variable, never a guess)
+ * and says so in the summary. Any other redirect still fails: the apex 302 to
+ * Google Sites is a genuine misconfiguration, not gating.
+ *
  * Runtime logs are the weakest of the three options and are deliberately not
  * read here: nobody requests the app after a deploy, so there are no runtime
  * invocations to inspect. Logs are diagnostic *after* something exercises the
@@ -82,6 +89,11 @@ import path from 'node:path';
 const args = process.argv.slice(2);
 const shaArg = args.find((a) => a.startsWith('--sha='))?.slice('--sha='.length) ?? '';
 const outArg = args.find((a) => a.startsWith('--out='))?.slice('--out='.length) ?? '';
+// Declared production origin, probed when the deployment URL itself is
+// unreachable for reasons outside the app (SSO-gating below). A repo variable,
+// not a guess: the workflow passes vars.NEXT_PUBLIC_SITE_URL, the same source
+// site.ts builds every canonical URL from.
+const siteUrlArg = args.find((a) => a.startsWith('--site-url='))?.slice('--site-url='.length) ?? '';
 const budgetMs = Number(args.find((a) => a.startsWith('--budget='))?.slice('--budget='.length) ?? 600_000);
 const intervalMs = Number(args.find((a) => a.startsWith('--interval='))?.slice('--interval='.length) ?? 15_000);
 
@@ -100,9 +112,12 @@ async function probeHealth(origin) {
     });
     // A redirect here is the *old* failure mode this job used to guess its way
     // around: a host that does not serve this app. Report it as such instead of
-    // inferring it from a 302.
+    // inferring it from a 302. The redirect target rides along so the caller
+    // can tell SSO-gating (vercel.com) from a genuine misconfiguration.
     if (res.status >= 300 && res.status < 400) {
-      return { ok: false, reason: `redirected (HTTP ${res.status}) — this host does not serve the app` };
+      const location =
+        typeof res.headers?.get === 'function' ? (res.headers.get('location') ?? '') : '';
+      return { ok: false, reason: `redirected (HTTP ${res.status}) — this host does not serve the app`, location };
     }
     if (res.status === 200) return { ok: true, degraded: false };
     if (res.status === 503) return { ok: true, degraded: true };
@@ -113,6 +128,16 @@ async function probeHealth(origin) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** True when a redirect target is Vercel's SSO gate rather than the app. */
+function isSsoRedirect(location) {
+  if (!location) return false;
+  try {
+    return new URL(location, 'https://placeholder.invalid').hostname === 'vercel.com';
+  } catch {
+    return false;
+  }
+}
 
 /** The git SHA Vercel built a deployment from, whatever field carries it. */
 function deploymentSha(d) {
@@ -139,6 +164,7 @@ export async function main(deps = {}) {
   // always passes `--out`, unit tests pass a tmp dir or nothing. A null dir
   // skips the writes without changing any verdict.
   const outDir = deps.outDir ?? (outArg || null);
+  const siteUrl = deps.siteUrl ?? (siteUrlArg || null);
 
   const summary = [];
   const note = (line) => summary.push(line);
@@ -230,11 +256,12 @@ export async function main(deps = {}) {
           ok: true,
           truncated: full.truncated,
           eventCount: full.eventCount,
+          lineCount: full.lineCount ?? 0,
           file,
           tail: scrubbed.split('\n').slice(-SUMMARY_TAIL_LINES).join('\n'),
         };
       } catch (err) {
-        return { ok: false, truncated: true, eventCount: 0, file: null, tail: '', error: String(err?.message ?? err) };
+        return { ok: false, truncated: true, eventCount: 0, lineCount: 0, file: null, tail: '', error: String(err?.message ?? err) };
       }
     };
 
@@ -242,8 +269,11 @@ export async function main(deps = {}) {
       if (evidence.ok) {
         note(
           `- Build log: \`${evidence.file ?? '(not written — no --out)'}\` ` +
-            `(${evidence.eventCount} events${evidence.truncated ? ', TRUNCATED at the size cap' : ''})`
+            `(${evidence.eventCount} events, ${evidence.lineCount} lines${evidence.truncated ? ', TRUNCATED at the size cap' : ''})`
         );
+        if (evidence.eventCount > 0 && evidence.lineCount === 0) {
+          note('- Build log: Vercel returned events but no text lines — the extraction may not match the event shape. The empty file records the gap; it is not evidence of a clean build.');
+        }
         note('<details><summary>Build log tail</summary>');
         note('');
         note('```');
@@ -381,6 +411,29 @@ export async function main(deps = {}) {
       console.warn(`::warning::build-log capture failed (${evidence.error}); the verdict below stands.`);
     }
 
+    // Stage 2 origin: the deployment URL proves *this build* serves, but team
+    // SSO protection gates `*.vercel.app` behind a vercel.com login — an
+    // unauthenticated probe 302s there without the app ever seeing it. On
+    // exactly that redirect, fall back to the declared production origin for
+    // the serving check. Any other redirect keeps failing here: the apex 302
+    // to Google Sites this branch used to detect is a genuine misconfiguration.
+    let origin = url;
+    if (siteUrl) {
+      const first = await probeHealth(url);
+      if (!first.ok && isSsoRedirect(first.location)) {
+        console.log('   … deployment URL is SSO-gated; probing production origin instead');
+        note(`- Probed origin: ${siteUrl} (deployment URL is SSO-gated)`);
+        origin = siteUrl;
+      } else {
+        note('- Probed origin: deployment URL');
+      }
+      // The loop below re-probes unconditionally: one redundant request in the
+      // happy path, in exchange for not seeding its deadline accounting from
+      // a probe taken outside it. Do not "deduplicate" this.
+    } else {
+      note('- Probed origin: deployment URL (no --site-url given)');
+    }
+
     // Stage 2 — the part no build log can do.
     //
     // `do…while`, not `while`: the first probe must happen unconditionally. With a
@@ -392,14 +445,14 @@ export async function main(deps = {}) {
     const healthDeadline = Date.now() + healthBudget;
     let last = null;
     do {
-      last = await probeHealth(url);
+      last = await probeHealth(origin);
       if (last.ok) break;
       if (Date.now() >= healthDeadline) break;
       await sleep(interval);
     } while (Date.now() < healthDeadline);
 
     if (!last?.ok) {
-      console.error(`✖  Deployment is READY but ${url}/api/health never served (${last?.reason}).`);
+      console.error(`✖  Deployment is READY but ${origin}/api/health never served (${last?.reason}).`);
       console.error('   The build succeeded and the site does not work. Check runtime env and egress.');
       note(`- Verdict: FAILED — READY but /api/health never served (${last?.reason}). The build succeeded and the site does not work.`);
       return await finish(1);

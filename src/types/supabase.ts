@@ -315,6 +315,8 @@ export type Database = {
           dispatched_at: string | null
           failed_count: number
           id: string
+          marked_failed_at: string | null
+          marked_failed_by: string | null
           recipient_count: number
           sent_at: string | null
           sent_count: number
@@ -334,6 +336,8 @@ export type Database = {
           dispatched_at?: string | null
           failed_count?: number
           id?: string
+          marked_failed_at?: string | null
+          marked_failed_by?: string | null
           recipient_count?: number
           sent_at?: string | null
           sent_count?: number
@@ -353,6 +357,8 @@ export type Database = {
           dispatched_at?: string | null
           failed_count?: number
           id?: string
+          marked_failed_at?: string | null
+          marked_failed_by?: string | null
           recipient_count?: number
           sent_at?: string | null
           sent_count?: number
@@ -365,7 +371,15 @@ export type Database = {
           test_recipient?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "crm_broadcasts_marked_failed_actor_fk"
+            columns: ["marked_failed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crm_contacts: {
         Row: {
@@ -441,6 +455,7 @@ export type Database = {
       }
       crm_segments: {
         Row: {
+          consent: string | null
           created_at: string
           districts: string[]
           id: string
@@ -450,6 +465,7 @@ export type Database = {
           tags: string[]
         }
         Insert: {
+          consent?: string | null
           created_at?: string
           districts?: string[]
           id?: string
@@ -459,6 +475,7 @@ export type Database = {
           tags?: string[]
         }
         Update: {
+          consent?: string | null
           created_at?: string
           districts?: string[]
           id?: string
