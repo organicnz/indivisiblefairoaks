@@ -20,7 +20,10 @@ let lastBody = null;
 const port = Number(process.argv[2] || 3101);
 
 function json(res, status, body) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Connection': 'close',
+  });
   res.end(JSON.stringify(body));
 }
 
@@ -41,7 +44,14 @@ const server = createServer(async (req, res) => {
       const body = await new Promise((resolve) => {
         let raw = '';
         req.on('data', (c) => (raw += c));
-        req.on('end', () => resolve(raw ? JSON.parse(raw) : {}));
+        req.on('end', () => {
+          try {
+            resolve(raw ? JSON.parse(raw) : {});
+          } catch {
+            resolve({});
+          }
+        });
+        req.on('error', () => resolve({}));
       });
       mode = body?.reset === true ? { ...DEFAULT_MODE } : { ...DEFAULT_MODE, ...body };
       return json(res, 200, { mode });
@@ -60,6 +70,7 @@ const server = createServer(async (req, res) => {
       let acc = '';
       req.on('data', (c) => (acc += c));
       req.on('end', () => resolve(acc));
+      req.on('error', () => resolve(''));
     });
     try {
       lastBody = JSON.parse(raw);
@@ -72,6 +83,9 @@ const server = createServer(async (req, res) => {
 
   json(res, 404, { error: 'not found' });
 });
+
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`mock-notify-contact listening on http://127.0.0.1:${port}`);

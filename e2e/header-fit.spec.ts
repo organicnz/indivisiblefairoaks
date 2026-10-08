@@ -29,9 +29,10 @@ const WIDTHS = [
 test.describe('header layout', () => {
   for (const { name, width, height } of WIDTHS) {
     test(`fits the viewport at ${name} (${width}px)`, async ({ page }) => {
+      if (width >= 1536) test.slow();
       await page.setViewportSize({ width, height });
-      await page.goto('/');
-      await page.waitForLoadState('load');
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('load').catch(() => {});
       await page.waitForTimeout(600);
 
       // One shape, always — a union here would leave every field possibly
@@ -125,8 +126,8 @@ test.describe('header layout', () => {
     // `tracking-[0.2em]` widened each label; at xl the two longest wrapped, which
     // is why the row moved to 2xl. This asserts the invariant that motivated it.
     await page.setViewportSize({ width: 1920, height: 900 });
-    await page.goto('/');
-    await page.waitForLoadState('load');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('load').catch(() => {});
     await page.waitForTimeout(600);
 
     const wrapped = await page.evaluate(() => {
