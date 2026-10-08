@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Eye, EyeOff, Fingerprint, Globe, Loader2, Lock, Shield } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Fingerprint, Loader2, Lock, Shield } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { getSafeNextPath } from '@/lib/safe-redirect';
@@ -117,26 +117,13 @@ function LoginForm() {
     }
   };
 
-  // NOTE: Google is currently the only enabled OAuth provider server-side
-  // (Supabase Auth settings). Re-add 'github' here AND its button below if
-  // the GitHub provider is ever enabled in the dashboard.
-  const handleOAuth = async (provider: 'google') => {
-    setLoading(true);
-    const callbackUrl = targetNext
-      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(targetNext)}`
-      : `${window.location.origin}/auth/callback`;
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: callbackUrl,
-      },
-    });
-    if (error) {
-      setMessage({ type: 'error', text: error.message });
-      setLoading(false);
-    }
-  };
+  // OAuth is currently unavailable: no provider is enabled on the hosted
+  // Supabase project (every /authorize probe reports unsupported/disabled),
+  // so signInWithOAuth cannot complete. To re-enable: turn on the Google
+  // provider in the Supabase dashboard, verify /authorize, then restore a
+  // button below calling supabase.auth.signInWithOAuth({ provider: 'google',
+  // options: { redirectTo: callbackUrl } }). Until then there is deliberately
+  // no third-party button — a control must do what it says.
 
   const handleResetPassword = async () => {
     if (!email) {
@@ -348,26 +335,9 @@ function LoginForm() {
               </div>
             )}
 
-            {/* OAuth Section */}
-            <div className="mt-16">
-              <div className="flex items-center gap-6 mb-10">
-                <div className="h-px bg-slate-100 flex-1" />
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">
-                  Satellite Access
-                </span>
-                <div className="h-px bg-slate-100 flex-1" />
-              </div>
-
-              <div>
-                <button
-                  type="button"
-                  onClick={() => handleOAuth('google')}
-                  className="w-full flex items-center justify-center gap-4 py-5 bg-white border border-slate-100 rounded-3xl hover:border-primary hover:bg-slate-50 transition-all text-[10px] font-black text-secondary uppercase tracking-[0.2em] group shadow-sm active:scale-[0.98]"
-                >
-                  <Globe size={18} className="group-hover:text-primary transition-colors" /> Google
-                </button>
-              </div>
-            </div>
+            {/* No third-party sign-in is offered: no OAuth provider is enabled
+                server-side (see the OAuth note above). Magic link and password
+                are the available methods. */}
           </div>
 
           {/* Footer Action */}
