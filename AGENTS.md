@@ -737,7 +737,8 @@ Deliberately left undone. None block the apex cutover.
     Next route carries. `verify_jwt` still accepts the publishable key (public
     by construction), so the CORS `origin` restriction remains inert for a
     non-browser client; the table-backed window is the working control. Rows
-    are never cleaned up, same as the existing `search_rate_limit` uses.
+    older than 7 days are purged nightly by pg_cron (migration
+    20261008000000 — the edge functions insert and count but never delete).
 10. **Consent is filterable, countable, saveable, and captured — but the reason is
     not recorded, and pre-existing rows are not backfilled.** `getCRMContacts` takes
     `consent: 'opted_out' | 'opted_in' | 'unasked'`, the dispatch bar names how many

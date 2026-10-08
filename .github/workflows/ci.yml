@@ -101,10 +101,49 @@ env:
   BUN_VERSION: "1.4.2"
 
 jobs:
+  # ── 0. Change scope ──────────────────────────────────────────────────────
+  # Docs-only pushes skip the heavy jobs. No third-party filter action: the
+  # pattern mirrors RUNTIME_PATTERN in scripts/hooks/e2e-gate.mjs (the local
+  # pre-push gate). ubuntu-latest, seconds, never holds a self-hosted slot.
+  # Fail-open: if the diff cannot be computed, runtime=true runs everything.
+  changes:
+    name: Change scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      runtime: ${{ steps.scope.outputs.runtime }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - id: scope
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}" 2>/dev/null || true
+            RANGE="origin/${{ github.base_ref }}...HEAD"
+          else
+            BEFORE="${{ github.event.before }}"
+            if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+              RANGE="$BEFORE...${{ github.sha }}"
+            else
+              RANGE="HEAD~1...HEAD"
+            fi
+          fi
+          FILES=$(git diff --name-only $RANGE 2>/dev/null || echo "src/fail-open")
+          if echo "$FILES" | grep -qE '^(src/|e2e/|public/|supabase/|playwright\.config\.ts|next\.config\.ts|middleware\.ts|package\.json|bun\.lock|scripts/mock-notify-contact\.mjs|\.github/workflows/)'; then
+            echo "runtime=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "runtime=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # ── 1. Lint & Types ──────────────────────────────────────────────────────────
   lint:
     name: Lint & Types
     runs-on: [self-hosted, linux, frontend-runner]
+    needs: [changes]
+    if: needs.changes.outputs.runtime == 'true'
     # 120, not 15. Setup (checkout + bun + cache hit + install) costs ~2 min, so a
     # 15-minute ceiling left `tsc` about 13 — and tsc was measured at 8m28s on a
     # quiet host and still running at 13m25s on a loaded one. That is a wall clock
@@ -128,7 +167,7 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      # Ephemeral runners get a fresh container per job, so each of the four
+      # Ephemeral runners get a fresh container per job, so each of the three
       # jobs below re-downloaded the whole dependency tree — measured at ~13 min
       # for `bun install` alone on the fleet host, which is most of why a run
       # overran its budget there. This caches bun's package cache, not
@@ -151,6 +190,18 @@ jobs:
       - name: Oxlint
         run: bunx oxlint ./src
 
+      # tsconfig sets incremental:true but nothing persisted .tsbuildinfo, so
+      # every lint job rechecked ~295 files from scratch (8-13 min measured).
+      # Incremental state is version-checked by tsc itself — a stale file
+      # cannot produce a false green, only a slower run on key mismatch.
+      - name: Cache TypeScript info
+        uses: actions/cache@v4
+        with:
+          path: tsconfig.tsbuildinfo
+          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('bun.lock') }}-${{ hashFiles('src/**', 'e2e/**') }}
+          restore-keys: |
+            ${{ runner.os }}-tsbuildinfo-${{ hashFiles('bun.lock') }}-
+
       - name: TypeScript
         run: bunx tsc --noEmit
 
@@ -158,6 +209,8 @@ jobs:
   test:
     name: Tests & Coverage
     runs-on: [self-hosted, linux, frontend-runner]
+    needs: [changes]
+    if: needs.changes.outputs.runtime == 'true'
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -168,7 +221,7 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      # Ephemeral runners get a fresh container per job, so each of the four
+      # Ephemeral runners get a fresh container per job, so each of the three
       # jobs below re-downloaded the whole dependency tree — measured at ~13 min
       # for `bun install` alone on the fleet host, which is most of why a run
       # overran its budget there. This caches bun's package cache, not
@@ -228,28 +281,28 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: bun scripts/check-migrations.mjs
 
-  # ── 4. Build — E2E's fixture, NOT a merge gate ────────────────────────────
+  # ── 4. Build + E2E — E2E's fixture, NOT a merge gate ──────────────────────
   # DO NOT add this to branch protection's required checks.
   #
-  # Vercel builds the Next.js app, on far more compute, and a compile failure
-  # there already blocks the deploy. This job exists for one reason: `e2e`
-  # downloads its output as the `next-build` artifact and runs a browser suite
-  # against it, which is a different purpose than shipping.
+  # Previously `build` then `e2e` as separate jobs: each did checkout +
+  # setup-bun + full `bun install`, plus a whole-.next artifact upload and
+  # download — on one serial runner. Merged: one setup, one install, the suite
+  # runs against the build in the same container, no artefact round-trip.
   #
   # It must NOT become a required check, because it is the most memory-hungry
   # job in the pipeline — it is the one the container's 1024 MiB ceiling kills
   # first. Making it gate merges would put the least reliable job on the critical
   # path of every PR.
-  #
-  # The E2E build is also NOT redundant with Vercel's: it is compiled with the
-  # e2e flags that make sending impossible (`isE2EMode()` requires
-  # NEXT_E2E_BUILD **and** CONTACT_SUBMISSION_TEST_MODE). A Vercel preview is
-  # production-mode, so pointing E2E at one would send real broadcasts and real
-  # email to real constituents. See docs/ci-separation-plan.md.
-  build:
-    name: Next.js Build
+  #   - the e2e-flagged build itself (NEXT_E2E_BUILD + CONTACT_SUBMISSION_TEST_MODE).
+  #     Vercel previews are production-mode; pointing E2E at one would send real
+  #     broadcasts and real email to real constituents. See docs/ci-separation-plan.md.
+  #   - this job off the required-checks path (see the old build comment below):
+  #     it is the most memory-hungry job in the pipeline.
+  build-e2e:
+    name: Build + E2E
     runs-on: [self-hosted, linux, frontend-runner]
-    needs: [lint, test]
+    needs: [changes, lint, test]
+    if: needs.changes.outputs.runtime == 'true'
     timeout-minutes: 120
     env:
       # The build is killed by the cgroup, not by V8: exit 137 / SIGKILL once RSS
@@ -267,7 +320,7 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      # Ephemeral runners get a fresh container per job, so each of the four
+      # Ephemeral runners get a fresh container per job, so each of the three
       # jobs below re-downloaded the whole dependency tree — measured at ~13 min
       # for `bun install` alone on the fleet host, which is most of why a run
       # overran its budget there. This caches bun's package cache, not
@@ -284,13 +337,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # Exact key on the lockfile only — NOT on src/**. Next's cache is
+      # content-addressed, so changed pages rebuild regardless; keying on src
+      # hashed every push into a cold full build. Old src-hashed keys stay
+      # reachable through the second restore prefix.
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
           path: .next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}-${{ hashFiles('src/**') }}
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('bun.lock') }}-
+            ${{ runner.os }}-nextjs-
 
       - name: Build
         env:
@@ -302,54 +360,16 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: bun run build
 
-      # Upload the build artefact so the E2E job reuses it
-      # instead of building a second time.
-      - name: Upload build artefact
-        uses: actions/upload-artifact@v4
-        with:
-          name: next-build
-          path: |
-            .next/
-            public/
-          include-hidden-files: true
-          retention-days: 1
-
-  # ── 4. E2E Tests ─────────────────────────────────────────────────────────────
-  e2e:
-    name: E2E Tests
-    runs-on: [self-hosted, linux, frontend-runner]
-    needs: [build]
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      # Ephemeral runners get a fresh container per job, so each of the four
-      # jobs below re-downloaded the whole dependency tree — measured at ~13 min
-      # for `bun install` alone on the fleet host, which is most of why a run
-      # overran its budget there. This caches bun's package cache, not
-      # node_modules: entries are integrity-checked by bun, so a stale or partial
-      # cache cannot produce a wrong tree, and it cannot go stale the way a
-      # cached node_modules does.
-      - name: Cache bun dependencies
+      # Same container the build just ran in — no artefact upload/download.
+      # Browsers are cached like bun's package cache: keyed on the lockfile
+      # that pins the Playwright version, so a version bump re-downloads once.
+      - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Download build artefact
-        uses: actions/download-artifact@v4
-        with:
-          name: next-build
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
 
       - name: Install Playwright browsers
         # No --with-deps: OS dependencies are baked into the runner image and
@@ -361,7 +381,16 @@ jobs:
         run: ./node_modules/.bin/playwright install chromium
 
       - name: Run E2E tests
-        run: ./node_modules/.bin/playwright test
+        # Draft PRs run a fast smoke subset for iteration signal; ready PRs and
+        # pushes run the full delivery gate. Draft status comes from the event
+        # payload — no API call, no extra permissions.
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.draft }}" = "true" ]; then
+            echo "Draft PR — smoke subset (full suite runs when ready)."
+            ./node_modules/.bin/playwright test --workers=2 e2e/account-entry.spec.ts e2e/header-fit.spec.ts e2e/mobile-navigation.spec.ts e2e/search.spec.ts e2e/mfa-challenge.spec.ts
+          else
+            ./node_modules/.bin/playwright test --workers=2
+          fi
         env:
           CI: "true"
           # Seeded admin sessions, so /admin and /auth/mfa stop being the two
