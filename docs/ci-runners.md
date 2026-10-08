@@ -100,9 +100,20 @@ The container runs with `Memory=1073741824` (1024 MiB),
 `MemorySwap=4294967296` (4096 MiB, backed by 6 GB host swap) and `CpuQuota=150000`.
 Jobs end `cancelled` rather than `failed` once the cgroup is exhausted, and
 `cancelled` there means the host ran out of room — it is not a verdict on the code.
-The `NODE_OPTIONS: --max-old-space-size=2048` caps on `lint` and `build` exist for
-exactly this and are load-bearing to keep V8 old space within the container ceiling
-without suffering allocation failures or excessive GC pauses.
+With expanded 6 GB host swap, `build-e2e` sets `NODE_OPTIONS: --max-old-space-size=3584`
+to let V8 utilize the available swap without triggering excessive GC cycles or allocation failures.
+
+### Never switch to `ubuntu-latest`
+
+Workflows in this repository run exclusively on self-hosted runners (`[self-hosted, linux, <role>-runner]`).
+Do not switch jobs to `ubuntu-latest`. When optimizing `build-e2e` on the self-hosted host:
+1. **Single-worker Next.js builds**: `next.config.ts` sets `experimental.cpus: 1` during `NEXT_E2E_BUILD`
+   so page collection and static generation run sequentially with 1 worker rather than spawning multiple
+   V8 processes that compete for physical memory and cause swap thrashing.
+2. **Extended static page timeout**: `staticPageGenerationTimeout: 180` in `next.config.ts` prevents
+   Next.js from failing prerender passes after the default 60 seconds and triggering 3-attempt retry spirals.
+3. **Single-worker Playwright**: Playwright runs with `--workers=1` in CI, preventing multiple Chromium
+   browser processes from fighting against the Next.js server for RAM.
 
 ## Where the runners come from
 
