@@ -1,7 +1,8 @@
-import { mkdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { GRANT_MARKER } from './helpers/e2e-seeds';
 
 /**
  * Authenticated admin coverage. Seeded once per run through the site's own
@@ -32,20 +33,26 @@ const ALLOW_DB_WRITES = process.env.E2E_ALLOW_DB_WRITES === '1';
 test.describe('admin surfaces with a seeded session', () => {
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run');
 
-  test.beforeAll(async ({ browser, baseURL }) => {
-    const ctx = await browser.newContext({ baseURL });
-    const page = await ctx.newPage();
-    await page.goto('/login?next=/admin');
-    await page.locator('#auth-tab-password').click();
-    await page.locator('#login-email').fill(ADMIN_EMAIL as string);
-    await page.locator('#login-password').fill(ADMIN_PASSWORD as string);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await page.waitForURL(/\/(admin|account)/, { timeout: 15_000 });
-    mkdirSync(path.dirname(STORAGE_STATE), { recursive: true });
-    await ctx.storageState({ path: STORAGE_STATE });
-    await ctx.close();
+  // The setup project skips (rather than failing) when the seed lacks the
+  // profiles grant, so the suite must skip too instead of failing on the
+  // missing storage file. Runtime check, not load-time: workers load this
+  // file before the setup project finishes.
+  test.beforeEach(() => {
+    test.skip(
+      existsSync(GRANT_MARKER),
+      'seeded e2e-admin lacks the profiles grant — see the setup project output'
+    );
   });
 
+  /*
+   * No beforeAll sign-in here. The session is written by e2e/auth.setup.ts
+   * (the `setup` project in playwright.config.ts), because a beforeAll that
+   * writes the file its own describe consumes via test.use cannot bootstrap:
+   * when the file does not exist yet, fixture setup fails first and the
+   * in-flight hook is cancelled silently, so every test reports a
+   * storage-state ENOENT instead of whatever actually went wrong. The setup
+   * project has no test.use, so its failures display as themselves.
+   */
   test.use({ storageState: STORAGE_STATE });
 
   test('constituent directory renders for an admin', async ({ page }) => {
