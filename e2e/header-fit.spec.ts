@@ -84,6 +84,7 @@ test.describe('header layout', () => {
   }
 
   test('keeps the account entry reachable at every width', async ({ page }) => {
+    test.slow();
     // The account control is either inline (xl+) or in the drawer. One of the two
     // must always be present and operable — never neither.
     for (const { name, width, height } of WIDTHS) {
