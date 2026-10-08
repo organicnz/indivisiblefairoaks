@@ -131,6 +131,16 @@ export function CRMBroadcastComposer({
   const [excludedCount, setExcludedCount] = useState(0);
   const [calculatingCount, setCalculatingCount] = useState(false);
   const [countFailed, setCountFailed] = useState(false);
+  /*
+   * A segment applied whose consent filter the composer cannot honour.
+   *
+   * The composer has no consent chips — broadcasts only reach people who
+   * agreed — so applying a segment saved from an "Opted Out" view leaves chips
+   * that resolve to the *opted-in* people: the exact opposite of the segment.
+   * A toast warning vanishes; Send is therefore withheld until the author
+   * touches any audience filter, which is the review gesture that clears this.
+   */
+  const [segmentConsentMismatch, setSegmentConsentMismatch] = useState<string | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
 
   // Sending status
@@ -220,18 +230,21 @@ export function CRMBroadcastComposer({
   }, [initialBroadcasts]);
 
   const toggleStatus = (id: string) => {
+    setSegmentConsentMismatch(null);
     setSelectedStatuses((prev) =>
       prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
     );
   };
 
   const toggleDistrict = (id: string) => {
+    setSegmentConsentMismatch(null);
     setSelectedDistricts((prev) =>
       prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
     );
   };
 
   const toggleTag = (t: string) => {
+    setSegmentConsentMismatch(null);
     setSelectedTags((prev) =>
       prev.includes(t) ? prev.filter((item) => item !== t) : [...prev, t]
     );
@@ -710,18 +723,29 @@ export function CRMBroadcastComposer({
                      */
                     const inapplicable: string[] = [];
                     if (seg.query) inapplicable.push(`text search "${seg.query}"`);
-                    if (seg.consent && seg.consent !== 'opted_in')
+                    if (seg.consent && seg.consent !== 'opted_in') {
                       inapplicable.push(
                         seg.consent === 'opted_out'
                           ? 'the "Opted Out of Email" filter (broadcasts only reach people who agreed)'
                           : `the "${seg.consent}" consent filter (broadcasts only reach people who agreed)`
                       );
-                    if (inapplicable.length > 0) {
-                      toast.message(
-                        `"${seg.name}" partially applied — it also filters on ${inapplicable.join(' and ')}, which broadcasts cannot target. Check the recipient count before sending.`
+                      // Persistent rather than toast-only, and Send is withheld
+                      // until a chip changes: the chips left behind resolve to
+                      // the opted-in subset — the opposite of this segment — and
+                      // a transient toast is not where that misunderstanding
+                      // should live.
+                      setSegmentConsentMismatch(
+                        `"${seg.name}" partially applied — it also filters on ${inapplicable.join(' and ')}, which broadcasts cannot target. The audience above is the opted-in subset, not that segment.`
                       );
                     } else {
-                      toast.message(`Segment "${seg.name}" applied`);
+                      setSegmentConsentMismatch(null);
+                      if (inapplicable.length > 0) {
+                        toast.message(
+                          `"${seg.name}" partially applied — it also filters on ${inapplicable.join(' and ')}, which broadcasts cannot target. Check the recipient count before sending.`
+                        );
+                      } else {
+                        toast.message(`Segment "${seg.name}" applied`);
+                      }
                     }
                   }}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
@@ -1039,6 +1063,12 @@ export function CRMBroadcastComposer({
                     for a single broadcast. Narrow the audience before sending.
                   </span>
                 )}
+                {segmentConsentMismatch && (
+                  <span role="alert" className="mt-1 block font-bold text-accent-red">
+                    {segmentConsentMismatch} Change any audience filter above to confirm you have
+                    reviewed it — Send stays withheld until then.
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {draftId ? (
@@ -1076,7 +1106,8 @@ export function CRMBroadcastComposer({
                     !body.trim() ||
                     !recipientCount ||
                     recipientCount === 0 ||
-                    overCeiling
+                    overCeiling ||
+                    segmentConsentMismatch !== null
                   }
                   onClick={() => setIsConfirmOpen(true)}
                   className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-slate-200 disabled:text-slate-400 text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"

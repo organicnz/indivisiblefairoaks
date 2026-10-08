@@ -458,37 +458,37 @@ export type Database = {
       }
       crm_email_events: {
         Row: {
-          id: string
-          contact_id: string
           broadcast_id: string | null
+          contact_id: string
+          created_at: string
           event_type: string
-          provider_id: string | null
-          svix_id: string | null
+          id: string
           metadata: Json
           occurred_at: string
-          created_at: string
+          provider_id: string | null
+          svix_id: string | null
         }
         Insert: {
-          id?: string
-          contact_id: string
           broadcast_id?: string | null
+          contact_id: string
+          created_at?: string
           event_type: string
-          provider_id?: string | null
-          svix_id?: string | null
+          id?: string
           metadata?: Json
           occurred_at?: string
-          created_at?: string
+          provider_id?: string | null
+          svix_id?: string | null
         }
         Update: {
-          id?: string
-          contact_id?: string
           broadcast_id?: string | null
+          contact_id?: string
+          created_at?: string
           event_type?: string
-          provider_id?: string | null
-          svix_id?: string | null
+          id?: string
           metadata?: Json
           occurred_at?: string
-          created_at?: string
+          provider_id?: string | null
+          svix_id?: string | null
         }
         Relationships: [
           {

@@ -164,6 +164,24 @@ export function buildBroadcastEmail({
 }
 
 /**
+ * Whether a contact with this consent value may receive a broadcast.
+ *
+ * `false` only. The row expression of the audience rule, shared with the Next
+ * app's `isInAudience` in `src/lib/crm-filters.ts` — the rule every send path
+ * depends on, expressed where a unit test can reach it. `true` was asked and
+ * declined; `null` was never asked, and mailing somebody who was never asked
+ * is the exact failure the tri-state migration closes.
+ *
+ * It lives here rather than inline in `crm-broadcast-send/index.ts` for the
+ * same reason `isDeliverableAddress` does: the delivery path is Deno, and the
+ * Next test runner cannot exercise an Edge Function. A guard nobody can see
+ * reads as protection.
+ */
+export function isInAudience(doNotEmail: boolean | null): boolean {
+  return doNotEmail === false
+}
+
+/**
  * A single deliverable address — one address, no separators, no whitespace.
  *
  * ## Why this is a shared, tested module and not a local helper

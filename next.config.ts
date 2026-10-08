@@ -101,13 +101,32 @@ const legacyRedirects = LEGACY_REDIRECTS.map(({ source, destination, permanent }
   permanent,
 }));
 
+// True only for the throwaway bundle CI builds for the browser suite
+// (see the comment on `nextConfig` below). Never true on Vercel.
+const isE2EBuild = process.env.NEXT_E2E_BUILD === 'true';
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   // Fingerprinting aid, and one less header on every cached response.
   poweredByHeader: false,
+  // The e2e bundle is a throwaway test fixture, never deployed — and it is
+  // built on a 1024 MiB runner where Next's own phases measured 8.4 min
+  // (Sentry runAfterProductionCompile) and 54+ min without finishing
+  // (the built-in TypeScript check) on 2026-10-08. CI gates types separately
+  // (`bunx tsc --noEmit` in the lint job, which build-e2e `needs`), and the
+  // Sentry upload is already skipped without a token — so for e2e builds only:
+  // skip the redundant type check, skip the Sentry wrapper entirely, and cap
+  // build workers to fit the container (`experimental.cpus` is what
+  // getNumberOfWorkers reads; the default otherwise follows host CPUs the
+  // container does not have). Production builds (Vercel and local) keep all
+  // three. See .github/workflows/ci.yml.
+  typescript: {
+    ignoreBuildErrors: isE2EBuild,
+  },
   experimental: {
-    exposeTestingApiInProductionBuild: process.env.NEXT_E2E_BUILD === 'true',
+    exposeTestingApiInProductionBuild: isE2EBuild,
+    ...(isE2EBuild ? { cpus: 2 } : {}),
   },
   async headers() {
     return routeHeaders;
@@ -169,15 +188,18 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
-  org: 'organicnz',
-  project: 'indivisiblefairoaks-web',
-  // Build-time source-map upload. The token is a CI/Vercel secret, never
-  // inlined: e2e builds deliberately get none, so a bundle that is never
-  // deployed never uploads maps under the release its production twin uses.
-  authToken: process.env.NEXT_E2E_BUILD === 'true' ? undefined : process.env.SENTRY_AUTH_TOKEN,
-  // Only print upload logs where someone reads CI output.
-  silent: !process.env.CI,
-  // Readable stack traces for minified client code.
-  widenClientFileUpload: true,
-});
+export default isE2EBuild
+  ? nextConfig
+  : withSentryConfig(nextConfig, {
+      org: 'organicnz',
+      project: 'indivisiblefairoaks-web',
+      // Build-time source-map upload. The token is a CI/Vercel secret, never
+      // inlined. E2e builds never reach this wrapper (see above), so a bundle
+      // that is never deployed never uploads maps under the release its
+      // production twin uses.
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      // Only print upload logs where someone reads CI output.
+      silent: !process.env.CI,
+      // Readable stack traces for minified client code.
+      widenClientFileUpload: true,
+    });

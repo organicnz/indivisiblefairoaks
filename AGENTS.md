@@ -543,7 +543,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   record is in [`docs/ci-runners.md`](./docs/ci-runners.md).
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 32 pre-commit guards, then lint → unit → coverage → types → build →
-  peer-deps → 135 Playwright specs. Migrations and Edge Functions are **not**
+  peer-deps → 136 Playwright specs (135 + the auth setup project). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
   migrations to the hosted project at 20:56 on 2026-10-04 while its sibling
@@ -737,7 +737,8 @@ Deliberately left undone. None block the apex cutover.
     Next route carries. `verify_jwt` still accepts the publishable key (public
     by construction), so the CORS `origin` restriction remains inert for a
     non-browser client; the table-backed window is the working control. Rows
-    are never cleaned up, same as the existing `search_rate_limit` uses.
+    older than 7 days are purged nightly by pg_cron (migration
+    20261008000000 — the edge functions insert and count but never delete).
 10. **Consent is filterable, countable, saveable, and captured — but the reason is
     not recorded, and pre-existing rows are not backfilled.** `getCRMContacts` takes
     `consent: 'opted_out' | 'opted_in' | 'unasked'`, the dispatch bar names how many

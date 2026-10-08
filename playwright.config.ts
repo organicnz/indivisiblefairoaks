@@ -30,11 +30,20 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Writes e2e/.auth/admin.json for the suites that assert on rendered admin
+    // surfaces. A setup project rather than a beforeAll hook: a hook that
+    // writes the file its own describe consumes via test.use cannot bootstrap
+    // itself (see e2e/auth.setup.ts).
+    { name: 'setup', testMatch: /.*\.setup\.ts/ },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, dependencies: ['setup'] },
     ...(includeOptionalMobileBrowsers
       ? [
-          { name: 'webkit-mobile', use: { ...devices['iPhone 13'] } },
-          { name: 'chromium-android', use: { ...devices['Pixel 7'] } },
+          { name: 'webkit-mobile', use: { ...devices['iPhone 13'] }, dependencies: ['setup'] },
+          {
+            name: 'chromium-android',
+            use: { ...devices['Pixel 7'] },
+            dependencies: ['setup'],
+          },
         ]
       : []),
   ],

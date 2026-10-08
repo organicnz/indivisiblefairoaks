@@ -1,7 +1,10 @@
 name: Runner Health
 
-# Runs every 30 minutes — catches offline runners before a real CI job queues
+# Runs hourly — catches offline runners before a real CI job queues
 # and sits there forever. Also runs on demand.
+# (Was every 30 minutes; 48 self-checks a day competed with real CI on the
+# single runner. Outage detection latency goes 30 → 60 min; the
+# queuing-is-the-alert design below is unchanged.)
 # Least privilege. Without this the workflow inherits the repository default,
 # which may grant write. It uses a runner-management PAT.
 permissions:
@@ -12,7 +15,7 @@ permissions:
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '7 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -136,7 +139,7 @@ jobs:
       # policy, so there is no GitHub-hosted cron that could watch the runners
       # for us.
       #
-      # Idempotent on purpose: this runs every 30 minutes for as long as the
+      # Idempotent on purpose: this runs hourly for as long as the
       # outage lasts. It comments on one long-lived issue rather than opening a
       # new one per tick, so a night-long outage produces a readable timeline
       # instead of dozens of duplicates.

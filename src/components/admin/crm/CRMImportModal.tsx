@@ -2,7 +2,7 @@
 
 import { Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { importCRMContacts } from '@/lib/actions/crm';
+import { parseCsv } from '@/lib/crm-import';
 
 interface Props {
   isOpen: boolean;
@@ -100,14 +101,16 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
     return rows;
   };
 
-  // Data rows in the current input, header excluded. A bulk import is the one
-  // directory mutation with no undo — every other destructive action in the CRM
-  // confirms first — so pasting more than a hundred rows gets a confirm step
-  // that names the number about to be written.
-  const pendingRowCount = csvText
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line, index) => index > 0 && line.length > 0).length;
+  // Data rows in the current input, header excluded, counted by the CSV parser
+  // rather than by splitting on '\n' — a quoted field may contain a newline,
+  // and the naive split then over-counts the >100 confirm gate. A bulk import
+  // is the one directory mutation with no undo — every other destructive
+  // action in the CRM confirms first — so pasting more than a hundred rows
+  // gets a confirm step that names the number about to be written.
+  const pendingRowCount = useMemo(() => {
+    if (!csvText.trim()) return 0;
+    return Math.max(0, parseCsv(csvText).length - 1);
+  }, [csvText]);
 
   const importButton = (
     <button

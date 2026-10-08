@@ -7,6 +7,7 @@ import {
   buildBroadcastEmail,
   BROADCAST_RECIPIENT_CEILING,
   isDeliverableAddress,
+  isInAudience,
 } from '../_shared/broadcast.ts'
 
 /**
@@ -248,7 +249,7 @@ app.post('*', async (c) => {
   for (let offset = 0; !isSelfTest && offset <= BROADCAST_RECIPIENT_CEILING; offset += PAGE) {
     let qb = supabase
       .from('crm_contacts')
-      .select('id, email, first_name, last_name, unsubscribe_token')
+      .select('id, email, first_name, last_name, unsubscribe_token, do_not_email')
       .eq('do_not_email', false)
       // Ordered, and by the primary key.
       //
@@ -279,7 +280,19 @@ app.post('*', async (c) => {
       audienceExhausted = true
       break
     }
-    recipients.push(...(data as Recipient[]))
+    /*
+     * Defense in depth, not redundancy — mirrors `resolveBroadcastRecipients`
+     * in `src/lib/actions/crm.ts`. The query above already carries
+     * `.eq('do_not_email', false)`, the SQL expression of the audience rule;
+     * this filter is the row expression of the same rule, and it is what holds
+     * the invariant if anyone ever loosens the query. `do_not_email` is
+     * selected for exactly this filter.
+     */
+    recipients.push(
+      ...(data as (Recipient & { do_not_email: boolean | null })[]).filter((r) =>
+        isInAudience(r.do_not_email)
+      )
+    )
     // Past the ceiling is a refusal, not a truncation: stop collecting and leave
     // `audienceExhausted` false so the check below refuses before any send.
     if (recipients.length > BROADCAST_RECIPIENT_CEILING) break
