@@ -536,11 +536,24 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   The host is still the ceiling: the container runs with `Memory=1073741824`
   (1024 MiB) and `MemorySwap=4294967296` (4096 MiB, backed by 6 GB host swap),
   so jobs end `cancelled` rather than `failed` once the cgroup is exhausted.
-  That is what the `NODE_OPTIONS: --max-old-space-size=2048` caps on `lint` and
-  `build` exist for — verified with `podman inspect personal-indivisiblefairoaks`
-  — and they are load-bearing to keep V8 old space within the container ceiling
-  while preventing "Ineffective mark-compacts" allocation failures. The full
-  record is in [`docs/ci-runners.md`](./docs/ci-runners.md).
+  With the expanded 6 GB host swap, `build-e2e` configures `NODE_OPTIONS: --max-old-space-size=3584`
+  to give V8 sufficient room to compile and prerender without thrashing garbage collection
+  or failing on "Ineffective mark-compacts". The full record is in [`docs/ci-runners.md`](./docs/ci-runners.md).
+- **NEVER switch CI jobs to GitHub-hosted runners (`ubuntu-latest`).** The runner
+  fleet is strictly self-hosted rootless Podman containers on our own server (`ghrunner`).
+  Never attempt to "fix" slow or failing builds by changing `runs-on` to `ubuntu-latest`.
+  Instead, observe the memory and concurrency contract:
+  1. **Memory (`NODE_OPTIONS`)**: With the host's expanded 6 GB swap (`MEMORY_SWAP=4096M`
+     on `ghrunner`), `build-e2e` sets `NODE_OPTIONS: --max-old-space-size=3584` to give V8
+     room to compile and prerender without thrashing garbage collection cycles.
+  2. **Next.js static page generation**: In `next.config.ts`, `isE2EBuild` must configure
+     `experimental.cpus: 1` and `staticPageGenerationTimeout: 180` (or higher).
+     The default 60s timeout triggers retry spirals (3 retries × dozens of pages)
+     when static rendering touches swap, and multiple workers fight for RAM. 1 worker
+     prerenders all 66 static pages cleanly in ~1.5 seconds.
+  3. **Playwright worker limit**: Pass `--workers=1` in CI (or rely on `playwright.config.ts`'s
+     `workers: 1` in CI) to prevent multiple concurrent Chromium instances from fighting
+     against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 32 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 136 Playwright specs (135 + the auth setup project). Migrations and Edge Functions are **not**

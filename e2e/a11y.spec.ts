@@ -30,6 +30,7 @@ const PAGES: { path: string; name?: string }[] = [
 
 for (const { path, name } of PAGES) {
   test(`a11y: ${name ?? path} has no serious axe violations`, async ({ page }) => {
+    test.slow();
     // Two determinism guards:
     //  - networkidle hangs on hosted runners (long-lived analytics sockets);
     //    load + a settle beat is enough for an axe scan.

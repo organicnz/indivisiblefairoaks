@@ -9,6 +9,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Trash2,
   Upload,
   Users,
   X,
@@ -22,10 +23,13 @@ import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorMo
 import { CRMImportModal } from '@/components/admin/crm/CRMImportModal';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
 import {
+  bulkDeleteCRMContacts,
+  bulkUpdateCRMContacts,
   type CRMContact,
   type CRMSegment,
   deleteCRMSegment,
   exportCRMContacts,
+  saveCRMContact,
   saveCRMSegment,
   triggerHistoricalCRMSync,
 } from '@/lib/actions/crm';
@@ -292,6 +296,130 @@ export function CRMContactList({
       router.refresh();
     } else {
       toast.error(res.error || 'Failed to delete segment');
+    }
+  };
+
+  // Multi-selection state for bulk batch actions
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkTagInput, setBulkTagInput] = useState('');
+  const [bulkActionBusy, setBulkActionBusy] = useState(false);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+
+  const allOnPageSelected =
+    initialContacts.length > 0 && initialContacts.every((c) => selectedIds.has(c.id));
+
+  const toggleSelectAll = () => {
+    if (allOnPageSelected) {
+      const next = new Set(selectedIds);
+      for (const c of initialContacts) next.delete(c.id);
+      setSelectedIds(next);
+    } else {
+      const next = new Set(selectedIds);
+      for (const c of initialContacts) next.add(c.id);
+      setSelectedIds(next);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const handleInlineStatusChange = async (contact: CRMContact, nextStatus: string) => {
+    setUpdatingStatusId(contact.id);
+    try {
+      const res = await saveCRMContact({
+        id: contact.id,
+        email: contact.email,
+        status: nextStatus as
+          | 'active_volunteer'
+          | 'supporter'
+          | 'donor'
+          | 'choir'
+          | 'organizer'
+          | 'inactive',
+        tags: contact.tags,
+      });
+      if (res.success) {
+        toast.success(`Updated status for ${contact.first_name || contact.email}`);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update status');
+      }
+    } catch {
+      toast.error('Failed to update status');
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
+  const handleBulkStatus = async (newStatus: string) => {
+    if (selectedIds.size === 0) return;
+    setBulkActionBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ids,
+        status: newStatus,
+      });
+      if (res.success) {
+        toast.success(`Updated status for ${res.updatedCount ?? ids.length} constituents`);
+        setSelectedIds(new Set());
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update constituents');
+      }
+    } catch {
+      toast.error('Failed to update constituents');
+    } finally {
+      setBulkActionBusy(false);
+    }
+  };
+
+  const handleBulkAddTag = async () => {
+    const trimmed = bulkTagInput.trim();
+    if (!trimmed || selectedIds.size === 0) return;
+    setBulkActionBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ids,
+        addTags: [trimmed],
+      });
+      if (res.success) {
+        toast.success(`Added tag #${trimmed} to ${res.updatedCount ?? ids.length} constituents`);
+        setBulkTagInput('');
+        setSelectedIds(new Set());
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to add tags');
+      }
+    } catch {
+      toast.error('Failed to add tags');
+    } finally {
+      setBulkActionBusy(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkActionBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const res = await bulkDeleteCRMContacts(ids);
+      if (res.success) {
+        toast.success(`Deleted ${res.deletedCount ?? ids.length} constituents`);
+        setSelectedIds(new Set());
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to delete constituents');
+      }
+    } catch {
+      toast.error('Failed to delete constituents');
+    } finally {
+      setBulkActionBusy(false);
     }
   };
 
@@ -690,6 +818,15 @@ export function CRMContactList({
             </caption>
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                <th scope="col" className="py-3.5 px-4 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all constituents on this page"
+                    className="rounded border-slate-300 text-primary focus:ring-primary h-3.5 w-3.5 cursor-pointer"
+                  />
+                </th>
                 <th scope="col" className="py-3.5 px-4">
                   Constituent
                 </th>
@@ -716,7 +853,7 @@ export function CRMContactList({
             <tbody className="divide-y divide-slate-100 text-xs">
               {initialContacts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     <Users size={32} className="mx-auto mb-2 opacity-30" />
                     <p className="font-bold">No constituents matched your search criteria.</p>
                     <p className="text-xs text-slate-400 mt-1">
@@ -733,7 +870,22 @@ export function CRMContactList({
                   const statusClass = STATUS_COLORS[contact.status] || STATUS_COLORS.supporter;
 
                   return (
-                    <tr key={contact.id} className="hover:bg-slate-50/80 transition-colors group">
+                    <tr
+                      key={contact.id}
+                      className={`hover:bg-slate-50/80 transition-colors group ${
+                        selectedIds.has(contact.id) ? 'bg-blue-50/40' : ''
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(contact.id)}
+                          onChange={() => toggleSelect(contact.id)}
+                          aria-label={`Select ${fullName}`}
+                          className="rounded border-slate-300 text-primary focus:ring-primary h-3.5 w-3.5 cursor-pointer"
+                        />
+                      </td>
                       {/* Name & Email */}
                       <td className="py-3.5 px-4">
                         <Link
@@ -804,11 +956,28 @@ export function CRMContactList({
 
                       {/* Status */}
                       <td className="py-3.5 px-4">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${statusClass}`}
-                        >
-                          {contact.status.replace('_', ' ')}
-                        </span>
+                        <div className="relative inline-block">
+                          <select
+                            value={contact.status}
+                            disabled={updatingStatusId === contact.id}
+                            onChange={(e) => void handleInlineStatusChange(contact, e.target.value)}
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border cursor-pointer appearance-none pr-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${statusClass} ${
+                              updatingStatusId === contact.id ? 'opacity-50' : ''
+                            }`}
+                            title="Click to quick change status"
+                            aria-label={`Status for ${fullName}`}
+                          >
+                            <option value="active_volunteer">Active Volunteer</option>
+                            <option value="organizer">Organizer</option>
+                            <option value="choir">Resistance Choir</option>
+                            <option value="donor">Donor</option>
+                            <option value="supporter">Supporter</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                          <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] opacity-60">
+                            ▼
+                          </span>
+                        </div>
                       </td>
 
                       {/* Tags */}
@@ -946,6 +1115,95 @@ export function CRMContactList({
           isOpen={!!editingContact}
           onClose={() => setEditingContact(null)}
         />
+      )}
+
+      {/* Floating Bulk Actions Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-secondary text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 flex flex-wrap items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2 pr-3 border-r border-slate-700">
+            <span className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-black">
+              {selectedIds.size}
+            </span>
+            <span className="text-xs font-bold whitespace-nowrap">Selected</span>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs text-slate-400 hover:text-white underline ml-1"
+            >
+              Clear
+            </button>
+          </div>
+
+          {/* Bulk Status Select */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-slate-400 whitespace-nowrap">
+              Status:
+            </span>
+            <select
+              disabled={bulkActionBusy}
+              onChange={(e) => {
+                if (e.target.value) {
+                  void handleBulkStatus(e.target.value);
+                  e.target.value = '';
+                }
+              }}
+              defaultValue=""
+              className="bg-slate-800 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 border border-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+            >
+              <option value="" disabled>
+                Change Status…
+              </option>
+              <option value="active_volunteer">Active Volunteer</option>
+              <option value="organizer">Organizer</option>
+              <option value="choir">Resistance Choir</option>
+              <option value="donor">Donor</option>
+              <option value="supporter">Supporter</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          {/* Bulk Add Tag */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              placeholder="+ Add Tag…"
+              value={bulkTagInput}
+              disabled={bulkActionBusy}
+              onChange={(e) => setBulkTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleBulkAddTag();
+                }
+              }}
+              className="bg-slate-800 text-white placeholder-slate-400 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 w-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={() => void handleBulkAddTag()}
+              disabled={!bulkTagInput.trim() || bulkActionBusy}
+              className="px-2.5 py-1.5 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-40"
+            >
+              Add
+            </button>
+          </div>
+
+          {/* Bulk Delete */}
+          <div className="pl-2 border-r border-slate-700 sm:border-r-0 sm:border-l">
+            <ConfirmAction
+              label={`Delete ${selectedIds.size} constituents`}
+              message={`Delete ${selectedIds.size} selected constituents? This will remove all associated notes, tasks, and history permanently.`}
+              confirmLabel="Delete Selected"
+              danger
+              busy={bulkActionBusy}
+              idleClassName="px-3 py-1.5 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              onConfirm={() => void handleBulkDelete()}
+            >
+              <Trash2 size={13} />
+              Delete ({selectedIds.size})
+            </ConfirmAction>
+          </div>
+        </div>
       )}
     </div>
   );

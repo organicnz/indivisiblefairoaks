@@ -18,6 +18,9 @@ const includeOptionalMobileBrowsers = process.env.PW_MOBILE_BROWSERS === '1';
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
+  expect: {
+    timeout: 10_000,
+  },
   // Local delivery gate (lefthook pre-push) gets 1 retry so known stream/layout
   // races do not block a green suite; CI keeps 2 for runner noise.
   retries: process.env.CI ? 2 : 1,

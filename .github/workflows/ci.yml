@@ -305,12 +305,11 @@ jobs:
     if: needs.changes.outputs.runtime == 'true'
     timeout-minutes: 120
     env:
-      # The build is killed by the cgroup, not by V8: exit 137 / SIGKILL once RSS
-      # passes the container's memory limit. With the runner container allocated
-      # MEMORY=1024M and MEMORY_SWAP=4096M on the 6 GB swap host, 2048 MB gives
-      # V8 the headroom it needs for Next.js and Sentry compilation without
-      # hitting the cgroup ceiling or ineffective mark-compacts failures.
+      # Keep V8 heap ceiling at 2048 MB. Setting it higher (e.g. 3584 MB) allows V8 to balloon
+      # its working set across swap on the 887 MB VPS, causing severe page-fault swap thrashing (wa: 91%).
+      # 2048 MB prompts timely young-generation GCs, keeping active pages hot in physical RAM.
       NODE_OPTIONS: --max-old-space-size=2048
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -320,14 +319,11 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      # Ephemeral runners get a fresh container per job, so each of the three
-      # jobs below re-downloaded the whole dependency tree — measured at ~13 min
-      # for `bun install` alone on the fleet host, which is most of why a run
-      # overran its budget there. This caches bun's package cache, not
-      # node_modules: entries are integrity-checked by bun, so a stale or partial
-      # cache cannot produce a wrong tree, and it cannot go stale the way a
-      # cached node_modules does.
+      # Ephemeral runners get a fresh container per job. On self-hosted runners,
+      # ~/.bun/install/cache is backed by a host-mounted Quadlet volume (%h/dev/ghrunner/cache/bun)
+      # on NVMe SSD, so downloading and re-uploading across WAN is redundant overhead.
       - name: Cache bun dependencies
+        if: "!contains(runner.labels, 'self-hosted')"
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
@@ -387,9 +383,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.draft }}" = "true" ]; then
             echo "Draft PR — smoke subset (full suite runs when ready)."
-            ./node_modules/.bin/playwright test --workers=2 e2e/account-entry.spec.ts e2e/header-fit.spec.ts e2e/mobile-navigation.spec.ts e2e/search.spec.ts e2e/mfa-challenge.spec.ts
+            ./node_modules/.bin/playwright test --workers=1 e2e/account-entry.spec.ts e2e/header-fit.spec.ts e2e/mobile-navigation.spec.ts e2e/search.spec.ts e2e/mfa-challenge.spec.ts
           else
-            ./node_modules/.bin/playwright test --workers=2
+            ./node_modules/.bin/playwright test --workers=1
           fi
         env:
           CI: "true"

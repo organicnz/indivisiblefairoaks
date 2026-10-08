@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Calendar,
   CalendarCheck,
+  Check,
   CheckCircle2,
   DollarSign,
   Edit2,
@@ -19,6 +20,7 @@ import {
   ShoppingBag,
   Trash2,
   User,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -35,9 +37,14 @@ import {
   type CRMContact,
   type CRMTask,
   deleteCRMContact,
+  deleteCRMNote,
+  deleteCRMTask,
+  saveCRMContact,
   sendCRMDirectEmail,
   setCRMEmailConsent,
   setCRMTaskStatus,
+  updateCRMNote,
+  updateCRMTask,
 } from '@/lib/actions/crm';
 
 interface Props {
@@ -91,6 +98,47 @@ export function CRMDetailClient({
   const [taskDetails, setTaskDetails] = useState('');
   const [taskDue, setTaskDue] = useState('');
   const [savingTask, setSavingTask] = useState(false);
+
+  // Inline Contact Edit state
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const [editFirstName, setEditFirstName] = useState(contact.first_name || '');
+  const [editLastName, setEditLastName] = useState(contact.last_name || '');
+  const [editPhone, setEditPhone] = useState(contact.phone || '');
+  const [editDistrict, setEditDistrict] = useState(contact.district || 'CA-06');
+  const [editStatus, setEditStatus] = useState<
+    'active_volunteer' | 'supporter' | 'donor' | 'choir' | 'organizer' | 'inactive'
+  >(
+    (contact.status as
+      | 'active_volunteer'
+      | 'supporter'
+      | 'donor'
+      | 'choir'
+      | 'organizer'
+      | 'inactive') || 'supporter'
+  );
+  const [editAddress, setEditAddress] = useState(contact.address || '');
+  const [editCity, setEditCity] = useState(contact.city || '');
+  const [editZipCode, setEditZipCode] = useState(contact.zip_code || '');
+  const [editNotes, setEditNotes] = useState(contact.notes || '');
+  const [savingContactInline, setSavingContactInline] = useState(false);
+
+  // Inline Tag Add/Remove state
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [tagBusy, setTagBusy] = useState(false);
+
+  // Note Edit state
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteTitle, setEditingNoteTitle] = useState('');
+  const [editingNoteDesc, setEditingNoteDesc] = useState('');
+  const [updatingNote, setUpdatingNote] = useState(false);
+
+  // Task Edit state
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskTitle, setEditingTaskTitle] = useState('');
+  const [editingTaskDetails, setEditingTaskDetails] = useState('');
+  const [editingTaskDue, setEditingTaskDue] = useState('');
+  const [updatingTask, setUpdatingTask] = useState(false);
 
   const openTasks = tasks.filter((t) => t.status === 'open');
 
@@ -275,6 +323,186 @@ export function CRMDetailClient({
     }
   };
 
+  const handleSaveContactInline = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setSavingContactInline(true);
+    try {
+      const res = await saveCRMContact({
+        id: contact.id,
+        email: contact.email,
+        first_name: editFirstName.trim() || null,
+        last_name: editLastName.trim() || null,
+        phone: editPhone.trim() || null,
+        district: editDistrict,
+        status: editStatus,
+        address: editAddress.trim() || null,
+        city: editCity.trim() || null,
+        zip_code: editZipCode.trim() || null,
+        notes: editNotes.trim() || null,
+        tags: contact.tags,
+      });
+      if (res.success) {
+        toast.success('Constituent updated');
+        setIsInlineEditing(false);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update constituent');
+      }
+    } catch {
+      toast.error('Update failed');
+    } finally {
+      setSavingContactInline(false);
+    }
+  };
+
+  const handleAddTagInline = async () => {
+    const raw = newTagInput.trim().toLowerCase();
+    if (!raw) return;
+    if (contact.tags.includes(raw)) {
+      toast.info(`Tag #${raw} is already assigned`);
+      setNewTagInput('');
+      setIsAddingTag(false);
+      return;
+    }
+    setTagBusy(true);
+    try {
+      const updatedTags = [...contact.tags, raw];
+      const res = await saveCRMContact({
+        id: contact.id,
+        email: contact.email,
+        tags: updatedTags,
+      });
+      if (res.success) {
+        toast.success(`Tag #${raw} added`);
+        setNewTagInput('');
+        setIsAddingTag(false);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to add tag');
+      }
+    } catch {
+      toast.error('Failed to add tag');
+    } finally {
+      setTagBusy(false);
+    }
+  };
+
+  const handleRemoveTagInline = async (tagToRemove: string) => {
+    setTagBusy(true);
+    try {
+      const updatedTags = contact.tags.filter((t) => t !== tagToRemove);
+      const res = await saveCRMContact({
+        id: contact.id,
+        email: contact.email,
+        tags: updatedTags,
+      });
+      if (res.success) {
+        toast.success(`Tag #${tagToRemove} removed`);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to remove tag');
+      }
+    } catch {
+      toast.error('Failed to remove tag');
+    } finally {
+      setTagBusy(false);
+    }
+  };
+
+  const handleStartEditNote = (act: CRMActivity) => {
+    setEditingNoteId(act.id);
+    setEditingNoteTitle(act.title);
+    setEditingNoteDesc(act.description || '');
+  };
+
+  const handleUpdateNote = async (activityId: string) => {
+    if (!editingNoteTitle.trim()) {
+      toast.error('Note title is required');
+      return;
+    }
+    setUpdatingNote(true);
+    try {
+      const res = await updateCRMNote({
+        activityId,
+        title: editingNoteTitle,
+        description: editingNoteDesc,
+      });
+      if (res.success) {
+        toast.success('Note updated');
+        setEditingNoteId(null);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update note');
+      }
+    } catch {
+      toast.error('Failed to update note');
+    } finally {
+      setUpdatingNote(false);
+    }
+  };
+
+  const handleDeleteNote = async (activityId: string) => {
+    try {
+      const res = await deleteCRMNote(activityId);
+      if (res.success) {
+        toast.success('Note deleted');
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to delete note');
+      }
+    } catch {
+      toast.error('Failed to delete note');
+    }
+  };
+
+  const handleStartEditTask = (task: CRMTask) => {
+    setEditingTaskId(task.id);
+    setEditingTaskTitle(task.title);
+    setEditingTaskDetails(task.details || '');
+    setEditingTaskDue(task.due_at || '');
+  };
+
+  const handleUpdateTask = async (taskId: string) => {
+    if (!editingTaskTitle.trim()) {
+      toast.error('Task title is required');
+      return;
+    }
+    setUpdatingTask(true);
+    try {
+      const res = await updateCRMTask({
+        id: taskId,
+        title: editingTaskTitle,
+        details: editingTaskDetails || null,
+        dueAt: editingTaskDue || null,
+      });
+      if (res.success) {
+        toast.success('Follow-up updated');
+        setEditingTaskId(null);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update task');
+      }
+    } catch {
+      toast.error('Failed to update task');
+    } finally {
+      setUpdatingTask(false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const res = await deleteCRMTask(taskId);
+      if (res.success) {
+        toast.success('Follow-up deleted');
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to delete follow-up');
+      }
+    } catch {
+      toast.error('Failed to delete follow-up');
+    }
+  };
+
   const tabClass = (id: TabId) =>
     `inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors ${
       activeTab === id
@@ -298,181 +526,383 @@ export function CRMDetailClient({
         {/* Left Column — 360 Profile Summary */}
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary block mb-1">
-                  Constituent 360°
-                </span>
-                <h1 className="text-2xl font-black uppercase tracking-tight text-secondary">
-                  {fullName}
-                </h1>
-                <p className="text-xs text-slate-400 mt-0.5">{contact.email}</p>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-800 border border-blue-200 shrink-0">
-                {contact.status.replace('_', ' ')}
-              </span>
-            </div>
-
-            {/*
-              Three states, not two, and the control is a select rather than a
-              toggle because a two-state toggle cannot express the middle one.
-
-              The old toggle's only options were "opted out" and "opted in", so
-              the nearest an organiser could get to "we have never asked this
-              person" was to clear the flag — which recorded a **yes** nobody had
-              given, and put them in the next broadcast. That is the one state an
-              admin action must never invent.
-
-              Each of the three is reachable, and each names its consequence: two
-              of the three mean this person is in no broadcast audience, and the
-              copy says so rather than leaving it to be worked out.
-            */}
-            <div className="flex items-center justify-between gap-3 p-3 rounded-xl border">
-              <label htmlFor="consent-state" className="min-w-0">
-                <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Email consent
-                </span>
-                <select
-                  id="consent-state"
-                  value={contact.do_not_email === null ? 'unasked' : String(contact.do_not_email)}
-                  disabled={consentBusy}
-                  onChange={(e) => void handleConsentChange(e.target.value as ConsentDecision)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
-                >
-                  <option value="unasked">Never asked — not in the audience</option>
-                  <option value="true">Opted out — not in the audience</option>
-                  <option value="false">Agreed — receives broadcasts</option>
-                </select>
-              </label>
-              {contact.unsubscribed_at && (
-                <span className="shrink-0 text-[10px] font-medium text-slate-400">
-                  Unsubscribed{' '}
-                  {new Date(contact.unsubscribed_at).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </span>
-              )}
-            </div>
-
-            {/* Quick Metadata */}
-            <div className="space-y-3 pt-4 border-t border-slate-100 text-xs">
-              <div className="flex items-center gap-2.5 text-slate-600">
-                <MapPin size={15} className="text-slate-400 shrink-0" />
-                <span>
-                  {contact.city || 'Fair Oaks'}, {contact.zip_code || 'CA'} &middot;{' '}
-                  <strong className="text-secondary font-mono">{contact.district}</strong>
-                </span>
-              </div>
-
-              {contact.phone && (
-                <div className="flex items-center gap-2.5 text-slate-600">
-                  <Phone size={15} className="text-slate-400 shrink-0" />
-                  <span className="font-mono">{contact.phone}</span>
+            {isInlineEditing ? (
+              <form onSubmit={handleSaveContactInline} className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                    Edit Constituent In-Place
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsInlineEditing(false)}
+                    className="p-1 rounded text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={16} />
+                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                      <span className="block mb-1">First Name</span>
+                      <input
+                        type="text"
+                        value={editFirstName}
+                        onChange={(e) => setEditFirstName(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                      />
+                    </label>
+                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                      <span className="block mb-1">Last Name</span>
+                      <input
+                        type="text"
+                        value={editLastName}
+                        onChange={(e) => setEditLastName(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                      />
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                      <span className="block mb-1">Phone</span>
+                      <input
+                        type="text"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        placeholder="(916) 555-0199"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                      />
+                    </label>
+                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                      <span className="block mb-1">District</span>
+                      <select
+                        value={editDistrict}
+                        onChange={(e) => setEditDistrict(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                      >
+                        <option value="CA-06">CA-06</option>
+                        <option value="CA-03">CA-03</option>
+                        <option value="CA-07">CA-07</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label className="block text-[10px] font-black uppercase text-slate-400">
+                    <span className="block mb-1">Status</span>
+                    <select
+                      value={editStatus}
+                      onChange={(e) =>
+                        setEditStatus(
+                          e.target.value as
+                            | 'active_volunteer'
+                            | 'supporter'
+                            | 'donor'
+                            | 'choir'
+                            | 'organizer'
+                            | 'inactive'
+                        )
+                      }
+                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                    >
+                      <option value="active_volunteer">Active Volunteer</option>
+                      <option value="supporter">Supporter</option>
+                      <option value="donor">Donor</option>
+                      <option value="choir">Resistance Choir</option>
+                      <option value="organizer">Organizer</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </label>
+                  <label className="block text-[10px] font-black uppercase text-slate-400">
+                    <span className="block mb-1">Address</span>
+                    <input
+                      type="text"
+                      value={editAddress}
+                      onChange={(e) => setEditAddress(e.target.value)}
+                      placeholder="Street address"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                    />
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                      <span className="block mb-1">City</span>
+                      <input
+                        type="text"
+                        value={editCity}
+                        onChange={(e) => setEditCity(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                      />
+                    </label>
+                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                      <span className="block mb-1">Zip</span>
+                      <input
+                        type="text"
+                        value={editZipCode}
+                        onChange={(e) => setEditZipCode(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                      />
+                    </label>
+                  </div>
+                  <label className="block text-[10px] font-black uppercase text-slate-400">
+                    <span className="block mb-1">Organizer Notes</span>
+                    <textarea
+                      rows={3}
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      placeholder="Background, skills, interests..."
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                    />
+                  </label>{' '}
                 </div>
-              )}
 
-              <div className="flex items-center gap-2.5 text-slate-600">
-                <Calendar size={15} className="text-slate-400 shrink-0" />
-                <span>
-                  Member since{' '}
-                  {new Date(contact.created_at).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2.5 text-slate-600">
-                <DollarSign size={15} className="text-emerald-500 shrink-0" />
-                <span>
-                  Total Contributions:{' '}
-                  <strong className="text-emerald-600 font-mono">
-                    ${(contact.total_donated_cents / 100).toFixed(2)}
-                  </strong>
-                </span>
-              </div>
-
-              {(tasksTruncated ? openTaskCount : openTasks.length) > 0 && (
-                <div className="flex items-center gap-2.5 text-slate-600">
-                  <CalendarCheck size={15} className="text-amber-500 shrink-0" />
-                  <span>
-                    <strong className="text-secondary">
-                      {tasksTruncated ? openTaskCount : openTasks.length}
-                    </strong>{' '}
-                    open follow-up
-                    {(tasksTruncated ? openTaskCount : openTasks.length) === 1 ? '' : 's'}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsInlineEditing(false)}
+                    disabled={savingContactInline}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingContactInline}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-dark transition-colors shadow-2xs disabled:opacity-50"
+                  >
+                    {savingContactInline ? <Loader2 size={12} className="animate-spin" /> : null}
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary block mb-1">
+                      Constituent 360°
+                    </span>
+                    <h1 className="text-2xl font-black uppercase tracking-tight text-secondary">
+                      {fullName}
+                    </h1>
+                    <p className="text-xs text-slate-400 mt-0.5">{contact.email}</p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-800 border border-blue-200 shrink-0">
+                    {contact.status.replace('_', ' ')}
                   </span>
                 </div>
-              )}
-            </div>
 
-            {/* Tags section */}
-            <div className="pt-4 border-t border-slate-100">
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
-                Interest & Action Tags
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {contact.tags.length === 0 ? (
-                  <span className="text-xs text-slate-400 italic">No tags assigned</span>
-                ) : (
-                  contact.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium"
-                    >
-                      #{tag}
+                {/* Email consent state */}
+                <div className="flex items-center justify-between gap-3 p-3 rounded-xl border">
+                  <label htmlFor="consent-state" className="min-w-0">
+                    <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      Email consent
                     </span>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Internal Notes */}
-            {contact.notes && (
-              <div className="pt-4 border-t border-slate-100">
-                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">
-                  Organizer Notes
+                    <select
+                      id="consent-state"
+                      value={
+                        contact.do_not_email === null ? 'unasked' : String(contact.do_not_email)
+                      }
+                      disabled={consentBusy}
+                      onChange={(e) => void handleConsentChange(e.target.value as ConsentDecision)}
+                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
+                    >
+                      <option value="unasked">Never asked — not in the audience</option>
+                      <option value="true">Opted out — not in the audience</option>
+                      <option value="false">Agreed — receives broadcasts</option>
+                    </select>
+                  </label>
+                  {contact.unsubscribed_at && (
+                    <span className="shrink-0 text-[10px] font-medium text-slate-400">
+                      Unsubscribed{' '}
+                      {new Date(contact.unsubscribed_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
-                  {contact.notes}
-                </p>
-              </div>
+
+                {/* Quick Metadata */}
+                <div className="space-y-3 pt-4 border-t border-slate-100 text-xs">
+                  <div className="flex items-center gap-2.5 text-slate-600">
+                    <MapPin size={15} className="text-slate-400 shrink-0" />
+                    <span>
+                      {contact.city || 'Fair Oaks'}, {contact.zip_code || 'CA'} &middot;{' '}
+                      <strong className="text-secondary font-mono">{contact.district}</strong>
+                    </span>
+                  </div>
+
+                  {contact.phone && (
+                    <div className="flex items-center gap-2.5 text-slate-600">
+                      <Phone size={15} className="text-slate-400 shrink-0" />
+                      <span className="font-mono">{contact.phone}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2.5 text-slate-600">
+                    <Calendar size={15} className="text-slate-400 shrink-0" />
+                    <span>
+                      Member since{' '}
+                      {new Date(contact.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 text-slate-600">
+                    <DollarSign size={15} className="text-emerald-500 shrink-0" />
+                    <span>
+                      Total Contributions:{' '}
+                      <strong className="text-emerald-600 font-mono">
+                        ${(contact.total_donated_cents / 100).toFixed(2)}
+                      </strong>
+                    </span>
+                  </div>
+
+                  {(tasksTruncated ? openTaskCount : openTasks.length) > 0 && (
+                    <div className="flex items-center gap-2.5 text-slate-600">
+                      <CalendarCheck size={15} className="text-amber-500 shrink-0" />
+                      <span>
+                        <strong className="text-secondary">
+                          {tasksTruncated ? openTaskCount : openTasks.length}
+                        </strong>{' '}
+                        open follow-up
+                        {(tasksTruncated ? openTaskCount : openTasks.length) === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Tags section with inline CRUD */}
+                <div className="pt-4 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                      Interest & Action Tags
+                    </div>
+                    {!isAddingTag && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingTag(true)}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline"
+                      >
+                        <Plus size={11} /> Add Tag
+                      </button>
+                    )}
+                  </div>
+
+                  {isAddingTag && (
+                    <div className="flex items-center gap-1.5 mb-2.5">
+                      <input
+                        type="text"
+                        value={newTagInput}
+                        onChange={(e) => setNewTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void handleAddTagInline();
+                          } else if (e.key === 'Escape') {
+                            setIsAddingTag(false);
+                          }
+                        }}
+                        placeholder="new-tag-name"
+                        className="flex-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-mono text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTagInline}
+                        disabled={tagBusy || !newTagInput.trim()}
+                        className="px-2.5 py-1 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-dark transition-colors disabled:opacity-50"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingTag(false)}
+                        className="p-1 rounded text-slate-400 hover:text-slate-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {contact.tags.length === 0 ? (
+                      <span className="text-xs text-slate-400 italic">No tags assigned</span>
+                    ) : (
+                      contact.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium group/chip"
+                        >
+                          #{tag}
+                          <button
+                            type="button"
+                            onClick={() => void handleRemoveTagInline(tag)}
+                            disabled={tagBusy}
+                            title={`Remove #${tag}`}
+                            className="text-slate-400 hover:text-red-600 ml-0.5 rounded-full p-0.5 transition-colors"
+                          >
+                            <X size={11} />
+                          </button>
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Internal Notes */}
+                {contact.notes && (
+                  <div className="pt-4 border-t border-slate-100">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">
+                      Organizer Notes
+                    </div>
+                    <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                      {contact.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center justify-between gap-2 pt-4 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsInlineEditing(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded-xl transition-colors"
+                      title="Quick edit fields on this card"
+                    >
+                      <Edit2 size={13} /> Quick Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditorOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-secondary text-xs font-bold rounded-xl transition-colors"
+                    >
+                      Modal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsMergeOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-secondary text-xs font-bold rounded-xl transition-colors"
+                      title="Merge a duplicate contact into this profile"
+                    >
+                      <GitMerge size={13} /> Merge
+                    </button>
+                  </div>
+
+                  <ConfirmAction
+                    label={`Delete ${fullName}`}
+                    message={`Are you sure you want to delete ${fullName} (${contact.email})? This action cannot be undone.`}
+                    confirmLabel="Delete Constituent"
+                    danger
+                    busy={deleting}
+                    idleClassName="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                    onConfirm={() => void handleDelete()}
+                  >
+                    <Trash2 size={13} /> Delete
+                  </ConfirmAction>
+                </div>
+              </>
             )}
-
-            {/* Actions */}
-            <div className="flex items-center justify-between gap-2 pt-4 border-t border-slate-100">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setIsEditorOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-secondary text-xs font-bold rounded-xl transition-colors"
-                >
-                  <Edit2 size={13} /> Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMergeOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-secondary text-xs font-bold rounded-xl transition-colors"
-                  title="Merge a duplicate contact into this profile"
-                >
-                  <GitMerge size={13} /> Merge
-                </button>
-              </div>
-
-              <ConfirmAction
-                label={`Delete ${fullName}`}
-                message={`Delete ${fullName}? This cannot be undone. Everything this profile holds goes with it — the timeline, every note, every follow-up task, and the giving history. The list cannot be recovered from anywhere.`}
-                danger
-                busy={deleting}
-                idleClassName="inline-flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
-                onConfirm={() => void handleDelete()}
-              >
-                <Trash2 size={13} aria-hidden="true" /> Delete
-              </ConfirmAction>
-            </div>
           </div>
         </div>
 
@@ -577,26 +1007,99 @@ export function CRMDetailClient({
                     return (
                       <div key={act.id} className="relative group">
                         <span className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-white border-2 border-primary flex items-center justify-center text-[8px]" />
-                        <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 hover:border-slate-200 transition-colors space-y-1">
-                          <div className="flex items-center justify-between gap-2 text-xs">
-                            <span className="font-bold text-secondary flex items-center gap-1.5">
-                              <span className={`p-1 rounded-md ${badgeClass}`}>{icon}</span>
-                              {act.title}
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              {new Date(act.created_at).toLocaleString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                hour12: true,
-                              })}
-                            </span>
-                          </div>
-                          {act.description && (
-                            <p className="text-xs text-slate-600 whitespace-pre-wrap pl-6 pt-1 leading-relaxed">
-                              {act.description}
-                            </p>
+                        <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 hover:border-slate-200 transition-colors space-y-2">
+                          {editingNoteId === act.id ? (
+                            <div className="space-y-3">
+                              <div className="text-xs font-bold text-secondary flex items-center justify-between">
+                                <span className="flex items-center gap-1.5">
+                                  <span className={`p-1 rounded-md ${badgeClass}`}>{icon}</span>
+                                  Edit Note
+                                </span>
+                              </div>
+                              <input
+                                type="text"
+                                value={editingNoteTitle}
+                                onChange={(e) => setEditingNoteTitle(e.target.value)}
+                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                placeholder="Note title"
+                              />
+                              <textarea
+                                value={editingNoteDesc}
+                                onChange={(e) => setEditingNoteDesc(e.target.value)}
+                                rows={3}
+                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                placeholder="Note details…"
+                              />
+                              <div className="flex items-center justify-end gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingNoteId(null)}
+                                  className="px-2.5 py-1 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={updatingNote}
+                                  onClick={() => void handleUpdateNote(act.id)}
+                                  className="inline-flex items-center gap-1 px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary-light transition-colors disabled:opacity-50"
+                                >
+                                  {updatingNote ? (
+                                    <Loader2 size={12} className="animate-spin" />
+                                  ) : (
+                                    <Check size={12} />
+                                  )}
+                                  Save Note
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-bold text-secondary flex items-center gap-1.5">
+                                  <span className={`p-1 rounded-md ${badgeClass}`}>{icon}</span>
+                                  {act.title}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] text-slate-400">
+                                    {new Date(act.created_at).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true,
+                                    })}
+                                  </span>
+                                  {act.type === 'note' && (
+                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStartEditNote(act)}
+                                        className="p-1 text-slate-400 hover:text-primary hover:bg-white rounded transition-colors"
+                                        title="Edit note"
+                                      >
+                                        <Edit2 size={12} />
+                                      </button>
+                                      <ConfirmAction
+                                        label="Delete Note"
+                                        message={`Delete note "${act.title}"? This cannot be undone.`}
+                                        confirmLabel="Delete Note"
+                                        danger
+                                        idleClassName="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded transition-colors"
+                                        onConfirm={() => void handleDeleteNote(act.id)}
+                                      >
+                                        <Trash2 size={12} />
+                                      </ConfirmAction>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {act.description && (
+                                <p className="text-xs text-slate-600 whitespace-pre-wrap pl-6 pt-1 leading-relaxed">
+                                  {act.description}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -717,50 +1220,141 @@ export function CRMDetailClient({
                   )}
                   <ul className="divide-y divide-slate-100 border-t border-slate-100">
                     {tasks.map((task) => (
-                      <li key={task.id} className="flex items-start gap-3 py-3">
-                        <button
-                          type="button"
-                          onClick={() => handleTaskToggle(task)}
-                          disabled={togglingTaskId === task.id}
-                          aria-label={task.status === 'done' ? 'Reopen task' : 'Complete task'}
-                          className="mt-0.5 rounded transition-colors hover:text-emerald-600 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
-                        >
-                          {togglingTaskId === task.id ? (
-                            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-                          ) : task.status === 'done' ? (
-                            <CheckCircle2
-                              size={16}
-                              className="text-emerald-500"
-                              aria-hidden="true"
-                            />
-                          ) : (
-                            <FileText size={16} aria-hidden="true" />
-                          )}
-                        </button>
-                        <div className="min-w-0 flex-1">
-                          <div
-                            className={`text-xs font-bold text-secondary ${
-                              task.status === 'done' ? 'line-through opacity-60' : ''
-                            }`}
-                          >
-                            {task.title}
+                      <li key={task.id} className="py-3">
+                        {editingTaskId === task.id ? (
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                            <div className="text-xs font-bold text-secondary flex items-center justify-between">
+                              <span>Edit Follow-up</span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                ID: {task.id.slice(0, 8)}
+                              </span>
+                            </div>
+                            <label className="block text-[10px] font-black uppercase text-slate-400">
+                              <span className="block mb-1">Task Title *</span>
+                              <input
+                                type="text"
+                                value={editingTaskTitle}
+                                onChange={(e) => setEditingTaskTitle(e.target.value)}
+                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                                placeholder="Task title"
+                              />
+                            </label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <label className="block text-[10px] font-black uppercase text-slate-400">
+                                <span className="block mb-1">Details</span>
+                                <input
+                                  type="text"
+                                  value={editingTaskDetails}
+                                  onChange={(e) => setEditingTaskDetails(e.target.value)}
+                                  className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                                  placeholder="Context or notes"
+                                />
+                              </label>
+                              <label className="block text-[10px] font-black uppercase text-slate-400">
+                                <span className="block mb-1">Due Date</span>
+                                <input
+                                  type="date"
+                                  value={editingTaskDue}
+                                  onChange={(e) => setEditingTaskDue(e.target.value)}
+                                  className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                                />
+                              </label>
+                            </div>
+                            <div className="flex items-center justify-end gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setEditingTaskId(null)}
+                                className="px-2.5 py-1 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                disabled={updatingTask}
+                                onClick={() => void handleUpdateTask(task.id)}
+                                className="inline-flex items-center gap-1 px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary-light transition-colors disabled:opacity-50"
+                              >
+                                {updatingTask ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <Check size={12} />
+                                )}
+                                Save Task
+                              </button>
+                            </div>
                           </div>
-                          {task.details && (
-                            <p className="text-[11px] text-slate-500 mt-0.5">{task.details}</p>
-                          )}
-                        </div>
-                        <span
-                          className={`text-[11px] shrink-0 ${
-                            task.due_at ? 'text-slate-500 font-bold' : 'text-slate-300'
-                          }`}
-                        >
-                          {task.due_at
-                            ? new Date(`${task.due_at}T00:00:00`).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })
-                            : '—'}
-                        </span>
+                        ) : (
+                          <div className="flex items-start gap-3 group">
+                            <button
+                              type="button"
+                              onClick={() => handleTaskToggle(task)}
+                              disabled={togglingTaskId === task.id}
+                              aria-label={task.status === 'done' ? 'Reopen task' : 'Complete task'}
+                              className="mt-0.5 rounded transition-colors hover:text-emerald-600 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                            >
+                              {togglingTaskId === task.id ? (
+                                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                              ) : task.status === 'done' ? (
+                                <CheckCircle2
+                                  size={16}
+                                  className="text-emerald-500"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <FileText size={16} aria-hidden="true" />
+                              )}
+                            </button>
+                            <div className="min-w-0 flex-1">
+                              <div
+                                className={`text-xs font-bold text-secondary ${
+                                  task.status === 'done' ? 'line-through opacity-60' : ''
+                                }`}
+                              >
+                                {task.title}
+                              </div>
+                              {task.details && (
+                                <p className="text-[11px] text-slate-500 mt-0.5">{task.details}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span
+                                className={`text-[11px] ${
+                                  task.due_at ? 'text-slate-500 font-bold' : 'text-slate-300'
+                                }`}
+                              >
+                                {task.due_at
+                                  ? new Date(`${task.due_at}T00:00:00`).toLocaleDateString(
+                                      'en-US',
+                                      {
+                                        month: 'short',
+                                        day: 'numeric',
+                                      }
+                                    )
+                                  : '—'}
+                              </span>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditTask(task)}
+                                  className="p-1 text-slate-400 hover:text-primary hover:bg-slate-100 rounded transition-colors"
+                                  title="Edit task"
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                                <ConfirmAction
+                                  label="Delete Task"
+                                  message={`Delete follow-up "${task.title}"?`}
+                                  confirmLabel="Delete"
+                                  danger
+                                  idleClassName="p-1 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors"
+                                  onConfirm={() => void handleDeleteTask(task.id)}
+                                >
+                                  <Trash2 size={13} />
+                                </ConfirmAction>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>

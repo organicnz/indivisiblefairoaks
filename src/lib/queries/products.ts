@@ -1,10 +1,16 @@
 import { cacheLife, cacheTag } from 'next/cache';
+import { env } from '@/lib/env';
 import { createPublicClient } from '@/lib/supabase-server';
 
 export async function getAllProductSlugs() {
   'use cache';
   cacheLife('hours');
   cacheTag('products');
+  // Throwaway E2E test bundles only need fixture routes prerendered; dynamic routes
+  // render on-demand at runtime. Avoids querying remote catalog and ballooning build time/memory.
+  if (env.NEXT_E2E_BUILD === 'true') {
+    return [{ slug: 'defend-democracy-yard-sign' }];
+  }
   try {
     const supabase = createPublicClient();
     const { data } = await supabase.from('products').select('slug').eq('stock_status', 'instock');

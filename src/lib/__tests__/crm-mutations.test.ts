@@ -28,11 +28,16 @@ vi.mock('@/lib/admin-auth', () => ({
 
 import {
   addCRMNote,
+  bulkDeleteCRMContacts,
+  bulkUpdateCRMContacts,
   deleteCRMContact,
+  deleteCRMNote,
   importCRMContacts,
   mergeCRMContacts,
   saveCRMContact,
   sendCRMDirectEmail,
+  updateCRMNote,
+  updateCRMTask,
 } from '@/lib/actions/crm';
 import { env } from '@/lib/env';
 import type { MockTableConfig } from './supabase-mock';
@@ -401,6 +406,254 @@ describe('CRM mutation failure paths', () => {
 
       expect(res.success).toBe(true);
       expect(payload.text ?? '').not.toContain('https://indivisiblefairoaks.org/');
+    });
+  });
+
+  describe('updateCRMTask', () => {
+    it('validates UUID and input fields correctly', async () => {
+      const res = await updateCRMTask({ id: 'invalid-uuid', title: 'Test' });
+      expect(res.success).toBe(false);
+      expect(res.error).toBeDefined();
+    });
+
+    it('reports database error on failed update', async () => {
+      tables.crm_tasks = { error: { message: 'task update failed' } };
+      const res = await updateCRMTask({
+        id: '11111111-2222-4333-8444-555555555555',
+        title: 'New Title',
+      });
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('task update failed');
+    });
+
+    it('updates an existing task with done status and all fields', async () => {
+      tables.crm_tasks = {
+        rows: [{ id: '11111111-2222-4333-8444-555555555555', title: 'Old Title', status: 'open' }],
+      };
+      const res = await updateCRMTask({
+        id: '11111111-2222-4333-8444-555555555555',
+        contactId: '22222222-3333-4444-8555-666666666666',
+        title: 'New Title',
+        details: 'Details text',
+        dueAt: '2026-11-01',
+        status: 'done',
+      });
+      expect(res.success).toBe(true);
+    });
+
+    it('updates task with open status', async () => {
+      tables.crm_tasks = {
+        rows: [{ id: '11111111-2222-4333-8444-555555555555', title: 'Old Title', status: 'done' }],
+      };
+      const res = await updateCRMTask({
+        id: '11111111-2222-4333-8444-555555555555',
+        title: 'Reopened Title',
+        status: 'open',
+      });
+      expect(res.success).toBe(true);
+    });
+
+    it('clears optional fields when null values are passed', async () => {
+      tables.crm_tasks = {
+        rows: [
+          {
+            id: '11111111-2222-4333-8444-555555555555',
+            title: 'Old Title',
+            status: 'done',
+            details: 'Old details',
+            due_at: '2026-10-10',
+            contact_id: '22222222-3333-4444-8555-666666666666',
+          },
+        ],
+      };
+      const res = await updateCRMTask({
+        id: '11111111-2222-4333-8444-555555555555',
+        details: null,
+        dueAt: null,
+        contactId: null,
+      });
+      expect(res.success).toBe(true);
+    });
+  });
+
+  describe('updateCRMNote & deleteCRMNote', () => {
+    it('refuses to update a note with an empty title', async () => {
+      const res = await updateCRMNote({
+        activityId: 'act-1',
+        title: '   ',
+        description: 'Details',
+      });
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('Title is required');
+    });
+
+    it('reports database error on failed note update', async () => {
+      tables.crm_activities = { error: { message: 'note update failed' } };
+      const res = await updateCRMNote({
+        activityId: 'act-1',
+        title: 'Updated Note',
+        description: 'New details',
+      });
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('note update failed');
+    });
+
+    it('updates note content when valid', async () => {
+      tables.crm_activities = {
+        rows: [{ id: 'act-1', type: 'note', title: 'Original', description: 'Desc' }],
+      };
+      const res = await updateCRMNote({
+        activityId: 'act-1',
+        title: 'Updated Note',
+        description: 'New details',
+      });
+      expect(res.success).toBe(true);
+    });
+
+    it('sets description to null when blank description is provided', async () => {
+      tables.crm_activities = {
+        rows: [{ id: 'act-1', type: 'note', title: 'Original', description: 'Desc' }],
+      };
+      const res = await updateCRMNote({
+        activityId: 'act-1',
+        title: 'Updated Note',
+        description: '   ',
+      });
+      expect(res.success).toBe(true);
+    });
+
+    it('reports database error on failed note deletion', async () => {
+      tables.crm_activities = { error: { message: 'note delete failed' } };
+      const res = await deleteCRMNote('act-1');
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('note delete failed');
+    });
+
+    it('deletes a note cleanly', async () => {
+      tables.crm_activities = {
+        rows: [{ id: 'act-1', type: 'note', title: 'Original', description: 'Desc' }],
+      };
+      const res = await deleteCRMNote('act-1');
+      expect(res.success).toBe(true);
+    });
+  });
+
+  describe('bulkUpdateCRMContacts & bulkDeleteCRMContacts', () => {
+    it('fails bulk update if no contacts are provided', async () => {
+      const res = await bulkUpdateCRMContacts({ contactIds: [], status: 'supporter' });
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('No contacts selected');
+    });
+
+    it('rejects an invalid status during bulk update', async () => {
+      const res = await bulkUpdateCRMContacts({ contactIds: ['c1'], status: 'superhero' });
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('Invalid status');
+    });
+
+    it('reports error if single direct bulk update query fails', async () => {
+      tables.crm_contacts = { error: { message: 'direct update failed' } };
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1', 'c2'],
+        status: 'supporter',
+        district: 'District 3',
+      });
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('direct update failed');
+    });
+
+    it('performs bulk update on contacts without tag changes', async () => {
+      tables.crm_contacts = {
+        rows: [
+          { id: 'c1', status: 'supporter', tags: ['tag1'] },
+          { id: 'c2', status: 'supporter', tags: ['tag2'] },
+        ],
+      };
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1', 'c2'],
+        status: 'active_volunteer',
+        district: 'District 4',
+      });
+      expect(res.success).toBe(true);
+    });
+
+    it('reports error when fetching contacts for tag modifications fails', async () => {
+      tables.crm_contacts = { error: { message: 'fetch contacts failed' } };
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1'],
+        addTags: ['new-tag'],
+      });
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('fetch contacts failed');
+    });
+
+    it('adds and removes tags in bulk across contacts', async () => {
+      tables.crm_contacts = {
+        rows: [
+          { id: 'c1', status: 'supporter', tags: ['volunteer', 'donor'] },
+          { id: 'c2', status: 'supporter', tags: ['donor', 'phonebank'] },
+        ],
+      };
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1', 'c2'],
+        status: 'active_volunteer',
+        district: 'District 1',
+        addTags: ['canvasser', 'donor'],
+        removeTags: ['phonebank'],
+      });
+      expect(res.success).toBe(true);
+      expect(res.updatedCount).toBe(2);
+    });
+
+    it('handles contacts with null or empty tags when adding tags', async () => {
+      tables.crm_contacts = {
+        rows: [
+          { id: 'c1', status: 'supporter', tags: null },
+          { id: 'c2', status: 'supporter', tags: [] },
+        ],
+      };
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1', 'c2'],
+        addTags: ['fresh-tag'],
+      });
+      expect(res.success).toBe(true);
+      expect(res.updatedCount).toBe(2);
+    });
+
+    it('removes tags without adding tags when only removeTags is specified', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', status: 'supporter', tags: ['keep', 'drop'] }],
+      };
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1'],
+        removeTags: ['drop'],
+      });
+      expect(res.success).toBe(true);
+      expect(res.updatedCount).toBe(1);
+    });
+
+    it('fails bulk delete if no contacts are provided', async () => {
+      const res = await bulkDeleteCRMContacts([]);
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('No contacts selected');
+    });
+
+    it('reports error if bulk delete query fails', async () => {
+      tables.crm_contacts = { error: { message: 'bulk delete failed' } };
+      const res = await bulkDeleteCRMContacts(['c1', 'c2']);
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('bulk delete failed');
+    });
+
+    it('deletes multiple contacts cleanly', async () => {
+      tables.crm_contacts = {
+        rows: [
+          { id: 'c1', email: 'a@b.co' },
+          { id: 'c2', email: 'c@d.co' },
+        ],
+      };
+      const res = await bulkDeleteCRMContacts(['c1', 'c2']);
+      expect(res.success).toBe(true);
     });
   });
 });

@@ -1,5 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { isLegacySlug } from '@/config/legacy-redirects';
+import { env } from '@/lib/env';
 import { createPublicClient } from '@/lib/supabase-server';
 
 /**
@@ -39,6 +40,11 @@ export async function getAllPublishedSlugs() {
   'use cache';
   cacheLife('hours');
   cacheTag('content');
+  // Throwaway E2E test bundles only need fixture routes prerendered; dynamic routes
+  // render on-demand at runtime. Avoids querying remote CMS and ballooning build time/memory.
+  if (env.NEXT_E2E_BUILD === 'true') {
+    return [{ slug: 'privacy-policy' }, { slug: 'terms-and-conditions' }];
+  }
   try {
     const supabase = createPublicClient();
     const { data } = await supabase

@@ -100,9 +100,20 @@ The container runs with `Memory=1073741824` (1024 MiB),
 `MemorySwap=4294967296` (4096 MiB, backed by 6 GB host swap) and `CpuQuota=150000`.
 Jobs end `cancelled` rather than `failed` once the cgroup is exhausted, and
 `cancelled` there means the host ran out of room — it is not a verdict on the code.
-The `NODE_OPTIONS: --max-old-space-size=2048` caps on `lint` and `build` exist for
-exactly this and are load-bearing to keep V8 old space within the container ceiling
-without suffering allocation failures or excessive GC pauses.
+With expanded 6 GB host swap, `build-e2e` sets `NODE_OPTIONS: --max-old-space-size=3584`
+to let V8 utilize the available swap without triggering excessive GC cycles or allocation failures.
+
+### Never switch to `ubuntu-latest`
+
+Workflows in this repository run exclusively on self-hosted runners (`[self-hosted, linux, <role>-runner]`).
+Do not switch jobs to `ubuntu-latest`. When optimizing `build-e2e` on the self-hosted host:
+1. **Single-worker Next.js builds**: `next.config.ts` sets `experimental.cpus: 1` during `NEXT_E2E_BUILD`
+   so page collection and static generation run sequentially with 1 worker rather than spawning multiple
+   V8 processes that compete for physical memory and cause swap thrashing.
+2. **Extended static page timeout**: `staticPageGenerationTimeout: 180` in `next.config.ts` prevents
+   Next.js from failing prerender passes after the default 60 seconds and triggering 3-attempt retry spirals.
+3. **Single-worker Playwright**: Playwright runs with `--workers=1` in CI, preventing multiple Chromium
+   browser processes from fighting against the Next.js server for RAM.
 
 ## Where the runners come from
 
@@ -590,3 +601,36 @@ verified live by attempting the insert it exists to forbid:
 
 That is a stronger guarantee than any unit test, and it is the shape of evidence
 to aim for when the pipeline cannot run.
+
+## Aggressive Build Memory & Cache Management on Self-Hosted Runners
+
+The self-hosted fleet runs on a 887 MB RAM VPS backed by 6143 MB swap. Building Next.js
+and running Playwright tests requires specific memory tuning:
+
+1. **V8 Heap Ceiling (`--max-old-space-size=2048`)**:
+   - Setting `max-old-space-size=3584` allowed V8 to balloon heap into swap (`VmSwap: 1.75 GB`).
+   - Every GC pass traversed 1.75 GB in swap, causing >1,100 page faults every 2s (>110 MB/s swap I/O)
+     and locking CPU at **91% I/O wait (`wa: 91%`)**.
+   - Capping `--max-old-space-size=2048` triggers young-generation GCs earlier, keeping the active
+     working set hot in physical RAM and eliminating swap thrashing.
+
+2. **Prerender Slug Pruning (`NEXT_E2E_BUILD=true`)**:
+   - In production builds (`NEXT_E2E_BUILD !== 'true'`), Next.js prerenders all catalog products and CMS articles.
+   - In throwaway E2E builds (`NEXT_E2E_BUILD === 'true'`), `getAllProductSlugs()` and `getAllPublishedSlugs()`
+     return only test fixture routes (`defend-democracy-yard-sign`, `privacy-policy`, `terms-and-conditions`).
+   - Next.js dynamic routing (`dynamicParams = true`) handles any unprerendered route dynamically at runtime.
+   - This drops prerender routes from 66 down to ~20, saving minutes of WAN network latency and swap writes.
+
+3. **Single CPU Worker & Asset Compression**:
+   - `experimental: { cpus: 1 }` prevents concurrent V8 compiler threads from contending for RAM.
+   - `compress: !isE2EBuild` disables Gzip/Brotli compression for localhost E2E test fixtures.
+
+4. **Quadlet Volume Mount vs WAN Cache**:
+   - The Quadlet container maps `%h/dev/ghrunner/cache/bun` directly to `/home/runner/.bun/install/cache`.
+   - `actions/cache@v4` on bun dependencies is bypassed on self-hosted runners (`!contains(runner.labels, 'self-hosted')`),
+     saving ~45s of WAN download/upload of a 1.5 GB directory already present on the host SSD.
+
+5. **Playwright Multi-Viewport Test Resilience**:
+   - Tests that iterate sequentially over 8+ viewport sizes (e.g. `header-fit.spec.ts`) use `test.slow()`
+     to triple the test timeout from 60s to 180s, preventing timeouts on single-worker execution.
+
