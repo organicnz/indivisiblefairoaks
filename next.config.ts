@@ -121,11 +121,13 @@ const nextConfig: NextConfig = {
   // getNumberOfWorkers reads; the default otherwise follows host CPUs the
   // container does not have). Production builds (Vercel and local) keep all
   // three. See .github/workflows/ci.yml.
+  staticPageGenerationTimeout: 180,
   typescript: {
     ignoreBuildErrors: isE2EBuild,
   },
   experimental: {
     exposeTestingApiInProductionBuild: isE2EBuild,
+    ...(isE2EBuild ? { cpus: 1 } : {}),
   },
   async headers() {
     return routeHeaders;

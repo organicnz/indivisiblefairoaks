@@ -300,12 +300,13 @@ jobs:
   #     it is the most memory-hungry job in the pipeline.
   build-e2e:
     name: Build + E2E
-    runs-on: ubuntu-latest
-    needs: [changes]
+    runs-on: [self-hosted, linux, frontend-runner]
+    needs: [changes, lint, test]
     if: needs.changes.outputs.runtime == 'true'
-    timeout-minutes: 20
+    timeout-minutes: 120
     env:
-      NODE_OPTIONS: --max-old-space-size=4096
+      # V8 has plenty of headroom with expanded swap on the self-hosted fleet.
+      NODE_OPTIONS: --max-old-space-size=3584
     steps:
       - uses: actions/checkout@v4
         with:
@@ -315,6 +316,13 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
+      # Ephemeral runners get a fresh container per job, so each of the three
+      # jobs below re-downloaded the whole dependency tree — measured at ~13 min
+      # for `bun install` alone on the fleet host, which is most of why a run
+      # overran its budget there. This caches bun's package cache, not
+      # node_modules: entries are integrity-checked by bun, so a stale or partial
+      # cache cannot produce a wrong tree, and it cannot go stale the way a
+      # cached node_modules does.
       - name: Cache bun dependencies
         uses: actions/cache@v4
         with:
@@ -348,6 +356,9 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: bun run build
 
+      # Same container the build just ran in — no artefact upload/download.
+      # Browsers are cached like bun's package cache: keyed on the lockfile
+      # that pins the Playwright version, so a version bump re-downloads once.
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
@@ -357,7 +368,13 @@ jobs:
             ${{ runner.os }}-playwright-
 
       - name: Install Playwright browsers
-        run: ./node_modules/.bin/playwright install --with-deps chromium
+        # No --with-deps: OS dependencies are baked into the runner image and
+        # persist system-wide. Re-add --with-deps after a runner rebuild if
+        # browsers fail to launch with missing shared libraries.
+        # The installed binary, not `bunx`: `playwright` is only a transitive
+        # dependency, so `bunx` would resolve it from the registry and run a
+        # different version than the lockfile pins.
+        run: ./node_modules/.bin/playwright install chromium
 
       - name: Run E2E tests
         # Draft PRs run a fast smoke subset for iteration signal; ready PRs and
@@ -366,9 +383,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.draft }}" = "true" ]; then
             echo "Draft PR — smoke subset (full suite runs when ready)."
-            ./node_modules/.bin/playwright test --workers=4 e2e/account-entry.spec.ts e2e/header-fit.spec.ts e2e/mobile-navigation.spec.ts e2e/search.spec.ts e2e/mfa-challenge.spec.ts
+            ./node_modules/.bin/playwright test --workers=1 e2e/account-entry.spec.ts e2e/header-fit.spec.ts e2e/mobile-navigation.spec.ts e2e/search.spec.ts e2e/mfa-challenge.spec.ts
           else
-            ./node_modules/.bin/playwright test --workers=4
+            ./node_modules/.bin/playwright test --workers=1
           fi
         env:
           CI: "true"

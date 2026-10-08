@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Fragment, useEffect, useState, useTransition } from 'react';
+import { Fragment, useEffect, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
@@ -223,23 +223,6 @@ export function CRMBroadcastComposer({
     };
   }, [selectedStatuses, selectedDistricts, selectedTags]);
 
-  // A campaign that is mid-send when this page loads still deserves a progress
-  // readout. Progress lived in a callback reached only from the send action, so a
-  // reload between "queued" and "sent" stranded the row reading `sending`
-  // forever — with the only progress number sitting unused on the row itself.
-  useEffect(() => {
-    const inFlight = initialBroadcasts.find(
-      (b) => !b.test_only && (b.status === 'queued' || b.status === 'sending')
-    );
-    if (inFlight) void followProgress(inFlight.id);
-    // One-shot, and `followProgress` is deliberately *not* a dependency. It closes
-    // over `selectedTags` and the tab state, so listing it re-ran the effect on
-    // every keystroke in the composer — and a second `followProgress` is a second
-    // poll loop racing the first over the same row. The row itself cannot change
-    // underneath this tab into a state that needs another loop, so the narrow
-    // dependency is the correct one.
-  }, [initialBroadcasts]);
-
   const toggleStatus = (id: string) => {
     setSegmentConsentMismatch(null);
     setSelectedStatuses((prev) =>
@@ -328,6 +311,22 @@ export function CRMBroadcastComposer({
     setProgress((current) => (current ? { ...current, stillWatching: false } : current));
     startTransition(() => router.refresh());
   };
+
+  const followProgressRef = useRef(followProgress);
+  useEffect(() => {
+    followProgressRef.current = followProgress;
+  });
+
+  // A campaign that is mid-send when this page loads still deserves a progress
+  // readout. Progress lived in a callback reached only from the send action, so a
+  // reload between "queued" and "sent" stranded the row reading `sending`
+  // forever — with the only progress number sitting unused on the row itself.
+  useEffect(() => {
+    const inFlight = initialBroadcasts.find(
+      (b) => !b.test_only && (b.status === 'queued' || b.status === 'sending')
+    );
+    if (inFlight) void followProgressRef.current(inFlight.id);
+  }, [initialBroadcasts]);
 
   /**
    * The preview is the message, not an illustration of it: rendered by the same
