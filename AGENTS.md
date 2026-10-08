@@ -509,10 +509,9 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   arch-neutral on purpose (2026-10-05): both registered runners carry those
   labels, so either can serve. Do not re-add an `X64`/`ARM64` token to pin jobs
   to one runner. The real runner is `indivisiblefairoaks-runner-1`, a Quadlet container on
-  the **ghrunner** host (an ARM64 Linux box over Tailscale) whose labels are
+  the **ghrunner** host (an x86_64 Linux box over Tailscale) whose labels are
   `self-hosted, Linux, X64, ghrunner, personal, personal-organicnz,
-  frontend-runner, backend-runner` — it advertises **X64 on ARM64 hardware**, so
-  `X64` is the right token and must not be "corrected" to match the host CPU.
+  frontend-runner, backend-runner` — matching its native x86_64 architecture.
 
   Every job here sat `queued` for weeks because that container never registered.
   Its entrypoint mints a registration token from `api.github.com` before
