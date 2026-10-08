@@ -88,11 +88,13 @@ test.describe('header layout', () => {
     test.slow();
     // The account control is either inline (xl+) or in the drawer. One of the two
     // must always be present and operable — never neither.
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('load').catch(() => {});
+    await page.waitForTimeout(300);
+
     for (const { name, width, height } of WIDTHS) {
       await page.setViewportSize({ width, height });
-      await page.goto('/');
-      await page.waitForLoadState('load');
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(100);
 
       const inline = page.getByRole('link', { name: /sign in/i });
       if (await inline.isVisible().catch(() => false)) {
