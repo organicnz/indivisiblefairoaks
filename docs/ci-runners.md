@@ -23,17 +23,17 @@ stays; the arch token is what went.
 
 The real runner is **`indivisiblefairoaks-runner-1`**, a Quadlet container
 (`ghrunner-personal-indivisiblefairoaks.service`) on the **ghrunner** host — an
-ARM64 Linux box reached over Tailscale. Its labels are:
+x86_64 Linux box reached over Tailscale. Its labels are:
 
 ```
 self-hosted, Linux, X64, ghrunner, personal, personal-organicnz, frontend-runner, backend-runner
 ```
 
-Note it advertises **X64 on ARM64 hardware**. That is not a mistake to correct,
-but since 2026-10-05 it is also not a token any `runs-on` asks for: the
-selector is arch-neutral so both runners can serve. Rewriting the selector to
-`ARM64` would exclude the container runner just as surely as `X64` excludes
-the Mac — either pin reintroduces the single point of failure.
+The labels match the hardware (`uname -m` says `x86_64`). Since 2026-10-05
+the `runs-on` selector is arch-neutral so both runners can serve (`self-hosted,
+Linux, <role>`). Rewriting the selector to `ARM64` would exclude the container
+runner just as surely as `X64` excludes the Mac — either pin reintroduces the
+single point of failure.
 
 ### What actually went wrong, for weeks
 

@@ -26,11 +26,19 @@ on:
 #
 # The real runner is `indivisiblefairoaks-runner-1`, a Quadlet container
 # (`ghrunner-personal-indivisiblefairoaks.service`) on the **ghrunner** host, an
-# ARM64 Linux box reached over Tailscale. Labels:
+# x86_64 Linux box reached over Tailscale. Labels:
 # `self-hosted, Linux, X64, ghrunner, personal, personal-organicnz,
-# frontend-runner, backend-runner`. Note that it advertises **X64** on ARM64
-# hardware, which is why `X64` is the right token here and must not be "fixed"
-# to match the host CPU.
+# frontend-runner, backend-runner`. The labels match the hardware (`uname -m`
+# says `x86_64`, and the host executes x86_64 binaries natively), which is why
+# `X64` is the right token here and must not be "fixed".
+#
+# An earlier version of this comment claimed the host was ARM64 hardware and
+# that `X64` was right *despite* it. That was wrong, and it caused a bad change:
+# #60 switched every selector to ARM64, and was reverted an hour later because
+# the X64 runner was always right. `ARM64` in a selector means "run this on
+# ARM64 hardware" — there is no ARM64 host in this fleet, so such a job queues
+# forever. If ARM execution is ever genuinely needed, that is a second host,
+# not a label edit here.
 #
 # **Every job here sat `queued` for weeks because that container could not
 # register itself at all.** Its entrypoint mints a registration token from
