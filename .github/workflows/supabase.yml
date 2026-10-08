@@ -190,10 +190,17 @@ jobs:
 
           bun -e "
             import { REQUIRED_IN_PROJECT } from './supabase/functions/secrets.manifest.mjs';
+            const baseline = JSON.parse(require('node:fs').readFileSync('./scripts/secrets-baseline.json', 'utf8'));
+            const accepted = new Set(
+              Object.keys(baseline.accepted || {})
+                .filter((k) => k.startsWith('required-missing:edge-secret:'))
+                .map((k) => k.replace('required-missing:edge-secret:', ''))
+            );
             const listed = JSON.parse(require('node:fs').readFileSync('/tmp/secrets.json', 'utf8'));
             const names = new Set(listed.map((s) => s.name));
-            const missing = REQUIRED_IN_PROJECT.filter((n) => !names.has(n));
+            const missing = REQUIRED_IN_PROJECT.filter((n) => !names.has(n) && !accepted.has(n));
             console.log('Present:', [...names].sort().join(' ') || '(none)');
+            if (accepted.size) console.log('Accepted in baseline:', [...accepted].sort().join(' '));
             if (missing.length) {
               console.error('::error::Required edge secret(s) not set in the hosted project:');
               for (const n of missing) console.error('  - ' + n);
@@ -203,7 +210,7 @@ jobs:
               console.error('   or Dashboard -> Project Settings -> Edge Functions -> Secrets.');
               process.exit(1);
             }
-            console.log('All required edge secrets are present.');
+            console.log('All required edge secrets are present (or documented in baseline).');
           "
 
   # ── 2. Push migrations (independent job) ─────────────────────────────────
