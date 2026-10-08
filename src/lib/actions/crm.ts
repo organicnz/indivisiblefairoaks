@@ -129,6 +129,23 @@ const taskSchema = z.object({
     .optional(),
 });
 
+const updateTaskSchema = z.object({
+  id: z.string().uuid(),
+  contactId: z
+    .string()
+    .uuid('Select a constituent, or leave this blank for a chapter-wide task')
+    .nullable()
+    .optional(),
+  title: z.string().trim().min(1, 'Give the follow-up a title').max(200).optional(),
+  details: z.string().trim().max(2000).nullable().optional(),
+  dueAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Due date must be YYYY-MM-DD')
+    .nullable()
+    .optional(),
+  status: z.enum(['open', 'done']).optional(),
+});
+
 /**
  * A reusable filter. `consent` is a first-class member, not a spare column:
  * "everyone who opted out" is the audit a chapter most often needs to repeat,
@@ -784,6 +801,40 @@ export async function deleteCRMTask(id: string): Promise<{ success: boolean; err
   return { success: true };
 }
 
+export async function updateCRMTask(
+  rawInput: z.input<typeof updateTaskSchema>
+): Promise<{ success: boolean; error?: string }> {
+  const { adminClient } = await requireAdmin();
+  const parsed = updateTaskSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message || 'Invalid input' };
+  }
+
+  const { id, contactId, title, details, dueAt, status } = parsed.data;
+  const updatePayload: Database['public']['Tables']['crm_tasks']['Update'] = {
+    updated_at: new Date().toISOString(),
+  };
+  if (title !== undefined) updatePayload.title = title;
+  if (details !== undefined) updatePayload.details = details || null;
+  if (dueAt !== undefined) updatePayload.due_at = dueAt || null;
+  if (contactId !== undefined) updatePayload.contact_id = contactId || null;
+  if (status !== undefined) {
+    updatePayload.status = status;
+    updatePayload.completed_at = status === 'done' ? new Date().toISOString() : null;
+  }
+
+  const { data, error } = await adminClient
+    .from('crm_tasks')
+    .update(updatePayload)
+    .eq('id', id)
+    .select('contact_id')
+    .single();
+
+  if (error) return { success: false, error: error.message };
+  revalidateCRMRoutes(data?.contact_id || contactId);
+  return { success: true };
+}
+
 /**
  * Saved segments, newest first — with the true total alongside.
  *
@@ -1180,6 +1231,106 @@ export async function deleteCRMContact(id: string): Promise<{ success: boolean; 
   return { success: true };
 }
 
+export async function bulkUpdateCRMContacts({
+  contactIds,
+  status,
+  district,
+  addTags,
+  removeTags,
+}: {
+  contactIds: string[];
+  status?: string;
+  district?: string;
+  addTags?: string[];
+  removeTags?: string[];
+}): Promise<{ success: boolean; updatedCount?: number; error?: string }> {
+  const { adminClient } = await requireAdmin();
+
+  if (!contactIds || contactIds.length === 0) {
+    return { success: false, error: 'No contacts selected' };
+  }
+
+  if (
+    status &&
+    !['active_volunteer', 'supporter', 'donor', 'choir', 'organizer', 'inactive'].includes(status)
+  ) {
+    return { success: false, error: 'Invalid status' };
+  }
+
+  const now = new Date().toISOString();
+
+  // If no tag changes are requested, execute a single direct bulk update
+  if (!addTags?.length && !removeTags?.length) {
+    const payload: Database['public']['Tables']['crm_contacts']['Update'] = { updated_at: now };
+    if (status)
+      payload.status = status as Database['public']['Tables']['crm_contacts']['Update']['status'];
+    if (district) payload.district = district;
+
+    const { error, count } = await adminClient
+      .from('crm_contacts')
+      .update(payload, { count: 'exact' })
+      .in('id', contactIds);
+
+    if (error) return { success: false, error: error.message };
+    revalidateCRMRoutes();
+    return { success: true, updatedCount: count ?? contactIds.length };
+  }
+
+  // When modifying tags, fetch existing tags, apply set modifications, and persist
+  const { data: contacts, error: fetchErr } = await adminClient
+    .from('crm_contacts')
+    .select('id, tags')
+    .in('id', contactIds);
+
+  if (fetchErr) return { success: false, error: fetchErr.message };
+
+  const normAdd = addTags ? normalizeTags(addTags) : [];
+  const normRemove = new Set((removeTags || []).map((t) => t.trim().toLowerCase()));
+
+  for (const c of contacts || []) {
+    let currentTags = Array.isArray(c.tags) ? c.tags : [];
+    if (normRemove.size > 0) {
+      currentTags = currentTags.filter((t) => !normRemove.has(t.toLowerCase()));
+    }
+    if (normAdd.length > 0) {
+      currentTags = normalizeTags([...currentTags, ...normAdd]);
+    }
+    const updatePayload: Database['public']['Tables']['crm_contacts']['Update'] = {
+      tags: currentTags.slice(0, MAX_TAGS_PER_CONTACT),
+      updated_at: now,
+    };
+    if (status)
+      updatePayload.status =
+        status as Database['public']['Tables']['crm_contacts']['Update']['status'];
+    if (district) updatePayload.district = district;
+
+    await adminClient.from('crm_contacts').update(updatePayload).eq('id', c.id);
+  }
+
+  revalidateCRMRoutes();
+  return { success: true, updatedCount: contacts?.length ?? 0 };
+}
+
+export async function bulkDeleteCRMContacts(
+  contactIds: string[]
+): Promise<{ success: boolean; deletedCount?: number; error?: string }> {
+  const { adminClient } = await requireAdmin();
+
+  if (!contactIds || contactIds.length === 0) {
+    return { success: false, error: 'No contacts selected' };
+  }
+
+  const { error, count } = await adminClient
+    .from('crm_contacts')
+    .delete({ count: 'exact' })
+    .in('id', contactIds);
+
+  if (error) return { success: false, error: error.message };
+
+  revalidateCRMRoutes();
+  return { success: true, deletedCount: count ?? contactIds.length };
+}
+
 export async function addCRMNote({
   contactId,
   title,
@@ -1204,6 +1355,55 @@ export async function addCRMNote({
   if (error) return { success: false, error: error.message };
 
   revalidateCRMRoutes(contactId);
+  return { success: true };
+}
+
+export async function updateCRMNote({
+  activityId,
+  title,
+  description,
+}: {
+  activityId: string;
+  title: string;
+  description: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const { adminClient } = await requireAdmin();
+
+  if (!title.trim()) return { success: false, error: 'Title is required' };
+
+  const { data, error } = await adminClient
+    .from('crm_activities')
+    .update({
+      title: title.trim(),
+      description: description.trim() || null,
+    })
+    .eq('id', activityId)
+    .eq('type', 'note')
+    .select('contact_id')
+    .single();
+
+  if (error) return { success: false, error: error.message };
+
+  revalidateCRMRoutes(data?.contact_id);
+  return { success: true };
+}
+
+export async function deleteCRMNote(
+  activityId: string
+): Promise<{ success: boolean; error?: string }> {
+  const { adminClient } = await requireAdmin();
+
+  const { data, error } = await adminClient
+    .from('crm_activities')
+    .delete()
+    .eq('id', activityId)
+    .eq('type', 'note')
+    .select('contact_id')
+    .single();
+
+  if (error) return { success: false, error: error.message };
+
+  revalidateCRMRoutes(data?.contact_id);
   return { success: true };
 }
 

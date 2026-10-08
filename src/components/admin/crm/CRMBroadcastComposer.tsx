@@ -7,14 +7,17 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Code,
   Eye,
   Loader2,
   Mail,
   Megaphone,
+  PenTool,
   Radio,
   Save,
   Send,
   SendHorizonal,
+  Sparkles,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -24,6 +27,11 @@ import { Fragment, useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
+import { DevicePreviewFrame } from '@/components/admin/crm/composer/DevicePreviewFrame';
+import { parseBodyToBlocks, serializeBlocksToBody } from '@/components/admin/crm/composer/parser';
+import { CAMPAIGN_TEMPLATES } from '@/components/admin/crm/composer/templates';
+import type { ComposerBlock, ComposerTemplate } from '@/components/admin/crm/composer/types';
+import { VisualComposerCanvas } from '@/components/admin/crm/composer/VisualComposerCanvas';
 import {
   Dialog,
   DialogContent,
@@ -118,6 +126,9 @@ export function CRMBroadcastComposer({
   // Content
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [composerMode, setComposerMode] = useState<'visual' | 'text'>('visual');
+  const [blocks, setBlocks] = useState<ComposerBlock[]>(() => parseBodyToBlocks(''));
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -456,9 +467,33 @@ export function CRMBroadcastComposer({
    * confirm step the discard does — losing an afternoon of copy because you
    * clicked the wrong row is the failure mode this whole surface is prone to.
    */
+  const handleBlocksChange = (nextBlocks: ComposerBlock[]) => {
+    setBlocks(nextBlocks);
+    setBody(serializeBlocksToBody(nextBlocks));
+  };
+
+  const handleSwitchComposerMode = (nextMode: 'visual' | 'text') => {
+    if (nextMode === 'visual') {
+      setBlocks(parseBodyToBlocks(body));
+    } else {
+      setBody(serializeBlocksToBody(blocks));
+    }
+    setComposerMode(nextMode);
+  };
+
+  const handleApplyTemplate = (tmpl: ComposerTemplate) => {
+    setSubject(tmpl.subject);
+    setBlocks(tmpl.blocks);
+    setBody(serializeBlocksToBody(tmpl.blocks));
+    setIsTemplatesOpen(false);
+    toast.success(`Applied template “${tmpl.name}”`);
+  };
+
   const handleLoadDraft = (draft: CRMBroadcast) => {
     setSubject(draft.subject ?? '');
-    setBody(draft.body ?? '');
+    const draftBody = draft.body ?? '';
+    setBody(draftBody);
+    setBlocks(parseBodyToBlocks(draftBody));
     setSelectedStatuses(draft.target_status ?? []);
     setSelectedDistricts(draft.target_districts ?? []);
     setSelectedTags(draft.target_tags ?? []);
@@ -914,14 +949,50 @@ export function CRMBroadcastComposer({
         {/* Right Column: Message Composer & Live Preview (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Mail size={16} className="text-primary" />
                 <h2 className="text-xs font-black uppercase tracking-widest text-secondary">
                   2. Message Content
                 </h2>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTemplatesOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
+                >
+                  <Sparkles size={13} />
+                  Templates
+                </button>
+
+                <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchComposerMode('visual')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                      composerMode === 'visual'
+                        ? 'bg-white text-secondary shadow-2xs'
+                        : 'text-slate-500 hover:text-secondary'
+                    }`}
+                  >
+                    <PenTool size={12} />
+                    Visual Canvas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchComposerMode('text')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                      composerMode === 'text'
+                        ? 'bg-white text-secondary shadow-2xs'
+                        : 'text-slate-500 hover:text-secondary'
+                    }`}
+                  >
+                    <Code size={12} />
+                    Raw Text
+                  </button>
+                </div>
+
                 <button
                   type="button"
                   onClick={handleSelfTest}
@@ -966,7 +1037,16 @@ export function CRMBroadcastComposer({
                   />
                 </div>
 
-                <div>
+                {composerMode === 'visual' ? (
+                  <div>
+                    <span className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                      Visual Block Canvas
+                    </span>
+                    <VisualComposerCanvas blocks={blocks} onChange={handleBlocksChange} />
+                  </div>
+                ) : null}
+
+                <div className={composerMode === 'text' ? 'block' : 'sr-only'}>
                   <label
                     htmlFor="broadcast-body"
                     className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5"
@@ -977,57 +1057,30 @@ export function CRMBroadcastComposer({
                     id="broadcast-body"
                     rows={10}
                     value={body}
-                    onChange={(e) => setBody(e.target.value)}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setBody(next);
+                      setBlocks(parseBodyToBlocks(next));
+                    }}
                     placeholder="Dear Neighbor,&#10;&#10;Join us this Saturday at Carmichael Park as we rally for democracy...&#10;&#10;Here are the three ways to take immediate action..."
                     aria-describedby="broadcast-body-hint"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm text-slate-800 leading-relaxed font-sans placeholder:text-slate-400"
                   />
-                  {/*
-                    Stated plainly because the previous label promised "HTML/Markdown
-                    Paragraphs supported": the server escapes the body and converts
-                    newlines to line breaks, so markup typed here arrives in the
-                    recipient's inbox as visible source text.
-                  */}
                   <p id="broadcast-body-hint" className="mt-1.5 text-[11px] text-slate-500">
-                    Plain text. Blank lines become paragraph breaks; anything that looks like markup
-                    is sent as literal text.
+                    Plain text / Markdown. Blank lines become paragraph breaks; URLs become
+                    clickable in recipient email clients.
                   </p>
                 </div>
               </div>
             ) : null}
 
             {previewMode && (
-              <div className="space-y-3">
-                <p className="text-[11px] text-slate-500">
-                  Exactly what recipients receive, generated by the same code that sends it.
-                </p>
-                {previewLoading && !previewHtml ? (
-                  <div className="flex h-40 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-500">
-                    Building preview…
-                  </div>
-                ) : previewHtml ? (
-                  <iframe
-                    title="Broadcast email preview"
-                    // Sandboxed with neither allow-scripts nor allow-same-origin:
-                    // this is remote HTML and must not reach the admin page's DOM,
-                    // cookies or storage while it is being previewed.
-                    sandbox=""
-                    srcDoc={previewHtml}
-                    className="h-[32rem] w-full rounded-2xl border border-slate-200 bg-white"
-                  />
-                ) : previewFailed ? (
-                  <div
-                    role="alert"
-                    className="flex h-40 items-center justify-center rounded-2xl border border-accent-red bg-rose-50 text-sm font-medium text-accent-red"
-                  >
-                    The preview could not be built — check the connection and try again.
-                  </div>
-                ) : (
-                  <div className="flex h-40 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-500">
-                    Add a subject and message to see the preview.
-                  </div>
-                )}
-              </div>
+              <DevicePreviewFrame
+                previewHtml={previewHtml || ''}
+                previewLoading={previewLoading}
+                previewFailed={previewFailed}
+                subject={subject}
+              />
             )}
 
             {/* Dispatch Action Bar */}
@@ -1651,6 +1704,50 @@ export function CRMBroadcastComposer({
           </div>
         )}
       </div>
+
+      {/* Campaign Template Chooser Dialog */}
+      <Dialog open={isTemplatesOpen} onOpenChange={setIsTemplatesOpen}>
+        <DialogContent className="max-w-2xl bg-white p-6 rounded-2xl border border-slate-200 shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-black uppercase text-secondary">
+              <Sparkles className="text-amber-500" size={18} />
+              Activisi Campaign Templates
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Pick a ready-to-use template with formatted blocks, action items, and CTA links.
+              Applying a template sets the subject and blocks in your canvas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-3 max-h-[70vh] overflow-y-auto">
+            {CAMPAIGN_TEMPLATES.map((tmpl) => (
+              <div
+                key={tmpl.id}
+                className="flex flex-col justify-between p-4 rounded-xl border border-slate-200 bg-white hover:border-primary/50 hover:bg-slate-50/50 transition-all text-left shadow-2xs"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary">
+                      {tmpl.badge}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-bold">
+                      {tmpl.blocks.length} sections
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black text-secondary mb-1">{tmpl.name}</h4>
+                  <p className="text-xs text-slate-500 line-clamp-2 mb-3">{tmpl.description}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleApplyTemplate(tmpl)}
+                  className="w-full py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-dark transition-colors shadow-2xs"
+                >
+                  Use This Template
+                </button>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
