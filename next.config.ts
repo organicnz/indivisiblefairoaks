@@ -126,7 +126,6 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     exposeTestingApiInProductionBuild: isE2EBuild,
-    ...(isE2EBuild ? { cpus: 2 } : {}),
   },
   async headers() {
     return routeHeaders;
