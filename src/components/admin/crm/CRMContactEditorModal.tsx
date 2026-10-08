@@ -220,6 +220,17 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
             </div>
           </div>
 
+          {/* A manually created contact starts as "Never asked" — not in any
+              broadcast audience and blocked from direct email until opt-in is
+              recorded on their profile. Stated here because Create → try to
+              email → blocked reads as a broken save otherwise. */}
+          {!contact && (
+            <p className="text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-200/70 rounded-xl px-3.5 py-2.5">
+              New constituents start as “Never asked” and won’t receive chapter email until opt-in
+              is recorded on their profile.
+            </p>
+          )}
+
           <div>
             <label
               htmlFor="address"
