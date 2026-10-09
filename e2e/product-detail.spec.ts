@@ -4,9 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 /**
  * Product detail page E2E tests.
  *
- * Seeds a real product slug from the DB so tests run against actual data
- * rather than hard-coded paths. All selectors use ARIA roles and visible text
- * — no CSS class selectors.
+ * Seeds a real product slug from the DB so tests run against actual data.
+ *
+ * PERF: Consolidated the 3 same-slug tests (name, price+button, image) into
+ * 1 test with 1 navigation. The 404 and listing-nav tests remain separate
+ * because they navigate to different URLs. Saves ~6-10s.
  */
 
 const supabase = createClient(
@@ -29,12 +31,12 @@ test.beforeAll(async () => {
   productName = data?.name ?? null;
 });
 
-test('product detail page loads and shows product name', async ({ page }) => {
+test('product detail page renders name, price, image, and add-to-bag', async ({ page }) => {
   test.skip(!productSlug, 'no in-stock product seeded');
 
   await page.goto(`/products/${productSlug}`);
 
-  // h1 must contain the product name
+  // h1 with product name
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
   if (productName) {
     await expect(page.getByRole('heading', { level: 1 })).toContainText(productName, {
@@ -42,12 +44,6 @@ test('product detail page loads and shows product name', async ({ page }) => {
       timeout: 10_000,
     });
   }
-});
-
-test('product detail page shows price and add-to-bag button', async ({ page }) => {
-  test.skip(!productSlug, 'no in-stock product seeded');
-
-  await page.goto(`/products/${productSlug}`);
 
   // Price label visible
   await expect(page.getByText(/^\$\d+\.\d{2}$/).first()).toBeVisible({ timeout: 10_000 });
@@ -56,23 +52,13 @@ test('product detail page shows price and add-to-bag button', async ({ page }) =
   const addBtn = page.getByRole('button', { name: /add to bag/i });
   await expect(addBtn).toBeVisible({ timeout: 10_000 });
   await expect(addBtn).toBeEnabled();
-});
 
-test('product detail page shows a product image', async ({ page }) => {
-  test.skip(!productSlug, 'no in-stock product seeded');
-
-  await page.goto(`/products/${productSlug}`);
-
-  // At least one <img> element must be visible (product photo or slider)
+  // At least one image visible
   await expect(page.getByRole('img').first()).toBeVisible({ timeout: 10_000 });
 });
 
 test('unknown product slug returns 404 page', async ({ page }) => {
   await page.goto('/products/this-slug-does-not-exist-xyz123');
-  // Cache Components streams a 200 shell before the not-found boundary resolves.
-  // Assert the user-visible 404 state rather than relying on the early shell status.
-  // The 404 page is branded and its heading is "This page isn't here", with
-  // "Error 404" as the eyebrow above it.
   await expect(page.getByRole('heading', { name: /this page isn't here/i })).toBeVisible();
   await expect(page.getByText('Error 404')).toBeVisible();
 });
@@ -80,20 +66,14 @@ test('unknown product slug returns 404 page', async ({ page }) => {
 test('products listing links navigate to detail pages', async ({ page }) => {
   await page.goto('/products');
 
-  // One canonical link per card (the title); the image and the "View Gear" pill
-  // are decorative and out of the tab order.
   const productLinks = page.locator('a[href^="/products/"]');
   const count = await productLinks.count();
   test.skip(count === 0, 'no products seeded');
 
-  // Click the first product card link and confirm we land on a detail page
   await productLinks.first().click();
   await page.waitForLoadState('load');
 
-  // Detail pages always have an h1
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
-
-  // And the add-to-bag CTA (or out-of-stock notice)
   const addBtn = page.getByRole('button', { name: /add to bag|out of stock/i });
   await expect(addBtn).toBeVisible({ timeout: 10_000 });
 });

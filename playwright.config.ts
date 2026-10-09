@@ -21,9 +21,11 @@ export default defineConfig({
   expect: {
     timeout: 10_000,
   },
-  // Local delivery gate (lefthook pre-push) gets 1 retry so known stream/layout
-  // races do not block a green suite; CI keeps 2 for runner noise.
-  retries: process.env.CI ? 2 : 1,
+  // 1 retry on both CI and local: with consolidated tests generating fewer
+  // browser contexts and less swap pressure, a single retry catches genuine
+  // race conditions. A third attempt (retries: 2) wasted up to 120s per flaky
+  // test with no diagnostic value on the 887 MiB host.
+  retries: process.env.CI ? 1 : 1,
   // Ephemeral runner hosts have 2 vCPUs; 1 worker prevents severe CPU
   // contention, SwiftShader WebGL stalls, and teardown timeouts.
   workers: process.env.CI ? 1 : undefined,

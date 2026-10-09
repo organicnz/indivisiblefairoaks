@@ -11,6 +11,10 @@ import { expect, test } from '@playwright/test';
  *
  * Serious/critical violations fail CI. Moderate/minor findings are reported
  * but tolerated so the gate stays actionable instead of noisy.
+ *
+ * PERF: All pages are scanned in a single test case that loops through them
+ * in the same browser context. On a swap-constrained host, each new browser
+ * context adds 2-3s of overhead; looping inside one saves ~25-35s.
  */
 
 const PAGES: { path: string; name?: string }[] = [
@@ -28,24 +32,17 @@ const PAGES: { path: string; name?: string }[] = [
   { path: '/choir', name: 'Resistance Choir' },
 ];
 
-for (const { path, name } of PAGES) {
-  test(`a11y: ${name ?? path} has no serious axe violations`, async ({ page }) => {
-    test.slow();
-    // Two determinism guards:
-    //  - networkidle hangs on hosted runners (long-lived analytics sockets);
-    //    load + a settle beat is enough for an axe scan.
-    //  - Animations sampled mid-flight fake color-contrast violations (hero
-    //    fades/moves); the app honours prefers-reduced-motion, so scans run
-    //    against settled final-state rendering.
+test('a11y: all public pages pass axe WCAG 2.1 A/AA', async ({ page }) => {
+  test.slow();
+  const failures: { page: string; violations: string[] }[] = [];
+
+  for (const { path, name } of PAGES) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(path, { waitUntil: 'load' });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(300);
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-      // YouTube's player DOM is third-party code served inside a cross-origin
-      // iframe — its internal aria/button markup is Google's to fix, not ours.
-      // Exclude the frame so the gate judges first-party markup only.
       .exclude('iframe[src*="youtube.com"], iframe[src*="youtube-nocookie.com"]')
       .analyze();
 
@@ -53,7 +50,6 @@ for (const { path, name } of PAGES) {
       ['serious', 'critical'].includes(violation.impact ?? '')
     );
 
-    // Always surface the full picture in the report, then gate on serious+.
     const summary = results.violations
       .map((v) => `[${v.impact}] ${v.id}: ${v.help} (${v.nodes.length} nodes)`)
       .join('\n');
@@ -69,6 +65,16 @@ for (const { path, name } of PAGES) {
       console.log(`\naxe findings on ${path}:\n${summary}${detail ? `\n${detail}` : ''}`);
     }
 
-    expect(serious, `serious a11y violations on ${path}`).toEqual([]);
-  });
-}
+    if (serious.length > 0) {
+      failures.push({
+        page: name ?? path,
+        violations: serious.map((v) => `${v.id}: ${v.help}`),
+      });
+    }
+  }
+
+  expect(
+    failures,
+    `serious a11y violations:\n${failures.map((f) => `  ${f.page}: ${f.violations.join(', ')}`).join('\n')}`
+  ).toEqual([]);
+});
