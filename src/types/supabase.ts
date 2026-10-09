@@ -817,10 +817,12 @@ export type Database = {
           created_at: string | null
           currency: string | null
           discount_amount: number | null
+          external_id: string | null
           id: number
           metadata: Json | null
           shipping_address: Json | null
           shipping_amount: number | null
+          source: string
           status: string | null
           stripe_payment_intent_id: string | null
           stripe_session_id: string | null
@@ -837,10 +839,12 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           discount_amount?: number | null
+          external_id?: string | null
           id?: number
           metadata?: Json | null
           shipping_address?: Json | null
           shipping_amount?: number | null
+          source?: string
           status?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
@@ -857,10 +861,12 @@ export type Database = {
           created_at?: string | null
           currency?: string | null
           discount_amount?: number | null
+          external_id?: string | null
           id?: number
           metadata?: Json | null
           shipping_address?: Json | null
           shipping_amount?: number | null
+          source?: string
           status?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null

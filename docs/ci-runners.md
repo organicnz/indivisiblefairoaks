@@ -536,7 +536,7 @@ ones that finish:
 | types | `bunx tsc --noEmit` |
 | production build | `NEXT_E2E_BUILD=true bun run build` |
 | peer deps | `bun scripts/check-peer-deps.mjs --all` |
-| e2e | `playwright test --workers=2` — 87 specs (86 + the auth setup project) |
+| e2e | `playwright test --workers=2` — 0 specs (0 + no running tests) |
 
 A merge is only as trustworthy as the last full local run, so run all of them
 before merging anything that CI would otherwise have gated.
