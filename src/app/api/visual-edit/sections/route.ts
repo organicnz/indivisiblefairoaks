@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase-server';
-import type { Database } from '@/types/supabase';
 
 /**
  * Visual Editor Sections API
@@ -13,7 +12,7 @@ import type { Database } from '@/types/supabase';
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const pathname = searchParams.get('pathname') || '/';
+    const _pathname = searchParams.get('pathname') || '/';
 
     const supabase = await createServerClient();
     const {
@@ -36,21 +35,62 @@ export async function GET(req: Request) {
     }
 
     // Fetch published content sections
-    const { data: contentSections } = await supabase
+    const { data: contentSections, error: contentError } = await supabase
       .from('content')
       .select('*')
       .eq('status', 'publish');
 
-    const sections = (contentSections || []).map((row: any) => ({
-      id: `content-${row.id}`,
-      type: 'cms' as const,
-      title: row.title || row.slug || 'Untitled',
-      slug: row.slug,
-      content: row.body,
-      metadata: row.metadata,
-      status: row.status,
-      backendId: row.id,
-    }));
+    if (contentError) {
+      return NextResponse.json({ error: contentError.message }, { status: 500 });
+    }
+
+    // Fetch CRM contacts that are eligible for visual editing
+    const { data: crmContacts, error: crmError } = await supabase
+      .from('crm_contacts')
+      .select('id, first_name, last_name, email, status, updated_at')
+      .eq('status', 'active')
+      .limit(50);
+
+    if (crmError) {
+      return NextResponse.json({ error: crmError.message }, { status: 500 });
+    }
+
+    const sections = [];
+
+    // Map CMS content sections
+    const contentSectionRows = contentSections || [];
+    for (const row of contentSectionRows) {
+      sections.push({
+        id: `content-${row.id}`,
+        type: 'cms' as const,
+        title: row.title || row.slug || 'Untitled',
+        slug: row.slug,
+        content: row.body,
+        excerpt: row.excerpt,
+        metadata: row.metadata,
+        status: row.status,
+        backendId: row.id,
+        media: [], // Will be populated by separate media API call
+      });
+    }
+
+    // Map CRM contacts as editable sections
+    const crmContactRows = crmContacts || [];
+    for (const row of crmContactRows) {
+      sections.push({
+        id: `crm-contact-${row.id}`,
+        type: 'crm' as const,
+        title:
+          `${row.first_name || ''} ${row.last_name || ''}`.trim() || row.email || 'CRM Contact',
+        slug: row.email || `contact-${row.id}`,
+        content: row.email || '',
+        excerpt: `${row.first_name || ''} ${row.last_name || ''}`.trim(),
+        metadata: {},
+        status: row.status || 'active',
+        backendId: row.id,
+        media: [],
+      });
+    }
 
     return NextResponse.json({ sections });
   } catch (error) {
@@ -117,9 +157,11 @@ export async function POST(req: Request) {
           title: data.title,
           slug: data.slug,
           content: data.body,
+          excerpt: data.excerpt,
           metadata: data.metadata,
           status: data.status,
           backendId: data.id,
+          media: [],
         },
       });
     } else if (operation === 'update') {
@@ -130,12 +172,16 @@ export async function POST(req: Request) {
 
       const { expectedUpdatedAt, ...updateData } = section;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('content')
         .update(updateData)
-        .eq('id', Number(id.replace('content-', '')))
-        .select()
-        .single();
+        .eq('id', Number(id.replace('content-', '')));
+
+      if (expectedUpdatedAt) {
+        query = query.eq('updated_at', expectedUpdatedAt);
+      }
+
+      const { data, error } = await query.select().single();
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -149,9 +195,11 @@ export async function POST(req: Request) {
           title: data.title,
           slug: data.slug,
           content: data.body,
+          excerpt: data.excerpt,
           metadata: data.metadata,
           status: data.status,
           backendId: data.id,
+          media: [],
         },
       });
     } else if (operation === 'delete') {

@@ -4,8 +4,10 @@ import {
   Activity,
   ArrowDown,
   ArrowUp,
+  Copy,
   ExternalLink,
   Eye,
+  EyeOff,
   FolderOpen,
   History,
   Layers,
@@ -47,6 +49,7 @@ import {
   type Block,
   CALLOUT_TONES,
   type HeadingLevel,
+  nextBlockId,
   parseHtml,
   serializeBlocks,
 } from '@/lib/blocks';
@@ -57,7 +60,13 @@ import type {
   CRMBackendStatus,
   CRMMediaTarget,
   VisualContentRow,
+  VisualSectionAddBlockDetail,
+  VisualSectionDeleteDetail,
+  VisualSectionDuplicateDetail,
+  VisualSectionFocusEventDetail,
+  VisualSectionMoveEventDetail,
   VisualSectionOverlayItem,
+  VisualSectionToggleEventDetail,
 } from '@/types/crm';
 
 /**
@@ -65,13 +74,124 @@ import type {
  *
  * Full in-page visual editor with CRUD connected directly to the Supabase backend:
  * - Live section discovery, highlighting, and on-section quick controls
- * - Section editor supporting Headings, Paragraphs, Lists, Images, Callouts, Quotes, Buttons
+ * - Per-section visual toggle: admins can turn on/off visual editing for each section
+ * - Automatic DOM extraction: makes EVERY page immediately editable even before CMS row creation
+ * - Section editor supporting Headings, Paragraphs, Lists, Images, Callouts, Quotes, Buttons, Dividers
  * - Supabase S3 Storage media library integration for image picking and uploading
  * - Supabase Edge Functions health status and latency monitoring
  * - Direct optimistic updates with server-side validation and concurrency safety
  */
 
 export const VISUAL_EDIT_ROOT_ATTR = 'data-visual-edit-root';
+
+/**
+ * Intelligently extracts structured blocks from a live rendered DOM element
+ * so that static pages can be edited and synced directly to Supabase.
+ */
+function extractBlocksFromDOM(root: HTMLElement): Block[] {
+  const extracted: Block[] = [];
+  const children = Array.from(root.children);
+
+  children.forEach((child, idx) => {
+    if (!(child instanceof HTMLElement)) return;
+    const blockId = nextBlockId();
+
+    // Check heading
+    const heading = child.matches('h1, h2, h3, h4, h5, h6')
+      ? child
+      : child.querySelector('h1, h2, h3, h4, h5, h6');
+    if (heading) {
+      const levelNum = Number.parseInt(heading.tagName.replace('H', ''), 10) || 2;
+      const level = (levelNum >= 2 && levelNum <= 4 ? levelNum : 2) as HeadingLevel;
+      extracted.push({
+        id: blockId,
+        type: 'heading',
+        level,
+        html: heading.innerHTML.trim() || heading.textContent?.trim() || `Section ${idx + 1}`,
+      });
+      return;
+    }
+
+    // Check image
+    const img = child.matches('img') ? (child as HTMLImageElement) : child.querySelector('img');
+    if (img?.src) {
+      extracted.push({
+        id: blockId,
+        type: 'image',
+        src: img.src,
+        alt: img.alt || '',
+        caption: '',
+        width: img.naturalWidth || null,
+        height: img.naturalHeight || null,
+      });
+      return;
+    }
+
+    // Check lists
+    const ul = child.matches('ul, ol') ? child : child.querySelector('ul, ol');
+    if (ul) {
+      const isOrdered = ul.tagName === 'OL';
+      const items = Array.from(ul.querySelectorAll('li')).map((li) => li.textContent?.trim() || '');
+      extracted.push({
+        id: blockId,
+        type: isOrdered ? 'orderedList' : 'bulletList',
+        items: items.length > 0 ? items : ['List item'],
+      });
+      return;
+    }
+
+    // Check quotes
+    const quote = child.matches('blockquote') ? child : child.querySelector('blockquote');
+    if (quote) {
+      extracted.push({
+        id: blockId,
+        type: 'quote',
+        html: quote.innerHTML.trim() || quote.textContent?.trim() || '',
+      });
+      return;
+    }
+
+    // Check button / CTA
+    const btn = child.matches('a, button') ? child : child.querySelector('a, button');
+    if (
+      btn &&
+      btn instanceof HTMLElement &&
+      (btn.classList.contains('btn') ||
+        btn.getAttribute('role') === 'button' ||
+        btn.tagName === 'BUTTON')
+    ) {
+      const href = btn.getAttribute('href') || '/';
+      extracted.push({
+        id: blockId,
+        type: 'button',
+        label: btn.textContent?.trim() || 'Take Action',
+        href,
+      });
+      return;
+    }
+
+    // Paragraph or generic text
+    const p = child.matches('p') ? child : child.querySelector('p');
+    const htmlContent = p ? p.innerHTML.trim() : child.innerHTML.trim();
+    if (htmlContent) {
+      extracted.push({
+        id: blockId,
+        type: 'paragraph',
+        html: htmlContent,
+      });
+    } else {
+      extracted.push({
+        id: blockId,
+        type: 'paragraph',
+        html: child.textContent?.trim() || `Section ${idx + 1} content`,
+      });
+    }
+  });
+
+  return extracted.length > 0
+    ? extracted
+    : [{ id: nextBlockId(), type: 'paragraph', html: 'Section content' }];
+}
 
 export function VisualEditOverlay() {
   const router = useRouter();
@@ -82,6 +202,7 @@ export function VisualEditOverlay() {
 
   const rootRef = useRef<HTMLElement | null>(null);
   const [sections, setSections] = useState<PageSection[]>([]);
+  const [enabledSectionIndices, setEnabledSectionIndices] = useState<Set<number>>(new Set());
   const [contentRow, setContentRow] = useState<VisualContentRow | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [backendStatus, setBackendStatus] = useState<CRMBackendStatus | null>(null);
@@ -171,11 +292,6 @@ export function VisualEditOverlay() {
     if (!slug && (pathname === '/' || pathname === '')) {
       slug = 'home';
     }
-    if (!slug) {
-      setContentRow(null);
-      setBlocks([]);
-      return;
-    }
 
     try {
       let row = null;
@@ -185,7 +301,7 @@ export function VisualEditOverlay() {
           row = await getContentForEdit(id);
         }
       }
-      if (!row) {
+      if (!row && slug) {
         row = await getContentBySlugForEdit(slug);
       }
 
@@ -196,11 +312,35 @@ export function VisualEditOverlay() {
         setPageFeaturedImage(row.featured_image || '');
         setPageStatus((row.status === 'publish' ? 'publish' : 'draft') as 'publish' | 'draft');
         setBlocks(parseHtml(row.body || ''));
+      } else {
+        // Fallback for pages not yet in CMS: extract real blocks from live DOM
+        setContentRow(null);
+        const resolvedSlug =
+          slug ||
+          pathname
+            .replace(/^\//, '')
+            .replace(/[^a-z0-9-]/gi, '-')
+            .toLowerCase() ||
+          'home';
+        setPageSlug(resolvedSlug);
+        setPageTitle(
+          document.querySelector('h1')?.textContent?.trim() ||
+            target?.label ||
+            resolvedSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+        );
+        const root = rootRef.current || findEffectiveVisualEditRoot();
+        if (root) {
+          setBlocks(extractBlocksFromDOM(root));
+        }
       }
     } catch {
-      // Non-fatal if loading row fails
+      // Non-fatal if loading row fails, extract from live DOM
+      const root = rootRef.current || findEffectiveVisualEditRoot();
+      if (root) {
+        setBlocks(extractBlocksFromDOM(root));
+      }
     }
-  }, [pathname, target]);
+  }, [pathname, target, findEffectiveVisualEditRoot]);
 
   // Connect / Initialize a static page into a Supabase CMS row
   const handleInitializeCMSPage = async () => {
@@ -218,14 +358,13 @@ export function VisualEditOverlay() {
       target?.label ||
       slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-    const initialBlocks: Block[] =
-      sections.length > 0
-        ? sections.map((sec, i) => ({
-            id: `init-${i}`,
-            type: 'paragraph' as const,
-            html: sec.label,
-          }))
-        : [{ id: 'init-0', type: 'paragraph' as const, html: 'Add section copy here...' }];
+    const root = rootRef.current || findEffectiveVisualEditRoot();
+    const initialBlocks =
+      blocks.length > 0
+        ? blocks
+        : root
+          ? extractBlocksFromDOM(root)
+          : [{ id: nextBlockId(), type: 'paragraph' as const, html: 'Add section copy here...' }];
 
     setSavingBackend(true);
     try {
@@ -267,6 +406,7 @@ export function VisualEditOverlay() {
   useEffect(() => {
     if (!enabled || !isAdmin) {
       setSections([]);
+      setEnabledSectionIndices(new Set());
       return;
     }
 
@@ -274,9 +414,17 @@ export function VisualEditOverlay() {
     rootRef.current = root;
     const discovered = root ? collectPageSections(root) : [];
     setSections(discovered);
+    const initialActive = new Set(discovered.map((s) => s.index));
+    setEnabledSectionIndices(initialActive);
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
-        new CustomEvent('indivisible:page-sections-updated', { detail: discovered })
+        new CustomEvent('indivisible:page-sections-updated', {
+          detail: {
+            sections: discovered,
+            activeIndices: Array.from(initialActive),
+          },
+        })
       );
     }
 
@@ -284,6 +432,7 @@ export function VisualEditOverlay() {
     probeBackendHealth();
   }, [enabled, isAdmin, loadContentData, probeBackendHealth, findEffectiveVisualEditRoot]);
 
+  // Keep section overlay coordinates synchronized with viewport
   const updateOverlays = useCallback(() => {
     if (!enabled || !isAdmin || !rootRef.current) {
       setSectionOverlays([]);
@@ -292,6 +441,9 @@ export function VisualEditOverlay() {
     const items: VisualSectionOverlayItem[] = [];
 
     sections.forEach((sec) => {
+      // Only render overlays for sections currently turned on
+      if (!enabledSectionIndices.has(sec.index)) return;
+
       const el = locate(sec.index);
       if (!el) return;
       const r = el.getBoundingClientRect();
@@ -315,7 +467,7 @@ export function VisualEditOverlay() {
     });
 
     setSectionOverlays(items);
-  }, [enabled, isAdmin, sections, blocks, locate]);
+  }, [enabled, isAdmin, sections, blocks, locate, enabledSectionIndices]);
 
   useEffect(() => {
     if (!enabled || !isAdmin) return;
@@ -348,123 +500,75 @@ export function VisualEditOverlay() {
     [locate, located]
   );
 
-  // Listen to events from the navbar editorial button
-  // biome-ignore lint/correctness/useExhaustiveDependencies: handleOpenEditSection and handleAddNewSection are closure-captured and stable within a given blocks snapshot
-  useEffect(() => {
-    if (!enabled || !isAdmin) return;
-
-    const handleFocusSection = (e: Event) => {
-      const custom = e as CustomEvent<{ index: number; openEdit?: boolean }>;
-      if (custom.detail !== undefined) {
-        const { index, openEdit } = custom.detail;
-        const targetSec = sections.find((s) => s.index === index) || {
-          index,
-          label: `Section ${index + 1}`,
-        };
-        jumpTo(targetSec);
-        if (openEdit) {
-          handleOpenEditSection(index);
-        }
-      }
-    };
-
-    const handleAddBlock = () => {
-      handleAddNewSection('paragraph');
-    };
-
-    const handleOpenSettings = () => {
-      setIsSettingsOpen(true);
-    };
-
-    window.addEventListener('indivisible:focus-section', handleFocusSection);
-    window.addEventListener('indivisible:add-block', handleAddBlock);
-    window.addEventListener('indivisible:open-settings', handleOpenSettings);
-
-    return () => {
-      window.removeEventListener('indivisible:focus-section', handleFocusSection);
-      window.removeEventListener('indivisible:add-block', handleAddBlock);
-      window.removeEventListener('indivisible:open-settings', handleOpenSettings);
-    };
-  }, [enabled, isAdmin, sections, jumpTo]);
-
-  // Revisions management
-  const handleOpenRevisions = async () => {
-    if (!contentRow) return;
-    setIsRevisionsOpen(true);
-    setRevisionsLoading(true);
-    try {
-      const res = await getContentRevisions(contentRow.id);
-      if (res.success && res.data) {
-        setRevisions(res.data.revisions);
-      } else {
-        toast.error('Failed to load page revisions');
-      }
-    } catch {
-      toast.error('Failed to load page revisions');
-    } finally {
-      setRevisionsLoading(false);
-    }
-  };
-
-  const handleRestoreRevision = async (revId: number) => {
-    if (!contentRow) return;
-    setSavingBackend(true);
-    try {
-      const res = await restoreContentRevision(contentRow.id, revId);
-      if (res.success) {
-        toast.success('Revision snapshot restored successfully');
-        setIsRevisionsOpen(false);
-        await loadContentData();
-        router.refresh();
-      } else {
-        toast.error(res.error || 'Failed to restore revision');
-      }
-    } catch {
-      toast.error('Failed to restore revision');
-    } finally {
-      setSavingBackend(false);
-    }
-  };
-
-  if (!enabled || !isAdmin) return null;
-
   // --- CRUD Operations connected to Supabase Backend ---
 
-  const handlePersistBlocks = async (newBlocks: Block[], successMessage = 'Page saved') => {
-    if (!contentRow) return;
-    setSavingBackend(true);
-    const newBody = serializeBlocks(newBlocks);
+  const handlePersistBlocks = useCallback(
+    async (newBlocks: Block[], successMessage = 'Page saved') => {
+      setSavingBackend(true);
+      const newBody = serializeBlocks(newBlocks);
 
-    try {
-      const res = await saveContent({
-        id: contentRow.id,
-        title: contentRow.title,
-        slug: contentRow.slug,
-        excerpt: contentRow.excerpt,
-        type: (contentRow.type as 'page' | 'post') || 'page',
-        status: (contentRow.status === 'publish' ? 'publish' : 'draft') as 'publish' | 'draft',
-        body: newBody,
-        featuredImage: contentRow.featured_image,
-        expectedUpdatedAt: contentRow.updated_at ?? undefined,
-        metadata: contentRow.metadata ?? {},
-      });
+      try {
+        let slug = contentRow?.slug || cmsSlugForPath(pathname);
+        if (!slug) {
+          if (pathname === '/' || pathname === '') slug = 'home';
+          else
+            slug = pathname
+              .replace(/^\//, '')
+              .replace(/[^a-z0-9-]/gi, '-')
+              .toLowerCase();
+        }
 
-      if (res.success) {
-        toast.success(successMessage);
-        setContentRow((prev) =>
-          prev ? { ...prev, body: newBody, updated_at: res.data?.updatedAt } : null
-        );
-        setBlocks(newBlocks);
-        router.refresh();
-      } else {
-        toast.error(res.error || 'Failed to save changes to backend');
+        const title =
+          contentRow?.title ||
+          pageTitle ||
+          document.querySelector('h1')?.textContent?.trim() ||
+          target?.label ||
+          slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+        const res = await saveContent({
+          id: contentRow?.id,
+          title,
+          slug,
+          excerpt: contentRow?.excerpt || null,
+          type: (contentRow?.type as 'page' | 'post') || 'page',
+          status: (contentRow?.status === 'publish' ? 'publish' : 'draft') as 'publish' | 'draft',
+          body: newBody,
+          featuredImage: contentRow?.featured_image || pageFeaturedImage || null,
+          expectedUpdatedAt: contentRow?.updated_at ?? undefined,
+          metadata: contentRow?.metadata ?? {},
+        });
+
+        if (res.success) {
+          toast.success(successMessage);
+          setContentRow((prev) =>
+            prev
+              ? { ...prev, body: newBody, updated_at: res.data?.updatedAt }
+              : {
+                  id: res.data?.id || 1,
+                  title,
+                  slug,
+                  excerpt: null,
+                  type: 'page',
+                  status: 'publish',
+                  body: newBody,
+                  featured_image: pageFeaturedImage || null,
+                  metadata: {},
+                  updated_at: res.data?.updatedAt,
+                }
+          );
+          setBlocks(newBlocks);
+          router.refresh();
+        } else {
+          toast.error(res.error || 'Failed to save changes to backend');
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Error syncing with backend');
+      } finally {
+        setSavingBackend(false);
       }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error syncing with backend');
-    } finally {
-      setSavingBackend(false);
-    }
-  };
+    },
+    [contentRow, pageTitle, pageFeaturedImage, pathname, router, target]
+  );
 
   const handleTogglePageStatus = async () => {
     if (!contentRow) return;
@@ -487,135 +591,355 @@ export function VisualEditOverlay() {
     }
   };
 
-  const handleOpenEditSection = (index: number) => {
-    const targetBlock = blocks[index] || {
-      id: String(Date.now()),
-      type: 'paragraph',
-      html: '',
-    };
-    setEditingBlockIndex(index);
-    setEditingBlock({ ...targetBlock });
-    setIsSectionModalOpen(true);
-  };
+  const handleOpenEditSection = useCallback(
+    (index: number) => {
+      const targetBlock = blocks[index] || {
+        id: nextBlockId(),
+        type: 'paragraph' as const,
+        html: sections[index]?.label || '',
+      };
+      setEditingBlockIndex(index);
+      setEditingBlock({ ...targetBlock });
+      setIsSectionModalOpen(true);
+    },
+    [blocks, sections]
+  );
 
-  const handleAddNewSection = (type: Block['type'], insertAfterIndex?: number) => {
-    const freshId = String(Date.now());
-    let freshBlock: Block;
-    switch (type) {
-      case 'heading':
-        freshBlock = { id: freshId, type: 'heading', level: 2, html: 'New Section Heading' };
-        break;
-      case 'paragraph':
-        freshBlock = { id: freshId, type: 'paragraph', html: 'Add section copy here...' };
-        break;
-      case 'bulletList':
-        freshBlock = { id: freshId, type: 'bulletList', items: ['Action item 1', 'Action item 2'] };
-        break;
-      case 'orderedList':
-        freshBlock = { id: freshId, type: 'orderedList', items: ['Step 1', 'Step 2'] };
-        break;
-      case 'callout':
-        freshBlock = { id: freshId, type: 'callout', tone: 'info', html: 'Important action note.' };
-        break;
-      case 'image':
-        freshBlock = {
-          id: freshId,
-          type: 'image',
-          src: '',
-          alt: 'Image description',
-          caption: '',
-          width: null,
-          height: null,
-        };
-        break;
-      case 'button':
-        freshBlock = { id: freshId, type: 'button', label: 'Take Action', href: '/donate' };
-        break;
-      case 'quote':
-        freshBlock = { id: freshId, type: 'quote', html: 'Inspiring constituent quote.' };
-        break;
-      case 'divider':
-        freshBlock = { id: freshId, type: 'divider' };
-        break;
-      default:
-        freshBlock = { id: freshId, type: 'paragraph', html: 'Content' };
-    }
+  const handleAddNewSection = useCallback(
+    (type: Block['type'], insertAfterIndex?: number) => {
+      const freshId = nextBlockId();
+      let freshBlock: Block;
+      switch (type) {
+        case 'heading':
+          freshBlock = { id: freshId, type: 'heading', level: 2, html: 'New Section Heading' };
+          break;
+        case 'paragraph':
+          freshBlock = { id: freshId, type: 'paragraph', html: 'Add section copy here...' };
+          break;
+        case 'bulletList':
+          freshBlock = {
+            id: freshId,
+            type: 'bulletList',
+            items: ['Action item 1', 'Action item 2'],
+          };
+          break;
+        case 'orderedList':
+          freshBlock = { id: freshId, type: 'orderedList', items: ['Step 1', 'Step 2'] };
+          break;
+        case 'callout':
+          freshBlock = {
+            id: freshId,
+            type: 'callout',
+            tone: 'info',
+            html: 'Important civic action note.',
+          };
+          break;
+        case 'image':
+          freshBlock = {
+            id: freshId,
+            type: 'image',
+            src: '',
+            alt: 'Image description',
+            caption: '',
+            width: null,
+            height: null,
+          };
+          break;
+        case 'button':
+          freshBlock = { id: freshId, type: 'button', label: 'Take Action', href: '/take-action' };
+          break;
+        case 'quote':
+          freshBlock = { id: freshId, type: 'quote', html: 'Inspiring constituent quote.' };
+          break;
+        case 'divider':
+          freshBlock = { id: freshId, type: 'divider' };
+          break;
+        default:
+          freshBlock = { id: freshId, type: 'paragraph', html: 'Content' };
+      }
 
-    const nextBlocks = [...blocks];
-    let newIndex: number;
-    if (
-      insertAfterIndex !== undefined &&
-      insertAfterIndex >= 0 &&
-      insertAfterIndex < nextBlocks.length
-    ) {
-      nextBlocks.splice(insertAfterIndex + 1, 0, freshBlock);
-      newIndex = insertAfterIndex + 1;
-    } else {
-      nextBlocks.push(freshBlock);
-      newIndex = nextBlocks.length - 1;
-    }
-    setBlocks(nextBlocks);
-    setEditingBlockIndex(newIndex);
-    setEditingBlock(freshBlock);
-    setIsSectionModalOpen(true);
-  };
+      const nextBlocks = [...blocks];
+      let newIndex: number;
+      if (
+        insertAfterIndex !== undefined &&
+        insertAfterIndex >= 0 &&
+        insertAfterIndex < nextBlocks.length
+      ) {
+        nextBlocks.splice(insertAfterIndex + 1, 0, freshBlock);
+        newIndex = insertAfterIndex + 1;
+      } else {
+        nextBlocks.push(freshBlock);
+        newIndex = nextBlocks.length - 1;
+      }
+      setBlocks(nextBlocks);
+      setEditingBlockIndex(newIndex);
+      setEditingBlock(freshBlock);
+      setIsSectionModalOpen(true);
+    },
+    [blocks]
+  );
 
   const handleSaveSectionModal = async () => {
     if (!editingBlock || editingBlockIndex === null) return;
     const nextBlocks = [...blocks];
     nextBlocks[editingBlockIndex] = editingBlock;
     setIsSectionModalOpen(false);
-    await handlePersistBlocks(nextBlocks, 'Section updated');
+    await handlePersistBlocks(nextBlocks, 'Section updated in Supabase');
   };
 
-  const handleDeleteSection = async (index: number) => {
-    const nextBlocks = blocks.filter((_, i) => i !== index);
-    setBlocks(nextBlocks);
-    await handlePersistBlocks(nextBlocks, 'Section deleted');
-  };
+  const handleDeleteSection = useCallback(
+    async (index: number) => {
+      const nextBlocks = blocks.filter((_, i) => i !== index);
+      setBlocks(nextBlocks);
+      await handlePersistBlocks(nextBlocks, 'Section deleted from Supabase');
+    },
+    [blocks, handlePersistBlocks]
+  );
 
-  const handleMoveSection = async (index: number, direction: 'up' | 'down') => {
-    const targetIdx = direction === 'up' ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= blocks.length) return;
-    const nextBlocks = [...blocks];
-    const temp = nextBlocks[index];
-    nextBlocks[index] = nextBlocks[targetIdx];
-    nextBlocks[targetIdx] = temp;
-    setBlocks(nextBlocks);
-    await handlePersistBlocks(nextBlocks, 'Section order updated');
-  };
+  const handleMoveSection = useCallback(
+    async (index: number, direction: 'up' | 'down') => {
+      const targetIdx = direction === 'up' ? index - 1 : index + 1;
+      if (targetIdx < 0 || targetIdx >= blocks.length) return;
+      const nextBlocks = [...blocks];
+      const temp = nextBlocks[index];
+      nextBlocks[index] = nextBlocks[targetIdx];
+      nextBlocks[targetIdx] = temp;
+      setBlocks(nextBlocks);
+      await handlePersistBlocks(nextBlocks, 'Section order updated');
+    },
+    [blocks, handlePersistBlocks]
+  );
 
-  const handleSavePageSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleDuplicateSection = useCallback(
+    async (index: number) => {
+      if (index < 0 || index >= blocks.length) return;
+      const source = blocks[index];
+      const duplicated: Block = {
+        ...source,
+        id: nextBlockId(),
+      };
+      const nextBlocks = [...blocks];
+      nextBlocks.splice(index + 1, 0, duplicated);
+      setBlocks(nextBlocks);
+      await handlePersistBlocks(nextBlocks, 'Section duplicated in Supabase');
+    },
+    [blocks, handlePersistBlocks]
+  );
+
+  // Revisions management
+  const handleOpenRevisions = useCallback(async () => {
+    if (!contentRow) {
+      toast.info('Connect this page to Supabase CMS first to access revision history');
+      return;
+    }
+    setIsRevisionsOpen(true);
+    setRevisionsLoading(true);
+    try {
+      const res = await getContentRevisions(contentRow.id);
+      if (res.success && res.data) {
+        setRevisions(res.data.revisions);
+      } else {
+        toast.error('Failed to load page revisions');
+      }
+    } catch {
+      toast.error('Failed to load page revisions');
+    } finally {
+      setRevisionsLoading(false);
+    }
+  }, [contentRow]);
+
+  const handleRestoreRevision = async (revId: number) => {
     if (!contentRow) return;
     setSavingBackend(true);
     try {
+      const res = await restoreContentRevision(contentRow.id, revId);
+      if (res.success) {
+        toast.success('Revision snapshot restored successfully');
+        setIsRevisionsOpen(false);
+        await loadContentData();
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to restore revision');
+      }
+    } catch {
+      toast.error('Failed to restore revision');
+    } finally {
+      setSavingBackend(false);
+    }
+  };
+
+  // Listen to all custom events dispatched from the navbar editorial button
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+
+    const handleFocusSection = (e: Event) => {
+      const custom = e as CustomEvent<VisualSectionFocusEventDetail>;
+      if (custom.detail !== undefined) {
+        const { index, openEdit } = custom.detail;
+        const targetSec = sections.find((s) => s.index === index) || {
+          index,
+          label: `Section ${index + 1}`,
+        };
+        jumpTo(targetSec);
+        if (openEdit) {
+          handleOpenEditSection(index);
+        }
+      }
+    };
+
+    const handleToggleSectionVisual = (e: Event) => {
+      const custom = e as CustomEvent<VisualSectionToggleEventDetail>;
+      if (custom.detail) {
+        const { index, enabled: isSecEnabled, all } = custom.detail;
+        if (all !== undefined) {
+          if (all) {
+            setEnabledSectionIndices(new Set(sections.map((s) => s.index)));
+          } else {
+            setEnabledSectionIndices(new Set());
+          }
+        } else if (index !== undefined) {
+          setEnabledSectionIndices((prev) => {
+            const next = new Set(prev);
+            if (isSecEnabled === false) {
+              next.delete(index);
+            } else {
+              next.add(index);
+            }
+            return next;
+          });
+        }
+      }
+    };
+
+    const handleMoveSectionEvent = (e: Event) => {
+      const custom = e as CustomEvent<VisualSectionMoveEventDetail>;
+      if (custom.detail?.index !== undefined && custom.detail.direction) {
+        handleMoveSection(custom.detail.index, custom.detail.direction);
+      }
+    };
+
+    const handleAddBlockAtEvent = (e: Event) => {
+      const custom = e as CustomEvent<VisualSectionAddBlockDetail>;
+      handleAddNewSection(
+        (custom.detail?.type as Block['type']) || 'paragraph',
+        custom.detail?.insertAfterIndex
+      );
+    };
+
+    const handleAddBlockGeneral = () => {
+      handleAddNewSection('paragraph');
+    };
+
+    const handleDuplicateSectionEvent = (e: Event) => {
+      const custom = e as CustomEvent<VisualSectionDuplicateDetail>;
+      if (custom.detail?.index !== undefined) {
+        handleDuplicateSection(custom.detail.index);
+      }
+    };
+
+    const handleDeleteSectionEvent = (e: Event) => {
+      const custom = e as CustomEvent<VisualSectionDeleteDetail>;
+      if (custom.detail?.index !== undefined) {
+        handleDeleteSection(custom.detail.index);
+      }
+    };
+
+    const handleOpenMediaLibrary = () => {
+      setMediaTarget('section');
+      setMediaModalOpen(true);
+    };
+
+    const handleOpenSettings = () => {
+      setIsSettingsOpen(true);
+    };
+
+    window.addEventListener('indivisible:focus-section', handleFocusSection);
+    window.addEventListener('indivisible:toggle-section-visual', handleToggleSectionVisual);
+    window.addEventListener('indivisible:move-section', handleMoveSectionEvent);
+    window.addEventListener('indivisible:add-block-at', handleAddBlockAtEvent);
+    window.addEventListener('indivisible:add-block', handleAddBlockGeneral);
+    window.addEventListener('indivisible:duplicate-section', handleDuplicateSectionEvent);
+    window.addEventListener('indivisible:delete-section', handleDeleteSectionEvent);
+    window.addEventListener('indivisible:open-media-library', handleOpenMediaLibrary);
+    window.addEventListener('indivisible:open-revisions', handleOpenRevisions);
+    window.addEventListener('indivisible:open-settings', handleOpenSettings);
+
+    return () => {
+      window.removeEventListener('indivisible:focus-section', handleFocusSection);
+      window.removeEventListener('indivisible:toggle-section-visual', handleToggleSectionVisual);
+      window.removeEventListener('indivisible:move-section', handleMoveSectionEvent);
+      window.removeEventListener('indivisible:add-block-at', handleAddBlockAtEvent);
+      window.removeEventListener('indivisible:add-block', handleAddBlockGeneral);
+      window.removeEventListener('indivisible:duplicate-section', handleDuplicateSectionEvent);
+      window.removeEventListener('indivisible:delete-section', handleDeleteSectionEvent);
+      window.removeEventListener('indivisible:open-media-library', handleOpenMediaLibrary);
+      window.removeEventListener('indivisible:open-revisions', handleOpenRevisions);
+      window.removeEventListener('indivisible:open-settings', handleOpenSettings);
+    };
+  }, [
+    enabled,
+    isAdmin,
+    sections,
+    jumpTo,
+    handleOpenEditSection,
+    handleAddNewSection,
+    handleMoveSection,
+    handleDuplicateSection,
+    handleDeleteSection,
+    handleOpenRevisions,
+  ]);
+
+  const handleSavePageSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingBackend(true);
+    try {
+      let slug = pageSlug || cmsSlugForPath(pathname);
+      if (!slug) {
+        if (pathname === '/' || pathname === '') slug = 'home';
+        else
+          slug = pathname
+            .replace(/^\//, '')
+            .replace(/[^a-z0-9-]/gi, '-')
+            .toLowerCase();
+      }
+
       const res = await saveContent({
-        id: contentRow.id,
+        id: contentRow?.id,
         title: pageTitle,
-        slug: pageSlug,
-        excerpt: contentRow.excerpt,
-        type: (contentRow.type as 'page' | 'post') || 'page',
+        slug,
+        excerpt: contentRow?.excerpt || null,
+        type: (contentRow?.type as 'page' | 'post') || 'page',
         status: pageStatus,
-        body: contentRow.body || '',
+        body: contentRow?.body || serializeBlocks(blocks),
         featuredImage: pageFeaturedImage || null,
-        expectedUpdatedAt: contentRow.updated_at ?? undefined,
-        metadata: contentRow.metadata ?? {},
+        expectedUpdatedAt: contentRow?.updated_at ?? undefined,
+        metadata: contentRow?.metadata ?? {},
       });
 
       if (res.success) {
-        toast.success('Page settings saved to backend');
+        toast.success('Page settings saved to Supabase');
         setContentRow((prev) =>
           prev
             ? {
                 ...prev,
                 title: pageTitle,
-                slug: pageSlug,
+                slug,
                 featured_image: pageFeaturedImage || null,
                 status: pageStatus,
                 updated_at: res.data?.updatedAt,
               }
-            : null
+            : {
+                id: res.data?.id || 1,
+                title: pageTitle,
+                slug,
+                excerpt: null,
+                type: 'page',
+                status: pageStatus,
+                body: serializeBlocks(blocks),
+                featured_image: pageFeaturedImage || null,
+                metadata: {},
+                updated_at: res.data?.updatedAt,
+              }
         );
         setIsSettingsOpen(false);
         router.refresh();
@@ -628,6 +952,8 @@ export function VisualEditOverlay() {
       setSavingBackend(false);
     }
   };
+
+  if (!enabled || !isAdmin) return null;
 
   return (
     <>
@@ -652,7 +978,7 @@ export function VisualEditOverlay() {
                   activeSectionIndex === item.index
                     ? 'border-2 border-accent-gold ring-4 ring-accent-gold/20 bg-accent-gold/5 shadow-[0_0_30px_rgba(245,158,11,0.25)]'
                     : showAllSectionBorders
-                      ? 'border border-dashed border-accent-gold/30'
+                      ? 'border border-dashed border-accent-gold/40 bg-accent-gold/[0.02]'
                       : 'border border-transparent'
                 }`}
               />
@@ -676,7 +1002,8 @@ export function VisualEditOverlay() {
                   </span>
                 )}
 
-                <div className="ml-1.5 flex items-center gap-0.5 border-l border-white/20 pl-1.5">
+                <div className="ml-1.5 flex items-center gap-1 border-l border-white/20 pl-1.5">
+                  {/* Edit section */}
                   <button
                     type="button"
                     onClick={() => {
@@ -684,7 +1011,7 @@ export function VisualEditOverlay() {
                       if (item.blockIndex !== undefined && item.blockIndex < blocks.length) {
                         handleOpenEditSection(item.blockIndex);
                       } else {
-                        jumpTo({ index: item.index, label: item.label });
+                        handleOpenEditSection(item.index);
                       }
                     }}
                     title="Edit section content"
@@ -692,13 +1019,25 @@ export function VisualEditOverlay() {
                   >
                     <PenLine size={13} />
                   </button>
-                  {item.blockIndex !== undefined && item.blockIndex > 0 && (
+
+                  {/* Duplicate section */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDuplicateSection(item.blockIndex ?? item.index);
+                    }}
+                    title="Duplicate section"
+                    className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
+                  >
+                    <Copy size={13} />
+                  </button>
+
+                  {/* Move Up */}
+                  {item.index > 0 && (
                     <button
                       type="button"
                       onClick={() => {
-                        if (item.blockIndex !== undefined) {
-                          handleMoveSection(item.blockIndex, 'up');
-                        }
+                        handleMoveSection(item.blockIndex ?? item.index, 'up');
                       }}
                       title="Move section up"
                       className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
@@ -706,13 +1045,13 @@ export function VisualEditOverlay() {
                       <ArrowUp size={13} />
                     </button>
                   )}
-                  {item.blockIndex !== undefined && item.blockIndex < blocks.length - 1 && (
+
+                  {/* Move Down */}
+                  {item.index < sections.length - 1 && (
                     <button
                       type="button"
                       onClick={() => {
-                        if (item.blockIndex !== undefined) {
-                          handleMoveSection(item.blockIndex, 'down');
-                        }
+                        handleMoveSection(item.blockIndex ?? item.index, 'down');
                       }}
                       title="Move section down"
                       className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
@@ -720,6 +1059,8 @@ export function VisualEditOverlay() {
                       <ArrowDown size={13} />
                     </button>
                   )}
+
+                  {/* Add block below */}
                   <button
                     type="button"
                     onClick={() => handleAddNewSection('paragraph', item.blockIndex ?? item.index)}
@@ -728,20 +1069,34 @@ export function VisualEditOverlay() {
                   >
                     <Plus size={13} />
                   </button>
-                  {item.blockIndex !== undefined && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (item.blockIndex !== undefined) {
-                          handleDeleteSection(item.blockIndex);
-                        }
-                      }}
-                      title="Delete section"
-                      className="rounded p-1 text-rose-400 hover:bg-white/15 hover:text-rose-300 transition-colors"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
+
+                  {/* Turn off visual frame for this section */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEnabledSectionIndices((prev) => {
+                        const next = new Set(prev);
+                        next.delete(item.index);
+                        return next;
+                      });
+                    }}
+                    title="Hide visual frame for this section"
+                    className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors"
+                  >
+                    <EyeOff size={13} />
+                  </button>
+
+                  {/* Delete section */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDeleteSection(item.blockIndex ?? item.index);
+                    }}
+                    title="Delete section"
+                    className="rounded p-1 text-rose-400 hover:bg-white/15 hover:text-rose-300 transition-colors"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -765,7 +1120,7 @@ export function VisualEditOverlay() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black uppercase tracking-[0.15em] text-white truncate max-w-[200px] sm:max-w-[280px]">
-                  {contentRow?.title || target?.label || pathname}
+                  {contentRow?.title || pageTitle || target?.label || pathname}
                 </span>
                 {contentRow ? (
                   <button
@@ -782,14 +1137,20 @@ export function VisualEditOverlay() {
                     {contentRow.status === 'publish' ? 'Published' : 'Draft'}
                   </button>
                 ) : (
-                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-white/10 text-ink-muted-on-dark">
-                    Static Page
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handleInitializeCMSPage}
+                    disabled={savingBackend}
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-accent/20 text-accent-gold hover:bg-accent/30"
+                    title="Click to sync page into Supabase content table"
+                  >
+                    Connect to Supabase
+                  </button>
                 )}
               </div>
               <p className="text-[11px] text-ink-muted-on-dark truncate">
-                {sections.length} {sections.length === 1 ? 'section' : 'sections'} on page
-                {contentRow ? ` · ${blocks.length} blocks` : ''}
+                {sections.length} {sections.length === 1 ? 'section' : 'sections'} on page (
+                {enabledSectionIndices.size} active) · {blocks.length} editable blocks
               </p>
             </div>
           </div>
@@ -804,7 +1165,7 @@ export function VisualEditOverlay() {
                 className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-secondary shadow-raised hover:bg-accent-gold transition-all"
               >
                 <Sparkles size={13} />
-                <span>Connect Page to Supabase CMS</span>
+                <span>Save to Supabase CMS</span>
               </button>
             )}
 
@@ -872,95 +1233,105 @@ export function VisualEditOverlay() {
             )}
 
             {/* Add Section Menu */}
-            {contentRow && (
-              <div className="relative group">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold"
-                >
-                  <Plus size={14} />
-                  <span>Add Block</span>
-                </button>
-                <div className="absolute bottom-full right-0 mb-2 hidden w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float group-hover:block z-50">
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('heading')}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                  >
-                    Heading (H2)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('paragraph')}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                  >
-                    Paragraph Text
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('bulletList')}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                  >
-                    Bullet List
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('orderedList')}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                  >
-                    Numbered Steps
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('image')}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                  >
-                    Image (S3 Storage)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('callout')}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                  >
-                    Alert / Callout
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('button')}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                  >
-                    Button CTA
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('quote')}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                  >
-                    Quote Block
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('divider')}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                  >
-                    Divider Line
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Page Settings */}
-            {contentRow && (
+            <div className="relative group">
               <button
                 type="button"
-                onClick={() => setIsSettingsOpen(true)}
-                title="Edit page title, slug, and featured image"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
-                <Settings size={14} />
-                <span className="hidden sm:inline">Settings</span>
+                <Plus size={14} />
+                <span>Add Block</span>
               </button>
-            )}
+              <div className="absolute bottom-full right-0 mb-2 hidden w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float group-hover:block z-50">
+                <button
+                  type="button"
+                  onClick={() => handleAddNewSection('heading')}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                >
+                  Heading (H2)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddNewSection('paragraph')}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                >
+                  Paragraph Text
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddNewSection('bulletList')}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                >
+                  Bullet List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddNewSection('orderedList')}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                >
+                  Numbered Steps
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddNewSection('image')}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                >
+                  Image (S3 Storage)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddNewSection('callout')}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                >
+                  Alert / Callout
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddNewSection('button')}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                >
+                  Button CTA
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddNewSection('quote')}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                >
+                  Quote Block
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddNewSection('divider')}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                >
+                  Divider Line
+                </button>
+              </div>
+            </div>
+
+            {/* S3 Storage Media Library */}
+            <button
+              type="button"
+              onClick={() => {
+                setMediaTarget('section');
+                setMediaModalOpen(true);
+              }}
+              title="Open Supabase S3 Media Library"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+            >
+              <FolderOpen size={14} className="text-accent-gold" />
+              <span className="hidden lg:inline">Media</span>
+            </button>
+
+            {/* Page Settings */}
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              title="Edit page title, slug, and featured image"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+            >
+              <Settings size={14} />
+              <span className="hidden sm:inline">Settings</span>
+            </button>
 
             {/* Revisions History */}
             {contentRow && (
@@ -987,7 +1358,13 @@ export function VisualEditOverlay() {
                   size={13}
                   className={backendStatus?.database ? 'text-emerald-400' : 'text-amber-400'}
                 />
-                <span className="size-2 rounded-full bg-emerald-400" />
+                <span
+                  className={`size-2 rounded-full ${
+                    backendStatus?.database && backendStatus?.storage
+                      ? 'bg-emerald-400'
+                      : 'bg-amber-400'
+                  }`}
+                />
               </button>
               {showHealthDetails && backendStatus && (
                 <div className="absolute bottom-full right-0 mb-2 w-64 rounded-xl border border-white/15 bg-secondary p-3 shadow-float z-50 text-xs space-y-2">
@@ -1000,6 +1377,7 @@ export function VisualEditOverlay() {
                       onClick={() => probeBackendHealth()}
                       disabled={statusLoading}
                       className="p-1 text-slate-400 hover:text-white"
+                      aria-label="Refresh health probe"
                     >
                       <RefreshCw size={12} className={statusLoading ? 'animate-spin' : ''} />
                     </button>
@@ -1076,7 +1454,7 @@ export function VisualEditOverlay() {
         </div>
 
         {/* Section List Quick Links bar */}
-        {contentRow && blocks.length > 0 && (
+        {blocks.length > 0 && (
           <div className="mt-2.5 flex items-center gap-2 overflow-x-auto border-t border-white/10 pt-2 text-xs no-scrollbar">
             <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-ink-muted-on-dark">
               Blocks:
@@ -1094,6 +1472,14 @@ export function VisualEditOverlay() {
                   className="text-accent-gold hover:text-white p-0.5"
                 >
                   <PenLine size={11} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDuplicateSection(idx)}
+                  title="Duplicate block"
+                  className="text-slate-400 hover:text-white p-0.5"
+                >
+                  <Copy size={11} />
                 </button>
                 {idx > 0 && (
                   <button
@@ -1195,6 +1581,8 @@ export function VisualEditOverlay() {
                       });
                     } else if (newType === 'quote') {
                       setEditingBlock({ id: editingBlock.id, type: 'quote', html: 'Quote text' });
+                    } else if (newType === 'divider') {
+                      setEditingBlock({ id: editingBlock.id, type: 'divider' });
                     } else {
                       setEditingBlock({
                         id: editingBlock.id,
@@ -1472,6 +1860,13 @@ export function VisualEditOverlay() {
                     onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
                     className="w-full rounded-lg border border-slate-300 p-3 text-sm"
                   />
+                </div>
+              )}
+
+              {/* Divider Notice */}
+              {editingBlock.type === 'divider' && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
+                  A visual horizontal rule dividing sections.
                 </div>
               )}
             </div>
