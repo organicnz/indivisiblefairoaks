@@ -5,7 +5,7 @@
 # Skip one command     : LEFTHOOK_EXCLUDE=<name> git <action>
 #
 # ── Baseline metrics (update when intentionally changed) ─────────────────────
-    # suppress-count baseline: 22  (checked in pre-push; +3 CRM scrollable regions, +7 visual-composer admin previews/ephemeral items)
+    # suppress-count baseline: 23  (checked in pre-push; +3 CRM scrollable regions, +7 visual-composer admin previews/ephemeral items, +1 visual edit overlay
 
 # coverage threshold     : 90% (checked in pre-push + vitest.config.ts)
 # env contract           : every code-referenced env var exists in .env.example
