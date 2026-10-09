@@ -157,12 +157,17 @@ function isElementLike(node: Node): boolean {
 const MAX_SECTION_LABEL = 80;
 
 function sectionLabel(section: Element): string | null {
+  const ariaLabel = section.getAttribute('aria-label');
+  if (ariaLabel && collapse(ariaLabel)) {
+    return collapse(ariaLabel).slice(0, MAX_SECTION_LABEL);
+  }
+
   const heading = section.querySelector(HEADING_SELECTOR);
   const text = collapse(heading?.textContent ?? '');
   if (text) return text.slice(0, MAX_SECTION_LABEL);
 
-  // No heading: an element that is itself a heading is still a section.
-  if (section.tagName === 'H1' || section.tagName === 'H2') {
+  // No descendant heading: an element that is itself a heading is still a section.
+  if (/^H[1-6]$/.test(section.tagName)) {
     const own = collapse(section.textContent ?? '');
     return own ? own.slice(0, MAX_SECTION_LABEL) : null;
   }
