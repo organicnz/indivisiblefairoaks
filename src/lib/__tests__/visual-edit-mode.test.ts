@@ -202,6 +202,19 @@ describe('collectPageSections', () => {
     expect(collectPageSections(root)).toEqual([{ index: 0, label: 'Standalone heading' }]);
   });
 
+  it('accepts an element that is an h3 or h4 standalone heading', () => {
+    const root = body(`<h3>Sub-heading Section</h3><h4>Minor Section</h4>`);
+    expect(collectPageSections(root)).toEqual([
+      { index: 0, label: 'Sub-heading Section' },
+      { index: 1, label: 'Minor Section' },
+    ]);
+  });
+
+  it('accepts an element with aria-label as section label', () => {
+    const root = body(`<section aria-label="Supporters Directory"><p>List of allies</p></section>`);
+    expect(collectPageSections(root)).toEqual([{ index: 0, label: 'Supporters Directory' }]);
+  });
+
   it('collapses whitespace in the label', () => {
     const root = body(`<div><h2>  Multi
         spaced     heading  </h2></div>`);
