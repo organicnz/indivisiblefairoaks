@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
 import { ROBOTS, siteUrl } from '@/config/site';
 import { pageMetadata } from '@/lib/metadata';
 import { isOwnImageUrl } from '@/lib/own-media';
@@ -203,13 +204,24 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           </div>
         )}
 
+        {/*
+          The body container is the visual-editing section root.
+
+          Marking the element rather than passing a ref keeps this a Server
+          Component: the overlay queries the DOM it finds. The attribute is
+          inert for every reader — it carries no styling and no behaviour of its
+          own — and it is the only thing the section list is measured against,
+          which is why it sits on the element whose children *are* the sections
+          rather than on the page wrapper.
+        */}
         <div
-          className="cw prose prose-slate prose-lg max-w-none 
+          className="cw prose prose-slate prose-lg max-w-none
             prose-headings:text-secondary prose-headings:uppercase prose-headings:font-black
             prose-p:text-slate-600 prose-p:leading-relaxed
             prose-a:text-primary prose-a:font-bold prose-a:no-underline hover:prose-a:underline
             prose-strong:text-secondary prose-strong:font-black
             prose-img:rounded-3xl prose-img:shadow-lg"
+          data-visual-edit-root=""
           // cleanBody is produced by sanitizeWPContent (line 28)
           dangerouslySetInnerHTML={{ __html: cleanBody }}
         />
@@ -224,6 +236,13 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           </div>
         )}
       </div>
+
+      {/*
+        The visual-editing surface. It renders nothing unless an admin has the
+        mode on and this page resolves to a content row, so it costs an anonymous
+        reader nothing — no bundle behaviour, no markup, no fetch.
+      */}
+      <VisualEditOverlay />
     </div>
   );
 }

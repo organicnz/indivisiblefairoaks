@@ -1,9 +1,10 @@
 'use client';
 
-import { AlertCircle, ImagePlus, Loader2, Upload } from 'lucide-react';
+import { AlertCircle, FolderOpen, ImagePlus, Loader2, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import { deleteContentImage, uploadContentImage } from '@/lib/actions/content';
 import { isOwnImageUrl } from '@/lib/own-media';
 
@@ -58,6 +59,7 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
 
   const upload = useCallback(
     async (file: File) => {
@@ -294,14 +296,37 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
       {/* A URL is still valid input — plenty of the chapter's photography
           already lives somewhere else — so this is a real alternative, not a
           fallback hidden behind a disclosure. */}
-      <input
-        type="url"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="…or paste a full image URL"
-        aria-label={`${label} URL`}
-        className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs focus-visible:ring-2 focus-visible:ring-primary"
-      />
+      <div className="flex items-center gap-2">
+        <input
+          type="url"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="…or paste a full image URL"
+          aria-label={`${label} URL`}
+          className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs focus-visible:ring-2 focus-visible:ring-primary"
+        />
+        <button
+          type="button"
+          onClick={() => setMediaModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors shadow-2xs shrink-0"
+          title="Browse Supabase S3 Media Library"
+        >
+          <FolderOpen size={13} className="text-primary" />
+          <span>Storage</span>
+        </button>
+      </div>
+
+      {mediaModalOpen && (
+        <CRMMediaLibraryModal
+          isOpen={mediaModalOpen}
+          onClose={() => setMediaModalOpen(false)}
+          onSelectMedia={(item) => {
+            onChange(item.url, { width: item.width ?? null, height: item.height ?? null });
+            setMediaModalOpen(false);
+          }}
+          initialFolder="content"
+        />
+      )}
 
       {error && (
         <p role="alert" className="flex items-start gap-1.5 text-xs font-medium text-accent-red">

@@ -199,3 +199,44 @@ export type {
   ComposerBlock,
   ComposerTemplate,
 } from '@/components/admin/crm/composer/types';
+
+// ==========================================
+// 6. Visual Page Editor Domain Types
+// ==========================================
+
+export interface VisualPageSection {
+  index: number;
+  label: string;
+  id?: string;
+  type?: string;
+  html?: string;
+}
+
+export interface VisualContentRow {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  type: string;
+  status: string;
+  body: string | null;
+  featured_image: string | null;
+  metadata: Record<string, string> | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  published_at?: string | null;
+}
+
+export type VisualSectionActionType =
+  | 'edit'
+  | 'add'
+  | 'delete'
+  | 'move_up'
+  | 'move_down'
+  | 'duplicate';
+
+export interface VisualBackendSyncState {
+  status: 'idle' | 'saving' | 'saved' | 'error';
+  lastSavedAt?: string;
+  error?: string;
+}

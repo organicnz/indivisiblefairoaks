@@ -164,6 +164,17 @@ export async function getContentForEdit(id: number): Promise<ContentRow | null> 
   return data;
 }
 
+export async function getContentBySlugForEdit(slug: string): Promise<ContentRow | null> {
+  const { adminClient } = await requireAdmin();
+  const { data, error } = await adminClient
+    .from('content')
+    .select('*')
+    .eq('slug', slug)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load content: ${error.message}`);
+  return data;
+}
+
 /**
  * A slug is unique on `content`, but the same path can already be claimed by a
  * legacy redirect or a real route. Only the first is a database constraint, so
