@@ -69,6 +69,10 @@ export default defineConfig({
         // The consent→URL mapping that three call sites used to build by hand,
         // each of them getting it slightly wrong.
         'src/lib/crm-filters.ts',
+        // Editorial-button target resolution (pure) plus its server-side
+        // context helper. The API route itself is covered by E2E.
+        'src/lib/edit-target.ts',
+        'src/lib/edit-context.ts',
         'src/lib/crm-limits.ts',
         // The cached tag scan, split out of `crm.ts` so authorization runs
         // outside the cache. Measured so the split cannot hide the scan.

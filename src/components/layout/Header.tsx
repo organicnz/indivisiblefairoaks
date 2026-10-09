@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { AccountButton } from '@/components/layout/AccountButton';
+import { EditorialButton, EditorialDrawerRow } from '@/components/layout/EditorialButton';
 import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
 import { isActiveRoute, ROUTES } from '@/config/routes';
 import { SITE_CONTACT } from '@/config/site';
@@ -181,6 +182,7 @@ function HeaderInner() {
             <div className="flex items-center gap-2.5 sm:gap-3">
               <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
 
+              <EditorialButton />
               <Link
                 href="/donate"
                 className={`hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent hover:bg-accent-gold text-secondary font-bold text-xs uppercase tracking-wider shadow-raised hover:shadow-float active:scale-95 transition-all duration-300 ease-out motion-reduce:hover:scale-100 ${FOCUS_RING}`}
@@ -299,6 +301,8 @@ function HeaderInner() {
                   ⌘K
                 </kbd>
               </button>
+
+              <EditorialDrawerRow onNavigate={() => setIsMenuOpen(false)} />
 
               {ROUTES.map((link) => {
                 const isActive = isActiveRoute(pathname, link);
