@@ -21,6 +21,9 @@ vi.mock('@/components/layout/visual-edit-store', () => ({
     enabled: mockEnabled,
     toggle: mockToggle,
   }),
+  enableAllSectionVisuals: vi.fn(),
+  disableAllSectionVisuals: vi.fn(),
+  setSectionVisualEnabled: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -149,7 +152,91 @@ describe('EditorialButton component', () => {
     window.removeEventListener('indivisible:focus-section', eventListener);
   });
 
-  it('renders mobile drawer row with parity', async () => {
+  it('toggles visual frame for an individual section', async () => {
+    mockEnabled = true;
+
+    const main = document.createElement('main');
+    const sec1 = document.createElement('section');
+    const h1 = document.createElement('h2');
+    h1.textContent = 'Action Alerts';
+    sec1.appendChild(h1);
+    main.appendChild(sec1);
+    document.body.appendChild(main);
+
+    const toggleListener = vi.fn();
+    window.addEventListener('indivisible:toggle-section-visual', toggleListener);
+
+    await act(async () => {
+      root.render(<EditorialButton />);
+    });
+
+    const dropdownTrigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle section editor menu"]'
+    );
+    await act(async () => {
+      dropdownTrigger?.click();
+    });
+
+    const toggleSwitch = container.querySelector<HTMLButtonElement>(
+      'button[role="switch"][aria-label="Toggle visual editing for Action Alerts"]'
+    );
+    expect(toggleSwitch).not.toBeNull();
+    expect(toggleSwitch?.getAttribute('aria-checked')).toBe('true');
+
+    // Click to toggle off
+    await act(async () => {
+      toggleSwitch?.click();
+    });
+
+    expect(toggleListener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: { index: 0, enabled: false },
+      })
+    );
+    window.removeEventListener('indivisible:toggle-section-visual', toggleListener);
+  });
+
+  it('dispatches duplicate-section event when duplicate button is clicked', async () => {
+    mockEnabled = true;
+
+    const main = document.createElement('main');
+    const sec1 = document.createElement('section');
+    const h1 = document.createElement('h2');
+    h1.textContent = 'Community Calendar';
+    sec1.appendChild(h1);
+    main.appendChild(sec1);
+    document.body.appendChild(main);
+
+    const dupListener = vi.fn();
+    window.addEventListener('indivisible:duplicate-section', dupListener);
+
+    await act(async () => {
+      root.render(<EditorialButton />);
+    });
+
+    const dropdownTrigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle section editor menu"]'
+    );
+    await act(async () => {
+      dropdownTrigger?.click();
+    });
+
+    const dupBtn = container.querySelector<HTMLButtonElement>('button[title="Duplicate section"]');
+    expect(dupBtn).not.toBeNull();
+
+    await act(async () => {
+      dupBtn?.click();
+    });
+
+    expect(dupListener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: { index: 0 },
+      })
+    );
+    window.removeEventListener('indivisible:duplicate-section', dupListener);
+  });
+
+  it('renders mobile drawer row with parity and section toggles', async () => {
     mockEnabled = true;
     const onNavigate = vi.fn();
 

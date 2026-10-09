@@ -290,6 +290,14 @@ export interface VisualBlockData {
   href?: string;
   width?: number | null;
   height?: number | null;
+  className?: string;
+}
+
+export interface VisualEditTarget {
+  kind: 'visual-section';
+  sectionId: string;
+  title: string;
+  type: 'cms' | 'crm';
 }
 
 export interface VisualEditorState {
@@ -298,7 +306,104 @@ export interface VisualEditorState {
   hoveredSectionIndex: number | null;
   showSectionBadges: boolean;
   showAllSectionBorders: boolean;
+  enabledSectionIndices?: number[];
   isRevisionsOpen?: boolean;
   isSettingsOpen?: boolean;
   mediaModalOpen?: boolean;
+}
+
+/** A visual editor section associated with a CMS content row or CRM entity. */
+export interface VisualSection {
+  id: string;
+  type: 'cms' | 'crm' | 'custom';
+  title: string;
+  slug: string | null;
+  content?: string;
+  excerpt?: string | null;
+  metadata?: Record<string, string>;
+  status: 'publish' | 'draft' | string;
+  backendId: number | string | null; // content.id or crm_contact.id etc.
+  media: VisualSectionMedia[];
+  createdAt?: string;
+  updatedAt?: string;
+  blocks?: VisualBlockData[];
+  isTurnedOn?: boolean;
+}
+
+/** Media item within a visual section, linked to Supabase Storage. */
+export interface VisualSectionMedia {
+  id: string;
+  name: string;
+  path: string;
+  url: string;
+  mimeType: string;
+  size: number;
+  width?: number | null;
+  height?: number | null;
+  altText?: string;
+  caption?: string;
+  sortOrder: number;
+}
+
+/** Result of saving a visual section with all its media. */
+export interface VisualSectionSaveResult {
+  success: boolean;
+  section: VisualSection;
+  error?: string;
+}
+
+/** Result of deleting a visual section. */
+export interface VisualSectionDeleteResult {
+  success: boolean;
+  error?: string;
+}
+
+/** Result of refreshing sections from backend. */
+export interface VisualSectionRefreshResult {
+  success: boolean;
+  sections: VisualSection[];
+  error?: string;
+}
+
+/** Action to perform on a visual section. */
+export type VisualSectionAction =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'refresh'
+  | 'uploadMedia'
+  | 'deleteMedia';
+
+// ==========================================
+// 7. Visual Section Custom Event Signatures
+// ==========================================
+
+export interface VisualSectionToggleEventDetail {
+  index?: number;
+  enabled?: boolean;
+  all?: boolean;
+}
+
+export interface VisualSectionFocusEventDetail {
+  index: number;
+  openEdit?: boolean;
+  highlightOnly?: boolean;
+}
+
+export interface VisualSectionMoveEventDetail {
+  index: number;
+  direction: 'up' | 'down';
+}
+
+export interface VisualSectionAddBlockDetail {
+  insertAfterIndex?: number;
+  type?: string;
+}
+
+export interface VisualSectionDuplicateDetail {
+  index: number;
+}
+
+export interface VisualSectionDeleteDetail {
+  index: number;
 }
