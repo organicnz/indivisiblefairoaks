@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
@@ -35,6 +35,7 @@ import {
   getCRMMediaFiles,
   uploadCRMMedia,
 } from '@/lib/actions/crm';
+import { env } from '@/lib/env';
 
 describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
   beforeEach(() => {
@@ -230,6 +231,16 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(res.error).toContain('Could not verify');
       expect(mockStorageFrom.remove).not.toHaveBeenCalled();
     });
+
+    it('returns an error when requireAdmin throws', async () => {
+      const { requireAdmin } = await import('@/lib/admin-auth');
+      vi.mocked(requireAdmin).mockRejectedValueOnce(new Error('auth failed'));
+
+      const res = await deleteCRMMedia('crm/test.jpg');
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('auth failed');
+      expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+    });
   });
 
   describe('getCRMEdgeFunctionHealth', () => {
@@ -249,6 +260,83 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(status.database).toBe(true);
       expect(status.storage).toBe(true);
       expect(typeof status.edgeFunction).toBe('boolean');
+    });
+
+    describe('with CRM_BROADCAST_FUNCTION_URL set', () => {
+      const originalUrl = env.CRM_BROADCAST_FUNCTION_URL;
+
+      beforeEach(() => {
+        env.CRM_BROADCAST_FUNCTION_URL = 'https://test-function.supabase.co';
+      });
+
+      afterEach(() => {
+        if (originalUrl === undefined) {
+          env.CRM_BROADCAST_FUNCTION_URL = undefined;
+        } else {
+          env.CRM_BROADCAST_FUNCTION_URL = originalUrl;
+        }
+        vi.unstubAllGlobals();
+      });
+
+      it('probes the edge function and reports ready', async () => {
+        mockAdminClient.from.mockReturnValueOnce({
+          select: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ error: null, data: [{ id: '1' }] }),
+          })),
+        });
+        mockStorageFrom.list.mockResolvedValueOnce({ data: [], error: null });
+
+        vi.stubGlobal(
+          'fetch',
+          vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ ready: true, missing: [] }),
+          })
+        );
+
+        const status = await getCRMEdgeFunctionHealth();
+        expect(status.edgeFunction).toBe(true);
+        expect(status.edgeFunctionDetails?.ready).toBe(true);
+        expect(status.edgeFunctionDetails?.endpoint).toBe('https://test-function.supabase.co');
+      });
+
+      it('reports HTTP error when the probe returns non-ok', async () => {
+        mockAdminClient.from.mockReturnValueOnce({
+          select: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ error: null, data: [{ id: '1' }] }),
+          })),
+        });
+        mockStorageFrom.list.mockResolvedValueOnce({ data: [], error: null });
+
+        vi.stubGlobal(
+          'fetch',
+          vi.fn().mockResolvedValue({
+            ok: false,
+            status: 503,
+          })
+        );
+
+        const status = await getCRMEdgeFunctionHealth();
+        expect(status.edgeFunction).toBe(false);
+        expect(status.edgeFunctionDetails?.ready).toBe(false);
+        expect(status.edgeFunctionDetails?.missing).toContain('HTTP_503');
+      });
+
+      it('reports unreachable when the probe throws', async () => {
+        mockAdminClient.from.mockReturnValueOnce({
+          select: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ error: null, data: [{ id: '1' }] }),
+          })),
+        });
+        mockStorageFrom.list.mockResolvedValueOnce({ data: [], error: null });
+
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+
+        const status = await getCRMEdgeFunctionHealth();
+        expect(status.edgeFunction).toBe(false);
+        expect(status.edgeFunctionDetails?.ready).toBe(false);
+        expect(status.edgeFunctionDetails?.missing).toContain('UNREACHABLE_OR_TIMEOUT');
+      });
     });
   });
 });
