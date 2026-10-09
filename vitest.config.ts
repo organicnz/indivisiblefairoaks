@@ -92,6 +92,9 @@ export default defineConfig({
         'src/lib/error-report.ts',
         'src/lib/crm-unsubscribe.ts',
         'src/config/commerce.ts',
+        // Order provider mappers (Stripe + future WooCommerce). Pure module,
+        // measured so the seam cannot drift from the constraint it serves.
+        'src/lib/commerce/orders.ts',
         'src/config/site.ts',
         'src/config/routes.ts',
         'src/config/legacy-redirects.ts',

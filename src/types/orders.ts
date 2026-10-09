@@ -25,6 +25,13 @@ export type AdminOrder = {
   billing_address: ShippingAddress | null;
   order_items: OrderItem[];
   profiles: { first_name: string | null; last_name: string | null; email: string | null } | null;
+  /**
+   * Provider seam (migration 20261009000000). Optional until that migration has
+   * been pushed and the queries select these columns — PostgREST refuses a
+   * select naming an unknown column, so the reads keep their current lists.
+   */
+  source?: string | null;
+  external_id?: string | null;
 };
 
 export type MyOrder = {
@@ -37,11 +44,12 @@ export type MyOrder = {
 
 // ---------------------------------------------------------------------------
 // Shared helpers
+//
+// Price formatting lives in `src/config/commerce.ts` (`formatPrice`), the
+// single source of truth for the storefront currency. A local helper pinned
+// to a legacy currency used to sit here, so it was removed rather than
+// renamed: a second formatter is how the wrong currency survives a fix.
 // ---------------------------------------------------------------------------
-
-export function formatNZD(amount: number | string | null): string {
-  return `$${Number(amount ?? 0).toFixed(2)}`;
-}
 
 export function formatAddress(addr: ShippingAddress | Record<string, string> | null): string {
   if (!addr) return 'No address';

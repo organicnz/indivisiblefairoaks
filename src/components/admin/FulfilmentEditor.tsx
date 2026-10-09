@@ -53,7 +53,7 @@ export function FulfilmentEditor({
             ref={trackingRef}
             defaultValue={trackingNumber || ''}
             onChange={() => setHasChanges(true)}
-            placeholder="e.g. NZPOST AB123456789NZ"
+            placeholder="e.g. USPS 9405 5000 0000 0000 0000 00"
             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-secondary outline-none placeholder:text-slate-400 focus:border-primary transition-colors"
           />
         </div>

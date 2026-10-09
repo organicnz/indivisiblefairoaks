@@ -9,7 +9,7 @@ const mockEvent = {
     object: {
       id: 'cs_live_a1YvslFKQK3RlHt4FzW16dYrImVxjdHtzwa0MzWVCc8DTFpGu7vzviP9rW',
       amount_total: 1000, 
-      currency: 'nzd',
+      currency: 'usd',
       customer_details: {
         email: 'test@example.com',
         address: {

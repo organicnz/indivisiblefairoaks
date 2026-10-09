@@ -1,6 +1,7 @@
 import { ExternalLink, MapPin, Package, ShoppingBag, TrendingUp, User } from 'lucide-react';
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect';
-import { type AdminOrder, formatAddress, formatDate, formatNZD } from '@/types/orders';
+import { CURRENCY_CODE, formatPrice } from '@/config/commerce';
+import { type AdminOrder, formatAddress, formatDate } from '@/types/orders';
 
 // ---------------------------------------------------------------------------
 // Stat card
@@ -98,9 +99,9 @@ function OrderCard({ order }: { order: AdminOrder }) {
             Total
           </p>
           <p className="text-lg text-primary font-black">
-            {formatNZD(order.total)}
+            {formatPrice(order.total)}
             <span className="text-[10px] text-slate-400 font-bold ml-1">
-              {(order.currency ?? 'NZD').toUpperCase()}
+              {(order.currency ?? CURRENCY_CODE).toUpperCase()}
             </span>
           </p>
         </div>
@@ -144,7 +145,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
               </div>
             </div>
             <p className="text-sm font-black text-secondary tabular-nums">
-              {formatNZD(item.unit_price)}
+              {formatPrice(item.unit_price)}
             </p>
           </li>
         ))}
@@ -168,12 +169,15 @@ export function AdminOrdersPanel({ orders }: { orders: AdminOrder[] }) {
         <StatCard label="Total Orders" value={orders.length} icon={ShoppingBag} />
         <StatCard label="Processing" value={processing} icon={Package} />
         <StatCard label="Completed" value={completed} icon={TrendingUp} />
-        <StatCard label="Revenue" value={formatNZD(totalRevenue)} icon={TrendingUp} />
+        <StatCard label="Revenue" value={formatPrice(totalRevenue)} icon={TrendingUp} />
       </div>
 
       {/* Orders */}
       {orders.length === 0 ? (
-        <EmptyState message="No orders yet." />
+        <EmptyState
+          message="No orders yet."
+          hint="Orders will appear here once a store is connected."
+        />
       ) : (
         <ul className="space-y-6">
           {orders.map((order) => (
@@ -187,10 +191,11 @@ export function AdminOrdersPanel({ orders }: { orders: AdminOrder[] }) {
   );
 }
 
-function EmptyState({ message }: { message: string }) {
+function EmptyState({ message, hint }: { message: string; hint?: string }) {
   return (
     <div className="bg-slate-50 p-16 rounded-3xl border border-dashed border-slate-200 text-center">
       <p className="text-slate-400 font-black uppercase tracking-widest text-sm">{message}</p>
+      {hint && <p className="mt-2 text-xs font-bold text-slate-400">{hint}</p>}
     </div>
   );
 }

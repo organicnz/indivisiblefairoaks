@@ -1,6 +1,7 @@
 'use client';
 
 import { Download } from 'lucide-react';
+import { CURRENCY_CODE } from '@/config/commerce';
 
 type ExportOrder = {
   id: number;
@@ -30,7 +31,7 @@ export function OrdersExport({ orders }: { orders: ExportOrder[] }) {
       'Ship To',
       'Items',
       'Coupon',
-      'Total (NZD)',
+      `Total (${CURRENCY_CODE})`,
     ];
     const lines = orders.map((o) =>
       [

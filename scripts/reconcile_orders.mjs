@@ -88,7 +88,9 @@ async function ensureOrderExists(session) {
       stripe_payment_intent_id: paymentIntentId,
       status: 'processing',
       total_amount: (session.amount_total ?? 0) / 100,
-      currency: session.currency?.toUpperCase() ?? 'NZD',
+      // Fallback is the storefront currency (src/config/commerce.ts) for
+      // sessions that predate currency capture.
+      currency: session.currency?.toUpperCase() ?? 'USD',
       payment_method: 'stripe',
       billing_address: buildAddresses(session)[0],
       shipping_address: buildAddresses(session)[1],

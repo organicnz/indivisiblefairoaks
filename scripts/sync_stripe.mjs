@@ -55,7 +55,10 @@ async function syncStripe() {
       const stripePrice = await stripe.prices.create({
         product: stripeProduct.id,
         unit_amount: Math.round(product.price * 100), // Stripe expects amounts in cents
-        currency: 'nzd',
+        // Storefront currency lives in src/config/commerce.ts (CURRENCY). This
+        // script cannot import TS, so the literal is repeated here — if that
+        // module ever changes, this line must change with it.
+        currency: 'usd',
       });
 
       // 3. Save Stripe IDs back to Supabase

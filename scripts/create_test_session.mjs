@@ -18,7 +18,7 @@ async function createSession() {
       line_items: [
         {
           price_data: {
-            currency: 'nzd',
+            currency: 'usd',
             product_data: {
               name: 'Test Product',
               metadata: { id: '6' } // Match a real Supabase product ID

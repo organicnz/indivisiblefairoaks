@@ -14,6 +14,7 @@ import { notFound } from 'next/navigation';
 import { EmailActions } from '@/components/admin/EmailActions';
 import { FulfilmentEditor } from '@/components/admin/FulfilmentEditor';
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect';
+import { CURRENCY_CODE, formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
@@ -51,6 +52,10 @@ type Order = {
   currency: string | null;
   stripe_session_id: string | null;
   coupon_code: string | null;
+  // Provider seam (migration 20261009000000). Optional until the migration has
+  // been pushed and this query selects these columns.
+  source?: string | null;
+  external_id?: string | null;
   shipping_address: {
     line1?: string;
     line2?: string;
@@ -170,9 +175,9 @@ export default async function AdminOrderDetailPage({
                 Order total
               </p>
               <p className="text-3xl font-black text-white mt-0.5">
-                ${Number(order.total).toFixed(2)}
+                {formatPrice(order.total)}
                 <span className="text-xs text-white/40 font-bold ml-2">
-                  {(order.currency || 'NZD').toUpperCase()}
+                  {(order.currency || CURRENCY_CODE).toUpperCase()}
                 </span>
               </p>
             </div>
@@ -184,7 +189,13 @@ export default async function AdminOrderDetailPage({
               </p>
               <p className="text-sm text-white font-black mt-1 flex items-center gap-1.5">
                 <CreditCard size={13} className="text-primary" />
-                {order.stripe_session_id ? 'Stripe' : 'Unknown'}
+                {order.source === 'woocommerce'
+                  ? 'WooCommerce'
+                  : order.source === 'manual'
+                    ? 'Manual'
+                    : order.stripe_session_id
+                      ? 'Stripe'
+                      : 'Unknown'}
               </p>
             </div>
             {stripeUrl && (
@@ -307,9 +318,7 @@ export default async function AdminOrderDetailPage({
                   </p>
                 </div>
               </div>
-              <p className="text-sm font-black text-secondary">
-                ${Number(item.unit_price).toFixed(2)}
-              </p>
+              <p className="text-sm font-black text-secondary">{formatPrice(item.unit_price)}</p>
             </li>
           ))}
         </ul>

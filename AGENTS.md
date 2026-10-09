@@ -140,6 +140,19 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
   parallel-submit case is already closed by `disabled={isLoading}` on the cart
   button. The full reasoning sits at the call site in
   `src/app/api/checkout/route.ts`. **Do not "fix" this without reading it.**
+- **Orders are provider-agnostic and the store is not yet connected.** There are
+  no live orders, so the admin and account surfaces are empty-state shells that
+  render the stored row currency with `CURRENCY_CODE` as fallback and format
+  with `formatPrice` — never a per-site literal (`commerce-no-nzd.test.ts` fails
+  the build on any `nzd` residue outside the historical record). A future
+  WooCommerce store writes through `mapWooOrderToRow()` in
+  `src/lib/commerce/orders.ts` into the same `orders` table with
+  `source = 'woocommerce'` (migration `20261009000000`, CHECK
+  `orders_source_check`); a new provider adds a mapper plus a CHECK value in the
+  same change, never a second orders table. Reads do not select
+  `source`/`external_id` until that migration has been pushed — PostgREST refuses
+  a select naming an unknown column, so the hand-written order types carry both
+  as optional until then.
 
 ### Sanitization layer
 `sanitizeWPContent` in `src/lib/` must wrap **all** HTML from the `content` table before render. It:

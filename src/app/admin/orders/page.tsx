@@ -18,6 +18,7 @@ import {
 } from '@/components/admin/BulkOrderActions';
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect';
 import { OrdersExport } from '@/components/admin/OrdersExport';
+import { CURRENCY_CODE, formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 import type { createAdminClient } from '@/lib/supabase-server';
 
@@ -264,7 +265,7 @@ export default async function AdminOrdersPage({
           { label: 'Total Orders', value: total.toLocaleString(), icon: ShoppingBag },
           { label: 'Processing', value: String(processing), icon: Package },
           { label: 'Completed', value: String(completed), icon: TrendingUp },
-          { label: 'Total Revenue', value: `$${totalRevenue.toFixed(2)}`, icon: TrendingUp },
+          { label: 'Total Revenue', value: formatPrice(totalRevenue), icon: TrendingUp },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="bg-secondary rounded-3xl p-6">
             <Icon size={16} className="text-primary mb-3" />
@@ -399,6 +400,11 @@ export default async function AdminOrdersPage({
               <p className="text-slate-400 font-black uppercase tracking-widest text-sm">
                 {total === 0 ? 'No orders yet.' : 'No orders match the filter.'}
               </p>
+              {total === 0 && (
+                <p className="mt-2 text-xs font-bold text-slate-400">
+                  Orders will appear here once a store is connected.
+                </p>
+              )}
             </div>
           ) : (
             orders.map((order) => {
@@ -482,9 +488,9 @@ export default async function AdminOrdersPage({
                         Total
                       </p>
                       <p className="text-lg text-primary font-black">
-                        ${Number(order.total).toFixed(2)}
+                        {formatPrice(order.total)}
                         <span className="text-[10px] text-slate-400 font-bold ml-1">
-                          {(order.currency || 'NZD').toUpperCase()}
+                          {(order.currency || CURRENCY_CODE).toUpperCase()}
                         </span>
                       </p>
                     </div>
@@ -524,7 +530,7 @@ export default async function AdminOrdersPage({
                             </div>
                           </div>
                           <p className="text-sm font-black text-secondary">
-                            ${Number(item.unit_price).toFixed(2)}
+                            {formatPrice(item.unit_price)}
                           </p>
                         </li>
                       ))}
