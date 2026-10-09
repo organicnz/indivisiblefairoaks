@@ -7,6 +7,7 @@ import {
   ExternalLink,
   Eye,
   FolderOpen,
+  History,
   Layers,
   Loader2,
   PenLine,
@@ -17,6 +18,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -32,8 +34,11 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import {
+  type ContentRevision,
   getContentBySlugForEdit,
   getContentForEdit,
+  getContentRevisions,
+  restoreContentRevision,
   saveContent,
   setContentStatus,
 } from '@/lib/actions/content';
@@ -47,7 +52,7 @@ import {
 } from '@/lib/blocks';
 import { cmsSlugForPath } from '@/lib/edit-target';
 import type { PageSection } from '@/lib/visual-edit-mode';
-import { collectPageSections } from '@/lib/visual-edit-mode';
+import { collectPageSections, highlightPageSection } from '@/lib/visual-edit-mode';
 import type {
   CRMBackendStatus,
   CRMMediaTarget,
@@ -67,7 +72,6 @@ import type {
  */
 
 export const VISUAL_EDIT_ROOT_ATTR = 'data-visual-edit-root';
-const HIGHLIGHT_MS = 1600;
 
 export function VisualEditOverlay() {
   const router = useRouter();
@@ -106,6 +110,11 @@ export function VisualEditOverlay() {
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
   const [mediaTarget, setMediaTarget] = useState<CRMMediaTarget>('section');
 
+  // Revisions history modal state
+  const [isRevisionsOpen, setIsRevisionsOpen] = useState(false);
+  const [revisions, setRevisions] = useState<ContentRevision[]>([]);
+  const [revisionsLoading, setRevisionsLoading] = useState(false);
+
   // Backend health details popover state
   const [showHealthDetails, setShowHealthDetails] = useState(false);
 
@@ -127,13 +136,34 @@ export function VisualEditOverlay() {
   const quoteTextId = useId();
   const listItemsId = useId();
 
-  const locate = useCallback((index: number): HTMLElement | null => {
-    const root = rootRef.current;
-    if (!root) return null;
-    return root.children[index] instanceof HTMLElement
-      ? (root.children[index] as HTMLElement)
-      : null;
+  const findEffectiveVisualEditRoot = useCallback((): HTMLElement | null => {
+    const markedRoot = document.querySelector<HTMLElement>(`[${VISUAL_EDIT_ROOT_ATTR}]`);
+    if (markedRoot) return markedRoot;
+
+    const main = document.querySelector<HTMLElement>('main');
+    if (!main) return null;
+
+    if (
+      main.children.length === 1 &&
+      main.firstElementChild instanceof HTMLElement &&
+      (main.firstElementChild as HTMLElement).children.length > 1
+    ) {
+      return main.firstElementChild as HTMLElement;
+    }
+
+    return main;
   }, []);
+
+  const locate = useCallback(
+    (index: number): HTMLElement | null => {
+      const root = rootRef.current || findEffectiveVisualEditRoot();
+      if (!root) return null;
+      return root.children[index] instanceof HTMLElement
+        ? (root.children[index] as HTMLElement)
+        : null;
+    },
+    [findEffectiveVisualEditRoot]
+  );
 
   // Load content row and blocks when visual editing is turned on
   const loadContentData = useCallback(async () => {
@@ -240,15 +270,19 @@ export function VisualEditOverlay() {
       return;
     }
 
-    const root =
-      document.querySelector<HTMLElement>(`[${VISUAL_EDIT_ROOT_ATTR}]`) ||
-      document.querySelector<HTMLElement>('main');
+    const root = findEffectiveVisualEditRoot();
     rootRef.current = root;
-    setSections(root ? collectPageSections(root) : []);
+    const discovered = root ? collectPageSections(root) : [];
+    setSections(discovered);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('indivisible:page-sections-updated', { detail: discovered })
+      );
+    }
 
     loadContentData();
     probeBackendHealth();
-  }, [enabled, isAdmin, loadContentData, probeBackendHealth]);
+  }, [enabled, isAdmin, loadContentData, probeBackendHealth, findEffectiveVisualEditRoot]);
 
   const updateOverlays = useCallback(() => {
     if (!enabled || !isAdmin || !rootRef.current) {
@@ -302,35 +336,95 @@ export function VisualEditOverlay() {
 
   const located = useMemo(() => new Map<string, HTMLElement>(), []);
 
-  function jumpTo(section: PageSection): void {
-    const element = locate(section.index);
-    if (!element) return;
+  const jumpTo = useCallback(
+    (section: PageSection) => {
+      const element = locate(section.index);
+      if (!element) return;
 
-    setActiveSectionIndex(section.index);
+      setActiveSectionIndex(section.index);
+      highlightPageSection(element);
+      located.set(String(section.index), element);
+    },
+    [locate, located]
+  );
 
-    const reduceMotion =
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Listen to events from the navbar editorial button
+  // biome-ignore lint/correctness/useExhaustiveDependencies: handleOpenEditSection and handleAddNewSection are closure-captured and stable within a given blocks snapshot
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
 
-    element.scrollIntoView({
-      behavior: reduceMotion ? 'auto' : 'smooth',
-      block: 'center',
-    });
+    const handleFocusSection = (e: Event) => {
+      const custom = e as CustomEvent<{ index: number; openEdit?: boolean }>;
+      if (custom.detail !== undefined) {
+        const { index, openEdit } = custom.detail;
+        const targetSec = sections.find((s) => s.index === index) || {
+          index,
+          label: `Section ${index + 1}`,
+        };
+        jumpTo(targetSec);
+        if (openEdit) {
+          handleOpenEditSection(index);
+        }
+      }
+    };
 
-    const accent =
-      getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim() ||
-      '#f59e0b';
+    const handleAddBlock = () => {
+      handleAddNewSection('paragraph');
+    };
 
-    element.animate(
-      [
-        { boxShadow: `0 0 0 0 ${accent}` },
-        { boxShadow: `0 0 0 4px ${accent}` },
-        { boxShadow: `0 0 0 0 ${accent}` },
-      ],
-      { duration: reduceMotion ? HIGHLIGHT_MS / 3 : HIGHLIGHT_MS, easing: 'ease-out' }
-    );
-    located.set(String(section.index), element);
-  }
+    const handleOpenSettings = () => {
+      setIsSettingsOpen(true);
+    };
+
+    window.addEventListener('indivisible:focus-section', handleFocusSection);
+    window.addEventListener('indivisible:add-block', handleAddBlock);
+    window.addEventListener('indivisible:open-settings', handleOpenSettings);
+
+    return () => {
+      window.removeEventListener('indivisible:focus-section', handleFocusSection);
+      window.removeEventListener('indivisible:add-block', handleAddBlock);
+      window.removeEventListener('indivisible:open-settings', handleOpenSettings);
+    };
+  }, [enabled, isAdmin, sections, jumpTo]);
+
+  // Revisions management
+  const handleOpenRevisions = async () => {
+    if (!contentRow) return;
+    setIsRevisionsOpen(true);
+    setRevisionsLoading(true);
+    try {
+      const res = await getContentRevisions(contentRow.id);
+      if (res.success && res.data) {
+        setRevisions(res.data.revisions);
+      } else {
+        toast.error('Failed to load page revisions');
+      }
+    } catch {
+      toast.error('Failed to load page revisions');
+    } finally {
+      setRevisionsLoading(false);
+    }
+  };
+
+  const handleRestoreRevision = async (revId: number) => {
+    if (!contentRow) return;
+    setSavingBackend(true);
+    try {
+      const res = await restoreContentRevision(contentRow.id, revId);
+      if (res.success) {
+        toast.success('Revision snapshot restored successfully');
+        setIsRevisionsOpen(false);
+        await loadContentData();
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to restore revision');
+      }
+    } catch {
+      toast.error('Failed to restore revision');
+    } finally {
+      setSavingBackend(false);
+    }
+  };
 
   if (!enabled || !isAdmin) return null;
 
@@ -868,6 +962,19 @@ export function VisualEditOverlay() {
               </button>
             )}
 
+            {/* Revisions History */}
+            {contentRow && (
+              <button
+                type="button"
+                onClick={handleOpenRevisions}
+                title="View page revision history and restore previous snapshots"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                <History size={14} />
+                <span className="hidden sm:inline">Revisions</span>
+              </button>
+            )}
+
             {/* Backend Health Badge */}
             <div className="relative">
               <button
@@ -1267,11 +1374,12 @@ export function VisualEditOverlay() {
                   </div>
                   {editingBlock.src && (
                     <div className="relative aspect-video w-full max-h-48 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <Image
                         src={editingBlock.src}
                         alt={editingBlock.alt || ''}
-                        className="h-full w-full object-contain"
+                        unoptimized
+                        fill
+                        className="object-contain"
                       />
                     </div>
                   )}
@@ -1481,11 +1589,12 @@ export function VisualEditOverlay() {
 
               {pageFeaturedImage && (
                 <div className="relative aspect-video w-full max-h-36 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={pageFeaturedImage}
                     alt="Hero preview"
-                    className="h-full w-full object-cover"
+                    unoptimized
+                    fill
+                    className="object-cover"
                   />
                 </div>
               )}
@@ -1565,6 +1674,72 @@ export function VisualEditOverlay() {
           }}
           initialFolder="content"
         />
+      )}
+
+      {/* ── Revisions History Modal ────────────────────────────────────── */}
+      {isRevisionsOpen && (
+        <Dialog open={isRevisionsOpen} onOpenChange={setIsRevisionsOpen}>
+          <DialogContent className="max-w-xl bg-white text-secondary p-6 rounded-3xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black uppercase tracking-tight text-secondary flex items-center gap-2">
+                <History size={20} className="text-accent-gold" />
+                <span>Page Revision History</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                Restore any earlier snapshot saved to the Supabase backend.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 my-3 max-h-[50vh] overflow-y-auto pr-1">
+              {revisionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin text-primary" size={24} />
+                </div>
+              ) : revisions.length > 0 ? (
+                revisions.map((rev) => (
+                  <div
+                    key={rev.id}
+                    className="flex items-center justify-between p-3 rounded-2xl border border-slate-200 hover:border-accent-gold/50 bg-slate-50 transition-colors gap-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900 truncate">
+                        {rev.title || 'Untitled Snapshot'}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {new Date(rev.created_at).toLocaleString()} · {rev.type || 'page'} ·{' '}
+                        {rev.status || 'draft'}
+                      </p>
+                    </div>
+                    <ConfirmAction
+                      label="Restore"
+                      confirmLabel="Confirm Restore"
+                      message="This will restore the page content to this snapshot and record a new append-only revision entry in Supabase."
+                      onConfirm={() => handleRestoreRevision(rev.id)}
+                      disabled={savingBackend}
+                      idleClassName="shrink-0 rounded-lg bg-primary/10 px-3 py-1.5 text-[11px] font-bold text-primary hover:bg-primary/20 transition-colors"
+                    >
+                      <span>Restore</span>
+                    </ConfirmAction>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center py-6 text-xs text-slate-500">
+                  No previous revisions recorded yet for this page.
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsRevisionsOpen(false)}
+                className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
+              >
+                Close
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   );

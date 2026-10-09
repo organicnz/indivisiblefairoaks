@@ -172,3 +172,37 @@ function sectionLabel(section: Element): string | null {
 function collapse(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
+
+/**
+ * Visually highlight and smooth-scroll to an addressable page section.
+ */
+export function highlightPageSection(
+  element: HTMLElement | null | undefined,
+  options?: { durationMs?: number; reduceMotion?: boolean }
+): void {
+  if (!element || typeof element.animate !== 'function') return;
+  const reduceMotion =
+    options?.reduceMotion ??
+    (typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const duration = options?.durationMs ?? (reduceMotion ? 500 : 1600);
+  const accent =
+    (typeof window !== 'undefined' &&
+      getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim()) ||
+    '#f59e0b';
+
+  element.scrollIntoView({
+    behavior: reduceMotion ? 'auto' : 'smooth',
+    block: 'center',
+  });
+
+  element.animate(
+    [
+      { boxShadow: `0 0 0 0 ${accent}` },
+      { boxShadow: `0 0 0 4px ${accent}` },
+      { boxShadow: `0 0 0 0 ${accent}` },
+    ],
+    { duration, easing: 'ease-out' }
+  );
+}

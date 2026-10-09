@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { sanitizeWPContent } from '@/lib/sanitize';
 import {
   collectPageSections,
+  highlightPageSection,
   readVisualEditMode,
   VISUAL_EDIT_PARAM,
   VISUAL_EDIT_STORAGE_KEY,
@@ -240,5 +241,29 @@ describe('collectPageSections', () => {
       { index: 1, label: 'Our position' },
       { index: 4, label: 'Take action' },
     ]);
+  });
+});
+
+describe('highlightPageSection', () => {
+  it('smoothly scrolls and animates element with accent pulse', () => {
+    const el = document.createElement('section');
+    el.scrollIntoView = vi.fn();
+    el.animate = vi.fn();
+
+    highlightPageSection(el, { durationMs: 1200 });
+
+    expect(el.scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'center',
+    });
+    expect(el.animate).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ boxShadow: expect.any(String) })]),
+      expect.objectContaining({ duration: 1200, easing: 'ease-out' })
+    );
+  });
+
+  it('handles null and undefined without throwing', () => {
+    expect(() => highlightPageSection(null)).not.toThrow();
+    expect(() => highlightPageSection(undefined)).not.toThrow();
   });
 });

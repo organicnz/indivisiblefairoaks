@@ -208,8 +208,11 @@ export interface VisualPageSection {
   index: number;
   label: string;
   id?: string;
+  domId?: string;
   type?: string;
   html?: string;
+  blockCount?: number;
+  isModified?: boolean;
 }
 
 export interface VisualContentRow {
@@ -218,7 +221,7 @@ export interface VisualContentRow {
   slug: string;
   excerpt: string | null;
   type: string;
-  status: string;
+  status: 'publish' | 'draft' | string;
   body: string | null;
   featured_image: string | null;
   metadata: Record<string, string> | null;
@@ -233,7 +236,9 @@ export type VisualSectionActionType =
   | 'delete'
   | 'move_up'
   | 'move_down'
-  | 'duplicate';
+  | 'duplicate'
+  | 'settings'
+  | 'revisions';
 
 export interface VisualBackendSyncState {
   status: 'idle' | 'saving' | 'saved' | 'error';
@@ -256,10 +261,44 @@ export interface VisualSectionOverlayItem {
 
 export type CRMMediaTarget = 'featured' | 'section';
 
+export interface VisualRevisionItem {
+  id: number;
+  content_id: number;
+  title: string | null;
+  slug: string | null;
+  excerpt: string | null;
+  type: string | null;
+  status: string | null;
+  body: string | null;
+  featured_image: string | null;
+  metadata: Record<string, string> | null;
+  created_at: string;
+  published_at?: string | null;
+}
+
+export interface VisualBlockData {
+  id: string;
+  type: string;
+  html?: string;
+  level?: number;
+  items?: string[];
+  src?: string;
+  alt?: string;
+  caption?: string;
+  tone?: string;
+  label?: string;
+  href?: string;
+  width?: number | null;
+  height?: number | null;
+}
+
 export interface VisualEditorState {
   enabled: boolean;
   activeSectionIndex: number | null;
   hoveredSectionIndex: number | null;
   showSectionBadges: boolean;
   showAllSectionBorders: boolean;
+  isRevisionsOpen?: boolean;
+  isSettingsOpen?: boolean;
+  mediaModalOpen?: boolean;
 }
