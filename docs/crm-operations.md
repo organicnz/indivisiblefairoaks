@@ -706,6 +706,19 @@ for the bug in their own account rather than in a URL. `Number.isFinite` first, 
 clamp — and the page parses the param too, because this is a `'use server' boundary
 callable directly rather than only through the page.
 
+### Delivery events: accepted is not delivered
+
+The history row's `sent_count` counts provider *acceptances* — Resend answering
+2xx — and the expanded row used to show nothing else. A campaign with forty
+permanent bounces looked exactly as healthy as one with none, because
+`crm_email_events` was written by the webhook and read by nothing.
+`getBroadcastEmailEvents()` is the read half: per-type counts plus the most
+recent events with recipient emails resolved in one batched query, capped at
+200 with a `truncated` flag like every other capped read. It fetches when the
+row expands, so a long history costs one query per opened row rather than one
+per row on screen. The write half stays in the webhook route; no admin action
+writes to that table.
+
 ## One filter, one URL
 
 `src/lib/crm-filters.ts` owns the mapping from a filter set to a URL, to an action
@@ -728,6 +741,26 @@ pager does: the export must be the set on screen.
 A segment is applied as a **replacement**, not a merge. Merging meant applying a
 segment appeared to do nothing whenever the search box happened to hold something,
 and applying a second segment silently intersected with the first.
+
+Segments are renamed in place, from the chip itself. The rename writes the new
+name with the stored filter set passed through untouched, so renaming can never
+rewrite what the segment selects. The stored `consent` goes through the same
+`parseConsentFilter` the apply path uses: the column has no CHECK, so a
+hand-edited value resolves to "no filter" rather than failing the rename or
+persisting a value the schema would refuse on the next edit.
+
+## Deleting a campaign image checks broadcasts first
+
+`deleteCRMMedia` used to be an unconditional `storage.remove()` behind a folder
+check. A broadcast body holds the image as markdown with the public storage
+URL, and email clients fetch remote images at open time — so deleting a file a
+*sent* campaign used breaks opens retroactively, not just the admin record, and
+deleting under a draft strands the author with a block that previews nothing.
+The action now refuses when any `crm_broadcasts.body` still contains the path,
+sent or draft, and fails safely when the check itself errors. Declining leaves
+an orphan (garbage); deleting breaks mail (visible to every recipient). Same
+failure direction as `deleteContentImage`, which checks bodies, heroes and
+revisions for the same reason.
 
 ---
 

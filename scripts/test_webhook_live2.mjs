@@ -10,7 +10,7 @@ const PAYLOAD = JSON.stringify({
   api_version: '2025-02-24.basil',
   created: Math.floor(Date.now() / 1000),
   type: 'checkout.session.completed',
-  data: { object: { id: 'cs_live_UNUSED_TEST', object: 'checkout.session', payment_status: 'paid', amount_total: 1000, currency: 'nzd', metadata: {}, customer_details: { email: 'no-such-user@nowhere.invalid', address: {} } } },
+  data: { object: { id: 'cs_live_UNUSED_TEST', object: 'checkout.session', payment_status: 'paid', amount_total: 1000, currency: 'usd', metadata: {}, customer_details: { email: 'no-such-user@nowhere.invalid', address: {} } } },
 });
 
 function sign(secret) {

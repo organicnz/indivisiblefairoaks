@@ -8,6 +8,7 @@ import {
   ChevronUp,
   Clock,
   Code,
+  Copy,
   Eye,
   Loader2,
   Mail,
@@ -26,11 +27,11 @@ import { useRouter } from 'next/navigation';
 import { Fragment, useEffect, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { BroadcastDeliveryPanel } from '@/components/admin/crm/BroadcastDeliveryPanel';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
 import { DevicePreviewFrame } from '@/components/admin/crm/composer/DevicePreviewFrame';
 import { parseBodyToBlocks, serializeBlocksToBody } from '@/components/admin/crm/composer/parser';
 import { CAMPAIGN_TEMPLATES } from '@/components/admin/crm/composer/templates';
-import type { ComposerBlock, ComposerTemplate } from '@/components/admin/crm/composer/types';
 import { VisualComposerCanvas } from '@/components/admin/crm/composer/VisualComposerCanvas';
 import {
   Dialog,
@@ -55,6 +56,7 @@ import {
 import { BROADCAST_RECIPIENT_CEILING } from '@/lib/crm-broadcast';
 import { countPages, pageRange } from '@/lib/crm-filters';
 import { BROADCAST_HISTORY_PAGE_SIZE, PROGRESS_POLL_TIMEOUT_MS } from '@/lib/crm-limits';
+import type { ComposerBlock, ComposerTemplate, CRMBackendStatus } from '@/types/crm';
 
 interface Props {
   initialBroadcasts: CRMBroadcast[];
@@ -85,6 +87,8 @@ interface Props {
    * the constituents carrying it still exist.
    */
   tagsMayBeIncomplete?: boolean;
+  /** Live infrastructure readiness from Supabase DB, S3 Storage, and Edge Function. */
+  backendStatus?: CRMBackendStatus;
 }
 
 const AVAILABLE_STATUSES = [
@@ -114,6 +118,7 @@ export function CRMBroadcastComposer({
   segmentsTruncated = false,
   existingTags,
   tagsMayBeIncomplete = false,
+  backendStatus,
 }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -129,6 +134,7 @@ export function CRMBroadcastComposer({
   const [composerMode, setComposerMode] = useState<'visual' | 'text'>('visual');
   const [blocks, setBlocks] = useState<ComposerBlock[]>(() => parseBodyToBlocks(''));
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [templateModalTab, setTemplateModalTab] = useState<'presets' | 'drafts'>('presets');
   const [previewMode, setPreviewMode] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -367,6 +373,21 @@ export function CRMBroadcastComposer({
   }, [body, previewMode, subject]);
 
   /**
+   * Position (1-based) of the first image block with no image, or -1.
+   *
+   * New image blocks start empty — chosen later from Supabase storage — so an
+   * unsent one would deliver the literal text `![alt]()`. Drafts may hold one
+   * (resumable work round-trips through the parser); sends and self-tests may
+   * not. In text mode the blocks state is stale, so the check parses what is
+   * on screen instead of what the canvas last committed.
+   */
+  const findEmptyImageBlock = (): number => {
+    const live = composerMode === 'visual' ? blocks : parseBodyToBlocks(body);
+    const index = live.findIndex((b) => b.type === 'image' && !b.url.trim());
+    return index < 0 ? -1 : index + 1;
+  };
+
+  /**
    * Send this exact message to the signed-in admin and nobody else.
    *
    * The address is never collected. That is the whole point: a self-test that
@@ -377,6 +398,13 @@ export function CRMBroadcastComposer({
   const handleSelfTest = async () => {
     if (!subject.trim() || !body.trim()) {
       toast.error('Add a subject and message before sending a test');
+      return;
+    }
+    const emptyImage = findEmptyImageBlock();
+    if (emptyImage > 0) {
+      toast.error(
+        `Image block #${emptyImage} has no image yet — choose one from storage or remove the block before sending`
+      );
       return;
     }
     if (isSelfTesting) return;
@@ -537,11 +565,33 @@ export function CRMBroadcastComposer({
     }
   };
 
+  const handleReuseCampaign = (b: CRMBroadcast) => {
+    setSubject(`Copy of ${b.subject}`);
+    const rawBody = b.body || '';
+    setBody(rawBody);
+    setBlocks(parseBodyToBlocks(rawBody));
+    setSelectedStatuses(b.target_status || []);
+    setSelectedDistricts(b.target_districts || []);
+    setSelectedTags(b.target_tags || []);
+    setDraftId(null);
+    setComposerMode('visual');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast.success('Campaign loaded into visual composer as new draft');
+  };
+
   const overCeiling = (recipientCount ?? 0) > BROADCAST_RECIPIENT_CEILING;
 
   const handleSend = async () => {
     if (!subject.trim() || !body.trim()) {
       toast.error('Please provide both subject and message body');
+      return;
+    }
+
+    const emptyImage = findEmptyImageBlock();
+    if (emptyImage > 0) {
+      toast.error(
+        `Image block #${emptyImage} has no image yet — choose one from storage or remove the block before sending`
+      );
       return;
     }
 
@@ -666,6 +716,38 @@ export function CRMBroadcastComposer({
               <p className="text-xs font-bold text-slate-500">
                 Segment and dispatch branded chapter email broadcasts via Resend.
               </p>
+              {backendStatus && (
+                <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-slate-100">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Database: Connected
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      backendStatus.storage
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${backendStatus.storage ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                    />
+                    Supabase S3 Media: {backendStatus.storage ? 'Online' : 'Degraded'}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      backendStatus.edgeFunction
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${backendStatus.edgeFunction ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                    />
+                    Edge Function: {backendStatus.edgeFunction ? 'Ready' : 'Direct Mode'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1614,6 +1696,22 @@ export function CRMBroadcastComposer({
                                 {b.body || '(no message body stored)'}
                               </div>
 
+                              <BroadcastDeliveryPanel broadcastId={b.id} />
+
+                              <div className="flex items-center gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleReuseCampaign(b);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+                                >
+                                  <Copy size={13} className="text-primary" />
+                                  Re-use as New Draft
+                                </button>
+                              </div>
+
                               {/*
                                 The documented recovery, made actionable. A row
                                 stuck at `sending` with `dispatched_at` set is the
@@ -1708,43 +1806,133 @@ export function CRMBroadcastComposer({
       <Dialog open={isTemplatesOpen} onOpenChange={setIsTemplatesOpen}>
         <DialogContent className="max-w-2xl bg-white p-6 rounded-2xl border border-slate-200 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base font-black uppercase text-secondary">
-              <Sparkles className="text-amber-500" size={18} />
-              Activisi Campaign Templates
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Pick a ready-to-use template with formatted blocks, action items, and CTA links.
-              Applying a template sets the subject and blocks in your canvas.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-3 max-h-[70vh] overflow-y-auto">
-            {CAMPAIGN_TEMPLATES.map((tmpl) => (
-              <div
-                key={tmpl.id}
-                className="flex flex-col justify-between p-4 rounded-xl border border-slate-200 bg-white hover:border-primary/50 hover:bg-slate-50/50 transition-all text-left shadow-2xs"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary">
-                      {tmpl.badge}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-bold">
-                      {tmpl.blocks.length} sections
-                    </span>
-                  </div>
-                  <h4 className="text-sm font-black text-secondary mb-1">{tmpl.name}</h4>
-                  <p className="text-xs text-slate-500 line-clamp-2 mb-3">{tmpl.description}</p>
-                </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <DialogTitle className="flex items-center gap-2 text-base font-black uppercase text-secondary">
+                <Sparkles className="text-amber-500" size={18} />
+                Campaign Templates & Backend Drafts
+              </DialogTitle>
+              <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200 self-start sm:self-auto">
                 <button
                   type="button"
-                  onClick={() => handleApplyTemplate(tmpl)}
-                  className="w-full py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-dark transition-colors shadow-2xs"
+                  onClick={() => setTemplateModalTab('presets')}
+                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                    templateModalTab === 'presets'
+                      ? 'bg-white text-secondary shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
-                  Use This Template
+                  Activist Presets
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemplateModalTab('drafts')}
+                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                    templateModalTab === 'drafts'
+                      ? 'bg-white text-secondary shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Saved Drafts ({drafts.length})
                 </button>
               </div>
-            ))}
-          </div>
+            </div>
+            <DialogDescription className="text-xs text-slate-500 pt-1">
+              {templateModalTab === 'presets'
+                ? 'Pick a ready-to-use activist template with pre-formatted blocks, action items, and CTA links.'
+                : 'Browse and load campaigns saved directly to your Supabase backend.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {templateModalTab === 'presets' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-3 max-h-[70vh] overflow-y-auto">
+              {CAMPAIGN_TEMPLATES.map((tmpl) => (
+                <div
+                  key={tmpl.id}
+                  className="flex flex-col justify-between p-4 rounded-xl border border-slate-200 bg-white hover:border-primary/50 hover:bg-slate-50/50 transition-all text-left shadow-2xs"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary">
+                        {tmpl.badge}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-bold">
+                        {tmpl.blocks.length} sections
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-black text-secondary mb-1">{tmpl.name}</h4>
+                    <p className="text-xs text-slate-500 line-clamp-2 mb-3">{tmpl.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTemplate(tmpl)}
+                    className="w-full py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-dark transition-colors shadow-2xs"
+                  >
+                    Use This Template
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-3 max-h-[70vh] overflow-y-auto space-y-2.5">
+              {drafts.length === 0 ? (
+                <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl space-y-2">
+                  <p className="text-xs font-bold text-slate-600">
+                    No saved drafts in Supabase yet.
+                  </p>
+                  <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                    Click "Save Draft" in the composer toolbar at any time to save your visual
+                    design directly to the database.
+                  </p>
+                </div>
+              ) : (
+                drafts.map((d) => (
+                  <div
+                    key={d.id}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-primary/40 transition-colors shadow-2xs"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                          Draft
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          Updated {new Date(d.updated_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-bold text-secondary truncate">
+                        {d.subject || 'Untitled Draft'}
+                      </h4>
+                      <p className="text-xs text-slate-400 truncate mt-0.5">
+                        {d.body ? `${d.body.slice(0, 100)}...` : 'Empty body'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleLoadDraft(d);
+                          setIsTemplatesOpen(false);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-dark transition-colors"
+                      >
+                        Load Draft
+                      </button>
+                      <ConfirmAction
+                        label="Delete Draft"
+                        message={`Permanently discard draft "${d.subject || 'Untitled'}"?`}
+                        confirmLabel="Delete"
+                        danger
+                        idleClassName="p-1.5 rounded-lg border border-rose-100 text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors"
+                        onConfirm={() => void handleDiscardDraft(d.id)}
+                      >
+                        <Trash2 size={13} />
+                      </ConfirmAction>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

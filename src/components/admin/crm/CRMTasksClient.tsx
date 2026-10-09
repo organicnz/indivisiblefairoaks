@@ -1,6 +1,14 @@
 'use client';
 
-import { CalendarCheck, CheckCircle2, Circle, Edit2, Loader2, Trash2 } from 'lucide-react';
+import {
+  CalendarCheck,
+  CheckCircle2,
+  Circle,
+  Edit2,
+  Image as ImageIcon,
+  Loader2,
+  Trash2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
@@ -8,6 +16,7 @@ import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMPager } from '@/components/admin/crm/CRMPager';
 import { CRMTaskForm } from '@/components/admin/crm/CRMTaskForm';
+import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import {
   Dialog,
   DialogContent,
@@ -71,6 +80,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
   const [editDueAt, setEditDueAt] = useState('');
   const [editStatus, setEditStatus] = useState<'open' | 'done'>('open');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
 
   const handleStartEdit = (task: CRMTaskWithContact) => {
     setEditingTask(task);
@@ -128,6 +138,29 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
       }
     } catch {
       toast.error('Failed to update follow-up');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleQuickDueDateChange = async (task: CRMTaskWithContact, newDueAt: string) => {
+    setBusyId(task.id);
+    try {
+      const res = await updateCRMTask({
+        id: task.id,
+        title: task.title,
+        details: task.details,
+        dueAt: newDueAt || null,
+        status: task.status === 'done' ? 'done' : 'open',
+      });
+      if (res.success) {
+        toast.success('Due date updated');
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update due date');
+      }
+    } catch {
+      toast.error('Failed to update due date');
     } finally {
       setBusyId(null);
     }
@@ -239,7 +272,17 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                         // saying so is more useful than showing no name at all.
                         <span className="font-bold text-slate-500">Chapter-wide</span>
                       )}
-                      <span className={due.className}>{due.text}</span>
+                      <div className="relative inline-flex items-center gap-1">
+                        <span className={due.className}>{due.text}</span>
+                        <input
+                          type="date"
+                          value={task.due_at || ''}
+                          onChange={(e) => void handleQuickDueDateChange(task, e.target.value)}
+                          className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
+                          title="Click to quick change due date"
+                          aria-label={`Change due date for ${task.title}`}
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -312,12 +355,21 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
             </div>
 
             <div>
-              <label
-                htmlFor="edit-task-details"
-                className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
-              >
-                Details
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label
+                  htmlFor="edit-task-details"
+                  className="block text-[11px] font-black uppercase tracking-wider text-slate-500"
+                >
+                  Details
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsMediaModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                >
+                  <ImageIcon size={12} /> Attach Storage Media
+                </button>
+              </div>
               <textarea
                 id="edit-task-details"
                 rows={3}
@@ -384,6 +436,20 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
           </form>
         </DialogContent>
       </Dialog>
+
+      {isMediaModalOpen && (
+        <CRMMediaLibraryModal
+          isOpen={isMediaModalOpen}
+          onClose={() => setIsMediaModalOpen(false)}
+          onSelectMedia={(media) => {
+            const alt = media.alt || media.name;
+            setEditDetails((prev) => `${prev ? `${prev}\n\n` : ''}![${alt}](${media.url})`);
+            toast.success('Media reference inserted into task details');
+            setIsMediaModalOpen(false);
+          }}
+          initialFolder="crm"
+        />
+      )}
     </div>
   );
 }

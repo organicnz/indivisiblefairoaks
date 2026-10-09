@@ -37,6 +37,7 @@ import {
   deleteCRMTask,
   exportCRMContacts,
   getBroadcastRecipientCount,
+  getCRMBroadcastDrafts,
   getCRMContacts,
   getCRMStats,
   getCRMTasks,
@@ -217,6 +218,29 @@ describe('Civic CRM Server Actions', () => {
       expect(activity).toMatchObject({ contact_id: validUuid, type: 'status_change' });
       expect(activity?.title).toBe('Status Changed');
       expect(activity?.metadata).toEqual({ from: 'supporter', to: 'organizer' });
+    });
+  });
+
+  describe('getCRMBroadcastDrafts', () => {
+    it('returns the drafts newest first', async () => {
+      tables.crm_broadcasts = {
+        rows: [
+          { id: 'd-old', status: 'draft', updated_at: '2026-01-01T00:00:00Z' },
+          { id: 'd-new', status: 'draft', updated_at: '2026-02-01T00:00:00Z' },
+        ],
+      };
+
+      const drafts = await getCRMBroadcastDrafts();
+      expect(drafts.map((d) => d.id)).toEqual(['d-new', 'd-old']);
+    });
+
+    it('throws a readable error when the draft query fails', async () => {
+      // A silently-empty draft list is indistinguishable from "no drafts yet",
+      // which would tell an author their half-written campaign was lost. The
+      // failure has to surface.
+      tables.crm_broadcasts = { rows: [], error: { message: 'draft query timeout' } };
+
+      await expect(getCRMBroadcastDrafts()).rejects.toThrow(/draft query timeout/i);
     });
   });
 
@@ -915,6 +939,25 @@ describe('Civic CRM Server Actions', () => {
   });
 
   describe('importCRMContacts', () => {
+    it('caps an oversized upload rather than importing all of it', async () => {
+      // The cap exists so one accidental paste cannot mint 50,000 rows and blow
+      // the rate budget. It is checked after parsing, so the CSV has to actually
+      // parse into more than the cap — a short file of junk never reaches it.
+      const rows = Array.from(
+        { length: 2001 },
+        (_, i) => `vol${i}@example.com,Vol${i},Teer,supporter,`
+      );
+      const csv = ['email,first_name,last_name,status,tags', ...rows].join('\n');
+      tables.crm_contacts = { rows: [] };
+
+      const res = await importCRMContacts({ csv });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('capped at 2000');
+      // Nothing was written: the cap is a refusal, not a truncation.
+      expect(tables.crm_contacts.rows).toHaveLength(0);
+    });
+
     it('parses CSV, skips existing emails, inserts new rows', async () => {
       const existing = { id: 'e1', email: 'taken@example.com' };
       // The pre-check is a case-insensitive `.or(email.ilike.…)` lookup, one of
@@ -1163,6 +1206,17 @@ describe('Civic CRM Server Actions', () => {
   });
 
   describe('sendCRMDirectEmail', () => {
+    it('refuses an empty subject or message before touching the contact row', async () => {
+      const res = await sendCRMDirectEmail({
+        contactId: 'c-1',
+        subject: '   ',
+        message: '',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('Subject and message are required');
+    });
+
     it('dispatches email through Resend and logs activity', async () => {
       tables.crm_contacts = {
         rows: [
@@ -1210,6 +1264,55 @@ describe('Civic CRM Server Actions', () => {
       // directory sorts on and what "who has been reached" is read from. The
       // old suite never looked at the row.
       expect(tables.crm_contacts.rows?.[0]?.last_contacted_at).toBeTruthy();
+    });
+
+    it('falls back to the chapter address when ADMIN_ORDER_EMAIL is unset', async () => {
+      // `replyTo` and the List-Unsubscribe mailto both read
+      // `env.ADMIN_ORDER_EMAIL || <chapter address>`. The truthy side is what the
+      // suite above exercises, because beforeEach sets the variable; this pins the
+      // fallback so a deployment that never set it does not mail an undefined
+      // reply-to. Which side is covered otherwise depends on the environment, so
+      // both are asserted here rather than left to whatever .env.local happens
+      // to hold.
+      mockEnv.ADMIN_ORDER_EMAIL = undefined;
+
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'c-2',
+            email: 'neighbor2@example.com',
+            first_name: 'Neighbor',
+            last_name: 'Two',
+            do_not_email: false,
+            unsubscribe_token: 'unsub-token-2',
+          },
+        ],
+      };
+      tables.crm_activities = { rows: [] };
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'resend_msg_456' }),
+      });
+      global.fetch = mockFetch;
+
+      const res = await sendCRMDirectEmail({
+        contactId: 'c-2',
+        subject: 'Fallback Reply-To',
+        message: 'Checking the fallback address.',
+      });
+
+      expect(res.success).toBe(true);
+      const init = mockFetch.mock.calls[0][1] as { body: string };
+      const payload = JSON.parse(init.body) as {
+        reply_to?: string;
+        headers?: Record<string, string>;
+      };
+      expect(payload.reply_to).toBe('contact@indivisiblefairoaks.org');
+      expect(payload.headers?.['List-Unsubscribe']).toContain(
+        'mailto:contact@indivisiblefairoaks.org'
+      );
     });
   });
 
@@ -1436,6 +1539,88 @@ describe('Civic CRM Server Actions', () => {
       // campaign that is merely slow.
       expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({ status: 'failed' });
       expect(tables.crm_broadcasts.rows?.[0]?.sent_at).toBeTruthy();
+    });
+
+    it('fails the broadcast visibly when the sender URL is set but the service key is absent', async () => {
+      // The dispatch pre-flight checks the URL and then the key as two separate
+      // guards. A deployment that set the function URL but not the service key
+      // reaches the second one, and it must be reported as a configuration
+      // failure — not as an unreachable sender, and not as a queued row that
+      // never goes anywhere.
+      mockEnv.CRM_BROADCAST_FUNCTION_URL =
+        'https://project.supabase.co/functions/v1/crm-broadcast-send';
+      mockEnv.SUPABASE_SECRET_KEY = undefined;
+
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-no-key-uuid';
+
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'u1',
+            email: 'vol1@example.com',
+            first_name: 'Alice',
+            last_name: 'Smith',
+            unsubscribe_token: 't1',
+            do_not_email: false,
+            status: 'supporter',
+          },
+        ],
+      };
+      tables.crm_broadcasts = { rows: [], insert: { id: 'b-nokey' } };
+
+      try {
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Hello there' });
+        expect(res.success).toBe(false);
+        expect(res.error).toContain('service key');
+        expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({ status: 'failed' });
+      } finally {
+        session.adminUserId = savedId;
+      }
+    });
+
+    it('reports a non-Error dispatch failure as an unreachable sender', async () => {
+      // The dispatch catch decides between the thrown Error's message and a
+      // generic 'sender unreachable'. A rejection that is not an Error (a string
+      // from a proxy, a closed connection) must still produce a reportable
+      // failure rather than an empty message.
+      mockEnv.CRM_BROADCAST_FUNCTION_URL =
+        'https://project.supabase.co/functions/v1/crm-broadcast-send';
+      mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+
+      // Distinct admin identity: sendCRMBroadcast is rate-limited per admin, and
+      // the shared session's slot is spent by the neighbours in this block.
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-unreachable-uuid';
+
+      tables.crm_contacts = {
+        rows: [
+          {
+            id: 'u1',
+            email: 'vol1@example.com',
+            first_name: 'Alice',
+            last_name: 'Smith',
+            unsubscribe_token: 't1',
+            do_not_email: false,
+            status: 'supporter',
+          },
+        ],
+      };
+      tables.crm_broadcasts = { rows: [], insert: { id: 'b-unreachable' } };
+
+      // Both the health pre-flight GET and the dispatch POST reject with a
+      // string. The pre-flight's failure is inconclusive and swallowed, so the
+      // dispatch rejection is what reaches the catch.
+      global.fetch = vi.fn().mockRejectedValue('socket hung up');
+
+      try {
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Hello there' });
+        expect(res.success).toBe(false);
+        expect(res.error).toContain('sender unreachable');
+        expect(tables.crm_broadcasts.rows?.[0]).toMatchObject({ status: 'failed' });
+      } finally {
+        session.adminUserId = savedId;
+      }
     });
 
     it('refuses an empty audience rather than logging a no-op campaign', async () => {

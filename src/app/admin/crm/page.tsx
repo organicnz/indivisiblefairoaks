@@ -8,7 +8,13 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { CRMContactList } from '@/components/admin/crm/CRMContactList';
-import { getCRMContacts, getCRMExistingTags, getCRMSegments, getCRMStats } from '@/lib/actions/crm';
+import {
+  getCRMContacts,
+  getCRMEdgeFunctionHealth,
+  getCRMExistingTags,
+  getCRMSegments,
+  getCRMStats,
+} from '@/lib/actions/crm';
 import { requireAdmin } from '@/lib/admin-auth';
 import { parseConsentFilter } from '@/lib/crm-filters';
 import { CRM_DIRECTORY_PAGE_SIZE } from '@/lib/crm-limits';
@@ -51,7 +57,7 @@ export default async function AdminCRMPage({
   const page = Math.max(1, parseInt(params.page || '1', 10) || 1);
   const pageSize = CRM_DIRECTORY_PAGE_SIZE;
 
-  const [stats, { contacts, totalCount }, segmentRead, tagScan] = await Promise.all([
+  const [stats, { contacts, totalCount }, segmentRead, tagScan, backendStatus] = await Promise.all([
     getCRMStats(),
     getCRMContacts({
       query: currentQuery,
@@ -64,6 +70,7 @@ export default async function AdminCRMPage({
     }),
     getCRMSegments(),
     getCRMExistingTags(),
+    getCRMEdgeFunctionHealth(),
   ]);
   // The scan behind `existingTags` may have hit its ceiling. On *this* page that
   // matters more than on the composer: a tag in the filter bar is how an
@@ -93,6 +100,36 @@ export default async function AdminCRMPage({
             Track activists, resist choir singers, grassroots donors, and local supporters across
             CA-06 and CA-03 with direct Resend outreach and campaign blasts.
           </p>
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Postgres DB: Live
+            </span>
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                backendStatus.storage
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${backendStatus.storage ? 'bg-emerald-500' : 'bg-amber-500'}`}
+              />
+              Supabase S3 Media: {backendStatus.storage ? 'Connected' : 'Degraded'}
+            </span>
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                backendStatus.edgeFunction
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-blue-50 text-blue-700 border border-blue-200'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${backendStatus.edgeFunction ? 'bg-emerald-500' : 'bg-blue-500'}`}
+              />
+              Edge Sender: {backendStatus.edgeFunction ? 'Ready' : 'Direct Fallback'}
+            </span>
+          </div>
         </div>
 
         {/* Action Buttons */}

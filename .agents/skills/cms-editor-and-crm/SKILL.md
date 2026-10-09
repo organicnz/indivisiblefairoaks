@@ -765,7 +765,7 @@ missing its columns, and the read sites use intersection casts until it lands.
 Never hand-edit `src/types/supabase.ts`; the next regeneration will show a phantom
 diff and quietly undo the fix.
 
-`lefthook` enforces a suppression baseline (currently 15 across `src/`) and
+`lefthook` enforces a suppression baseline (currently 22 across `src/`) and
 `no-new-hardcoded-ref`. Both are ratchets, not walls: raising one is a `chore:`
 commit that says why, and a migration file cannot be edited once committed —
 add another one.

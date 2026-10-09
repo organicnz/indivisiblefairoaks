@@ -1,9 +1,10 @@
 'use client';
 
-import { Plus, X } from 'lucide-react';
+import { ImageIcon, Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [tagInput, setTagInput] = useState('');
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     first_name: contact?.first_name || '',
@@ -375,12 +377,21 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
           </div>
 
           <div>
-            <label
-              htmlFor="notes"
-              className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
-            >
-              Internal Organizer Notes
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label
+                htmlFor="notes"
+                className="block text-[11px] font-black uppercase tracking-wider text-slate-500"
+              >
+                Internal Organizer Notes
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsMediaModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+              >
+                <ImageIcon size={13} /> Attach Storage Media
+              </button>
+            </div>
             <textarea
               id="notes"
               rows={3}
@@ -418,6 +429,23 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
             </button>
           </div>
         </form>
+
+        {isMediaModalOpen && (
+          <CRMMediaLibraryModal
+            isOpen={isMediaModalOpen}
+            onClose={() => setIsMediaModalOpen(false)}
+            onSelectMedia={(media) => {
+              const alt = media.alt || media.name;
+              setFormData((p) => ({
+                ...p,
+                notes: `${p.notes ? `${p.notes}\n\n` : ''}![${alt}](${media.url})`,
+              }));
+              toast.success('Media reference inserted into notes');
+              setIsMediaModalOpen(false);
+            }}
+            initialFolder="crm"
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

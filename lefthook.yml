@@ -5,7 +5,7 @@
 # Skip one command     : LEFTHOOK_EXCLUDE=<name> git <action>
 #
 # ── Baseline metrics (update when intentionally changed) ─────────────────────
-    # suppress-count baseline: 15  (checked in pre-push; +3 CRM scrollable regions)
+    # suppress-count baseline: 22  (checked in pre-push; +3 CRM scrollable regions, +7 visual-composer admin previews/ephemeral items)
 
 # coverage threshold     : 90% (checked in pre-push + vitest.config.ts)
 # env contract           : every code-referenced env var exists in .env.example
@@ -342,8 +342,22 @@ pre-push:
     suppress-count:
       priority: 30
       run: |
-        # Baseline 7 → 9 → 10 → 12 → 15. None of the additions is a workaround for a
+        # Baseline 7 → 9 → 10 → 12 → 15 → 22. None of the additions is a workaround for a
         # real defect; in two cases the rule is wrong rather than the code.
+        #
+        # Baseline 15 → 22, seven suppressions from the composer rewrite and the
+        # media library:
+        #
+        #   4x noArrayIndexKey — list items, social channels, and their form
+        #      inputs. Ephemeral rows without database IDs: the index is the
+        #      identity, same as the baselined BlockEditor table cells. Adding
+        #      stable ids to the model to satisfy the lint would change the
+        #      serialized block format for no behavioural gain.
+        #   3x noImgElement   — two block previews plus the storage-picker
+        #      thumbnail, all rendering an image URL the admin just picked.
+        #      Same admin-chrome reasoning as the baselined ContentPreview
+        #      suppression: next/image cannot render an arbitrary host without
+        #      a config entry per origin.
         #
         # Baseline 12 → 15, three more `noNoninteractiveTabindex` on the CRM
         # surfaces in this branch:
@@ -397,7 +411,7 @@ pre-push:
         #   1x noDangerouslySetInnerHtml — ContentPreview renders the sanitized
         #      body through the same sanitizeWPContent boundary as the public
         #      page. The suppression is the security boundary, not a workaround.
-        BASELINE=15
+        BASELINE=22
         COUNT=$(grep -rn "@ts-ignore\|@ts-nocheck\|biome-ignore\|eslint-disable" \
           src --include="*.ts" --include="*.tsx" 2>/dev/null \
           | grep -v "__tests__" | wc -l | tr -d ' ')

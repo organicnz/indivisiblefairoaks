@@ -61,7 +61,7 @@ check('Bad signature rejected with 400', bad.status === 400);
 check('Unpaid completed session skipped', await fire(
   signedEvent('checkout.session.completed', {
     id: 'cs_live_TEST_UNPAID', object: 'checkout.session', mode: 'payment',
-    payment_status: 'unpaid', amount_total: 1000, currency: 'nzd',
+    payment_status: 'unpaid', amount_total: 1000, currency: 'usd',
   }),
   200,
 ));

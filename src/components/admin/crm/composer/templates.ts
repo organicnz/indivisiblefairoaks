@@ -4,7 +4,8 @@ export const CAMPAIGN_TEMPLATES: ComposerTemplate[] = [
   {
     id: 'rally-mobilization',
     name: 'Rally & Mobilization Alert',
-    description: 'Rally announcement with event details, speaker lineup, and RSVP button.',
+    description:
+      'Rally announcement with banner image, event details, RSVP button, and social channels.',
     badge: 'Mobilization',
     subject: '🚨 URGENT: Fair Oaks Community Rally for Democracy This Saturday',
     blocks: [
@@ -14,6 +15,15 @@ export const CAMPAIGN_TEMPLATES: ComposerTemplate[] = [
         eyebrow: 'COMMUNITY MOBILIZATION',
         heading: 'Stand Up for Democracy: Saturday Rally in Carmichael',
         level: 1,
+      },
+      {
+        id: 'tmpl_1_img',
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&w=1200&q=80',
+        alt: 'Grassroots democracy demonstration with banners',
+        caption: 'Join over 200 Fair Oaks and Carmichael neighbors this weekend.',
+        linkUrl: 'https://indivisiblefairoaks.org/actions',
+        alignment: 'center',
       },
       {
         id: 'tmpl_1_txt1',
@@ -38,14 +48,25 @@ export const CAMPAIGN_TEMPLATES: ComposerTemplate[] = [
         variant: 'primary',
       },
       {
-        id: 'tmpl_1_div',
-        type: 'divider',
+        id: 'tmpl_1_quote',
+        type: 'quote',
+        quote:
+          'When neighbors organize block by block, we create lasting change that no political machine can ignore.',
+        author: 'Elena Rostova',
+        role: 'Carmichael Precinct Captain',
       },
       {
-        id: 'tmpl_1_txt2',
-        type: 'text',
-        content:
-          'Please bring signs, water, and comfortable shoes. The Resistance Choir will perform at 11:30 AM!\n\nCan’t make it in person? Share this alert with friends in our district.',
+        id: 'tmpl_1_social',
+        type: 'social',
+        heading: 'Spread the Word',
+        channels: [
+          { platform: 'website', url: 'https://indivisiblefairoaks.org', label: 'Chapter Website' },
+          {
+            platform: 'actblue',
+            url: 'https://indivisiblefairoaks.org/donate',
+            label: 'Support the Rally',
+          },
+        ],
       },
       {
         id: 'tmpl_1_sign',
@@ -100,7 +121,7 @@ export const CAMPAIGN_TEMPLATES: ComposerTemplate[] = [
   {
     id: 'monthly-newsletter',
     name: 'Grassroots Monthly Newsletter',
-    description: 'Monthly chapter recap, choir rehearsals, and upcoming events.',
+    description: 'Monthly chapter recap, stats breakdown, choir rehearsals, and upcoming events.',
     badge: 'Newsletter',
     subject: 'Indivisible Fair Oaks: Monthly Wins, Choir Dates & Upcoming Events',
     blocks: [
@@ -112,10 +133,28 @@ export const CAMPAIGN_TEMPLATES: ComposerTemplate[] = [
         level: 1,
       },
       {
+        id: 'tmpl_3_stat',
+        type: 'stat',
+        value: '1,420 Voters',
+        label: 'Directly Contacted in October',
+        description: 'Through phone banking, postcarding, and park pop-ups across CA-06.',
+        variant: 'primary',
+      },
+      {
         id: 'tmpl_3_txt1',
         type: 'text',
         content:
           'Hello {{first_name}},\n\nOver the past month, our chapter has knocked on over 400 doors, registered 65 new voters in Sacramento County, and held two spirited community demonstrations.\n\nHere are three upcoming opportunities to connect and organize with us:',
+      },
+      {
+        id: 'tmpl_3_list',
+        type: 'list',
+        style: 'bullet',
+        items: [
+          'Resistance Choir weekly rehearsals every Wednesday at 6:30 PM',
+          'Postcarding party for swing districts this Sunday at Fair Oaks Library',
+          'Voter registration training workshop on zoom next Tuesday',
+        ],
       },
       {
         id: 'tmpl_3_evt',
@@ -163,6 +202,14 @@ export const CAMPAIGN_TEMPLATES: ComposerTemplate[] = [
         level: 1,
       },
       {
+        id: 'tmpl_4_stat',
+        type: 'stat',
+        value: '$2,500 Match',
+        label: 'Doubling Every Community Contribution',
+        description: 'Active through Sunday midnight.',
+        variant: 'emerald',
+      },
+      {
         id: 'tmpl_4_callout',
         type: 'callout',
         variant: 'success',
@@ -170,10 +217,14 @@ export const CAMPAIGN_TEMPLATES: ComposerTemplate[] = [
         text: 'A generous local donor has offered to match every dollar contributed up to $2,500! That means your $25 becomes $50 for local organizing.',
       },
       {
-        id: 'tmpl_4_txt1',
-        type: 'text',
-        content:
-          'Where every dollar goes:\n• $15 pays for 50 nonpartisan voter guides\n• $35 funds a phone bank shift with outreach software\n• $75 covers park permit and sound equipment for our rallies\n\nWe accept zero corporate PAC money — our independence is powered entirely by grassroots contributions from neighbors like you.',
+        id: 'tmpl_4_list',
+        type: 'list',
+        style: 'bullet',
+        items: [
+          '$15 pays for 50 nonpartisan voter guides',
+          '$35 funds a phone bank shift with outreach software',
+          '$75 covers park permit and sound equipment for our rallies',
+        ],
       },
       {
         id: 'tmpl_4_btn',
@@ -187,6 +238,70 @@ export const CAMPAIGN_TEMPLATES: ComposerTemplate[] = [
         type: 'signoff',
         closing: 'Thank you for standing with us,',
         sender: 'Finance & Operations Committee · Indivisible Fair Oaks',
+      },
+    ],
+  },
+  {
+    id: 'volunteer-spotlight',
+    name: 'Activist Spotlight & Volunteer Call',
+    description: 'Personal activist story, quote block, impact metrics, and join CTA.',
+    badge: 'Spotlight',
+    subject: 'Why We Knock Doors in Fair Oaks — Meet Organizer Sarah',
+    blocks: [
+      {
+        id: 'tmpl_5_hdr',
+        type: 'header',
+        eyebrow: 'GRASSROOTS VOICES',
+        heading: 'From First-Time Voter to Precinct Captain: Sarah’s Story',
+        level: 1,
+      },
+      {
+        id: 'tmpl_5_quote',
+        type: 'quote',
+        quote:
+          'I used to feel overwhelmed by the news. Joining Indivisible Fair Oaks gave me an outlet to channel that worry into real, tangible action right here in my neighborhood.',
+        author: 'Sarah Jenkins',
+        role: 'CA-06 Canvass Coordinator',
+      },
+      {
+        id: 'tmpl_5_txt1',
+        type: 'text',
+        content:
+          'Sarah started by attending one park rally last spring. Today, she leads our canvassing team across Carmichael and Fair Oaks.\n\nYou do not need years of political experience to make a difference. All you need is the willingness to listen to neighbors and share why local democracy matters.',
+      },
+      {
+        id: 'tmpl_5_stat',
+        type: 'stat',
+        value: '350+ Volunteers',
+        label: 'Active Across Sacramento County',
+        description: 'Organizing canvasses, choir rehearsals, and phone banks every week.',
+        variant: 'primary',
+      },
+      {
+        id: 'tmpl_5_btn',
+        type: 'button',
+        label: 'Sign Up for a 2-Hour Volunteer Shift',
+        url: 'https://indivisiblefairoaks.org/contact',
+        variant: 'primary',
+      },
+      {
+        id: 'tmpl_5_social',
+        type: 'social',
+        heading: 'Stay Connected',
+        channels: [
+          {
+            platform: 'website',
+            url: 'https://indivisiblefairoaks.org',
+            label: 'Indivisible Fair Oaks',
+          },
+          { platform: 'actblue', url: 'https://indivisiblefairoaks.org/donate', label: 'Donate' },
+        ],
+      },
+      {
+        id: 'tmpl_5_sign',
+        type: 'signoff',
+        closing: 'In hope and determination,',
+        sender: 'The Volunteer Coordination Team',
       },
     ],
   },

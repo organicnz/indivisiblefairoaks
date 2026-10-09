@@ -9,7 +9,9 @@ import {
   DollarSign,
   Edit2,
   FileText,
+  FolderOpen,
   GitMerge,
+  Image as ImageIcon,
   Loader2,
   Mail,
   MapPin,
@@ -19,6 +21,7 @@ import {
   Send,
   ShoppingBag,
   Trash2,
+  UploadCloud,
   User,
   X,
 } from 'lucide-react';
@@ -29,6 +32,7 @@ import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
 import { CRMMergeModal } from '@/components/admin/crm/CRMMergeModal';
+import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import {
   addCRMNote,
   addCRMTask,
@@ -63,7 +67,7 @@ interface Props {
   openTaskCount: number;
 }
 
-type TabId = 'timeline' | 'tasks' | 'email' | 'note';
+type TabId = 'timeline' | 'tasks' | 'email' | 'note' | 'media';
 
 export function CRMDetailClient({
   contact,
@@ -79,6 +83,7 @@ export function CRMDetailClient({
   const [activeTab, setActiveTab] = useState<TabId>('timeline');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [consentBusy, setConsentBusy] = useState(false);
 
@@ -539,6 +544,9 @@ export function CRMDetailClient({
                   >
                     <X size={16} />
                   </button>
+                </div>
+
+                <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-2">
                     <label className="block text-[10px] font-black uppercase text-slate-400">
                       <span className="block mb-1">First Name</span>
@@ -647,7 +655,7 @@ export function CRMDetailClient({
                       placeholder="Background, skills, interests..."
                       className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                     />
-                  </label>{' '}
+                  </label>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
@@ -955,6 +963,13 @@ export function CRMDetailClient({
             </button>
             <button type="button" onClick={() => setActiveTab('note')} className={tabClass('note')}>
               <MessageSquare size={14} aria-hidden="true" /> Note
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('media')}
+              className={tabClass('media')}
+            >
+              <ImageIcon size={14} aria-hidden="true" /> Storage Media
             </button>
           </fieldset>
 
@@ -1492,12 +1507,21 @@ export function CRMDetailClient({
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="note-desc"
-                    className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
-                  >
-                    Detailed Notes & Action Items
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="note-desc"
+                      className="block text-[11px] font-black uppercase tracking-wider text-slate-500"
+                    >
+                      Detailed Notes & Action Items
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsMediaModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    >
+                      <ImageIcon size={13} /> Attach Storage Media
+                    </button>
+                  </div>
                   <textarea
                     id="note-desc"
                     rows={5}
@@ -1521,6 +1545,52 @@ export function CRMDetailClient({
               </form>
             </div>
           )}
+
+          {/* Tab: Storage Media Assets */}
+          {activeTab === 'media' && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                    Supabase S3 Assets
+                  </span>
+                  <h2 className="text-lg font-black uppercase tracking-tight text-secondary">
+                    Constituent Media & Documents
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Browse and attach assets hosted in your Supabase S3 bucket for this profile.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMediaModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-widest rounded-xl transition-colors shadow-xs"
+                >
+                  <FolderOpen size={14} /> Open Storage Library
+                </button>
+              </div>
+
+              <div className="p-8 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-center space-y-3">
+                <div className="p-3 rounded-full bg-blue-50 text-primary">
+                  <ImageIcon className="h-8 w-8" />
+                </div>
+                <div className="max-w-md">
+                  <h3 className="text-sm font-bold text-secondary">Manage Supabase Media Assets</h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Upload photos from rallies, volunteer sign-up sheets, or documents directly to
+                    your Supabase S3 storage bucket.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMediaModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-secondary text-white hover:bg-secondary/90 text-xs font-bold rounded-xl transition-colors shadow-sm"
+                >
+                  <UploadCloud size={14} /> Browse & Upload Files
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1537,6 +1607,20 @@ export function CRMDetailClient({
       {isMergeOpen && (
         <CRMMergeModal keep={contact} isOpen={isMergeOpen} onClose={() => setIsMergeOpen(false)} />
       )}
+
+      {/* Supabase Media Library Modal */}
+      <CRMMediaLibraryModal
+        isOpen={isMediaModalOpen}
+        onClose={() => setIsMediaModalOpen(false)}
+        onSelectMedia={(media) => {
+          const alt = media.alt || media.name;
+          setNoteDesc((prev) => `${prev ? `${prev}\n\n` : ''}![${alt}](${media.url})`);
+          toast.success('Media reference inserted into note');
+          setIsMediaModalOpen(false);
+          setActiveTab('note');
+        }}
+        initialFolder="crm"
+      />
     </div>
   );
 }
