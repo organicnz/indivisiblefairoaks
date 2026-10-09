@@ -21,6 +21,9 @@ vi.mock('@/components/layout/visual-edit-store', () => ({
     enabled: mockEnabled,
     toggle: mockToggle,
   }),
+  enableAllSectionVisuals: vi.fn(),
+  disableAllSectionVisuals: vi.fn(),
+  setSectionVisualEnabled: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({

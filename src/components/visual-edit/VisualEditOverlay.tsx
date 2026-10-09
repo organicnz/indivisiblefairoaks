@@ -27,7 +27,12 @@ import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import { useEditContext } from '@/components/layout/useEditContext';
-import { useVisualEditMode } from '@/components/layout/visual-edit-store';
+import {
+  disableAllSectionVisuals,
+  enableAllSectionVisuals,
+  setSectionVisualEnabled,
+  useVisualEditMode,
+} from '@/components/layout/visual-edit-store';
 import {
   Dialog,
   DialogContent,
@@ -416,6 +421,7 @@ export function VisualEditOverlay() {
     setSections(discovered);
     const initialActive = new Set(discovered.map((s) => s.index));
     setEnabledSectionIndices(initialActive);
+    enableAllSectionVisuals(discovered.map((s) => s.index));
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
@@ -794,19 +800,23 @@ export function VisualEditOverlay() {
         if (all !== undefined) {
           if (all) {
             setEnabledSectionIndices(new Set(sections.map((s) => s.index)));
+            enableAllSectionVisuals(sections.map((s) => s.index));
           } else {
             setEnabledSectionIndices(new Set());
+            disableAllSectionVisuals();
           }
         } else if (index !== undefined) {
+          const active = isSecEnabled !== false;
           setEnabledSectionIndices((prev) => {
             const next = new Set(prev);
-            if (isSecEnabled === false) {
+            if (!active) {
               next.delete(index);
             } else {
               next.add(index);
             }
             return next;
           });
+          setSectionVisualEnabled(index, active);
         }
       }
     };
@@ -1346,6 +1356,18 @@ export function VisualEditOverlay() {
               </button>
             )}
 
+            {/* Quick CRM Studio Link */}
+            <a
+              href="/admin/crm/broadcasts"
+              target="_blank"
+              rel="noreferrer"
+              title="Open CRM Studio (Broadcasts & Constituents)"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+            >
+              <ExternalLink size={14} className="text-primary-on-dark" />
+              <span className="hidden lg:inline">CRM Studio</span>
+            </a>
+
             {/* Backend Health Badge */}
             <div className="relative">
               <button
@@ -1808,38 +1830,72 @@ export function VisualEditOverlay() {
                 </div>
               )}
 
-              {/* Button Fields */}
+              {/* Button Fields with CRM Presets */}
               {editingBlock.type === 'button' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label
-                      htmlFor={buttonLabelId}
-                      className="block text-xs font-bold text-slate-700 mb-1"
-                    >
-                      Button Label
-                    </label>
-                    <input
-                      id={buttonLabelId}
-                      type="text"
-                      value={editingBlock.label}
-                      onChange={(e) => setEditingBlock({ ...editingBlock, label: e.target.value })}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                    />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        htmlFor={buttonLabelId}
+                        className="block text-xs font-bold text-slate-700 mb-1"
+                      >
+                        Button Label
+                      </label>
+                      <input
+                        id={buttonLabelId}
+                        type="text"
+                        value={editingBlock.label}
+                        onChange={(e) =>
+                          setEditingBlock({ ...editingBlock, label: e.target.value })
+                        }
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={buttonHrefId}
+                        className="block text-xs font-bold text-slate-700 mb-1"
+                      >
+                        Destination URL
+                      </label>
+                      <input
+                        id={buttonHrefId}
+                        type="text"
+                        value={editingBlock.href}
+                        onChange={(e) => setEditingBlock({ ...editingBlock, href: e.target.value })}
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label
-                      htmlFor={buttonHrefId}
-                      className="block text-xs font-bold text-slate-700 mb-1"
-                    >
-                      Destination URL
-                    </label>
-                    <input
-                      id={buttonHrefId}
-                      type="text"
-                      value={editingBlock.href}
-                      onChange={(e) => setEditingBlock({ ...editingBlock, href: e.target.value })}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                    />
+                    <span className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                      CRM &amp; Civic Action Presets
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: 'Take Civic Action', href: '/contact?topic=action' },
+                        { label: 'Join Newsletter', href: '/contact?topic=newsletter' },
+                        { label: 'Donate to Chapter', href: '/donate' },
+                        { label: 'Volunteer Today', href: '/contact?topic=volunteer' },
+                        { label: 'Browse Events', href: '/events' },
+                        { label: 'Defend Democracy Store', href: '/products' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() =>
+                            setEditingBlock({
+                              ...editingBlock,
+                              label: preset.label,
+                              href: preset.href,
+                            })
+                          }
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium border border-slate-200 transition-colors"
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

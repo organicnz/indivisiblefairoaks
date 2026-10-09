@@ -8,7 +8,7 @@ import {
 } from '@/lib/visual-edit-mode';
 
 /**
- * The shared, persisted visual-edit mode.
+ * The shared, persisted visual-edit mode and section state.
  *
  * An external store rather than context, because the state has to be written by
  * the header button, read by the drawer row and read by the page overlay — three
@@ -23,10 +23,18 @@ import {
  */
 
 let enabled = false;
+const enabledSections = new Set<number>();
+let activeSectionIndex: number | null = null;
+let sectionSnapshot: number[] = [];
+
 const listeners = new Set<() => void>();
 
 function emit(): void {
   for (const listener of listeners) listener();
+}
+
+function updateSectionSnapshot(): void {
+  sectionSnapshot = Array.from(enabledSections).sort((a, b) => a - b);
 }
 
 function storage(): Storage | null {
@@ -69,6 +77,71 @@ export function toggleVisualEditMode(): void {
   setVisualEditMode(!enabled);
 }
 
+// ── Per-Section Visual Editing State ──────────────────────────────────────────
+
+export function isSectionVisualEnabled(index: number): boolean {
+  return enabledSections.has(index);
+}
+
+export function setSectionVisualEnabled(index: number, isEnabled: boolean): void {
+  const had = enabledSections.has(index);
+  if (isEnabled && !had) {
+    enabledSections.add(index);
+    updateSectionSnapshot();
+    emit();
+  } else if (!isEnabled && had) {
+    enabledSections.delete(index);
+    updateSectionSnapshot();
+    emit();
+  }
+}
+
+export function toggleSectionVisualEnabled(index: number): void {
+  if (enabledSections.has(index)) {
+    enabledSections.delete(index);
+  } else {
+    enabledSections.add(index);
+  }
+  updateSectionSnapshot();
+  emit();
+}
+
+export function enableAllSectionVisuals(indices: number[]): void {
+  let changed = false;
+  for (const idx of indices) {
+    if (!enabledSections.has(idx)) {
+      enabledSections.add(idx);
+      changed = true;
+    }
+  }
+  if (changed) {
+    updateSectionSnapshot();
+    emit();
+  }
+}
+
+export function disableAllSectionVisuals(): void {
+  if (enabledSections.size > 0) {
+    enabledSections.clear();
+    updateSectionSnapshot();
+    emit();
+  }
+}
+
+export function setActiveVisualSection(index: number | null): void {
+  if (activeSectionIndex === index) return;
+  activeSectionIndex = index;
+  emit();
+}
+
+export function getActiveVisualSection(): number | null {
+  return activeSectionIndex;
+}
+
+export function getEnabledSectionIndicesSnapshot(): number[] {
+  return sectionSnapshot;
+}
+
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
@@ -83,6 +156,16 @@ function getSnapshot(): boolean {
 /** Server render: visual editing is a client interaction, so it starts off. */
 function getServerSnapshot(): boolean {
   return false;
+}
+
+const EMPTY_INDICES: number[] = [];
+
+function getServerSectionIndicesSnapshot(): number[] {
+  return EMPTY_INDICES;
+}
+
+function getServerActiveSectionSnapshot(): number | null {
+  return null;
 }
 
 /**
@@ -108,4 +191,63 @@ export function useVisualEditMode(pathname: string): {
   }, [pathname]);
 
   return { enabled: enabledNow, toggle };
+}
+
+/**
+ * Hook for per-section visual editing state.
+ */
+export function useVisualEditSections(): {
+  enabledIndices: number[];
+  isSectionEnabled: (index: number) => boolean;
+  toggleSection: (index: number) => void;
+  setSectionEnabled: (index: number, enabled: boolean) => void;
+  enableAll: (indices: number[]) => void;
+  disableAll: () => void;
+  activeSection: number | null;
+  setActiveSection: (idx: number | null) => void;
+} {
+  const enabledIndices = useSyncExternalStore(
+    subscribe,
+    getEnabledSectionIndicesSnapshot,
+    getServerSectionIndicesSnapshot
+  );
+
+  const activeSection = useSyncExternalStore(
+    subscribe,
+    getActiveVisualSection,
+    getServerActiveSectionSnapshot
+  );
+
+  const isSectionEnabled = useCallback((index: number) => enabledSections.has(index), []);
+
+  const toggleSection = useCallback((index: number) => {
+    toggleSectionVisualEnabled(index);
+  }, []);
+
+  const setSectionEnabled = useCallback((index: number, isEnabled: boolean) => {
+    setSectionVisualEnabled(index, isEnabled);
+  }, []);
+
+  const enableAll = useCallback((indices: number[]) => {
+    enableAllSectionVisuals(indices);
+  }, []);
+
+  const disableAll = useCallback(() => {
+    disableAllSectionVisuals();
+  }, []);
+
+  const setActiveSection = useCallback((idx: number | null) => {
+    setActiveVisualSection(idx);
+  }, []);
+
+  return {
+    enabledIndices,
+    isSectionEnabled,
+    toggleSection,
+    setSectionEnabled,
+    enableAll,
+    disableAll,
+    activeSection,
+    setActiveSection,
+  };
 }

@@ -20,7 +20,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PageSection } from '@/lib/visual-edit-mode';
 import { collectPageSections } from '@/lib/visual-edit-mode';
 import { useEditContext } from './useEditContext';
-import { useVisualEditMode } from './visual-edit-store';
+import {
+  disableAllSectionVisuals,
+  enableAllSectionVisuals,
+  setSectionVisualEnabled,
+  useVisualEditMode,
+} from './visual-edit-store';
 
 /**
  * Editorial Button in the site header and navigation menu.
@@ -211,8 +216,10 @@ export function EditorialButton() {
                     const nextVal = !allActive;
                     if (nextVal) {
                       setActiveIndices(new Set(sections.map((s) => s.index)));
+                      enableAllSectionVisuals(sections.map((s) => s.index));
                     } else {
                       setActiveIndices(new Set());
+                      disableAllSectionVisuals();
                     }
                     window.dispatchEvent(
                       new CustomEvent('indivisible:toggle-section-visual', {
@@ -262,6 +269,7 @@ export function EditorialButton() {
                           const next = new Set(prev);
                           if (nextVal) next.add(sec.index);
                           else next.delete(sec.index);
+                          setSectionVisualEnabled(sec.index, nextVal);
                           return next;
                         });
                         window.dispatchEvent(
@@ -593,6 +601,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                           const next = new Set(prev);
                           if (nextVal) next.add(sec.index);
                           else next.delete(sec.index);
+                          setSectionVisualEnabled(sec.index, nextVal);
                           return next;
                         });
                         window.dispatchEvent(
