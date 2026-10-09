@@ -240,3 +240,26 @@ export interface VisualBackendSyncState {
   lastSavedAt?: string;
   error?: string;
 }
+
+export interface VisualSectionOverlayItem {
+  index: number;
+  label: string;
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  bottom: number;
+  right: number;
+  blockIndex?: number;
+  blockType?: string;
+}
+
+export type CRMMediaTarget = 'featured' | 'section';
+
+export interface VisualEditorState {
+  enabled: boolean;
+  activeSectionIndex: number | null;
+  hoveredSectionIndex: number | null;
+  showSectionBadges: boolean;
+  showAllSectionBorders: boolean;
+}

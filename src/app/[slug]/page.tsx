@@ -3,7 +3,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
 import { ROBOTS, siteUrl } from '@/config/site';
 import { pageMetadata } from '@/lib/metadata';
 import { isOwnImageUrl } from '@/lib/own-media';
@@ -236,13 +235,6 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           </div>
         )}
       </div>
-
-      {/*
-        The visual-editing surface. It renders nothing unless an admin has the
-        mode on and this page resolves to a content row, so it costs an anonymous
-        reader nothing — no bundle behaviour, no markup, no fetch.
-      */}
-      <VisualEditOverlay />
     </div>
   );
 }

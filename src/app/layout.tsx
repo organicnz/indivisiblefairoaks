@@ -9,6 +9,7 @@ import { SettingsHydrator } from '@/components/account/SettingsHydrator';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
+import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
 import { BRAND } from '@/config/brand';
 import {
   organizationJsonLd,
@@ -146,6 +147,7 @@ export default function RootLayout({
           </main>
           <Footer />
           <WallEChatWidget />
+          <VisualEditOverlay />
         </Providers>
         <Toaster position="bottom-right" richColors theme="light" />
         {env.NEXT_E2E_BUILD !== 'true' && (

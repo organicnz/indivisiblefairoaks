@@ -5,12 +5,15 @@ import {
   ArrowDown,
   ArrowUp,
   ExternalLink,
+  Eye,
   FolderOpen,
+  Layers,
   Loader2,
   PenLine,
   Plus,
   RefreshCw,
   Settings,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react';
@@ -37,7 +40,7 @@ import {
 import { getCRMEdgeFunctionHealth } from '@/lib/actions/crm';
 import {
   type Block,
-  type CalloutTone,
+  CALLOUT_TONES,
   type HeadingLevel,
   parseHtml,
   serializeBlocks,
@@ -45,14 +48,19 @@ import {
 import { cmsSlugForPath } from '@/lib/edit-target';
 import type { PageSection } from '@/lib/visual-edit-mode';
 import { collectPageSections } from '@/lib/visual-edit-mode';
-import type { CRMBackendStatus } from '@/types/crm';
+import type {
+  CRMBackendStatus,
+  CRMMediaTarget,
+  VisualContentRow,
+  VisualSectionOverlayItem,
+} from '@/types/crm';
 
 /**
  * Visual editing surface for every page across the site.
  *
  * Full in-page visual editor with CRUD connected directly to the Supabase backend:
  * - Live section discovery, highlighting, and on-section quick controls
- * - Section editor supporting Headings, Paragraphs, Images, Callouts, Quotes, Buttons
+ * - Section editor supporting Headings, Paragraphs, Lists, Images, Callouts, Quotes, Buttons
  * - Supabase S3 Storage media library integration for image picking and uploading
  * - Supabase Edge Functions health status and latency monitoring
  * - Direct optimistic updates with server-side validation and concurrency safety
@@ -60,19 +68,6 @@ import type { CRMBackendStatus } from '@/types/crm';
 
 export const VISUAL_EDIT_ROOT_ATTR = 'data-visual-edit-root';
 const HIGHLIGHT_MS = 1600;
-
-interface ContentData {
-  id: number;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  type: string;
-  status: string;
-  body: string | null;
-  featured_image: string | null;
-  metadata?: Record<string, string> | null;
-  updated_at?: string | null;
-}
 
 export function VisualEditOverlay() {
   const router = useRouter();
@@ -83,11 +78,17 @@ export function VisualEditOverlay() {
 
   const rootRef = useRef<HTMLElement | null>(null);
   const [sections, setSections] = useState<PageSection[]>([]);
-  const [contentRow, setContentRow] = useState<ContentData | null>(null);
+  const [contentRow, setContentRow] = useState<VisualContentRow | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [backendStatus, setBackendStatus] = useState<CRMBackendStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [savingBackend, setSavingBackend] = useState(false);
+
+  // In-page section badge and outline states
+  const [showSectionBadges, setShowSectionBadges] = useState(true);
+  const [showAllSectionBorders, setShowAllSectionBorders] = useState(true);
+  const [sectionOverlays, setSectionOverlays] = useState<VisualSectionOverlayItem[]>([]);
+  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
 
   // Section editor modal state
   const [editingBlockIndex, setEditingBlockIndex] = useState<number | null>(null);
@@ -103,7 +104,7 @@ export function VisualEditOverlay() {
 
   // Supabase S3 Storage media library modal state
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
-  const [mediaTarget, setMediaTarget] = useState<'featured' | 'section'>('section');
+  const [mediaTarget, setMediaTarget] = useState<CRMMediaTarget>('section');
 
   // Backend health details popover state
   const [showHealthDetails, setShowHealthDetails] = useState(false);
@@ -124,10 +125,22 @@ export function VisualEditOverlay() {
   const buttonLabelId = useId();
   const buttonHrefId = useId();
   const quoteTextId = useId();
+  const listItemsId = useId();
+
+  const locate = useCallback((index: number): HTMLElement | null => {
+    const root = rootRef.current;
+    if (!root) return null;
+    return root.children[index] instanceof HTMLElement
+      ? (root.children[index] as HTMLElement)
+      : null;
+  }, []);
 
   // Load content row and blocks when visual editing is turned on
   const loadContentData = useCallback(async () => {
-    const slug = cmsSlugForPath(pathname);
+    let slug = cmsSlugForPath(pathname);
+    if (!slug && (pathname === '/' || pathname === '')) {
+      slug = 'home';
+    }
     if (!slug) {
       setContentRow(null);
       setBlocks([]);
@@ -147,7 +160,7 @@ export function VisualEditOverlay() {
       }
 
       if (row) {
-        setContentRow(row as ContentData);
+        setContentRow(row as VisualContentRow);
         setPageTitle(row.title);
         setPageSlug(row.slug);
         setPageFeaturedImage(row.featured_image || '');
@@ -158,6 +171,54 @@ export function VisualEditOverlay() {
       // Non-fatal if loading row fails
     }
   }, [pathname, target]);
+
+  // Connect / Initialize a static page into a Supabase CMS row
+  const handleInitializeCMSPage = async () => {
+    let slug = cmsSlugForPath(pathname);
+    if (!slug) {
+      if (pathname === '/' || pathname === '') slug = 'home';
+      else
+        slug = pathname
+          .replace(/^\//, '')
+          .replace(/[^a-z0-9-]/gi, '-')
+          .toLowerCase();
+    }
+    const title =
+      document.querySelector('h1')?.textContent?.trim() ||
+      target?.label ||
+      slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+    const initialBlocks: Block[] =
+      sections.length > 0
+        ? sections.map((sec, i) => ({
+            id: `init-${i}`,
+            type: 'paragraph' as const,
+            html: sec.label,
+          }))
+        : [{ id: 'init-0', type: 'paragraph' as const, html: 'Add section copy here...' }];
+
+    setSavingBackend(true);
+    try {
+      const res = await saveContent({
+        title,
+        slug,
+        body: serializeBlocks(initialBlocks),
+        type: 'page',
+        status: 'publish',
+      });
+      if (res.success && res.data) {
+        toast.success(`Page "${title}" connected to Supabase CMS!`);
+        await loadContentData();
+        router.refresh();
+      } else {
+        toast.error('Failed to initialize page in Supabase CMS');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error initializing page');
+    } finally {
+      setSavingBackend(false);
+    }
+  };
 
   // Probe backend health (DB, S3 Storage, Edge Functions)
   const probeBackendHealth = useCallback(async () => {
@@ -189,21 +250,63 @@ export function VisualEditOverlay() {
     probeBackendHealth();
   }, [enabled, isAdmin, loadContentData, probeBackendHealth]);
 
+  const updateOverlays = useCallback(() => {
+    if (!enabled || !isAdmin || !rootRef.current) {
+      setSectionOverlays([]);
+      return;
+    }
+    const items: VisualSectionOverlayItem[] = [];
+
+    sections.forEach((sec) => {
+      const el = locate(sec.index);
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.bottom < -200 || r.top > window.innerHeight + 200) return;
+
+      const blockIdx = sec.index < blocks.length ? sec.index : undefined;
+      const bType = blockIdx !== undefined ? blocks[blockIdx]?.type : undefined;
+
+      items.push({
+        index: sec.index,
+        label: sec.label,
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+        bottom: r.bottom,
+        right: r.right,
+        blockIndex: blockIdx,
+        blockType: bType,
+      });
+    });
+
+    setSectionOverlays(items);
+  }, [enabled, isAdmin, sections, blocks, locate]);
+
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+    updateOverlays();
+    let rafId: number;
+    const onScrollOrResize = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateOverlays);
+    };
+    window.addEventListener('scroll', onScrollOrResize, { passive: true });
+    window.addEventListener('resize', onScrollOrResize, { passive: true });
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', onScrollOrResize);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [enabled, isAdmin, updateOverlays]);
+
   const located = useMemo(() => new Map<string, HTMLElement>(), []);
-
-  if (!enabled || !isAdmin) return null;
-
-  function locate(index: number): HTMLElement | null {
-    const root = rootRef.current;
-    if (!root) return null;
-    return root.children[index] instanceof HTMLElement
-      ? (root.children[index] as HTMLElement)
-      : null;
-  }
 
   function jumpTo(section: PageSection): void {
     const element = locate(section.index);
     if (!element) return;
+
+    setActiveSectionIndex(section.index);
 
     const reduceMotion =
       typeof window.matchMedia === 'function' &&
@@ -228,6 +331,8 @@ export function VisualEditOverlay() {
     );
     located.set(String(section.index), element);
   }
+
+  if (!enabled || !isAdmin) return null;
 
   // --- CRUD Operations connected to Supabase Backend ---
 
@@ -299,7 +404,7 @@ export function VisualEditOverlay() {
     setIsSectionModalOpen(true);
   };
 
-  const handleAddNewSection = (type: Block['type']) => {
+  const handleAddNewSection = (type: Block['type'], insertAfterIndex?: number) => {
     const freshId = String(Date.now());
     let freshBlock: Block;
     switch (type) {
@@ -308,6 +413,12 @@ export function VisualEditOverlay() {
         break;
       case 'paragraph':
         freshBlock = { id: freshId, type: 'paragraph', html: 'Add section copy here...' };
+        break;
+      case 'bulletList':
+        freshBlock = { id: freshId, type: 'bulletList', items: ['Action item 1', 'Action item 2'] };
+        break;
+      case 'orderedList':
+        freshBlock = { id: freshId, type: 'orderedList', items: ['Step 1', 'Step 2'] };
         break;
       case 'callout':
         freshBlock = { id: freshId, type: 'callout', tone: 'info', html: 'Important action note.' };
@@ -336,9 +447,21 @@ export function VisualEditOverlay() {
         freshBlock = { id: freshId, type: 'paragraph', html: 'Content' };
     }
 
-    const nextBlocks = [...blocks, freshBlock];
+    const nextBlocks = [...blocks];
+    let newIndex: number;
+    if (
+      insertAfterIndex !== undefined &&
+      insertAfterIndex >= 0 &&
+      insertAfterIndex < nextBlocks.length
+    ) {
+      nextBlocks.splice(insertAfterIndex + 1, 0, freshBlock);
+      newIndex = insertAfterIndex + 1;
+    } else {
+      nextBlocks.push(freshBlock);
+      newIndex = nextBlocks.length - 1;
+    }
     setBlocks(nextBlocks);
-    setEditingBlockIndex(nextBlocks.length - 1);
+    setEditingBlockIndex(newIndex);
     setEditingBlock(freshBlock);
     setIsSectionModalOpen(true);
   };
@@ -414,11 +537,129 @@ export function VisualEditOverlay() {
 
   return (
     <>
+      {/* ── In-Page Visual Section Overlays ────────────────────────────── */}
+      {showSectionBadges && sectionOverlays.length > 0 && (
+        <div aria-hidden="false" className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
+          {sectionOverlays.map((item) => (
+            <div
+              key={item.index}
+              style={{
+                position: 'fixed',
+                top: `${item.top}px`,
+                left: `${item.left}px`,
+                width: `${item.width}px`,
+                height: `${item.height}px`,
+              }}
+              className="pointer-events-none"
+            >
+              {/* Highlight boundary */}
+              <div
+                className={`w-full h-full rounded-2xl transition-all duration-300 ${
+                  activeSectionIndex === item.index
+                    ? 'border-2 border-accent-gold ring-4 ring-accent-gold/20 bg-accent-gold/5 shadow-[0_0_30px_rgba(245,158,11,0.25)]'
+                    : showAllSectionBorders
+                      ? 'border border-dashed border-accent-gold/30'
+                      : 'border border-transparent'
+                }`}
+              />
+
+              {/* Floating Action Pill */}
+              <div
+                role="toolbar"
+                aria-label={`Actions for section ${item.index + 1}`}
+                className="pointer-events-auto absolute -top-3.5 left-3 sm:left-6 inline-flex items-center gap-1.5 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-1 text-xs text-ink-on-dark shadow-float backdrop-blur-md transition-all hover:scale-105"
+              >
+                <span className="size-2 rounded-full bg-accent-gold animate-pulse" />
+                <span className="font-black text-accent-gold uppercase text-[10px] tracking-wider">
+                  Section #{item.index + 1}
+                </span>
+                <span className="max-w-[120px] sm:max-w-[180px] truncate font-semibold text-white text-[11px]">
+                  {item.label}
+                </span>
+                {item.blockType && (
+                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-accent-gold font-mono">
+                    {item.blockType}
+                  </span>
+                )}
+
+                <div className="ml-1.5 flex items-center gap-0.5 border-l border-white/20 pl-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSectionIndex(item.index);
+                      if (item.blockIndex !== undefined && item.blockIndex < blocks.length) {
+                        handleOpenEditSection(item.blockIndex);
+                      } else {
+                        jumpTo({ index: item.index, label: item.label });
+                      }
+                    }}
+                    title="Edit section content"
+                    className="rounded p-1 text-accent-gold hover:bg-white/15 hover:text-white transition-colors"
+                  >
+                    <PenLine size={13} />
+                  </button>
+                  {item.blockIndex !== undefined && item.blockIndex > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (item.blockIndex !== undefined) {
+                          handleMoveSection(item.blockIndex, 'up');
+                        }
+                      }}
+                      title="Move section up"
+                      className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
+                    >
+                      <ArrowUp size={13} />
+                    </button>
+                  )}
+                  {item.blockIndex !== undefined && item.blockIndex < blocks.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (item.blockIndex !== undefined) {
+                          handleMoveSection(item.blockIndex, 'down');
+                        }
+                      }}
+                      title="Move section down"
+                      className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
+                    >
+                      <ArrowDown size={13} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewSection('paragraph', item.blockIndex ?? item.index)}
+                    title="Add block below"
+                    className="rounded p-1 text-emerald-400 hover:bg-white/15 hover:text-emerald-300 transition-colors"
+                  >
+                    <Plus size={13} />
+                  </button>
+                  {item.blockIndex !== undefined && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (item.blockIndex !== undefined) {
+                          handleDeleteSection(item.blockIndex);
+                        }
+                      }}
+                      title="Delete section"
+                      className="rounded p-1 text-rose-400 hover:bg-white/15 hover:text-rose-300 transition-colors"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ── Fixed Bottom Control Dock ─────────────────────────────────── */}
       <aside
         aria-label="Visual Editor Toolbar"
         data-testid="visual-edit-overlay"
-        className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-4xl rounded-2xl border border-white/20 bg-secondary/95 p-3.5 text-ink-on-dark shadow-float backdrop-blur-md"
+        className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-5xl rounded-2xl border border-white/20 bg-secondary/95 p-3.5 text-ink-on-dark shadow-float backdrop-blur-md"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Page Info & Status */}
@@ -432,7 +673,7 @@ export function VisualEditOverlay() {
                 <span className="text-xs font-black uppercase tracking-[0.15em] text-white truncate max-w-[200px] sm:max-w-[280px]">
                   {contentRow?.title || target?.label || pathname}
                 </span>
-                {contentRow && (
+                {contentRow ? (
                   <button
                     type="button"
                     onClick={handleTogglePageStatus}
@@ -446,6 +687,10 @@ export function VisualEditOverlay() {
                   >
                     {contentRow.status === 'publish' ? 'Published' : 'Draft'}
                   </button>
+                ) : (
+                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-white/10 text-ink-muted-on-dark">
+                    Static Page
+                  </span>
                 )}
               </div>
               <p className="text-[11px] text-ink-muted-on-dark truncate">
@@ -457,6 +702,52 @@ export function VisualEditOverlay() {
 
           {/* Quick Actions */}
           <div className="flex flex-wrap items-center gap-2">
+            {!contentRow && (
+              <button
+                type="button"
+                onClick={handleInitializeCMSPage}
+                disabled={savingBackend}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-secondary shadow-raised hover:bg-accent-gold transition-all"
+              >
+                <Sparkles size={13} />
+                <span>Connect Page to Supabase CMS</span>
+              </button>
+            )}
+
+            {/* Badges Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowSectionBadges((p) => !p)}
+              title={
+                showSectionBadges ? 'Hide in-page section badges' : 'Show in-page section badges'
+              }
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
+                showSectionBadges
+                  ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
+                  : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
+              }`}
+            >
+              <Layers size={13} />
+              <span className="hidden sm:inline">Badges: {showSectionBadges ? 'ON' : 'OFF'}</span>
+            </button>
+
+            {/* Frames Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowAllSectionBorders((p) => !p)}
+              title={showAllSectionBorders ? 'Hide section frames' : 'Show section frames'}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
+                showAllSectionBorders
+                  ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
+                  : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
+              }`}
+            >
+              <Eye size={13} />
+              <span className="hidden md:inline">
+                Frames: {showAllSectionBorders ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
             {/* Section Navigator */}
             {sections.length > 0 && (
               <div className="relative">
@@ -496,7 +787,7 @@ export function VisualEditOverlay() {
                   <Plus size={14} />
                   <span>Add Block</span>
                 </button>
-                <div className="absolute bottom-full right-0 mb-2 hidden w-44 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float group-hover:block z-50">
+                <div className="absolute bottom-full right-0 mb-2 hidden w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float group-hover:block z-50">
                   <button
                     type="button"
                     onClick={() => handleAddNewSection('heading')}
@@ -510,6 +801,20 @@ export function VisualEditOverlay() {
                     className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
                   >
                     Paragraph Text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewSection('bulletList')}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                  >
+                    Bullet List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewSection('orderedList')}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                  >
+                    Numbered Steps
                   </button>
                   <button
                     type="button"
@@ -745,6 +1050,18 @@ export function VisualEditOverlay() {
                         level: 2,
                         html: 'Heading',
                       });
+                    } else if (newType === 'bulletList') {
+                      setEditingBlock({
+                        id: editingBlock.id,
+                        type: 'bulletList',
+                        items: ['Action item 1', 'Action item 2'],
+                      });
+                    } else if (newType === 'orderedList') {
+                      setEditingBlock({
+                        id: editingBlock.id,
+                        type: 'orderedList',
+                        items: ['Step 1', 'Step 2'],
+                      });
                     } else if (newType === 'callout') {
                       setEditingBlock({
                         id: editingBlock.id,
@@ -783,6 +1100,8 @@ export function VisualEditOverlay() {
                 >
                   <option value="paragraph">Paragraph Text</option>
                   <option value="heading">Heading</option>
+                  <option value="bulletList">Bullet List</option>
+                  <option value="orderedList">Numbered Steps</option>
                   <option value="image">Image (Supabase S3)</option>
                   <option value="callout">Callout / Alert</option>
                   <option value="button">Button CTA</option>
@@ -847,13 +1166,40 @@ export function VisualEditOverlay() {
                 </div>
               )}
 
+              {/* List Fields */}
+              {(editingBlock.type === 'bulletList' || editingBlock.type === 'orderedList') && (
+                <div>
+                  <label
+                    htmlFor={listItemsId}
+                    className="block text-xs font-bold text-slate-700 mb-1"
+                  >
+                    {editingBlock.type === 'bulletList'
+                      ? 'Bullet Items (one item per line)'
+                      : 'Numbered Steps (one item per line)'}
+                  </label>
+                  <textarea
+                    id={listItemsId}
+                    rows={5}
+                    value={editingBlock.items.join('\n')}
+                    onChange={(e) =>
+                      setEditingBlock({
+                        ...editingBlock,
+                        items: e.target.value.split('\n'),
+                      })
+                    }
+                    placeholder="Enter each item on a new line..."
+                    className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-primary font-mono"
+                  />
+                </div>
+              )}
+
               {/* Callout Fields */}
               {editingBlock.type === 'callout' && (
                 <div className="space-y-3">
                   <fieldset className="border-0 p-0 m-0">
                     <legend className="block text-xs font-bold text-slate-700 mb-1">Tone</legend>
                     <div className="flex gap-2">
-                      {(['info', 'alert', 'success', 'neutral'] as CalloutTone[]).map((t) => (
+                      {CALLOUT_TONES.map((t) => (
                         <button
                           key={t}
                           type="button"
