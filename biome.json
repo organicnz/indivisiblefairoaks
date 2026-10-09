@@ -131,6 +131,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/src/components/visual-edit/VisualEditOverlay.tsx"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noImgElement": "off"
+          }
+        }
+      }
     }
   ]
 }

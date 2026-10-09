@@ -2989,19 +2989,25 @@ export async function getCRMEdgeFunctionHealth(): Promise<CRMBackendStatus> {
     storageOk = !storageError;
 
     // 3. Probe Edge Function
-    const functionUrl = env.CRM_BROADCAST_FUNCTION_URL;
+    const functionUrl =
+      env.CRM_BROADCAST_FUNCTION_URL ||
+      (env.NEXT_PUBLIC_SUPABASE_URL
+        ? `${env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/health`
+        : undefined);
     if (functionUrl) {
+      const probeUrl = functionUrl.endsWith('/health') ? functionUrl : `${functionUrl}/health`;
       const startTime = Date.now();
       try {
-        const res = await fetch(`${functionUrl}/health`, {
+        const res = await fetch(probeUrl, {
           signal: AbortSignal.timeout(5_000),
         });
         const latencyMs = Date.now() - startTime;
         if (res.ok) {
-          const body = (await res.json()) as { ready: boolean; missing?: string[] };
-          edgeOk = body.ready;
+          const body = (await res.json()) as { ok?: boolean; ready?: boolean; missing?: string[] };
+          const isReady = body.ready ?? body.ok ?? true;
+          edgeOk = isReady;
           edgeDetails = {
-            ready: body.ready,
+            ready: isReady,
             missing: body.missing,
             endpoint: functionUrl,
             checkedAt: new Date().toISOString(),
