@@ -1,4 +1,16 @@
-export type BlockType = 'header' | 'text' | 'callout' | 'button' | 'event' | 'divider' | 'signoff';
+export type BlockType =
+  | 'header'
+  | 'text'
+  | 'callout'
+  | 'button'
+  | 'event'
+  | 'divider'
+  | 'signoff'
+  | 'image'
+  | 'quote'
+  | 'stat'
+  | 'list'
+  | 'social';
 
 export interface BaseBlock {
   id: string;
@@ -50,6 +62,56 @@ export interface SignoffBlock extends BaseBlock {
   sender: string;
 }
 
+export interface ImageBlock extends BaseBlock {
+  type: 'image';
+  url: string;
+  alt: string;
+  caption?: string;
+  linkUrl?: string;
+  alignment?: 'left' | 'center' | 'right' | 'full';
+}
+
+export interface QuoteBlock extends BaseBlock {
+  type: 'quote';
+  quote: string;
+  author: string;
+  role?: string;
+}
+
+export interface StatBlock extends BaseBlock {
+  type: 'stat';
+  value: string;
+  label: string;
+  description?: string;
+  variant?: 'primary' | 'accent' | 'emerald';
+}
+
+export interface ListBlock extends BaseBlock {
+  type: 'list';
+  style: 'bullet' | 'numbered';
+  items: string[];
+}
+
+export type SocialPlatform =
+  | 'website'
+  | 'actblue'
+  | 'facebook'
+  | 'instagram'
+  | 'twitter'
+  | 'substack';
+
+export interface SocialLinkItem {
+  platform: SocialPlatform;
+  url: string;
+  label?: string;
+}
+
+export interface SocialBlock extends BaseBlock {
+  type: 'social';
+  heading?: string;
+  channels: SocialLinkItem[];
+}
+
 export type ComposerBlock =
   | HeaderBlock
   | TextBlock
@@ -57,7 +119,12 @@ export type ComposerBlock =
   | ButtonBlock
   | EventBlock
   | DividerBlock
-  | SignoffBlock;
+  | SignoffBlock
+  | ImageBlock
+  | QuoteBlock
+  | StatBlock
+  | ListBlock
+  | SocialBlock;
 
 export interface ComposerTemplate {
   id: string;

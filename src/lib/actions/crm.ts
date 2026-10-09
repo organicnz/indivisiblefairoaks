@@ -32,37 +32,77 @@ import { type CRMTagScan, getCachedCRMTags } from '@/lib/crm-tag-scan';
 import { isE2EMode } from '@/lib/e2e-mode';
 import { brandShell, escapeHtml, LOGO_URL, safeSubject, sendEmail } from '@/lib/email';
 import { env } from '@/lib/env';
+import { measureImageSize } from '@/lib/image-size';
 import { rateLimit } from '@/lib/rate-limit';
+import { getStorageUrl } from '@/lib/supabase';
+import type {
+  BroadcastProgress,
+  BroadcastRecipient,
+  BroadcastTarget,
+  ConsentDecision,
+  ConsentFilter,
+  CRMActivity,
+  CRMActivityInsert,
+  CRMBackendStatus,
+  CRMBroadcast,
+  CRMBroadcastDispatchResult,
+  CRMBroadcastEmailEvent,
+  CRMBroadcastInsert,
+  CRMBroadcastUpdate,
+  CRMContact,
+  CRMContactInsert,
+  CRMContactStatus,
+  CRMContactUpdate,
+  CRMEdgeFunctionHealth,
+  CRMMediaItem,
+  CRMMediaListResult,
+  CRMMediaUploadResult,
+  CRMSegment,
+  CRMSegmentInsert,
+  CRMSegmentUpdate,
+  CRMStats,
+  CRMTagCount,
+  CRMTask,
+  CRMTaskInsert,
+  CRMTaskStatus,
+  CRMTaskUpdate,
+  CRMTaskWithContact,
+} from '@/types/crm';
 import type { Database } from '@/types/supabase';
 
-export type CRMContact = Database['public']['Tables']['crm_contacts']['Row'];
-export type CRMContactInsert = Database['public']['Tables']['crm_contacts']['Insert'];
-export type CRMContactUpdate = Database['public']['Tables']['crm_contacts']['Update'];
-export type CRMActivity = Database['public']['Tables']['crm_activities']['Row'];
-/**
- * A campaign row.
- *
- * `marked_failed_at` / `marked_failed_by` arrive with migration 20261005000000
- * and are intersected in for the same reason as `CRMSegment` below: the generated
- * types come from the live project, so they do not know a column until the
- * migration carrying it has been applied. The composer reads `marked_failed_at`
- * to decide whether a stranded row still needs clearing, so it is not optional.
- */
-export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'] & {
-  marked_failed_at?: string | null;
-  marked_failed_by?: string | null;
+export type {
+  BroadcastProgress,
+  BroadcastRecipient,
+  BroadcastTarget,
+  ConsentDecision,
+  ConsentFilter,
+  CRMActivity,
+  CRMActivityInsert,
+  CRMBackendStatus,
+  CRMBroadcast,
+  CRMBroadcastDispatchResult,
+  CRMBroadcastEmailEvent,
+  CRMBroadcastInsert,
+  CRMBroadcastUpdate,
+  CRMContact,
+  CRMContactInsert,
+  CRMContactStatus,
+  CRMContactUpdate,
+  CRMEdgeFunctionHealth,
+  CRMMediaItem,
+  CRMMediaListResult,
+  CRMMediaUploadResult,
+  CRMSegment,
+  CRMSegmentInsert,
+  CRMSegmentUpdate,
+  CRMStats,
+  CRMTagCount,
+  CRMTask,
+  CRMTaskInsert,
+  CRMTaskStatus,
+  CRMTaskUpdate,
+  CRMTaskWithContact,
 };
-export type CRMTask = Database['public']['Tables']['crm_tasks']['Row'];
-/**
- * A saved filter.
- *
- * The `consent` intersection used to live here because the generated row type
- * did not know the column until its migration was applied. Migration
- * 20261005000000 is applied and the types regenerated, so the row carries
- * `consent: string | null` itself and the shim — which narrowed it to the
- * literal union and broke the read path — is gone.
- */
-export type CRMSegment = Database['public']['Tables']['crm_segments']['Row'];
 
 /**
  * Tag shape is enforced identically on both write paths. The CSV importer already
@@ -178,15 +218,6 @@ const segmentSchema = z.object({
   consent: z.enum(['opted_out', 'opted_in', 'unasked']).optional(),
 });
 
-export interface CRMStats {
-  totalContacts: number;
-  activeVolunteers: number;
-  localDistrict: number;
-  totalDonors: number;
-  totalDonationsCents: number;
-  openTasks: number;
-}
-
 function unsubscribeUrl(token: string): string {
   return `${env.NEXT_PUBLIC_SITE_URL}/api/crm/unsubscribe?token=${token}`;
 }
@@ -247,14 +278,6 @@ function sendRateLimited(
   );
   if (ok) return null;
   return `Too many emails sent. Wait ${retryAfterSec}s before sending again.`;
-}
-
-interface BroadcastRecipient {
-  id: string;
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
-  unsubscribe_token: string;
 }
 
 /**
@@ -667,10 +690,6 @@ export async function exportCRMContacts(params: GetCRMContactsParams = {}): Prom
     // truncated, and only the mismatch knows the difference.
     truncated: result.contacts.length < matchedCount,
   };
-}
-
-export interface CRMTaskWithContact extends CRMTask {
-  contact: Pick<CRMContact, 'id' | 'first_name' | 'last_name' | 'email'> | null;
 }
 
 export type TaskScope = 'open' | 'overdue' | 'upcoming' | 'done' | 'all';
@@ -1420,7 +1439,6 @@ export async function deleteCRMNote(
  * "unknown" — and the nearest thing they could do, clearing the flag, recorded a
  * *yes* they had not been given.
  */
-export type ConsentDecision = 'opted_out' | 'opted_in' | 'unasked';
 
 export async function setCRMEmailConsent({
   contactId,
@@ -1845,32 +1863,12 @@ function sendBlockedInE2E(): { success: false; error: string } | null {
   return isE2EMode() ? { success: false, error: 'Sending is disabled in test builds.' } : null;
 }
 
-export interface BroadcastTarget {
-  targetTags?: string[];
-  targetStatus?: string[];
-  targetDistricts?: string[];
-}
-
 // `PROGRESS_POLL_TIMEOUT_MS` and the other numeric bounds live in
 // `@/lib/crm-limits`, not here: this is a `'use server'` module, and Next rejects
 // any non-async export from one — including a constant a client component needs.
-
-export interface BroadcastProgress {
-  id: string;
-  subject: string | null;
-  status: 'draft' | 'queued' | 'sending' | 'sent' | 'failed';
-  recipientCount: number;
-  sentCount: number;
-  failedCount: number;
-  sentAt: string | null;
-  createdAt: string;
-  /**
-   * Client-side only: the composer stopped polling. The row is still in flight
-   * server-side, so this is not a claim about the send — it says that what the
-   * operator is looking at has stopped updating and the view is behind.
-   */
-  stillWatching?: boolean;
-}
+// (The broadcast shapes — `BroadcastTarget`, `BroadcastProgress`,
+// `BroadcastRecipient`, `CRMStats` — live in `@/types/crm` for the related
+// reason: a client component imports them, so they cannot be declared here.)
 
 /**
  * Render the broadcast a recipient would receive.
@@ -2465,6 +2463,66 @@ export async function getBroadcastProgress(broadcastId: string): Promise<Broadca
 }
 
 /**
+ * How many delivery events one expanded history row shows.
+ *
+ * Bounded like every other capped read, and it says so: `totalCount` is the
+ * query's exact count and `truncated` names the cap, so "200 events" never
+ * reads as "200 events happened".
+ */
+const BROADCAST_EMAIL_EVENTS_LIMIT = 200;
+
+/**
+ * Delivery events for one broadcast: bounces, complaints, opens, clicks.
+ *
+ * `crm_email_events` is written by the Resend webhook and was never read by
+ * any admin surface — the only post-send signal was the row's `sent_count`,
+ * which counts provider *acceptances*, not deliveries. A campaign with 40
+ * permanent bounces looked exactly as healthy as one with none. This is the
+ * read half; the write half stays in `src/app/api/webhooks/resend/route.ts`.
+ *
+ * Recipient emails resolve in one batched read, not per event: the panel for
+ * a large campaign's bounce list must not N+1 the directory.
+ */
+export async function getBroadcastEmailEvents(
+  broadcastId: string
+): Promise<{ events: CRMBroadcastEmailEvent[]; totalCount: number; truncated: boolean }> {
+  const { adminClient } = await requireAdmin();
+  const { data, error, count } = await adminClient
+    .from('crm_email_events')
+    .select('id, event_type, contact_id, occurred_at, provider_id', { count: 'exact' })
+    .eq('broadcast_id', broadcastId)
+    .order('occurred_at', { ascending: false })
+    .limit(BROADCAST_EMAIL_EVENTS_LIMIT);
+  if (error) throw new Error(`Failed to read delivery events: ${error.message}`);
+
+  const rows = data ?? [];
+  const contactIds = [...new Set(rows.map((row) => row.contact_id).filter(Boolean))];
+  let emails = new Map<string, string>();
+  if (contactIds.length > 0) {
+    const { data: contacts, error: contactError } = await adminClient
+      .from('crm_contacts')
+      .select('id, email')
+      .in('id', contactIds);
+    if (contactError) throw new Error(`Failed to read delivery events: ${contactError.message}`);
+    emails = new Map((contacts ?? []).map((contact) => [contact.id, contact.email]));
+  }
+
+  const totalCount = count ?? rows.length;
+  return {
+    events: rows.map((row) => ({
+      id: row.id,
+      eventType: row.event_type,
+      contactId: row.contact_id,
+      contactEmail: emails.get(row.contact_id) ?? null,
+      occurredAt: row.occurred_at,
+      providerId: row.provider_id,
+    })),
+    totalCount,
+    truncated: totalCount > rows.length,
+  };
+}
+
+/**
  * Backfill contacts from contact-form submissions, profiles and completed
  * orders. Idempotent: re-running it unions tags and only applies a donation
  * total the first time each order is seen.
@@ -2693,4 +2751,289 @@ export async function getBroadcastRecipientCount({
   }
 
   return { count: count ?? 0, excludedCount: excluded ?? 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Supabase S3 Media Storage for CRM & Visual Editor
+// ---------------------------------------------------------------------------
+
+const CRM_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
+const CRM_IMAGE_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+const MAX_CRM_IMAGE_BYTES = 5 * 1024 * 1024;
+const HEADER_PROBE_BYTES = 64 * 1024;
+
+/**
+ * Fetch media files directly from Supabase S3 Storage ('media' bucket)
+ * for use across the CRM, Broadcast Composer, and constituent records.
+ */
+export async function getCRMMediaFiles(options?: {
+  folder?: string;
+  search?: string;
+  limit?: number;
+}): Promise<CRMMediaListResult> {
+  const { adminClient } = await requireAdmin();
+  const folder = options?.folder || 'crm';
+  const search = options?.search?.trim().toLowerCase() || '';
+  const limit = options?.limit ?? 100;
+
+  const validFolders = ['crm', 'content', 'products'];
+  const foldersToScan =
+    folder === 'all' ? validFolders : [validFolders.includes(folder) ? folder : 'crm'];
+
+  const results: CRMMediaItem[] = [];
+
+  for (const f of foldersToScan) {
+    const { data, error } = await adminClient.storage.from('media').list(f, {
+      limit,
+      sortBy: { column: 'created_at', order: 'desc' },
+    });
+
+    if (error || !data) continue;
+
+    for (const item of data) {
+      if (!item.name || item.name === '.emptyFolderPlaceholder') continue;
+      if (search && !item.name.toLowerCase().includes(search)) continue;
+
+      const path = `${f}/${item.name}`;
+      const url = getStorageUrl(path, 'media');
+      const size = (item.metadata?.size as number) || 0;
+      const mimeType = (item.metadata?.mimetype as string) || 'image/jpeg';
+      const createdAt = item.created_at || item.updated_at || new Date().toISOString();
+
+      results.push({
+        id: item.id || path,
+        name: item.name,
+        path,
+        url,
+        size,
+        mimeType,
+        createdAt,
+        folder: f,
+      });
+    }
+  }
+
+  results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  return {
+    items: results.slice(0, limit),
+    folders: validFolders,
+  };
+}
+
+/**
+ * Upload an image asset directly into the Supabase S3 Storage 'media' bucket
+ * under the crm/ namespace with format verification, XSS prevention, and size bounds.
+ */
+export async function uploadCRMMedia(formData: FormData): Promise<{
+  success: boolean;
+  error?: string;
+  data?: {
+    id: string;
+    name: string;
+    path: string;
+    url: string;
+    size: number;
+    mimeType: string;
+    width: number | null;
+    height: number | null;
+    createdAt: string;
+    folder: string;
+  };
+}> {
+  try {
+    const file = formData.get('file');
+    if (!(file instanceof File)) {
+      return { success: false, error: 'No file provided' };
+    }
+    if (!CRM_IMAGE_TYPES.includes(file.type as (typeof CRM_IMAGE_TYPES)[number])) {
+      return {
+        success: false,
+        error: 'Image must be JPEG, PNG, WebP or GIF. SVG is prohibited to prevent stored XSS.',
+      };
+    }
+    if (file.size > MAX_CRM_IMAGE_BYTES) {
+      return { success: false, error: 'Image must be 5MB or smaller' };
+    }
+
+    const { adminClient } = await requireAdmin();
+
+    const ext = CRM_IMAGE_EXT[file.type] ?? 'png';
+    const base =
+      (file.name.replace(/\.[^.]+$/, '') || 'media')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40) || 'media';
+    const unique = crypto.randomUUID().slice(0, 8);
+    const path = `crm/${base}-${unique}.${ext}`;
+
+    const { error: uploadError } = await adminClient.storage
+      .from('media')
+      .upload(path, file, { upsert: false, contentType: file.type });
+
+    if (uploadError) {
+      return { success: false, error: uploadError.message };
+    }
+
+    const head = new Uint8Array(await file.slice(0, HEADER_PROBE_BYTES).arrayBuffer());
+    const measured = measureImageSize(head, file.type);
+    const url = getStorageUrl(path, 'media');
+
+    return {
+      success: true,
+      data: {
+        id: path,
+        name: file.name,
+        path,
+        url,
+        size: file.size,
+        mimeType: file.type,
+        width: measured?.width ?? null,
+        height: measured?.height ?? null,
+        createdAt: new Date().toISOString(),
+        folder: 'crm',
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to upload media',
+    };
+  }
+}
+
+/**
+ * Remove an image asset from Supabase Storage 'media' bucket.
+ * Restricted to the crm/ folder to prevent accidental modification of website content or products.
+ */
+export async function deleteCRMMedia(path: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { adminClient } = await requireAdmin();
+
+    if (!path.startsWith('crm/') || path.includes('..')) {
+      return { success: false, error: 'Deletions are restricted to the crm/ media folder' };
+    }
+
+    /**
+     * Check references before removing, mirroring `deleteContentImage`.
+     *
+     * A broadcast body holds the image as markdown (`![alt](url)` with the
+     * public storage URL, which contains this path), and email clients fetch
+     * remote images at open time — so deleting a file a *sent* campaign uses
+     * breaks opens retroactively, not just the admin record. Drafts count
+     * too: deleting under an unsent draft strands the author with a block
+     * whose preview renders "No image URL provided" for an image they did
+     * choose. Declining leaves an orphan (garbage); deleting breaks mail
+     * (visible to every recipient). The failure direction is deliberate.
+     */
+    const { data: refs, error: refError } = await adminClient
+      .from('crm_broadcasts')
+      .select('id')
+      .like('body', `%${path}%`)
+      .limit(1);
+    if (refError) {
+      return { success: false, error: 'Could not verify whether this image is still in use' };
+    }
+    if ((refs?.length ?? 0) > 0) {
+      return {
+        success: false,
+        error: 'This image is still used in a saved broadcast and cannot be deleted yet.',
+      };
+    }
+
+    const { error } = await adminClient.storage.from('media').remove([path]);
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to delete media',
+    };
+  }
+}
+
+/**
+ * Probes health of Supabase Database, Supabase S3 Storage ('media' bucket),
+ * and the broadcast sender Edge Function.
+ *
+ * Used by the CRM admin dashboard and broadcast composer to give real-time
+ * visibility into infrastructure readiness before launching campaigns.
+ */
+export async function getCRMEdgeFunctionHealth(): Promise<CRMBackendStatus> {
+  let dbOk = false;
+  let storageOk = false;
+  let edgeOk = false;
+  let edgeDetails: CRMEdgeFunctionHealth | undefined;
+  let errMessage: string | undefined;
+
+  try {
+    const { adminClient } = await requireAdmin();
+
+    // 1. Probe Database
+    const { error: dbError } = await adminClient.from('crm_contacts').select('id').limit(1);
+    dbOk = !dbError;
+
+    // 2. Probe Storage
+    const { error: storageError } = await adminClient.storage
+      .from('media')
+      .list('crm', { limit: 1 });
+    storageOk = !storageError;
+
+    // 3. Probe Edge Function
+    const functionUrl = env.CRM_BROADCAST_FUNCTION_URL;
+    if (functionUrl) {
+      const startTime = Date.now();
+      try {
+        const res = await fetch(`${functionUrl}/health`, {
+          signal: AbortSignal.timeout(5_000),
+        });
+        const latencyMs = Date.now() - startTime;
+        if (res.ok) {
+          const body = (await res.json()) as { ready: boolean; missing?: string[] };
+          edgeOk = body.ready;
+          edgeDetails = {
+            ready: body.ready,
+            missing: body.missing,
+            endpoint: functionUrl,
+            checkedAt: new Date().toISOString(),
+            latencyMs,
+          };
+        } else {
+          edgeDetails = {
+            ready: false,
+            endpoint: functionUrl,
+            checkedAt: new Date().toISOString(),
+            latencyMs,
+            missing: [`HTTP_${res.status}`],
+          };
+        }
+      } catch {
+        edgeDetails = {
+          ready: false,
+          endpoint: functionUrl,
+          checkedAt: new Date().toISOString(),
+          missing: ['UNREACHABLE_OR_TIMEOUT'],
+        };
+      }
+    }
+  } catch (err) {
+    errMessage = err instanceof Error ? err.message : 'Failed to query CRM health';
+  }
+
+  return {
+    database: dbOk,
+    storage: storageOk,
+    edgeFunction: edgeOk,
+    edgeFunctionDetails: edgeDetails,
+    error: errMessage,
+  };
 }

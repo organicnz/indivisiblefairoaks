@@ -2,6 +2,7 @@ import { CRMBroadcastComposer } from '@/components/admin/crm/CRMBroadcastCompose
 import {
   getCRMBroadcastDrafts,
   getCRMBroadcastHistoryPage,
+  getCRMEdgeFunctionHealth,
   getCRMExistingTags,
   getCRMSegments,
 } from '@/lib/actions/crm';
@@ -43,11 +44,12 @@ export default async function AdminCRMBroadcastsPage({
   const parsed = Number.parseInt(params.page || '1', 10);
   const page = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 
-  const [history, drafts, segmentRead, tagScan] = await Promise.all([
+  const [history, drafts, segmentRead, tagScan, backendStatus] = await Promise.all([
     getCRMBroadcastHistoryPage({ page }),
     getCRMBroadcastDrafts(),
     getCRMSegments(),
     getCRMExistingTags(),
+    getCRMEdgeFunctionHealth(),
   ]);
 
   return (
@@ -63,6 +65,7 @@ export default async function AdminCRMBroadcastsPage({
       // rows gets no chip, so the chapter cannot target those constituents and the
       // composer would read as though nobody carries that tag.
       tagsMayBeIncomplete={tagScan.truncated}
+      backendStatus={backendStatus}
     />
   );
 }

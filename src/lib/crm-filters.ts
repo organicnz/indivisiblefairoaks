@@ -1,4 +1,4 @@
-import type { CRMSegment } from '@/lib/actions/crm';
+import type { ConsentDecision, CRMSegment } from '@/types/crm';
 
 /**
  * The directory's filter state, and the two rules that were previously applied
@@ -16,7 +16,7 @@ import type { CRMSegment } from '@/lib/actions/crm';
  * be remembered.
  */
 
-export type ConsentFilter = 'all' | 'opted_out' | 'opted_in' | 'unasked';
+export type ConsentFilter = 'all' | ConsentDecision;
 
 /**
  * The three stored states, and what each one is.
@@ -35,7 +35,12 @@ export type ConsentFilter = 'all' | 'opted_out' | 'opted_in' | 'unasked';
  */
 export const CONSENT_STATES = ['opted_out', 'opted_in', 'unasked'] as const;
 
-export type ConsentState = (typeof CONSENT_STATES)[number];
+/**
+ * The stored states. An alias for `ConsentDecision`, not a second union: two
+ * spellings of the same three literals is how one of them silently gains a
+ * fourth value and the audience resolver stops agreeing with the filter bar.
+ */
+export type ConsentState = ConsentDecision;
 
 /**
  * Whether a contact with this consent value is reachable by a broadcast.

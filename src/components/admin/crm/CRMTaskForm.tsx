@@ -1,9 +1,10 @@
 'use client';
 
-import { Loader2, Plus, X } from 'lucide-react';
+import { ImageIcon, Loader2, Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
+import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import { addCRMTask } from '@/lib/actions/crm';
 
 interface Props {
@@ -30,12 +31,14 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
   const [dueAt, setDueAt] = useState('');
   const [details, setDetails] = useState('');
   const [busy, setBusy] = useState(false);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const titleId = useId();
 
   const reset = () => {
     setTitle('');
     setDueAt('');
     setDetails('');
+    setIsMediaModalOpen(false);
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -129,12 +132,21 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
           />
         </div>
         <div>
-          <label
-            htmlFor={`${titleId}-details`}
-            className="mb-1 block text-xs font-bold text-slate-600"
-          >
-            Notes <span className="font-normal text-slate-400">(optional)</span>
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label
+              htmlFor={`${titleId}-details`}
+              className="block text-xs font-bold text-slate-600"
+            >
+              Notes <span className="font-normal text-slate-400">(optional)</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => setIsMediaModalOpen(true)}
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+            >
+              <ImageIcon size={11} /> Media
+            </button>
+          </div>
           <input
             id={`${titleId}-details`}
             value={details}
@@ -161,6 +173,20 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
             : 'No constituent — visible to the whole organizing team.'}
         </p>
       </div>
+
+      {isMediaModalOpen && (
+        <CRMMediaLibraryModal
+          isOpen={isMediaModalOpen}
+          onClose={() => setIsMediaModalOpen(false)}
+          onSelectMedia={(media) => {
+            const alt = media.alt || media.name;
+            setDetails((prev) => `${prev ? `${prev} ` : ''}![${alt}](${media.url})`);
+            toast.success('Media reference inserted into task notes');
+            setIsMediaModalOpen(false);
+          }}
+          initialFolder="crm"
+        />
+      )}
     </form>
   );
 }

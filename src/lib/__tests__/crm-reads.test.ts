@@ -45,6 +45,7 @@ import {
   deleteCRMBroadcastDraft,
   deleteCRMSegment,
   deleteCRMTask,
+  getBroadcastEmailEvents,
   getBroadcastProgress,
   getBroadcastRecipientCount,
   getCRMBroadcastDrafts,
@@ -442,6 +443,121 @@ describe('CRM reads and bookkeeping', () => {
       tables.crm_broadcasts = { rows: [{ id: 'b1' }], error: { message: 'timeout' } };
 
       await expect(getBroadcastProgress('b1')).rejects.toThrow('Failed to read broadcast progress');
+    });
+  });
+
+  describe('getBroadcastEmailEvents', () => {
+    const eventRows = [
+      {
+        id: 'e1',
+        event_type: 'bounced',
+        contact_id: 'c1',
+        occurred_at: '2026-10-02T12:00:00.000Z',
+        provider_id: 'evt_1',
+        broadcast_id: 'b1',
+      },
+      {
+        id: 'e2',
+        event_type: 'opened',
+        contact_id: 'c2',
+        occurred_at: '2026-10-02T11:00:00.000Z',
+        provider_id: 'evt_2',
+        broadcast_id: 'b1',
+      },
+      {
+        id: 'e3',
+        event_type: 'complained',
+        contact_id: 'c-gone',
+        occurred_at: '2026-10-02T10:00:00.000Z',
+        provider_id: null,
+        broadcast_id: 'b1',
+      },
+    ];
+
+    it('returns newest-first events with recipient emails resolved in one query', async () => {
+      tables.crm_email_events = { rows: eventRows };
+      tables.crm_contacts = {
+        rows: [
+          { id: 'c1', email: 'bounce@example.com' },
+          { id: 'c2', email: 'opener@example.com' },
+        ],
+      };
+
+      const res = await getBroadcastEmailEvents('b1');
+
+      // Newest first, and the seed is written newest-first so the assertion
+      // pins the sort rather than the declaration.
+      expect(res.events.map((e) => e.id)).toEqual(['e1', 'e2', 'e3']);
+      expect(res.events[0]).toMatchObject({
+        eventType: 'bounced',
+        contactId: 'c1',
+        contactEmail: 'bounce@example.com',
+        providerId: 'evt_1',
+      });
+      // The contact row is gone (merged or deleted) but the event remains: a
+      // missing email reads as unknown, never as someone else's.
+      expect(res.events[2]).toMatchObject({ contactId: 'c-gone', contactEmail: null });
+      expect(res.totalCount).toBe(3);
+      expect(res.truncated).toBe(false);
+      // Exactly two reads: the events, then one batched contact lookup — never
+      // a query per event.
+      expect(tableCalls()).toEqual(['crm_email_events', 'crm_contacts']);
+    });
+
+    it('scopes to the requested broadcast', async () => {
+      tables.crm_email_events = {
+        rows: [...eventRows, { ...eventRows[0], id: 'e9', broadcast_id: 'other' }],
+      };
+      tables.crm_contacts = { rows: [] };
+
+      const res = await getBroadcastEmailEvents('b1');
+
+      expect(res.events.map((e) => e.id)).toEqual(['e1', 'e2', 'e3']);
+      expect(res.totalCount).toBe(3);
+    });
+
+    it('skips the contact lookup when there are no events', async () => {
+      tables.crm_email_events = { rows: [] };
+
+      const res = await getBroadcastEmailEvents('b1');
+
+      expect(res.events).toEqual([]);
+      expect(res.totalCount).toBe(0);
+      expect(res.truncated).toBe(false);
+      expect(tableCalls()).toEqual(['crm_email_events']);
+    });
+
+    it('reports truncation past the event cap', async () => {
+      tables.crm_email_events = {
+        rows: Array.from({ length: 201 }, (_, i) => ({
+          id: `e${i}`,
+          event_type: 'opened',
+          contact_id: `c${i}`,
+          occurred_at: `2026-10-02T${String(i % 24).padStart(2, '0')}:00:00.000Z`,
+          provider_id: null,
+          broadcast_id: 'b1',
+        })),
+      };
+      tables.crm_contacts = { rows: [] };
+
+      const res = await getBroadcastEmailEvents('b1');
+
+      expect(res.events).toHaveLength(200);
+      expect(res.totalCount).toBe(201);
+      expect(res.truncated).toBe(true);
+    });
+
+    it('throws when the events read itself fails', async () => {
+      tables.crm_email_events = { rows: [], error: { message: 'timeout' } };
+
+      await expect(getBroadcastEmailEvents('b1')).rejects.toThrow('Failed to read delivery events');
+    });
+
+    it('throws when the contact lookup fails', async () => {
+      tables.crm_email_events = { rows: [eventRows[0]] };
+      tables.crm_contacts = { rows: [], error: { message: 'timeout' } };
+
+      await expect(getBroadcastEmailEvents('b1')).rejects.toThrow('Failed to read delivery events');
     });
   });
 

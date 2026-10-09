@@ -36,6 +36,11 @@ const EDGE_SOURCE = readFileSync(
   resolve(process.cwd(), 'supabase/functions/_shared/broadcast.ts'),
   'utf8'
 );
+const SENDER_SOURCE = readFileSync(
+  resolve(process.cwd(), 'supabase/functions/crm-broadcast-send/index.ts'),
+  'utf8'
+);
+const CRM_TYPES_SOURCE = readFileSync(resolve(process.cwd(), 'src/types/crm.ts'), 'utf8');
 
 const FIXTURE = {
   recipientName: 'Jane Doe',
@@ -184,5 +189,30 @@ describe('broadcastSubject', () => {
 
   it('strips control characters', () => {
     expect(escapeBroadcastHtml(broadcastSubject('a\u0000b\u0007c'))).toBe('abc');
+  });
+});
+
+describe('broadcast recipient shape parity between the app and the edge sender', () => {
+  it('declares the same recipient fields on both sides', () => {
+    // `BroadcastRecipient` in `src/types/crm.ts` is the single source; the
+    // sender keeps a local `interface Recipient` because Deno cannot import
+    // from `src/`. A field added on one side and not the other is how an
+    // unsubscribe token silently stops reaching the sender while every unit
+    // test stays green — the mocks never cross that boundary.
+    const sliceInterface = (source: string, name: string): string | null => {
+      const start = source.indexOf(`interface ${name} `);
+      if (start < 0) return null;
+      const end = source.indexOf('}', start);
+      return end < 0 ? null : source.slice(start, end + 1);
+    };
+    const app = sliceInterface(CRM_TYPES_SOURCE, 'BroadcastRecipient');
+    const edge = sliceInterface(SENDER_SOURCE, 'Recipient');
+    expect(app, 'BroadcastRecipient must exist in src/types/crm.ts').not.toBeNull();
+    expect(edge, 'Recipient must exist in the edge sender').not.toBeNull();
+    for (const field of ['id', 'email', 'first_name', 'last_name', 'unsubscribe_token']) {
+      const member = new RegExp(`\\b${field}\\b`);
+      expect(app, `app BroadcastRecipient is missing ${field}`).toMatch(member);
+      expect(edge, `edge Recipient is missing ${field}`).toMatch(member);
+    }
   });
 });

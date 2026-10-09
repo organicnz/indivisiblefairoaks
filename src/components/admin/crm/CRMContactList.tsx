@@ -2,6 +2,7 @@
 
 import {
   BookmarkPlus,
+  Check,
   Download,
   Edit2,
   ExternalLink,
@@ -25,12 +26,15 @@ import { CRMPager } from '@/components/admin/crm/CRMPager';
 import {
   bulkDeleteCRMContacts,
   bulkUpdateCRMContacts,
+  type ConsentDecision,
   type CRMContact,
   type CRMSegment,
+  deleteCRMContact,
   deleteCRMSegment,
   exportCRMContacts,
   saveCRMContact,
   saveCRMSegment,
+  setCRMEmailConsent,
   triggerHistoricalCRMSync,
 } from '@/lib/actions/crm';
 import {
@@ -41,6 +45,7 @@ import {
   filtersFromSegment,
   hasActiveFilters as hasAnyFilters,
   pageRange,
+  parseConsentFilter,
   splitActiveValues,
   totalPages,
 } from '@/lib/crm-filters';
@@ -127,6 +132,9 @@ export function CRMContactList({
   const [savingSegment, setSavingSegment] = useState(false);
   const [showSaveSegment, setShowSaveSegment] = useState(false);
   const [segmentName, setSegmentName] = useState('');
+  const [renamingSegmentId, setRenamingSegmentId] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState('');
+  const [renamingBusy, setRenamingBusy] = useState(false);
 
   const [query, setQuery] = useState(currentQuery);
   const [status, setStatus] = useState(currentStatus || 'all');
@@ -299,6 +307,49 @@ export function CRMContactList({
     }
   };
 
+  const handleRenameSegment = async (segment: CRMSegment) => {
+    const name = renameInput.trim();
+    if (!name) {
+      toast.error('Segment name is required');
+      return;
+    }
+    if (name === segment.name) {
+      setRenamingSegmentId(null);
+      return;
+    }
+    // Parsed, not passed through: the column has no CHECK constraint, so a
+    // stored value may not be one of the three literals. `filtersFromSegment`
+    // (the apply path) resolves unknown the same way, so a rename preserves
+    // the segment's *effective* filter instead of failing on — or silently
+    // keeping — a value the schema would refuse.
+    const consent = parseConsentFilter(segment.consent);
+    setRenamingBusy(true);
+    try {
+      // Rename only: the stored filter set rides through untouched, so renaming
+      // can never silently rewrite what the segment selects.
+      const res = await saveCRMSegment({
+        id: segment.id,
+        name,
+        query: segment.query ?? '',
+        statuses: segment.statuses ?? [],
+        districts: segment.districts ?? [],
+        tags: segment.tags ?? [],
+        consent: consent === 'all' ? undefined : consent,
+      });
+      if (res.success) {
+        toast.success(`Segment renamed to "${name}"`);
+        setRenamingSegmentId(null);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to rename segment');
+      }
+    } catch {
+      toast.error('Failed to rename segment');
+    } finally {
+      setRenamingBusy(false);
+    }
+  };
+
   // Multi-selection state for bulk batch actions
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkTagInput, setBulkTagInput] = useState('');
@@ -352,6 +403,109 @@ export function CRMContactList({
       toast.error('Failed to update status');
     } finally {
       setUpdatingStatusId(null);
+    }
+  };
+
+  const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
+  const [updatingConsentId, setUpdatingConsentId] = useState<string | null>(null);
+  const [addingTagContactId, setAddingTagContactId] = useState<string | null>(null);
+  const [inlineTagInput, setInlineTagInput] = useState('');
+  const [tagBusyContactId, setTagBusyContactId] = useState<string | null>(null);
+
+  const handleSingleDelete = async (id: string, name: string) => {
+    setDeletingContactId(id);
+    try {
+      const res = await deleteCRMContact(id);
+      if (res.success) {
+        toast.success(`Removed constituent ${name}`);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to delete');
+      }
+    } catch {
+      toast.error('Failed to delete constituent');
+    } finally {
+      setDeletingContactId(null);
+    }
+  };
+
+  const handleInlineConsentChange = async (contact: CRMContact, next: ConsentDecision) => {
+    setUpdatingConsentId(contact.id);
+    try {
+      const res = await setCRMEmailConsent({ contactId: contact.id, doNotEmail: next });
+      if (res.success) {
+        toast.success(
+          next === 'opted_out'
+            ? `Marked do-not-email for ${contact.first_name || contact.email}`
+            : next === 'opted_in'
+              ? `Email consent recorded for ${contact.first_name || contact.email}`
+              : `Consent reset to unasked for ${contact.first_name || contact.email}`
+        );
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update consent');
+      }
+    } catch {
+      toast.error('Failed to update consent');
+    } finally {
+      setUpdatingConsentId(null);
+    }
+  };
+
+  const handleInlineAddTag = async (contact: CRMContact) => {
+    const clean = inlineTagInput
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '-');
+    if (!clean) return;
+    if (contact.tags.includes(clean)) {
+      toast.info('Constituent already has this tag');
+      setAddingTagContactId(null);
+      setInlineTagInput('');
+      return;
+    }
+    setTagBusyContactId(contact.id);
+    try {
+      const nextTags = [...contact.tags, clean];
+      const res = await saveCRMContact({
+        id: contact.id,
+        email: contact.email,
+        tags: nextTags,
+      });
+      if (res.success) {
+        toast.success(`Added tag #${clean}`);
+        setAddingTagContactId(null);
+        setInlineTagInput('');
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to add tag');
+      }
+    } catch {
+      toast.error('Failed to add tag');
+    } finally {
+      setTagBusyContactId(null);
+    }
+  };
+
+  const handleInlineRemoveTag = async (contact: CRMContact, tagToRemove: string) => {
+    setTagBusyContactId(contact.id);
+    try {
+      const nextTags = contact.tags.filter((t) => t !== tagToRemove);
+      const res = await saveCRMContact({
+        id: contact.id,
+        email: contact.email,
+        tags: nextTags,
+      });
+      if (res.success) {
+        toast.success(`Removed tag #${tagToRemove}`);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to remove tag');
+      }
+    } catch {
+      toast.error('Failed to remove tag');
+    } finally {
+      setTagBusyContactId(null);
     }
   };
 
@@ -644,30 +798,85 @@ export function CRMContactList({
                 Showing the 500 most recent — older saved segments exist but are not listed here.
               </span>
             )}
-            {segments.map((seg) => (
-              <span
-                key={seg.id}
-                className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-bold"
-              >
-                <button
-                  type="button"
-                  onClick={() => handleApplySegment(seg)}
-                  className="hover:underline"
-                  title="Apply this segment filter"
+            {segments.map((seg) =>
+              renamingSegmentId === seg.id ? (
+                <span
+                  key={seg.id}
+                  className="inline-flex items-center gap-1 pl-1 pr-1 py-0.5 bg-white text-indigo-800 border border-indigo-300 rounded-lg text-xs font-bold"
                 >
-                  {seg.name}
-                </button>
-                <ConfirmAction
-                  label={`Delete segment ${seg.name}`}
-                  message={`Delete saved segment "${seg.name}"?`}
-                  danger
-                  idleClassName="p-0.5 hover:text-red-600 transition-colors"
-                  onConfirm={() => void handleDeleteSegment(seg)}
+                  <input
+                    type="text"
+                    value={renameInput}
+                    onChange={(e) => setRenameInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void handleRenameSegment(seg);
+                      }
+                      if (e.key === 'Escape') setRenamingSegmentId(null);
+                    }}
+                    maxLength={60}
+                    autoFocus
+                    disabled={renamingBusy}
+                    aria-label={`Rename segment ${seg.name}`}
+                    className="px-2 py-1 rounded-md border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs w-40 disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleRenameSegment(seg)}
+                    disabled={renamingBusy}
+                    aria-label={`Save new name for segment ${seg.name}`}
+                    className="p-0.5 hover:text-emerald-600 transition-colors disabled:opacity-50"
+                  >
+                    <Check size={11} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRenamingSegmentId(null)}
+                    disabled={renamingBusy}
+                    aria-label="Cancel rename"
+                    className="p-0.5 hover:text-slate-600 transition-colors disabled:opacity-50"
+                  >
+                    <X size={11} aria-hidden="true" />
+                  </button>
+                </span>
+              ) : (
+                <span
+                  key={seg.id}
+                  className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-bold"
                 >
-                  <X size={11} aria-hidden="true" />
-                </ConfirmAction>
-              </span>
-            ))}
+                  <button
+                    type="button"
+                    onClick={() => handleApplySegment(seg)}
+                    className="hover:underline"
+                    title="Apply this segment filter"
+                  >
+                    {seg.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRenamingSegmentId(seg.id);
+                      setRenameInput(seg.name);
+                    }}
+                    className="p-0.5 hover:text-indigo-600 transition-colors"
+                    title={`Rename segment ${seg.name}`}
+                    aria-label={`Rename segment ${seg.name}`}
+                  >
+                    <Edit2 size={11} aria-hidden="true" />
+                  </button>
+                  <ConfirmAction
+                    label={`Delete segment ${seg.name}`}
+                    message={`Delete saved segment "${seg.name}"?`}
+                    danger
+                    idleClassName="p-0.5 hover:text-red-600 transition-colors"
+                    onConfirm={() => void handleDeleteSegment(seg)}
+                  >
+                    <X size={11} aria-hidden="true" />
+                  </ConfirmAction>
+                </span>
+              )
+            )}
           </div>
         )}
 
@@ -900,42 +1109,35 @@ export function CRMContactList({
                         </Link>
                         <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
                           <span className="truncate">{contact.email}</span>
-                          {/*
-                            Both non-audience states get a badge, and they are
-                            different badges.
-
-                            Only `true` used to render one, so a "never asked"
-                            contact — which was not in any broadcast audience and
-                            could not say so — looked identical to one who had
-                            agreed. An organiser auditing opt-outs needs to tell
-                            those apart: one is a person who said no, the other is
-                            a person nobody has ever asked.
-
-                            The visible text is the badge; the consequence is
-                            `sr-only`, because `title` is a tooltip and is not
-                            reliably exposed to a screen reader.
-                          */}
-                          {contact.do_not_email === true && (
-                            <span
-                              className="shrink-0 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[10px] font-black uppercase leading-none"
-                              title="Do not email — excluded from broadcasts"
-                            >
-                              opt-out
-                              <span className="sr-only"> — excluded from broadcasts</span>
-                            </span>
-                          )}
-                          {contact.do_not_email === null && (
-                            <span
-                              className="shrink-0 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-black uppercase leading-none"
-                              title="Never asked — not in any broadcast audience"
-                            >
-                              unasked
-                              <span className="sr-only">
-                                {' '}
-                                — never asked for email, excluded from broadcasts
-                              </span>
-                            </span>
-                          )}
+                          <select
+                            value={
+                              contact.do_not_email === true
+                                ? 'opted_out'
+                                : contact.do_not_email === false
+                                  ? 'opted_in'
+                                  : 'unasked'
+                            }
+                            disabled={updatingConsentId === contact.id}
+                            onChange={(e) =>
+                              void handleInlineConsentChange(
+                                contact,
+                                e.target.value as ConsentDecision
+                              )
+                            }
+                            className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-black uppercase leading-none border cursor-pointer ${
+                              contact.do_not_email === true
+                                ? 'bg-red-50 text-red-600 border-red-200'
+                                : contact.do_not_email === false
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                            } ${updatingConsentId === contact.id ? 'opacity-50' : ''}`}
+                            title="Quick change email consent"
+                            aria-label={`Email consent for ${fullName}`}
+                          >
+                            <option value="opted_in">opted-in</option>
+                            <option value="opted_out">opt-out</option>
+                            <option value="unasked">unasked</option>
+                          </select>
                         </div>
                         {contact.phone && (
                           <div className="text-[10px] text-slate-400 font-mono mt-0.5">
@@ -982,23 +1184,58 @@ export function CRMContactList({
 
                       {/* Tags */}
                       <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap gap-1 max-w-[220px]">
-                          {contact.tags.length === 0 ? (
-                            <span className="text-slate-300 text-[10px]">—</span>
-                          ) : (
-                            contact.tags.slice(0, 3).map((t) => (
-                              <span
-                                key={t}
-                                className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-medium"
+                        <div className="flex flex-wrap items-center gap-1 max-w-[240px]">
+                          {contact.tags.map((t) => (
+                            <span
+                              key={t}
+                              className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-medium group/tag"
+                            >
+                              <span>#{t}</span>
+                              <button
+                                type="button"
+                                disabled={tagBusyContactId === contact.id}
+                                onClick={() => void handleInlineRemoveTag(contact, t)}
+                                className="opacity-0 group-hover/tag:opacity-100 hover:text-red-600 ml-0.5 text-[11px] leading-none"
+                                title={`Remove #${t}`}
+                                aria-label={`Remove tag ${t} from ${fullName}`}
                               >
-                                #{t}
-                              </span>
-                            ))
-                          )}
-                          {contact.tags.length > 3 && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px]">
-                              +{contact.tags.length - 3}
+                                &times;
+                              </button>
                             </span>
+                          ))}
+                          {addingTagContactId === contact.id ? (
+                            <form
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                void handleInlineAddTag(contact);
+                              }}
+                              className="inline-flex items-center"
+                            >
+                              <input
+                                type="text"
+                                autoFocus
+                                value={inlineTagInput}
+                                onChange={(e) => setInlineTagInput(e.target.value)}
+                                onBlur={() => {
+                                  if (!inlineTagInput.trim()) setAddingTagContactId(null);
+                                }}
+                                placeholder="tag-name"
+                                className="w-16 px-1.5 py-0.5 rounded border border-primary text-[10px] font-mono focus:outline-none"
+                              />
+                            </form>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingTagContactId(contact.id);
+                                setInlineTagInput('');
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-secondary text-[10px] font-bold"
+                              title="Add tag"
+                              aria-label={`Add tag to ${fullName}`}
+                            >
+                              +
+                            </button>
                           )}
                         </div>
                       </td>
@@ -1035,17 +1272,21 @@ export function CRMContactList({
                             type="button"
                             onClick={() => setEditingContact(contact)}
                             className="p-1.5 text-slate-400 hover:text-secondary rounded-lg hover:bg-slate-100 transition-colors"
-                            // `aria-label`, not just `title`. `title` is a tooltip:
-                            // it is not reliably exposed as the accessible name,
-                            // and this control has no other name at all — so a
-                            // screen reader announced "button". Naming it by
-                            // person also makes a list of six identical rows
-                            // distinguishable.
                             aria-label={`Edit ${fullName}`}
                             title="Edit Contact"
                           >
                             <Edit2 size={13} aria-hidden="true" />
                           </button>
+                          <ConfirmAction
+                            label={`Delete ${fullName}`}
+                            message={`Delete constituent "${fullName}" (${contact.email})?`}
+                            danger
+                            busy={deletingContactId === contact.id}
+                            idleClassName="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                            onConfirm={() => void handleSingleDelete(contact.id, fullName)}
+                          >
+                            <Trash2 size={13} aria-hidden="true" />
+                          </ConfirmAction>
                           <Link
                             href={`/admin/crm/${contact.id}`}
                             className="px-2.5 py-1 bg-slate-100 hover:bg-primary hover:text-white rounded-lg text-[11px] font-bold text-slate-600 transition-colors"
