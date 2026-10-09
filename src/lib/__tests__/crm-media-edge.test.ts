@@ -169,6 +169,37 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(res.data?.mimeType).toBe('image/png');
       expect(res.data?.path).toMatch(/^crm\/banner-[a-z0-9]+\.png$/);
     });
+
+    it('falls back to a generic message when the upload throws a non-Error', async () => {
+      mockStorageFrom.upload.mockRejectedValueOnce('storage quota exceeded');
+
+      const fd = new FormData();
+      const validPng = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'banner.png', {
+        type: 'image/png',
+      });
+      fd.append('file', validPng);
+
+      const res = await uploadCRMMedia(fd);
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('Failed to upload media');
+    });
+
+    it('surfaces the storage error message when the upload is rejected', async () => {
+      mockStorageFrom.upload.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'bucket quota exceeded' },
+      });
+
+      const fd = new FormData();
+      const validPng = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'banner.png', {
+        type: 'image/png',
+      });
+      fd.append('file', validPng);
+
+      const res = await uploadCRMMedia(fd);
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('bucket quota exceeded');
+    });
   });
 
   describe('deleteCRMMedia', () => {
@@ -200,6 +231,24 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       const res = await deleteCRMMedia('crm/test.jpg');
       expect(res.success).toBe(true);
       expect(mockStorageFrom.remove).toHaveBeenCalledWith(['crm/test.jpg']);
+    });
+
+    it('surfaces the storage error message when the removal itself fails', async () => {
+      mockAdminClient.from.mockReturnValueOnce({
+        select: vi.fn(() => ({
+          like: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        })),
+      });
+      mockStorageFrom.remove.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'storage backend unreachable' },
+      });
+
+      const res = await deleteCRMMedia('crm/test.jpg');
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('storage backend unreachable');
     });
 
     it('refuses deletion while a saved broadcast references the image', async () => {
@@ -260,6 +309,16 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(status.database).toBe(true);
       expect(status.storage).toBe(true);
       expect(typeof status.edgeFunction).toBe('boolean');
+    });
+
+    it('falls back to a generic message when requireAdmin throws a non-Error', async () => {
+      const { requireAdmin } = await import('@/lib/admin-auth');
+      vi.mocked(requireAdmin).mockRejectedValueOnce('admin probe exploded');
+
+      const status = await getCRMEdgeFunctionHealth();
+      expect(status.database).toBe(false);
+      expect(status.storage).toBe(false);
+      expect(status.error).toBe('Failed to query CRM health');
     });
 
     describe('with CRM_BROADCAST_FUNCTION_URL set', () => {
