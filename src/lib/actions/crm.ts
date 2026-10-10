@@ -2768,6 +2768,23 @@ const MAX_CRM_IMAGE_BYTES = 5 * 1024 * 1024;
 const HEADER_PROBE_BYTES = 64 * 1024;
 
 /**
+ * The storage folders the media library may browse, upload into and delete from.
+ *
+ * One list, because the three consumers used three: `getCRMMediaFiles` accepted
+ * these three, `uploadCRMMedia` wrote only `crm/` regardless of what it was
+ * asked for, and `deleteCRMMedia` refused anything but `crm/`. The visual
+ * editor therefore opened on `content/`, could not delete anything it saw
+ * there, and every upload it made landed in the CRM namespace where the
+ * broadcast reference check — not the content one — was the guard.
+ */
+const MEDIA_FOLDERS = ['crm', 'content', 'products'] as const;
+type MediaFolder = (typeof MEDIA_FOLDERS)[number];
+
+function isMediaFolder(value: unknown): value is MediaFolder {
+  return typeof value === 'string' && (MEDIA_FOLDERS as readonly string[]).includes(value);
+}
+
+/**
  * Fetch media files directly from Supabase S3 Storage ('media' bucket)
  * for use across the CRM, Broadcast Composer, and constituent records.
  */
@@ -2781,9 +2798,8 @@ export async function getCRMMediaFiles(options?: {
   const search = options?.search?.trim().toLowerCase() || '';
   const limit = options?.limit ?? 100;
 
-  const validFolders = ['crm', 'content', 'products'];
   const foldersToScan =
-    folder === 'all' ? validFolders : [validFolders.includes(folder) ? folder : 'crm'];
+    folder === 'all' ? [...MEDIA_FOLDERS] : [isMediaFolder(folder) ? folder : 'crm'];
 
   const results: CRMMediaItem[] = [];
 
@@ -2822,13 +2838,21 @@ export async function getCRMMediaFiles(options?: {
 
   return {
     items: results.slice(0, limit),
-    folders: validFolders,
+    folders: [...MEDIA_FOLDERS],
   };
 }
 
 /**
- * Upload an image asset directly into the Supabase S3 Storage 'media' bucket
- * under the crm/ namespace with format verification, XSS prevention, and size bounds.
+ * Upload an image asset into the Supabase S3 Storage 'media' bucket under the
+ * folder the caller names, with format verification, XSS prevention and size
+ * bounds.
+ *
+ * The folder is a form field rather than a hardcoded `crm/`, because the visual
+ * editor, the broadcast composer and the CMS all share this action and a file
+ * written into the wrong namespace is later guarded by the wrong reference
+ * check — `deleteCRMMedia` looks in `crm_broadcasts` for a `crm/` path and in
+ * `content` / `content_revisions` for a `content/` one, so an upload that
+ * crossed over was deletable while still in use.
  */
 export async function uploadCRMMedia(formData: FormData): Promise<{
   success: boolean;
@@ -2843,7 +2867,7 @@ export async function uploadCRMMedia(formData: FormData): Promise<{
     width: number | null;
     height: number | null;
     createdAt: string;
-    folder: string;
+    folder: MediaFolder;
   };
 }> {
   try {
@@ -2861,6 +2885,17 @@ export async function uploadCRMMedia(formData: FormData): Promise<{
       return { success: false, error: 'Image must be 5MB or smaller' };
     }
 
+    /**
+     * An unrecognised folder falls back to `crm` rather than failing.
+     *
+     * The caller asked for a file to be stored, and it is — silently refusing
+     * would be the worse failure. `isMediaFolder` is a type guard on the same
+     * list `deleteCRMMedia` validates against, so a folder that cannot be
+     * written cannot be read either.
+     */
+    const requestedFolder = formData.get('folder');
+    const folder: MediaFolder = isMediaFolder(requestedFolder) ? requestedFolder : 'crm';
+
     const { adminClient } = await requireAdmin();
 
     const ext = CRM_IMAGE_EXT[file.type] ?? 'png';
@@ -2871,7 +2906,7 @@ export async function uploadCRMMedia(formData: FormData): Promise<{
         .replace(/^-+|-+$/g, '')
         .slice(0, 40) || 'media';
     const unique = crypto.randomUUID().slice(0, 8);
-    const path = `crm/${base}-${unique}.${ext}`;
+    const path = `${folder}/${base}-${unique}.${ext}`;
 
     const { error: uploadError } = await adminClient.storage
       .from('media')
@@ -2897,7 +2932,7 @@ export async function uploadCRMMedia(formData: FormData): Promise<{
         width: measured?.width ?? null,
         height: measured?.height ?? null,
         createdAt: new Date().toISOString(),
-        folder: 'crm',
+        folder,
       },
     };
   } catch (err) {
@@ -2910,47 +2945,38 @@ export async function uploadCRMMedia(formData: FormData): Promise<{
 
 /**
  * Remove an image asset from Supabase Storage 'media' bucket.
- * Restricted to the crm/ folder to prevent accidental modification of website content or products.
+ *
+ * Folder-scoped, with the reference check chosen by the folder.
+ *
+ * The previous version refused everything outside `crm/`. That was correct as a
+ * guard and wrong as a feature: the media library the content editor and the
+ * visual editor both open defaults to `content/`, so every delete button there
+ * answered "not allowed" for a file the same dialog had just let the operator
+ * upload. A guard that refuses its own uploads protects nothing.
+ *
+ * Each namespace is checked against the tables that can actually reference it.
+ * Deleting a file a *sent* campaign uses breaks opens retroactively, because
+ * email clients fetch remote images at open time; deleting one a live page uses
+ * is broken content on a public URL. Declining leaves an orphan, which is
+ * garbage.
  */
 export async function deleteCRMMedia(path: string): Promise<{ success: boolean; error?: string }> {
   try {
     const { adminClient } = await requireAdmin();
 
-    if (!path.startsWith('crm/') || path.includes('..')) {
-      return { success: false, error: 'Deletions are restricted to the crm/ media folder' };
-    }
-
-    /**
-     * Check references before removing, mirroring `deleteContentImage`.
-     *
-     * A broadcast body holds the image as markdown (`![alt](url)` with the
-     * public storage URL, which contains this path), and email clients fetch
-     * remote images at open time — so deleting a file a *sent* campaign uses
-     * breaks opens retroactively, not just the admin record. Drafts count
-     * too: deleting under an unsent draft strands the author with a block
-     * whose preview renders "No image URL provided" for an image they did
-     * choose. Declining leaves an orphan (garbage); deleting breaks mail
-     * (visible to every recipient). The failure direction is deliberate.
-     */
-    const { data: refs, error: refError } = await adminClient
-      .from('crm_broadcasts')
-      .select('id')
-      .like('body', `%${path}%`)
-      .limit(1);
-    if (refError) {
-      return { success: false, error: 'Could not verify whether this image is still in use' };
-    }
-    if ((refs?.length ?? 0) > 0) {
+    const folder = path.split('/')[0];
+    if (path.includes('..') || !isMediaFolder(folder)) {
       return {
         success: false,
-        error: 'This image is still used in a saved broadcast and cannot be deleted yet.',
+        error: `Deletions are restricted to the ${MEDIA_FOLDERS.join(', ')} media folders`,
       };
     }
 
+    const reason = await mediaReferenceReason(adminClient, folder, path);
+    if (reason) return { success: false, error: reason };
+
     const { error } = await adminClient.storage.from('media').remove([path]);
-    if (error) {
-      return { success: false, error: error.message };
-    }
+    if (error) return { success: false, error: error.message };
 
     return { success: true };
   } catch (err) {
@@ -2959,6 +2985,66 @@ export async function deleteCRMMedia(path: string): Promise<{ success: boolean; 
       error: err instanceof Error ? err.message : 'Failed to delete media',
     };
   }
+}
+
+/**
+ * Why a stored file is still in use, or null when it is not.
+ *
+ * One function rather than a branch in the caller, so "check before you delete"
+ * has exactly one implementation. Broadcast bodies hold the image as markdown
+ * against the public storage URL, which contains the path; content bodies hold
+ * it in the sanitized HTML and `featured_image` holds the full URL; revisions
+ * hold both, because a restore that points at a deleted object is worse than a
+ * restore that 404s.
+ *
+ * A read error returns a reason rather than null. The caller is about to remove
+ * a file, and "I could not tell" must fail in the direction that keeps it.
+ */
+async function mediaReferenceReason(
+  adminClient: AdminClient,
+  folder: MediaFolder,
+  path: string
+): Promise<string | null> {
+  if (folder === 'crm') {
+    const { data, error } = await adminClient
+      .from('crm_broadcasts')
+      .select('id')
+      .like('body', `%${path}%`)
+      .limit(1);
+    if (error) return 'Could not verify whether this image is still in use';
+    if ((data?.length ?? 0) > 0) {
+      return 'This image is still used in a saved broadcast and cannot be deleted yet.';
+    }
+    return null;
+  }
+
+  if (folder === 'content') {
+    const url = getStorageUrl(path, 'media');
+    const [body, featured, revisions] = await Promise.all([
+      adminClient.from('content').select('id').like('body', `%${path}%`).limit(1),
+      adminClient.from('content').select('id').eq('featured_image', url).limit(1),
+      adminClient.from('content_revisions').select('id').like('body', `%${path}%`).limit(1),
+    ]);
+    const referenced =
+      (body.data?.length ?? 0) > 0 ||
+      (featured.data?.length ?? 0) > 0 ||
+      (revisions.data?.length ?? 0) > 0;
+    if (referenced) {
+      return 'This image is still used by a page or one of its revisions and cannot be deleted yet.';
+    }
+    return null;
+  }
+
+  const { data, error } = await adminClient
+    .from('products')
+    .select('id')
+    .or(`image_url.ilike.%${path}%,description.ilike.%${path}%`)
+    .limit(1);
+  if (error) return 'Could not verify whether this image is still in use';
+  if ((data?.length ?? 0) > 0) {
+    return 'This image is still used by a product and cannot be deleted yet.';
+  }
+  return null;
 }
 
 /**

@@ -16,32 +16,29 @@ import {
   X,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PageSection } from '@/lib/visual-edit-mode';
-import { collectPageSections } from '@/lib/visual-edit-mode';
+import { useEffect, useRef, useState } from 'react';
+import { discoverPageSections, type PublishedSection } from '@/lib/visual-sections';
+import type { VisualSectionsPublishedDetail } from '@/types/visual-edit';
 import { useEditContext } from './useEditContext';
-import {
-  disableAllSectionVisuals,
-  enableAllSectionVisuals,
-  setSectionVisualEnabled,
-  useVisualEditMode,
-} from './visual-edit-store';
+import { useVisualEditMode } from './visual-edit-store';
 
 /**
- * Editorial Button in the site header and navigation menu.
+ * The editorial control in the site header and the navigation drawer.
  *
- * Provides a luxury sensory admin control with a live section-by-section navigator:
- * - One-click toggle of site-wide visual editing mode
- * - Live detection of all addressable sections on the current page
- * - Section navigation popover allowing admins to turn on visual section editing for each section
- * - Quick toggles for in-page frames, badges, block insertion, and page settings
- * - Full CRUD operations on visual editor sections via custom events
+ * One press turns visual editing on for the whole site; the popover then lists
+ * the sections on the current page with a switch each, so an admin turns the
+ * frame on for the part of the page they are working on rather than for every
+ * heading at once.
+ *
+ * **The section list is published by the overlay, not derived here.** This
+ * component used to run its own `collectPageSections` over the DOM and its own
+ * enablement set, which produced a second list that agreed with the overlay's
+ * only while nothing had been sanitized out of the page. It could therefore
+ * offer to edit an element that was a different section — and the edit went to
+ * the wrong block. Now `indivisible:page-sections-updated` is the only source,
+ * with a DOM-only discovery as the fallback for the moment before the overlay
+ * has published anything.
  */
-
-interface SectionsUpdatePayload {
-  sections?: PageSection[];
-  activeIndices?: number[];
-}
 
 export function EditorialButton() {
   const pathname = usePathname();
@@ -49,62 +46,38 @@ export function EditorialButton() {
   const { enabled, toggle } = useVisualEditMode(pathname ?? '/');
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [sections, setSections] = useState<PageSection[]>([]);
-  const [activeIndices, setActiveIndices] = useState<Set<number>>(new Set());
+  const [sections, setSections] = useState<PublishedSection[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Discover sections on the current page when enabled
-  const refreshSections = useCallback(() => {
+  /**
+   * The overlay's own list, adopted per pathname.
+   *
+   * A stale publication from the previous page would list sections that are not
+   * on this one, so the pathname is part of the comparison — a section list
+   * that outlived its page is a list of links that jump nowhere.
+   */
+  useEffect(() => {
     if (!enabled) {
       setSections([]);
-      setActiveIndices(new Set());
       return;
     }
-    const markedRoot = document.querySelector<HTMLElement>('[data-visual-edit-root]');
-    const main = document.querySelector<HTMLElement>('main');
-    const root =
-      markedRoot ||
-      (main &&
-      main.children.length === 1 &&
-      main.firstElementChild instanceof HTMLElement &&
-      (main.firstElementChild as HTMLElement).children.length > 1
-        ? (main.firstElementChild as HTMLElement)
-        : main);
 
-    if (root) {
-      const discovered = collectPageSections(root);
-      setSections(discovered);
-      setActiveIndices(new Set(discovered.map((s) => s.index)));
-    }
-  }, [enabled]);
-
-  useEffect(() => {
-    refreshSections();
-    const handleUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<PageSection[] | SectionsUpdatePayload>;
-      if (customEvent.detail) {
-        if (Array.isArray(customEvent.detail)) {
-          setSections(customEvent.detail);
-          setActiveIndices((prev) =>
-            prev.size > 0
-              ? prev
-              : new Set((customEvent.detail as PageSection[]).map((s) => s.index))
-          );
-        } else if (customEvent.detail.sections && Array.isArray(customEvent.detail.sections)) {
-          setSections(customEvent.detail.sections);
-          if (customEvent.detail.activeIndices) {
-            setActiveIndices(new Set(customEvent.detail.activeIndices));
-          }
-        }
-      } else {
-        refreshSections();
+    const handleUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<VisualSectionsPublishedDetail>).detail;
+      if (!detail || !Array.isArray(detail.sections)) {
+        setSections(discoverPageSections(document.querySelector('main')));
+        return;
       }
+      if (detail.pathname && detail.pathname !== pathname) return;
+      setSections(detail.sections);
     };
+
     window.addEventListener('indivisible:page-sections-updated', handleUpdate);
+    handleUpdate(new CustomEvent('indivisible:page-sections-updated'));
     return () => {
       window.removeEventListener('indivisible:page-sections-updated', handleUpdate);
     };
-  }, [refreshSections]);
+  }, [enabled, pathname]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -134,7 +107,21 @@ export function EditorialButton() {
   const buttonLabel =
     enabled && target ? `Edit · ${target.label}` : enabled ? 'Visual Edit: ON' : 'Visual Edit';
 
-  const allActive = sections.length > 0 && activeIndices.size === sections.length;
+  const framedCount = sections.filter((section) => section.enabled).length;
+  const allActive = sections.length > 0 && framedCount === sections.length;
+
+  /**
+   * Ask the overlay to turn every section's frame on or off.
+   *
+   * Dispatched, not applied locally: the overlay owns the frames, and a local
+   * set that the overlay does not share is a switch that moves and changes
+   * nothing.
+   */
+  const toggleAll = (next: boolean) => {
+    window.dispatchEvent(
+      new CustomEvent('indivisible:toggle-section-visual', { detail: { all: next } })
+    );
+  };
 
   return (
     <div ref={containerRef} className="relative hidden sm:inline-flex items-center">
@@ -164,7 +151,7 @@ export function EditorialButton() {
               aria-hidden="true"
               className="hidden xl:inline-flex items-center justify-center rounded-full bg-accent-gold/30 px-1.5 py-0.5 text-[10px] font-black text-accent-gold min-w-[18px]"
             >
-              {activeIndices.size}/{sections.length}
+              {framedCount}/{sections.length}
             </span>
           )}
           {enabled && (
@@ -205,28 +192,14 @@ export function EditorialButton() {
                 Page Sections
               </span>
               <span className="rounded-full bg-accent-gold/20 px-1.5 py-0.5 text-[10px] font-bold text-accent-gold">
-                {activeIndices.size}/{sections.length} Active
+                {framedCount}/{sections.length} Active
               </span>
             </div>
             <div className="flex items-center gap-2">
               {sections.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    const nextVal = !allActive;
-                    if (nextVal) {
-                      setActiveIndices(new Set(sections.map((s) => s.index)));
-                      enableAllSectionVisuals(sections.map((s) => s.index));
-                    } else {
-                      setActiveIndices(new Set());
-                      disableAllSectionVisuals();
-                    }
-                    window.dispatchEvent(
-                      new CustomEvent('indivisible:toggle-section-visual', {
-                        detail: { all: nextVal },
-                      })
-                    );
-                  }}
+                  onClick={() => toggleAll(!allActive)}
                   className="text-[10px] font-bold uppercase tracking-wider text-accent-gold hover:text-white transition-colors"
                 >
                   {allActive ? 'Mute All' : 'Turn On All'}
@@ -246,11 +219,23 @@ export function EditorialButton() {
           {/* Section List with Individual Visual Activation Switches */}
           {sections.length > 0 ? (
             <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
-              {sections.map((sec) => {
-                const isSecActive = activeIndices.has(sec.index);
+              {sections.map((sec, position) => {
+                const isSecActive = sec.enabled;
+                const blockIndex = sec.blockIndex;
+                /**
+                 * `null` until the overlay has published its model.
+                 *
+                 * Every control here addresses a block, so a section the overlay
+                 * has not described cannot be edited, moved or deleted from the
+                 * header. Rendering them live anyway would dispatch an event the
+                 * overlay has to guess at — which is exactly the failure this
+                 * whole model exists to prevent.
+                 */
+                const unaddressed = blockIndex === null;
+                const unaddressedTitle = 'Waiting for the editor to describe this page';
                 return (
                   <div
-                    key={sec.index}
+                    key={`${sec.blockIndex ?? 'd'}:${sec.index ?? position}`}
                     className={`group flex items-center justify-between gap-1.5 rounded-xl p-2 transition-all border ${
                       isSecActive
                         ? 'bg-accent-gold/10 border-accent-gold/30 hover:bg-accent-gold/15'
@@ -262,19 +247,13 @@ export function EditorialButton() {
                       type="button"
                       role="switch"
                       aria-checked={isSecActive}
-                      aria-label={`Toggle visual editing for ${sec.label || `Section ${sec.index + 1}`}`}
+                      aria-label={`Toggle visual editing for ${sec.label || `Section ${position + 1}`}`}
+                      disabled={unaddressed}
                       onClick={() => {
-                        const nextVal = !isSecActive;
-                        setActiveIndices((prev) => {
-                          const next = new Set(prev);
-                          if (nextVal) next.add(sec.index);
-                          else next.delete(sec.index);
-                          setSectionVisualEnabled(sec.index, nextVal);
-                          return next;
-                        });
+                        if (blockIndex === null) return;
                         window.dispatchEvent(
                           new CustomEvent('indivisible:toggle-section-visual', {
-                            detail: { index: sec.index, enabled: nextVal },
+                            detail: { blockIndex, enabled: !isSecActive },
                           })
                         );
                       }}
@@ -299,24 +278,31 @@ export function EditorialButton() {
                     {/* Section Label / Jump */}
                     <button
                       type="button"
+                      disabled={unaddressed}
+                      title={unaddressed ? unaddressedTitle : `Jump to ${sec.label}`}
                       onClick={() => {
+                        if (blockIndex === null) return;
                         setIsMenuOpen(false);
                         window.dispatchEvent(
                           new CustomEvent('indivisible:focus-section', {
-                            detail: { index: sec.index, openEdit: false },
+                            detail: { blockIndex, openEdit: false },
                           })
                         );
                       }}
-                      className="flex-1 text-left min-w-0"
-                      title={`Jump to ${sec.label}`}
+                      className="flex-1 text-left min-w-0 disabled:opacity-50"
                     >
                       <div className="flex items-center gap-1.5">
                         <span className="shrink-0 size-4 rounded-full bg-white/10 text-[10px] font-bold text-slate-300 flex items-center justify-center">
-                          {sec.index + 1}
+                          {position + 1}
                         </span>
                         <span className="text-xs font-semibold text-white truncate max-w-[130px]">
-                          {sec.label || `Section ${sec.index + 1}`}
+                          {sec.label || `Section ${position + 1}`}
                         </span>
+                        {sec.blockType && (
+                          <span className="shrink-0 rounded bg-white/10 px-1 py-0.5 text-[8px] uppercase tracking-wider text-ink-muted-on-dark font-mono">
+                            {sec.blockType}
+                          </span>
+                        )}
                       </div>
                     </button>
 
@@ -325,16 +311,18 @@ export function EditorialButton() {
                       {/* Edit button — dispatches focus-section with openEdit: true */}
                       <button
                         type="button"
+                        disabled={unaddressed}
+                        title={unaddressed ? unaddressedTitle : 'Edit section'}
                         onClick={() => {
+                          if (blockIndex === null) return;
                           setIsMenuOpen(false);
                           window.dispatchEvent(
                             new CustomEvent('indivisible:focus-section', {
-                              detail: { index: sec.index, openEdit: true },
+                              detail: { blockIndex, openEdit: true },
                             })
                           );
                         }}
-                        className="shrink-0 rounded-lg bg-accent-gold/20 p-1.5 text-accent-gold hover:bg-accent-gold/30 transition-colors"
-                        title="Edit section"
+                        className="shrink-0 rounded-lg bg-accent-gold/20 p-1.5 text-accent-gold hover:bg-accent-gold/30 transition-colors disabled:opacity-40"
                       >
                         <PenLine size={12} className="text-accent-gold" />
                       </button>
@@ -342,15 +330,17 @@ export function EditorialButton() {
                       {/* Duplicate Section */}
                       <button
                         type="button"
+                        disabled={unaddressed}
+                        title={unaddressed ? unaddressedTitle : 'Duplicate section'}
                         onClick={() => {
+                          if (blockIndex === null) return;
                           window.dispatchEvent(
                             new CustomEvent('indivisible:duplicate-section', {
-                              detail: { index: sec.index },
+                              detail: { blockIndex },
                             })
                           );
                         }}
-                        className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
-                        title="Duplicate section"
+                        className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-40"
                       >
                         <Copy size={12} />
                       </button>
@@ -358,16 +348,17 @@ export function EditorialButton() {
                       {/* Move Up */}
                       <button
                         type="button"
-                        onClick={() =>
+                        disabled={unaddressed || position === 0}
+                        title={unaddressed ? unaddressedTitle : 'Move section up'}
+                        onClick={() => {
+                          if (blockIndex === null) return;
                           window.dispatchEvent(
                             new CustomEvent('indivisible:move-section', {
-                              detail: { index: sec.index, direction: 'up' },
+                              detail: { blockIndex, direction: 'up' },
                             })
-                          )
-                        }
-                        disabled={sec.index === 0}
+                          );
+                        }}
                         className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30 transition-colors"
-                        title="Move section up"
                       >
                         <ArrowUp size={12} />
                       </button>
@@ -375,16 +366,17 @@ export function EditorialButton() {
                       {/* Move Down */}
                       <button
                         type="button"
-                        onClick={() =>
+                        disabled={unaddressed || position === sections.length - 1}
+                        title={unaddressed ? unaddressedTitle : 'Move section down'}
+                        onClick={() => {
+                          if (blockIndex === null) return;
                           window.dispatchEvent(
                             new CustomEvent('indivisible:move-section', {
-                              detail: { index: sec.index, direction: 'down' },
+                              detail: { blockIndex, direction: 'down' },
                             })
-                          )
-                        }
-                        disabled={sec.index === sections.length - 1}
+                          );
+                        }}
                         className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30 transition-colors"
-                        title="Move section down"
                       >
                         <ArrowDown size={12} />
                       </button>
@@ -392,16 +384,18 @@ export function EditorialButton() {
                       {/* Add Below */}
                       <button
                         type="button"
+                        disabled={unaddressed}
+                        title={unaddressed ? unaddressedTitle : 'Add a block below this one'}
                         onClick={() => {
+                          if (blockIndex === null) return;
                           setIsMenuOpen(false);
                           window.dispatchEvent(
                             new CustomEvent('indivisible:add-block-at', {
-                              detail: { insertAfterIndex: sec.index },
+                              detail: { insertAfterBlockIndex: blockIndex },
                             })
                           );
                         }}
-                        className="shrink-0 rounded-lg bg-emerald-500/20 p-1.5 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                        title="Add block below section"
+                        className="shrink-0 rounded-lg bg-emerald-500/20 p-1.5 text-emerald-400 hover:bg-emerald-500/30 transition-colors disabled:opacity-40"
                       >
                         <Plus size={12} />
                       </button>
@@ -409,15 +403,17 @@ export function EditorialButton() {
                       {/* Delete */}
                       <button
                         type="button"
-                        onClick={() =>
+                        disabled={unaddressed}
+                        title={unaddressed ? unaddressedTitle : 'Delete section'}
+                        onClick={() => {
+                          if (blockIndex === null) return;
                           window.dispatchEvent(
                             new CustomEvent('indivisible:delete-section', {
-                              detail: { index: sec.index },
+                              detail: { blockIndex },
                             })
-                          )
-                        }
-                        className="shrink-0 rounded-lg bg-accent-red/20 p-1.5 text-accent-red hover:bg-accent-red/30 transition-colors"
-                        title="Delete section"
+                          );
+                        }}
+                        className="shrink-0 rounded-lg bg-accent-red/20 p-1.5 text-accent-red hover:bg-accent-red/30 transition-colors disabled:opacity-40"
                       >
                         <X size={12} className="text-accent-red" />
                       </button>
@@ -428,7 +424,8 @@ export function EditorialButton() {
             </div>
           ) : (
             <div className="py-4 text-center text-xs text-ink-muted-on-dark">
-              No addressable sections found in live document.
+              No editable blocks on this page yet. Add one from the toolbar at the bottom of the
+              screen.
             </div>
           )}
 
@@ -500,39 +497,36 @@ export function EditorialButton() {
 /**
  * Editorial drawer section for mobile and small-screen layouts.
  *
- * Provides full mobile parity: toggle switch plus interactive section jump and activation list.
+ * Full parity with the header button: the mode switch, the same published
+ * section list, and the same per-section frame toggles.
  */
 export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
   const pathname = usePathname();
   const { loading, isAdmin } = useEditContext(pathname ?? '/');
   const { enabled, toggle } = useVisualEditMode(pathname ?? '/');
-  const [sections, setSections] = useState<PageSection[]>([]);
-  const [activeIndices, setActiveIndices] = useState<Set<number>>(new Set());
+  const [sections, setSections] = useState<PublishedSection[]>([]);
   const [expanded, setExpanded] = useState(false);
 
+  // The overlay's own list, adopted per pathname — never re-derived here.
   useEffect(() => {
     if (!enabled) {
       setSections([]);
-      setActiveIndices(new Set());
       return;
     }
-    const markedRoot = document.querySelector<HTMLElement>('[data-visual-edit-root]');
-    const main = document.querySelector<HTMLElement>('main');
-    const root =
-      markedRoot ||
-      (main &&
-      main.children.length === 1 &&
-      main.firstElementChild instanceof HTMLElement &&
-      (main.firstElementChild as HTMLElement).children.length > 1
-        ? (main.firstElementChild as HTMLElement)
-        : main);
-
-    if (root) {
-      const discovered = collectPageSections(root);
-      setSections(discovered);
-      setActiveIndices(new Set(discovered.map((s) => s.index)));
-    }
-  }, [enabled]);
+    const handleUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<VisualSectionsPublishedDetail>).detail;
+      if (!detail || !Array.isArray(detail.sections)) {
+        setSections(discoverPageSections(document.querySelector('main')));
+        return;
+      }
+      if (detail.pathname && detail.pathname !== pathname) return;
+      setSections(detail.sections);
+    };
+    window.addEventListener('indivisible:page-sections-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('indivisible:page-sections-updated', handleUpdate);
+    };
+  }, [enabled, pathname]);
 
   if (loading || !isAdmin) return null;
 
@@ -574,7 +568,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
             className="flex w-full items-center justify-between px-2 py-1 text-xs font-bold uppercase tracking-wider text-accent-gold hover:text-white"
           >
             <span>
-              Page Sections ({activeIndices.size}/{sections.length})
+              Page Blocks ({sections.filter((s) => s.enabled).length}/{sections.length})
             </span>
             <ChevronDown
               size={14}
@@ -584,33 +578,31 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
 
           {expanded && (
             <div className="space-y-1 pt-1 max-h-52 overflow-y-auto no-scrollbar">
-              {sections.map((sec) => {
-                const isSecActive = activeIndices.has(sec.index);
+              {sections.map((sec, position) => {
+                const isSecActive = sec.enabled;
+                const unaddressed = sec.blockIndex === null;
                 return (
                   <div
-                    key={sec.index}
+                    key={`${sec.blockIndex ?? 'd'}:${sec.index ?? position}`}
                     className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-white/5 border border-white/5"
                   >
                     <button
                       type="button"
                       role="switch"
                       aria-checked={isSecActive}
+                      aria-label={`Toggle visual editing for ${
+                        sec.label || `Section ${position + 1}`
+                      }`}
+                      disabled={unaddressed}
                       onClick={() => {
-                        const nextVal = !isSecActive;
-                        setActiveIndices((prev) => {
-                          const next = new Set(prev);
-                          if (nextVal) next.add(sec.index);
-                          else next.delete(sec.index);
-                          setSectionVisualEnabled(sec.index, nextVal);
-                          return next;
-                        });
+                        if (sec.blockIndex === null) return;
                         window.dispatchEvent(
                           new CustomEvent('indivisible:toggle-section-visual', {
-                            detail: { index: sec.index, enabled: nextVal },
+                            detail: { blockIndex: sec.blockIndex, enabled: !isSecActive },
                           })
                         );
                       }}
-                      className={`p-1 rounded ${
+                      className={`p-1 rounded disabled:opacity-40 ${
                         isSecActive ? 'text-accent-gold bg-accent-gold/20' : 'text-slate-400'
                       }`}
                       title="Toggle section visual"
@@ -619,29 +611,33 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                     </button>
                     <button
                       type="button"
+                      disabled={unaddressed}
                       onClick={() => {
+                        if (sec.blockIndex === null) return;
                         onNavigate();
                         window.dispatchEvent(
                           new CustomEvent('indivisible:focus-section', {
-                            detail: { index: sec.index, openEdit: false },
+                            detail: { blockIndex: sec.blockIndex, openEdit: false },
                           })
                         );
                       }}
-                      className="flex-1 text-left text-xs text-white truncate"
+                      className="flex-1 text-left text-xs text-white truncate disabled:opacity-50"
                     >
-                      {sec.label || `Section ${sec.index + 1}`}
+                      {sec.label || `Section ${position + 1}`}
                     </button>
                     <button
                       type="button"
+                      disabled={unaddressed}
                       onClick={() => {
+                        if (sec.blockIndex === null) return;
                         onNavigate();
                         window.dispatchEvent(
                           new CustomEvent('indivisible:focus-section', {
-                            detail: { index: sec.index, openEdit: true },
+                            detail: { blockIndex: sec.blockIndex, openEdit: true },
                           })
                         );
                       }}
-                      className="p-1 rounded text-accent-gold bg-accent-gold/20"
+                      className="p-1 rounded text-accent-gold bg-accent-gold/20 disabled:opacity-40"
                       title="Edit section"
                     >
                       <PenLine size={12} />

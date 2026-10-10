@@ -14,10 +14,12 @@ import {
   Loader2,
   PenLine,
   Plus,
+  Redo2,
   RefreshCw,
   Settings,
   Sparkles,
   Trash2,
+  Undo2,
   X,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -27,12 +29,7 @@ import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import { useEditContext } from '@/components/layout/useEditContext';
-import {
-  disableAllSectionVisuals,
-  enableAllSectionVisuals,
-  setSectionVisualEnabled,
-  useVisualEditMode,
-} from '@/components/layout/visual-edit-store';
+import { useVisualEditMode } from '@/components/layout/visual-edit-store';
 import {
   Dialog,
   DialogContent,
@@ -58,11 +55,31 @@ import {
   parseHtml,
   serializeBlocks,
 } from '@/lib/blocks';
+import { clearDraft, isWorthRecovering, readDraft, writeDraft } from '@/lib/draft-recovery';
 import { cmsSlugForPath } from '@/lib/edit-target';
-import type { PageSection } from '@/lib/visual-edit-mode';
-import { collectPageSections, highlightPageSection } from '@/lib/visual-edit-mode';
+// Aliased: `History` is the DOM's own global type. Importing it unaliased would
+// make this a `useState<History>` of the browser's, not the editor's — and the
+// two are not assignable in either direction.
+import {
+  canRedo,
+  canUndo,
+  type History as EditorHistory,
+  EMPTY_HISTORY,
+  record as recordHistory,
+  redo as redoHistory,
+  undo as undoHistory,
+} from '@/lib/editor-history';
+import { highlightPageSection } from '@/lib/visual-edit-mode';
+import {
+  buildVisualSections,
+  canMoveSection,
+  moveTargetForSection,
+  publishSections,
+  sectionLabelForBlock,
+  type VisualSection,
+} from '@/lib/visual-sections';
+import type { CRMBackendStatus } from '@/types/crm';
 import type {
-  CRMBackendStatus,
   CRMMediaTarget,
   VisualContentRow,
   VisualSectionAddBlockDetail,
@@ -72,7 +89,7 @@ import type {
   VisualSectionMoveEventDetail,
   VisualSectionOverlayItem,
   VisualSectionToggleEventDetail,
-} from '@/types/crm';
+} from '@/types/visual-edit';
 
 /**
  * Visual editing surface for every page across the site.
@@ -88,6 +105,21 @@ import type {
  */
 
 export const VISUAL_EDIT_ROOT_ATTR = 'data-visual-edit-root';
+
+/**
+ * The prefix `saveContent` puts on a refused concurrent write.
+ *
+ * The action has no `reason` field — a refusal is an error string — and the
+ * overlay has to tell it apart from a quota failure or a validation failure,
+ * because it is the only one where retrying is futile and reloading is the
+ * answer. It matches the same prefix `ContentEditor` does, so the two editors
+ * cannot disagree about which failures are conflicts.
+ */
+const STALE_SAVE_CONFLICT_PREFIX = 'Someone else saved this page';
+
+function isStaleConflict(message: string | undefined): boolean {
+  return typeof message === 'string' && message.startsWith(STALE_SAVE_CONFLICT_PREFIX);
+}
 
 /**
  * Intelligently extracts structured blocks from a live rendered DOM element
@@ -206,24 +238,60 @@ export function VisualEditOverlay() {
   const { isAdmin, target } = useEditContext(pathname);
 
   const rootRef = useRef<HTMLElement | null>(null);
-  const [sections, setSections] = useState<PageSection[]>([]);
-  const [enabledSectionIndices, setEnabledSectionIndices] = useState<Set<number>>(new Set());
+  /**
+   * The section model: one entry per block, each paired with the element that
+   * renders it. Every mutation in this component addresses `blockIndex`; the
+   * DOM ordinal is only ever used to find an element. See
+   * `src/lib/visual-sections.ts` for why the two cannot be the same number.
+   */
+  const [sections, setSections] = useState<VisualSection[]>([]);
   const [contentRow, setContentRow] = useState<VisualContentRow | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [backendStatus, setBackendStatus] = useState<CRMBackendStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [savingBackend, setSavingBackend] = useState(false);
 
+  /** Section keys whose frame is drawn. The overlay owns this; the header asks. */
+  const [enabledSectionKeys, setEnabledSectionKeys] = useState<Set<string>>(new Set());
+
   // In-page section badge and outline states
   const [showSectionBadges, setShowSectionBadges] = useState(true);
   const [showAllSectionBorders, setShowAllSectionBorders] = useState(true);
   const [sectionOverlays, setSectionOverlays] = useState<VisualSectionOverlayItem[]>([]);
-  const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(null);
+  /** The block the operator is working on, for the highlighted frame. */
+  const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
+
+  // ── Undo, dirty tracking and autosave ────────────────────────────────────
+  // The overlay used to write every keystroke straight to `content`, which made
+  // a mis-click on "delete section" a database write with no way back. It now
+  // keeps the same two guards the `/admin/content` editor keeps: a snapshot
+  // history grouped by intent, and a dirty flag derived from the serialized
+  // body rather than flipped by hand.
+  const [history, setHistory] = useState<EditorHistory>(EMPTY_HISTORY);
+  /** The serialized body the last successful save wrote. */
+  const [savedBody, setSavedBody] = useState<string>('');
+  /** The local draft offered back on arrival, or null when there is nothing. */
+  const [recoveredDraft, setRecoveredDraft] = useState<Block[] | null>(null);
+
+  /**
+   * The live blocks, for the effects below.
+   *
+   * A ref rather than a dependency, because these effects must see the blocks
+   * that exist *now* and re-subscribing them on every edit would tear down the
+   * scroll listener on every keystroke.
+   */
+  const blocksRef = useRef<Block[]>([]);
+  blocksRef.current = blocks;
+
+  /** Same, for the section model the event handlers translate through. */
+  const sectionsRef = useRef<VisualSection[]>([]);
+  sectionsRef.current = sections;
 
   // Section editor modal state
   const [editingBlockIndex, setEditingBlockIndex] = useState<number | null>(null);
   const [editingBlock, setEditingBlock] = useState<Block | null>(null);
   const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
+  const activeSectionLabel = editingBlock ? sectionLabelForBlock(editingBlock) : '';
 
   // Page settings modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -247,6 +315,27 @@ export function VisualEditOverlay() {
   const titleId = useId();
   const slugId = useId();
   const featuredImageId = useId();
+
+  /**
+   * Where the local draft for this document lives.
+   *
+   * The content id once there is one, and the pathname until then — a page with
+   * no CMS row still has unsaved work, and keying that draft by nothing would
+   * mean every unconnected page shared one slot and overwrote the others.
+   */
+  const draftScope = contentRow ? String(contentRow.id) : `path:${pathname}`;
+
+  /** Show or hide one section's frame, and tell the header which changed. */
+  const toggleSectionFrame = useCallback((blockIndex: number) => {
+    const section = sectionsRef.current.find((item) => item.blockIndex === blockIndex);
+    if (!section) return;
+    setEnabledSectionKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(section.key)) next.delete(section.key);
+      else next.add(section.key);
+      return next;
+    });
+  }, []);
 
   // Section editor field IDs for a11y
   const blockTypeId = useId();
@@ -280,15 +369,24 @@ export function VisualEditOverlay() {
     return main;
   }, []);
 
+  /**
+   * The element that renders a given block, or null when the block has none.
+   *
+   * Takes a block index, not a DOM ordinal. The pairing is done once per
+   * refresh by `buildVisualSections`, which is the only place that knows both
+   * coordinate systems; looking the child up by ordinal here would reintroduce
+   * the off-by-one the pairing exists to prevent.
+   */
   const locate = useCallback(
-    (index: number): HTMLElement | null => {
+    (blockIndex: number): HTMLElement | null => {
       const root = rootRef.current || findEffectiveVisualEditRoot();
       if (!root) return null;
-      return root.children[index] instanceof HTMLElement
-        ? (root.children[index] as HTMLElement)
-        : null;
+      const section = sections.find((item) => item.blockIndex === blockIndex);
+      if (!section || section.domIndex === null) return null;
+      const element = root.children[section.domIndex];
+      return element instanceof HTMLElement ? element : null;
     },
-    [findEffectiveVisualEditRoot]
+    [findEffectiveVisualEditRoot, sections]
   );
 
   // Load content row and blocks when visual editing is turned on
@@ -316,7 +414,13 @@ export function VisualEditOverlay() {
         setPageSlug(row.slug);
         setPageFeaturedImage(row.featured_image || '');
         setPageStatus((row.status === 'publish' ? 'publish' : 'draft') as 'publish' | 'draft');
-        setBlocks(parseHtml(row.body || ''));
+        const parsed = parseHtml(row.body || '');
+        blocksRef.current = parsed;
+        setBlocks(parsed);
+        // The loaded document is the baseline "saved" state. Without this the
+        // toolbar would report a freshly opened page as unsaved and offer to
+        // write a document that is already on the server.
+        setSavedBody(serializeBlocks(parsed));
       } else {
         // Fallback for pages not yet in CMS: extract real blocks from live DOM
         setContentRow(null);
@@ -334,16 +438,18 @@ export function VisualEditOverlay() {
             resolvedSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
         );
         const root = rootRef.current || findEffectiveVisualEditRoot();
-        if (root) {
-          setBlocks(extractBlocksFromDOM(root));
-        }
+        const extracted = root ? extractBlocksFromDOM(root) : [];
+        blocksRef.current = extracted;
+        setBlocks(extracted);
+        setSavedBody(serializeBlocks(extracted));
       }
     } catch {
       // Non-fatal if loading row fails, extract from live DOM
       const root = rootRef.current || findEffectiveVisualEditRoot();
-      if (root) {
-        setBlocks(extractBlocksFromDOM(root));
-      }
+      const extracted = root ? extractBlocksFromDOM(root) : [];
+      blocksRef.current = extracted;
+      setBlocks(extracted);
+      setSavedBody(serializeBlocks(extracted));
     }
   }, [pathname, target, findEffectiveVisualEditRoot]);
 
@@ -407,73 +513,133 @@ export function VisualEditOverlay() {
     }
   }, []);
 
+  /**
+   * Publish the section model to the header.
+   *
+   * The header's editorial button renders this list verbatim. It used to run
+   * its own `collectPageSections` and dispatch its own events, which produced a
+   * second section list that agreed with the overlay's only while nothing had
+   * been sanitized out of the page — so the header offered "Edit section 3" for
+   * an element that was really section 4. One publisher, one list.
+   */
+  const publishSectionsToHeader = useCallback(
+    (next: VisualSection[], enabled: ReadonlySet<string>) => {
+      window.dispatchEvent(
+        new CustomEvent('indivisible:page-sections-updated', {
+          detail: { sections: publishSections(next, enabled), pathname },
+        })
+      );
+    },
+    [pathname]
+  );
+
+  /**
+   * Re-derive the section list from the current blocks and the live DOM.
+   *
+   * Called after every mutation and on resize, because a block that was added,
+   * removed or re-ordered changes the pairing — and a stale pairing is a frame
+   * drawn over the wrong paragraph.
+   */
+  const refreshSections = useCallback(
+    (nextBlocks?: Block[]) => {
+      const root = rootRef.current || findEffectiveVisualEditRoot();
+      const source = nextBlocks ?? blocksRef.current;
+      if (!root) {
+        setSections([]);
+        publishSectionsToHeader([], new Set());
+        return;
+      }
+      const built = buildVisualSections(source, Array.from(root.children));
+      setSections(built);
+      // A new section is framed by default: the operator just created it, and
+      // an invisible one would be a control that appears to do nothing.
+      setEnabledSectionKeys((prev) => {
+        const next = new Set(prev);
+        for (const section of built) next.add(section.key);
+        return next;
+      });
+    },
+    [findEffectiveVisualEditRoot, publishSectionsToHeader]
+  );
+
   // Collect DOM sections and load data when enabled
   useEffect(() => {
     if (!enabled || !isAdmin) {
       setSections([]);
-      setEnabledSectionIndices(new Set());
+      setEnabledSectionKeys(new Set());
       return;
     }
 
     const root = findEffectiveVisualEditRoot();
     rootRef.current = root;
-    const discovered = root ? collectPageSections(root) : [];
-    setSections(discovered);
-    const initialActive = new Set(discovered.map((s) => s.index));
-    setEnabledSectionIndices(initialActive);
-    enableAllSectionVisuals(discovered.map((s) => s.index));
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('indivisible:page-sections-updated', {
-          detail: {
-            sections: discovered,
-            activeIndices: Array.from(initialActive),
-          },
-        })
-      );
-    }
 
     loadContentData();
     probeBackendHealth();
   }, [enabled, isAdmin, loadContentData, probeBackendHealth, findEffectiveVisualEditRoot]);
 
+  // Re-pair whenever the document or the DOM changes.
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+    refreshSections(blocks);
+  }, [enabled, isAdmin, blocks, refreshSections]);
+
+  /**
+   * Publish the section model and its frame state to the header.
+   *
+   * Driven by the state itself rather than called from each place that changes
+   * it, so a switch the header renders and a frame the overlay drew cannot
+   * disagree. The earlier version published from inside `setState` updaters,
+   * which both read the pre-update value and re-published on every unrelated
+   * re-render.
+   */
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+    publishSectionsToHeader(sections, enabledSectionKeys);
+  }, [enabled, enabledSectionKeys, isAdmin, publishSectionsToHeader, sections]);
+
+  // A resize can re-flow the page into different elements; re-pair so the
+  // frames still sit on the blocks they claim.
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+    const onResize = () => refreshSections();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [enabled, isAdmin, refreshSections]);
+
   // Keep section overlay coordinates synchronized with viewport
   const updateOverlays = useCallback(() => {
-    if (!enabled || !isAdmin || !rootRef.current) {
+    if (!enabled || !isAdmin) {
       setSectionOverlays([]);
       return;
     }
     const items: VisualSectionOverlayItem[] = [];
 
-    sections.forEach((sec) => {
+    for (const section of sections) {
       // Only render overlays for sections currently turned on
-      if (!enabledSectionIndices.has(sec.index)) return;
+      if (!enabledSectionKeys.has(section.key)) continue;
+      if (section.domIndex === null) continue;
 
-      const el = locate(sec.index);
-      if (!el) return;
+      const el = locate(section.blockIndex);
+      if (!el) continue;
       const r = el.getBoundingClientRect();
-      if (r.bottom < -200 || r.top > window.innerHeight + 200) return;
-
-      const blockIdx = sec.index < blocks.length ? sec.index : undefined;
-      const bType = blockIdx !== undefined ? blocks[blockIdx]?.type : undefined;
+      if (r.bottom < -200 || r.top > window.innerHeight + 200) continue;
 
       items.push({
-        index: sec.index,
-        label: sec.label,
+        index: section.domIndex,
+        label: section.label,
         top: r.top,
         left: r.left,
         width: r.width,
         height: r.height,
         bottom: r.bottom,
         right: r.right,
-        blockIndex: blockIdx,
-        blockType: bType,
+        blockIndex: section.blockIndex,
+        blockType: section.blockType,
       });
-    });
+    }
 
     setSectionOverlays(items);
-  }, [enabled, isAdmin, sections, blocks, locate, enabledSectionIndices]);
+  }, [enabled, isAdmin, sections, locate, enabledSectionKeys]);
 
   useEffect(() => {
     if (!enabled || !isAdmin) return;
@@ -495,16 +661,69 @@ export function VisualEditOverlay() {
   const located = useMemo(() => new Map<string, HTMLElement>(), []);
 
   const jumpTo = useCallback(
-    (section: PageSection) => {
-      const element = locate(section.index);
+    (blockIndex: number) => {
+      const element = locate(blockIndex);
       if (!element) return;
 
-      setActiveSectionIndex(section.index);
+      setActiveBlockIndex(blockIndex);
       highlightPageSection(element);
-      located.set(String(section.index), element);
+      located.set(String(blockIndex), element);
     },
     [locate, located]
   );
+
+  // ── Undo, redo, and the record of what changed ───────────────────────────
+
+  const body = useMemo(() => serializeBlocks(blocks), [blocks]);
+  const dirty = body !== savedBody;
+
+  /**
+   * The one way blocks change in this component.
+   *
+   * Every mutation — an edit, a move, a duplicate, an add, a delete, an undo —
+   * comes through here, so the history cannot record a change that missed it.
+   * The previous version set `blocks` directly in six places, which is why
+   * undo was impossible: the history would have had to watch state it did not
+   * own, and by the time an effect observes a change the model has already been
+   * replaced.
+   *
+   * The unit is the serialized body, the same string `dirty` compares, because
+   * two representations of "same document" would eventually disagree — and the
+   * symptom would be an undo that reports no change beside a toolbar that says
+   * there are unsaved edits.
+   */
+  const commitBlocks = useCallback(
+    (next: Block[], coalesceKey: string | null = null) => {
+      const previous = serializeBlocks(blocksRef.current);
+      const current = serializeBlocks(next);
+      if (previous === current) return;
+      blocksRef.current = next;
+      setBlocks(next);
+      setHistory((currentHistory) => recordHistory(currentHistory, previous, current, coalesceKey));
+      refreshSections(next);
+    },
+    [refreshSections]
+  );
+
+  const handleUndo = useCallback(() => {
+    const step = undoHistory(history, body);
+    if (!step) return;
+    const restored = parseHtml(step.restore);
+    blocksRef.current = restored;
+    setBlocks(restored);
+    setHistory(step.history);
+    refreshSections(restored);
+  }, [body, history, refreshSections]);
+
+  const handleRedo = useCallback(() => {
+    const step = redoHistory(history, body);
+    if (!step) return;
+    const restored = parseHtml(step.restore);
+    blocksRef.current = restored;
+    setBlocks(restored);
+    setHistory(step.history);
+    refreshSections(restored);
+  }, [body, history, refreshSections]);
 
   // --- CRUD Operations connected to Supabase Backend ---
 
@@ -562,8 +781,32 @@ export function VisualEditOverlay() {
                   updated_at: res.data?.updatedAt,
                 }
           );
-          setBlocks(newBlocks);
+          /**
+           * The saved baseline is what the server acknowledged, not what was
+           * asked for.
+           *
+           * `saveContent` reports the version its `BEFORE UPDATE` trigger wrote,
+           * and that is the version the next save must be based on. Adopting a
+           * local timestamp instead is how the editor ends up conflicting with
+           * itself on the next autosave.
+           */
+          setSavedBody(newBody);
+          setRecoveredDraft(null);
+          clearDraft(draftScope);
           router.refresh();
+        } else if (isStaleConflict(res.error)) {
+          /**
+           * Someone else wrote this page while it was open.
+           *
+           * The previous behaviour was a toast, which is indistinguishable from
+           * every other failure and leaves the operator clicking Save into a
+           * wall. The document is still on screen and still unsaved, so say
+           * that, and offer the one action that resolves it.
+           */
+          toast.error(
+            'This page was edited by someone else. Reload to see their version before saving.',
+            { duration: 8000 }
+          );
         } else {
           toast.error(res.error || 'Failed to save changes to backend');
         }
@@ -573,8 +816,80 @@ export function VisualEditOverlay() {
         setSavingBackend(false);
       }
     },
-    [contentRow, pageTitle, pageFeaturedImage, pathname, router, target]
+    [contentRow, draftScope, pageFeaturedImage, pageTitle, pathname, router, target]
   );
+
+  /**
+   * A local copy of the document, written as it changes.
+   *
+   * The overlay writes straight to the page, so a closed tab between two edits
+   * is not covered by a revision — nothing was persisted to lose. This is the
+   * same window `draft-recovery.ts` exists for in the CMS editor, and the same
+   * rules apply: it is a cache, it never restores silently, and it is offered
+   * rather than applied.
+   */
+  useEffect(() => {
+    if (!enabled || !isAdmin || !dirty) return;
+    const timer = window.setTimeout(() => writeDraft(draftScope, body), 400);
+    return () => window.clearTimeout(timer);
+  }, [body, dirty, draftScope, enabled, isAdmin]);
+
+  /**
+   * Offer a recovered draft on arrival — never apply it.
+   *
+   * Only when the document is otherwise untouched, so a recovered draft can
+   * never overwrite work the operator has already done in this session.
+   */
+  useEffect(() => {
+    if (!enabled || !isAdmin || !contentRow || dirty) return;
+    const draft = readDraft(draftScope);
+    if (!draft) return;
+    if (!isWorthRecovering(draft, savedBody)) {
+      clearDraft(draftScope);
+      return;
+    }
+    const parsed = parseHtml(draft.snapshot);
+    if (parsed.length === 0) return;
+    setRecoveredDraft(parsed);
+  }, [contentRow, draftScope, dirty, enabled, isAdmin, savedBody]);
+
+  /**
+   * Autosave, on the same three rules the CMS editor holds.
+   *
+   * **It never changes publish state** — an autosave that published a draft
+   * would put a half-written page on the public site. **It never creates a page
+   * from nothing** — that is `handlePersistBlocks`, reached deliberately.
+   * **It stops after a failure** — retrying into a wall is how an editor
+   * convinces someone their work is saved when it is not.
+   */
+  useEffect(() => {
+    if (!enabled || !isAdmin || !contentRow || !dirty || savingBackend) return;
+    const timer = window.setTimeout(() => {
+      void handlePersistBlocks(blocksRef.current);
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [contentRow, dirty, enabled, handlePersistBlocks, isAdmin, savingBackend]);
+
+  // ⌘Z / ⌘⇧Z and ⌘S, so the editor is usable without the dock.
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 's') {
+        event.preventDefault();
+        void handlePersistBlocks(blocksRef.current);
+        return;
+      }
+      if (key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) handleRedo();
+        else handleUndo();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [enabled, handlePersistBlocks, handleRedo, handleUndo, isAdmin]);
 
   const handleTogglePageStatus = async () => {
     if (!contentRow) return;
@@ -598,21 +913,21 @@ export function VisualEditOverlay() {
   };
 
   const handleOpenEditSection = useCallback(
-    (index: number) => {
-      const targetBlock = blocks[index] || {
+    (blockIndex: number) => {
+      const targetBlock = blocksRef.current[blockIndex] || {
         id: nextBlockId(),
         type: 'paragraph' as const,
-        html: sections[index]?.label || '',
+        html: sections.find((s) => s.blockIndex === blockIndex)?.label || '',
       };
-      setEditingBlockIndex(index);
+      setEditingBlockIndex(blockIndex);
       setEditingBlock({ ...targetBlock });
       setIsSectionModalOpen(true);
     },
-    [blocks, sections]
+    [sections]
   );
 
   const handleAddNewSection = useCallback(
-    (type: Block['type'], insertAfterIndex?: number) => {
+    (type: Block['type'], insertAfterBlockIndex?: number) => {
       const freshId = nextBlockId();
       let freshBlock: Block;
       switch (type) {
@@ -664,72 +979,76 @@ export function VisualEditOverlay() {
           freshBlock = { id: freshId, type: 'paragraph', html: 'Content' };
       }
 
-      const nextBlocks = [...blocks];
+      const nextBlocks = [...blocksRef.current];
       let newIndex: number;
       if (
-        insertAfterIndex !== undefined &&
-        insertAfterIndex >= 0 &&
-        insertAfterIndex < nextBlocks.length
+        insertAfterBlockIndex !== undefined &&
+        insertAfterBlockIndex >= 0 &&
+        insertAfterBlockIndex < nextBlocks.length
       ) {
-        nextBlocks.splice(insertAfterIndex + 1, 0, freshBlock);
-        newIndex = insertAfterIndex + 1;
+        nextBlocks.splice(insertAfterBlockIndex + 1, 0, freshBlock);
+        newIndex = insertAfterBlockIndex + 1;
       } else {
         nextBlocks.push(freshBlock);
         newIndex = nextBlocks.length - 1;
       }
-      setBlocks(nextBlocks);
+      commitBlocks(nextBlocks);
       setEditingBlockIndex(newIndex);
       setEditingBlock(freshBlock);
       setIsSectionModalOpen(true);
     },
-    [blocks]
+    [commitBlocks]
   );
 
   const handleSaveSectionModal = async () => {
     if (!editingBlock || editingBlockIndex === null) return;
-    const nextBlocks = [...blocks];
+    const nextBlocks = [...blocksRef.current];
     nextBlocks[editingBlockIndex] = editingBlock;
     setIsSectionModalOpen(false);
+    commitBlocks(nextBlocks);
     await handlePersistBlocks(nextBlocks, 'Section updated in Supabase');
   };
 
   const handleDeleteSection = useCallback(
-    async (index: number) => {
-      const nextBlocks = blocks.filter((_, i) => i !== index);
-      setBlocks(nextBlocks);
+    async (blockIndex: number) => {
+      const nextBlocks = blocksRef.current.filter((_, i) => i !== blockIndex);
+      // Null is deliberate: a discrete operation gets its own undo step, so two
+      // deletes are two undos rather than one.
+      commitBlocks(nextBlocks, null);
       await handlePersistBlocks(nextBlocks, 'Section deleted from Supabase');
     },
-    [blocks, handlePersistBlocks]
+    [commitBlocks, handlePersistBlocks]
   );
 
   const handleMoveSection = useCallback(
-    async (index: number, direction: 'up' | 'down') => {
-      const targetIdx = direction === 'up' ? index - 1 : index + 1;
-      if (targetIdx < 0 || targetIdx >= blocks.length) return;
-      const nextBlocks = [...blocks];
-      const temp = nextBlocks[index];
-      nextBlocks[index] = nextBlocks[targetIdx];
+    async (blockIndex: number, direction: 'up' | 'down') => {
+      // Translate the section to the block it should swap with. A DOM ordinal is
+      // not a block index, and neither is `blockIndex ± 1` — which is what this
+      // used to do, so "move up" on a page the sanitizer had trimmed moved the
+      // wrong block and quietly rewrote the page.
+      const targetIdx = moveTargetForSection(sections, blockIndex, direction);
+      if (targetIdx === null) return;
+      const nextBlocks = [...blocksRef.current];
+      const temp = nextBlocks[blockIndex];
+      nextBlocks[blockIndex] = nextBlocks[targetIdx];
       nextBlocks[targetIdx] = temp;
-      setBlocks(nextBlocks);
+      commitBlocks(nextBlocks, `move:${blockIndex}`);
       await handlePersistBlocks(nextBlocks, 'Section order updated');
     },
-    [blocks, handlePersistBlocks]
+    [commitBlocks, handlePersistBlocks, sections]
   );
 
   const handleDuplicateSection = useCallback(
-    async (index: number) => {
-      if (index < 0 || index >= blocks.length) return;
-      const source = blocks[index];
-      const duplicated: Block = {
-        ...source,
-        id: nextBlockId(),
-      };
-      const nextBlocks = [...blocks];
-      nextBlocks.splice(index + 1, 0, duplicated);
-      setBlocks(nextBlocks);
+    async (blockIndex: number) => {
+      const source = blocksRef.current[blockIndex];
+      if (!source) return;
+      const duplicated: Block = { ...source, id: nextBlockId() };
+      const nextBlocks = [...blocksRef.current];
+      nextBlocks.splice(blockIndex + 1, 0, duplicated);
+      commitBlocks(nextBlocks, null);
       await handlePersistBlocks(nextBlocks, 'Section duplicated in Supabase');
     },
-    [blocks, handlePersistBlocks]
+    [commitBlocks, handlePersistBlocks]
   );
 
   // Revisions management
@@ -779,61 +1098,44 @@ export function VisualEditOverlay() {
     if (!enabled || !isAdmin) return;
 
     const handleFocusSection = (e: Event) => {
-      const custom = e as CustomEvent<VisualSectionFocusEventDetail>;
-      if (custom.detail !== undefined) {
-        const { index, openEdit } = custom.detail;
-        const targetSec = sections.find((s) => s.index === index) || {
-          index,
-          label: `Section ${index + 1}`,
-        };
-        jumpTo(targetSec);
-        if (openEdit) {
-          handleOpenEditSection(index);
-        }
-      }
+      const { blockIndex, openEdit } =
+        (e as CustomEvent<VisualSectionFocusEventDetail>).detail ?? {};
+      if (blockIndex === undefined) return;
+      jumpTo(blockIndex);
+      if (openEdit) handleOpenEditSection(blockIndex);
     };
 
     const handleToggleSectionVisual = (e: Event) => {
-      const custom = e as CustomEvent<VisualSectionToggleEventDetail>;
-      if (custom.detail) {
-        const { index, enabled: isSecEnabled, all } = custom.detail;
-        if (all !== undefined) {
-          if (all) {
-            setEnabledSectionIndices(new Set(sections.map((s) => s.index)));
-            enableAllSectionVisuals(sections.map((s) => s.index));
-          } else {
-            setEnabledSectionIndices(new Set());
-            disableAllSectionVisuals();
-          }
-        } else if (index !== undefined) {
-          const active = isSecEnabled !== false;
-          setEnabledSectionIndices((prev) => {
-            const next = new Set(prev);
-            if (!active) {
-              next.delete(index);
-            } else {
-              next.add(index);
-            }
-            return next;
-          });
-          setSectionVisualEnabled(index, active);
-        }
+      const detail = (e as CustomEvent<VisualSectionToggleEventDetail>).detail;
+      if (!detail) return;
+
+      if (detail.all !== undefined) {
+        setEnabledSectionKeys(
+          detail.all ? new Set(sections.map((section) => section.key)) : new Set()
+        );
+        return;
       }
+
+      const section = sections.find((item) => item.blockIndex === detail.blockIndex);
+      if (!section) return;
+      const active = detail.enabled !== false;
+      setEnabledSectionKeys((prev) => {
+        const next = new Set(prev);
+        if (active) next.add(section.key);
+        else next.delete(section.key);
+        return next;
+      });
     };
 
     const handleMoveSectionEvent = (e: Event) => {
-      const custom = e as CustomEvent<VisualSectionMoveEventDetail>;
-      if (custom.detail?.index !== undefined && custom.detail.direction) {
-        handleMoveSection(custom.detail.index, custom.detail.direction);
-      }
+      const detail = (e as CustomEvent<VisualSectionMoveEventDetail>).detail;
+      if (detail?.blockIndex === undefined || !detail.direction) return;
+      handleMoveSection(detail.blockIndex, detail.direction);
     };
 
     const handleAddBlockAtEvent = (e: Event) => {
-      const custom = e as CustomEvent<VisualSectionAddBlockDetail>;
-      handleAddNewSection(
-        (custom.detail?.type as Block['type']) || 'paragraph',
-        custom.detail?.insertAfterIndex
-      );
+      const detail = (e as CustomEvent<VisualSectionAddBlockDetail>).detail;
+      handleAddNewSection(detail?.type ?? 'paragraph', detail?.insertAfterBlockIndex);
     };
 
     const handleAddBlockGeneral = () => {
@@ -841,17 +1143,15 @@ export function VisualEditOverlay() {
     };
 
     const handleDuplicateSectionEvent = (e: Event) => {
-      const custom = e as CustomEvent<VisualSectionDuplicateDetail>;
-      if (custom.detail?.index !== undefined) {
-        handleDuplicateSection(custom.detail.index);
-      }
+      const detail = (e as CustomEvent<VisualSectionDuplicateDetail>).detail;
+      if (detail?.blockIndex === undefined) return;
+      handleDuplicateSection(detail.blockIndex);
     };
 
     const handleDeleteSectionEvent = (e: Event) => {
-      const custom = e as CustomEvent<VisualSectionDeleteDetail>;
-      if (custom.detail?.index !== undefined) {
-        handleDeleteSection(custom.detail.index);
-      }
+      const detail = (e as CustomEvent<VisualSectionDeleteDetail>).detail;
+      if (detail?.blockIndex === undefined) return;
+      handleDeleteSection(detail.blockIndex);
     };
 
     const handleOpenMediaLibrary = () => {
@@ -889,14 +1189,14 @@ export function VisualEditOverlay() {
   }, [
     enabled,
     isAdmin,
-    sections,
-    jumpTo,
-    handleOpenEditSection,
     handleAddNewSection,
-    handleMoveSection,
-    handleDuplicateSection,
     handleDeleteSection,
+    handleDuplicateSection,
+    handleMoveSection,
+    handleOpenEditSection,
     handleOpenRevisions,
+    jumpTo,
+    sections,
   ]);
 
   const handleSavePageSettings = async (e: React.FormEvent) => {
@@ -967,6 +1267,46 @@ export function VisualEditOverlay() {
 
   return (
     <>
+      {/*
+        ── Recovered draft ──────────────────────────────────────────────────
+
+        A local copy from a previous session, offered rather than applied. It
+        disappears the moment the operator does anything else, because after
+        that the decision has been made for them and the banner would be a lie.
+      */}
+      {recoveredDraft && !dirty && (
+        <div
+          role="status"
+          className="fixed inset-x-3 top-20 z-50 mx-auto flex max-w-2xl items-center gap-3 rounded-2xl border border-accent-gold/40 bg-secondary/95 px-4 py-3 text-ink-on-dark shadow-float backdrop-blur-md"
+        >
+          <History size={16} className="shrink-0 text-accent-gold" aria-hidden="true" />
+          <p className="flex-1 text-xs font-semibold">
+            An unsaved copy of this page from your last session was found.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              commitBlocks(recoveredDraft, null);
+              setRecoveredDraft(null);
+              toast.success('Recovered draft restored');
+            }}
+            className="rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-secondary hover:bg-accent-gold"
+          >
+            Restore
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              clearDraft(draftScope);
+              setRecoveredDraft(null);
+            }}
+            className="rounded-lg border border-white/15 px-2.5 py-1 text-xs font-bold text-ink-on-dark hover:bg-white/10"
+          >
+            Discard
+          </button>
+        </div>
+      )}
+
       {/* ── In-Page Visual Section Overlays ────────────────────────────── */}
       {showSectionBadges && sectionOverlays.length > 0 && (
         <div aria-hidden="false" className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
@@ -985,7 +1325,7 @@ export function VisualEditOverlay() {
               {/* Highlight boundary */}
               <div
                 className={`w-full h-full rounded-2xl transition-all duration-300 ${
-                  activeSectionIndex === item.index
+                  activeBlockIndex === item.blockIndex
                     ? 'border-2 border-accent-gold ring-4 ring-accent-gold/20 bg-accent-gold/5 shadow-[0_0_30px_rgba(245,158,11,0.25)]'
                     : showAllSectionBorders
                       ? 'border border-dashed border-accent-gold/40 bg-accent-gold/[0.02]'
@@ -996,33 +1336,24 @@ export function VisualEditOverlay() {
               {/* Floating Action Pill */}
               <div
                 role="toolbar"
-                aria-label={`Actions for section ${item.index + 1}`}
+                aria-label={`Actions for ${item.label}`}
                 className="pointer-events-auto absolute -top-3.5 left-3 sm:left-6 inline-flex items-center gap-1.5 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-1 text-xs text-ink-on-dark shadow-float backdrop-blur-md transition-all hover:scale-105"
               >
                 <span className="size-2 rounded-full bg-accent-gold animate-pulse" />
                 <span className="font-black text-accent-gold uppercase text-[10px] tracking-wider">
-                  Section #{item.index + 1}
+                  {item.blockType}
                 </span>
                 <span className="max-w-[120px] sm:max-w-[180px] truncate font-semibold text-white text-[11px]">
                   {item.label}
                 </span>
-                {item.blockType && (
-                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-accent-gold font-mono">
-                    {item.blockType}
-                  </span>
-                )}
 
                 <div className="ml-1.5 flex items-center gap-1 border-l border-white/20 pl-1.5">
                   {/* Edit section */}
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveSectionIndex(item.index);
-                      if (item.blockIndex !== undefined && item.blockIndex < blocks.length) {
-                        handleOpenEditSection(item.blockIndex);
-                      } else {
-                        handleOpenEditSection(item.index);
-                      }
+                      setActiveBlockIndex(item.blockIndex);
+                      handleOpenEditSection(item.blockIndex);
                     }}
                     title="Edit section content"
                     className="rounded p-1 text-accent-gold hover:bg-white/15 hover:text-white transition-colors"
@@ -1033,9 +1364,7 @@ export function VisualEditOverlay() {
                   {/* Duplicate section */}
                   <button
                     type="button"
-                    onClick={() => {
-                      handleDuplicateSection(item.blockIndex ?? item.index);
-                    }}
+                    onClick={() => handleDuplicateSection(item.blockIndex)}
                     title="Duplicate section"
                     className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
                   >
@@ -1043,12 +1372,10 @@ export function VisualEditOverlay() {
                   </button>
 
                   {/* Move Up */}
-                  {item.index > 0 && (
+                  {canMoveSection(sections, item.blockIndex, 'up') && (
                     <button
                       type="button"
-                      onClick={() => {
-                        handleMoveSection(item.blockIndex ?? item.index, 'up');
-                      }}
+                      onClick={() => handleMoveSection(item.blockIndex, 'up')}
                       title="Move section up"
                       className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
                     >
@@ -1057,12 +1384,10 @@ export function VisualEditOverlay() {
                   )}
 
                   {/* Move Down */}
-                  {item.index < sections.length - 1 && (
+                  {canMoveSection(sections, item.blockIndex, 'down') && (
                     <button
                       type="button"
-                      onClick={() => {
-                        handleMoveSection(item.blockIndex ?? item.index, 'down');
-                      }}
+                      onClick={() => handleMoveSection(item.blockIndex, 'down')}
                       title="Move section down"
                       className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
                     >
@@ -1073,7 +1398,7 @@ export function VisualEditOverlay() {
                   {/* Add block below */}
                   <button
                     type="button"
-                    onClick={() => handleAddNewSection('paragraph', item.blockIndex ?? item.index)}
+                    onClick={() => handleAddNewSection('paragraph', item.blockIndex)}
                     title="Add block below"
                     className="rounded p-1 text-emerald-400 hover:bg-white/15 hover:text-emerald-300 transition-colors"
                   >
@@ -1083,30 +1408,29 @@ export function VisualEditOverlay() {
                   {/* Turn off visual frame for this section */}
                   <button
                     type="button"
-                    onClick={() => {
-                      setEnabledSectionIndices((prev) => {
-                        const next = new Set(prev);
-                        next.delete(item.index);
-                        return next;
-                      });
-                    }}
+                    onClick={() => toggleSectionFrame(item.blockIndex)}
                     title="Hide visual frame for this section"
                     className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors"
                   >
                     <EyeOff size={13} />
                   </button>
 
-                  {/* Delete section */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleDeleteSection(item.blockIndex ?? item.index);
-                    }}
-                    title="Delete section"
-                    className="rounded p-1 text-rose-400 hover:bg-white/15 hover:text-rose-300 transition-colors"
+                  {/*
+                    Delete asks first. It used to fire on a single click straight
+                    into `saveContent` — the one operation in this component with
+                    no way back from another tab.
+                  */}
+                  <ConfirmAction
+                    label="Delete section"
+                    message={`Delete "${item.label}"? Undo brings it back in this session, and nothing is written until you save.`}
+                    confirmLabel="Delete"
+                    danger
+                    busy={savingBackend}
+                    idleClassName="rounded p-1 text-rose-400 hover:bg-white/15 hover:text-rose-300 transition-colors"
+                    onConfirm={() => handleDeleteSection(item.blockIndex)}
                   >
                     <Trash2 size={13} />
-                  </button>
+                  </ConfirmAction>
                 </div>
               </div>
             </div>
@@ -1159,25 +1483,87 @@ export function VisualEditOverlay() {
                 )}
               </div>
               <p className="text-[11px] text-ink-muted-on-dark truncate">
-                {sections.length} {sections.length === 1 ? 'section' : 'sections'} on page (
-                {enabledSectionIndices.size} active) · {blocks.length} editable blocks
+                {sections.length} {sections.length === 1 ? 'block' : 'blocks'} in the document (
+                {enabledSectionKeys.size} framed) ·{' '}
+                {dirty ? (
+                  <span className="font-bold text-accent-gold">unsaved changes</span>
+                ) : (
+                  <span>saved</span>
+                )}
               </p>
             </div>
           </div>
 
           {/* Quick Actions */}
           <div className="flex flex-wrap items-center gap-2">
-            {!contentRow && (
-              <button
-                type="button"
-                onClick={handleInitializeCMSPage}
-                disabled={savingBackend}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-secondary shadow-raised hover:bg-accent-gold transition-all"
-              >
+            {/* Undo / Redo — the operations a visual editor needs most and the
+                ones this dock was missing entirely. */}
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={!canUndo(history)}
+              title="Undo the last change (⌘Z)"
+              aria-label="Undo the last change"
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
+                canUndo(history)
+                  ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
+                  : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
+              }`}
+            >
+              <Undo2 size={13} />
+              <span className="hidden lg:inline">Undo</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={!canRedo(history)}
+              title="Redo (⌘⇧Z)"
+              aria-label="Redo the last undone change"
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
+                canRedo(history)
+                  ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
+                  : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
+              }`}
+            >
+              <Redo2 size={13} />
+              <span className="hidden lg:inline">Redo</span>
+            </button>
+
+            {/*
+              The primary action is now "Save", not "Save to Supabase CMS".
+
+              Connecting a page to the CMS is a one-time act and it happens the
+              first time anything is saved. Treating it as the only write made
+              every later edit look like an initialisation, and it hid the fact
+              that the document had unsaved changes at all.
+            */}
+            <button
+              type="button"
+              onClick={() =>
+                handlePersistBlocks(
+                  blocks,
+                  contentRow ? 'Page saved' : 'Page connected to Supabase CMS'
+                )
+              }
+              disabled={savingBackend || !dirty}
+              title={
+                contentRow
+                  ? 'Write this document to Supabase'
+                  : 'Create the Supabase CMS row for this page from what is on screen'
+              }
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider shadow-raised transition-all disabled:opacity-50 ${
+                dirty
+                  ? 'bg-accent text-secondary hover:bg-accent-gold'
+                  : 'bg-white/10 text-ink-muted-on-dark'
+              }`}
+            >
+              {savingBackend ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
                 <Sparkles size={13} />
-                <span>Save to Supabase CMS</span>
-              </button>
-            )}
+              )}
+              <span>{contentRow ? (dirty ? 'Save' : 'Saved') : 'Connect'}</span>
+            </button>
 
             {/* Badges Toggle */}
             <button
@@ -1217,25 +1603,24 @@ export function VisualEditOverlay() {
             {sections.length > 0 && (
               <div className="relative">
                 <select
-                  aria-label="Jump to section"
+                  aria-label="Jump to block"
                   onChange={(e) => {
-                    const idx = Number.parseInt(e.target.value, 10);
-                    const sec = sections.find((s) => s.index === idx);
-                    if (sec) jumpTo(sec);
+                    const blockIndex = Number.parseInt(e.target.value, 10);
+                    if (Number.isInteger(blockIndex)) jumpTo(blockIndex);
                   }}
                   className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-accent-gold"
-                  defaultValue=""
+                  value=""
                 >
                   <option value="" disabled className="bg-secondary text-ink-on-dark">
-                    Jump to section…
+                    Jump to block…
                   </option>
                   {sections.map((sec) => (
                     <option
-                      key={sec.index}
-                      value={sec.index}
+                      key={sec.key}
+                      value={sec.blockIndex}
                       className="bg-secondary text-ink-on-dark"
                     >
-                      {sec.label}
+                      {sec.ordinal}. {sec.label}
                     </option>
                   ))}
                 </select>
@@ -1532,15 +1917,20 @@ export function VisualEditOverlay() {
       {/* ── Section Edit Modal ────────────────────────────────────────── */}
       {isSectionModalOpen && editingBlock && (
         <Dialog open={isSectionModalOpen} onOpenChange={setIsSectionModalOpen}>
+          {/*
+            The dialog names the block, not its position. "Edit Section #3" was
+            wrong twice over: the number was a DOM ordinal on a page whose blocks
+            and elements had already diverged, and it told the operator nothing
+            about what they were about to change.
+          */}
           <DialogContent className="max-w-2xl bg-white text-secondary p-6 rounded-3xl">
             <DialogHeader>
               <DialogTitle className="text-xl font-black uppercase tracking-tight text-secondary">
-                Edit Section #{editingBlockIndex !== null ? editingBlockIndex + 1 : ''} (
-                {editingBlock.type})
+                {activeSectionLabel || `Block ${(editingBlockIndex ?? 0) + 1}`}
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                Update section content, styles, and media. Changes persist directly to the Supabase
-                backend.
+                Editing a {editingBlock.type} block. Changes persist directly to the Supabase
+                backend, and undo brings this one back if you change your mind.
               </DialogDescription>
             </DialogHeader>
 

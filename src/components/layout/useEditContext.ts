@@ -4,183 +4,97 @@ import { useEffect, useState } from 'react';
 import type { CmsEditTarget } from '@/lib/edit-target';
 import { createClient } from '@/lib/supabase';
 
+/**
+ * Editorial-button context for the header and the nav drawer.
+ *
+ * One question matters: is this visitor an admin, and if so is there a CMS row
+ * behind the path they are on? Everything else the visual editor needs — which
+ * sections exist, which block each frame addresses, whether the document is
+ * dirty — lives in the overlay, because the overlay is the component that has
+ * the block model.
+ *
+ * A previous revision also carried a `visualEditTarget` here, duplicated from
+ * `src/types/crm.ts`, that no component read. A second copy of a model is
+ * worse than no model: it looks authoritative and it is not.
+ */
+
 export interface EditContextState {
   /** True while the admin check is in flight (renders an exact-size skeleton). */
   loading: boolean;
   isAdmin: boolean;
   target: CmsEditTarget | null;
-  /** Visual editor specific state */
-  visualEditEnabled: boolean;
-  visualEditTarget: VisualEditTarget | null;
 }
 
-/** Visual editor target resolution. */
-export interface VisualEditTarget {
-  kind: 'visual-section';
-  sectionId: string;
-  title: string;
-  type: 'cms' | 'crm';
-}
-
-/** Editorial-button context for the header and the nav drawer. */
-const contextCache = new Map<
-  string,
-  {
-    loading: boolean;
-    isAdmin: boolean;
-    target: CmsEditTarget | null;
-    visualEditEnabled: boolean;
-    visualEditTarget: VisualEditTarget | null;
-  }
->();
+const IDLE: EditContextState = {
+  loading: true,
+  isAdmin: false,
+  target: null,
+};
 
 /**
- * Reconcile the cached state with a new state object.
- * The URL/query param wins when it has an opinion, otherwise fall back to
- * the stored preference. This keeps the mode consistent across navigations.
+ * Memoised per pathname, because the header, the drawer row and the overlay all
+ * ask about the same path on the same navigation and each firing its own
+ * request would triple the admin lookups on every route change.
+ *
+ * Admin status is a property of the session, not the path, so a non-admin
+ * answer is cached and reused for every path too — one negative answer rather
+ * one per route.
  */
-function reconcileEditContext(
-  cached:
-    | {
-        loading: boolean;
-        isAdmin: boolean;
-        target: CmsEditTarget | null;
-        visualEditEnabled: boolean;
-        visualEditTarget: VisualEditTarget | null;
-      }
-    | undefined,
-  urlEnabled?: boolean,
-  urlTarget?: VisualEditTarget | null
-): {
-  loading: boolean;
-  isAdmin: boolean;
-  target: CmsEditTarget | null;
-  visualEditEnabled: boolean;
-  visualEditTarget: VisualEditTarget | null;
-} {
-  const next = { ...cached };
+const contextCache = new Map<string, EditContextState>();
 
-  // URL takes precedence for visual edit mode
-  if (urlEnabled !== undefined) {
-    next.visualEditEnabled = urlEnabled;
-  }
-  if (urlTarget !== undefined) {
-    next.visualEditTarget = urlTarget;
-  }
-
-  return next as {
-    loading: boolean;
-    isAdmin: boolean;
-    target: CmsEditTarget | null;
-    visualEditEnabled: boolean;
-    visualEditTarget: VisualEditTarget | null;
-  };
-}
+const NOT_ADMIN: EditContextState = { loading: false, isAdmin: false, target: null };
 
 export function useEditContext(pathname: string): EditContextState {
-  const [state, setState] = useState<EditContextState>(() => {
-    const cached = contextCache.get(pathname);
-    if (cached) {
-      return {
-        loading: cached.loading,
-        isAdmin: cached.isAdmin,
-        target: cached.target,
-        visualEditEnabled: cached.visualEditEnabled,
-        visualEditTarget: cached.visualEditTarget,
-      };
-    }
-    // Default: visual editing off, no admin context
-    return {
-      loading: true,
-      isAdmin: false,
-      target: null,
-      visualEditEnabled: false,
-      visualEditTarget: null,
-    };
-  });
+  const [state, setState] = useState<EditContextState>(() => contextCache.get(pathname) ?? IDLE);
 
   useEffect(() => {
     const cached = contextCache.get(pathname);
     if (cached) {
-      const reconciled = reconcileEditContext(cached);
-      setState({
-        loading: false,
-        isAdmin: reconciled.isAdmin,
-        target: reconciled.target,
-        visualEditEnabled: reconciled.visualEditEnabled,
-        visualEditTarget: reconciled.visualEditTarget,
-      });
+      setState(cached);
       return;
     }
 
     let cancelled = false;
-    setState({
-      loading: true,
-      isAdmin: false,
-      target: null,
-      visualEditEnabled: false,
-      visualEditTarget: null,
-    });
+    setState(IDLE);
 
     createClient()
       .auth.getSession()
       .then(({ data: { session } }) => {
         if (cancelled) return;
         if (!session) {
-          const answer = {
-            loading: false,
-            isAdmin: false,
-            target: null,
-            visualEditEnabled: false,
-            visualEditTarget: null,
-          };
-          contextCache.set(pathname, answer);
-          setState(answer);
+          contextCache.set(pathname, NOT_ADMIN);
+          setState(NOT_ADMIN);
           return;
         }
-        fetch(`/api/admin/edit-context?path=${encodeURIComponent(pathname)}`, {
+        return fetch(`/api/admin/edit-context?path=${encodeURIComponent(pathname)}`, {
           cache: 'no-store',
         })
-          .then((res) => {
-            if (cancelled) return;
-            if (!res.ok) {
-              const answer = {
-                loading: false,
-                isAdmin: false,
-                target: null,
-                visualEditEnabled: false,
-                visualEditTarget: null,
-              };
-              contextCache.set(pathname, answer);
-              setState(answer);
-              return;
-            }
-            return res.json();
-          })
+          .then((res) => (res.ok ? res.json() : null))
           .then((answer) => {
             if (cancelled) return;
-            const cachedAnswer = {
+            const resolved: EditContextState = {
               loading: false,
-              isAdmin: answer.isAdmin === true,
-              target: answer.target ?? null,
-              visualEditEnabled: answer.visualEditEnabled ?? false,
-              visualEditTarget: answer.visualEditTarget ?? null,
+              isAdmin: answer?.isAdmin === true,
+              target: answer?.target ?? null,
             };
-            contextCache.set(pathname, cachedAnswer);
-            setState(cachedAnswer);
+            contextCache.set(pathname, resolved);
+            setState(resolved);
           })
           .catch(() => {
-            if (!cancelled) {
-              setState({
-                loading: false,
-                isAdmin: false,
-                target: null,
-                visualEditEnabled: false,
-                visualEditTarget: null,
-              });
-            }
+            if (cancelled) return;
+            // A failed lookup reads as "not an admin" rather than "unknown".
+            // The editor surfaces that the operator cannot see are exactly the
+            // ones that should not appear, so failing closed is also failing
+            // correctly here.
+            contextCache.set(pathname, NOT_ADMIN);
+            setState(NOT_ADMIN);
           });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setState(NOT_ADMIN);
       });
+
     return () => {
       cancelled = true;
     };

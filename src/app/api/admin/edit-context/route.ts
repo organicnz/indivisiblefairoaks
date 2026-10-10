@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { resolveEditContext } from '@/lib/edit-context';
 import { getPublishedContent } from '@/lib/queries/content';
 import { createServerClient } from '@/lib/supabase-server';
-import type { VisualEditTarget } from '@/types/crm';
 
 /**
  * Editorial button context: is the caller an admin, and does this pathname
@@ -19,9 +18,10 @@ import type { VisualEditTarget } from '@/types/crm';
  * signed-out browsers never call it at all (the hook short-circuits on a
  * missing session), so anonymous traffic costs nothing on the Fluid pool.
  *
- * Extended to also support visual editor sections: when the pathname matches
- * a visual editing context (e.g., a CMS slug route), the button will offer
- * both CMS editing and visual section toggling.
+ * `visualEditEnabled` says the caller may use the in-page overlay at all,
+ * which is a property of being an admin rather than of the path: every page is
+ * editable through the overlay, including ones with no CMS row, because the
+ * overlay can extract a block model from the live DOM and write a new row.
  */
 export async function GET(req: Request) {
   const pathname = new URL(req.url).searchParams.get('path') ?? '/';
@@ -72,31 +72,9 @@ export async function GET(req: Request) {
     },
   });
 
-  if (cmsResponse.target) {
-    const visualTarget: VisualEditTarget = {
-      kind: 'visual-section',
-      sectionId: `content-${cmsResponse.target.editUrl.split('/').pop()}`,
-      title: cmsResponse.target.label,
-      type: 'cms',
-    };
-
-    return NextResponse.json({
-      isAdmin: true,
-      target: cmsResponse.target,
-      visualEditEnabled: true,
-      visualEditTarget: visualTarget,
-    });
-  }
-
   return NextResponse.json({
-    isAdmin: true,
-    target: null,
+    isAdmin,
+    target: cmsResponse.target,
     visualEditEnabled: true,
-    visualEditTarget: null,
   });
 }
-
-/**
- * Type for visual edit target.
- */
-export type { VisualEditTarget } from '@/types/crm';
