@@ -2,6 +2,7 @@ import { CheckCircle2, Heart, Shield, Sparkles, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import { pageMetadata } from '@/lib/metadata';
 
 export const metadata: Metadata = pageMetadata({
@@ -46,88 +47,98 @@ export default function AboutPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
-        {/* Our Mission */}
+        {/* Our Mission — copy region, so the mission statement is editable in
+            place. The list below is the fallback. */}
         <section className="space-y-6">
           <h2 className="text-2xl sm:text-3xl font-black text-secondary tracking-tight flex items-center gap-3">
             <Shield className="text-accent" />
             <span>Our Mission Statement</span>
           </h2>
-          <div className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4 text-muted-foreground leading-relaxed text-base">
-            <p className="font-semibold text-secondary text-lg">
-              The mission of the Fair Oaks - Carmichael Indivisible Chapter is to cultivate a
-              disciplined, non-violent grassroots movement that:
-            </p>
-            <ul className="space-y-3 pt-2">
-              <li className="flex items-start gap-3">
-                <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
-                <span>
-                  <strong className="text-secondary">Stops the rise of authoritarianism:</strong>{' '}
-                  Holding officials accountable and sounding the alarm against anti-democratic power
-                  grabs.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
-                <span>
-                  <strong className="text-secondary">Supports and defends democratic norms:</strong>{' '}
-                  Protecting voting rights, equal representation, free press, and constitutional
-                  governance.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
-                <span>
-                  <strong className="text-secondary">Elects bold leaders:</strong> Mobilizing voters
-                  to elect public servants who champion democratic integrity and progressive values.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
-                <span>
-                  <strong className="text-secondary">Secures progressive policies:</strong>{' '}
-                  Championing economic justice, environmental stewardship, and civil rights for all
-                  people.
-                </span>
-              </li>
-            </ul>
-          </div>
+          <CopyRegion id="about-mission">
+            <div className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4 text-muted-foreground leading-relaxed text-base">
+              <p className="font-semibold text-secondary text-lg">
+                The mission of the Fair Oaks - Carmichael Indivisible Chapter is to cultivate a
+                disciplined, non-violent grassroots movement that:
+              </p>
+              <ul className="space-y-3 pt-2">
+                <li className="flex items-start gap-3">
+                  <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
+                  <span>
+                    <strong className="text-secondary">Stops the rise of authoritarianism:</strong>{' '}
+                    Holding officials accountable and sounding the alarm against anti-democratic
+                    power grabs.
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
+                  <span>
+                    <strong className="text-secondary">
+                      Supports and defends democratic norms:
+                    </strong>{' '}
+                    Protecting voting rights, equal representation, free press, and constitutional
+                    governance.
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
+                  <span>
+                    <strong className="text-secondary">Elects bold leaders:</strong> Mobilizing
+                    voters to elect public servants who champion democratic integrity and
+                    progressive values.
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
+                  <span>
+                    <strong className="text-secondary">Secures progressive policies:</strong>{' '}
+                    Championing economic justice, environmental stewardship, and civil rights for
+                    all people.
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </CopyRegion>
         </section>
 
-        {/* Who We Are & Where We Organize */}
+        {/* Who We Are & Where We Organize — copy region */}
         <section className="space-y-6">
           <h2 className="text-2xl sm:text-3xl font-black text-secondary tracking-tight flex items-center gap-3">
             <Users className="text-primary-ink" />
             <span>Who We Are</span>
           </h2>
-          <div className="text-muted-foreground space-y-4 leading-relaxed">
-            <p>
-              We are neighbors, retirees, workers, students, educators, and community members in
-              Sacramento County who believe that true democracy requires active, ongoing
-              participation. As an affiliated chapter of the national <strong>Indivisible</strong>{' '}
-              network, we apply national organizing strategies locally where our voices have the
-              greatest impact.
-            </p>
-            <p>
-              Our monthly gatherings provide a welcoming space for dialogue, education, and
-              coordinated action. Whether writing postcards, attending town halls, rallying on
-              street corners, or lifting our voices in song, we turn concern into constructive,
-              democratic action.
-            </p>
-          </div>
+          <CopyRegion id="about-who">
+            <div className="text-muted-foreground space-y-4 leading-relaxed">
+              <p>
+                We are neighbors, retirees, workers, students, educators, and community members in
+                Sacramento County who believe that true democracy requires active, ongoing
+                participation. As an affiliated chapter of the national <strong>Indivisible</strong>{' '}
+                network, we apply national organizing strategies locally where our voices have the
+                greatest impact.
+              </p>
+              <p>
+                Our monthly gatherings provide a welcoming space for dialogue, education, and
+                coordinated action. Whether writing postcards, attending town halls, rallying on
+                street corners, or lifting our voices in song, we turn concern into constructive,
+                democratic action.
+              </p>
+            </div>
+          </CopyRegion>
         </section>
 
-        {/* Commitment to Nonviolent Action */}
+        {/* Commitment to Nonviolent Action — copy region */}
         <section className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4">
           <h3 className="text-xl font-bold text-secondary flex items-center gap-2">
             <Sparkles className="text-accent" size={20} />
             Commitment to Non-Violent Action & De-escalation
           </h3>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            A foundational pillar behind all Indivisible Fair Oaks-Carmichael events is a strict
-            commitment to nonviolence. We expect all attendees to act lawfully, treat fellow
-            citizens with dignity, and actively seek to de-escalate potential conflict with
-            counter-protesters. Weapons of any kind are strictly prohibited at our gatherings.
-          </p>
+          <CopyRegion id="about-nonviolence">
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              A foundational pillar behind all Indivisible Fair Oaks-Carmichael events is a strict
+              commitment to nonviolence. We expect all attendees to act lawfully, treat fellow
+              citizens with dignity, and actively seek to de-escalate potential conflict with
+              counter-protesters. Weapons of any kind are strictly prohibited at our gatherings.
+            </p>
+          </CopyRegion>
         </section>
 
         {/* Community Food Bank Drives */}
@@ -143,13 +154,15 @@ export default function AboutPage() {
           </p>
         </section>
 
-        {/* Contact & Join */}
+        {/* Contact & Join — copy region */}
         <section className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card text-center space-y-6">
           <h3 className="text-2xl font-black text-secondary">Join Our Next Gathering</h3>
-          <p className="text-muted-foreground text-sm max-w-xl mx-auto">
-            Ready to get involved? Join our mailing list, attend our next monthly meeting, or sing
-            with the Carmichael Resistance Choir.
-          </p>
+          <CopyRegion id="about-join">
+            <p className="text-muted-foreground text-sm max-w-xl mx-auto">
+              Ready to get involved? Join our mailing list, attend our next monthly meeting, or sing
+              with the Carmichael Resistance Choir.
+            </p>
+          </CopyRegion>
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               href="/events"

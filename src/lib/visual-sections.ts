@@ -287,3 +287,24 @@ export function discoverPageSections(root: ParentNode | null | undefined): Publi
     enabled: false,
   }));
 }
+
+/**
+ * Whether a published section list belongs to the page (and region) asking.
+ *
+ * The header can only compare what it was given against what it is showing, so
+ * the comparison lives beside the type rather than in each subscriber. Two
+ * dimensions because the same pathname can hold several documents now — one per
+ * copy region — so a list that survived a region switch is a list describing a
+ * document the header is no longer on.
+ */
+export function isPublishedSectionListCurrent(
+  detail: { pathname?: string; regionId?: string | null },
+  pathname: string,
+  regionId: string | null
+): boolean {
+  if (detail.pathname && detail.pathname !== pathname) return false;
+  // `undefined` means the publisher predates the field; treat it as the whole
+  // page so an older overlay's list is still adopted rather than dropped.
+  const published = detail.regionId ?? null;
+  return published === regionId;
+}

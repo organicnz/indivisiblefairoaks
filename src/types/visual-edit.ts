@@ -138,4 +138,13 @@ export interface VisualSectionDeleteDetail {
 export interface VisualSectionsPublishedDetail {
   sections: PublishedSection[];
   pathname: string;
+  /**
+   * Which copy region these sections belong to, or null for the whole page.
+   *
+   * Published so the header can tell a stale list from a current one: `pathname`
+   * alone is not enough now that a page can hold several regions, each with its
+   * own document and its own sections. A section list that outlives its region is
+   * a list of controls that address nothing.
+   */
+  regionId: string | null;
 }

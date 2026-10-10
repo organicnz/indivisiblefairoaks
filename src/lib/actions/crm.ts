@@ -2805,6 +2805,11 @@ const HEADER_PROBE_BYTES = 64 * 1024;
  * broadcast reference check — not the content one — was the guard.
  */
 const MEDIA_FOLDERS = ['crm', 'content', 'products'] as const;
+/**
+ * The union lives in `src/types/crm.ts` now, so the uploader's `folder`, the
+ * listing's `folder` and `CRMMediaItem.folder` are one type rather than three
+ * spellings. The local alias is kept because this file names it a hundred times.
+ */
 type MediaFolder = (typeof MEDIA_FOLDERS)[number];
 
 function isMediaFolder(value: unknown): value is MediaFolder {
@@ -2856,6 +2861,11 @@ export async function getCRMMediaFiles(options?: {
         size,
         mimeType,
         createdAt,
+        // Storage's `list()` does not report dimensions, so a listed file
+        // carries the same `null` an unmeasured upload does. Omitting the keys
+        // instead is what split the type in two.
+        width: null,
+        height: null,
         folder: f,
       });
     }
@@ -2880,23 +2890,12 @@ export async function getCRMMediaFiles(options?: {
  * check — `deleteCRMMedia` looks in `crm_broadcasts` for a `crm/` path and in
  * `content` / `content_revisions` for a `content/` one, so an upload that
  * crossed over was deletable while still in use.
+ *
+ * The return type is the shared `CRMMediaUploadResult` rather than an inline
+ * literal: that literal was a second copy of `CRMMediaItem`'s fields, which is
+ * how `folder` ended up `string` in one place and a union in the other.
  */
-export async function uploadCRMMedia(formData: FormData): Promise<{
-  success: boolean;
-  error?: string;
-  data?: {
-    id: string;
-    name: string;
-    path: string;
-    url: string;
-    size: number;
-    mimeType: string;
-    width: number | null;
-    height: number | null;
-    createdAt: string;
-    folder: MediaFolder;
-  };
-}> {
+export async function uploadCRMMedia(formData: FormData): Promise<CRMMediaUploadResult> {
   try {
     const file = formData.get('file');
     if (!(file instanceof File)) {

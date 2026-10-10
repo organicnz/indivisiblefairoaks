@@ -1,5 +1,6 @@
 import { AlertCircle, Calendar, ExternalLink, Users } from 'lucide-react';
 import type { Metadata } from 'next';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
@@ -43,45 +44,47 @@ export default async function EventsPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
         <InteractiveEventsCalendar initialEvents={initialEvents} />
 
-        {/* Trainings & Campaign Initiatives */}
+        {/* Trainings & Campaign Initiatives — copy region */}
         <div className="space-y-6 pt-6 border-t border-white/10">
           <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
             <Users className="text-primary-on-dark-muted" />
             <span>Trainings & Action Labs</span>
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6 rounded-2xl bg-secondary/70 border border-white/10 space-y-3">
-              <h3 className="text-lg font-bold text-white">
-                Deep Canvass Political Persuasion Training
-              </h3>
-              <p className="text-xs text-ink-on-dark leading-relaxed">
-                Learn the proven art of deep canvassing: connecting with conflicted voters through
-                empathetic listening and shared values to build durable election support.
-              </p>
-              <span className="inline-block text-[11px] font-bold text-accent-gold uppercase tracking-wider">
-                We The Fighters / Organizing to Fight Oligarchy
-              </span>
-            </div>
+          <CopyRegion id="events-trainings">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-6 rounded-2xl bg-secondary/70 border border-white/10 space-y-3">
+                <h3 className="text-lg font-bold text-white">
+                  Deep Canvass Political Persuasion Training
+                </h3>
+                <p className="text-xs text-ink-on-dark leading-relaxed">
+                  Learn the proven art of deep canvassing: connecting with conflicted voters through
+                  empathetic listening and shared values to build durable election support.
+                </p>
+                <span className="inline-block text-[11px] font-bold text-accent-gold uppercase tracking-wider">
+                  We The Fighters / Organizing to Fight Oligarchy
+                </span>
+              </div>
 
-            <div className="p-6 rounded-2xl bg-secondary/70 border border-white/10 space-y-3">
-              <h3 className="text-lg font-bold text-white">Know Your Rights Civic Workshop</h3>
-              <p className="text-xs text-ink-on-dark leading-relaxed">
-                Everyone has fundamental constitutional rights under U.S. law. Learn what your
-                rights are, how to safely exercise them in public, and what to do if your rights are
-                violated.
-              </p>
-              <a
-                href="https://www.aclu.org/know-your-rights"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-bold text-primary-on-dark-muted hover:text-primary-on-dark inline-flex items-center gap-1"
-              >
-                <span>ACLU Know Your Rights Guide</span>
-                <ExternalLink size={12} />
-              </a>
+              <div className="p-6 rounded-2xl bg-secondary/70 border border-white/10 space-y-3">
+                <h3 className="text-lg font-bold text-white">Know Your Rights Civic Workshop</h3>
+                <p className="text-xs text-ink-on-dark leading-relaxed">
+                  Everyone has fundamental constitutional rights under U.S. law. Learn what your
+                  rights are, how to safely exercise them in public, and what to do if your rights
+                  are violated.
+                </p>
+                <a
+                  href="https://www.aclu.org/know-your-rights"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold text-primary-on-dark-muted hover:text-primary-on-dark inline-flex items-center gap-1"
+                >
+                  <span>ACLU Know Your Rights Guide</span>
+                  <ExternalLink size={12} />
+                </a>
+              </div>
             </div>
-          </div>
+          </CopyRegion>
         </div>
 
         {/* Nonviolence Banner */}

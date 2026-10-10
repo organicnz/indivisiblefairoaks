@@ -129,7 +129,10 @@ describe('EditorialButton component', () => {
       dropdownTrigger?.click();
     });
 
-    const menu = container.querySelector('[role="dialog"][aria-label="Page Sections Menu"]');
+    // Radix renders `role="menu"`, not a hand-rolled `role="dialog"` — the
+    // control is keyboard navigable by construction rather than by every call
+    // site remembering to be.
+    const menu = container.querySelector('[role="menu"][aria-label="Page Sections Menu"]');
     expect(menu).not.toBeNull();
     expect(menu?.textContent).toContain('Mission Statement');
   });
@@ -305,4 +308,107 @@ describe('EditorialButton component', () => {
       expect(control.disabled).toBe(true);
     }
   });
+
+  /**
+   * `/about` has copy regions, so the menu must offer them and switching one
+   * must reach the overlay as an event.
+   *
+   * The overlay owns the document; a region selected here and nowhere else is a
+   * switch that moves and changes nothing.
+   */
+  it('offers the page copy regions and dispatches a select event', async () => {
+    mockEnabled = true;
+    const selectListener = vi.fn();
+    window.addEventListener('indivisible:select-region', selectListener);
+
+    await act(async () => {
+      root.render(<EditorialButton />);
+    });
+    await act(async () => {
+      dropdownTriggerOpen(container);
+    });
+
+    // `/about` is mocked as the pathname and registers four regions.
+    for (const label of [
+      'Mission Statement',
+      'Who We Are',
+      'Nonviolence Commitment',
+      'Join Our Next Gathering',
+    ]) {
+      expect(container.textContent).toContain(label);
+    }
+
+    const regionBtn = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === 'Mission Statement'
+    );
+    expect(regionBtn).not.toBeUndefined();
+
+    await act(async () => {
+      regionBtn?.click();
+    });
+
+    expect(selectListener).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: { regionId: 'about-mission', at: expect.any(Number) } })
+    );
+    window.removeEventListener('indivisible:select-region', selectListener);
+  });
+
+  /**
+   * A section list from another region must not be adopted.
+   *
+   * Both the pathname and the region are part of the comparison now that one
+   * page holds several documents. Accepting a stale list would offer controls
+   * that address blocks in a document the operator has already left.
+   */
+  it('ignores a published section list from a different region', async () => {
+    mockEnabled = true;
+
+    await act(async () => {
+      root.render(<EditorialButton />);
+    });
+
+    // A list for a region the header is not on. The header stays on the whole
+    // page (`activeRegionId === null`), so this publication is about a different
+    // document and must be dropped rather than rendered.
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('indivisible:page-sections-updated', {
+          detail: {
+            sections: [
+              { index: 0, label: 'Wipe me', blockType: null, blockIndex: 0, enabled: true },
+            ],
+            pathname: '/about',
+            regionId: 'about-mission',
+          },
+        })
+      );
+    });
+
+    await act(async () => {
+      dropdownTriggerOpen(container);
+    });
+
+    const jumpButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[title]')
+    ).filter((button) => button.getAttribute('title')?.startsWith('Jump to'));
+    expect(jumpButtons).toHaveLength(0);
+    expect(container.textContent).not.toContain('Wipe me');
+
+    // A matching publication for the whole page is still adopted.
+    await act(async () => {
+      publishSections([{ index: 1, label: 'Whole page copy', blockIndex: 1 }]);
+    });
+    const adopted = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[title]')
+    ).filter((button) => button.getAttribute('title')?.startsWith('Jump to'));
+    expect(adopted).toHaveLength(1);
+  });
 });
+
+/** Open the editorial menu the way a test (and a keyboard user) does. */
+function dropdownTriggerOpen(container: HTMLElement) {
+  const trigger = container.querySelector<HTMLButtonElement>(
+    'button[aria-label="Toggle section editor menu"]'
+  );
+  trigger?.click();
+}

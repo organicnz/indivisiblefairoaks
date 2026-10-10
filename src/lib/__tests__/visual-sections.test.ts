@@ -7,6 +7,7 @@ import {
   buildVisualSections,
   canMoveSection,
   discoverPageSections,
+  isPublishedSectionListCurrent,
   moveTargetForSection,
   publishSections,
   sectionForDomIndex,
@@ -215,5 +216,57 @@ describe('VISUAL_EDIT_PARAM', () => {
     // Re-exported here so a rename that breaks the shared surface fails next to
     // the code that depends on it rather than in the browser.
     expect(VISUAL_EDIT_PARAM).toBe('visual-edit');
+  });
+});
+
+describe('isPublishedSectionListCurrent', () => {
+  /**
+   * One page can hold several documents now — one per copy region — so a
+   * publication is only "about this page" when its region matches too.
+   */
+  it('accepts a publication for the page and region on screen', () => {
+    expect(
+      isPublishedSectionListCurrent(
+        { pathname: '/about', regionId: 'about-mission' },
+        '/about',
+        'about-mission'
+      )
+    ).toBe(true);
+    // The whole page is region null.
+    expect(
+      isPublishedSectionListCurrent({ pathname: '/about', regionId: null }, '/about', null)
+    ).toBe(true);
+  });
+
+  it('rejects a publication from another page', () => {
+    expect(
+      isPublishedSectionListCurrent({ pathname: '/choir', regionId: null }, '/about', null)
+    ).toBe(false);
+  });
+
+  it('rejects a publication from another region on the same page', () => {
+    // The exact bug: switching regions in the header menu used to leave the
+    // previous region's section list on screen, offering controls that addressed
+    // blocks in a document the operator had left.
+    expect(
+      isPublishedSectionListCurrent(
+        { pathname: '/about', regionId: 'about-who' },
+        '/about',
+        'about-mission'
+      )
+    ).toBe(false);
+    expect(
+      isPublishedSectionListCurrent(
+        { pathname: '/about', regionId: 'about-mission' },
+        '/about',
+        null
+      )
+    ).toBe(false);
+  });
+
+  it('treats a missing regionId as the whole page', () => {
+    // `undefined` means the publisher predates the field; the list must still be
+    // adopted rather than silently dropped.
+    expect(isPublishedSectionListCurrent({ pathname: '/about' }, '/about', null)).toBe(true);
   });
 });

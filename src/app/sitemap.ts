@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import { cacheLife, cacheTag } from 'next/cache';
+import { COPY_REGION_SLUG_PREFIX } from '@/lib/copy-regions';
 import { env } from '@/lib/env';
 import { buildVisibilityFilter } from '@/lib/queries/content';
 
@@ -78,6 +79,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]);
 
   for (const page of contentResult.data ?? []) {
+    // A copy region (`copy-*`) is a slice of a coded page rendered inside that
+    // page — it is not a page of its own. Advertising it as `/<slug>` would put
+    // a URL in the sitemap that no route serves and no navigation reaches.
+    if (!page.slug || page.slug.startsWith(COPY_REGION_SLUG_PREFIX)) continue;
     entries.push({
       url: `/${page.slug}`,
       lastModified: page.updated_at ?? undefined,
