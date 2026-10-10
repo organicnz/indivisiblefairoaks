@@ -21,6 +21,7 @@ import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
 import type { TickerItem } from '@/components/ui/CivicActionTicker';
 import { CivicActionTicker } from '@/components/ui/CivicActionTicker';
 import { VgpuCivicAtmosphere } from '@/components/ui/VgpuCivicAtmosphere';
+import { gatheringCard, selectMeetingEvent } from '@/lib/civic-events';
 import { getEvents, getGalleryPhotos } from '@/lib/queries/civic';
 import { getStorageUrl } from '@/lib/supabase';
 import type { GalleryPhotoView } from '@/types/gallery';
@@ -64,6 +65,10 @@ export default async function HomePage() {
     href: '/events',
     badge: e.category,
   }));
+
+  // Dynamic gathering card (issue #37): the meeting row drives the alert card,
+  // so the events table — not JSX — is where the next meeting gets updated.
+  const card = gatheringCard(selectMeetingEvent(events));
 
   return (
     <div className="flex flex-col w-full">
@@ -166,50 +171,53 @@ export default async function HomePage() {
       <CivicActionTicker items={tickerItems} />
 
       {/* Urgent Community Gathering Alert Card */}
-      <section className="bg-secondary border-b border-white/10 py-8">
+      {/* Light section: breaks the dark hero run so the page alternates instead
+          of stacking navy bands. Icon tile stays dark navy with a bright icon —
+          the house rule for light sections, so contrast needs no re-measuring.
+          Content is dynamic (issue #37): title, date, location and links come
+          from the `events` table via `gatheringCard`, so updating the row moves
+          this card with no deploy. The food-drive note stays static — it is
+          meeting policy, not event data. */}
+      <section className="bg-white border-b border-border py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl bg-gradient-to-r from-blue-900/60 via-slate-800 to-indigo-950/60 border border-primary-bright/30 p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
+          <div className="rounded-2xl bg-surface-muted border border-border p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-card">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary-bright/30 border border-primary-on-dark-muted/40 flex items-center justify-center text-accent-gold shrink-0 mt-1">
+              <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-accent-gold shrink-0 mt-1">
                 <Calendar size={26} />
               </div>
               <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-accent-gold text-[11px] font-bold uppercase tracking-wide mb-1">
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary text-[11px] font-bold uppercase tracking-wide mb-1">
                   Next Community Gathering
                 </div>
-                <h2 className="text-xl sm:text-2xl font-black text-white">
-                  Monthly Chapter Meeting & Food Drive
-                </h2>
-                <p className="text-sm text-ink-on-dark mt-1 flex flex-wrap items-center gap-y-1 gap-x-4">
-                  <span className="font-semibold text-white">
-                    Tuesday, September 1 • 6:30 PM – 8:00 PM
-                  </span>
-                  <span className="text-ink-muted-on-dark flex items-center gap-1">
-                    <MapPin size={14} className="text-accent-gold" />
-                    St. Michael&#39;s Episcopal Church, 2140 Mission Ave, Carmichael
+                <h2 className="text-xl sm:text-2xl font-black text-secondary">{card.title}</h2>
+                <p className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-y-1 gap-x-4">
+                  <span className="font-semibold text-secondary">{card.dateLine}</span>
+                  <span className="flex items-center gap-1">
+                    <MapPin size={14} className="text-accent" />
+                    {card.locationLine}
                   </span>
                 </p>
-                <p className="text-xs text-amber-200/90 mt-2">
-                  🥫 <strong>Food Bank Drive:</strong> Please bring a can or box of non-perishable
-                  food to support our local community food pantry.
+                <p className="text-xs text-muted-foreground mt-2">
+                  🥫 <strong className="text-secondary">Food Bank Drive:</strong> Please bring a can
+                  or box of non-perishable food to support our local community food pantry.
                 </p>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full md:w-auto">
               <a
-                href="https://calendar.google.com/calendar/render?action=TEMPLATE&text=Indivisible+Fair+Oaks-Carmichael+Monthly+Meeting&dates=20260901T183000/20260901T200000&details=Monthly+community+gathering+and+food+drive.+Bring+non-perishable+food+for+the+local+food+bank.&location=St.+Michael%27s+Episcopal+Church%2C+2140+Mission+Ave%2C+Carmichael%2C+CA"
+                href={card.calendarUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto text-center px-4 py-3 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs uppercase tracking-wider transition-all"
+                className="w-full sm:w-auto text-center px-4 py-3 rounded-xl border-2 border-secondary text-secondary hover:bg-secondary hover:text-white font-semibold text-xs uppercase tracking-wider transition-all"
               >
                 + Add to Calendar
               </a>
               <a
-                href="https://www.mobilize.us/indivisible/"
+                href={card.rsvpUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto text-center px-6 py-3 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:scale-105"
+                className="w-full sm:w-auto text-center px-6 py-3 rounded-xl bg-accent-gold hover:bg-accent-gold text-secondary font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:scale-105"
               >
                 RSVP via Mobilize
               </a>
@@ -219,16 +227,18 @@ export default async function HomePage() {
       </section>
 
       {/* Four Pillars / Mission Section */}
-      <section className="py-16 md:py-24 bg-secondary text-white">
+      {/* Light section: white cards on surface-muted keep the page alternating.
+          Eyebrows use primary-ink (accent-gold is 2.15:1 on white — surface only). */}
+      <section className="py-16 md:py-24 bg-surface-muted text-secondary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-accent-gold text-xs font-black uppercase tracking-widest block mb-2">
+            <span className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2">
               Our Core Principles
             </span>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight mb-4">
               What We Stand For & How We Win
             </h2>
-            <p className="text-ink-muted-on-dark text-base leading-relaxed">
+            <p className="text-muted-foreground text-base leading-relaxed">
               Rooted in the national Indivisible Guide, our local chapter works tirelessly across
               the Sacramento region to defend our constitutional democracy through grassroots
               mobilization.
@@ -236,45 +246,45 @@ export default async function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/50 transition-all group">
-              <div className="w-12 h-12 rounded-xl bg-blue-900/40 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all group">
+              <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Shield size={24} />
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Stop Authoritarianism</h3>
-              <p className="text-sm text-ink-muted-on-dark leading-relaxed">
+              <h3 className="text-lg font-bold text-secondary mb-2">Stop Authoritarianism</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Countering anti-democratic overreach, defending executive accountability, and
                 raising public alarm through visible resistance.
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/50 transition-all group">
-              <div className="w-12 h-12 rounded-xl bg-blue-900/40 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all group">
+              <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Vote size={24} />
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Defend Democratic Norms</h3>
-              <p className="text-sm text-ink-muted-on-dark leading-relaxed">
+              <h3 className="text-lg font-bold text-secondary mb-2">Defend Democratic Norms</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Safeguarding free and fair elections, expanding voting access, educating youth
                 voters, and standing up for civil liberties.
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/50 transition-all group">
-              <div className="w-12 h-12 rounded-xl bg-blue-900/40 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all group">
+              <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Megaphone size={24} />
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Elect Bold Leaders</h3>
-              <p className="text-sm text-ink-muted-on-dark leading-relaxed">
+              <h3 className="text-lg font-bold text-secondary mb-2">Elect Bold Leaders</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Direct voter canvassing, phone banks, candidate accountability, and mobilizing
                 high-turnout civic engagement in every cycle.
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/50 transition-all group">
-              <div className="w-12 h-12 rounded-xl bg-blue-900/40 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all group">
+              <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Users size={24} />
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Secure Progressive Policy</h3>
-              <p className="text-sm text-ink-muted-on-dark leading-relaxed">
+              <h3 className="text-lg font-bold text-secondary mb-2">Secure Progressive Policy</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 Advocating for justice, reproductive autonomy, climate resilience, and economic
                 equity through community solidarity.
               </p>
@@ -372,11 +382,13 @@ export default async function HomePage() {
       </section>
 
       {/* Voter Resources Spotlight */}
-      <section className="py-16 md:py-24 bg-secondary text-white">
+      {/* Light section: white cards on white need a visible border — border-border
+          plus shadow-card carries the separation instead of a tinted surface. */}
+      <section className="py-16 md:py-24 bg-white text-secondary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
             <div>
-              <span className="text-accent-gold text-xs font-black uppercase tracking-widest block mb-2">
+              <span className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2">
                 Empowering Every Voter
               </span>
               <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
@@ -385,7 +397,7 @@ export default async function HomePage() {
             </div>
             <Link
               href="/voter-info"
-              className="inline-flex items-center gap-2 text-sm font-bold text-primary-on-dark-muted hover:text-primary-on-dark transition-colors uppercase tracking-wider"
+              className="inline-flex items-center gap-2 text-sm font-bold text-primary-ink hover:text-primary-dark transition-colors uppercase tracking-wider"
             >
               <span>View All 7 Voter Guides</span>
               <ArrowRight size={16} />
@@ -393,64 +405,64 @@ export default async function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 rounded-2xl bg-secondary/70 border border-white/10 hover:border-slate-700 transition-all flex flex-col justify-between">
+            <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
               <div>
-                <div className="w-10 h-10 rounded-lg bg-primary-bright/20 text-primary-on-dark-muted flex items-center justify-center mb-4">
+                <div className="w-10 h-10 rounded-lg bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4">
                   <FileText size={20} />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">
+                <h3 className="text-lg font-bold text-secondary mb-2">
                   Sacramento County Elected Officials
                 </h3>
-                <p className="text-xs text-ink-muted-on-dark leading-relaxed mb-4">
+                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
                   Direct contact information, phone numbers, and offices for local, state, and
                   federal representatives serving our district.
                 </p>
               </div>
               <Link
                 href="/voter-info"
-                className="text-xs font-bold text-accent-gold hover:text-accent-gold flex items-center gap-1.5"
+                className="text-xs font-bold text-primary-ink hover:text-primary-dark flex items-center gap-1.5"
               >
                 <span>Access Guide & Directory</span>
                 <ArrowRight size={14} />
               </Link>
             </div>
 
-            <div className="p-6 rounded-2xl bg-secondary/70 border border-white/10 hover:border-slate-700 transition-all flex flex-col justify-between">
+            <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
               <div>
-                <div className="w-10 h-10 rounded-lg bg-primary-bright/20 text-primary-on-dark-muted flex items-center justify-center mb-4">
+                <div className="w-10 h-10 rounded-lg bg-secondary text-accent-gold flex items-center justify-center mb-4">
                   <Vote size={20} />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">Pre-Registration at 16</h3>
-                <p className="text-xs text-ink-muted-on-dark leading-relaxed mb-4">
+                <h3 className="text-lg font-bold text-secondary mb-2">Pre-Registration at 16</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
                   California youth age 16 and 17 can pre-register now so they are automatically
                   registered to cast their ballot the day they turn 18.
                 </p>
               </div>
               <Link
                 href="/voter-info"
-                className="text-xs font-bold text-accent-gold hover:text-accent-gold flex items-center gap-1.5"
+                className="text-xs font-bold text-primary-ink hover:text-primary-dark flex items-center gap-1.5"
               >
                 <span>Youth Voting Guide</span>
                 <ArrowRight size={14} />
               </Link>
             </div>
 
-            <div className="p-6 rounded-2xl bg-secondary/70 border border-white/10 hover:border-slate-700 transition-all flex flex-col justify-between">
+            <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
               <div>
-                <div className="w-10 h-10 rounded-lg bg-primary-bright/20 text-primary-on-dark-muted flex items-center justify-center mb-4">
+                <div className="w-10 h-10 rounded-lg bg-secondary text-emerald-400 flex items-center justify-center mb-4">
                   <Shield size={20} />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">
+                <h3 className="text-lg font-bold text-secondary mb-2">
                   Rights Restoration & Unhoused Voting
                 </h3>
-                <p className="text-xs text-ink-muted-on-dark leading-relaxed mb-4">
+                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
                   Homeless is not voteless. Learn about voting rights restoration for formerly
                   incarcerated Californians and unhoused residents.
                 </p>
               </div>
               <Link
                 href="/voter-info"
-                className="text-xs font-bold text-accent-gold hover:text-accent-gold flex items-center gap-1.5"
+                className="text-xs font-bold text-primary-ink hover:text-primary-dark flex items-center gap-1.5"
               >
                 <span>Read Rights Overview</span>
                 <ArrowRight size={14} />
@@ -464,15 +476,16 @@ export default async function HomePage() {
       <HomeGalleryPreview photos={galleryPhotos} />
 
       {/* Non-violent Action Commitment Banner */}
-      <section className="bg-secondary py-12 border-t border-b border-white/10">
+      {/* Light section: the dark tile keeps the emerald icon at full contrast. */}
+      <section className="bg-surface-muted py-12 border-t border-b border-border">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 mb-1">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-secondary text-emerald-400 mb-1">
             <Shield size={24} />
           </div>
-          <h2 className="text-2xl font-black text-white tracking-tight">
+          <h2 className="text-2xl font-black text-secondary tracking-tight">
             Our Core Commitment: Disciplined Non-Violent Action
           </h2>
-          <p className="text-sm text-ink-on-dark leading-relaxed">
+          <p className="text-sm text-muted-foreground leading-relaxed">
             A core principle behind all Indivisible events is an unwavering commitment to nonviolent
             action. We expect all participants to act lawfully, avoid civil disobedience unless
             specifically planned and coordinated, de-escalate any potential confrontation with those

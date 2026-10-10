@@ -94,6 +94,54 @@ describe('ROUTES', () => {
   });
 });
 
+describe('ROUTES children (dropdown)', () => {
+  it('keeps the parent active on its own page when it has children', () => {
+    const voterInfo = ROUTES.find((route) => route.href === '/voter-info');
+    if (!voterInfo) throw new Error('ROUTES must contain a Voter Info entry');
+    expect(voterInfo.children?.length).toBeGreaterThan(0);
+    // Anchors share the page pathname, so the parent stays highlighted.
+    expect(isActiveRoute('/voter-info', voterInfo)).toBe(true);
+  });
+
+  it('leads with the overview page so existing links keep working', () => {
+    for (const route of ROUTES) {
+      if (!route.children) continue;
+      expect(route.children[0]?.href).toBe(route.href);
+      expect(route.children[0]?.external).not.toBe(true);
+    }
+  });
+
+  it('gives every dropdown entry a unique label', () => {
+    for (const route of ROUTES) {
+      if (!route.children) continue;
+      const labels = route.children.map((child) => child.label);
+      expect(new Set(labels).size, `${route.href} children`).toBe(labels.length);
+    }
+  });
+
+  it('keeps internal children root-relative and marks externals explicitly', () => {
+    for (const route of ROUTES) {
+      for (const child of route.children ?? []) {
+        if (child.external) {
+          expect(child.href.startsWith('https://'), child.label).toBe(true);
+        } else {
+          expect(child.href.startsWith('/'), child.label).toBe(true);
+          expect(child.href).not.toContain('://');
+        }
+      }
+    }
+  });
+
+  it('points page anchors at the parent page', () => {
+    for (const route of ROUTES) {
+      for (const child of route.children ?? []) {
+        if (child.external || !child.href.includes('#')) continue;
+        expect(child.href.startsWith(`${route.href}#`), child.label).toBe(true);
+      }
+    }
+  });
+});
+
 describe('LEGACY_REDIRECTS', () => {
   it('only issues permanent redirects', () => {
     for (const redirect of LEGACY_REDIRECTS) {
