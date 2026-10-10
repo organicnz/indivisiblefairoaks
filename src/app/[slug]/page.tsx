@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { ROBOTS, siteUrl } from '@/config/site';
+import { isCopyRegionSlug } from '@/lib/copy-regions';
 import { pageMetadata } from '@/lib/metadata';
 import { isOwnImageUrl } from '@/lib/own-media';
 import { getAllPublishedSlugs, getPublishedContent } from '@/lib/queries/content';
@@ -98,6 +99,15 @@ function ContentSkeleton() {
 
 async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
   const slug = (await params).slug;
+
+  // A copy region is a *slice* of a coded page, rendered inside that page — it
+  // is not a page of its own. Requesting `copy-home-hero` directly would
+  // otherwise serve the slice at its own URL with the site chrome around it: a
+  // duplicate of content that already lives on `/`, reachable by anyone who can
+  // guess the prefix. `getAllPublishedSlugs` keeps the prefix out of the static
+  // set; this closes the on-demand render of the same path.
+  if (isCopyRegionSlug(slug)) return notFound();
+
   const content = await getPublishedContent(slug);
 
   if (!content) {

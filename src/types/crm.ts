@@ -142,6 +142,28 @@ export interface CRMBroadcastEmailEvent {
 // 3. Supabase S3 Storage & Media Assets
 // ==========================================
 
+/**
+ * The folders inside the single public `media` bucket.
+ *
+ * Declared here because it is the join key between three modules: the upload
+ * picks one, the list is scoped by one, and `deleteCRMMedia` chooses the
+ * reference check — which table can still be pointing at the file — from it.
+ * When it lived inline in `actions/crm.ts` the listing's `folder: string` could
+ * not agree with the uploader's union, and "what folder was this file in" had
+ * two answers.
+ */
+export type MediaFolder = 'crm' | 'content' | 'products';
+
+/**
+ * One file in the `media` bucket — listing, picking and uploading all return
+ * this, deliberately.
+ *
+ * `folder` is the union, not `string`: `getCRMMediaFiles` already produced the
+ * union and `uploadCRMMedia` re-declared the same six fields with
+ * `folder: MediaFolder` spelled inline, so the two copies of "what an uploaded
+ * file is" could drift — and a drift there is a file landing in the wrong
+ * namespace, where `deleteCRMMedia` runs the wrong reference check.
+ */
 export interface CRMMediaItem {
   id: string;
   name: string;
@@ -150,9 +172,16 @@ export interface CRMMediaItem {
   size: number;
   mimeType: string;
   createdAt: string;
-  folder: string;
-  width?: number | null;
-  height?: number | null;
+  folder: MediaFolder;
+  /**
+   * Measured from the file's bytes on upload. `null` rather than optional so a
+   * picked file and an uploaded one have the same shape — Storage's `list()`
+   * does not report dimensions, and `null` says "not measured" where an absent
+   * key says "this type has no such field", which is what made the two copies
+   * diverge.
+   */
+  width: number | null;
+  height: number | null;
 }
 
 export interface CRMMediaListResult {
@@ -160,6 +189,12 @@ export interface CRMMediaListResult {
   folders: string[];
 }
 
+/**
+ * Upload outcome: the item that was written, or the reason it was not.
+ *
+ * The envelope is reused rather than restated so a caller cannot be handed a
+ * shape the uploader does not actually return.
+ */
 export interface CRMMediaUploadResult {
   success: boolean;
   error?: string;

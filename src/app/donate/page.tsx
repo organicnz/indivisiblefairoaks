@@ -1,5 +1,6 @@
 import { Heart, Megaphone, Music, Shield, Users } from 'lucide-react';
 import type { Metadata } from 'next';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import { ActBlueDonationCalculator } from '@/components/ui/ActBlueDonationCalculator';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
@@ -42,51 +43,53 @@ export default function DonatePage() {
             How Your Dollars Make A Difference
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-primary-bright/20 text-primary-on-dark-muted flex items-center justify-center">
-                <Users size={20} />
+          <CopyRegion id="donate-impact">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-primary-bright/20 text-primary-on-dark-muted flex items-center justify-center">
+                  <Users size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-white">Community Meeting Spaces</h3>
+                <p className="text-xs text-ink-on-dark leading-relaxed">
+                  Rent for our monthly meeting spaces (such as St. Michael&apos;s Church hall) to
+                  provide safe, welcoming gathering venues for residents and guest speakers.
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-white">Community Meeting Spaces</h3>
-              <p className="text-xs text-ink-on-dark leading-relaxed">
-                Rent for our monthly meeting spaces (such as St. Michael&apos;s Church hall) to
-                provide safe, welcoming gathering venues for residents and guest speakers.
-              </p>
-            </div>
 
-            <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-accent-gold/20 text-accent-gold flex items-center justify-center">
-                <Music size={20} />
+              <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-accent-gold/20 text-accent-gold flex items-center justify-center">
+                  <Music size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-white">Resistance Choir Sound Gear</h3>
+                <p className="text-xs text-ink-on-dark leading-relaxed">
+                  Battery-powered amplifiers, portable microphones, sheet music printing, and
+                  acoustic gear to carry our voices across busy intersections.
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-white">Resistance Choir Sound Gear</h3>
-              <p className="text-xs text-ink-on-dark leading-relaxed">
-                Battery-powered amplifiers, portable microphones, sheet music printing, and acoustic
-                gear to carry our voices across busy intersections.
-              </p>
-            </div>
 
-            <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-600/20 text-rose-400 flex items-center justify-center">
-                <Megaphone size={20} />
+              <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-600/20 text-rose-400 flex items-center justify-center">
+                  <Megaphone size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-white">Protest Banners & Supplies</h3>
+                <p className="text-xs text-ink-on-dark leading-relaxed">
+                  Weatherproof protest signs, high-visibility banners for street demonstrations, art
+                  supplies for youth rallies, and flyers.
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-white">Protest Banners & Supplies</h3>
-              <p className="text-xs text-ink-on-dark leading-relaxed">
-                Weatherproof protest signs, high-visibility banners for street demonstrations, art
-                supplies for youth rallies, and flyers.
-              </p>
-            </div>
 
-            <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <Shield size={20} />
+              <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <Shield size={20} />
+                </div>
+                <h3 className="text-lg font-bold text-white">Voter Outreach & Registration</h3>
+                <p className="text-xs text-ink-on-dark leading-relaxed">
+                  Printed guides for youth pre-registration, rights restoration flyers for formerly
+                  incarcerated community members, and postcard stamps.
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-white">Voter Outreach & Registration</h3>
-              <p className="text-xs text-ink-on-dark leading-relaxed">
-                Printed guides for youth pre-registration, rights restoration flyers for formerly
-                incarcerated community members, and postcard stamps.
-              </p>
             </div>
-          </div>
+          </CopyRegion>
         </div>
 
         {/* Legal Disclaimer */}

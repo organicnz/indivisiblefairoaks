@@ -1,11 +1,12 @@
 'use client';
 
-import { CalendarCheck, Megaphone, UsersRound } from 'lucide-react';
+import { CalendarCheck, Layers, Megaphone, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const ITEMS = [
   { href: '/admin/crm', label: 'Directory', icon: UsersRound },
+  { href: '/admin/crm/segments', label: 'Segments', icon: Layers },
   { href: '/admin/crm/tasks', label: 'Follow-ups', icon: CalendarCheck },
   { href: '/admin/crm/broadcasts', label: 'Broadcasts', icon: Megaphone },
 ];

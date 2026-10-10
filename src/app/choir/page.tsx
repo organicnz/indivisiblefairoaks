@@ -1,6 +1,7 @@
 import { Calendar, CheckCircle2, Clock, ExternalLink, Mail, MapPin, Music } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { CopyRegion } from '@/components/cms/CopyRegion';
 import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
 import { ChoirSongbookExplorer } from '@/components/ui/ChoirSongbookExplorer';
 import { VgpuChoirHarmonics } from '@/components/ui/VgpuChoirHarmonics';
@@ -85,23 +86,25 @@ export default function ChoirPage() {
               </div>
 
               <div className="space-y-4 text-sm text-ink-on-dark">
-                <div className="flex items-start gap-3">
-                  <Clock className="text-primary-on-dark-muted shrink-0 mt-0.5" size={18} />
-                  <div>
-                    <strong className="text-white block">Every Other Wednesday</strong>
-                    <span className="text-xs text-ink-muted-on-dark">6:30 PM – 8:00 PM</span>
+                <CopyRegion id="choir-schedule">
+                  <div className="flex items-start gap-3">
+                    <Clock className="text-primary-on-dark-muted shrink-0 mt-0.5" size={18} />
+                    <div>
+                      <strong className="text-white block">Every Other Wednesday</strong>
+                      <span className="text-xs text-ink-muted-on-dark">6:30 PM – 8:00 PM</span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-start gap-3">
-                  <MapPin className="text-primary-on-dark-muted shrink-0 mt-0.5" size={18} />
-                  <div>
-                    <strong className="text-white block">Carmichael Rehearsal Space</strong>
-                    <span className="text-xs text-ink-muted-on-dark">
-                      Exact address and parking instructions provided upon registration.
-                    </span>
+                  <div className="flex items-start gap-3">
+                    <MapPin className="text-primary-on-dark-muted shrink-0 mt-0.5" size={18} />
+                    <div>
+                      <strong className="text-white block">Carmichael Rehearsal Space</strong>
+                      <span className="text-xs text-ink-muted-on-dark">
+                        Exact address and parking instructions provided upon registration.
+                      </span>
+                    </div>
                   </div>
-                </div>
+                </CopyRegion>
               </div>
 
               <div className="pt-2">

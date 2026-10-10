@@ -56,6 +56,7 @@ import {
   parseHtml,
   serializeBlocks,
 } from '@/lib/blocks';
+import { copyRegionSlug, getPageCopyRegions } from '@/lib/copy-regions';
 import { clearDraft, isWorthRecovering, readDraft, writeDraft } from '@/lib/draft-recovery';
 import { cmsSlugForPath } from '@/lib/edit-target';
 // Aliased: `History` is the DOM's own global type. Importing it unaliased would
@@ -238,6 +239,29 @@ export function VisualEditOverlay() {
   const { enabled, toggle } = useVisualEditMode(pathname);
   const { isAdmin, target } = useEditContext(pathname);
 
+  // ── The document being edited ──────────────────────────────────────────────
+  //
+  // A coded page has no CMS row of its own — `RESERVED_SLUGS` refuses one,
+  // because a slug matching an App Router segment is shadowed and unreachable.
+  // So the editable unit on such a page is a *copy region*: a named slice that
+  // owns its own `copy-`-prefixed row. The whole-page document still exists and
+  // is what `[slug]` routes use; here it is simply the first option, "whole
+  // page", and it is picked by default when the page has no regions.
+  //
+  // One active document at a time, and every piece of overlay state (row,
+  // blocks, history, dirty, draft scope) belongs to it. Switching regions
+  // re-runs `loadContentData`, which is the only writer of those.
+  const [activeRegionId, setActiveRegionId] = useState<string | null>(null);
+  const pageRegions = useMemo(() => getPageCopyRegions(pathname), [pathname]);
+  const documentSlug = useMemo(
+    () => (activeRegionId ? copyRegionSlug(activeRegionId) : cmsSlugForPath(pathname)),
+    [activeRegionId, pathname]
+  );
+  const activeRegion = useMemo(
+    () => pageRegions.find((region) => region.id === activeRegionId) ?? null,
+    [pageRegions, activeRegionId]
+  );
+
   const rootRef = useRef<HTMLElement | null>(null);
   /**
    * The section model: one entry per block, each paired with the element that
@@ -368,6 +392,14 @@ export function VisualEditOverlay() {
   const listItemsId = useId();
 
   const findEffectiveVisualEditRoot = useCallback((): HTMLElement | null => {
+    // A copy region is its own section root: its children are the copy an admin
+    // edits, so pairing blocks against the page's sections would draw frames
+    // over unrelated chrome.
+    if (activeRegionId) {
+      const region = document.querySelector<HTMLElement>(`[data-copy-region="${activeRegionId}"]`);
+      if (region) return region;
+    }
+
     const markedRoot = document.querySelector<HTMLElement>(`[${VISUAL_EDIT_ROOT_ATTR}]`);
     if (markedRoot) return markedRoot;
 
@@ -383,7 +415,7 @@ export function VisualEditOverlay() {
     }
 
     return main;
-  }, []);
+  }, [activeRegionId]);
 
   /**
    * The element that renders a given block, or null when the block has none.
@@ -407,18 +439,25 @@ export function VisualEditOverlay() {
 
   // Load content row and blocks when visual editing is turned on
   const loadContentData = useCallback(async () => {
-    let slug = cmsSlugForPath(pathname);
-    if (!slug && (pathname === '/' || pathname === '')) {
+    // A region is addressed by its own slug; the whole page keeps the old
+    // slug-from-path behaviour, including the `home` fallback for `/`.
+    let slug: string | null = documentSlug;
+    const isRegion = activeRegionId !== null;
+    if (!isRegion && !slug && (pathname === '/' || pathname === '')) {
       slug = 'home';
     }
+    // The edit URL targets a specific row for the page document, and a region is
+    // never that row, so it is only honoured when no region is active.
+    const rowId = isRegion
+      ? null
+      : target?.editUrl
+        ? Number.parseInt(target.editUrl.split('/').pop() || '', 10)
+        : null;
 
     try {
       let row = null;
-      if (target?.editUrl) {
-        const id = Number.parseInt(target.editUrl.split('/').pop() || '', 10);
-        if (!Number.isNaN(id) && id > 0) {
-          row = await getContentForEdit(id);
-        }
+      if (rowId && !Number.isNaN(rowId) && rowId > 0) {
+        row = await getContentForEdit(rowId);
       }
       if (!row && slug) {
         row = await getContentBySlugForEdit(slug);
@@ -438,7 +477,9 @@ export function VisualEditOverlay() {
         // write a document that is already on the server.
         setSavedBody(serializeBlocks(parsed));
       } else {
-        // Fallback for pages not yet in CMS: extract real blocks from live DOM
+        // Fallback for a page or region with no CMS row yet: extract real blocks
+        // from the live DOM, so the operator edits what they can see rather than
+        // an empty document.
         setContentRow(null);
         const resolvedSlug =
           slug ||
@@ -449,7 +490,8 @@ export function VisualEditOverlay() {
           'home';
         setPageSlug(resolvedSlug);
         setPageTitle(
-          document.querySelector('h1')?.textContent?.trim() ||
+          (isRegion ? activeRegion?.label : null) ||
+            document.querySelector('h1')?.textContent?.trim() ||
             target?.label ||
             resolvedSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
         );
@@ -467,20 +509,23 @@ export function VisualEditOverlay() {
       setBlocks(extracted);
       setSavedBody(serializeBlocks(extracted));
     }
-  }, [pathname, target, findEffectiveVisualEditRoot]);
+  }, [activeRegion, activeRegionId, documentSlug, findEffectiveVisualEditRoot, pathname, target]);
 
-  // Connect / Initialize a static page into a Supabase CMS row
+  // Reload whenever the active document changes — switching regions must clear
+  // the previous document's blocks, or the operator edits one region's copy
+  // while looking at another's.
+  useEffect(() => {
+    if (activeRegionId === null) return;
+    loadContentData();
+  }, [activeRegionId, loadContentData]);
+
+  // Connect / Initialize a document into a Supabase CMS row
   const handleInitializeCMSPage = async () => {
-    let slug = cmsSlugForPath(pathname);
-    if (!slug) {
-      if (pathname === '/' || pathname === '') slug = 'home';
-      else
-        slug = pathname
-          .replace(/^\//, '')
-          .replace(/[^a-z0-9-]/gi, '-')
-          .toLowerCase();
-    }
+    // A region always uses its own slug — writing `copy-home-hero` under the
+    // page's slug would shadow a route and silently vanish.
+    const slug = documentSlug ?? 'home';
     const title =
+      (activeRegionId ? activeRegion?.label : null) ||
       document.querySelector('h1')?.textContent?.trim() ||
       target?.label ||
       slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -555,11 +600,19 @@ export function VisualEditOverlay() {
     (next: VisualSection[], enabled: ReadonlySet<string>) => {
       window.dispatchEvent(
         new CustomEvent('indivisible:page-sections-updated', {
-          detail: { sections: publishSections(next, enabled), pathname },
+          // `regionId` is part of the publication, not just the pathname: the
+          // header compares on it so a section list cannot outlive the region it
+          // described. Without it, switching regions leaves the menu listing the
+          // previous region's sections.
+          detail: {
+            sections: publishSections(next, enabled),
+            pathname,
+            regionId: activeRegionId,
+          },
         })
       );
     },
-    [pathname]
+    [activeRegionId, pathname]
   );
 
   /**
@@ -605,6 +658,28 @@ export function VisualEditOverlay() {
     loadContentData();
     probeBackendHealth();
   }, [enabled, isAdmin, loadContentData, probeBackendHealth, findEffectiveVisualEditRoot]);
+
+  /**
+   * A region id belongs to the page it was chosen on.
+   *
+   * Navigating away without clearing it would address a region that does not
+   * exist here — and because region slugs are unique across the site, the
+   * overlay would happily load and edit a *different page's* copy while
+   * rendering frames over this one. The effect that keys on `activeRegionId`
+   * then reloads for the new page, so resetting first also keeps that reload
+   * from reading the old page's blocks.
+   *
+   * `pathname` is read through a ref rather than listed as a dependency: the
+   * dep is the *change*, not the value, and declaring it as a dep re-runs the
+   * effect on mount for a value that has not changed.
+   */
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    const previous = pathnameRef.current;
+    pathnameRef.current = pathname;
+    if (previous === pathname) return;
+    setActiveRegionId(null);
+  }, [pathname]);
 
   // Re-pair whenever the document or the DOM changes.
   useEffect(() => {
@@ -762,7 +837,10 @@ export function VisualEditOverlay() {
       const newBody = serializeBlocks(newBlocks);
 
       try {
-        let slug = contentRow?.slug || cmsSlugForPath(pathname);
+        // The row already knows its slug; a region with no row yet falls back to
+        // the region's own slug, never the page's, so a first save of a region
+        // cannot land on the page document.
+        let slug = contentRow?.slug || documentSlug;
         if (!slug) {
           if (pathname === '/' || pathname === '') slug = 'home';
           else
@@ -774,6 +852,7 @@ export function VisualEditOverlay() {
 
         const title =
           contentRow?.title ||
+          (activeRegionId ? activeRegion?.label : null) ||
           pageTitle ||
           document.querySelector('h1')?.textContent?.trim() ||
           target?.label ||
@@ -845,7 +924,18 @@ export function VisualEditOverlay() {
         setSavingBackend(false);
       }
     },
-    [contentRow, draftScope, pageFeaturedImage, pageTitle, pathname, router, target]
+    [
+      activeRegion,
+      activeRegionId,
+      contentRow,
+      documentSlug,
+      draftScope,
+      pageFeaturedImage,
+      pageTitle,
+      pathname,
+      router,
+      target,
+    ]
   );
 
   /**
@@ -1192,6 +1282,15 @@ export function VisualEditOverlay() {
       setIsSettingsOpen(true);
     };
 
+    const handleSelectRegion = (e: Event) => {
+      const detail = (e as CustomEvent<{ regionId?: string | null; at?: number }>).detail;
+      // Null and undefined both mean "the whole page"; a region id addresses the
+      // region's own document.
+      const next = typeof detail?.regionId === 'string' ? detail.regionId : null;
+      if (next === activeRegionId) return;
+      setActiveRegionId(next);
+    };
+
     window.addEventListener('indivisible:focus-section', handleFocusSection);
     window.addEventListener('indivisible:toggle-section-visual', handleToggleSectionVisual);
     window.addEventListener('indivisible:move-section', handleMoveSectionEvent);
@@ -1202,6 +1301,7 @@ export function VisualEditOverlay() {
     window.addEventListener('indivisible:open-media-library', handleOpenMediaLibrary);
     window.addEventListener('indivisible:open-revisions', handleOpenRevisions);
     window.addEventListener('indivisible:open-settings', handleOpenSettings);
+    window.addEventListener('indivisible:select-region', handleSelectRegion);
 
     return () => {
       window.removeEventListener('indivisible:focus-section', handleFocusSection);
@@ -1214,8 +1314,10 @@ export function VisualEditOverlay() {
       window.removeEventListener('indivisible:open-media-library', handleOpenMediaLibrary);
       window.removeEventListener('indivisible:open-revisions', handleOpenRevisions);
       window.removeEventListener('indivisible:open-settings', handleOpenSettings);
+      window.removeEventListener('indivisible:select-region', handleSelectRegion);
     };
   }, [
+    activeRegionId,
     enabled,
     isAdmin,
     handleAddNewSection,
@@ -1232,7 +1334,9 @@ export function VisualEditOverlay() {
     e.preventDefault();
     setSavingBackend(true);
     try {
-      let slug = pageSlug || cmsSlugForPath(pathname);
+      // A region's slug is the registry's, not a form field: the editor renders
+      // that field read-only for a region, so a rename cannot orphan it.
+      let slug = activeRegionId ? copyRegionSlug(activeRegionId) : pageSlug || documentSlug;
       if (!slug) {
         if (pathname === '/' || pathname === '') slug = 'home';
         else
@@ -1474,13 +1578,20 @@ export function VisualEditOverlay() {
         className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-5xl rounded-2xl border border-white/20 bg-secondary/95 p-3.5 text-ink-on-dark shadow-float backdrop-blur-md"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Page Info & Status */}
+          {/* Document Info & Status */}
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="size-2.5 rounded-full bg-accent-gold animate-pulse" />
               <PenLine size={16} className="text-accent-gold" aria-hidden="true" />
             </div>
             <div className="min-w-0">
+              {/*
+                Which document is being edited.
+
+                `contentRow?.title` is what the row is *called* in the CMS, which
+                for a region is the region's label; the region label is the
+                fallback so a region with no row yet still names itself.
+              */}
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black uppercase tracking-[0.15em] text-white truncate max-w-[200px] sm:max-w-[280px]">
                   {contentRow?.title || pageTitle || target?.label || pathname}
@@ -1505,7 +1616,11 @@ export function VisualEditOverlay() {
                     onClick={handleInitializeCMSPage}
                     disabled={savingBackend}
                     className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-accent/20 text-accent-gold hover:bg-accent/30"
-                    title="Click to sync page into Supabase content table"
+                    title={
+                      activeRegion
+                        ? `Create the CMS row for the ${activeRegion.label} region`
+                        : 'Click to sync page into Supabase content table'
+                    }
                   >
                     Connect to Supabase
                   </button>
@@ -1522,6 +1637,52 @@ export function VisualEditOverlay() {
               </p>
             </div>
           </div>
+
+          {/*
+            Which copy region is being edited.
+
+            A coded page cannot own a `content` row — a slug matching a route
+            segment is shadowed — so the editable unit on `/`, `/about` and the
+            other coded routes is a region. One row per region, one document
+            loaded at a time. The "Whole page" entry is the pre-region behaviour
+            and is what `[slug]` routes use.
+          */}
+          {pageRegions.length > 0 && (
+            // A fieldset, not a `role="group"`: the same set of controls is a
+            // native fieldset everywhere else in this file, and Biome's
+            // `useSemanticElements` is right that the role adds nothing a
+            // `<fieldset>` with a `<legend>` does not already say.
+            <fieldset className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/5 p-1">
+              <legend className="sr-only">Editable copy region</legend>
+              <button
+                type="button"
+                onClick={() => setActiveRegionId(null)}
+                aria-pressed={activeRegionId === null}
+                className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                  activeRegionId === null
+                    ? 'bg-accent-gold/20 text-accent-gold'
+                    : 'text-ink-muted-on-dark hover:text-white'
+                }`}
+              >
+                Whole page
+              </button>
+              {pageRegions.map((region) => (
+                <button
+                  key={region.id}
+                  type="button"
+                  onClick={() => setActiveRegionId(region.id)}
+                  aria-pressed={region.id === activeRegionId}
+                  className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                    region.id === activeRegionId
+                      ? 'bg-accent-gold/20 text-accent-gold'
+                      : 'text-ink-muted-on-dark hover:text-white'
+                  }`}
+                >
+                  {region.label}
+                </button>
+              ))}
+            </fieldset>
+          )}
 
           {/* Quick Actions */}
           <div className="flex flex-wrap items-center gap-2">
@@ -2442,14 +2603,39 @@ export function VisualEditOverlay() {
                 <label htmlFor={slugId} className="block text-xs font-bold text-slate-700 mb-1">
                   URL Slug
                 </label>
-                <input
-                  id={slugId}
-                  type="text"
-                  value={pageSlug}
-                  onChange={(e) => setPageSlug(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
-                />
+                {activeRegion ? (
+                  <>
+                    <input
+                      id={slugId}
+                      type="text"
+                      value={copyRegionSlug(activeRegion.id)}
+                      readOnly
+                      disabled
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+                    />
+                    {/*
+                      Read-only, and saying why. The slug is the registry's
+                      identity for this region — `CopyRegion` renders
+                      `copy-home-hero`, and renaming it here would leave the page
+                      rendering a row nobody reads while the page's copy stays
+                      frozen. That is the shadowed-CMS failure in a new costume.
+                    */}
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      This is the <strong>{activeRegion.label}</strong> copy region on{' '}
+                      <code className="font-mono">{pathname}</code>. Its slug is managed by the
+                      region, so it cannot be renamed here.
+                    </p>
+                  </>
+                ) : (
+                  <input
+                    id={slugId}
+                    type="text"
+                    value={pageSlug}
+                    onChange={(e) => setPageSlug(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+                  />
+                )}
               </div>
 
               <div>

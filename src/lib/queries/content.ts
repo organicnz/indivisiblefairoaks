@@ -1,5 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { isLegacySlug } from '@/config/legacy-redirects';
+import { isCopyRegionSlug } from '@/lib/copy-regions';
 import { env } from '@/lib/env';
 import { createPublicClient } from '@/lib/supabase-server';
 
@@ -55,9 +56,15 @@ export async function getAllPublishedSlugs() {
     // Drop slugs owned by a legacy 301. Those paths are served by the redirect map
     // in next.config.ts, so prerendering them here would build a page that can never
     // be reached — and would advertise a duplicate in the sitemap.
+    //
+    // Copy regions are dropped for the same reason with different mechanics: a
+    // region is a *slice* of a coded page (`copy-home-hero` renders inside `/`),
+    // so prerendering it as its own `[slug]` page would publish a page nobody
+    // wrote, at a URL nobody links to.
     const slugs = (data ?? [])
       .map((row) => row.slug)
       .filter((slug): slug is string => Boolean(slug) && !isLegacySlug(slug))
+      .filter((slug) => !isCopyRegionSlug(slug))
       .map((slug) => ({ slug }));
     return slugs.length > 0 ? slugs : [{ slug: '_sample' }];
   } catch {
@@ -78,4 +85,35 @@ export async function getPublishedContent(slug: string) {
     .or(buildVisibilityFilter(new Date().toISOString()))
     .single();
   return data;
+}
+
+/**
+ * The published body of a copy region, or null when it has none.
+ *
+ * A copy region is a slice of a coded page (`copy-home-hero` renders inside `/`),
+ * so it is read exactly like a page body: published, not embargoed, sanitized by
+ * the caller. It lives here rather than in the component so it is a *cached*
+ * read — `'use cache'` is what keeps `new Date()` out of a prerender. Reading it
+ * uncached made `/about` fail the build with "the unstable value `new Date()`
+ * while prerendering", and would also have cost a query per coded route per
+ * build, which the Conservation Mode budget in AGENTS.md exists to avoid.
+ */
+export async function getCopyRegionBody(slug: string): Promise<string | null> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('content', `content-${slug}`);
+  try {
+    const supabase = createPublicClient();
+    const { data } = await supabase
+      .from('content')
+      .select('body')
+      .eq('slug', slug)
+      .eq('status', 'publish')
+      .or(buildVisibilityFilter(new Date().toISOString()))
+      .maybeSingle();
+    return data?.body ?? null;
+  } catch {
+    // An unreadable region renders its fallback rather than blanking the page.
+    return null;
+  }
 }
