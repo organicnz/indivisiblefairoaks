@@ -63,10 +63,16 @@ async function requireAdminClient() {
   }
 
   const adminClient = await createAdminClient();
+  // Same profile lookup as the canonical `requireAdmin()` in
+  // `src/lib/admin-auth.ts` (`id.eq,user_id.eq`). A different `or()` here is
+  // how a user with `profiles.id ≠ auth.id` passes one gate and fails the
+  // other. Throw (not redirect): server actions surface redirects as opaque
+  // errors through `startTransition`, while `OrderStatusSelect` renders the
+  // MFA step-up link from the named error below.
   const { data: profile } = await adminClient
     .from('profiles')
     .select('is_admin')
-    .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+    .or(`id.eq.${user.id},user_id.eq.${user.id}`)
     .single();
 
   if (!profile?.is_admin) throw new Error('Not authorised');

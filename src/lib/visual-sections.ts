@@ -21,7 +21,7 @@
  * pure function is one a test can find.
  */
 
-import { type Block, type BlockType, blockText } from '@/lib/blocks';
+import { type Block, blockText, type ContentBlockType } from '@/lib/blocks';
 import { collectPageSections } from '@/lib/visual-edit-mode';
 
 /** One editable section: a block, plus the element that renders it, if any. */
@@ -43,7 +43,7 @@ export interface VisualSection {
   domIndex: number | null;
   /** What the operator reads in a list: the block's text, or its type name. */
   label: string;
-  blockType: BlockType;
+  blockType: ContentBlockType;
   /** 1-based position among sections, for the "Section #3" readout. */
   ordinal: number;
 }
@@ -51,7 +51,7 @@ export interface VisualSection {
 const MAX_LABEL = 80;
 
 /** A section's fallback name when its block carries no readable text. */
-const TYPE_LABELS: Record<BlockType, string> = {
+const TYPE_LABELS: Record<ContentBlockType, string> = {
   paragraph: 'Paragraph',
   heading: 'Heading',
   bulletList: 'Bullet list',
@@ -250,7 +250,7 @@ export interface PublishedSection {
   index: number | null;
   label: string;
   blockIndex: number | null;
-  blockType: BlockType | null;
+  blockType: ContentBlockType | null;
   /** Whether the overlay is drawing this section's frame. */
   enabled: boolean;
 }

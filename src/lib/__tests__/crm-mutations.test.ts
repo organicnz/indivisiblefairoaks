@@ -577,6 +577,40 @@ describe('CRM mutation failure paths', () => {
       expect(res.success).toBe(true);
     });
 
+    it('rejects an invalid consent value during bulk update', async () => {
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1'],
+        consent: 'sometimes' as unknown as 'opted_in',
+      });
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('Invalid consent value');
+    });
+
+    it('bulk-opts contacts out, writing do_not_email and unsubscribed_at', async () => {
+      tables.crm_contacts = {
+        rows: [
+          { id: 'c1', status: 'supporter', tags: [], do_not_email: false },
+          { id: 'c2', status: 'supporter', tags: [], do_not_email: false },
+        ],
+      };
+      const res = await bulkUpdateCRMContacts({ contactIds: ['c1', 'c2'], consent: 'opted_out' });
+      expect(res.success).toBe(true);
+      expect(res.updatedCount).toBe(2);
+      for (const row of tables.crm_contacts.rows as { do_not_email: boolean | null }[]) {
+        expect(row.do_not_email).toBe(true);
+      }
+    });
+
+    it('bulk-marks contacts unasked, writing do_not_email NULL', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', status: 'supporter', tags: [], do_not_email: true }],
+      };
+      const res = await bulkUpdateCRMContacts({ contactIds: ['c1'], consent: 'unasked' });
+      expect(res.success).toBe(true);
+      const rows = tables.crm_contacts.rows as { do_not_email: boolean | null }[];
+      expect(rows[0].do_not_email).toBeNull();
+    });
+
     it('reports error when fetching contacts for tag modifications fails', async () => {
       tables.crm_contacts = { error: { message: 'fetch contacts failed' } };
       const res = await bulkUpdateCRMContacts({

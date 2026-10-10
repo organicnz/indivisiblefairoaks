@@ -30,6 +30,7 @@ const getContentBySlugForEdit = vi.hoisted(() => vi.fn());
 const getContentRevisions = vi.hoisted(() => vi.fn());
 const restoreContentRevision = vi.hoisted(() => vi.fn());
 const getCRMEdgeFunctionHealth = vi.hoisted(() => vi.fn());
+const getVisualPageContext = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
 
 vi.mock('@/lib/actions/content', () => ({
@@ -41,6 +42,7 @@ vi.mock('@/lib/actions/content', () => ({
   restoreContentRevision,
 }));
 vi.mock('@/lib/actions/crm', () => ({ getCRMEdgeFunctionHealth }));
+vi.mock('@/lib/actions/visual', () => ({ getVisualPageContext }));
 vi.mock('sonner', () => ({ toast }));
 
 // The overlay asks the header's hook whether this visitor is an admin.
@@ -99,12 +101,24 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     getContentRevisions.mockReset();
     restoreContentRevision.mockReset();
     getCRMEdgeFunctionHealth.mockReset();
+    getVisualPageContext.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
     getCRMEdgeFunctionHealth.mockResolvedValue({
       database: true,
       storage: true,
       edgeFunction: true,
+    });
+    getVisualPageContext.mockResolvedValue({
+      content: null,
+      revisions: [],
+      revisionsTruncated: false,
+      media: { items: [], folders: ['crm', 'content', 'products'] },
+      backend: { database: true, storage: true, edgeFunction: true },
+      crmStats: null,
+      segments: [],
+      segmentsTruncated: false,
+      catalog: { products: 0, galleryPhotos: 0, events: 0 },
     });
     saveContent.mockResolvedValue({
       success: true,

@@ -21,6 +21,7 @@ import { OrdersExport } from '@/components/admin/OrdersExport';
 import { CURRENCY_CODE, formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 import type { createAdminClient } from '@/lib/supabase-server';
+import { formatAddress, type AdminOrder as Order } from '@/types/orders';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -30,38 +31,9 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-type ShippingAddress = {
-  line1?: string;
-  line2?: string;
-  city?: string;
-  state?: string;
-  postal_code?: string;
-  country?: string;
-};
-
-type OrderItem = {
-  id: number;
-  product_name: string | null;
-  quantity: number | null;
-  unit_price: number | null;
-};
-
-type Order = {
-  id: number;
-  created_at: string | null;
-  status: string | null;
-  total: number | null;
-  currency: string | null;
-  stripe_session_id: string | null;
-  coupon_code: string | null;
-  shipping_address: ShippingAddress | null;
-  order_items: OrderItem[];
-  profiles: {
-    first_name: string | null;
-    last_name: string | null;
-    email: string | null;
-  } | null;
-};
+// `Order` is the canonical `AdminOrder` (`src/types/orders.ts`). The
+// directory select omits billing/coupon columns the type allows as optional,
+// so the cast below stays sound without re-declaring the shape here.
 
 const STATUS_FILTERS = ['all', 'processing', 'completed', 'cancelled', 'refunded', 'on-hold'];
 const RANGE_FILTERS = ['30d', '90d', '180d', 'all'] as const;
@@ -235,15 +207,6 @@ export default async function AdminOrdersPage({
     : await exportQuery.limit(EXPORT_LIMIT);
   const exportOrders = (exportData || []) as Order[];
 
-  const formatAddress = (addr: ShippingAddress | Record<string, string> | null) => {
-    if (!addr) return 'No address';
-    const a = addr as Record<string, string>;
-    const line1 = a.line1 ?? a.address_1;
-    const line2 = a.line2 ?? a.address_2;
-    const postal = a.postal_code ?? a.postcode;
-    return [line1, line2, a.city, postal, a.country].filter(Boolean).join(', ');
-  };
-
   return (
     <div>
       <div className="flex flex-col mb-8">
@@ -342,7 +305,7 @@ export default async function AdminOrdersPage({
                 .map((i) => `${i.product_name || 'Item'} x${i.quantity || 1}`)
                 .join('; '),
               total: order.total,
-              coupon: order.coupon_code,
+              coupon: order.coupon_code ?? null,
             };
           })}
         />

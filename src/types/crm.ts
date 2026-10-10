@@ -25,12 +25,13 @@ export type CRMActivityInsert = Database['public']['Tables']['crm_activities']['
 
 /**
  * A broadcast campaign row.
- * `marked_failed_at` and `marked_failed_by` are tracked for failure audit.
+ *
+ * Plain `Row` — `marked_failed_at` / `marked_failed_by` already exist on the
+ * generated row as `string | null` (see `src/types/supabase.ts`), so the
+ * previous `Row & { marked_failed_at?: … }` intersection only diverged
+ * optional-vs-required and is removed.
  */
-export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'] & {
-  marked_failed_at?: string | null;
-  marked_failed_by?: string | null;
-};
+export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'];
 export type CRMBroadcastInsert = Database['public']['Tables']['crm_broadcasts']['Insert'];
 export type CRMBroadcastUpdate = Database['public']['Tables']['crm_broadcasts']['Update'];
 
@@ -199,8 +200,10 @@ export interface CRMBroadcastDispatchResult {
 // `composer/types.ts` is the definition site (the visual editor's domain);
 // this is the canonical import path, so no consumer imports the same symbol
 // from two places and drifts when one of them moves.
+/** Deprecated alias — use `EmailBlockType` (disjoint from page `ContentBlockType`). */
 export type {
   BlockType,
   ComposerBlock,
   ComposerTemplate,
+  EmailBlockType,
 } from '@/components/admin/crm/composer/types';

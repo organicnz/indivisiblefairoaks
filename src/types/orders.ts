@@ -21,6 +21,7 @@ export type AdminOrder = {
   total: number | null;
   currency: string | null;
   stripe_session_id: string | null;
+  coupon_code?: string | null;
   shipping_address: ShippingAddress | null;
   billing_address: ShippingAddress | null;
   order_items: OrderItem[];

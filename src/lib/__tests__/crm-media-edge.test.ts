@@ -266,13 +266,15 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
     });
 
     it('removes allowed crm/ assets no broadcast references', async () => {
-      mockAdminClient.from.mockReturnValueOnce({
+      // `mediaReferenceReason` checks broadcasts + content + revisions for a
+      // `crm/` path, so all three reads resolve empty here.
+      mockAdminClient.from.mockImplementation(() => ({
         select: vi.fn(() => ({
           like: vi.fn(() => ({
             limit: vi.fn().mockResolvedValue({ data: [], error: null }),
           })),
         })),
-      });
+      }));
       mockStorageFrom.remove.mockResolvedValueOnce({
         data: [{ name: 'crm/test.jpg' }],
         error: null,
@@ -284,13 +286,13 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
     });
 
     it('surfaces the storage error message when the removal itself fails', async () => {
-      mockAdminClient.from.mockReturnValueOnce({
+      mockAdminClient.from.mockImplementation(() => ({
         select: vi.fn(() => ({
           like: vi.fn(() => ({
             limit: vi.fn().mockResolvedValue({ data: [], error: null }),
           })),
         })),
-      });
+      }));
       mockStorageFrom.remove.mockResolvedValueOnce({
         data: null,
         error: { message: 'storage backend unreachable' },

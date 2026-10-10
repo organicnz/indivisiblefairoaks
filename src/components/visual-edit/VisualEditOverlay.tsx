@@ -47,6 +47,7 @@ import {
   setContentStatus,
 } from '@/lib/actions/content';
 import { getCRMEdgeFunctionHealth } from '@/lib/actions/crm';
+import { getVisualPageContext } from '@/lib/actions/visual';
 import {
   type Block,
   CALLOUT_TONES,
@@ -250,6 +251,21 @@ export function VisualEditOverlay() {
   const [backendStatus, setBackendStatus] = useState<CRMBackendStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [savingBackend, setSavingBackend] = useState(false);
+  /**
+   * Backend summary for the health panel: CRM reach, catalog depth, media
+   * depth. From the one-gate `getVisualPageContext` summary — additive to the
+   * health probe, never a second gate on the critical open path. Null until
+   * the first successful fetch; a failure leaves the previous summary (or
+   * nothing) rather than blanking the panel.
+   */
+  const [backendSummary, setBackendSummary] = useState<{
+    crmTotal: number | null;
+    segments: number;
+    products: number;
+    gallery: number;
+    events: number;
+    mediaItems: number;
+  } | null>(null);
 
   /** Section keys whose frame is drawn. The overlay owns this; the header asks. */
   const [enabledSectionKeys, setEnabledSectionKeys] = useState<Set<string>>(new Set());
@@ -500,7 +516,7 @@ export function VisualEditOverlay() {
     }
   };
 
-  // Probe backend health (DB, S3 Storage, Edge Functions)
+  // Probe backend health (DB, S3 Storage, Edge Functions) + summary counts.
   const probeBackendHealth = useCallback(async () => {
     setStatusLoading(true);
     try {
@@ -508,10 +524,23 @@ export function VisualEditOverlay() {
       setBackendStatus(health);
     } catch {
       setBackendStatus({ database: false, storage: false, edgeFunction: false });
+    }
+    try {
+      const ctx = await getVisualPageContext({ pathname });
+      setBackendSummary({
+        crmTotal: ctx.crmStats?.totalContacts ?? null,
+        segments: ctx.segments.length,
+        products: ctx.catalog.products,
+        gallery: ctx.catalog.galleryPhotos,
+        events: ctx.catalog.events,
+        mediaItems: ctx.media.items.length,
+      });
+    } catch {
+      // Summary is enrichment, not the probe — a failure keeps the old one.
     } finally {
       setStatusLoading(false);
     }
-  }, []);
+  }, [pathname]);
 
   /**
    * Publish the section model to the header.
@@ -1828,6 +1857,31 @@ export function VisualEditOverlay() {
                   {backendStatus.edgeFunctionDetails?.latencyMs !== undefined && (
                     <div className="text-[10px] text-ink-muted-on-dark text-right">
                       Latency: {backendStatus.edgeFunctionDetails.latencyMs}ms
+                    </div>
+                  )}
+                  {backendSummary && (
+                    <div className="border-t border-white/10 pt-2 space-y-1.5">
+                      <div className="flex justify-between items-center text-ink-on-dark">
+                        <span>Constituents</span>
+                        <span className="font-bold">
+                          {backendSummary.crmTotal ?? '—'}
+                          <span className="text-ink-muted-on-dark font-medium">
+                            {' '}
+                            · {backendSummary.segments} segments
+                          </span>
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-ink-on-dark">
+                        <span>Catalog</span>
+                        <span className="font-bold">
+                          {backendSummary.products} products · {backendSummary.gallery} photos ·{' '}
+                          {backendSummary.events} events
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-ink-on-dark">
+                        <span>Media library</span>
+                        <span className="font-bold">{backendSummary.mediaItems} recent files</span>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -13,6 +13,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CustomerAdminToggle } from '@/components/admin/CustomerAdminToggle';
 import { requireAdmin } from '@/lib/admin-auth';
+import type { AdminOrder, OrderItem } from '@/types/orders';
+import { statusStyle } from '@/types/orders';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -25,24 +27,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-const statusColours: Record<string, string> = {
-  processing: 'bg-amber-100 text-amber-800',
-  completed: 'bg-emerald-100 text-emerald-800',
-  cancelled: 'bg-rose-100 text-rose-800',
-  refunded: 'bg-slate-100 text-slate-600',
-  'on-hold': 'bg-blue-100 text-blue-800',
-};
-
-type OrderRow = {
-  id: number;
-  created_at: string | null;
-  status: string | null;
-  total: number | null;
-  order_items: {
-    product_name: string | null;
-    quantity: number | null;
-    unit_price: number | null;
-  }[];
+// Customer order projection of the canonical `AdminOrder` / `OrderItem`.
+type OrderRow = Pick<AdminOrder, 'id' | 'created_at' | 'status' | 'total'> & {
+  order_items: OrderItem[];
 };
 
 type Customer = {
@@ -204,9 +191,7 @@ export default async function AdminCustomerDetailPage({
                       #{o.id}
                     </Link>
                     <span
-                      className={`text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 ${
-                        statusColours[o.status || ''] || 'bg-slate-100 text-slate-500'
-                      }`}
+                      className={`text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 ${statusStyle(o.status)}`}
                     >
                       {o.status || 'unknown'}
                     </span>

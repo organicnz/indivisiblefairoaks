@@ -1,11 +1,19 @@
 import type Stripe from 'stripe';
+import type { OrderItem } from '@/types/orders';
 
-export interface OrderItemRow {
+/**
+ * Write shape for `order_items` inserts from Stripe.
+ *
+ * `OrderItem` (canonical, `src/types/orders.ts`) is the nullable read shape —
+ * PostgREST returns nulls for missing columns. The webhook *writes* complete
+ * rows, so this type narrows the three nullable columns to required and adds
+ * the FK columns the read shape omits. A field added to one and not the other
+ * is how fulfillment silently stops seeing product names.
+ */
+export interface OrderItemRow
+  extends Required<Pick<OrderItem, 'product_name' | 'quantity' | 'unit_price'>> {
   order_id: number;
   product_id: number | null;
-  product_name: string;
-  quantity: number;
-  unit_price: number;
 }
 
 /**

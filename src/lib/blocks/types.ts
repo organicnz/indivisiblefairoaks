@@ -20,7 +20,7 @@
  *     button blocks each carry a wrapper element. See `BUTTON_WRAPPER_CLASS`.
  */
 
-export type BlockType =
+export type ContentBlockType =
   | 'paragraph'
   | 'heading'
   | 'bulletList'
@@ -33,6 +33,16 @@ export type BlockType =
   | 'table'
   | 'button'
   | 'unsupported';
+
+/**
+ * Backward-compatible alias.
+ *
+ * `BlockType` collides by name with the email composer's `BlockType`
+ * (`src/components/admin/crm/composer/types.ts`) — same identifier, disjoint
+ * unions. New code imports `ContentBlockType`; this alias stays so existing
+ * imports keep compiling while the migration lands file by file.
+ */
+export type BlockType = ContentBlockType;
 
 export const CALLOUT_TONES = ['info', 'action', 'warning'] as const;
 export type CalloutTone = (typeof CALLOUT_TONES)[number];

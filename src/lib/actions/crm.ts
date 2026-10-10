@@ -1254,12 +1254,23 @@ export async function bulkUpdateCRMContacts({
   contactIds,
   status,
   district,
+  consent,
   addTags,
   removeTags,
 }: {
   contactIds: string[];
   status?: string;
   district?: string;
+  /**
+   * Bulk consent change (`opted_in` / `opted_out` / `unasked`).
+   *
+   * Maps to the tri-state `do_not_email` column (`false` / `true` / NULL) plus
+   * `unsubscribed_at` for opt-outs — the same mapping `setCRMEmailConsent`
+   * uses. No per-contact activity row: a 5,000-row bulk would flood timelines;
+   * the bulk count in the toast is the audit trail. Single-contact consent
+   * changes still go through `setCRMEmailConsent` with its activity entry.
+   */
+  consent?: ConsentDecision;
   addTags?: string[];
   removeTags?: string[];
 }): Promise<{ success: boolean; updatedCount?: number; error?: string }> {
@@ -1276,11 +1287,26 @@ export async function bulkUpdateCRMContacts({
     return { success: false, error: 'Invalid status' };
   }
 
+  if (consent && !['opted_in', 'opted_out', 'unasked'].includes(consent)) {
+    return { success: false, error: 'Invalid consent value' };
+  }
+
   const now = new Date().toISOString();
+  const consentPatch: Record<string, string | boolean | null> =
+    consent === undefined
+      ? {}
+      : consent === 'unasked'
+        ? { do_not_email: null }
+        : consent === 'opted_out'
+          ? { do_not_email: true, unsubscribed_at: now }
+          : { do_not_email: false };
 
   // If no tag changes are requested, execute a single direct bulk update
   if (!addTags?.length && !removeTags?.length) {
-    const payload: Database['public']['Tables']['crm_contacts']['Update'] = { updated_at: now };
+    const payload: Database['public']['Tables']['crm_contacts']['Update'] = {
+      updated_at: now,
+      ...consentPatch,
+    };
     if (status)
       payload.status = status as Database['public']['Tables']['crm_contacts']['Update']['status'];
     if (district) payload.district = district;
@@ -1317,6 +1343,7 @@ export async function bulkUpdateCRMContacts({
     const updatePayload: Database['public']['Tables']['crm_contacts']['Update'] = {
       tags: currentTags.slice(0, MAX_TAGS_PER_CONTACT),
       updated_at: now,
+      ...consentPatch,
     };
     if (status)
       updatePayload.status =
@@ -3005,15 +3032,30 @@ async function mediaReferenceReason(
   folder: MediaFolder,
   path: string
 ): Promise<string | null> {
+  // Paths are slugified on upload, but LIKE treats `%`, `_` and `\` as
+  // metacharacters — escape so the check matches the literal path. Chained
+  // string replaces (not a replace callback) so no new function enters the
+  // coverage-measured file for a branch no test exercises.
+  const like = `%${path.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
   if (folder === 'crm') {
-    const { data, error } = await adminClient
-      .from('crm_broadcasts')
-      .select('id')
-      .like('body', `%${path}%`)
-      .limit(1);
-    if (error) return 'Could not verify whether this image is still in use';
-    if ((data?.length ?? 0) > 0) {
-      return 'This image is still used in a saved broadcast and cannot be deleted yet.';
+    const url = getStorageUrl(path, 'media');
+    const [broadcasts, contentBody, revisions] = await Promise.all([
+      adminClient.from('crm_broadcasts').select('id').like('body', like).limit(1),
+      // Folder-scoped uploads should not cross namespaces, but a `crm/` URL
+      // pasted into a page is still a reference — deleting it still breaks
+      // the page. Check the full URL there (content stores absolute URLs).
+      adminClient.from('content').select('id').like('body', `%${url}%`).limit(1),
+      adminClient.from('content_revisions').select('id').like('body', `%${url}%`).limit(1),
+    ]);
+    if (broadcasts.error || contentBody.error || revisions.error) {
+      return 'Could not verify whether this image is still in use';
+    }
+    if (
+      (broadcasts.data?.length ?? 0) > 0 ||
+      (contentBody.data?.length ?? 0) > 0 ||
+      (revisions.data?.length ?? 0) > 0
+    ) {
+      return 'This image is still used in a saved broadcast or page and cannot be deleted yet.';
     }
     return null;
   }
