@@ -108,7 +108,7 @@ export function HomeGalleryPreview({
 
         {/* Interactive Filter Pills */}
         <div className="flex items-center gap-2 flex-wrap mb-8 pb-2">
-          <Filter size={14} className="text-slate-500 mr-1 hidden sm:inline-block" />
+          <Filter size={14} className="text-ink-muted-on-dark mr-1 hidden sm:inline-block" />
           {filterOptions.map((option) => (
             <button
               key={option}
@@ -166,7 +166,7 @@ export function HomeGalleryPreview({
                     <MapPin size={12} className="text-accent-gold shrink-0" />
                     <span className="truncate">{photo.location}</span>
                   </span>
-                  <span className="font-mono text-[10px] text-slate-500 shrink-0">
+                  <span className="font-mono text-[10px] text-ink-muted-on-dark shrink-0">
                     {photo.date}
                   </span>
                 </div>

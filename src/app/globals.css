@@ -6,6 +6,14 @@
    `(hover: none)`, so they keep the always-visible state. */
 @custom-variant hover-capable (@media (hover: hover));
 
+/* The theme toggle. `:root` holds the light palette and `[data-theme='dark']`
+   overrides the tokens that invert, so `dark:` is a statement about the
+   reader's mode — not about their OS setting, because the inline bootstrap
+   script (see `lib/theme.ts`) has already folded the OS preference into the
+   attribute. Keyed on the element *or* any ancestor so a `dark:` class works
+   whether the palette lands on `<html>` or a nested root. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
   --background: #ffffff;
   --foreground: #0f172a;
@@ -61,6 +69,48 @@
   --safe-area-left: env(safe-area-inset-left, 0px);
   --header-h: 5.5rem; /* 88px, excluding the notch inset */
   --header-clearance: calc(var(--header-h) + var(--safe-area-top));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Dark palette
+
+   Applied by `data-theme="dark"` on `<html>`, set before first paint by the
+   inline bootstrap script and kept current by the theme store (see
+   `lib/theme.ts` and `components/layout/theme-store.ts`).
+
+   Everything that inverts is redefined here; everything that is a *dark
+   surface* already is not. The header, the nav drawer, the footer and the
+   civic pages use the dark-surface token set (`--secondary`,
+   `--ink-on-dark`, …) in both modes by design, so those tokens deliberately
+   do not change value here — a page section that is dark in light mode is
+   that way because it says so, not because the browser is in dark mode.
+
+   The surface values are drawn from the same tokens the dark surfaces
+   already use, so a light page in dark mode lands on the palette the civic
+   pages have been painted with all along rather than a new one.
+
+   `--primary` swaps to `--primary-bright` (#155dfc): #1e3a8a is 1.5:1
+   against the dark background, which makes every `bg-primary` control
+   disappear — the exact reason `--primary-bright` exists. The compensating
+   cost is that `text-primary` on a dark surface falls to 3.4:1, so the
+   brand-on-dark sweep pairs those call sites with `dark:text-primary-on-dark`
+   (6.5:1). The axe gate is what proves each one. */
+[data-theme='dark'] {
+  --background: #0f172a;
+  --foreground: #cbd5e1;
+  --surface-muted: #1e293b;
+  --surface-card: #1e293b;
+  --border: #334155;
+  --muted-foreground: #94a3b8;
+  --primary: #155dfc;
+  --primary-dark: #2563eb;
+
+  /* `--primary-ink` is the light-surface brand ink (7.9:1 on white, 1.5:1 on
+     dark), so dark mode holds it to the same value the dark surfaces already
+     use for display text. `--primary-light` is the hover step, lifted one so a
+     hover on a dark surface reads rather than sinking. */
+  --primary-ink: #8ec5ff;
+  --primary-light: #60a5fa;
 }
 
 @media (min-width: 48rem) {

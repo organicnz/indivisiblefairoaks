@@ -139,7 +139,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
     >
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8">
         <DialogHeader>
-          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">
+          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary dark:text-primary-on-dark">
             Constituent Directory
           </span>
           <DialogTitle id="modal-title">
@@ -155,7 +155,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
             <div>
               <label
                 htmlFor="first_name"
-                className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
               >
                 First Name
               </label>
@@ -165,13 +165,13 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.first_name}
                 onChange={(e) => setFormData((p) => ({ ...p, first_name: e.target.value }))}
                 placeholder="Jane"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
             <div>
               <label
                 htmlFor="last_name"
-                className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
               >
                 Last Name
               </label>
@@ -181,7 +181,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.last_name}
                 onChange={(e) => setFormData((p) => ({ ...p, last_name: e.target.value }))}
                 placeholder="Doe"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
           </div>
@@ -190,7 +190,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
             <div>
               <label
                 htmlFor="email"
-                className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
               >
                 Email Address *
               </label>
@@ -201,13 +201,13 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.email}
                 onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
                 placeholder="jane@example.com"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
             <div>
               <label
                 htmlFor="phone"
-                className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
               >
                 Phone Number
               </label>
@@ -217,7 +217,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.phone}
                 onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))}
                 placeholder="(916) 555-0199"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
           </div>
@@ -227,7 +227,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
               recorded on their profile. Stated here because Create → try to
               email → blocked reads as a broken save otherwise. */}
           {!contact && (
-            <p className="text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-200/70 rounded-xl px-3.5 py-2.5">
+            <p className="text-[11px] font-medium text-muted-foreground bg-surface-muted border border-border/70 rounded-xl px-3.5 py-2.5">
               New constituents start as “Never asked” and won’t receive chapter email until opt-in
               is recorded on their profile.
             </p>
@@ -236,7 +236,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
           <div>
             <label
               htmlFor="address"
-              className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+              className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
             >
               Street Address
             </label>
@@ -246,7 +246,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
               value={formData.address}
               onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))}
               placeholder="123 Main St"
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+              className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
             />
           </div>
 
@@ -254,7 +254,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
             <div>
               <label
                 htmlFor="city"
-                className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
               >
                 City
               </label>
@@ -264,13 +264,13 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.city}
                 onChange={(e) => setFormData((p) => ({ ...p, city: e.target.value }))}
                 placeholder="Fair Oaks"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
             <div>
               <label
                 htmlFor="zip_code"
-                className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
               >
                 ZIP Code
               </label>
@@ -280,13 +280,13 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 value={formData.zip_code}
                 onChange={(e) => setFormData((p) => ({ ...p, zip_code: e.target.value }))}
                 placeholder="95628"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
               />
             </div>
             <div>
               <label
                 htmlFor="district"
-                className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
               >
                 Congressional District
               </label>
@@ -294,7 +294,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                 id="district"
                 value={formData.district}
                 onChange={(e) => setFormData((p) => ({ ...p, district: e.target.value }))}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm bg-white"
+                className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm bg-surface-card"
               >
                 <option value="CA-06">CA-06 (Bera / Matsui)</option>
                 <option value="CA-03">CA-03 (Kiley / Sierra)</option>
@@ -307,7 +307,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
           <div>
             <label
               htmlFor="status"
-              className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+              className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
             >
               Civic Engagement Status
             </label>
@@ -315,7 +315,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
               id="status"
               value={formData.status}
               onChange={(e) => setFormData((p) => ({ ...p, status: e.target.value }))}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm bg-white"
+              className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm bg-surface-card"
             >
               <option value="supporter">Supporter (Standard Member)</option>
               <option value="active_volunteer">Active Volunteer</option>
@@ -329,7 +329,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
           <div>
             <label
               htmlFor="tag-input"
-              className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+              className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
             >
               Interest Tags & Roles
             </label>
@@ -346,12 +346,12 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
                   }
                 }}
                 placeholder="e.g. postcard-blitz, phone-bank, rally-marshal"
-                className="flex-1 px-4 py-2 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-xs"
+                className="flex-1 px-4 py-2 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-xs"
               />
               <button
                 type="button"
                 onClick={handleAddTag}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-1"
+                className="px-4 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-1"
               >
                 <Plus size={14} /> Add Tag
               </button>
@@ -380,14 +380,14 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
             <div className="flex items-center justify-between mb-1">
               <label
                 htmlFor="notes"
-                className="block text-[11px] font-black uppercase tracking-wider text-slate-500"
+                className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground"
               >
                 Internal Organizer Notes
               </label>
               <button
                 type="button"
                 onClick={() => setIsMediaModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-primary dark:text-primary-on-dark hover:bg-primary/10 rounded-lg transition-colors"
               >
                 <ImageIcon size={13} /> Attach Storage Media
               </button>
@@ -403,20 +403,20 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
               // render in the 360 panel and in every directory CSV export.
               maxLength={MAX_CONTACT_NOTES_LENGTH}
               placeholder="Meeting notes, preferred contact times, organizing skills..."
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+              className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
             />
             {formData.notes.length > MAX_CONTACT_NOTES_LENGTH * 0.9 && (
-              <p className="mt-1 text-[10px] font-bold text-slate-400 text-right">
+              <p className="mt-1 text-[10px] font-bold text-muted-foreground text-right">
                 {formData.notes.length} / {MAX_CONTACT_NOTES_LENGTH}
               </p>
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors"
+              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-slate-800 transition-colors"
             >
               Cancel
             </button>

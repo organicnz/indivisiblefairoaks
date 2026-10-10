@@ -145,21 +145,23 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 py-32 selection:bg-primary selection:text-secondary">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-32 selection:bg-primary selection:text-secondary">
       <div className="max-w-xl w-full">
         {/* Header */}
         <div className="text-center mb-12 animate-in fade-in slide-in-from-top-8 duration-300 ease-out">
           <div className="inline-flex items-center gap-3 px-6 py-2.5 bg-secondary/5 rounded-full mb-8 border border-secondary/5">
-            <Shield className="w-3.5 h-3.5 text-secondary" />
-            <span className="text-secondary font-black uppercase tracking-[0.4em] text-[10px]">
+            <Shield className="w-3.5 h-3.5 text-foreground" />
+            <span className="text-foreground font-black uppercase tracking-[0.4em] text-[10px]">
               {isAdminTarget ? 'Administrative Gateway' : 'Secure Gateway'}
             </span>
           </div>
-          <h1 className="text-6xl md:text-8xl font-black text-secondary uppercase tracking-tighter leading-none mb-6">
+          <h1 className="text-6xl md:text-8xl font-black text-foreground uppercase tracking-tighter leading-none mb-6">
             {isSignUp ? 'Join' : 'Welcome'} <br />
-            <span className="text-primary italic">{isSignUp ? 'The Crew' : 'Back'}</span>
+            <span className="text-primary dark:text-primary-on-dark italic">
+              {isSignUp ? 'The Crew' : 'Back'}
+            </span>
           </h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.15em] text-[10px] max-w-sm mx-auto">
+          <p className="text-muted-foreground font-bold uppercase tracking-[0.15em] text-[10px] max-w-sm mx-auto">
             {isAdminTarget
               ? 'Authorized access for chapter administrators and organizers'
               : isSignUp
@@ -182,14 +184,14 @@ function LoginForm() {
           </div>
         )}
 
-        <div className="bg-white border border-slate-100 rounded-[4rem] shadow-[0_40px_100px_-20px_rgba(15,23,42,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-300 ease-out">
+        <div className="bg-surface-card border border-border rounded-[4rem] shadow-[0_40px_100px_-20px_rgba(15,23,42,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-300 ease-out">
           {/*
             These were two plain buttons with no role and no selected state, so
             the active auth method was conveyed by background colour alone. They
             now form a tablist, matching the pattern already implemented in
             AccountTabs.tsx.
           */}
-          <div role="tablist" aria-label="Sign-in method" className="flex p-3 bg-slate-50/50">
+          <div role="tablist" aria-label="Sign-in method" className="flex p-3 bg-surface-muted/50">
             <button
               type="button"
               role="tab"
@@ -204,7 +206,7 @@ function LoginForm() {
               className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'otp'
                   ? 'bg-secondary text-white shadow-xl shadow-secondary/20'
-                  : 'text-slate-600 hover:text-secondary'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Fingerprint size={16} aria-hidden="true" /> Magic Link
@@ -220,7 +222,7 @@ function LoginForm() {
               className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'password'
                   ? 'bg-secondary text-white shadow-xl shadow-secondary/20'
-                  : 'text-slate-600 hover:text-secondary'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Lock size={16} aria-hidden="true" /> Password
@@ -238,7 +240,7 @@ function LoginForm() {
                 <div className="group">
                   <label
                     htmlFor="login-email"
-                    className="block text-[10px] font-black text-secondary/40 uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary transition-colors"
+                    className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
                   >
                     Credential Email
                   </label>
@@ -249,7 +251,7 @@ function LoginForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full px-8 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-white focus:border-primary outline-none transition-all font-black text-secondary uppercase tracking-[0.2em] text-xs placeholder:text-slate-500"
+                    className="w-full px-8 py-5 bg-surface-muted border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary outline-none transition-all font-black text-foreground uppercase tracking-[0.2em] text-xs placeholder:text-muted-foreground"
                   />
                 </div>
 
@@ -258,7 +260,7 @@ function LoginForm() {
                     <div className="flex justify-between items-center ml-1 mb-3">
                       <label
                         htmlFor="login-password"
-                        className="block text-[10px] font-black text-secondary/40 uppercase tracking-[0.3em] group-focus-within:text-primary transition-colors"
+                        className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
                       >
                         Access Key
                       </label>
@@ -266,7 +268,7 @@ function LoginForm() {
                         <button
                           type="button"
                           onClick={handleResetPassword}
-                          className="text-[9px] font-black text-primary uppercase tracking-widest hover:text-secondary transition-colors"
+                          className="text-[9px] font-black text-primary dark:text-primary-on-dark uppercase tracking-widest hover:text-foreground transition-colors"
                         >
                           Forgot?
                         </button>
@@ -280,13 +282,13 @@ function LoginForm() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
-                        className="w-full px-8 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-white focus:border-primary outline-none transition-all font-black text-secondary tracking-[0.3em] text-xs placeholder:text-slate-500 pr-16"
+                        className="w-full px-8 py-5 bg-surface-muted border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary outline-none transition-all font-black text-foreground tracking-[0.3em] text-xs placeholder:text-muted-foreground pr-16"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 hover:text-secondary transition-colors"
+                        className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
@@ -298,7 +300,7 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-secondary text-white font-black rounded-full py-6 hover:bg-primary hover:text-secondary transition-all uppercase tracking-[0.4em] text-xs shadow-2xl shadow-secondary/20 flex items-center justify-center gap-4 group disabled:opacity-50 active:scale-[0.98]"
+                className="w-full bg-secondary text-white font-black rounded-full py-6 hover:bg-primary hover:text-foreground transition-all uppercase tracking-[0.4em] text-xs shadow-2xl shadow-secondary/20 flex items-center justify-center gap-4 group disabled:opacity-50 active:scale-[0.98]"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={20} />
@@ -341,11 +343,11 @@ function LoginForm() {
           </div>
 
           {/* Footer Action */}
-          <div className="bg-slate-50/80 p-10 text-center border-t border-slate-100/50">
+          <div className="bg-surface-muted/80 p-10 text-center border-t border-border/50">
             <button
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}
-              className="group text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] hover:text-secondary transition-all flex items-center justify-center gap-3 mx-auto"
+              className="group text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] hover:text-foreground transition-all flex items-center justify-center gap-3 mx-auto"
             >
               {isSignUp ? 'Existing Personnel? Sign In' : 'New Recruit? Join The Crew'}
               <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
@@ -353,17 +355,19 @@ function LoginForm() {
           </div>
         </div>
 
-        {/* Security Badges */}
-        <div className="mt-16 flex items-center justify-center gap-8 opacity-40">
+        {/* Security Badges — muted ink rather than a container opacity: an
+            opacity on the wrapper multiplied the label down to 2.5:1 on white
+            and 2.9:1 on the dark page, in both modes. */}
+        <div className="mt-16 flex items-center justify-center gap-8">
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-secondary">
+            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
               Encryption Active
             </span>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-secondary">
+            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
               Supabase v2 Vault
             </span>
           </div>
@@ -377,8 +381,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-white flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-secondary" />
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-foreground" />
         </div>
       }
     >

@@ -133,7 +133,7 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
     >
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6 sm:p-8">
         <DialogHeader>
-          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">
+          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary dark:text-primary-on-dark">
             Constituent Directory
           </span>
           <DialogTitle id="import-modal-title">Import CSV</DialogTitle>
@@ -143,10 +143,11 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
         </DialogHeader>
 
         <div className="space-y-4">
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Required column: <code className="text-primary font-bold">email</code>. Optional:{' '}
-            first_name, last_name, phone, address, city, zip_code, district, status, tags (semicolon
-            separated), notes, do_not_email (yes/no). Existing emails are skipped, never
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Required column:{' '}
+            <code className="text-primary dark:text-primary-on-dark font-bold">email</code>.
+            Optional: first_name, last_name, phone, address, city, zip_code, district, status, tags
+            (semicolon separated), notes, do_not_email (yes/no). Existing emails are skipped, never
             overwritten. Restore imports preserve each contact&apos;s opted-out flag. Limits: 500
             KB, 2000 rows.
           </p>
@@ -154,7 +155,7 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
           <div>
             <label
               htmlFor="csv-file"
-              className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+              className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
             >
               Upload file
             </label>
@@ -164,15 +165,17 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => handleFile(e.target.files?.[0])}
-              className="block w-full text-xs text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-slate-100 file:text-slate-700 file:text-xs file:font-bold hover:file:bg-slate-200"
+              className="block w-full text-xs text-muted-foreground file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-surface-muted file:text-slate-700 file:text-xs file:font-bold hover:file:bg-surface-muted"
             />
-            {fileName && <p className="text-[11px] text-slate-400 mt-1 font-mono">{fileName}</p>}
+            {fileName && (
+              <p className="text-[11px] text-muted-foreground mt-1 font-mono">{fileName}</p>
+            )}
           </div>
 
           <div>
             <label
               htmlFor="csv-paste"
-              className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+              className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
             >
               Or paste CSV
             </label>
@@ -182,7 +185,7 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
               value={csvText}
               onChange={(e) => setCsvText(e.target.value)}
               placeholder={SAMPLE}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-xs font-mono leading-relaxed"
+              className="w-full px-4 py-3 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-xs font-mono leading-relaxed"
             />
           </div>
 
@@ -190,9 +193,9 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
             <div
               role="status"
               aria-live="polite"
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-1"
+              className="rounded-2xl border border-border bg-surface-muted p-4 space-y-1"
             >
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
                 Result
               </p>
               <ul className="text-xs leading-relaxed">
@@ -212,7 +215,7 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
                 ))}
               </ul>
               {lastResult.success && (
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-muted-foreground">
                   The CSV is still in the box above — fix any bad rows in it and import again to
                   pick up the remainder.
                 </p>
@@ -220,11 +223,11 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors"
+              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-slate-800 transition-colors"
             >
               {lastResult ? 'Done' : 'Cancel'}
             </button>

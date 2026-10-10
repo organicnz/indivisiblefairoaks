@@ -53,33 +53,33 @@ export default async function AdminCustomersPage({
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Users size={14} className="text-secondary" />
+            <Users size={14} className="text-foreground" />
           </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">Customers</h1>
+        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">Customers</h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
-        <p className="mt-4 text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+        <p className="mt-4 text-muted-foreground font-bold uppercase tracking-widest text-[10px]">
           {rows.length} profiles
         </p>
       </div>
 
-      <form className="flex items-center gap-2 bg-slate-100 rounded-full px-4 py-2 mb-8 max-w-md">
-        <Search size={13} className="text-slate-400" />
+      <form className="flex items-center gap-2 bg-surface-muted rounded-full px-4 py-2 mb-8 max-w-md">
+        <Search size={13} className="text-muted-foreground" />
         <input
           name="q"
           defaultValue={q}
           placeholder="Search customers…"
-          className="bg-transparent text-sm font-bold text-secondary outline-none focus:ring-2 focus:ring-primary rounded-md placeholder:text-slate-400"
+          className="bg-transparent text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary rounded-md placeholder:text-muted-foreground"
         />
       </form>
 
       <div className="space-y-3">
         {rows.length === 0 ? (
-          <div className="bg-slate-50 p-16 rounded-3xl border border-dashed border-slate-200 text-center">
-            <p className="text-slate-400 font-black uppercase tracking-widest text-sm">
+          <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
+            <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
               No customers yet.
             </p>
           </div>
@@ -92,14 +92,14 @@ export default async function AdminCustomersPage({
             return (
               <div
                 key={c.id}
-                className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm"
+                className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm"
               >
                 <div className="px-8 py-5 grid grid-cols-2 md:grid-cols-5 gap-4 items-center">
                   <div className="col-span-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Link
                         href={`/admin/customers/${c.id}`}
-                        className="text-sm font-black text-secondary uppercase tracking-wider hover:text-primary transition-colors"
+                        className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
                       >
                         {[c.first_name, c.last_name].filter(Boolean).join(' ') || 'Guest'}
                       </Link>
@@ -109,8 +109,8 @@ export default async function AdminCustomersPage({
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 font-bold mt-0.5">{c.email}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-[11px] text-muted-foreground font-bold mt-0.5">{c.email}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
                       Joined{' '}
                       {c.created_at
                         ? new Date(c.created_at).toLocaleDateString('en-NZ', {
@@ -122,22 +122,24 @@ export default async function AdminCustomersPage({
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                       Orders
                     </p>
-                    <p className="text-sm text-secondary font-black">{c.orders.length}</p>
+                    <p className="text-sm text-foreground font-black">{c.orders.length}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                       Lifetime Spend
                     </p>
-                    <p className="text-lg text-primary font-black">${spent.toFixed(2)}</p>
+                    <p className="text-lg text-primary dark:text-primary-on-dark font-black">
+                      ${spent.toFixed(2)}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                       Last Order
                     </p>
-                    <p className="text-sm text-secondary font-black">
+                    <p className="text-sm text-foreground font-black">
                       {lastOrder
                         ? new Date(lastOrder.created_at || '').toLocaleDateString('en-NZ', {
                             day: 'numeric',
@@ -146,12 +148,12 @@ export default async function AdminCustomersPage({
                           })
                         : '—'}
                     </p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
                       {lastOrder ? lastOrder.status : 'Never ordered'}
                     </p>
                   </div>
                 </div>
-                <div className="px-8 py-3 bg-slate-50 border-t border-slate-100">
+                <div className="px-8 py-3 bg-surface-muted border-t border-border">
                   <CustomerAdminToggle profileId={c.id} isAdmin={c.is_admin} />
                 </div>
               </div>

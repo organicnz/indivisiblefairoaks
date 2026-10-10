@@ -815,7 +815,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/admin/content"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary-dark focus-visible:ring-2 focus-visible:ring-primary"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary dark:text-primary-on-dark transition-colors hover:text-primary-dark focus-visible:ring-2 focus-visible:ring-primary"
         >
           <ArrowLeft size={16} aria-hidden="true" />
           All pages
@@ -840,7 +840,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
               disabled={!canUndo(undoStack)}
               title="Undo (Ctrl/Cmd+Z)"
               aria-label="Undo"
-              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-secondary focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30 disabled:hover:bg-transparent"
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30 disabled:hover:bg-transparent"
             >
               <Undo2 size={15} aria-hidden="true" />
             </button>
@@ -850,7 +850,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
               disabled={!canRedo(undoStack)}
               title="Redo (Ctrl/Cmd+Shift+Z)"
               aria-label="Redo"
-              className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-secondary focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30 disabled:hover:bg-transparent"
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30 disabled:hover:bg-transparent"
             >
               <Redo2 size={15} aria-hidden="true" />
             </button>
@@ -864,7 +864,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 ? 'font-semibold text-accent-red'
                 : dirty || saveState === 'saving'
                   ? 'font-semibold text-accent-gold'
-                  : 'text-slate-500'
+                  : 'text-muted-foreground'
             }`}
           >
             {activeSaveFailure ? (
@@ -898,14 +898,14 @@ export function ContentEditor({ initial, siteHost }: Props) {
               <button
                 type="button"
                 onClick={() => handleSetStatus(status === 'publish' ? 'draft' : 'publish')}
-                className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
+                className="rounded-xl border border-border px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
               >
                 {status === 'publish' ? 'Move to draft' : 'Publish'}
               </button>
               <button
                 type="button"
                 onClick={handleDuplicate}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <Copy size={15} aria-hidden="true" />
                 Duplicate
@@ -914,7 +914,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 type="button"
                 onClick={() => setShowRevisions((v) => !v)}
                 aria-expanded={showRevisions}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <History size={15} aria-hidden="true" />
                 History
@@ -922,7 +922,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
               <button
                 type="button"
                 onClick={() => setShowPreview(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <Eye size={15} aria-hidden="true" />
                 Preview
@@ -931,7 +931,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 label={`Delete ${title}`}
                 message={`Delete “${title}”? This cannot be undone.`}
                 danger
-                idleClassName="rounded-xl border border-slate-200 p-2 text-accent-red transition-colors hover:bg-rose-50 focus-visible:ring-2 focus-visible:ring-primary"
+                idleClassName="rounded-xl border border-border p-2 text-accent-red transition-colors hover:bg-rose-50 focus-visible:ring-2 focus-visible:ring-primary"
                 onConfirm={() => void handleDelete()}
               >
                 <Trash2 size={15} aria-hidden="true" />
@@ -981,8 +981,12 @@ export function ContentEditor({ initial, siteHost }: Props) {
           role="status"
           className="flex flex-wrap items-center gap-3 rounded-xl border border-primary bg-blue-50 px-4 py-3"
         >
-          <RotateCcw size={16} className="shrink-0 text-primary" aria-hidden="true" />
-          <p className="min-w-0 flex-1 text-sm font-medium text-secondary">
+          <RotateCcw
+            size={16}
+            className="shrink-0 text-primary dark:text-primary-on-dark"
+            aria-hidden="true"
+          />
+          <p className="min-w-0 flex-1 text-sm font-medium text-foreground">
             Unsaved changes from{' '}
             {new Date(recovered.savedAt).toLocaleString('en-US', {
               dateStyle: 'medium',
@@ -994,7 +998,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
             <button
               type="button"
               onClick={discardRecovery}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-surface-card focus-visible:ring-2 focus-visible:ring-primary"
             >
               Discard
             </button>
@@ -1028,7 +1032,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="rounded-lg border border-accent-red px-3 py-1.5 text-xs font-bold text-accent-red transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+              className="rounded-lg border border-accent-red px-3 py-1.5 text-xs font-bold text-accent-red transition-colors hover:bg-surface-card focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
             >
               Reload onto their version
             </button>
@@ -1037,7 +1041,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
               type="button"
               onClick={() => void handleSave()}
               disabled={saving}
-              className="rounded-lg border border-accent-red px-3 py-1.5 text-xs font-bold text-accent-red transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+              className="rounded-lg border border-accent-red px-3 py-1.5 text-xs font-bold text-accent-red transition-colors hover:bg-surface-card focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
             >
               Try again
             </button>
@@ -1067,10 +1071,10 @@ export function ContentEditor({ initial, siteHost }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
             <label
               htmlFor="content-title"
-              className="block text-xs font-bold uppercase tracking-wider text-slate-500"
+              className="block text-xs font-bold uppercase tracking-wider text-muted-foreground"
             >
               Title
             </label>
@@ -1080,33 +1084,35 @@ export function ContentEditor({ initial, siteHost }: Props) {
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
               placeholder="Page title"
-              className="mt-1.5 w-full border-0 p-0 font-heading text-2xl font-black uppercase tracking-tight text-secondary outline-none placeholder:text-slate-300 focus-visible:ring-0"
+              className="mt-1.5 w-full border-0 p-0 font-heading text-2xl font-black uppercase tracking-tight text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-0"
             />
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Content</p>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Content
+              </p>
+              <p className="text-xs text-muted-foreground">
                 {stats.words} {stats.words === 1 ? 'word' : 'words'}
                 {stats.minutes > 0 && ` · ${stats.minutes} min read`}
               </p>
             </div>
-            <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+            <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
-                <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[0.7rem]">
+                <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[0.7rem]">
                   /
                 </kbd>
                 to insert a block
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[0.7rem]">
+                <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[0.7rem]">
                   {'Ctrl/⌘'} K
                 </kbd>
                 to add a link
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[0.7rem]">
+                <kbd className="rounded border border-border bg-surface-muted px-1.5 py-0.5 font-mono text-[0.7rem]">
                   {'Ctrl/⌘'} S
                 </kbd>
                 to save now
@@ -1117,12 +1123,12 @@ export function ContentEditor({ initial, siteHost }: Props) {
         </div>
 
         <aside className="space-y-4">
-          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="space-y-3 rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Page settings
             </h2>
 
-            <label className="block text-xs font-medium text-slate-600">
+            <label className="block text-xs font-medium text-muted-foreground">
               Status
               {/* This control and the Publish button both name a publish state,
                   so both route through `handleSetStatus`. It previously called
@@ -1135,19 +1141,19 @@ export function ContentEditor({ initial, siteHost }: Props) {
               <select
                 value={status}
                 onChange={(e) => void handleSetStatus(e.target.value as 'publish' | 'draft')}
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+                className="mt-1 w-full rounded-lg border border-border bg-surface-card px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <option value="draft">Draft</option>
                 <option value="publish">Published</option>
               </select>
             </label>
 
-            <label className="block text-xs font-medium text-slate-600">
+            <label className="block text-xs font-medium text-muted-foreground">
               Type
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as ContentType)}
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+                className="mt-1 w-full rounded-lg border border-border bg-surface-card px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
               >
                 {CONTENT_TYPES.map((option) => (
                   <option key={option} value={option}>
@@ -1157,10 +1163,10 @@ export function ContentEditor({ initial, siteHost }: Props) {
               </select>
             </label>
 
-            <label className="block text-xs font-medium text-slate-600">
+            <label className="block text-xs font-medium text-muted-foreground">
               URL slug
-              <div className="mt-1 flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-                <span className="shrink-0 text-xs text-slate-400">/</span>
+              <div className="mt-1 flex items-center gap-1 rounded-lg border border-border bg-surface-muted px-2 py-1.5">
+                <span className="shrink-0 text-xs text-muted-foreground">/</span>
                 <input
                   type="text"
                   value={slug}
@@ -1199,9 +1205,11 @@ export function ContentEditor({ initial, siteHost }: Props) {
             counts are Google's SERP budgets — a title past ~60 is truncated in
             the results, a description past ~155 is cut mid-sentence.
           */}
-          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">SEO</h2>
-            <label className="block text-xs font-medium text-slate-600">
+          <div className="space-y-3 rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              SEO
+            </h2>
+            <label className="block text-xs font-medium text-muted-foreground">
               Meta title
               <input
                 type="text"
@@ -1212,17 +1220,17 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 }}
                 placeholder={title || 'Untitled page'}
                 maxLength={80}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+                className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
               />
               <span
                 className={`mt-0.5 block text-right text-[11px] ${
-                  metaTitle.length > 60 ? 'font-bold text-accent-red' : 'text-slate-400'
+                  metaTitle.length > 60 ? 'font-bold text-accent-red' : 'text-muted-foreground'
                 }`}
               >
                 {metaTitle.length}/60
               </span>
             </label>
-            <label className="block text-xs font-medium text-slate-600">
+            <label className="block text-xs font-medium text-muted-foreground">
               Meta description
               <textarea
                 value={metaDescription}
@@ -1233,11 +1241,13 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 placeholder={derivedExcerpt || 'No summary yet.'}
                 maxLength={200}
                 rows={3}
-                className="mt-1 w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+                className="mt-1 w-full resize-none rounded-lg border border-border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
               />
               <span
                 className={`mt-0.5 block text-right text-[11px] ${
-                  metaDescription.length > 155 ? 'font-bold text-accent-red' : 'text-slate-400'
+                  metaDescription.length > 155
+                    ? 'font-bold text-accent-red'
+                    : 'text-muted-foreground'
                 }`}
               >
                 {metaDescription.length}/155
@@ -1252,12 +1262,12 @@ export function ContentEditor({ initial, siteHost }: Props) {
             are about to ship. It shows the meta fields when set, because that
             is what Google will actually use.
           */}
-          <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="space-y-2 rounded-2xl border border-border bg-surface-card p-5 shadow-xs">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Search preview
               </h2>
-              <Eye size={14} className="text-slate-400" aria-hidden="true" />
+              <Eye size={14} className="text-muted-foreground" aria-hidden="true" />
             </div>
             <p className="truncate text-sm font-medium text-[#1a0dab]">
               {metaTitle.trim() || title || 'Untitled page'}
@@ -1265,7 +1275,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
             <p className="truncate text-xs text-[#0d6528]">
               {siteHost}/{slug || '…'}
             </p>
-            <p className="text-xs leading-relaxed text-slate-600">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               {metaDescription.trim() || excerpt.trim() || derivedExcerpt || 'No summary yet.'}
             </p>
             {!metaDescription.trim() && !excerpt.trim() && derivedExcerpt && (
@@ -1275,7 +1285,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
                   noteEdit(null);
                   setExcerpt(derivedExcerpt.replace(/…$/, ''));
                 }}
-                className="text-xs font-medium text-primary underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
+                className="text-xs font-medium text-primary dark:text-primary-on-dark underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Use the generated summary
               </button>
@@ -1373,13 +1383,13 @@ function RevisionsPanel({
   return (
     <section
       aria-label="Version history"
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs"
+      className="rounded-2xl border border-border bg-surface-card p-5 shadow-xs"
     >
-      <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+      <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
         Version history
       </h2>
       {revisions.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           No earlier versions yet. A version is captured each time you save a change.
         </p>
       ) : (
@@ -1393,13 +1403,13 @@ function RevisionsPanel({
             return (
               <li
                 key={revision.id}
-                className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2"
+                className="rounded-xl border border-border bg-surface-muted px-3 py-2"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm text-slate-700">
                     {date}
                     {revision.title && (
-                      <span className="ml-2 text-xs text-slate-500">“{revision.title}”</span>
+                      <span className="ml-2 text-xs text-muted-foreground">“{revision.title}”</span>
                     )}
                   </span>
                   <span className="flex items-center gap-1.5">
@@ -1407,12 +1417,12 @@ function RevisionsPanel({
                       className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                         revision.status === 'publish'
                           ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-slate-200 text-slate-600'
+                          : 'bg-surface-muted text-muted-foreground'
                       }`}
                     >
                       {revision.status ?? 'draft'}
                     </span>
-                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                    <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
                       {revision.type ?? 'page'}
                     </span>
                   </span>
@@ -1422,7 +1432,7 @@ function RevisionsPanel({
                     type="button"
                     onClick={() => setExpandedId(expandedId === revision.id ? null : revision.id)}
                     aria-expanded={expandedId === revision.id}
-                    className="text-xs font-medium text-primary underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
+                    className="text-xs font-medium text-primary dark:text-primary-on-dark underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     {changes.length === 0
                       ? 'No changes from what’s on screen'
@@ -1432,7 +1442,7 @@ function RevisionsPanel({
                     <button
                       type="button"
                       onClick={() => setConfirmingId(revision.id)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       <RotateCcw size={13} aria-hidden="true" />
                       Restore
@@ -1440,16 +1450,18 @@ function RevisionsPanel({
                   )}
                 </div>
                 {expanded && (
-                  <dl className="mt-2 space-y-1 rounded-lg bg-white px-3 py-2 text-xs">
+                  <dl className="mt-2 space-y-1 rounded-lg bg-surface-card px-3 py-2 text-xs">
                     {changes.length === 0 ? (
-                      <p className="text-slate-500">Restoring this version would change nothing.</p>
+                      <p className="text-muted-foreground">
+                        Restoring this version would change nothing.
+                      </p>
                     ) : (
                       changes.map((change) => (
                         <div key={change.field} className="flex flex-wrap gap-x-2">
                           <dt className="font-bold text-slate-700">{change.field}:</dt>
-                          <dd className="text-slate-500">
+                          <dd className="text-muted-foreground">
                             <s>{change.from}</s> →{' '}
-                            <span className="font-medium text-secondary">{change.to}</span>
+                            <span className="font-medium text-foreground">{change.to}</span>
                           </dd>
                         </div>
                       ))
@@ -1481,7 +1493,7 @@ function RevisionsPanel({
                         type="button"
                         onClick={() => setConfirmingId(null)}
                         disabled={restoring}
-                        className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+                        className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-surface-card focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
                       >
                         Keep editing
                       </button>

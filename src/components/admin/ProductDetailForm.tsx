@@ -85,28 +85,28 @@ export function ProductDetailForm({ product }: { product: ProductFields }) {
     <div className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <label className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
             Name
           </span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="text-sm font-black text-secondary bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors"
+            className="text-sm font-black text-foreground bg-surface-muted border border-border rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors"
           />
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
             Price
           </span>
           <input
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             inputMode="decimal"
-            className="text-sm font-black text-secondary bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors"
+            className="text-sm font-black text-foreground bg-surface-muted border border-border rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors"
           />
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
             Compare-at (optional)
           </span>
           <input
@@ -114,19 +114,19 @@ export function ProductDetailForm({ product }: { product: ProductFields }) {
             onChange={(e) => setRegularPrice(e.target.value)}
             inputMode="decimal"
             placeholder="None"
-            className="text-sm font-black text-secondary bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors"
+            className="text-sm font-black text-foreground bg-surface-muted border border-border rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors"
           />
         </label>
       </div>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
           Stock status
         </span>
         <select
           value={stock}
           onChange={(e) => setStock(e.target.value)}
-          className="text-sm font-black text-secondary bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-primary cursor-pointer max-w-xs"
+          className="text-sm font-black text-foreground bg-surface-muted border border-border rounded-xl px-3 py-2 outline-none focus:border-primary cursor-pointer max-w-xs"
         >
           {STOCK.map((s) => (
             <option key={s.value} value={s.value}>
@@ -137,26 +137,26 @@ export function ProductDetailForm({ product }: { product: ProductFields }) {
       </label>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
           Short description (storefront card)
         </span>
         <textarea
           value={shortDescription}
           onChange={(e) => setShortDescription(e.target.value)}
           rows={2}
-          className="text-sm font-bold text-secondary bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors resize-y"
+          className="text-sm font-bold text-foreground bg-surface-muted border border-border rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors resize-y"
         />
       </label>
 
       <label className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
           Description (full product page)
         </span>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={10}
-          className="text-sm font-bold text-secondary bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors resize-y font-mono"
+          className="text-sm font-bold text-foreground bg-surface-muted border border-border rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors resize-y font-mono"
         />
       </label>
 
@@ -187,7 +187,7 @@ export function ProductDetailForm({ product }: { product: ProductFields }) {
               setSuccess(false);
             }}
             disabled={isPending}
-            className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-secondary transition-colors"
+            className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
           >
             <X size={12} /> Reset
           </button>

@@ -215,7 +215,7 @@ export function SacramentoRepresentativeFinder() {
   };
 
   return (
-    <div className="rounded-3xl bg-secondary/95 border border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl">
+    <div className="rounded-3xl bg-secondary border border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl">
       <div className="max-w-3xl">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
           <MapPin size={14} className="text-accent-gold" />
@@ -258,7 +258,7 @@ export function SacramentoRepresentativeFinder() {
         </form>
 
         {/* Current District Header */}
-        <div className="p-4 rounded-2xl bg-secondary/70 border border-white/10 mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="p-4 rounded-2xl bg-secondary border border-white/10 mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="text-xs font-mono text-accent-gold uppercase tracking-wide">
               Selected Community:
@@ -277,7 +277,7 @@ export function SacramentoRepresentativeFinder() {
           {activeDistrict.officials.map((official) => (
             <div
               key={official.name}
-              className="p-5 rounded-2xl bg-secondary/50 border border-white/10/80 hover:border-slate-700 transition-all flex flex-col justify-between"
+              className="p-5 rounded-2xl bg-secondary border border-white/10/80 hover:border-slate-700 transition-all flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between text-xs mb-2">

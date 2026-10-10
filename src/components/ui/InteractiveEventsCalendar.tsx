@@ -169,7 +169,7 @@ export function InteractiveEventsCalendar({
   return (
     <div className="space-y-8">
       {/* Controls: Search and Filter Chips */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary/90 border border-white/10 backdrop-blur-md">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary border border-white/10 backdrop-blur-md">
         {/* Search Bar */}
         <div className="relative flex-1">
           <Search
@@ -226,7 +226,7 @@ export function InteractiveEventsCalendar({
                 className={`rounded-2xl p-6 sm:p-8 transition-all relative overflow-hidden flex flex-col justify-between ${
                   event.highlight
                     ? 'bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-primary-bright/40 shadow-xl'
-                    : 'bg-secondary/80 border border-white/10/80 hover:border-slate-700'
+                    : 'bg-secondary border border-white/10 hover:border-slate-700'
                 }`}
               >
                 <div>

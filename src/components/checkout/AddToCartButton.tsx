@@ -72,7 +72,7 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
         <div className="relative">
           <label
             htmlFor="variation"
-            className="block text-xs font-black text-secondary uppercase tracking-widest mb-2"
+            className="block text-xs font-black text-foreground uppercase tracking-widest mb-2"
           >
             Select Option
           </label>
@@ -84,7 +84,7 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
                 const v = variations.find((v) => v.id === Number.parseInt(e.target.value, 10));
                 if (v) setSelectedVariation(v);
               }}
-              className="w-full appearance-none bg-slate-50 border border-slate-200 text-secondary py-4 px-5 pr-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-transparent font-bold text-sm uppercase tracking-wider"
+              className="w-full appearance-none bg-surface-muted border border-border text-foreground py-4 px-5 pr-10 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-transparent font-bold text-sm uppercase tracking-wider"
             >
               {variations.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -92,7 +92,7 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
                 </option>
               ))}
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-muted-foreground">
               <ChevronDown size={20} />
             </div>
           </div>
@@ -101,7 +101,9 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
 
       {variations.length > 0 && (
         <div className="mt-4 mb-6">
-          <p className="text-4xl font-black text-primary">${displayPrice.toFixed(2)}</p>
+          <p className="text-4xl font-black text-primary dark:text-primary-on-dark">
+            ${displayPrice.toFixed(2)}
+          </p>
         </div>
       )}
 
@@ -111,7 +113,7 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
         disabled={isOutOfStock}
         className={`w-full border-none rounded-full py-5 px-10 flex items-center justify-center text-sm font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary transition-all duration-300 ease-out uppercase tracking-[0.2em] shadow-float ${
           isOutOfStock
-            ? 'bg-slate-300 cursor-not-allowed shadow-none'
+            ? 'bg-border cursor-not-allowed shadow-none'
             : isAdded
               ? 'bg-emerald-600 scale-95'
               : 'bg-primary hover:bg-primary-dark shadow-primary/20 hover:scale-[1.02] active:scale-95'
@@ -135,7 +137,7 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
             : ''}
       </p>
 
-      <div className="flex items-center justify-center gap-2 text-xs font-black text-slate-500 uppercase tracking-[0.2em]">
+      <div className="flex items-center justify-center gap-2 text-xs font-black text-muted-foreground uppercase tracking-[0.2em]">
         <span
           aria-hidden="true"
           className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse motion-reduce:animate-none"

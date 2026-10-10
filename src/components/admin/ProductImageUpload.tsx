@@ -63,7 +63,7 @@ export function ProductImageUpload({
             alt="Current product image"
             width={200}
             height={200}
-            className="w-full aspect-square object-cover rounded-2xl bg-slate-100"
+            className="w-full aspect-square object-cover rounded-2xl bg-surface-muted"
           />
           <button
             type="button"
@@ -81,7 +81,7 @@ export function ProductImageUpload({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={isUploading || isRemoving}
-        className="w-full inline-flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest border-2 border-dashed border-slate-200 text-slate-400 rounded-2xl px-4 py-4 hover:border-primary hover:text-secondary transition-colors disabled:opacity-50"
+        className="w-full inline-flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest border-2 border-dashed border-border text-muted-foreground rounded-2xl px-4 py-4 hover:border-primary hover:text-foreground transition-colors disabled:opacity-50"
       >
         {isUploading ? <Loader2 size={12} className="animate-spin" /> : <ImagePlus size={12} />}
         {isUploading ? 'Uploading…' : currentImageUrl ? 'Replace image' : 'Upload image'}
@@ -103,7 +103,7 @@ export function ProductImageUpload({
           <span>{error}</span>
         </div>
       )}
-      <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+      <p className="text-[10px] text-muted-foreground font-bold flex items-center gap-1">
         <Upload size={9} /> JPEG, PNG or WebP up to 5MB
       </p>
     </div>

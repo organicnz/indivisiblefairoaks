@@ -61,7 +61,7 @@ export function ConfirmAction({
   return (
     <fieldset disabled={busy} className="inline-flex flex-wrap items-center gap-2">
       <legend className="sr-only">{label}</legend>
-      <span className="text-xs font-medium text-slate-600">{message}</span>
+      <span className="text-xs font-medium text-muted-foreground">{message}</span>
       <button
         type="button"
         onClick={() => {
@@ -77,7 +77,7 @@ export function ConfirmAction({
       <button
         type="button"
         onClick={() => setConfirming(false)}
-        className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+        className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-surface-card focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
       >
         {cancelLabel}
       </button>

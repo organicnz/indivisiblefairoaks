@@ -37,7 +37,7 @@ export function ProductEditor({ product }: { product: ProductRow }) {
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors"
+        className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
       >
         <Pencil size={11} /> Edit
       </button>
@@ -73,7 +73,7 @@ export function ProductEditor({ product }: { product: ProductRow }) {
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="text-sm font-black text-secondary bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 w-56"
+          className="text-sm font-black text-foreground bg-surface-muted border border-border rounded-lg px-2 py-1 w-56"
           aria-label="Product name"
         />
         <button
@@ -87,7 +87,7 @@ export function ProductEditor({ product }: { product: ProductRow }) {
         <button
           type="button"
           onClick={() => setEditing(false)}
-          className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600"
+          className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-muted-foreground"
         >
           <X size={12} /> Cancel
         </button>
@@ -95,7 +95,7 @@ export function ProductEditor({ product }: { product: ProductRow }) {
       <div className="flex items-center gap-2">
         <label
           htmlFor={`price-${editId}`}
-          className="text-[10px] font-black uppercase tracking-widest text-slate-400"
+          className="text-[10px] font-black uppercase tracking-widest text-muted-foreground"
         >
           Price
         </label>
@@ -103,12 +103,12 @@ export function ProductEditor({ product }: { product: ProductRow }) {
           id={`price-${editId}`}
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          className="text-sm font-black text-secondary bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 w-24"
+          className="text-sm font-black text-foreground bg-surface-muted border border-border rounded-lg px-2 py-1 w-24"
           inputMode="decimal"
         />
         <label
           htmlFor={`sale-${editId}`}
-          className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2"
+          className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2"
         >
           Compare-at
         </label>
@@ -116,14 +116,14 @@ export function ProductEditor({ product }: { product: ProductRow }) {
           id={`sale-${editId}`}
           value={regularPrice}
           onChange={(e) => setRegularPrice(e.target.value)}
-          className="text-sm font-black text-secondary bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 w-24"
+          className="text-sm font-black text-foreground bg-surface-muted border border-border rounded-lg px-2 py-1 w-24"
           inputMode="decimal"
           placeholder="None"
         />
         <select
           value={stock}
           onChange={(e) => setStock(e.target.value)}
-          className="text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 border-0 bg-slate-100 text-secondary outline-none cursor-pointer"
+          className="text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 border-0 bg-surface-muted text-foreground outline-none cursor-pointer"
           aria-label="Stock status"
         >
           {STOCK.map((s) => (

@@ -90,7 +90,7 @@ export default async function AdminCustomerDetailPage({
     <div>
       <Link
         href="/admin/customers"
-        className="inline-flex items-center gap-2 text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-secondary transition-colors mb-6"
+        className="inline-flex items-center gap-2 text-[11px] font-black text-muted-foreground uppercase tracking-widest hover:text-foreground transition-colors mb-6"
       >
         <ArrowLeft size={12} /> Back to Customers
       </Link>
@@ -98,19 +98,19 @@ export default async function AdminCustomerDetailPage({
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <User size={14} className="text-secondary" />
+            <User size={14} className="text-foreground" />
           </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel
           </span>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">{name}</h1>
-            <p className="text-sm text-slate-500 font-bold mt-1 flex items-center gap-2">
-              <Mail size={12} className="text-slate-300" /> {customer.email}
+            <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">{name}</h1>
+            <p className="text-sm text-muted-foreground font-bold mt-1 flex items-center gap-2">
+              <Mail size={12} className="text-muted-foreground" /> {customer.email}
             </p>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1.5 flex items-center gap-1.5">
+            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-1.5 flex items-center gap-1.5">
               <Calendar size={11} />
               Customer since{' '}
               {customer.created_at
@@ -123,7 +123,7 @@ export default async function AdminCustomerDetailPage({
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 bg-slate-100 text-slate-600">
+            <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 bg-surface-muted text-muted-foreground">
               #{customer.id}
             </span>
             <CustomerAdminToggle profileId={customer.id} isAdmin={customer.is_admin} />
@@ -151,7 +151,7 @@ export default async function AdminCustomerDetailPage({
           },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="bg-secondary rounded-3xl p-6">
-            <Icon size={16} className="text-primary mb-3" />
+            <Icon size={16} className="text-primary-on-dark mb-3" />
             <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-1">
               {label}
             </p>
@@ -162,21 +162,21 @@ export default async function AdminCustomerDetailPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Order history */}
-        <section className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm lg:col-span-2">
-          <div className="bg-slate-50 px-8 py-4 border-b border-slate-100 flex items-center gap-2">
-            <Package size={12} className="text-primary" />
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+        <section className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm lg:col-span-2">
+          <div className="bg-surface-muted px-8 py-4 border-b border-border flex items-center gap-2">
+            <Package size={12} className="text-primary dark:text-primary-on-dark" />
+            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
               Order history ({orders.length})
             </h2>
           </div>
           {orders.length === 0 ? (
             <div className="px-8 py-12 text-center">
-              <p className="text-slate-400 font-black uppercase tracking-widest text-sm">
+              <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
                 No orders yet.
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-50">
+            <ul className="divide-y divide-border">
               {orders
                 .slice()
                 .sort((a, b) =>
@@ -186,7 +186,7 @@ export default async function AdminCustomerDetailPage({
                   <li key={o.id} className="px-8 py-4 flex flex-wrap items-center gap-4">
                     <Link
                       href={`/admin/orders/${o.id}`}
-                      className="text-sm font-black text-secondary uppercase tracking-wider hover:text-primary transition-colors"
+                      className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
                     >
                       #{o.id}
                     </Link>
@@ -195,7 +195,7 @@ export default async function AdminCustomerDetailPage({
                     >
                       {o.status || 'unknown'}
                     </span>
-                    <span className="text-[11px] text-slate-400 font-bold">
+                    <span className="text-[11px] text-muted-foreground font-bold">
                       {o.created_at
                         ? new Date(o.created_at).toLocaleDateString('en-NZ', {
                             day: 'numeric',
@@ -204,7 +204,7 @@ export default async function AdminCustomerDetailPage({
                           })
                         : 'N/A'}
                     </span>
-                    <span className="ml-auto text-sm font-black text-primary">
+                    <span className="ml-auto text-sm font-black text-primary dark:text-primary-on-dark">
                       ${Number(o.total).toFixed(2)}
                     </span>
                   </li>
@@ -214,27 +214,27 @@ export default async function AdminCustomerDetailPage({
         </section>
 
         {/* Top products */}
-        <section className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
-          <div className="bg-slate-50 px-8 py-4 border-b border-slate-100 flex items-center gap-2">
-            <Ticket size={12} className="text-primary" />
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+        <section className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm">
+          <div className="bg-surface-muted px-8 py-4 border-b border-border flex items-center gap-2">
+            <Ticket size={12} className="text-primary dark:text-primary-on-dark" />
+            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
               Most purchased
             </h2>
           </div>
           {topProducts.length === 0 ? (
             <div className="px-8 py-12 text-center">
-              <p className="text-slate-400 font-black uppercase tracking-widest text-sm">
+              <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
                 Nothing yet.
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-50 px-8 py-2">
+            <ul className="divide-y divide-border px-8 py-2">
               {topProducts.map(([product, qty]) => (
                 <li key={product} className="py-3 flex items-center gap-3">
-                  <span className="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center text-[10px] font-black text-primary shrink-0">
+                  <span className="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center text-[10px] font-black text-primary-on-dark shrink-0">
                     {qty}
                   </span>
-                  <span className="text-xs font-black text-secondary uppercase tracking-wide truncate">
+                  <span className="text-xs font-black text-foreground uppercase tracking-wide truncate">
                     {product}
                   </span>
                 </li>

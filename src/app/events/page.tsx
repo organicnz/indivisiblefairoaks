@@ -22,7 +22,7 @@ export default async function EventsPage() {
     // calendar falls back to inline rows
   }
   return (
-    <div className="w-full bg-secondary text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
         <VgpuCivicConstellation />
@@ -31,7 +31,7 @@ export default async function EventsPage() {
             <Calendar size={14} className="text-accent-gold" />
             <span>Community Actions & Calendar</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
+          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4">
             Upcoming Events & Mobilizations
           </h1>
           <p className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed">
@@ -45,30 +45,32 @@ export default async function EventsPage() {
         <InteractiveEventsCalendar initialEvents={initialEvents} />
 
         {/* Trainings & Campaign Initiatives — copy region */}
-        <div className="space-y-6 pt-6 border-t border-white/10">
-          <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <Users className="text-primary-on-dark-muted" />
+        <div className="space-y-6 pt-6 border-t border-border dark:border-white/10">
+          <h2 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
+            <Users className="text-primary-ink dark:text-primary-on-dark-muted" />
             <span>Trainings & Action Labs</span>
           </h2>
 
           <CopyRegion id="events-trainings">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 rounded-2xl bg-secondary/70 border border-white/10 space-y-3">
-                <h3 className="text-lg font-bold text-white">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border dark:bg-secondary/70 dark:border-white/10 space-y-3">
+                <h3 className="text-lg font-bold text-foreground dark:text-white">
                   Deep Canvass Political Persuasion Training
                 </h3>
-                <p className="text-xs text-ink-on-dark leading-relaxed">
+                <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
                   Learn the proven art of deep canvassing: connecting with conflicted voters through
                   empathetic listening and shared values to build durable election support.
                 </p>
-                <span className="inline-block text-[11px] font-bold text-accent-gold uppercase tracking-wider">
+                <span className="inline-block text-[11px] font-bold text-primary-ink dark:text-accent-gold uppercase tracking-wider">
                   We The Fighters / Organizing to Fight Oligarchy
                 </span>
               </div>
 
-              <div className="p-6 rounded-2xl bg-secondary/70 border border-white/10 space-y-3">
-                <h3 className="text-lg font-bold text-white">Know Your Rights Civic Workshop</h3>
-                <p className="text-xs text-ink-on-dark leading-relaxed">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border dark:bg-secondary/70 dark:border-white/10 space-y-3">
+                <h3 className="text-lg font-bold text-foreground dark:text-white">
+                  Know Your Rights Civic Workshop
+                </h3>
+                <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
                   Everyone has fundamental constitutional rights under U.S. law. Learn what your
                   rights are, how to safely exercise them in public, and what to do if your rights
                   are violated.
@@ -77,7 +79,7 @@ export default async function EventsPage() {
                   href="https://www.aclu.org/know-your-rights"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-bold text-primary-on-dark-muted hover:text-primary-on-dark inline-flex items-center gap-1"
+                  className="text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark inline-flex items-center gap-1"
                 >
                   <span>ACLU Know Your Rights Guide</span>
                   <ExternalLink size={12} />
@@ -88,10 +90,12 @@ export default async function EventsPage() {
         </div>
 
         {/* Nonviolence Banner */}
-        <div className="p-6 rounded-2xl bg-secondary border border-white/10 flex items-start gap-4">
-          <AlertCircle className="text-accent-gold shrink-0 mt-1" size={24} />
-          <div className="text-xs sm:text-sm text-ink-on-dark leading-relaxed">
-            <strong className="text-white block mb-1">Our Nonviolent Commitment:</strong>
+        <div className="p-6 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 flex items-start gap-4">
+          <AlertCircle className="text-accent dark:text-accent-gold shrink-0 mt-1" size={24} />
+          <div className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+            <strong className="text-foreground dark:text-white block mb-1">
+              Our Nonviolent Commitment:
+            </strong>
             All Indivisible Fair Oaks-Carmichael events are strictly nonviolent. We expect all
             attendees to act lawfully and de-escalate any potential confrontation with
             counter-protesters. No weapons are permitted at any event.

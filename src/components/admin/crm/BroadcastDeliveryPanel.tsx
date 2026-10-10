@@ -40,7 +40,7 @@ function typePillClass(type: string): string {
   if (type === 'bounced' || type === 'complained') return 'bg-rose-100 text-rose-800';
   if (type === 'suppressed' || type === 'delivery_delayed') return 'bg-amber-100 text-amber-900';
   if (type === 'opened' || type === 'clicked') return 'bg-emerald-100 text-emerald-800';
-  return 'bg-slate-100 text-slate-600';
+  return 'bg-surface-muted text-muted-foreground';
 }
 
 function formatTime(iso: string): string {
@@ -90,7 +90,7 @@ export function BroadcastDeliveryPanel({ broadcastId }: { broadcastId: string })
 
   if (events === null) {
     return (
-      <p role="status" className="text-[11px] font-bold text-slate-400">
+      <p role="status" className="text-[11px] font-bold text-muted-foreground">
         Loading delivery events…
       </p>
     );
@@ -98,7 +98,7 @@ export function BroadcastDeliveryPanel({ broadcastId }: { broadcastId: string })
 
   if (events.length === 0) {
     return (
-      <p className="text-[11px] font-bold text-slate-400">
+      <p className="text-[11px] font-bold text-muted-foreground">
         No delivery events yet — bounces, complaints, opens and clicks land here after sending.
       </p>
     );
@@ -120,7 +120,7 @@ export function BroadcastDeliveryPanel({ broadcastId }: { broadcastId: string })
           </span>
         ))}
       </div>
-      <ul className="divide-y divide-slate-100 max-w-3xl">
+      <ul className="divide-y divide-border max-w-3xl">
         {rendered.map((event) => (
           <li key={event.id} className="py-1.5 flex items-center gap-2 text-[11px]">
             <span
@@ -128,15 +128,17 @@ export function BroadcastDeliveryPanel({ broadcastId }: { broadcastId: string })
             >
               {event.eventType.replace(/_/g, ' ')}
             </span>
-            <span className="font-bold text-secondary truncate">
+            <span className="font-bold text-foreground truncate">
               {event.contactEmail ?? 'Unknown recipient'}
             </span>
-            <span className="ml-auto shrink-0 text-slate-400">{formatTime(event.occurredAt)}</span>
+            <span className="ml-auto shrink-0 text-muted-foreground">
+              {formatTime(event.occurredAt)}
+            </span>
           </li>
         ))}
       </ul>
       {totalCount > rendered.length && (
-        <p className="text-[10px] font-bold text-slate-400">
+        <p className="text-[10px] font-bold text-muted-foreground">
           Showing the {rendered.length} most recent of {totalCount} events.
         </p>
       )}

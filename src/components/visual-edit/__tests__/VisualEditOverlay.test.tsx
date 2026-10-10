@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
+import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import type { PublishedSection, VisualSectionsPublishedDetail } from '@/types/visual-edit';
 
 /**
@@ -198,11 +199,11 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     const onPublish = (event: Event) => {
       latest = (event as CustomEvent<VisualSectionsPublishedDetail>).detail.sections;
     };
-    window.addEventListener('indivisible:page-sections-updated', onPublish);
+    window.addEventListener(VISUAL_EDIT_EVENTS.sectionsPublished, onPublish);
     try {
       await withPage();
     } finally {
-      window.removeEventListener('indivisible:page-sections-updated', onPublish);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.sectionsPublished, onPublish);
     }
 
     expect(latest).toEqual([
@@ -220,7 +221,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     // Delete the first section via the header's event, addressed by block index.
     await act(async () => {
       window.dispatchEvent(
-        new CustomEvent('indivisible:delete-section', { detail: { blockIndex: 0 } })
+        new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 0 } })
       );
     });
 
@@ -238,7 +239,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
 
     await act(async () => {
       window.dispatchEvent(
-        new CustomEvent('indivisible:move-section', {
+        new CustomEvent(VISUAL_EDIT_EVENTS.moveSection, {
           detail: { blockIndex: 2, direction: 'up' },
         })
       );
@@ -269,7 +270,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
 
     await act(async () => {
       window.dispatchEvent(
-        new CustomEvent('indivisible:delete-section', { detail: { blockIndex: 0 } })
+        new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail: { blockIndex: 0 } })
       );
     });
 

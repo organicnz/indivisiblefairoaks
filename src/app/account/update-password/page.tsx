@@ -133,7 +133,7 @@ export default function UpdatePasswordPage() {
   if (!sessionReady || needsStepUp === null) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <Loader2 className="w-8 h-8 text-primary dark:text-primary-on-dark animate-spin" />
       </div>
     );
   }
@@ -142,7 +142,7 @@ export default function UpdatePasswordPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16">
         <div className="max-w-md w-full bg-slate-50 p-10 rounded-3xl shadow-sm text-center border border-slate-100">
-          <div className="p-4 bg-primary/10 text-primary rounded-2xl mb-6 inline-flex">
+          <div className="p-4 bg-primary/10 text-primary dark:text-primary-on-dark rounded-2xl mb-6 inline-flex">
             <ShieldCheck size={28} aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-black text-secondary uppercase tracking-tight mb-3">
@@ -202,7 +202,7 @@ export default function UpdatePasswordPage() {
             </span>
           </div>
           <h1 className="text-4xl font-black text-secondary uppercase tracking-tighter leading-none mb-3">
-            New <span className="text-primary italic">Password</span>
+            New <span className="text-primary dark:text-primary-on-dark italic">Password</span>
           </h1>
           <p className="text-slate-400 font-bold uppercase tracking-[0.15em] text-[10px]">
             Choose a strong password for your account
@@ -215,13 +215,13 @@ export default function UpdatePasswordPage() {
             <div className="group">
               <label
                 htmlFor="new-password"
-                className="block text-[10px] font-black text-secondary/40 uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary transition-colors"
+                className="block text-[10px] font-black text-secondary/40 uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
               >
                 New Password
               </label>
               <div className="relative">
                 <Lock
-                  className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors pointer-events-none"
+                  className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary dark:text-primary-on-dark transition-colors pointer-events-none"
                   size={16}
                 />
                 <input
@@ -249,13 +249,13 @@ export default function UpdatePasswordPage() {
             <div className="group">
               <label
                 htmlFor="confirm-password"
-                className="block text-[10px] font-black text-secondary/40 uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary transition-colors"
+                className="block text-[10px] font-black text-secondary/40 uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
               >
                 Confirm Password
               </label>
               <div className="relative">
                 <Lock
-                  className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors pointer-events-none"
+                  className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary dark:text-primary-on-dark transition-colors pointer-events-none"
                   size={16}
                 />
                 <input

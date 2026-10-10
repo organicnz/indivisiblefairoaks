@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorialButton, EditorialDrawerRow } from '@/components/layout/EditorialButton';
+import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 
 const mockToggle = vi.fn();
 let mockEnabled = false;
@@ -47,7 +48,7 @@ function publishSections(
   }[]
 ) {
   window.dispatchEvent(
-    new CustomEvent('indivisible:page-sections-updated', {
+    new CustomEvent(VISUAL_EDIT_EVENTS.sectionsPublished, {
       detail: {
         sections: sections.map((section) => ({
           blockType: null,
@@ -120,7 +121,7 @@ describe('EditorialButton component', () => {
     expect(btn?.getAttribute('aria-pressed')).toBe('true');
 
     const dropdownTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Toggle section editor menu"]'
+      'button[aria-label="Visual editing menu"]'
     );
     expect(dropdownTrigger).not.toBeNull();
 
@@ -141,7 +142,7 @@ describe('EditorialButton component', () => {
     mockEnabled = true;
 
     const eventListener = vi.fn();
-    window.addEventListener('indivisible:focus-section', eventListener);
+    window.addEventListener(VISUAL_EDIT_EVENTS.focusSection, eventListener);
 
     await act(async () => {
       root.render(<EditorialButton />);
@@ -151,7 +152,7 @@ describe('EditorialButton component', () => {
     });
 
     const dropdownTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Toggle section editor menu"]'
+      'button[aria-label="Visual editing menu"]'
     );
     await act(async () => {
       dropdownTrigger?.click();
@@ -171,14 +172,14 @@ describe('EditorialButton component', () => {
         detail: { blockIndex: 0, openEdit: false },
       })
     );
-    window.removeEventListener('indivisible:focus-section', eventListener);
+    window.removeEventListener(VISUAL_EDIT_EVENTS.focusSection, eventListener);
   });
 
   it('toggles visual frame for an individual section', async () => {
     mockEnabled = true;
 
     const toggleListener = vi.fn();
-    window.addEventListener('indivisible:toggle-section-visual', toggleListener);
+    window.addEventListener(VISUAL_EDIT_EVENTS.toggleSection, toggleListener);
 
     await act(async () => {
       root.render(<EditorialButton />);
@@ -188,7 +189,7 @@ describe('EditorialButton component', () => {
     });
 
     const dropdownTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Toggle section editor menu"]'
+      'button[aria-label="Visual editing menu"]'
     );
     await act(async () => {
       dropdownTrigger?.click();
@@ -210,14 +211,14 @@ describe('EditorialButton component', () => {
         detail: { blockIndex: 0, enabled: false },
       })
     );
-    window.removeEventListener('indivisible:toggle-section-visual', toggleListener);
+    window.removeEventListener(VISUAL_EDIT_EVENTS.toggleSection, toggleListener);
   });
 
   it('dispatches duplicate-section event when duplicate button is clicked', async () => {
     mockEnabled = true;
 
     const dupListener = vi.fn();
-    window.addEventListener('indivisible:duplicate-section', dupListener);
+    window.addEventListener(VISUAL_EDIT_EVENTS.duplicateSection, dupListener);
 
     await act(async () => {
       root.render(<EditorialButton />);
@@ -227,7 +228,7 @@ describe('EditorialButton component', () => {
     });
 
     const dropdownTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Toggle section editor menu"]'
+      'button[aria-label="Visual editing menu"]'
     );
     await act(async () => {
       dropdownTrigger?.click();
@@ -245,7 +246,7 @@ describe('EditorialButton component', () => {
         detail: { blockIndex: 0 },
       })
     );
-    window.removeEventListener('indivisible:duplicate-section', dupListener);
+    window.removeEventListener(VISUAL_EDIT_EVENTS.duplicateSection, dupListener);
   });
 
   it('renders mobile drawer row with parity and section toggles', async () => {
@@ -263,12 +264,149 @@ describe('EditorialButton component', () => {
       '[data-testid="editorial-visual-edit-row"]'
     );
     expect(switchBtn).not.toBeNull();
-    expect(switchBtn?.getAttribute('aria-checked')).toBe('true');
+    expect(switchBtn?.getAttribute('aria-pressed')).toBe('true');
 
     await act(async () => {
       switchBtn?.click();
     });
     expect(mockToggle).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The drawer is not a lesser editor.
+   *
+   * These are the controls the small-screen surface gained with the parity
+   * pass. A drawer that offered only the frame switch left a phone user unable
+   * to do anything else an admin can do from the desktop menu — the one place
+   * that needs it most. Each dispatch is asserted because the whole point of
+   * `lib/visual-edit-events.ts` is that a control which fires an event nobody
+   * listens for is indistinguishable from a broken control.
+   */
+  it('offers the full CRUD from the drawer row, not only the frame switch', async () => {
+    mockEnabled = true;
+    const onNavigate = vi.fn();
+    const heard: Record<string, unknown[]> = {};
+    const kinds = [
+      'indivisible:focus-section',
+      'indivisible:move-section',
+      'indivisible:duplicate-section',
+      'indivisible:delete-section',
+      'indivisible:add-block',
+      'indivisible:select-region',
+    ] as const;
+    for (const kind of kinds) {
+      const listener = (event: Event) => {
+        heard[kind] = heard[kind] ?? [];
+        heard[kind].push((event as CustomEvent).detail ?? null);
+      };
+      window.addEventListener(kind, listener);
+      (globalThis as Record<string, unknown>)[`__cleanup_${kind}`] = () =>
+        window.removeEventListener(kind, listener);
+    }
+
+    await act(async () => {
+      root.render(<EditorialDrawerRow onNavigate={onNavigate} />);
+    });
+    await act(async () => {
+      publishSections([
+        { index: 0, label: 'First Section', blockIndex: 2, enabled: false },
+        { index: 1, label: 'Get Out The Vote', blockIndex: 3, enabled: false },
+      ]);
+    });
+
+    const click = async (selector: (b: HTMLButtonElement) => boolean) => {
+      const target = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+        selector
+      );
+      expect(target, 'control not found in the drawer row').not.toBeUndefined();
+      await act(async () => {
+        target?.click();
+      });
+    };
+
+    // Jump, edit, duplicate, move, delete — one per row control.
+    await click((b) => b.title === 'Jump to Get Out The Vote');
+    await click((b) => b.getAttribute('aria-label') === 'Edit Get Out The Vote');
+    await click((b) => b.getAttribute('aria-label') === 'Duplicate Get Out The Vote');
+    await click((b) => b.getAttribute('aria-label') === 'Move Get Out The Vote up');
+    await click((b) => b.getAttribute('aria-label') === 'Delete Get Out The Vote');
+    // The block shortcuts.
+    await click((b) => b.textContent?.includes('Add block') ?? false);
+    await click((b) => b.textContent?.includes('Supabase media library') ?? false);
+
+    expect(heard['indivisible:focus-section']).toHaveLength(2);
+    expect(heard['indivisible:move-section']).toEqual([{ blockIndex: 3, direction: 'up' }]);
+    expect(heard['indivisible:duplicate-section']).toEqual([{ blockIndex: 3 }]);
+    expect(heard['indivisible:delete-section']).toEqual([{ blockIndex: 3 }]);
+    expect(heard['indivisible:add-block']).toHaveLength(1);
+    // Every navigation dispatch also closes the drawer, so the operator lands
+    // back on the page they are editing rather than under the menu.
+    expect(onNavigate).toHaveBeenCalled();
+
+    for (const kind of kinds) {
+      const cleanup = (globalThis as unknown as Record<string, (() => void) | undefined>)[
+        `__cleanup_${kind}`
+      ];
+      cleanup?.();
+      delete (globalThis as unknown as Record<string, unknown>)[`__cleanup_${kind}`];
+    }
+  });
+
+  /**
+   * `Frame all` / `Mute all` must state the *next* state, not the current one.
+   *
+   * The header's control reads "Mute all" while everything is framed and
+   * "Frame all" while something is unframed. The inverse — labelling the
+   * control with the state it describes — reads as a control that does the
+   * wrong thing, and the payload proves which of the two it is.
+   */
+  it('the drawer Frame-all control dispatches the state it does not yet have', async () => {
+    mockEnabled = true;
+    let detail: { all?: boolean } | null = null;
+    const listener = (event: Event) => {
+      detail = (event as CustomEvent<{ all?: boolean }>).detail;
+    };
+    window.addEventListener(VISUAL_EDIT_EVENTS.toggleSection, listener);
+
+    await act(async () => {
+      root.render(<EditorialDrawerRow onNavigate={() => {}} />);
+    });
+    await act(async () => {
+      publishSections([
+        { index: 0, label: 'One', blockIndex: 0, enabled: false },
+        { index: 1, label: 'Two', blockIndex: 1, enabled: false },
+      ]);
+    });
+
+    const frameAll = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === 'Frame all'
+    );
+    expect(frameAll, 'expected a "Frame all" control while every section is unframed').not.toBe(
+      undefined
+    );
+    await act(async () => {
+      frameAll?.click();
+    });
+    expect(detail).toEqual({ all: true });
+
+    // With every section now framed, the same control reads "Mute all" and
+    // dispatches the opposite payload.
+    await act(async () => {
+      publishSections([
+        { index: 0, label: 'One', blockIndex: 0, enabled: true },
+        { index: 1, label: 'Two', blockIndex: 1, enabled: true },
+      ]);
+    });
+    const muteAll = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === 'Mute all'
+    );
+    expect(muteAll).not.toBeUndefined();
+    await act(async () => {
+      muteAll?.click();
+    });
+    expect(detail).toEqual({ all: false });
+
+    window.removeEventListener(VISUAL_EDIT_EVENTS.toggleSection, listener);
   });
 
   /**
@@ -291,7 +429,7 @@ describe('EditorialButton component', () => {
     });
 
     const dropdownTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Toggle section editor menu"]'
+      'button[aria-label="Visual editing menu"]'
     );
     await act(async () => {
       dropdownTrigger?.click();
@@ -319,13 +457,16 @@ describe('EditorialButton component', () => {
   it('offers the page copy regions and dispatches a select event', async () => {
     mockEnabled = true;
     const selectListener = vi.fn();
-    window.addEventListener('indivisible:select-region', selectListener);
+    window.addEventListener(VISUAL_EDIT_EVENTS.selectRegion, selectListener);
 
     await act(async () => {
       root.render(<EditorialButton />);
     });
     await act(async () => {
-      dropdownTriggerOpen(container);
+      const trigger = container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Visual editing menu"]'
+      );
+      trigger?.click();
     });
 
     // `/about` is mocked as the pathname and registers four regions.
@@ -350,7 +491,7 @@ describe('EditorialButton component', () => {
     expect(selectListener).toHaveBeenCalledWith(
       expect.objectContaining({ detail: { regionId: 'about-mission', at: expect.any(Number) } })
     );
-    window.removeEventListener('indivisible:select-region', selectListener);
+    window.removeEventListener(VISUAL_EDIT_EVENTS.selectRegion, selectListener);
   });
 
   /**
@@ -372,7 +513,7 @@ describe('EditorialButton component', () => {
     // document and must be dropped rather than rendered.
     await act(async () => {
       window.dispatchEvent(
-        new CustomEvent('indivisible:page-sections-updated', {
+        new CustomEvent(VISUAL_EDIT_EVENTS.sectionsPublished, {
           detail: {
             sections: [
               { index: 0, label: 'Wipe me', blockType: null, blockIndex: 0, enabled: true },
@@ -385,7 +526,10 @@ describe('EditorialButton component', () => {
     });
 
     await act(async () => {
-      dropdownTriggerOpen(container);
+      const trigger = container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Visual editing menu"]'
+      );
+      trigger?.click();
     });
 
     const jumpButtons = Array.from(
@@ -404,11 +548,3 @@ describe('EditorialButton component', () => {
     expect(adopted).toHaveLength(1);
   });
 });
-
-/** Open the editorial menu the way a test (and a keyboard user) does. */
-function dropdownTriggerOpen(container: HTMLElement) {
-  const trigger = container.querySelector<HTMLButtonElement>(
-    'button[aria-label="Toggle section editor menu"]'
-  );
-  trigger?.click();
-}

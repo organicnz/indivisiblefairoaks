@@ -9,6 +9,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { AccountButton } from '@/components/layout/AccountButton';
 import { EditorialButton, EditorialDrawerRow } from '@/components/layout/EditorialButton';
 import { NavDropdown } from '@/components/layout/NavDropdown';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
 import { isActiveRoute, ROUTES } from '@/config/routes';
 import { SITE_CONTACT } from '@/config/site';
@@ -188,6 +189,7 @@ function HeaderInner() {
             <div className="flex items-center gap-2.5 sm:gap-3">
               <CivicCommandPalette isOpen={isSearchOpen} setIsOpen={setIsSearchOpen} />
 
+              <ThemeToggle />
               <EditorialButton />
               <Link
                 href="/donate"
@@ -309,6 +311,8 @@ function HeaderInner() {
               </button>
 
               <EditorialDrawerRow onNavigate={() => setIsMenuOpen(false)} />
+
+              <ThemeToggle variant="block" />
 
               {ROUTES.map((link) => {
                 const isActive = isActiveRoute(pathname, link);

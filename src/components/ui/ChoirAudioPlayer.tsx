@@ -187,7 +187,7 @@ export function ChoirAudioPlayer() {
   }, [stopChoralSynth]);
 
   return (
-    <div className="rounded-2xl bg-secondary/90 border border-white/10 p-5 md:p-6 backdrop-blur-xl shadow-2xl">
+    <div className="rounded-2xl bg-secondary border border-white/10 p-5 md:p-6 backdrop-blur-xl shadow-2xl">
       <div className="flex items-center justify-between gap-4 mb-4 pb-4 border-b border-white/10/80">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary-bright/20 border border-primary-bright/30 flex items-center justify-center text-primary-on-dark-muted">

@@ -22,7 +22,7 @@ export default function WishlistPage() {
   }, []);
 
   if (!isMounted) {
-    return <div className="min-h-screen bg-white" />;
+    return <div className="min-h-screen bg-background" />;
   }
 
   const handleMoveToCart = (item: {
@@ -44,19 +44,19 @@ export default function WishlistPage() {
   };
 
   return (
-    <div className="bg-white min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col items-center text-center mb-16">
-          <h1 className="text-4xl font-black text-secondary uppercase tracking-tight mb-4">
+          <h1 className="text-4xl font-black text-foreground uppercase tracking-tight mb-4">
             My Wishlist
           </h1>
           <div className="h-2 w-24 bg-primary" />
         </div>
 
         {items.length === 0 ? (
-          <div className="text-center py-32 bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
-            <Heart className="w-16 h-16 text-slate-200 mx-auto mb-6" />
-            <p className="text-slate-500 font-bold uppercase tracking-widest mb-8">
+          <div className="text-center py-32 bg-surface-muted rounded-[3rem] border border-dashed border-border">
+            <Heart className="w-16 h-16 text-muted-foreground mx-auto mb-6" />
+            <p className="text-muted-foreground font-bold uppercase tracking-widest mb-8">
               Your wishlist is empty.
             </p>
             <Link
@@ -82,11 +82,11 @@ export default function WishlistPage() {
               {items.map((item) => (
                 <div
                   key={item.id}
-                  className="group bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300"
+                  className="group bg-surface-card rounded-3xl border border-border shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300"
                 >
                   <Link
                     href={`/products/${item.slug}`}
-                    className="relative h-64 block overflow-hidden bg-slate-50"
+                    className="relative h-64 block overflow-hidden bg-surface-muted"
                   >
                     {item.image_url ? (
                       <Image
@@ -97,16 +97,18 @@ export default function WishlistPage() {
                         className="object-cover group-hover:scale-105 motion-reduce:group-hover:scale-100 transition-transform duration-500"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300 font-black uppercase tracking-widest text-[10px]">
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground font-black uppercase tracking-widest text-[10px]">
                         No Image
                       </div>
                     )}
                   </Link>
                   <div className="p-8">
-                    <h2 className="text-lg font-black text-secondary uppercase mb-2 line-clamp-1">
+                    <h2 className="text-lg font-black text-foreground uppercase mb-2 line-clamp-1">
                       {item.name}
                     </h2>
-                    <p className="text-xl font-black text-primary mb-8">${item.price.toFixed(2)}</p>
+                    <p className="text-xl font-black text-primary dark:text-primary-on-dark mb-8">
+                      ${item.price.toFixed(2)}
+                    </p>
 
                     <div className="flex flex-col gap-3">
                       <button
@@ -119,7 +121,7 @@ export default function WishlistPage() {
                       <button
                         type="button"
                         onClick={() => removeItem(item.id)}
-                        className="flex items-center justify-center gap-2 text-slate-400 font-black py-2 rounded-full transition-all uppercase tracking-widest text-[10px] hover:text-rose-500"
+                        className="flex items-center justify-center gap-2 text-muted-foreground font-black py-2 rounded-full transition-all uppercase tracking-widest text-[10px] hover:text-rose-500"
                       >
                         <Trash2 size={14} /> Remove
                       </button>

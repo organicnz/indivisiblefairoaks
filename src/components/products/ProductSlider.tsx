@@ -64,8 +64,8 @@ export function ProductSlider({ products }: ProductSliderProps) {
         // them from keyboard users while leaving them focusable. They are now
         // hidden only when there is nothing in that direction, and always
         // visible on focus.
-        className={`inline-flex size-12 items-center justify-center rounded-full bg-white border border-slate-200 shadow-float transition-colors duration-300 ease-out ${FOCUS_RING} ${
-          visible ? 'text-secondary hover:bg-primary hover:text-white' : 'invisible'
+        className={`inline-flex size-12 items-center justify-center rounded-full bg-surface-card border border-border shadow-float transition-colors duration-300 ease-out ${FOCUS_RING} ${
+          visible ? 'text-foreground hover:bg-primary hover:text-white' : 'invisible'
         }`}
         aria-label={`Scroll ${direction === 'left' ? 'left' : 'right'}`}
       >
@@ -118,8 +118,8 @@ export function ProductSlider({ products }: ProductSliderProps) {
           type="button"
           onClick={() => scroll('left')}
           disabled={!showLeftArrow}
-          className={`inline-flex size-12 items-center justify-center rounded-full bg-white border border-slate-200 shadow-raised transition-colors duration-300 ease-out ${FOCUS_RING} ${
-            showLeftArrow ? 'text-secondary' : 'invisible'
+          className={`inline-flex size-12 items-center justify-center rounded-full bg-surface-card border border-border shadow-raised transition-colors duration-300 ease-out ${FOCUS_RING} ${
+            showLeftArrow ? 'text-foreground' : 'invisible'
           }`}
           aria-label="Scroll left"
         >
@@ -129,8 +129,8 @@ export function ProductSlider({ products }: ProductSliderProps) {
           type="button"
           onClick={() => scroll('right')}
           disabled={!showRightArrow}
-          className={`inline-flex size-12 items-center justify-center rounded-full bg-white border border-slate-200 shadow-raised transition-colors duration-300 ease-out ${FOCUS_RING} ${
-            showRightArrow ? 'text-secondary' : 'invisible'
+          className={`inline-flex size-12 items-center justify-center rounded-full bg-surface-card border border-border shadow-raised transition-colors duration-300 ease-out ${FOCUS_RING} ${
+            showRightArrow ? 'text-foreground' : 'invisible'
           }`}
           aria-label="Scroll right"
         >

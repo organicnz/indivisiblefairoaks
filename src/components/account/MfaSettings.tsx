@@ -217,7 +217,10 @@ export function MfaSettings() {
   if (isLoading)
     return (
       <div className="flex justify-center p-8">
-        <Loader2 className="animate-spin text-primary" aria-label="Loading 2FA settings" />
+        <Loader2
+          className="animate-spin text-primary dark:text-primary-on-dark"
+          aria-label="Loading 2FA settings"
+        />
       </div>
     );
 
@@ -230,10 +233,10 @@ export function MfaSettings() {
   const activeFactor = verified[0];
 
   return (
-    <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm p-8 mt-12">
+    <div className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm p-8 mt-12">
       <div className="flex items-center gap-4 mb-6">
         <div
-          className={`p-3 rounded-2xl ${activeFactor ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}
+          className={`p-3 rounded-2xl ${activeFactor ? 'bg-emerald-50 text-emerald-600' : 'bg-surface-muted text-muted-foreground'}`}
         >
           {activeFactor ? <ShieldCheck size={24} /> : <Shield size={24} />}
         </div>
@@ -241,7 +244,7 @@ export function MfaSettings() {
           <h3 className="text-lg font-black text-secondary uppercase tracking-tight">
             Two-Factor Authentication
           </h3>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
+          <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
             Secure your account with TOTP
           </p>
         </div>
@@ -272,7 +275,7 @@ export function MfaSettings() {
               {verified.map((factor) => (
                 <li
                   key={factor.id}
-                  className="flex items-center justify-between gap-3 bg-white/70 rounded-xl px-3 py-2.5"
+                  className="flex items-center justify-between gap-3 bg-white/70 dark:bg-white/5 rounded-xl px-3 py-2.5"
                 >
                   <span className="flex items-center gap-2 text-xs font-bold text-emerald-900 min-w-0">
                     <ShieldCheck size={14} aria-hidden="true" className="shrink-0" />
@@ -330,7 +333,7 @@ export function MfaSettings() {
           </Button>
         ) : (
           <>
-            <p className="text-sm text-slate-500 font-medium leading-relaxed">
+            <p className="text-sm text-muted-foreground font-medium leading-relaxed">
               Add an extra layer of security to your account. When enabled, you will be asked for a
               verification code from your mobile device when signing in.
             </p>
@@ -349,15 +352,15 @@ export function MfaSettings() {
           </DialogHeader>
 
           <div className="space-y-8 py-4">
-            <div className="flex flex-col items-center gap-6 p-6 bg-slate-50 rounded-4xl border border-slate-100">
-              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 min-h-[212px] flex items-center justify-center">
+            <div className="flex flex-col items-center gap-6 p-6 bg-surface-muted rounded-4xl border border-border">
+              <div className="bg-surface-card p-4 rounded-2xl shadow-sm border border-border min-h-[212px] flex items-center justify-center">
                 {totpUri ? (
                   <QRCodeSVG value={totpUri} size={180} title="Authenticator enrollment QR code" />
                 ) : (
-                  <Loader2 className="animate-spin text-slate-300" size={32} />
+                  <Loader2 className="animate-spin text-muted-foreground" size={32} />
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 text-center font-black uppercase tracking-widest max-w-xs leading-relaxed">
+              <p className="text-[10px] text-muted-foreground text-center font-black uppercase tracking-widest max-w-xs leading-relaxed">
                 Scan this QR code with your authenticator app
               </p>
 
@@ -372,7 +375,7 @@ export function MfaSettings() {
                 type="button"
                 onClick={() => setShowManualEntry((v) => !v)}
                 aria-expanded={showManualEntry}
-                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-primary dark:text-primary-on-dark hover:underline"
               >
                 <KeyRound size={12} aria-hidden="true" />
                 {showManualEntry ? 'Hide' : 'Enter this key manually'}
@@ -380,8 +383,8 @@ export function MfaSettings() {
 
               {showManualEntry && totpSecret && (
                 <div className="w-full space-y-3">
-                  <div className="rounded-xl bg-white border border-slate-200 p-4 text-left">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                  <div className="rounded-xl bg-surface-card border border-border p-4 text-left">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-2">
                       Setup key
                     </p>
                     <p className="font-mono text-xs text-secondary break-all tracking-wider">
@@ -398,7 +401,7 @@ export function MfaSettings() {
                         setCopyState('failed');
                       }
                     }}
-                    className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
+                    className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-primary dark:text-primary-on-dark hover:underline"
                   >
                     <Copy size={12} aria-hidden="true" />
                     {copyState === 'copied'

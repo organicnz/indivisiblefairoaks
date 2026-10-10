@@ -180,11 +180,11 @@ export function CRMSegmentManager({
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Layers size={16} className="text-primary" aria-hidden="true" />
-          <h2 className="text-lg font-black uppercase tracking-tight text-secondary">
+          <Layers size={16} className="text-primary dark:text-primary-on-dark" aria-hidden="true" />
+          <h2 className="text-lg font-black uppercase tracking-tight text-foreground">
             Saved segments
           </h2>
-          <span className="text-xs text-slate-500">{segments.length} total</span>
+          <span className="text-xs text-muted-foreground">{segments.length} total</span>
         </div>
 
         {truncated && (
@@ -194,7 +194,7 @@ export function CRMSegmentManager({
         )}
 
         {segments.length === 0 ? (
-          <p className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+          <p className="rounded-2xl border border-border bg-surface-card p-6 text-sm text-muted-foreground">
             No segments saved yet. Filter the directory and choose “Save as segment” to create your
             first reusable audience.
           </p>
@@ -205,27 +205,27 @@ export function CRMSegmentManager({
               return (
                 <li
                   key={segment.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                  className="rounded-2xl border border-border bg-surface-card p-4 shadow-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="font-bold text-secondary">{segment.name}</h3>
-                      <p className="mt-0.5 text-xs text-slate-600">
+                      <h3 className="font-bold text-foreground">{segment.name}</h3>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         {describeSegment(segment).join(' · ')}
                       </p>
-                      <p className="mt-1 text-[11px] text-slate-500">
+                      <p className="mt-1 text-[11px] text-muted-foreground">
                         Saved {new Date(segment.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-bold text-slate-700">
                         <Users size={12} aria-hidden="true" />
                         {count ? `${count.count} reachable` : '…'}
                       </span>
                       <button
                         type="button"
                         onClick={() => startEdit(segment)}
-                        className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-secondary hover:bg-slate-50"
+                        className="rounded-lg border border-border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-foreground hover:bg-surface-muted"
                       >
                         Edit
                       </button>
@@ -243,7 +243,7 @@ export function CRMSegmentManager({
                     </div>
                   </div>
                   {count && count.excluded > 0 && (
-                    <p className="mt-2 border-t border-slate-100 pt-2 text-[11px] text-slate-600">
+                    <p className="mt-2 border-t border-border pt-2 text-[11px] text-muted-foreground">
                       {count.excluded} matching contact{count.excluded === 1 ? '' : 's'} excluded
                       from delivery — never asked or opted out.
                     </p>
@@ -256,54 +256,58 @@ export function CRMSegmentManager({
       </div>
 
       <form
-        className="space-y-3 self-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        className="space-y-3 self-start rounded-2xl border border-border bg-surface-card p-4 shadow-sm"
         onSubmit={(event) => {
           event.preventDefault();
           void save();
         }}
       >
-        <h3 className="text-sm font-black uppercase tracking-wider text-secondary">
+        <h3 className="text-sm font-black uppercase tracking-wider text-foreground">
           {editingId ? 'Edit segment' : 'New segment'}
         </h3>
 
-        <label className="block text-xs font-bold text-slate-600" htmlFor="segment-name">
+        <label className="block text-xs font-bold text-muted-foreground" htmlFor="segment-name">
           Name
           <input
             id="segment-name"
             value={form.name}
             onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
             maxLength={60}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-secondary focus:ring-2 focus:ring-primary"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground focus:ring-2 focus:ring-primary"
             placeholder="Choir roster — agreed"
           />
         </label>
 
-        <label className="block text-xs font-bold text-slate-600" htmlFor="segment-statuses">
-          Statuses <span className="font-medium normal-case text-slate-400">comma separated</span>
+        <label className="block text-xs font-bold text-muted-foreground" htmlFor="segment-statuses">
+          Statuses{' '}
+          <span className="font-medium normal-case text-muted-foreground">comma separated</span>
           <input
             id="segment-statuses"
             value={form.statuses}
             onChange={(event) => setForm((prev) => ({ ...prev, statuses: event.target.value }))}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-secondary focus:ring-2 focus:ring-primary"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground focus:ring-2 focus:ring-primary"
             placeholder="active, volunteer"
           />
         </label>
 
-        <label className="block text-xs font-bold text-slate-600" htmlFor="segment-districts">
+        <label
+          className="block text-xs font-bold text-muted-foreground"
+          htmlFor="segment-districts"
+        >
           Districts
           <input
             id="segment-districts"
             value={form.districts}
             onChange={(event) => setForm((prev) => ({ ...prev, districts: event.target.value }))}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-secondary focus:ring-2 focus:ring-primary"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground focus:ring-2 focus:ring-primary"
             placeholder="CA-06"
           />
         </label>
 
-        <label className="block text-xs font-bold text-slate-600" htmlFor="segment-tags">
+        <label className="block text-xs font-bold text-muted-foreground" htmlFor="segment-tags">
           Tags{' '}
           {knownTags.length > 0 && (
-            <span className="font-medium normal-case text-slate-400">
+            <span className="font-medium normal-case text-muted-foreground">
               e.g. {knownTags.slice(0, 3).join(', ')}
             </span>
           )}
@@ -311,12 +315,12 @@ export function CRMSegmentManager({
             id="segment-tags"
             value={form.tags}
             onChange={(event) => setForm((prev) => ({ ...prev, tags: event.target.value }))}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-secondary focus:ring-2 focus:ring-primary"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground focus:ring-2 focus:ring-primary"
             placeholder="choir"
           />
         </label>
 
-        <label className="block text-xs font-bold text-slate-600" htmlFor="segment-consent">
+        <label className="block text-xs font-bold text-muted-foreground" htmlFor="segment-consent">
           Consent
           <select
             id="segment-consent"
@@ -327,7 +331,7 @@ export function CRMSegmentManager({
                 consent: event.target.value as SegmentForm['consent'],
               }))
             }
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-secondary focus:ring-2 focus:ring-primary"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground focus:ring-2 focus:ring-primary"
           >
             <option value="">Any / no filter</option>
             <option value="opted_in">Opted in</option>
@@ -348,7 +352,7 @@ export function CRMSegmentManager({
             <button
               type="button"
               onClick={reset}
-              className="text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-secondary"
+              className="text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
             >
               Cancel
             </button>

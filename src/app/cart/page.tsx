@@ -66,12 +66,12 @@ export default function CartPage() {
 
   if (!hydrated) {
     return (
-      <div className="bg-white min-h-screen pt-(--header-h) pb-12">
+      <div className="bg-background min-h-screen pt-(--header-h) pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-pulse">
-          <div className="h-10 w-48 bg-slate-100 rounded mb-8" />
+          <div className="h-10 w-48 bg-surface-muted rounded mb-8" />
           <div className="space-y-4">
             {['tall', 'medium', 'short'].map((row) => (
-              <div key={row} className="h-28 bg-slate-50 rounded-3xl border border-slate-100" />
+              <div key={row} className="h-28 bg-surface-muted rounded-3xl border border-border" />
             ))}
           </div>
         </div>
@@ -81,11 +81,11 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="bg-white min-h-[70vh] flex flex-col items-center justify-center px-4 py-24 text-center">
-        <h1 className="text-4xl font-black text-secondary uppercase tracking-tight mb-6">
+      <div className="bg-background min-h-[70vh] flex flex-col items-center justify-center px-4 py-24 text-center">
+        <h1 className="text-4xl font-black text-foreground uppercase tracking-tight mb-6">
           Your Cart is Empty
         </h1>
-        <p className="text-slate-500 font-medium mb-10 max-w-sm">
+        <p className="text-muted-foreground font-medium mb-10 max-w-sm">
           Looks like you haven&apos;t added any gear yet. Let&apos;s get you equipped.
         </p>
         <Link
@@ -99,10 +99,10 @@ export default function CartPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen pt-(--header-h) pb-12">
+    <div className="bg-background min-h-screen pt-(--header-h) pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col mb-10">
-          <h1 className="text-4xl font-black tracking-tighter text-secondary uppercase">
+          <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase">
             Your Cart
           </h1>
           <div className="h-1.5 w-24 bg-primary mt-3" />
@@ -110,11 +110,11 @@ export default function CartPage() {
 
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-12 lg:items-start">
           <div className="lg:col-span-7">
-            <ul className="border-t border-slate-100 divide-y divide-slate-100">
+            <ul className="border-t border-border divide-y divide-border">
               {items.map((item) => (
                 <li key={item.id} className="flex py-8 sm:py-10 group">
                   <div className="flex-shrink-0">
-                    <div className="w-24 h-24 sm:w-40 sm:h-40 bg-slate-50 rounded-2xl border border-slate-100 object-center object-cover relative overflow-hidden shadow-sm transition-shadow group-hover:shadow-md">
+                    <div className="w-24 h-24 sm:w-40 sm:h-40 bg-surface-muted rounded-2xl border border-border object-center object-cover relative overflow-hidden shadow-sm transition-shadow group-hover:shadow-md">
                       {item.image_url ? (
                         <Image
                           src={getStorageUrl(item.image_url)}
@@ -124,7 +124,7 @@ export default function CartPage() {
                           className="object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400 font-black uppercase tracking-widest text-[10px]">
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground font-black uppercase tracking-widest text-[10px]">
                           No Image
                         </div>
                       )}
@@ -138,19 +138,19 @@ export default function CartPage() {
                           <h3 className="text-md sm:text-lg">
                             <Link
                               href={`/products/${item.slug}`}
-                              className="font-black text-secondary hover:text-primary transition-colors uppercase leading-tight"
+                              className="font-black text-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors uppercase leading-tight"
                             >
                               {item.name}
                             </Link>
                           </h3>
                         </div>
-                        <p className="mt-2 text-xl font-black text-primary">
+                        <p className="mt-2 text-xl font-black text-primary dark:text-primary-on-dark">
                           ${item.price.toFixed(2)}
                         </p>
                       </div>
 
                       <div className="mt-6 sm:mt-0 sm:pr-9">
-                        <div className="flex items-center bg-slate-50 border border-slate-200 rounded-full w-min p-1 shadow-inner">
+                        <div className="flex items-center bg-surface-muted border border-border rounded-full w-min p-1 shadow-inner">
                           <button
                             type="button"
                             onClick={() =>
@@ -161,7 +161,7 @@ export default function CartPage() {
                               )
                             }
                             disabled={item.quantity <= 1}
-                            className="inline-flex items-center justify-center size-11 rounded-full text-secondary hover:text-primary transition-colors duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            className="inline-flex items-center justify-center size-11 rounded-full text-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             // The buttons said "Increase quantity" with no product
                             // named, so a screen-reader user heard the same label
                             // once per line in the cart.
@@ -178,7 +178,7 @@ export default function CartPage() {
                             role="status"
                             aria-live="polite"
                             aria-label={`Quantity of ${item.name}`}
-                            className="px-4 text-sm font-black text-secondary tabular-nums"
+                            className="px-4 text-sm font-black text-foreground tabular-nums"
                           >
                             {item.quantity}
                           </span>
@@ -192,7 +192,7 @@ export default function CartPage() {
                               )
                             }
                             disabled={item.quantity >= MAX_ITEM_QUANTITY}
-                            className="inline-flex items-center justify-center size-11 rounded-full text-secondary hover:text-primary transition-colors duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            className="inline-flex items-center justify-center size-11 rounded-full text-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             aria-label={`Increase quantity of ${item.name}`}
                           >
                             <Plus size={16} strokeWidth={3} aria-hidden="true" />
@@ -202,7 +202,7 @@ export default function CartPage() {
                         <div className="absolute top-0 right-0">
                           <button
                             type="button"
-                            className="-m-2 inline-flex items-center justify-center size-11 rounded-full text-slate-500 hover:text-accent-red transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-red focus-visible:ring-offset-2"
+                            className="-m-2 inline-flex items-center justify-center size-11 rounded-full text-muted-foreground hover:text-accent-red transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-red focus-visible:ring-offset-2"
                             onClick={() =>
                               removeItem(item.productId ?? item.id, item.variationId ?? null)
                             }
@@ -221,20 +221,20 @@ export default function CartPage() {
           </div>
 
           {/* Order summary */}
-          <section className="mt-16 bg-slate-50 rounded-3xl px-6 py-8 sm:p-8 lg:mt-0 lg:col-span-5 border border-slate-100 shadow-sm sticky top-24">
-            <h2 className="text-xl font-black text-secondary uppercase tracking-widest mb-8 border-b-2 border-primary pb-2 inline-block">
+          <section className="mt-16 bg-surface-muted rounded-3xl px-6 py-8 sm:p-8 lg:mt-0 lg:col-span-5 border border-border shadow-sm sticky top-24">
+            <h2 className="text-xl font-black text-foreground uppercase tracking-widest mb-8 border-b-2 border-primary pb-2 inline-block">
               Order Summary
             </h2>
 
             <dl className="mt-6 space-y-6">
               <div className="flex items-center justify-between">
-                <dt className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                <dt className="text-xs font-black text-muted-foreground uppercase tracking-widest">
                   Subtotal
                 </dt>
-                <dd className="text-lg font-black text-secondary">${totalPrice().toFixed(2)}</dd>
+                <dd className="text-lg font-black text-foreground">${totalPrice().toFixed(2)}</dd>
               </div>
               <div className="flex items-start justify-between">
-                <dt className="text-xs font-black text-slate-500 uppercase tracking-widest mt-0.5">
+                <dt className="text-xs font-black text-muted-foreground uppercase tracking-widest mt-0.5">
                   Shipping
                 </dt>
                 <dd className="text-right">
@@ -243,7 +243,7 @@ export default function CartPage() {
                   </span>
                   <Link
                     href="/shipping-returns"
-                    className="text-[10px] text-slate-400 font-medium underline hover:text-primary transition-colors mt-1 inline-block"
+                    className="text-[10px] text-muted-foreground font-medium underline hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors mt-1 inline-block"
                   >
                     View Rates (From{' '}
                     {SHIPPING_RATES.find((r) => r.id === 'standard')?.displayPrice || '$8.00'} or
@@ -251,11 +251,11 @@ export default function CartPage() {
                   </Link>
                 </dd>
               </div>
-              <div className="border-t border-slate-200 pt-6 flex items-center justify-between">
-                <dt className="text-xl font-black text-secondary uppercase tracking-tighter">
+              <div className="border-t border-border pt-6 flex items-center justify-between">
+                <dt className="text-xl font-black text-foreground uppercase tracking-tighter">
                   Order total
                 </dt>
-                <dd className="text-3xl font-black text-primary tracking-tighter">
+                <dd className="text-3xl font-black text-primary dark:text-primary-on-dark tracking-tighter">
                   ${totalPrice().toFixed(2)}
                 </dd>
               </div>
@@ -275,23 +275,23 @@ export default function CartPage() {
 
             <div className="mt-6">
               <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="h-px bg-slate-200 flex-1" />
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <div className="h-px bg-surface-muted flex-1" />
+                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                   Express Checkout
                 </span>
-                <div className="h-px bg-slate-200 flex-1" />
+                <div className="h-px bg-surface-muted flex-1" />
               </div>
               <StripeExpressCheckout />
             </div>
 
-            <div className="mt-8 flex flex-col items-center gap-4 border-t border-slate-100 pt-8">
+            <div className="mt-8 flex flex-col items-center gap-4 border-t border-border pt-8">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                   Secure Checkout Guaranteed
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight text-center leading-relaxed">
+              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight text-center leading-relaxed">
                 2.5% of this purchase goes to NZ Sea Cleaners Charity Trust
               </p>
             </div>

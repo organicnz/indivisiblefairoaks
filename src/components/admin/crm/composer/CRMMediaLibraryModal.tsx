@@ -147,16 +147,16 @@ export function CRMMediaLibraryModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6 sm:p-8 overflow-hidden rounded-[2rem]">
-        <DialogHeader className="pb-3 border-b border-slate-100 flex flex-col gap-1">
+        <DialogHeader className="pb-3 border-b border-border flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-blue-50 text-primary">
+            <div className="p-2 rounded-xl bg-blue-50 text-primary dark:text-primary-on-dark">
               <ImageIcon className="h-5 w-5" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-black text-secondary">
+              <DialogTitle className="text-lg font-black text-foreground">
                 Supabase S3 Media Library
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500 font-medium">
+              <DialogDescription className="text-xs text-muted-foreground font-medium">
                 Browse, upload, and select assets stored in your Supabase S3 bucket.
               </DialogDescription>
             </div>
@@ -164,19 +164,19 @@ export function CRMMediaLibraryModal({
         </DialogHeader>
 
         {/* Action Bar */}
-        <div className="py-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-slate-100">
+        <div className="py-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-b border-border">
           {/* Folder tabs */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 overflow-x-auto text-xs font-bold">
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-muted overflow-x-auto text-xs font-bold">
             <button
               type="button"
               onClick={() => setFolder('crm')}
               className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
                 folder === 'crm'
-                  ? 'bg-white text-secondary shadow-xs'
-                  : 'text-slate-600 hover:text-secondary'
+                  ? 'bg-surface-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Folder size={14} className="text-primary" />
+              <Folder size={14} className="text-primary dark:text-primary-on-dark" />
               <span>CRM & Broadcasts</span>
             </button>
             <button
@@ -184,8 +184,8 @@ export function CRMMediaLibraryModal({
               onClick={() => setFolder('content')}
               className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
                 folder === 'content'
-                  ? 'bg-white text-secondary shadow-xs'
-                  : 'text-slate-600 hover:text-secondary'
+                  ? 'bg-surface-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Folder size={14} className="text-amber-500" />
@@ -196,8 +196,8 @@ export function CRMMediaLibraryModal({
               onClick={() => setFolder('products')}
               className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
                 folder === 'products'
-                  ? 'bg-white text-secondary shadow-xs'
-                  : 'text-slate-600 hover:text-secondary'
+                  ? 'bg-surface-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Folder size={14} className="text-emerald-500" />
@@ -208,8 +208,8 @@ export function CRMMediaLibraryModal({
               onClick={() => setFolder('all')}
               className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
                 folder === 'all'
-                  ? 'bg-white text-secondary shadow-xs'
-                  : 'text-slate-600 hover:text-secondary'
+                  ? 'bg-surface-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <span>All Assets</span>
@@ -221,14 +221,14 @@ export function CRMMediaLibraryModal({
             <div className="relative flex-1 sm:w-48">
               <Search
                 size={14}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
               <input
                 type="text"
                 placeholder="Filter files..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-border text-xs text-slate-800 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
             </div>
 
@@ -236,7 +236,7 @@ export function CRMMediaLibraryModal({
               type="button"
               onClick={() => loadMedia()}
               title="Refresh Media"
-              className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:text-secondary hover:bg-slate-50 transition-colors"
+              className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-surface-muted transition-colors"
             >
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             </button>
@@ -267,20 +267,20 @@ export function CRMMediaLibraryModal({
         {/* Media Grid View */}
         <div className="flex-1 overflow-y-auto py-4 min-h-[320px] max-h-[500px]">
           {isLoading ? (
-            <div className="h-64 flex flex-col items-center justify-center gap-3 text-slate-400">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="h-64 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin text-primary dark:text-primary-on-dark" />
               <p className="text-xs font-bold uppercase tracking-wider">
                 Loading assets from Supabase S3...
               </p>
             </div>
           ) : mediaItems.length === 0 ? (
-            <div className="h-64 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center p-6 text-center space-y-3">
-              <div className="p-3 rounded-full bg-slate-50 text-slate-400">
+            <div className="h-64 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center p-6 text-center space-y-3">
+              <div className="p-3 rounded-full bg-surface-muted text-muted-foreground">
                 <ImageIcon className="h-8 w-8" />
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-700">No media assets found</p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {search
                     ? `No matches for "${search}" in folder "${folder}".`
                     : `Folder "${folder}" is currently empty. Upload your first campaign image above!`}
@@ -292,10 +292,10 @@ export function CRMMediaLibraryModal({
               {mediaItems.map((item) => (
                 <div
                   key={item.id}
-                  className="group relative rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md hover:border-primary/50 transition-all flex flex-col"
+                  className="group relative rounded-2xl border border-border bg-surface-card overflow-hidden hover:shadow-md hover:border-primary/50 transition-all flex flex-col"
                 >
                   {/* Thumbnail */}
-                  <div className="relative aspect-video bg-slate-100 overflow-hidden flex items-center justify-center">
+                  <div className="relative aspect-video bg-surface-muted overflow-hidden flex items-center justify-center">
                     {/* biome-ignore lint/performance/noImgElement: user-supplied media preview in admin storage picker */}
                     <img
                       src={item.url}
@@ -314,7 +314,7 @@ export function CRMMediaLibraryModal({
                       <p className="text-xs font-bold text-slate-800 truncate" title={item.name}>
                         {item.name}
                       </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
                         {formatBytes(item.size)} ·{' '}
                         {new Date(item.createdAt).toLocaleDateString('en-US', {
                           month: 'short',
@@ -324,7 +324,7 @@ export function CRMMediaLibraryModal({
                     </div>
 
                     {/* Actions */}
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+                    <div className="pt-2 border-t border-border flex items-center justify-between gap-1">
                       <button
                         type="button"
                         onClick={() => {
@@ -344,7 +344,7 @@ export function CRMMediaLibraryModal({
                         type="button"
                         onClick={() => handleCopyUrl(item.url)}
                         title="Copy Public URL"
-                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors"
+                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-slate-800 hover:bg-surface-muted transition-colors"
                       >
                         {copiedUrl === item.url ? (
                           <Check size={13} className="text-emerald-600" />

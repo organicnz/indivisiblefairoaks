@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
+import Script from 'next/script';
 import { Suspense } from 'react';
 import './globals.css';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { Toaster } from 'sonner';
 import { SettingsHydrator } from '@/components/account/SettingsHydrator';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
+import { ThemeAwareToaster } from '@/components/layout/ThemeAwareToaster';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
 import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
 import { BRAND } from '@/config/brand';
@@ -24,6 +25,7 @@ import {
 import { env } from '@/lib/env';
 import type { UserSettings } from '@/lib/store/settings';
 import { getSettings } from '@/lib/supabase-server';
+import { themeBootstrapScript } from '@/lib/theme';
 import { serializeJsonLd } from '@/lib/utils';
 import Providers from './providers';
 
@@ -117,6 +119,22 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable} h-full antialiased`}>
       <head>
+        {/* The palette must be chosen before the first paint. The theme store
+            applies its answer after hydration, which would flash the wrong
+            palette on every navigation; this script runs synchronously before
+            anything renders. Its branches are `resolveEffectiveTheme`'s, kept
+            in step by `theme-bootstrap` tests — it cannot import that module,
+            because an inline <script> runs before any bundle exists.
+
+            `beforeInteractive` rather than a plain <script>: the App Router
+            serializes a raw head script into the flight payload as *data*, so
+            it reaches the browser without ever executing. */}
+        <Script
+          id="theme-bootstrap"
+          strategy="beforeInteractive"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: theme bootstrap, emitted from lib/theme.ts, no interpolation
+          dangerouslySetInnerHTML={{ __html: themeBootstrapScript() }}
+        />
         {/* Entity graph for the chapter. Emitted once here rather than per page so
             every URL carries the same `sameAs`/`logo` identity. */}
         <script
@@ -130,7 +148,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(webSiteJsonLd()) }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-white text-secondary font-sans selection:bg-primary selection:text-secondary">
+      <body className="min-h-full flex flex-col bg-background text-foreground font-sans selection:bg-primary selection:text-secondary">
         <Providers>
           <a
             href="#main-content"
@@ -149,7 +167,7 @@ export default function RootLayout({
           <WallEChatWidget />
           <VisualEditOverlay />
         </Providers>
-        <Toaster position="bottom-right" richColors theme="light" />
+        <ThemeAwareToaster />
         {env.NEXT_E2E_BUILD !== 'true' && (
           <>
             <Analytics />

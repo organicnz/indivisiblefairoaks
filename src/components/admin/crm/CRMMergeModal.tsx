@@ -95,7 +95,7 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
     >
       <DialogContent className="max-w-lg p-6 sm:p-8">
         <DialogHeader>
-          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">
+          <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary dark:text-primary-on-dark">
             Deduplicate
           </span>
           <DialogTitle id="merge-modal-title">Merge Contact</DialogTitle>
@@ -105,14 +105,14 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs">
-            <span className="font-black uppercase tracking-wider text-slate-400 block mb-1">
+          <div className="p-3 bg-surface-muted rounded-xl border border-border text-xs">
+            <span className="font-black uppercase tracking-wider text-muted-foreground block mb-1">
               Keep this profile
             </span>
-            <span className="font-bold text-secondary">
+            <span className="font-bold text-foreground">
               {[keep.first_name, keep.last_name].filter(Boolean).join(' ') || keep.email}
             </span>{' '}
-            <span className="text-slate-400">&lt;{keep.email}&gt;</span>
+            <span className="text-muted-foreground">&lt;{keep.email}&gt;</span>
           </div>
 
           <form onSubmit={handleSearch} className="flex gap-2">
@@ -122,19 +122,19 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Find the duplicate by name or email…"
               aria-label="Search duplicate contact"
-              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
             />
             <button
               type="submit"
               disabled={searching}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+              className="px-4 py-2.5 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
             >
               {searching ? '…' : 'Search'}
             </button>
           </form>
 
           {results.length > 0 && (
-            <ul className="max-h-48 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl">
+            <ul className="max-h-48 overflow-y-auto divide-y divide-border border border-border rounded-xl">
               {results.map((c) => {
                 const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email;
                 const selected = candidate?.id === c.id;
@@ -145,11 +145,13 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
                       onClick={() => setCandidate(c)}
                       aria-pressed={selected}
                       className={`w-full text-left px-4 py-3 text-xs transition-colors ${
-                        selected ? 'bg-primary/10 border-l-2 border-primary' : 'hover:bg-slate-50'
+                        selected
+                          ? 'bg-primary/10 border-l-2 border-primary'
+                          : 'hover:bg-surface-muted'
                       }`}
                     >
-                      <span className="font-bold text-secondary block">{name}</span>
-                      <span className="text-slate-400">{c.email}</span>
+                      <span className="font-bold text-foreground block">{name}</span>
+                      <span className="text-muted-foreground">{c.email}</span>
                     </button>
                   </li>
                 );
@@ -157,11 +159,11 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
             </ul>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors"
+              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-slate-800 transition-colors"
             >
               Cancel
             </button>

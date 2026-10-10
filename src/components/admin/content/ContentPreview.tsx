@@ -69,33 +69,33 @@ export function ContentPreview({
           // and a modal layer clears every non-modal one. 130 is the top of the
           // scale, shared with the command palette, which cannot be open at the
           // same time as this.
-          className="fixed inset-0 z-[130] overflow-y-auto bg-white focus:outline-none"
+          className="fixed inset-0 z-[130] overflow-y-auto bg-surface-card focus:outline-none"
         >
           <Dialog.Title className="sr-only">Preview of {title || 'Untitled page'}</Dialog.Title>
 
-          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
-            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-surface-card/95 px-4 py-3 backdrop-blur">
+            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
               <span
                 className="inline-block h-2 w-2 rounded-full bg-accent-gold"
                 aria-hidden="true"
               />
               Draft preview — not published
             </span>
-            <Dialog.Close className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary">
+            <Dialog.Close className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary">
               Close preview
             </Dialog.Close>
           </div>
 
           <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
             <div className="mb-12 flex flex-col">
-              <h1 className="mb-4 text-4xl font-black uppercase leading-tight tracking-tight text-secondary md:text-5xl">
+              <h1 className="mb-4 text-4xl font-black uppercase leading-tight tracking-tight text-foreground md:text-5xl">
                 {title || 'Untitled page'}
               </h1>
               <div className="h-2 w-24 bg-primary" />
               {type === 'post' && createdAt && (
                 <time
                   dateTime={createdAt}
-                  className="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-400"
+                  className="mt-6 text-xs font-black uppercase tracking-[0.2em] text-muted-foreground"
                 >
                   Published{' '}
                   {new Date(createdAt).toLocaleDateString('en-US', {
@@ -121,18 +121,18 @@ export function ContentPreview({
 
             <div
               className="cw prose prose-slate prose-lg max-w-none
-                prose-headings:text-secondary prose-headings:uppercase prose-headings:font-black
-                prose-p:text-slate-600 prose-p:leading-relaxed
-                prose-a:text-primary prose-a:font-bold prose-a:no-underline hover:prose-a:underline
-                prose-strong:text-secondary prose-strong:font-black
+                prose-headings:text-foreground prose-headings:uppercase prose-headings:font-black
+                prose-p:text-muted-foreground prose-p:leading-relaxed
+                prose-a:text-primary dark:text-primary-on-dark prose-a:font-bold prose-a:no-underline hover:prose-a:underline
+                prose-strong:text-foreground prose-strong:font-black
                 prose-img:rounded-3xl prose-img:shadow-lg"
               // biome-ignore lint/security/noDangerouslySetInnerHtml: cleanBody is produced by sanitizeWPContent, the same security boundary the public page renders through
               dangerouslySetInnerHTML={{ __html: cleanBody }}
             />
 
             {type === 'post' && (
-              <div className="mt-20 flex items-center justify-between border-t border-slate-100 pt-10">
-                <span className="text-sm font-black uppercase tracking-widest text-secondary">
+              <div className="mt-20 flex items-center justify-between border-t border-border pt-10">
+                <span className="text-sm font-black uppercase tracking-widest text-foreground">
                   &larr; Back to Home
                 </span>
               </div>

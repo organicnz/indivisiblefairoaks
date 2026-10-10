@@ -4,13 +4,20 @@
  * Single source of truth for CRM constituents, tasks, campaigns, the visual
  * email composer blocks, media storage assets and edge function payloads.
  *
- * The *page* visual editor's own types live in `src/types/visual-edit.ts`. They
- * were here once, which made this file the source of truth for two domains and
- * left a second, unused model of the section editor beside the one the overlay
- * actually uses.
+ * Shared platform types (Storage, Edge Functions, Media) are re-exported from
+ * `src/types/unified.ts`. The *page* visual editor's own types live in
+ * `src/types/visual-edit.ts`.
  */
 
 import type { Database } from '@/types/supabase';
+import type {
+  BackendStatus,
+  BroadcastDispatchResult,
+  EdgeFunctionHealth,
+  MediaItem,
+  MediaListResult,
+  MediaUploadResult,
+} from './unified';
 
 // ==========================================
 // 1. Core Supabase Database Entities
@@ -139,94 +146,33 @@ export interface CRMBroadcastEmailEvent {
 }
 
 // ==========================================
-// 3. Supabase S3 Storage & Media Assets
+// 3. Supabase S3 Storage & Media Assets (re-exported from unified)
 // ==========================================
 
-/**
- * The folders inside the single public `media` bucket.
- *
- * Declared here because it is the join key between three modules: the upload
- * picks one, the list is scoped by one, and `deleteCRMMedia` chooses the
- * reference check — which table can still be pointing at the file — from it.
- * When it lived inline in `actions/crm.ts` the listing's `folder: string` could
- * not agree with the uploader's union, and "what folder was this file in" had
- * two answers.
- */
-export type MediaFolder = 'crm' | 'content' | 'products';
+/** @deprecated Use `MediaFolder` from `@/types/unified` */
+export type { MediaFolder } from './unified';
 
-/**
- * One file in the `media` bucket — listing, picking and uploading all return
- * this, deliberately.
- *
- * `folder` is the union, not `string`: `getCRMMediaFiles` already produced the
- * union and `uploadCRMMedia` re-declared the same six fields with
- * `folder: MediaFolder` spelled inline, so the two copies of "what an uploaded
- * file is" could drift — and a drift there is a file landing in the wrong
- * namespace, where `deleteCRMMedia` runs the wrong reference check.
- */
-export interface CRMMediaItem {
-  id: string;
-  name: string;
-  path: string;
-  url: string;
-  size: number;
-  mimeType: string;
-  createdAt: string;
-  folder: MediaFolder;
-  /**
-   * Measured from the file's bytes on upload. `null` rather than optional so a
-   * picked file and an uploaded one have the same shape — Storage's `list()`
-   * does not report dimensions, and `null` says "not measured" where an absent
-   * key says "this type has no such field", which is what made the two copies
-   * diverge.
-   */
-  width: number | null;
-  height: number | null;
-}
+/** @deprecated Use `MediaItem` from `@/types/unified` */
+export type CRMMediaItem = MediaItem;
 
-export interface CRMMediaListResult {
-  items: CRMMediaItem[];
-  folders: string[];
-}
+/** @deprecated Use `MediaListResult` from `@/types/unified` */
+export type CRMMediaListResult = MediaListResult;
 
-/**
- * Upload outcome: the item that was written, or the reason it was not.
- *
- * The envelope is reused rather than restated so a caller cannot be handed a
- * shape the uploader does not actually return.
- */
-export interface CRMMediaUploadResult {
-  success: boolean;
-  error?: string;
-  data?: CRMMediaItem;
-}
+/** @deprecated Use `MediaUploadResult` from `@/types/unified` */
+export type CRMMediaUploadResult = MediaUploadResult;
 
 // ==========================================
-// 4. Supabase Edge Functions & API Integration
+// 4. Supabase Edge Functions & API Integration (re-exported from unified)
 // ==========================================
 
-export interface CRMEdgeFunctionHealth {
-  ready: boolean;
-  missing?: string[];
-  endpoint: string;
-  checkedAt: string;
-  latencyMs?: number;
-}
+/** @deprecated Use `EdgeFunctionHealth` from `@/types/unified` */
+export type CRMEdgeFunctionHealth = EdgeFunctionHealth;
 
-export interface CRMBackendStatus {
-  database: boolean;
-  storage: boolean;
-  edgeFunction: boolean;
-  edgeFunctionDetails?: CRMEdgeFunctionHealth;
-  error?: string;
-}
+/** @deprecated Use `BackendStatus` from `@/types/unified` */
+export type CRMBackendStatus = BackendStatus;
 
-export interface CRMBroadcastDispatchResult {
-  ok: boolean;
-  warning?: string;
-  error?: string;
-  broadcastId?: string;
-}
+/** @deprecated Use `BroadcastDispatchResult` from `@/types/unified` */
+export type CRMBroadcastDispatchResult = BroadcastDispatchResult;
 
 // ==========================================
 // 5. Visual Composer Types Integration

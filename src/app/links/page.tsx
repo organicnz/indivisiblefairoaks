@@ -107,7 +107,7 @@ export default async function LinksPage() {
   const categories = Array.from(new Set(items.map((l) => l.category)));
 
   return (
-    <div className="w-full bg-secondary text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner */}
       <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -115,7 +115,7 @@ export default async function LinksPage() {
             <Compass size={14} className="text-accent-gold" />
             <span>Civic Directory</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
+          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4">
             Coalition & Action Links
           </h1>
           <p className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed">
@@ -130,7 +130,7 @@ export default async function LinksPage() {
           const categoryItems = items.filter((l) => l.category === category);
           return (
             <div key={category} className="space-y-4">
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
+              <h2 className="text-xl sm:text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2.5">
                 <Layers className="text-accent-gold" size={20} />
                 <span>{category}</span>
               </h2>
@@ -142,31 +142,31 @@ export default async function LinksPage() {
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-5 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/50 hover:bg-secondary transition-all group flex flex-col justify-between"
+                    className="p-5 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-primary-bright/50 hover:bg-secondary transition-all group flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-3 mb-2">
-                        <h3 className="font-bold text-white text-base group-hover:text-primary-on-dark-muted transition-colors">
+                        <h3 className="font-bold text-foreground dark:text-white text-base group-hover:text-primary-ink dark:text-primary-on-dark-muted transition-colors">
                           {item.name}
                         </h3>
                         {item.badge && (
-                          <span className="px-2 py-0.5 rounded-full bg-accent-gold/20 text-accent-gold text-[10px] font-bold uppercase shrink-0">
+                          <span className="px-2 py-0.5 rounded-full bg-accent-gold/20 text-primary-ink dark:text-accent-gold text-[10px] font-bold uppercase shrink-0">
                             {item.badge}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                      <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark leading-relaxed">
                         {item.description}
                       </p>
                     </div>
 
-                    <div className="pt-4 mt-4 border-t border-white/10/80 flex items-center justify-between text-xs text-slate-500">
-                      <span className="text-[11px] text-primary-on-dark-muted/90 font-mono truncate max-w-[240px]">
+                    <div className="pt-4 mt-4 border-t border-border dark:border-white/10/80 flex items-center justify-between text-xs text-slate-500">
+                      <span className="text-[11px] text-primary-ink dark:text-primary-on-dark-muted/90 font-mono truncate max-w-[240px]">
                         {item.url.replace(/^https?:\/\//, '')}
                       </span>
                       <ExternalLink
                         size={14}
-                        className="text-ink-muted-on-dark group-hover:text-accent-gold transition-colors shrink-0"
+                        className="text-muted-foreground dark:text-ink-muted-on-dark group-hover:text-accent dark:text-accent-gold transition-colors shrink-0"
                       />
                     </div>
                   </a>

@@ -183,7 +183,7 @@ export default async function HomePage() {
           from the `events` table via `gatheringCard`, so updating the row moves
           this card with no deploy. The food-drive note stays static — it is
           meeting policy, not event data. */}
-      <section className="bg-white border-b border-border py-8">
+      <section className="bg-background border-b border-border py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="rounded-2xl bg-surface-muted border border-border p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-card">
             <div className="flex items-start gap-4">
@@ -191,20 +191,20 @@ export default async function HomePage() {
                 <Calendar size={26} />
               </div>
               <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary text-[11px] font-bold uppercase tracking-wide mb-1">
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-[11px] font-bold uppercase tracking-wide mb-1">
                   Next Community Gathering
                 </div>
-                <h2 className="text-xl sm:text-2xl font-black text-secondary">{card.title}</h2>
+                <h2 className="text-xl sm:text-2xl font-black text-foreground">{card.title}</h2>
                 <p className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-y-1 gap-x-4">
-                  <span className="font-semibold text-secondary">{card.dateLine}</span>
+                  <span className="font-semibold text-foreground">{card.dateLine}</span>
                   <span className="flex items-center gap-1">
                     <MapPin size={14} className="text-accent" />
                     {card.locationLine}
                   </span>
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  🥫 <strong className="text-secondary">Food Bank Drive:</strong> Please bring a can
-                  or box of non-perishable food to support our local community food pantry.
+                  🥫 <strong className="text-foreground">Food Bank Drive:</strong> Please bring a
+                  can or box of non-perishable food to support our local community food pantry.
                 </p>
               </div>
             </div>
@@ -214,7 +214,7 @@ export default async function HomePage() {
                 href={card.calendarUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto text-center px-4 py-3 rounded-xl border-2 border-secondary text-secondary hover:bg-secondary hover:text-white font-semibold text-xs uppercase tracking-wider transition-all"
+                className="w-full sm:w-auto text-center px-4 py-3 rounded-xl border-2 border-secondary text-foreground hover:bg-secondary hover:text-white dark:border-border font-semibold text-xs uppercase tracking-wider transition-all"
               >
                 + Add to Calendar
               </a>
@@ -235,7 +235,7 @@ export default async function HomePage() {
       {/* Light section: white cards on surface-muted keep the page alternating.
           Eyebrows use primary-ink (accent-gold is 2.15:1 on white — surface only).
           Copy region: the heading, intro and four cards are CMS-editable. */}
-      <section className="py-16 md:py-24 bg-surface-muted text-secondary">
+      <section className="py-16 md:py-24 bg-surface-muted text-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <CopyRegion id="home-pillars">
             <div className="text-center max-w-3xl mx-auto mb-16">
@@ -253,44 +253,46 @@ export default async function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all group">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
                 <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Shield size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-secondary mb-2">Stop Authoritarianism</h3>
+                <h3 className="text-lg font-bold text-foreground mb-2">Stop Authoritarianism</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Countering anti-democratic overreach, defending executive accountability, and
                   raising public alarm through visible resistance.
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all group">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
                 <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Vote size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-secondary mb-2">Defend Democratic Norms</h3>
+                <h3 className="text-lg font-bold text-foreground mb-2">Defend Democratic Norms</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Safeguarding free and fair elections, expanding voting access, educating youth
                   voters, and standing up for civil liberties.
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all group">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
                 <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Megaphone size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-secondary mb-2">Elect Bold Leaders</h3>
+                <h3 className="text-lg font-bold text-foreground mb-2">Elect Bold Leaders</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Direct voter canvassing, phone banks, candidate accountability, and mobilizing
                   high-turnout civic engagement in every cycle.
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all group">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
                 <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Users size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-secondary mb-2">Secure Progressive Policy</h3>
+                <h3 className="text-lg font-bold text-foreground mb-2">
+                  Secure Progressive Policy
+                </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Advocating for justice, reproductive autonomy, climate resilience, and economic
                   equity through community solidarity.
@@ -392,7 +394,7 @@ export default async function HomePage() {
       {/* Voter Resources Spotlight */}
       {/* Light section: white cards on white need a visible border — border-border
           plus shadow-card carries the separation instead of a tinted surface. */}
-      <section className="py-16 md:py-24 bg-white text-secondary">
+      <section className="py-16 md:py-24 bg-background text-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
             <div>
@@ -414,12 +416,12 @@ export default async function HomePage() {
 
           <CopyRegion id="home-voter-hub">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
                 <div>
                   <div className="w-10 h-10 rounded-lg bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4">
                     <FileText size={20} />
                   </div>
-                  <h3 className="text-lg font-bold text-secondary mb-2">
+                  <h3 className="text-lg font-bold text-foreground mb-2">
                     Sacramento County Elected Officials
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed mb-4">
@@ -436,12 +438,12 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
                 <div>
                   <div className="w-10 h-10 rounded-lg bg-secondary text-accent-gold flex items-center justify-center mb-4">
                     <Vote size={20} />
                   </div>
-                  <h3 className="text-lg font-bold text-secondary mb-2">Pre-Registration at 16</h3>
+                  <h3 className="text-lg font-bold text-foreground mb-2">Pre-Registration at 16</h3>
                   <p className="text-xs text-muted-foreground leading-relaxed mb-4">
                     California youth age 16 and 17 can pre-register now so they are automatically
                     registered to cast their ballot the day they turn 18.
@@ -456,12 +458,12 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              <div className="p-6 rounded-2xl bg-white border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
                 <div>
                   <div className="w-10 h-10 rounded-lg bg-secondary text-emerald-400 flex items-center justify-center mb-4">
                     <Shield size={20} />
                   </div>
-                  <h3 className="text-lg font-bold text-secondary mb-2">
+                  <h3 className="text-lg font-bold text-foreground mb-2">
                     Rights Restoration & Unhoused Voting
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed mb-4">
@@ -492,7 +494,7 @@ export default async function HomePage() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-secondary text-emerald-400 mb-1">
             <Shield size={24} />
           </div>
-          <h2 className="text-2xl font-black text-secondary tracking-tight">
+          <h2 className="text-2xl font-black text-foreground tracking-tight">
             Our Core Commitment: Disciplined Non-Violent Action
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">

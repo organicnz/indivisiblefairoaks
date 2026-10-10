@@ -49,7 +49,7 @@ export function CouponCreator() {
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="WELCOME10"
-            className="text-sm font-black text-white bg-white/10 border border-white/10 rounded-xl px-3 py-2 w-40 outline-none placeholder:text-white/30 focus:border-primary transition-colors"
+            className="text-sm font-black text-white bg-surface-card/10 border border-white/10 rounded-xl px-3 py-2 w-40 outline-none placeholder:text-white/30 focus:border-primary transition-colors"
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -59,7 +59,7 @@ export function CouponCreator() {
           <select
             value={discountType}
             onChange={(e) => setDiscountType(e.target.value as 'percent' | 'fixed')}
-            className="text-sm font-black text-white bg-white/10 border border-white/10 rounded-xl px-3 py-2 w-32 outline-none focus:border-primary cursor-pointer"
+            className="text-sm font-black text-white bg-surface-card/10 border border-white/10 rounded-xl px-3 py-2 w-32 outline-none focus:border-primary cursor-pointer"
           >
             <option value="percent" className="bg-secondary">
               Percent %
@@ -78,7 +78,7 @@ export function CouponCreator() {
             onChange={(e) => setAmount(e.target.value)}
             inputMode="decimal"
             placeholder={discountType === 'percent' ? '10' : '5'}
-            className="text-sm font-black text-white bg-white/10 border border-white/10 rounded-xl px-3 py-2 w-24 outline-none placeholder:text-white/30 focus:border-primary transition-colors"
+            className="text-sm font-black text-white bg-surface-card/10 border border-white/10 rounded-xl px-3 py-2 w-24 outline-none placeholder:text-white/30 focus:border-primary transition-colors"
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -89,7 +89,7 @@ export function CouponCreator() {
             type="date"
             value={expiry}
             onChange={(e) => setExpiry(e.target.value)}
-            className="text-sm font-black text-white bg-white/10 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors [color-scheme:dark]"
+            className="text-sm font-black text-white bg-surface-card/10 border border-white/10 rounded-xl px-3 py-2 outline-none focus:border-primary transition-colors [color-scheme:dark]"
           />
         </label>
         <button
@@ -139,7 +139,7 @@ export function CouponDelete({ id, code }: { id: number; code: string }) {
       className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 transition-colors disabled:opacity-50 ${
         confirming
           ? 'bg-rose-600 text-white'
-          : 'text-slate-400 hover:bg-rose-50 hover:text-rose-600'
+          : 'text-muted-foreground hover:bg-rose-50 hover:text-rose-600'
       }`}
     >
       <Trash2 size={11} />

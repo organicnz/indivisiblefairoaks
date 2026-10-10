@@ -34,7 +34,7 @@ export function ProductCard({ product }: ProductCardProps) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={prefersReducedMotion ? undefined : { y: -8 }}
       transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-      className="group relative flex flex-col h-full bg-white border border-slate-100 rounded-4xl overflow-hidden shadow-card hover:shadow-float transition-shadow duration-500 ease-out"
+      className="group relative flex flex-col h-full bg-surface-card border border-border rounded-4xl overflow-hidden shadow-card hover:shadow-float transition-shadow duration-500 ease-out"
     >
       {isOnSale && (
         <div className="absolute top-6 left-6 z-30 bg-primary text-white text-xs font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] shadow-float">
@@ -62,7 +62,7 @@ export function ProductCard({ product }: ProductCardProps) {
             className="w-full h-full object-center object-cover group-hover:scale-110 motion-reduce:group-hover:scale-100 transition-transform duration-300 ease-out"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-500 font-black uppercase tracking-[0.2em] text-xs">
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground font-black uppercase tracking-[0.2em] text-xs">
             No Image
           </div>
         )}
@@ -83,7 +83,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
       <div className="p-6 sm:p-8 grow flex flex-col justify-between relative z-10">
         <div>
-          <h3 className="text-sm font-black text-secondary uppercase tracking-tighter mb-2 line-clamp-2 min-h-10 sm:min-h-12 leading-tight group-hover:text-primary transition-colors duration-300 ease-out">
+          <h3 className="text-sm font-black text-secondary uppercase tracking-tighter mb-2 line-clamp-2 min-h-10 sm:min-h-12 leading-tight group-hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors duration-300 ease-out">
             <Link href={href} className={`rounded-sm ${FOCUS_RING}`}>
               {product.name}
             </Link>
@@ -92,12 +92,12 @@ export function ProductCard({ product }: ProductCardProps) {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6 sm:mt-8">
           <div className="flex flex-col">
-            <span className="text-xs font-black text-slate-500 uppercase tracking-wider mb-0.5">
+            <span className="text-xs font-black text-muted-foreground uppercase tracking-wider mb-0.5">
               Price
             </span>
             <div className="flex flex-col">
               {isOnSale && (
-                <span className="text-sm text-slate-500 line-through font-medium mb-1">
+                <span className="text-sm text-muted-foreground line-through font-medium mb-1">
                   ${product.regular_price?.toFixed(2)}
                 </span>
               )}

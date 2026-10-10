@@ -75,9 +75,9 @@ export function CRMPager({ page, totalCount, pageSize, basePath, params }: Props
   };
 
   const navLink =
-    'inline-flex items-center gap-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors';
+    'inline-flex items-center gap-1 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl text-xs font-bold transition-colors';
   const navDisabled =
-    'inline-flex items-center gap-1 px-3 py-2 text-slate-300 text-xs font-bold cursor-not-allowed';
+    'inline-flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs font-bold cursor-not-allowed';
 
   return (
     <nav aria-label="Pagination" className="flex items-center gap-1.5">
@@ -102,7 +102,7 @@ export function CRMPager({ page, totalCount, pageSize, basePath, params }: Props
               // missing page rather than emitting a gap for it.
               key={`gap-before-${total}-${page}`}
               aria-hidden="true"
-              className="px-1 text-xs text-slate-400"
+              className="px-1 text-xs text-muted-foreground"
             >
               …
             </li>
@@ -119,7 +119,7 @@ export function CRMPager({ page, totalCount, pageSize, basePath, params }: Props
                 <Link
                   href={hrefFor(p)}
                   aria-label={`Page ${p}`}
-                  className="inline-flex items-center justify-center min-w-8 px-2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                  className="inline-flex items-center justify-center min-w-8 px-2 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl text-xs font-bold transition-colors"
                 >
                   {p}
                 </Link>

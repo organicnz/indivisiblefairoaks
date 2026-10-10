@@ -48,7 +48,7 @@ const SCOPES = [
 ];
 
 function dueLabel(dueAt: string | null): { text: string; className: string } {
-  if (!dueAt) return { text: 'No due date', className: 'text-slate-400' };
+  if (!dueAt) return { text: 'No due date', className: 'text-muted-foreground' };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const due = new Date(`${dueAt}T00:00:00`);
@@ -64,7 +64,7 @@ function dueLabel(dueAt: string | null): { text: string; className: string } {
   if (diffDays === 1) return { text: 'Tomorrow', className: 'text-amber-700 font-bold' };
   return {
     text: due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-    className: 'text-slate-500',
+    className: 'text-muted-foreground',
   };
 }
 
@@ -198,7 +198,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
               scope === s.id
                 ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted'
             }`}
           >
             {s.label}
@@ -210,9 +210,9 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
       <CRMTaskForm />
 
       {/* Task list */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
         {tasks.length === 0 ? (
-          <div className="py-16 text-center text-slate-400">
+          <div className="py-16 text-center text-muted-foreground">
             <CalendarCheck size={32} className="mx-auto mb-3 opacity-30" />
             <p className="font-bold text-sm">No follow-ups in this view.</p>
             <p className="text-xs mt-1">
@@ -220,7 +220,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
             </p>
           </div>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-border">
             {tasks.map((task) => {
               const due = dueLabel(task.due_at);
               const done = task.status === 'done';
@@ -231,7 +231,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
               return (
                 <li
                   key={task.id}
-                  className={`flex items-start gap-3 px-5 py-4 hover:bg-slate-50/80 transition-colors ${
+                  className={`flex items-start gap-3 px-5 py-4 hover:bg-surface-muted/80 transition-colors ${
                     done ? 'opacity-60' : ''
                   }`}
                 >
@@ -239,7 +239,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                     type="button"
                     onClick={() => handleToggle(task)}
                     disabled={busyId === task.id}
-                    className="mt-0.5 p-1 text-slate-400 hover:text-emerald-600 transition-colors disabled:opacity-50"
+                    className="mt-0.5 p-1 text-muted-foreground hover:text-emerald-600 transition-colors disabled:opacity-50"
                     title={done ? 'Reopen' : 'Mark complete'}
                     aria-label={done ? 'Reopen follow-up' : 'Mark follow-up complete'}
                   >
@@ -252,25 +252,27 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
 
                   <div className="min-w-0 flex-1">
                     <div
-                      className={`text-sm font-bold text-secondary ${done ? 'line-through' : ''}`}
+                      className={`text-sm font-bold text-foreground ${done ? 'line-through' : ''}`}
                     >
                       {task.title}
                     </div>
                     {task.details && (
-                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{task.details}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        {task.details}
+                      </p>
                     )}
                     <div className="flex items-center gap-3 mt-1.5 text-[11px]">
                       {task.contact ? (
                         <Link
                           href={`/admin/crm/${task.contact.id}`}
-                          className="text-primary font-bold hover:underline truncate max-w-[200px]"
+                          className="text-primary dark:text-primary-on-dark font-bold hover:underline truncate max-w-[200px]"
                         >
                           {contactName || task.contact.email}
                         </Link>
                       ) : (
                         // Not a gap in the data: this is chapter work, and
                         // saying so is more useful than showing no name at all.
-                        <span className="font-bold text-slate-500">Chapter-wide</span>
+                        <span className="font-bold text-muted-foreground">Chapter-wide</span>
                       )}
                       <div className="relative inline-flex items-center gap-1">
                         <span className={due.className}>{due.text}</span>
@@ -290,7 +292,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                     <button
                       type="button"
                       onClick={() => handleStartEdit(task)}
-                      className="p-1.5 text-slate-300 hover:text-primary rounded-lg hover:bg-slate-100 transition-colors"
+                      className="p-1.5 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark rounded-lg hover:bg-surface-muted transition-colors"
                       title="Edit follow-up"
                       aria-label={`Edit follow-up ${task.title}`}
                     >
@@ -301,7 +303,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                       message={`Delete follow-up "${task.title}"?`}
                       danger
                       busy={busyId === task.id}
-                      idleClassName="p-1.5 text-slate-300 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                      idleClassName="p-1.5 text-muted-foreground hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
                       onConfirm={() => void handleDelete(task)}
                     >
                       <Trash2 size={14} aria-hidden="true" />
@@ -326,10 +328,10 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
       <Dialog open={Boolean(editingTask)} onOpenChange={(open) => !open && setEditingTask(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black uppercase tracking-tight text-secondary">
+            <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground">
               Edit Follow-up
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
+            <DialogDescription className="text-xs text-muted-foreground">
               Update commitment details, due date, or task status.
             </DialogDescription>
           </DialogHeader>
@@ -338,7 +340,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
             <div>
               <label
                 htmlFor="edit-task-title"
-                className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
               >
                 Task *
               </label>
@@ -350,7 +352,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 placeholder="e.g. Call regarding Saturday rally"
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full px-3.5 py-2 rounded-xl border border-border text-sm font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
             </div>
 
@@ -358,14 +360,14 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
               <div className="flex items-center justify-between mb-1">
                 <label
                   htmlFor="edit-task-details"
-                  className="block text-[11px] font-black uppercase tracking-wider text-slate-500"
+                  className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground"
                 >
                   Details
                 </label>
                 <button
                   type="button"
                   onClick={() => setIsMediaModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-bold text-primary dark:text-primary-on-dark hover:bg-primary/10 rounded-lg transition-colors"
                 >
                   <ImageIcon size={12} /> Attach Storage Media
                 </button>
@@ -376,7 +378,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                 value={editDetails}
                 onChange={(e) => setEditDetails(e.target.value)}
                 placeholder="Context, background or notes…"
-                className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary leading-relaxed"
+                className="w-full px-3.5 py-2 rounded-xl border border-border text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary leading-relaxed"
               />
             </div>
 
@@ -384,7 +386,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
               <div>
                 <label
                   htmlFor="edit-task-due"
-                  className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                  className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
                 >
                   Due Date
                 </label>
@@ -393,14 +395,14 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                   type="date"
                   value={editDueAt}
                   onChange={(e) => setEditDueAt(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="w-full px-3 py-2 rounded-xl border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="edit-task-status"
-                  className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                  className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
                 >
                   Status
                 </label>
@@ -408,7 +410,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                   id="edit-task-status"
                   value={editStatus}
                   onChange={(e) => setEditStatus(e.target.value as 'open' | 'done')}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="w-full px-3 py-2 rounded-xl border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <option value="open">Open (In Progress)</option>
                   <option value="done">Completed</option>
@@ -416,11 +418,11 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
               <button
                 type="button"
                 onClick={() => setEditingTask(null)}
-                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                className="px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-surface-muted rounded-xl transition-colors"
               >
                 Cancel
               </button>
