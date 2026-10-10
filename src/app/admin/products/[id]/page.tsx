@@ -113,7 +113,7 @@ export default async function AdminProductDetailPage({
     <div>
       <Link
         href="/admin/products"
-        className="inline-flex items-center gap-2 text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-secondary transition-colors mb-6"
+        className="inline-flex items-center gap-2 text-[11px] font-black text-muted-foreground uppercase tracking-widest hover:text-foreground transition-colors mb-6"
       >
         <ArrowLeft size={12} /> Back to Products
       </Link>
@@ -121,18 +121,18 @@ export default async function AdminProductDetailPage({
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Package size={14} className="text-secondary" />
+            <Package size={14} className="text-foreground" />
           </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel
           </span>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">
+            <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
               {product.name}
             </h1>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
+            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
               <Tag size={11} /> /{product.slug} · #{product.id}
               {product.created_at && (
                 <span className="inline-flex items-center gap-1">
@@ -146,7 +146,7 @@ export default async function AdminProductDetailPage({
               )}
             </p>
             {categories.length > 0 && (
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mt-1">
+              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight mt-1">
                 {categories.join(' · ')}
               </p>
             )}
@@ -154,15 +154,15 @@ export default async function AdminProductDetailPage({
           <div className="flex flex-col items-end gap-2">
             <span
               className={`text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 ${
-                stockBadge[product.stock_status || ''] || 'bg-slate-100 text-slate-600'
+                stockBadge[product.stock_status || ''] || 'bg-surface-muted text-muted-foreground'
               }`}
             >
               {stockLabel[product.stock_status || ''] || product.stock_status || 'Unknown'}
             </span>
-            <p className="text-xl text-primary font-black">
+            <p className="text-xl text-primary dark:text-primary-on-dark font-black">
               ${Number(product.price).toFixed(2)}
               {onSale && (
-                <span className="text-[10px] text-slate-400 font-bold ml-1 line-through">
+                <span className="text-[10px] text-muted-foreground font-bold ml-1 line-through">
                   ${Number(product.regular_price).toFixed(2)}
                 </span>
               )}
@@ -185,7 +185,7 @@ export default async function AdminProductDetailPage({
           { label: 'Orders', value: String(orderCount), icon: Package },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="bg-secondary rounded-3xl p-6">
-            <Icon size={16} className="text-primary mb-3" />
+            <Icon size={16} className="text-primary-on-dark mb-3" />
             <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-1">
               {label}
             </p>
@@ -196,8 +196,8 @@ export default async function AdminProductDetailPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Editor */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm lg:col-span-2">
-          <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] mb-6">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm lg:col-span-2">
+          <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em] mb-6">
             Edit product
           </h2>
           <ProductDetailForm
@@ -214,14 +214,14 @@ export default async function AdminProductDetailPage({
         </section>
 
         {/* Images */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
-          <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] mb-6">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
+          <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em] mb-6">
             Product image
           </h2>
           <ProductImageUpload productId={product.id} currentImageUrl={product.image_url} />
           {images.length > 0 && (
             <div className="mt-5">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mb-3">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.25em] mb-3">
                 Preview ({images.length})
               </p>
               <div className="grid grid-cols-2 gap-3">
@@ -232,7 +232,7 @@ export default async function AdminProductDetailPage({
                     alt={`${product.name} preview`}
                     width={200}
                     height={200}
-                    className="w-full aspect-square object-cover rounded-2xl bg-slate-100"
+                    className="w-full aspect-square object-cover rounded-2xl bg-surface-muted"
                   />
                 ))}
               </div>
@@ -242,26 +242,26 @@ export default async function AdminProductDetailPage({
       </div>
 
       {/* Recent orders */}
-      <section className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm mt-6">
-        <div className="bg-slate-50 px-8 py-4 border-b border-slate-100 flex items-center gap-2">
-          <ShoppingBag size={12} className="text-primary" />
-          <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+      <section className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm mt-6">
+        <div className="bg-surface-muted px-8 py-4 border-b border-border flex items-center gap-2">
+          <ShoppingBag size={12} className="text-primary dark:text-primary-on-dark" />
+          <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
             Recent orders containing this product ({orderCount})
           </h2>
         </div>
         {recentOrders.length === 0 ? (
           <div className="px-8 py-12 text-center">
-            <p className="text-slate-400 font-black uppercase tracking-widest text-sm">
+            <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
               No sales yet.
             </p>
           </div>
         ) : (
-          <ul className="divide-y divide-slate-50">
+          <ul className="divide-y divide-border">
             {recentOrders.map((item) => (
               <li key={item.orders.id} className="px-8 py-4 flex flex-wrap items-center gap-4">
                 <Link
                   href={`/admin/orders/${item.orders.id}`}
-                  className="text-sm font-black text-secondary uppercase tracking-wider hover:text-primary transition-colors"
+                  className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
                 >
                   #{item.orders.id}
                 </Link>
@@ -272,7 +272,7 @@ export default async function AdminProductDetailPage({
                       : item.orders.status === 'cancelled'
                         ? 'bg-rose-100 text-rose-800'
                         : item.orders.status === 'refunded'
-                          ? 'bg-slate-100 text-slate-600'
+                          ? 'bg-surface-muted text-muted-foreground'
                           : item.orders.status === 'on-hold'
                             ? 'bg-blue-100 text-blue-800'
                             : 'bg-amber-100 text-amber-800'
@@ -280,7 +280,7 @@ export default async function AdminProductDetailPage({
                 >
                   {item.orders.status || 'unknown'}
                 </span>
-                <span className="text-[11px] text-slate-400 font-bold">
+                <span className="text-[11px] text-muted-foreground font-bold">
                   {item.orders.created_at
                     ? new Date(item.orders.created_at).toLocaleDateString('en-NZ', {
                         day: 'numeric',
@@ -289,8 +289,10 @@ export default async function AdminProductDetailPage({
                       })
                     : 'N/A'}
                 </span>
-                <span className="text-[11px] text-slate-400 font-bold">Qty: {item.quantity}</span>
-                <span className="ml-auto text-sm font-black text-primary">
+                <span className="text-[11px] text-muted-foreground font-bold">
+                  Qty: {item.quantity}
+                </span>
+                <span className="ml-auto text-sm font-black text-primary dark:text-primary-on-dark">
                   $
                   {(Number(item.unit_price) || 0) * (Number(item.quantity) || 0) === 0
                     ? '0.00'

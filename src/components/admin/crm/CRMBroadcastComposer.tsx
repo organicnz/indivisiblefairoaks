@@ -697,11 +697,11 @@ export function CRMBroadcastComposer({
   return (
     <div className="space-y-12">
       {/* Header & Breadcrumb */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
         <div>
           <Link
             href="/admin/crm"
-            className="inline-flex items-center gap-2 text-xs font-black text-slate-500 hover:text-primary uppercase tracking-widest transition-colors mb-2"
+            className="inline-flex items-center gap-2 text-xs font-black text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark uppercase tracking-widest transition-colors mb-2"
           >
             <ArrowLeft size={14} /> Back to Constituent Directory
           </Link>
@@ -710,14 +710,14 @@ export function CRMBroadcastComposer({
               <Megaphone size={20} />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-secondary uppercase tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-black text-foreground uppercase tracking-tight">
                 Campaign Broadcasts
               </h1>
-              <p className="text-xs font-bold text-slate-500">
+              <p className="text-xs font-bold text-muted-foreground">
                 Segment and dispatch branded chapter email broadcasts via Resend.
               </p>
               {backendStatus && (
-                <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-slate-100">
+                <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-border">
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Database: Connected
@@ -758,12 +758,12 @@ export function CRMBroadcastComposer({
             <Users size={16} />
           </div>
           <div>
-            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
               Matched Audience
             </div>
             <div className="text-lg font-black text-white">
               {calculatingCount ? (
-                <span className="text-slate-400 text-sm">Calculating...</span>
+                <span className="text-muted-foreground text-sm">Calculating...</span>
               ) : countFailed ? (
                 <span className="text-accent-red text-sm font-bold">Count unavailable</span>
               ) : (
@@ -778,10 +778,10 @@ export function CRMBroadcastComposer({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Audience Targeting (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+          <div className="bg-surface-card p-6 rounded-2xl border border-border shadow-xs space-y-6">
             <div className="flex items-center gap-2">
-              <Radio size={16} className="text-primary" />
-              <h2 className="text-xs font-black uppercase tracking-widest text-secondary">
+              <Radio size={16} className="text-primary dark:text-primary-on-dark" />
+              <h2 className="text-xs font-black uppercase tracking-widest text-foreground">
                 1. Audience Segmentation
               </h2>
             </div>
@@ -815,7 +815,7 @@ export function CRMBroadcastComposer({
                 )}
                 <label
                   htmlFor="segment-prefill"
-                  className="block text-[11px] font-black uppercase tracking-wider text-slate-500"
+                  className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground"
                 >
                   Apply Saved Segment
                 </label>
@@ -864,7 +864,7 @@ export function CRMBroadcastComposer({
                       }
                     }
                   }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
+                  className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
                 >
                   <option value="">Choose a saved segment…</option>
                   {segments.map((seg) => (
@@ -881,7 +881,7 @@ export function CRMBroadcastComposer({
 
             {/* Engagement Statuses */}
             <div>
-              <div className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">
+              <div className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-2">
                 By Engagement Status (Leave empty for all)
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -895,7 +895,7 @@ export function CRMBroadcastComposer({
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                         isSelected
                           ? 'bg-primary text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted'
                       }`}
                     >
                       {st.label}
@@ -907,7 +907,7 @@ export function CRMBroadcastComposer({
 
             {/* Districts */}
             <div>
-              <div className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">
+              <div className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-2">
                 By Congressional District (Leave empty for all)
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -921,7 +921,7 @@ export function CRMBroadcastComposer({
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                         isSelected
                           ? 'bg-primary text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted'
                       }`}
                     >
                       {d.label}
@@ -933,7 +933,7 @@ export function CRMBroadcastComposer({
 
             {/* Tags */}
             <div>
-              <div className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-2">
+              <div className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-2">
                 By Interest Tags (Must match all selected)
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -948,7 +948,7 @@ export function CRMBroadcastComposer({
                       className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
                         isSelected
                           ? 'bg-primary text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted'
                       }`}
                     >
                       #{t}
@@ -961,10 +961,13 @@ export function CRMBroadcastComposer({
                     targeted, which is a silent hole in the audience rather than a
                     cosmetic one. */}
                 {hiddenTagCount > 0 && (
-                  <p className="w-full text-[11px] font-medium text-slate-500 mt-1">
+                  <p className="w-full text-[11px] font-medium text-muted-foreground mt-1">
                     {hiddenTagCount} more tag{hiddenTagCount === 1 ? '' : 's'} not shown — this
                     panel lists the first {TAG_CHIP_CAP} alphabetically. Target one from the{' '}
-                    <Link href="/admin/crm" className="text-primary font-bold hover:underline">
+                    <Link
+                      href="/admin/crm"
+                      className="text-primary dark:text-primary-on-dark font-bold hover:underline"
+                    >
                       directory
                     </Link>
                     .
@@ -986,7 +989,10 @@ export function CRMBroadcastComposer({
                     This chapter’s directory is too large to list every tag, so this list may be
                     incomplete. A tag you cannot see here cannot be targeted from here — narrow the
                     audience with status or district filters, or search the{' '}
-                    <Link href="/admin/crm" className="text-primary font-bold hover:underline">
+                    <Link
+                      href="/admin/crm"
+                      className="text-primary dark:text-primary-on-dark font-bold hover:underline"
+                    >
                       directory
                     </Link>{' '}
                     by name.
@@ -995,7 +1001,9 @@ export function CRMBroadcastComposer({
 
                 {tagsMissingFromChips.length > 0 && (
                   <div className="w-full flex flex-wrap items-center gap-1.5 mt-2">
-                    <span className="text-[11px] font-bold text-primary">Also targeting:</span>
+                    <span className="text-[11px] font-bold text-primary dark:text-primary-on-dark">
+                      Also targeting:
+                    </span>
                     {tagsMissingFromChips.map((t) => (
                       <button
                         key={t}
@@ -1013,7 +1021,7 @@ export function CRMBroadcastComposer({
             </div>
 
             {/* Filter Summary */}
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 space-y-1">
+            <div className="p-4 bg-surface-muted rounded-xl border border-border text-xs text-muted-foreground space-y-1">
               <div className="font-bold text-slate-700">Targeting Rules Applied:</div>
               <div>
                 Status: {selectedStatuses.length > 0 ? selectedStatuses.join(', ') : 'All Statuses'}
@@ -1029,11 +1037,11 @@ export function CRMBroadcastComposer({
 
         {/* Right Column: Message Composer & Live Preview (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+          <div className="bg-surface-card p-6 rounded-2xl border border-border shadow-xs space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Mail size={16} className="text-primary" />
-                <h2 className="text-xs font-black uppercase tracking-widest text-secondary">
+                <Mail size={16} className="text-primary dark:text-primary-on-dark" />
+                <h2 className="text-xs font-black uppercase tracking-widest text-foreground">
                   2. Message Content
                 </h2>
               </div>
@@ -1047,14 +1055,14 @@ export function CRMBroadcastComposer({
                   Templates
                 </button>
 
-                <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200">
+                <div className="flex items-center p-0.5 rounded-lg bg-surface-muted border border-border">
                   <button
                     type="button"
                     onClick={() => handleSwitchComposerMode('visual')}
                     className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
                       composerMode === 'visual'
-                        ? 'bg-white text-secondary shadow-2xs'
-                        : 'text-slate-500 hover:text-secondary'
+                        ? 'bg-surface-card text-foreground shadow-2xs'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     <PenTool size={12} />
@@ -1065,8 +1073,8 @@ export function CRMBroadcastComposer({
                     onClick={() => handleSwitchComposerMode('text')}
                     className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
                       composerMode === 'text'
-                        ? 'bg-white text-secondary shadow-2xs'
-                        : 'text-slate-500 hover:text-secondary'
+                        ? 'bg-surface-card text-foreground shadow-2xs'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     <Code size={12} />
@@ -1079,7 +1087,7 @@ export function CRMBroadcastComposer({
                   onClick={handleSelfTest}
                   disabled={isSelfTesting || !subject.trim() || !body.trim()}
                   title="Send this message to your own inbox. Nobody else receives it."
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-40 disabled:hover:bg-slate-100"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground bg-surface-muted hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:hover:bg-surface-muted"
                 >
                   {isSelfTesting ? (
                     <Loader2 size={14} className="animate-spin" />
@@ -1091,7 +1099,7 @@ export function CRMBroadcastComposer({
                 <button
                   type="button"
                   onClick={() => setPreviewMode(!previewMode)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground bg-surface-muted hover:bg-surface-muted transition-colors"
                 >
                   <Eye size={14} />
                   {previewMode ? 'Edit Draft' : 'Sensory Preview'}
@@ -1104,7 +1112,7 @@ export function CRMBroadcastComposer({
                 <div>
                   <label
                     htmlFor="broadcast-subject"
-                    className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5"
+                    className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5"
                   >
                     Subject Line
                   </label>
@@ -1114,13 +1122,13 @@ export function CRMBroadcastComposer({
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     placeholder="e.g. Urgent Action: Stop H.R. 1 Rally at Carmichael Park"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm font-bold text-secondary placeholder:font-normal placeholder:text-slate-400"
+                    className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm font-bold text-foreground placeholder:font-normal placeholder:text-muted-foreground"
                   />
                 </div>
 
                 {composerMode === 'visual' ? (
                   <div>
-                    <span className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                    <span className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
                       Visual Block Canvas
                     </span>
                     <VisualComposerCanvas blocks={blocks} onChange={handleBlocksChange} />
@@ -1130,7 +1138,7 @@ export function CRMBroadcastComposer({
                 <div className={composerMode === 'text' ? 'block' : 'sr-only'}>
                   <label
                     htmlFor="broadcast-body"
-                    className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1.5"
+                    className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5"
                   >
                     Message Body
                   </label>
@@ -1145,9 +1153,9 @@ export function CRMBroadcastComposer({
                     }}
                     placeholder="Dear Neighbor,&#10;&#10;Join us this Saturday at Carmichael Park as we rally for democracy...&#10;&#10;Here are the three ways to take immediate action..."
                     aria-describedby="broadcast-body-hint"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm text-slate-800 leading-relaxed font-sans placeholder:text-slate-400"
+                    className="w-full px-4 py-3 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm text-slate-800 leading-relaxed font-sans placeholder:text-muted-foreground"
                   />
-                  <p id="broadcast-body-hint" className="mt-1.5 text-[11px] text-slate-500">
+                  <p id="broadcast-body-hint" className="mt-1.5 text-[11px] text-muted-foreground">
                     Plain text / Markdown. Blank lines become paragraph breaks; URLs become
                     clickable in recipient email clients.
                   </p>
@@ -1165,11 +1173,11 @@ export function CRMBroadcastComposer({
             )}
 
             {/* Dispatch Action Bar */}
-            <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-              <div className="text-xs text-slate-500">
+            <div className="pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-muted-foreground">
                 Will be delivered to{' '}
-                <strong className="text-secondary">{recipientCount ?? 0}</strong> constituents.
-                <span className="block text-[11px] text-slate-400 mt-0.5">
+                <strong className="text-foreground">{recipientCount ?? 0}</strong> constituents.
+                <span className="block text-[11px] text-muted-foreground mt-0.5">
                   {excludedCount > 0 ? (
                     <>
                       {excludedCount.toLocaleString()} matching{' '}
@@ -1211,7 +1219,7 @@ export function CRMBroadcastComposer({
                     message="Delete this unsent draft. Anything written in it is gone."
                     confirmLabel="Delete draft"
                     danger
-                    idleClassName="inline-flex items-center gap-1.5 px-4 py-2.5 text-slate-600 hover:text-accent-red text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
+                    idleClassName="inline-flex items-center gap-1.5 px-4 py-2.5 text-muted-foreground hover:text-accent-red text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
                     onConfirm={() => {
                       if (draftId) void handleDiscardDraft(draftId);
                     }}
@@ -1223,7 +1231,7 @@ export function CRMBroadcastComposer({
                     type="button"
                     onClick={handleSaveDraft}
                     disabled={savingDraft || !subject.trim() || !body.trim()}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-slate-200 text-slate-700 hover:border-slate-300 disabled:opacity-50 text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-border text-slate-700 hover:border-border disabled:opacity-50 text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
                   >
                     {savingDraft ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -1244,7 +1252,7 @@ export function CRMBroadcastComposer({
                     segmentConsentMismatch !== null
                   }
                   onClick={() => setIsConfirmOpen(true)}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-slate-200 disabled:text-slate-400 text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-surface-muted disabled:text-muted-foreground text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
                 >
                   <Send size={14} /> Send Broadcast Now
                 </button>
@@ -1276,7 +1284,7 @@ export function CRMBroadcastComposer({
               >
                 <p
                   className={`text-sm font-semibold ${
-                    progress.stillWatching ? 'text-blue-900' : 'text-secondary'
+                    progress.stillWatching ? 'text-blue-900' : 'text-foreground'
                   }`}
                 >
                   {progress.stillWatching ? (
@@ -1290,7 +1298,7 @@ export function CRMBroadcastComposer({
                 </p>
                 {!progress.stillWatching && (
                   <>
-                    <p className="mt-1 text-xs text-slate-600">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {progress.sentCount} of {progress.recipientCount} accepted as of the last
                       check. The send continues in the background — it is not stuck. Refresh to pick
                       it up again.
@@ -1298,7 +1306,7 @@ export function CRMBroadcastComposer({
                     <button
                       type="button"
                       onClick={() => router.refresh()}
-                      className="mt-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary"
+                      className="mt-2 rounded-lg border border-border bg-surface-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-surface-muted focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       Refresh
                     </button>
@@ -1342,14 +1350,14 @@ export function CRMBroadcastComposer({
             <DialogTitle>Confirm Broadcast Dispatch</DialogTitle>
             <DialogDescription>
               You are about to send this email blast to{' '}
-              <strong className="text-secondary">{recipientCount} constituents</strong> using
+              <strong className="text-foreground">{recipientCount} constituents</strong> using
               Resend. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="p-3 bg-slate-50 rounded-xl text-xs space-y-1">
+          <div className="p-3 bg-surface-muted rounded-xl text-xs space-y-1">
             <div>
-              <span className="font-bold text-slate-500">Subject:</span> {subject}
+              <span className="font-bold text-muted-foreground">Subject:</span> {subject}
             </div>
             <div>
               {/* `contact@…` here used to be a hardcoded literal. The real sender is
@@ -1357,12 +1365,12 @@ export function CRMBroadcastComposer({
                   which can be onboarding@resend.dev while a domain is being set up.
                   An author who confirms "contact@…" deserves to know which of the two
                   they are actually sending as. */}
-              <span className="font-bold text-slate-500">Sender:</span> the chapter&apos;s
+              <span className="font-bold text-muted-foreground">Sender:</span> the chapter&apos;s
               configured Resend address — set in the Edge Function secrets, fix it there if it reads
               as onboarding or a placeholder.
             </div>
             <div>
-              <span className="font-bold text-slate-500">Audience:</span>{' '}
+              <span className="font-bold text-muted-foreground">Audience:</span>{' '}
               {selectedStatuses.length === 0 &&
               selectedDistricts.length === 0 &&
               selectedTags.length === 0 ? (
@@ -1388,7 +1396,7 @@ export function CRMBroadcastComposer({
               type="button"
               disabled={isSending}
               onClick={() => setIsConfirmOpen(false)}
-              className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
+              className="flex-1 px-4 py-2.5 border border-border text-muted-foreground hover:bg-surface-muted rounded-xl text-xs font-black uppercase tracking-wider transition-colors"
             >
               Cancel
             </button>
@@ -1426,8 +1434,8 @@ export function CRMBroadcastComposer({
       {drafts.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <Save size={16} className="text-slate-400" />
-            <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">
+            <Save size={16} className="text-muted-foreground" />
+            <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground">
               Unsent drafts ({drafts.length})
             </h2>
           </div>
@@ -1437,13 +1445,13 @@ export function CRMBroadcastComposer({
               return (
                 <li
                   key={draft.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xs"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface-card px-4 py-3 shadow-xs"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-secondary">
+                    <p className="truncate text-sm font-bold text-foreground">
                       {draft.subject || 'Untitled draft'}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       Saved{' '}
                       {new Date(
                         draft.updated_at ?? draft.created_at ?? Date.now()
@@ -1460,7 +1468,7 @@ export function CRMBroadcastComposer({
                       message={`Loading “${draft.subject || 'Untitled'}” replaces whatever is in the composer now. Unsaved typing in the composer will be lost.`}
                       confirmLabel="Load draft"
                       disabled={loaded}
-                      idleClassName="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                      idleClassName="rounded-xl border border-border px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
                       onConfirm={() => handleLoadDraft(draft)}
                     >
                       {loaded ? 'Loaded' : 'Resume'}
@@ -1470,7 +1478,7 @@ export function CRMBroadcastComposer({
                       message={`Delete the unsent draft “${draft.subject || 'Untitled'}”. Anything written in it is gone.`}
                       confirmLabel="Delete draft"
                       danger
-                      idleClassName="rounded-xl px-3 py-1.5 text-xs font-bold text-slate-500 transition-colors hover:text-accent-red"
+                      idleClassName="rounded-xl px-3 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:text-accent-red"
                       onConfirm={() => void handleDiscardDraft(draft.id)}
                     >
                       <Trash2 size={14} />
@@ -1486,8 +1494,8 @@ export function CRMBroadcastComposer({
       {/* Broadcast History Table */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
-          <Clock size={16} className="text-slate-400" />
-          <h2 className="text-xs font-black uppercase tracking-widest text-slate-500">
+          <Clock size={16} className="text-muted-foreground" />
+          <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground">
             Past Campaigns &amp; Dispatch History
             {/*
    The total, not `initialBroadcasts.length`.
@@ -1500,7 +1508,7 @@ export function CRMBroadcastComposer({
             {totalBroadcastCount > initialBroadcasts.length ? (
               <>
                 {' '}
-                <span className="text-secondary font-black">
+                <span className="text-foreground font-black">
                   {totalBroadcastCount.toLocaleString()}
                 </span>
               </>
@@ -1519,11 +1527,11 @@ export function CRMBroadcastComposer({
         )}
 
         {initialBroadcasts.length === 0 ? (
-          <div className="bg-slate-50 p-12 rounded-2xl border border-dashed border-slate-200 text-center text-xs text-slate-500">
+          <div className="bg-surface-muted p-12 rounded-2xl border border-dashed border-border text-center text-xs text-muted-foreground">
             No broadcast campaigns sent yet. Compose your first campaign above!
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
             {/*
               `tabIndex={0}` + `role="region"` on the scroll container. An
               `overflow-x-auto` element is no longer focusable by default in
@@ -1543,7 +1551,7 @@ export function CRMBroadcastComposer({
                   Past campaigns, newest first, with the audience each reached and its outcome
                 </caption>
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <tr className="bg-surface-muted border-b border-border text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                     <th scope="col" className="px-6 py-3">
                       Campaign Subject
                     </th>
@@ -1561,7 +1569,7 @@ export function CRMBroadcastComposer({
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
+                <tbody className="divide-y divide-border font-medium">
                   {initialBroadcasts.map((b) => {
                     const isExpanded = expandedId === b.id;
                     /*
@@ -1587,16 +1595,16 @@ export function CRMBroadcastComposer({
                     return (
                       <Fragment key={b.id}>
                         <tr
-                          className={`transition-colors cursor-pointer hover:bg-slate-50/70 ${
+                          className={`transition-colors cursor-pointer hover:bg-surface-muted/70 ${
                             b.test_only ? 'bg-amber-50/50' : ''
                           }`}
                           onClick={() => setExpandedId(isExpanded ? null : b.id)}
                         >
-                          <td className="px-6 py-4 font-bold text-secondary max-w-xs">
+                          <td className="px-6 py-4 font-bold text-foreground max-w-xs">
                             <span className="flex items-center gap-2">
                               <button
                                 type="button"
-                                className="p-0.5 text-slate-400 hover:text-secondary shrink-0"
+                                className="p-0.5 text-muted-foreground hover:text-foreground shrink-0"
                                 aria-label={isExpanded ? 'Collapse message' : 'Expand message'}
                                 aria-expanded={isExpanded}
                                 onClick={(e) => {
@@ -1614,7 +1622,7 @@ export function CRMBroadcastComposer({
                               )}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-slate-500">
+                          <td className="px-6 py-4 text-muted-foreground">
                             {b.test_only ? (
                               // Never "All Constituents" for a preview. The row
                               // is saved with no audience filters at all, so
@@ -1637,7 +1645,7 @@ export function CRMBroadcastComposer({
                               </>
                             )}
                           </td>
-                          <td className="px-6 py-4 font-bold text-secondary">
+                          <td className="px-6 py-4 font-bold text-foreground">
                             {b.test_only ? (
                               <span className="text-amber-800">1 (you)</span>
                             ) : (
@@ -1673,7 +1681,7 @@ export function CRMBroadcastComposer({
                               {b.test_only ? 'test' : b.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-slate-400">
+                          <td className="px-6 py-4 text-muted-foreground">
                             {b.sent_at
                               ? new Date(b.sent_at).toLocaleDateString('en-US', {
                                   month: 'short',
@@ -1690,9 +1698,9 @@ export function CRMBroadcastComposer({
                           </td>
                         </tr>
                         {isExpanded && (
-                          <tr className="bg-slate-50/60">
+                          <tr className="bg-surface-muted/60">
                             <td colSpan={5} className="px-6 py-4 space-y-3">
-                              <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-line max-w-3xl border-l-2 border-primary pl-4">
+                              <div className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line max-w-3xl border-l-2 border-primary pl-4">
                                 {b.body || '(no message body stored)'}
                               </div>
 
@@ -1705,9 +1713,12 @@ export function CRMBroadcastComposer({
                                     e.stopPropagation();
                                     handleReuseCampaign(b);
                                   }}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
                                 >
-                                  <Copy size={13} className="text-primary" />
+                                  <Copy
+                                    size={13}
+                                    className="text-primary dark:text-primary-on-dark"
+                                  />
                                   Re-use as New Draft
                                 </button>
                               </div>
@@ -1778,13 +1789,13 @@ export function CRMBroadcastComposer({
 */}
             {totalHistoryPages > 1 && (
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs font-bold text-slate-500">
+                <p className="text-xs font-bold text-muted-foreground">
                   Showing{' '}
-                  <span className="text-secondary font-black">
+                  <span className="text-foreground font-black">
                     {historyFirst}–{historyLast}
                   </span>{' '}
                   of{' '}
-                  <span className="text-secondary font-black">
+                  <span className="text-foreground font-black">
                     {totalBroadcastCount.toLocaleString()}
                   </span>{' '}
                   campaigns
@@ -1804,21 +1815,21 @@ export function CRMBroadcastComposer({
 
       {/* Campaign Template Chooser Dialog */}
       <Dialog open={isTemplatesOpen} onOpenChange={setIsTemplatesOpen}>
-        <DialogContent className="max-w-2xl bg-white p-6 rounded-2xl border border-slate-200 shadow-xl">
+        <DialogContent className="max-w-2xl bg-surface-card p-6 rounded-2xl border border-border shadow-xl">
           <DialogHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
-              <DialogTitle className="flex items-center gap-2 text-base font-black uppercase text-secondary">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-border">
+              <DialogTitle className="flex items-center gap-2 text-base font-black uppercase text-foreground">
                 <Sparkles className="text-amber-500" size={18} />
                 Campaign Templates & Backend Drafts
               </DialogTitle>
-              <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200 self-start sm:self-auto">
+              <div className="inline-flex rounded-lg bg-surface-muted p-0.5 border border-border self-start sm:self-auto">
                 <button
                   type="button"
                   onClick={() => setTemplateModalTab('presets')}
                   className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
                     templateModalTab === 'presets'
-                      ? 'bg-white text-secondary shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-surface-card text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-slate-900'
                   }`}
                 >
                   Activist Presets
@@ -1828,15 +1839,15 @@ export function CRMBroadcastComposer({
                   onClick={() => setTemplateModalTab('drafts')}
                   className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
                     templateModalTab === 'drafts'
-                      ? 'bg-white text-secondary shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-surface-card text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-slate-900'
                   }`}
                 >
                   Saved Drafts ({drafts.length})
                 </button>
               </div>
             </div>
-            <DialogDescription className="text-xs text-slate-500 pt-1">
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
               {templateModalTab === 'presets'
                 ? 'Pick a ready-to-use activist template with pre-formatted blocks, action items, and CTA links.'
                 : 'Browse and load campaigns saved directly to your Supabase backend.'}
@@ -1848,19 +1859,21 @@ export function CRMBroadcastComposer({
               {CAMPAIGN_TEMPLATES.map((tmpl) => (
                 <div
                   key={tmpl.id}
-                  className="flex flex-col justify-between p-4 rounded-xl border border-slate-200 bg-white hover:border-primary/50 hover:bg-slate-50/50 transition-all text-left shadow-2xs"
+                  className="flex flex-col justify-between p-4 rounded-xl border border-border bg-surface-card hover:border-primary/50 hover:bg-surface-muted/50 transition-all text-left shadow-2xs"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary dark:text-primary-on-dark">
                         {tmpl.badge}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-bold">
+                      <span className="text-[10px] text-muted-foreground font-bold">
                         {tmpl.blocks.length} sections
                       </span>
                     </div>
-                    <h4 className="text-sm font-black text-secondary mb-1">{tmpl.name}</h4>
-                    <p className="text-xs text-slate-500 line-clamp-2 mb-3">{tmpl.description}</p>
+                    <h4 className="text-sm font-black text-foreground mb-1">{tmpl.name}</h4>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                      {tmpl.description}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -1875,11 +1888,11 @@ export function CRMBroadcastComposer({
           ) : (
             <div className="py-3 max-h-[70vh] overflow-y-auto space-y-2.5">
               {drafts.length === 0 ? (
-                <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl space-y-2">
-                  <p className="text-xs font-bold text-slate-600">
+                <div className="p-8 text-center border-2 border-dashed border-border rounded-xl space-y-2">
+                  <p className="text-xs font-bold text-muted-foreground">
                     No saved drafts in Supabase yet.
                   </p>
-                  <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                  <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
                     Click "Save Draft" in the composer toolbar at any time to save your visual
                     design directly to the database.
                   </p>
@@ -1888,21 +1901,21 @@ export function CRMBroadcastComposer({
                 drafts.map((d) => (
                   <div
                     key={d.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 bg-white hover:border-primary/40 transition-colors shadow-2xs"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-border bg-surface-card hover:border-primary/40 transition-colors shadow-2xs"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-surface-muted text-slate-700">
                           Draft
                         </span>
-                        <span className="text-[11px] text-slate-400 font-medium">
+                        <span className="text-[11px] text-muted-foreground font-medium">
                           Updated {new Date(d.updated_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <h4 className="text-sm font-bold text-secondary truncate">
+                      <h4 className="text-sm font-bold text-foreground truncate">
                         {d.subject || 'Untitled Draft'}
                       </h4>
-                      <p className="text-xs text-slate-400 truncate mt-0.5">
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {d.body ? `${d.body.slice(0, 100)}...` : 'Empty body'}
                       </p>
                     </div>

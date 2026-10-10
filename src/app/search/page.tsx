@@ -75,14 +75,14 @@ export default async function SearchPage({
   }
 
   return (
-    <div className="bg-white min-h-[70vh]">
+    <div className="bg-background min-h-[70vh]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12">
         <div className="flex flex-col mb-10">
-          <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">
+          <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
             Search Results
           </h1>
           <div className="h-1.5 w-24 bg-primary mt-3" />
-          <p className="mt-4 text-slate-500 font-bold uppercase tracking-widest text-xs">
+          <p className="mt-4 text-muted-foreground font-bold uppercase tracking-widest text-xs">
             Results for <span className="text-primary-ink">&ldquo;{q}&rdquo;</span>
           </p>
         </div>
@@ -90,7 +90,7 @@ export default async function SearchPage({
         {/* Product Results */}
         {products.length > 0 && (
           <div className="mb-20">
-            <h2 className="text-2xl font-black text-secondary uppercase tracking-widest mb-8 border-b-2 border-primary pb-2 inline-block">
+            <h2 className="text-2xl font-black text-foreground uppercase tracking-widest mb-8 border-b-2 border-primary pb-2 inline-block">
               Gear Found
             </h2>
             <div className="grid grid-cols-1 gap-y-10 gap-x-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -104,25 +104,28 @@ export default async function SearchPage({
         {/* Content Results */}
         {posts.length > 0 && (
           <div className="mb-20">
-            <h2 className="text-2xl font-black text-secondary uppercase tracking-widest mb-8 border-b-2 border-primary pb-2 inline-block">
+            <h2 className="text-2xl font-black text-foreground uppercase tracking-widest mb-8 border-b-2 border-primary pb-2 inline-block">
               From the Logbook & Pages
             </h2>
             <div className="grid gap-6 max-w-3xl">
               {posts.map((post) => (
                 <div
                   key={post.id}
-                  className="p-6 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-md transition-all"
+                  className="p-6 bg-surface-muted rounded-2xl border border-border hover:bg-surface-card hover:shadow-md transition-all"
                 >
-                  <h3 className="text-lg font-black text-secondary uppercase mb-2">
-                    <Link href={`/${post.slug}`} className="hover:text-primary transition-colors">
+                  <h3 className="text-lg font-black text-foreground uppercase mb-2">
+                    <Link
+                      href={`/${post.slug}`}
+                      className="hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+                    >
                       {post.title}
                     </Link>
                   </h3>
                   <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded uppercase tracking-widest">
+                    <span className="text-[10px] font-black bg-surface-muted text-muted-foreground px-2 py-0.5 rounded uppercase tracking-widest">
                       {post.type || 'Content'}
                     </span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                       {post.created_at ? new Date(post.created_at).toLocaleDateString() : 'No date'}
                     </span>
                   </div>
@@ -133,13 +136,13 @@ export default async function SearchPage({
         )}
 
         {products.length === 0 && posts.length === 0 && (
-          <div className="text-center py-24 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-            <p className="text-slate-400 font-black uppercase tracking-widest mb-6">
+          <div className="text-center py-24 bg-surface-muted rounded-3xl border border-dashed border-border">
+            <p className="text-muted-foreground font-black uppercase tracking-widest mb-6">
               No matches found.
             </p>
             <Link
               href="/products"
-              className="inline-block border-2 border-secondary text-secondary hover:bg-secondary hover:text-white font-black py-3 px-8 rounded-full transition-all uppercase tracking-widest text-xs"
+              className="inline-block border-2 border-secondary text-foreground hover:bg-secondary hover:text-white dark:border-border font-black py-3 px-8 rounded-full transition-all uppercase tracking-widest text-xs"
             >
               Browse all gear
             </Link>

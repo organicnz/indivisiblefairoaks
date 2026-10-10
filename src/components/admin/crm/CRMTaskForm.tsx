@@ -84,10 +84,10 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
   return (
     <form
       onSubmit={submit}
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3"
+      className="rounded-2xl border border-border bg-surface-card p-4 shadow-xs space-y-3"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-black text-secondary">
+        <h2 className="text-sm font-black text-foreground">
           {contactName ? `New follow-up for ${contactName}` : 'New follow-up'}
         </h2>
         <button
@@ -96,7 +96,7 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
             setOpen(false);
             reset();
           }}
-          className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-slate-700"
           aria-label="Cancel"
         >
           <X size={16} aria-hidden="true" />
@@ -104,7 +104,7 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
       </div>
 
       <div>
-        <label htmlFor={titleId} className="mb-1 block text-xs font-bold text-slate-600">
+        <label htmlFor={titleId} className="mb-1 block text-xs font-bold text-muted-foreground">
           What needs doing
         </label>
         <input
@@ -114,13 +114,16 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
           required
           maxLength={200}
           placeholder="Call the county clerk about the ballot drop box"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
         />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
         <div>
-          <label htmlFor={`${titleId}-due`} className="mb-1 block text-xs font-bold text-slate-600">
+          <label
+            htmlFor={`${titleId}-due`}
+            className="mb-1 block text-xs font-bold text-muted-foreground"
+          >
             Due
           </label>
           <input
@@ -128,21 +131,21 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
             type="date"
             value={dueAt}
             onChange={(e) => setDueAt(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
           />
         </div>
         <div>
           <div className="flex items-center justify-between mb-1">
             <label
               htmlFor={`${titleId}-details`}
-              className="block text-xs font-bold text-slate-600"
+              className="block text-xs font-bold text-muted-foreground"
             >
-              Notes <span className="font-normal text-slate-400">(optional)</span>
+              Notes <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
             <button
               type="button"
               onClick={() => setIsMediaModalOpen(true)}
-              className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-primary dark:text-primary-on-dark hover:underline"
             >
               <ImageIcon size={11} /> Media
             </button>
@@ -153,7 +156,7 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
             onChange={(e) => setDetails(e.target.value)}
             maxLength={2000}
             placeholder="Ask for the drop box location and the deadline"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
           />
         </div>
       </div>
@@ -167,7 +170,7 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
           {busy && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
           Add follow-up
         </button>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           {contactId
             ? 'Filed against this constituent.'
             : 'No constituent — visible to the whole organizing team.'}

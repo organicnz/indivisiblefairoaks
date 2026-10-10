@@ -82,7 +82,7 @@ const STATUS_COLORS: Record<string, string> = {
   organizer: 'bg-purple-100 text-purple-800 border-purple-300',
   choir: 'bg-blue-100 text-blue-800 border-blue-300',
   donor: 'bg-amber-100 text-amber-800 border-amber-300',
-  supporter: 'bg-slate-100 text-slate-700 border-slate-300',
+  supporter: 'bg-surface-muted text-slate-700 border-border',
   inactive: 'bg-rose-100 text-rose-700 border-rose-300',
 };
 
@@ -663,7 +663,7 @@ export function CRMContactList({
   return (
     <div className="space-y-6">
       {/* Control / Filter Bar */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+      <div className="bg-surface-card p-6 rounded-2xl border border-border shadow-xs space-y-4">
         <form
           onSubmit={handleFilterSubmit}
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3"
@@ -671,7 +671,7 @@ export function CRMContactList({
           {/* Search Query */}
           <div className="lg:col-span-2 relative">
             <Search
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
               size={16}
             />
             <input
@@ -679,7 +679,7 @@ export function CRMContactList({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search name, email, city, notes..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm bg-slate-50/50"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm bg-surface-muted/50"
             />
           </div>
 
@@ -689,7 +689,7 @@ export function CRMContactList({
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               aria-label="Filter by engagement status"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
             >
               <option value="all">All Engagement Statuses</option>
               <option value="active_volunteer">Active Volunteers</option>
@@ -710,7 +710,7 @@ export function CRMContactList({
               // District did not, so a screen reader announced two bare combo
               // boxes in a row with nothing to say what either filtered.
               aria-label="Filter by district"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
             >
               <option value="all">All Districts</option>
               <option value="CA-06">CA-06 (Sacramento/Carmichael)</option>
@@ -726,7 +726,7 @@ export function CRMContactList({
               value={tag}
               onChange={(e) => setTag(e.target.value)}
               aria-label="Filter by tag"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
             >
               <option value="all">All Tags</option>
               {tagOptions.map((t) => (
@@ -747,7 +747,7 @@ export function CRMContactList({
    directory is an ordinary situation rather than a fault.
 */}
             {tagsMayBeIncomplete && (
-              <p className="mt-1.5 text-[11px] font-medium text-slate-500">
+              <p className="mt-1.5 text-[11px] font-medium text-muted-foreground">
                 This directory is large enough that the tag list is partial. If a tag is missing,
                 search by name above — a tag with no entry here does not mean no constituent has it.
               </p>
@@ -760,7 +760,7 @@ export function CRMContactList({
               value={consent}
               onChange={(e) => setConsent(e.target.value as ConsentFilter)}
               aria-label="Filter by email consent"
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-slate-50/50"
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary bg-surface-muted/50"
             >
               <option value="all">All Consent States</option>
               <option value="opted_out">Opted Out of Email</option>
@@ -801,7 +801,7 @@ export function CRMContactList({
                 setConsent('all');
                 applyFilters(cleared);
               }}
-              className="px-3 py-2.5 text-xs text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition-colors"
+              className="px-3 py-2.5 text-xs text-muted-foreground hover:text-slate-800 rounded-xl hover:bg-surface-muted transition-colors"
             >
               Reset
             </button>
@@ -810,7 +810,7 @@ export function CRMContactList({
 
         {/* Quick Segment Filter Pills + saved segments */}
         <div className="flex items-center gap-1.5 flex-wrap pt-2">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">
+          <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mr-1">
             Quick Segments:
           </span>
           {[
@@ -856,7 +856,7 @@ export function CRMContactList({
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                   isActive
                     ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted'
                 }`}
               >
                 {pill.label}
@@ -868,7 +868,7 @@ export function CRMContactList({
         {/* Saved segments */}
         {segments.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mr-1">
               Saved:
             </span>
             {segmentsTruncated && (
@@ -883,7 +883,7 @@ export function CRMContactList({
               renamingSegmentId === seg.id ? (
                 <span
                   key={seg.id}
-                  className="inline-flex items-center gap-1 pl-1 pr-1 py-0.5 bg-white text-indigo-800 border border-indigo-300 rounded-lg text-xs font-bold"
+                  className="inline-flex items-center gap-1 pl-1 pr-1 py-0.5 bg-surface-card text-indigo-800 border border-indigo-300 rounded-lg text-xs font-bold"
                 >
                   <input
                     type="text"
@@ -900,7 +900,7 @@ export function CRMContactList({
                     autoFocus
                     disabled={renamingBusy}
                     aria-label={`Rename segment ${seg.name}`}
-                    className="px-2 py-1 rounded-md border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs w-40 disabled:opacity-50"
+                    className="px-2 py-1 rounded-md border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-xs w-40 disabled:opacity-50"
                   />
                   <button
                     type="button"
@@ -916,7 +916,7 @@ export function CRMContactList({
                     onClick={() => setRenamingSegmentId(null)}
                     disabled={renamingBusy}
                     aria-label="Cancel rename"
-                    className="p-0.5 hover:text-slate-600 transition-colors disabled:opacity-50"
+                    className="p-0.5 hover:text-muted-foreground transition-colors disabled:opacity-50"
                   >
                     <X size={11} aria-hidden="true" />
                   </button>
@@ -988,7 +988,7 @@ export function CRMContactList({
               placeholder="Segment name (e.g. CA-06 choir)"
               maxLength={60}
               autoFocus
-              className="px-3 py-1.5 rounded-lg border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-xs w-56"
+              className="px-3 py-1.5 rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-xs w-56"
             />
             <button
               type="button"
@@ -1001,7 +1001,7 @@ export function CRMContactList({
             <button
               type="button"
               onClick={() => setShowSaveSegment(false)}
-              className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-700"
+              className="px-2 py-1.5 text-xs text-muted-foreground hover:text-slate-700"
             >
               Cancel
             </button>
@@ -1011,7 +1011,7 @@ export function CRMContactList({
             type="button"
             onClick={() => setShowSaveSegment(true)}
             disabled={!hasActiveFilters}
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-primary transition-colors disabled:opacity-40 disabled:hover:text-slate-400"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors disabled:opacity-40 disabled:hover:text-muted-foreground"
             title="Save the current filter combination as a reusable segment"
           >
             <BookmarkPlus size={12} /> Save current filter as segment
@@ -1024,14 +1024,14 @@ export function CRMContactList({
           disagreed about what zero meant. The count belongs to the bottom of the
           table, beside the thing it describes.
         */}
-        <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-slate-100 text-xs">
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-border text-xs">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleExportCSV}
               disabled={exporting || !totalCount}
               title="Export ALL filtered constituents to CSV (not just this page)"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl font-bold transition-colors disabled:opacity-50"
             >
               <Download size={13} />
               {exporting ? 'Exporting…' : 'Export CSV'}
@@ -1041,7 +1041,7 @@ export function CRMContactList({
               type="button"
               onClick={() => setIsImportOpen(true)}
               title="Import constituents from CSV (existing emails are skipped)"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl font-bold transition-colors"
             >
               <Upload size={13} />
               Import CSV
@@ -1052,7 +1052,7 @@ export function CRMContactList({
               onClick={handleSyncData}
               disabled={syncing}
               title="Sync historical contacts from contact_submissions, profiles & orders"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl font-bold transition-colors disabled:opacity-50"
             >
               <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
               {syncing ? 'Syncing...' : 'Sync History'}
@@ -1079,7 +1079,7 @@ export function CRMContactList({
       </div>
 
       {/* Directory Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="bg-surface-card rounded-2xl border border-border shadow-xs overflow-hidden">
         {/*
           `tabIndex={0}` on the scroll container, per the WAI-ARIA Scrollable
           Region pattern. Chrome and Firefox stopped focusing an `overflow-x-auto`
@@ -1117,14 +1117,14 @@ export function CRMContactList({
               Constituents matching the current filters, page {currentPage}
             </caption>
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+              <tr className="bg-surface-muted/80 border-b border-border text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
                 <th scope="col" className="py-3.5 px-4 w-10 text-center">
                   <input
                     type="checkbox"
                     checked={allOnPageSelected}
                     onChange={toggleSelectAll}
                     aria-label="Select all constituents on this page"
-                    className="rounded border-slate-300 text-primary focus:ring-primary h-3.5 w-3.5 cursor-pointer"
+                    className="rounded border-border text-primary dark:text-primary-on-dark focus:ring-primary h-3.5 w-3.5 cursor-pointer"
                   />
                 </th>
                 <th scope="col" className="py-3.5 px-4">
@@ -1150,13 +1150,13 @@ export function CRMContactList({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="divide-y divide-border text-xs">
               {initialContacts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
                     <Users size={32} className="mx-auto mb-2 opacity-30" />
                     <p className="font-bold">No constituents matched your search criteria.</p>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Try clearing filters or click &ldquo;Sync History&rdquo; to pull from form
                       submissions.
                     </p>
@@ -1172,7 +1172,7 @@ export function CRMContactList({
                   return (
                     <tr
                       key={contact.id}
-                      className={`hover:bg-slate-50/80 transition-colors group ${
+                      className={`hover:bg-surface-muted/80 transition-colors group ${
                         selectedIds.has(contact.id) ? 'bg-blue-50/40' : ''
                       }`}
                     >
@@ -1183,14 +1183,14 @@ export function CRMContactList({
                           checked={selectedIds.has(contact.id)}
                           onChange={() => toggleSelect(contact.id)}
                           aria-label={`Select ${fullName}`}
-                          className="rounded border-slate-300 text-primary focus:ring-primary h-3.5 w-3.5 cursor-pointer"
+                          className="rounded border-border text-primary dark:text-primary-on-dark focus:ring-primary h-3.5 w-3.5 cursor-pointer"
                         />
                       </td>
                       {/* Name & Email */}
                       <td className="py-3.5 px-4">
                         <Link
                           href={`/admin/crm/${contact.id}`}
-                          className="font-bold text-secondary hover:text-primary transition-colors flex items-center gap-1.5"
+                          className="font-bold text-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors flex items-center gap-1.5"
                         >
                           {fullName}
                           <ExternalLink
@@ -1198,7 +1198,7 @@ export function CRMContactList({
                             className="opacity-0 group-hover:opacity-60 transition-opacity"
                           />
                         </Link>
-                        <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                        <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
                           <span className="truncate">{contact.email}</span>
                           <select
                             value={
@@ -1231,7 +1231,7 @@ export function CRMContactList({
                           </select>
                         </div>
                         {contact.phone && (
-                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                          <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
                             {contact.phone}
                           </div>
                         )}
@@ -1239,11 +1239,13 @@ export function CRMContactList({
 
                       {/* District & City */}
                       <td className="py-3.5 px-4">
-                        <span className="inline-block font-mono font-bold text-[11px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                        <span className="inline-block font-mono font-bold text-[11px] px-2 py-0.5 rounded-md bg-surface-muted text-slate-700">
                           {contact.district || 'CA-06'}
                         </span>
                         {contact.city && (
-                          <div className="text-[11px] text-slate-400 mt-0.5">{contact.city}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {contact.city}
+                          </div>
                         )}
                       </td>
 
@@ -1321,7 +1323,7 @@ export function CRMContactList({
                                 setAddingTagContactId(contact.id);
                                 setInlineTagInput('');
                               }}
-                              className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-secondary text-[10px] font-bold"
+                              className="px-1.5 py-0.5 rounded bg-surface-muted hover:bg-surface-muted text-muted-foreground hover:text-foreground text-[10px] font-bold"
                               title="Add tag"
                               aria-label={`Add tag to ${fullName}`}
                             >
@@ -1338,12 +1340,12 @@ export function CRMContactList({
                             ${(contact.total_donated_cents / 100).toFixed(2)}
                           </span>
                         ) : (
-                          <span className="text-slate-300">$0.00</span>
+                          <span className="text-muted-foreground">$0.00</span>
                         )}
                       </td>
 
                       {/* Last Active */}
-                      <td className="py-3.5 px-4 text-slate-400 text-[11px]">
+                      <td className="py-3.5 px-4 text-muted-foreground text-[11px]">
                         {contact.last_contacted_at
                           ? new Date(contact.last_contacted_at).toLocaleDateString('en-US', {
                               month: 'short',
@@ -1362,7 +1364,7 @@ export function CRMContactList({
                           <button
                             type="button"
                             onClick={() => setEditingContact(contact)}
-                            className="p-1.5 text-slate-400 hover:text-secondary rounded-lg hover:bg-slate-100 transition-colors"
+                            className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-surface-muted transition-colors"
                             aria-label={`Edit ${fullName}`}
                             title="Edit Contact"
                           >
@@ -1373,14 +1375,14 @@ export function CRMContactList({
                             message={`Delete constituent "${fullName}" (${contact.email})?`}
                             danger
                             busy={deletingContactId === contact.id}
-                            idleClassName="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                            idleClassName="p-1.5 text-muted-foreground hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
                             onConfirm={() => void handleSingleDelete(contact.id, fullName)}
                           >
                             <Trash2 size={13} aria-hidden="true" />
                           </ConfirmAction>
                           <Link
                             href={`/admin/crm/${contact.id}`}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-primary hover:text-white rounded-lg text-[11px] font-bold text-slate-600 transition-colors"
+                            className="px-2.5 py-1 bg-surface-muted hover:bg-primary hover:text-white rounded-lg text-[11px] font-bold text-muted-foreground transition-colors"
                           >
                             View 360
                           </Link>
@@ -1394,23 +1396,23 @@ export function CRMContactList({
           </table>
         </section>
 
-        <div className="px-6 pb-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+        <div className="px-6 pb-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
           {/*
             The count lives here, at the bottom, beside the pager — not in the
             action header above the table.
           */}
-          <p className="text-xs font-bold text-slate-500">
+          <p className="text-xs font-bold text-muted-foreground">
             {totalCount === 0 ? (
               'No constituents'
             ) : (
               <>
                 Showing{' '}
-                <span className="text-secondary font-black">
+                <span className="text-foreground font-black">
                   {firstRow}–{lastRow}
                 </span>{' '}
-                of <span className="text-secondary font-black">{totalCount}</span> constituents
+                of <span className="text-foreground font-black">{totalCount}</span> constituents
                 {totalRows > 1 && (
-                  <span className="text-slate-400">
+                  <span className="text-muted-foreground">
                     {' '}
                     · page {currentPage} of {totalRows}
                   </span>
@@ -1460,7 +1462,7 @@ export function CRMContactList({
             <button
               type="button"
               onClick={() => setSelectedIds(new Set())}
-              className="text-xs text-slate-400 hover:text-white underline ml-1"
+              className="text-xs text-muted-foreground hover:text-white underline ml-1"
             >
               Clear
             </button>
@@ -1468,7 +1470,7 @@ export function CRMContactList({
 
           {/* Bulk Status Select */}
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-medium text-slate-400 whitespace-nowrap">
+            <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
               Status:
             </span>
             <select
@@ -1548,7 +1550,9 @@ export function CRMContactList({
 
           {/* Bulk Consent */}
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-medium text-slate-400 whitespace-nowrap">Email:</span>
+            <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
+              Email:
+            </span>
             <select
               disabled={bulkActionBusy}
               onChange={(e) => {

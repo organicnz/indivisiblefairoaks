@@ -57,7 +57,7 @@ export function OrderCheckbox({ orderId }: { orderId: number }) {
       className={`w-8 h-8 shrink-0 rounded-xl flex items-center justify-center transition-colors border ${
         selected
           ? 'bg-primary border-primary text-secondary'
-          : 'border-slate-200 text-slate-300 hover:border-primary hover:text-primary bg-white'
+          : 'border-border text-muted-foreground hover:border-primary hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark bg-surface-card'
       }`}
     >
       <CheckSquare size={14} />
@@ -95,7 +95,7 @@ export function BulkOrderBar({ orderIds }: { orderIds: number[] }) {
     <nav
       aria-label="Bulk order actions"
       className={`flex flex-wrap items-center gap-3 rounded-2xl px-5 py-3 transition-all ${
-        selected.size > 0 ? 'bg-secondary text-white' : 'bg-slate-100'
+        selected.size > 0 ? 'bg-secondary text-white' : 'bg-surface-muted'
       }`}
     >
       <button
@@ -116,7 +116,7 @@ export function BulkOrderBar({ orderIds }: { orderIds: number[] }) {
             onChange={(e) => setStatus(e.target.value)}
             disabled={isPending}
             aria-label="Bulk status"
-            className="text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 border-0 bg-white/10 text-white outline-none cursor-pointer [&>option]:text-secondary disabled:opacity-50"
+            className="text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 border-0 bg-surface-card/10 text-white outline-none cursor-pointer [&>option]:text-foreground disabled:opacity-50"
           >
             {STATUSES.map((s) => (
               <option key={s} value={s}>

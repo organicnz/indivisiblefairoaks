@@ -64,9 +64,9 @@ export function LinkPopover({ onApply, onRemove, restoreSelection }: Props) {
   };
 
   return (
-    <div className="mb-1 rounded-lg border border-slate-200 bg-slate-50 p-2">
+    <div className="mb-1 rounded-lg border border-border bg-surface-muted p-2">
       <div className="flex items-center gap-2">
-        <Link2 size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
+        <Link2 size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
         <input
           ref={inputRef}
           type="text"
@@ -85,7 +85,7 @@ export function LinkPopover({ onApply, onRemove, restoreSelection }: Props) {
           placeholder="/contact or https://…"
           aria-label="Link URL"
           aria-invalid={error ? true : undefined}
-          className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="w-full rounded border border-border bg-surface-card px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary"
         />
         <button
           type="button"
@@ -93,7 +93,7 @@ export function LinkPopover({ onApply, onRemove, restoreSelection }: Props) {
             e.preventDefault();
             submit();
           }}
-          className="shrink-0 rounded-md px-2 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-primary"
+          className="shrink-0 rounded-md px-2 py-1.5 text-xs font-bold text-primary dark:text-primary-on-dark transition-colors hover:bg-surface-card focus-visible:ring-2 focus-visible:ring-primary"
         >
           Apply
         </button>
@@ -101,7 +101,7 @@ export function LinkPopover({ onApply, onRemove, restoreSelection }: Props) {
           type="button"
           onClick={onRemove}
           aria-label="Close link editor"
-          className="shrink-0 rounded-md p-1.5 text-slate-400 transition-colors hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
+          className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
         >
           <Trash2 size={14} aria-hidden="true" />
         </button>
@@ -111,7 +111,7 @@ export function LinkPopover({ onApply, onRemove, restoreSelection }: Props) {
           {error}
         </p>
       ) : (
-        <p className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-500">
+        <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
           <ExternalLink size={11} aria-hidden="true" />
           Links to other sites are removed on publish.
         </p>

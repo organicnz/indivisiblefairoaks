@@ -67,7 +67,7 @@ export default async function PartnersPage() {
   }
 
   return (
-    <div className="bg-secondary text-white min-h-screen">
+    <div className="bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen">
       {/* Header Banner with VGPU Constellation Network */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />
@@ -76,11 +76,11 @@ export default async function PartnersPage() {
             <Handshake size={14} className="text-accent-gold" />
             <span>Grassroots Solidarity</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
+          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4">
             Our Coalition Partners & Allies
           </h1>
           <div className="h-1.5 w-24 bg-accent-gold rounded-full mb-4" />
-          <p className="text-ink-on-dark text-sm sm:text-base max-w-2xl leading-relaxed">
+          <p className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-2xl leading-relaxed">
             We believe democracy is a team sport. Indivisible Fair Oaks-Carmichael works in close
             partnership with national organizations, California coalitions, and Sacramento community
             advocates.
@@ -93,24 +93,26 @@ export default async function PartnersPage() {
           {partners.map((partner) => (
             <div
               key={partner.name}
-              className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/40 transition-all flex flex-col justify-between group"
+              className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-primary-bright/40 transition-all flex flex-col justify-between group"
             >
               <div className="space-y-3">
-                <span className="text-[11px] font-mono text-accent-gold font-bold uppercase tracking-wider block">
+                <span className="text-[11px] font-mono text-primary-ink dark:text-accent-gold font-bold uppercase tracking-wider block">
                   {partner.category}
                 </span>
-                <h2 className="text-xl font-bold text-white group-hover:text-primary-on-dark transition-colors">
+                <h2 className="text-xl font-bold text-foreground dark:text-white group-hover:text-primary-ink dark:text-primary-on-dark transition-colors">
                   {partner.name}
                 </h2>
-                <p className="text-xs text-ink-on-dark leading-relaxed">{partner.description}</p>
+                <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                  {partner.description}
+                </p>
               </div>
 
-              <div className="pt-6 border-t border-white/10/80">
+              <div className="pt-6 border-t border-border dark:border-white/10/80">
                 <a
                   href={partner.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-xs font-bold text-primary-on-dark-muted hover:text-primary-on-dark transition-colors"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark transition-colors"
                 >
                   <span>Visit Partner Website</span>
                   <ExternalLink size={13} />
@@ -120,15 +122,17 @@ export default async function PartnersPage() {
           ))}
         </div>
 
-        <div className="p-8 rounded-3xl bg-secondary border border-white/10 text-center space-y-4">
-          <h3 className="text-xl font-bold text-white">Looking to Partner with Our Chapter?</h3>
-          <p className="text-xs sm:text-sm text-ink-on-dark max-w-xl mx-auto">
+        <div className="p-8 rounded-3xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-center space-y-4">
+          <h3 className="text-xl font-bold text-foreground dark:text-white">
+            Looking to Partner with Our Chapter?
+          </h3>
+          <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark max-w-xl mx-auto">
             If your organization shares our dedication to civil rights, progressive governance, and
             democratic defense, we’d love to collaborate on upcoming actions.
           </p>
           <Link
             href="/contact"
-            className="inline-block px-6 py-3 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
+            className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
           >
             Connect With Our Coalition Team
           </Link>

@@ -267,7 +267,10 @@ export function MfaChallengePage() {
   if (checking || !outcome || outcome.kind === 'already-verified' || outcome.kind === 'no-session')
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin text-primary" aria-label="Checking your security status" />
+        <Loader2
+          className="animate-spin text-primary dark:text-primary-on-dark"
+          aria-label="Checking your security status"
+        />
       </div>
     );
 
@@ -292,7 +295,10 @@ export function MfaChallengePage() {
         </button>
         <p className="mt-6 text-xs text-slate-500 font-medium">
           Still failing? Sign out and back in.{' '}
-          <a href="/account?tab=settings" className="text-primary font-bold underline">
+          <a
+            href="/account?tab=settings"
+            className="text-primary dark:text-primary-on-dark font-bold underline"
+          >
             Account settings
           </a>
         </p>
@@ -441,7 +447,7 @@ function Shell({
       <div className="max-w-md w-full bg-slate-50 p-10 rounded-3xl shadow-sm text-center border border-slate-100">
         <div className="flex flex-col items-center mb-8">
           <div
-            className={`p-4 rounded-2xl mb-4 ${tone === 'error' ? 'bg-rose-50 text-accent-red' : 'bg-primary/10 text-primary'}`}
+            className={`p-4 rounded-2xl mb-4 ${tone === 'error' ? 'bg-rose-50 text-accent-red' : 'bg-primary/10 text-primary dark:text-primary-on-dark'}`}
           >
             {icon}
           </div>
@@ -466,7 +472,10 @@ export default function MfaChallengeRoute() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="animate-spin text-primary" aria-label="Loading" />
+          <Loader2
+            className="animate-spin text-primary dark:text-primary-on-dark"
+            aria-label="Loading"
+          />
         </div>
       }
     >

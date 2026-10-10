@@ -44,7 +44,9 @@ export default async function AdminContentPage({
 
   return (
     // useSearchParams needs a Suspense boundary under Cache Components.
-    <Suspense fallback={<div className="py-16 text-center text-sm text-slate-500">Loading…</div>}>
+    <Suspense
+      fallback={<div className="py-16 text-center text-sm text-muted-foreground">Loading…</div>}
+    >
       <ContentList
         initialRows={rows}
         initialTotal={totalCount}

@@ -68,7 +68,7 @@ export function CivicActionTicker({ items: initialItems }: { items?: TickerItem[
   const TICKER_ITEMS = items.length > 0 ? items : DEFAULT_TICKER_ITEMS;
 
   return (
-    <div className="w-full bg-secondary/90 border-y border-white/10 overflow-hidden py-3 backdrop-blur-md">
+    <div className="w-full bg-secondary border-y border-white/10 overflow-hidden py-3 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         {/* Fixed Title Tag */}
         <div className="shrink-0 flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary-bright/20 border border-primary-on-dark-muted/30 text-primary-on-dark text-[11px] font-black uppercase tracking-wider">

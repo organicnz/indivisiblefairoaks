@@ -44,7 +44,7 @@ export function FulfilmentEditor({
         <div>
           <label
             htmlFor={`tracking-${orderId}`}
-            className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5"
+            className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1.5"
           >
             <Truck size={11} /> Tracking number
           </label>
@@ -54,13 +54,13 @@ export function FulfilmentEditor({
             defaultValue={trackingNumber || ''}
             onChange={() => setHasChanges(true)}
             placeholder="e.g. USPS 9405 5000 0000 0000 0000 00"
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-secondary outline-none placeholder:text-slate-400 focus:border-primary transition-colors"
+            className="w-full rounded-xl border border-border bg-surface-muted px-4 py-2.5 text-sm font-bold text-foreground outline-none placeholder:text-muted-foreground focus:border-primary transition-colors"
           />
         </div>
         <div>
           <label
             htmlFor={`notes-${orderId}`}
-            className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5"
+            className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1.5"
           >
             Admin notes
           </label>
@@ -71,7 +71,7 @@ export function FulfilmentEditor({
             onChange={() => setHasChanges(true)}
             rows={1}
             placeholder="Internal notes — not shown to the customer"
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-secondary outline-none placeholder:text-slate-400 focus:border-primary transition-colors resize-none"
+            className="w-full rounded-xl border border-border bg-surface-muted px-4 py-2.5 text-sm font-bold text-foreground outline-none placeholder:text-muted-foreground focus:border-primary transition-colors resize-none"
           />
         </div>
       </div>

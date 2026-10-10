@@ -17,7 +17,7 @@ export default function AboutPage() {
   // the `[slug]` / `privacy-policy` pattern. The dark hero keeps
   // `indivisible-fairoaks-logo-dark.png` on the background it was made for.
   return (
-    <div className="w-full bg-white text-secondary min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner */}
       <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -50,13 +50,13 @@ export default function AboutPage() {
         {/* Our Mission — copy region, so the mission statement is editable in
             place. The list below is the fallback. */}
         <section className="space-y-6">
-          <h2 className="text-2xl sm:text-3xl font-black text-secondary tracking-tight flex items-center gap-3">
+          <h2 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight flex items-center gap-3">
             <Shield className="text-accent" />
             <span>Our Mission Statement</span>
           </h2>
           <CopyRegion id="about-mission">
             <div className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4 text-muted-foreground leading-relaxed text-base">
-              <p className="font-semibold text-secondary text-lg">
+              <p className="font-semibold text-foreground text-lg">
                 The mission of the Fair Oaks - Carmichael Indivisible Chapter is to cultivate a
                 disciplined, non-violent grassroots movement that:
               </p>
@@ -64,7 +64,7 @@ export default function AboutPage() {
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
                   <span>
-                    <strong className="text-secondary">Stops the rise of authoritarianism:</strong>{' '}
+                    <strong className="text-foreground">Stops the rise of authoritarianism:</strong>{' '}
                     Holding officials accountable and sounding the alarm against anti-democratic
                     power grabs.
                   </span>
@@ -72,7 +72,7 @@ export default function AboutPage() {
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
                   <span>
-                    <strong className="text-secondary">
+                    <strong className="text-foreground">
                       Supports and defends democratic norms:
                     </strong>{' '}
                     Protecting voting rights, equal representation, free press, and constitutional
@@ -82,7 +82,7 @@ export default function AboutPage() {
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
                   <span>
-                    <strong className="text-secondary">Elects bold leaders:</strong> Mobilizing
+                    <strong className="text-foreground">Elects bold leaders:</strong> Mobilizing
                     voters to elect public servants who champion democratic integrity and
                     progressive values.
                   </span>
@@ -90,7 +90,7 @@ export default function AboutPage() {
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
                   <span>
-                    <strong className="text-secondary">Secures progressive policies:</strong>{' '}
+                    <strong className="text-foreground">Secures progressive policies:</strong>{' '}
                     Championing economic justice, environmental stewardship, and civil rights for
                     all people.
                   </span>
@@ -102,7 +102,7 @@ export default function AboutPage() {
 
         {/* Who We Are & Where We Organize — copy region */}
         <section className="space-y-6">
-          <h2 className="text-2xl sm:text-3xl font-black text-secondary tracking-tight flex items-center gap-3">
+          <h2 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight flex items-center gap-3">
             <Users className="text-primary-ink" />
             <span>Who We Are</span>
           </h2>
@@ -127,7 +127,7 @@ export default function AboutPage() {
 
         {/* Commitment to Nonviolent Action — copy region */}
         <section className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4">
-          <h3 className="text-xl font-bold text-secondary flex items-center gap-2">
+          <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Sparkles className="text-accent" size={20} />
             Commitment to Non-Violent Action & De-escalation
           </h3>
@@ -143,7 +143,7 @@ export default function AboutPage() {
 
         {/* Community Food Bank Drives */}
         <section className="space-y-4">
-          <h2 className="text-2xl font-black text-secondary tracking-tight flex items-center gap-3">
+          <h2 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-3">
             <Heart className="text-accent-red" />
             <span>Community Care & Food Drives</span>
           </h2>
@@ -156,7 +156,7 @@ export default function AboutPage() {
 
         {/* Contact & Join — copy region */}
         <section className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card text-center space-y-6">
-          <h3 className="text-2xl font-black text-secondary">Join Our Next Gathering</h3>
+          <h3 className="text-2xl font-black text-foreground">Join Our Next Gathering</h3>
           <CopyRegion id="about-join">
             <p className="text-muted-foreground text-sm max-w-xl mx-auto">
               Ready to get involved? Join our mailing list, attend our next monthly meeting, or sing
@@ -172,7 +172,7 @@ export default function AboutPage() {
             </Link>
             <Link
               href="/contact"
-              className="px-6 py-3 rounded-xl border-2 border-secondary text-secondary hover:bg-secondary hover:text-white font-bold text-xs uppercase tracking-wider transition-all"
+              className="px-6 py-3 rounded-xl border-2 border-secondary text-foreground hover:bg-secondary hover:text-white dark:border-border font-bold text-xs uppercase tracking-wider transition-all"
             >
               Contact Us
             </Link>

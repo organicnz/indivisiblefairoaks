@@ -51,7 +51,7 @@ function TabsInner({ tabs, panels, defaultTab }: TabsProps) {
       <div
         role="tablist"
         aria-label="Account navigation"
-        className="flex border-b border-slate-100 mb-10 overflow-x-auto"
+        className="flex border-b border-border mb-10 overflow-x-auto"
         style={{ scrollbarWidth: 'none' }}
       >
         {tabs.map((tab, idx) => {
@@ -77,8 +77,8 @@ function TabsInner({ tabs, panels, defaultTab }: TabsProps) {
                 'transition-colors duration-150 outline-none',
                 'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset',
                 isActive
-                  ? 'text-secondary after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-0.5 after:bg-primary'
-                  : 'text-slate-400 hover:text-slate-700',
+                  ? 'text-foreground after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-0.5 after:bg-primary'
+                  : 'text-muted-foreground hover:text-foreground',
               ].join(' ')}
             >
               <Icon size={13} aria-hidden="true" />
@@ -115,12 +115,12 @@ export function AccountTabs(props: TabsProps) {
     <Suspense
       fallback={
         <div className="animate-pulse">
-          <div className="flex border-b border-slate-100 mb-10 gap-2">
+          <div className="flex border-b border-border mb-10 gap-2">
             {props.tabs.map((t) => (
-              <div key={t.id} className="h-12 w-28 rounded-t-lg bg-slate-100" />
+              <div key={t.id} className="h-12 w-28 rounded-t-lg bg-surface-muted" />
             ))}
           </div>
-          <div className="h-64 rounded-3xl bg-slate-50" />
+          <div className="h-64 rounded-3xl bg-surface-muted" />
         </div>
       }
     >

@@ -57,7 +57,7 @@ export function WishlistButton({ product, showText = false }: WishlistButtonProp
         active
           ? // `accent-red` is 4.83:1 on white; `rose-500` measured 3.34:1 and failed.
             'bg-rose-50 border-rose-200 text-accent-red'
-          : 'bg-white border-slate-200 text-slate-500 hover:text-accent-red'
+          : 'bg-surface-card border-border text-muted-foreground hover:text-accent-red'
       }`}
     >
       <Heart

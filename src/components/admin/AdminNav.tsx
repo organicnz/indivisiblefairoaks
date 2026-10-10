@@ -41,7 +41,7 @@ export function AdminNav() {
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-colors ${
               active
                 ? 'bg-primary text-secondary'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-secondary'
+                : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
             }`}
           >
             <Icon size={13} />

@@ -17,7 +17,7 @@ function StatCard({
 }) {
   return (
     <div className="bg-secondary rounded-3xl p-6">
-      <Icon size={16} className="text-primary mb-3" aria-hidden="true" />
+      <Icon size={16} className="text-primary-on-dark mb-3" aria-hidden="true" />
       <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-1">
         {label}
       </p>
@@ -44,19 +44,19 @@ function OrderCard({ order }: { order: AdminOrder }) {
   return (
     <article
       aria-label={`Order #${order.id}`}
-      className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300"
+      className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300"
     >
       {/* Header grid */}
-      <div className="bg-slate-50 px-6 py-5 border-b border-slate-100 grid grid-cols-2 md:grid-cols-5 gap-4 items-start">
+      <div className="bg-surface-muted px-6 py-5 border-b border-border grid grid-cols-2 md:grid-cols-5 gap-4 items-start">
         {/* Order # */}
         <div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
             Order
           </p>
           <p className="text-sm text-secondary font-black">#{order.id}</p>
           <time
             dateTime={order.created_at ?? ''}
-            className="text-[10px] text-slate-400 mt-0.5 block"
+            className="text-[10px] text-muted-foreground mt-0.5 block"
           >
             {formatDate(order.created_at, {
               day: 'numeric',
@@ -70,24 +70,28 @@ function OrderCard({ order }: { order: AdminOrder }) {
 
         {/* Customer */}
         <div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
             Customer
           </p>
           <div className="flex items-center gap-1.5">
-            <User size={11} className="text-slate-400 shrink-0" aria-hidden="true" />
+            <User size={11} className="text-muted-foreground shrink-0" aria-hidden="true" />
             <p className="text-sm text-secondary font-black truncate">{name}</p>
           </div>
-          {email && <p className="text-[10px] text-slate-400 mt-0.5 truncate">{email}</p>}
+          {email && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{email}</p>}
         </div>
 
         {/* Ship to */}
         <div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
             Ship To
           </p>
           <div className="flex items-start gap-1.5">
-            <MapPin size={11} className="text-slate-400 shrink-0 mt-0.5" aria-hidden="true" />
-            <address className="text-[11px] text-slate-600 font-bold leading-tight not-italic">
+            <MapPin
+              size={11}
+              className="text-muted-foreground shrink-0 mt-0.5"
+              aria-hidden="true"
+            />
+            <address className="text-[11px] text-muted-foreground font-bold leading-tight not-italic">
               {formatAddress(order.shipping_address)}
             </address>
           </div>
@@ -95,12 +99,12 @@ function OrderCard({ order }: { order: AdminOrder }) {
 
         {/* Total */}
         <div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
             Total
           </p>
-          <p className="text-lg text-primary font-black">
+          <p className="text-lg text-primary dark:text-primary-on-dark font-black">
             {formatPrice(order.total)}
-            <span className="text-[10px] text-slate-400 font-bold ml-1">
+            <span className="text-[10px] text-muted-foreground font-bold ml-1">
               {(order.currency ?? CURRENCY_CODE).toUpperCase()}
             </span>
           </p>
@@ -114,7 +118,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
               href={stripeUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
             >
               <ExternalLink size={11} aria-hidden="true" />
               Stripe
@@ -124,7 +128,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
       </div>
 
       {/* Line items */}
-      <ul className="divide-y divide-slate-50 px-6 py-2" aria-label="Order items">
+      <ul className="divide-y divide-border px-6 py-2" aria-label="Order items">
         {order.order_items.map((item, i) => (
           <li
             key={item.id ?? `${order.id}-${i}`}
@@ -139,7 +143,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
                 <p className="text-sm font-black text-secondary uppercase tracking-wider">
                   {item.product_name}
                 </p>
-                <p className="text-[10px] text-slate-400 font-bold uppercase">
+                <p className="text-[10px] text-muted-foreground font-bold uppercase">
                   Qty: {item.quantity}
                 </p>
               </div>
@@ -193,9 +197,11 @@ export function AdminOrdersPanel({ orders }: { orders: AdminOrder[] }) {
 
 function EmptyState({ message, hint }: { message: string; hint?: string }) {
   return (
-    <div className="bg-slate-50 p-16 rounded-3xl border border-dashed border-slate-200 text-center">
-      <p className="text-slate-400 font-black uppercase tracking-widest text-sm">{message}</p>
-      {hint && <p className="mt-2 text-xs font-bold text-slate-400">{hint}</p>}
+    <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
+      <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
+        {message}
+      </p>
+      {hint && <p className="mt-2 text-xs font-bold text-muted-foreground">{hint}</p>}
     </div>
   );
 }

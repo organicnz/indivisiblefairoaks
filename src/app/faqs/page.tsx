@@ -83,7 +83,7 @@ export default function FAQPage() {
   };
 
   return (
-    <div className="bg-secondary text-white pt-(--header-clearance) pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
+    <div className="bg-background text-foreground dark:bg-secondary dark:text-white pt-(--header-clearance) pb-20 px-4 sm:px-6 lg:px-8 min-h-screen">
       {/* JSON-LD. biome's noDangerouslySetInnerHtml is suppressed for this file
           (see biome.json); the value is escaped by serializeJsonLd, which handles
           <, >, & and the JS line separators so it cannot break out of the tag. */}
@@ -93,14 +93,14 @@ export default function FAQPage() {
       />
       <div className="max-w-3xl mx-auto">
         <div className="flex flex-col items-center text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <span>Frequently Asked Questions</span>
           </div>
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4">
             Frequently Asked Questions
           </h1>
           <div className="h-1.5 w-24 bg-accent-gold rounded-full mb-4" />
-          <p className="text-ink-on-dark text-sm sm:text-base max-w-xl">
+          <p className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-xl">
             Have questions about attending a meeting, singing with the choir, or getting involved?
             Find quick answers below.
           </p>
@@ -115,19 +115,23 @@ export default function FAQPage() {
               <section key={group.category} aria-labelledby={categoryId}>
                 <h2
                   id={categoryId}
-                  className="text-xl font-bold text-accent-gold uppercase tracking-wider mb-6 flex items-center gap-3"
+                  className="text-xl font-bold text-primary-ink dark:text-accent-gold uppercase tracking-wider mb-6 flex items-center gap-3"
                 >
                   <span>{group.category}</span>
-                  <div className="h-px bg-white/5 flex-1" />
+                  <div className="h-px bg-border dark:bg-white/5 flex-1" />
                 </h2>
                 <div className="space-y-4">
                   {group.questions.map((faq) => (
                     <div
                       key={faq.q}
-                      className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-slate-700 transition-all space-y-2"
+                      className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-border dark:hover:border-slate-700 transition-all space-y-2"
                     >
-                      <h3 className="text-base sm:text-lg font-bold text-white">{faq.q}</h3>
-                      <p className="text-xs sm:text-sm text-ink-on-dark leading-relaxed">{faq.a}</p>
+                      <h3 className="text-base sm:text-lg font-bold text-foreground dark:text-white">
+                        {faq.q}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                        {faq.a}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -137,13 +141,15 @@ export default function FAQPage() {
         </div>
 
         <div className="mt-16 text-center p-8 rounded-3xl bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-primary-bright/30 space-y-4">
-          <h3 className="text-xl font-black text-white">Still have a question?</h3>
-          <p className="text-xs sm:text-sm text-ink-on-dark max-w-md mx-auto">
+          <h3 className="text-xl font-black text-foreground dark:text-white">
+            Still have a question?
+          </h3>
+          <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark max-w-md mx-auto">
             Our volunteer organizing committee is always here to help you get connected.
           </p>
           <Link
             href="/contact"
-            className="inline-block px-6 py-3 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
+            className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
           >
             Contact Us Directly
           </Link>

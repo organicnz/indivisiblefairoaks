@@ -11,11 +11,11 @@ import { CONTENT_TYPES } from '@/lib/content';
 
 const STATUS_BADGE: Record<string, string> = {
   publish: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-  draft: 'bg-slate-100 text-slate-700 border-slate-300',
+  draft: 'bg-surface-muted text-slate-700 border-border',
 };
 
 const TYPE_BADGE: Record<string, string> = {
-  page: 'bg-surface-muted text-slate-700 border-slate-200',
+  page: 'bg-surface-muted text-slate-700 border-border',
   post: 'bg-blue-50 text-blue-800 border-blue-200',
   action: 'bg-amber-50 text-amber-800 border-amber-200',
   event: 'bg-purple-50 text-purple-800 border-purple-200',
@@ -89,7 +89,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-2xl font-black uppercase tracking-tight text-secondary">
+        <h1 className="font-heading text-2xl font-black uppercase tracking-tight text-foreground">
           Pages &amp; posts
         </h1>
         <Link
@@ -102,7 +102,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
       </div>
 
       <form
-        className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:grid-cols-[2fr_1fr_1fr_auto]"
+        className="grid grid-cols-1 gap-3 rounded-2xl border border-border bg-surface-card p-5 shadow-xs sm:grid-cols-[2fr_1fr_1fr_auto]"
         onSubmit={(e) => {
           e.preventDefault();
           push({ q: query.trim() });
@@ -111,7 +111,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
         <div className="relative">
           <Search
             size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
           />
           <input
@@ -120,14 +120,14 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search titles and slugs…"
             aria-label="Search pages"
-            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-4 text-sm focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+            className="w-full rounded-xl border border-border bg-surface-muted/50 py-2.5 pl-10 pr-4 text-sm focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
           />
         </div>
         <select
           value={status}
           onChange={(e) => push({ status: e.target.value })}
           aria-label="Filter by status"
-          className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+          className="rounded-xl border border-border bg-surface-muted/50 px-3 py-2.5 text-sm focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
         >
           <option value="all">All statuses</option>
           <option value="publish">Published</option>
@@ -137,7 +137,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
           value={type}
           onChange={(e) => push({ type: e.target.value })}
           aria-label="Filter by type"
-          className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+          className="rounded-xl border border-border bg-surface-muted/50 px-3 py-2.5 text-sm focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
         >
           <option value="all">All types</option>
           {CONTENT_TYPES.map((option) => (
@@ -148,24 +148,24 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
         </select>
         <button
           type="submit"
-          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
+          className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
         >
           Apply
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface-card shadow-xs">
         {initialRows.length === 0 ? (
           <div className="px-6 py-16 text-center">
-            <FileText size={32} className="mx-auto mb-3 text-slate-300" aria-hidden="true" />
-            <p className="text-sm font-medium text-slate-600">
+            <FileText size={32} className="mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
+            <p className="text-sm font-medium text-muted-foreground">
               {q || status !== 'all' || type !== 'all'
                 ? 'No pages match these filters.'
                 : 'No pages yet.'}
             </p>
             <Link
               href="/admin/content/new"
-              className="mt-3 inline-block text-sm font-semibold text-primary underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
+              className="mt-3 inline-block text-sm font-semibold text-primary dark:text-primary-on-dark underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-primary"
             >
               Create the first page
             </Link>
@@ -188,7 +188,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
             >
               <table className="w-full min-w-[46rem] text-left text-sm">
                 <caption className="sr-only">Pages and posts</caption>
-                <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                <thead className="border-b border-border bg-surface-muted text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th scope="col" className="px-4 py-3 font-bold">
                       Title
@@ -210,13 +210,13 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border">
                   {initialRows.map((row) => (
-                    <tr key={row.id} className="transition-colors hover:bg-slate-50/70">
+                    <tr key={row.id} className="transition-colors hover:bg-surface-muted/70">
                       <td className="px-4 py-3">
                         <Link
                           href={`/admin/content/${row.id}`}
-                          className="font-semibold text-secondary underline-offset-2 hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-primary"
+                          className="font-semibold text-foreground underline-offset-2 hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark hover:underline focus-visible:ring-2 focus-visible:ring-primary"
                         >
                           {row.title}
                         </Link>
@@ -224,7 +224,9 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                           match: the path is real, the page behind it is not. */}
                         <p
                           className={`mt-0.5 truncate font-mono text-xs ${
-                            row.status === 'publish' ? 'text-slate-400' : 'text-slate-300'
+                            row.status === 'publish'
+                              ? 'text-muted-foreground'
+                              : 'text-muted-foreground'
                           }`}
                         >
                           /{row.slug}
@@ -248,7 +250,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                           {row.status === 'publish' ? 'Published' : 'Draft'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
                         {row.updated_at
                           ? new Date(row.updated_at).toLocaleDateString(undefined, {
                               year: 'numeric',
@@ -262,7 +264,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                           {busyId === row.id ? (
                             <Loader2
                               size={15}
-                              className="animate-spin text-slate-400"
+                              className="animate-spin text-muted-foreground"
                               aria-label="Working"
                             />
                           ) : (
@@ -283,7 +285,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   title={`View /${row.slug}`}
-                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                                 >
                                   View
                                 </Link>
@@ -291,7 +293,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                                 <Link
                                   href={`/admin/content/${row.id}`}
                                   title="Not published yet — opens the editor to preview it"
-                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                                 >
                                   Preview
                                 </Link>
@@ -299,7 +301,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                               <button
                                 type="button"
                                 onClick={() => handleToggle(row)}
-                                className="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-surface-muted hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                                className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                               >
                                 {row.status === 'publish' ? 'Unpublish' : 'Publish'}
                               </button>
@@ -307,7 +309,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                                 label={`Delete ${row.title}`}
                                 message={`Delete “${row.title}”? This cannot be undone.`}
                                 danger
-                                idleClassName="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
+                                idleClassName="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
                                 onConfirm={() => void handleDelete(row)}
                               >
                                 <Trash2 size={15} aria-hidden="true" />
@@ -375,7 +377,7 @@ function PageLink({
 
   if (disabled) {
     return (
-      <span className="cursor-not-allowed rounded-lg border border-slate-200 px-3 py-1.5 text-slate-400">
+      <span className="cursor-not-allowed rounded-lg border border-border px-3 py-1.5 text-muted-foreground">
         {label}
       </span>
     );
@@ -383,7 +385,7 @@ function PageLink({
   return (
     <Link
       href={`/admin/content?${search.toString()}`}
-      className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary"
+      className="rounded-lg border border-border px-3 py-1.5 font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
     >
       {label}
     </Link>

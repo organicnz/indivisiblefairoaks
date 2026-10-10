@@ -58,15 +58,15 @@ export default async function AdminCouponsPage() {
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <BadgePercent size={14} className="text-secondary" />
+            <BadgePercent size={14} className="text-foreground" />
           </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">Coupons</h1>
+        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">Coupons</h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
-        <p className="mt-4 text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+        <p className="mt-4 text-muted-foreground font-bold uppercase tracking-widest text-[10px]">
           {rows.length} promo codes
         </p>
       </div>
@@ -75,8 +75,8 @@ export default async function AdminCouponsPage() {
 
       <div className="space-y-3">
         {rows.length === 0 ? (
-          <div className="bg-slate-50 p-16 rounded-3xl border border-dashed border-slate-200 text-center">
-            <p className="text-slate-400 font-black uppercase tracking-widest text-sm">
+          <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
+            <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
               No coupons yet. Create one above.
             </p>
           </div>
@@ -86,14 +86,14 @@ export default async function AdminCouponsPage() {
             return (
               <div
                 key={c.id}
-                className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm"
+                className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm"
               >
                 <div className="px-8 py-5 grid grid-cols-2 md:grid-cols-6 gap-4 items-center">
                   <div>
-                    <p className="text-sm font-black text-secondary uppercase tracking-wider">
+                    <p className="text-sm font-black text-foreground uppercase tracking-wider">
                       {c.code}
                     </p>
-                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                    <p className="text-[10px] text-muted-foreground font-bold mt-0.5">
                       #{c.id}
                       {expired && (
                         <span className="ml-2 text-[9px] font-black uppercase tracking-widest rounded-full px-2 py-0.5 bg-rose-100 text-rose-700">
@@ -103,22 +103,22 @@ export default async function AdminCouponsPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                       Discount
                     </p>
-                    <p className="text-lg text-primary font-black">
+                    <p className="text-lg text-primary dark:text-primary-on-dark font-black">
                       {c.discount_type === 'percent'
                         ? `${c.amount}%`
                         : `$${Number(c.amount).toFixed(2)}`}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                       Expiry
                     </p>
                     <p
                       className={`text-sm font-black ${
-                        expired ? 'text-rose-500' : 'text-secondary'
+                        expired ? 'text-rose-500' : 'text-foreground'
                       }`}
                     >
                       {c.expiry_date
@@ -131,13 +131,13 @@ export default async function AdminCouponsPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                       Used
                     </p>
-                    <p className="text-sm font-black text-secondary">
+                    <p className="text-sm font-black text-foreground">
                       {usageByCode.get(c.code)?.uses ?? 0}×
                     </p>
-                    <div className="mt-1.5 h-1 w-20 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="mt-1.5 h-1 w-20 bg-surface-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary rounded-full"
                         style={{
@@ -147,10 +147,10 @@ export default async function AdminCouponsPage() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                       Order revenue
                     </p>
-                    <p className="text-sm font-black text-secondary">
+                    <p className="text-sm font-black text-foreground">
                       ${(usageByCode.get(c.code)?.revenue ?? 0).toFixed(2)}
                     </p>
                   </div>

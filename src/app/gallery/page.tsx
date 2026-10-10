@@ -110,7 +110,7 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="bg-secondary text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
       {/* Hero Header with VGPU Constellation Network */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />
@@ -121,7 +121,7 @@ export default function GalleryPage() {
             <span>Photojournalism In Action • Moments of Peaceful Resistance</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black uppercase tracking-tighter leading-[1.08]">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-white tracking-tighter leading-[1.08]">
             Democracy In Full View
           </h1>
 
@@ -175,7 +175,7 @@ export default function GalleryPage() {
               <Search
                 size={18}
                 aria-hidden="true"
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted-on-dark"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
               />
               <input
                 type="text"
@@ -183,13 +183,13 @@ export default function GalleryPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by quote, slogan, location (e.g. 'IKEA', 'Tower Bridge', 'Brake Light')..."
-                className="w-full pl-12 pr-10 py-3 rounded-2xl bg-secondary/90 border border-slate-700 text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-md shadow-lg"
+                className="w-full pl-12 pr-10 py-3 rounded-2xl bg-surface-card dark:bg-secondary border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-md shadow-lg"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark hover:text-white"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:text-white"
                   aria-label="Clear search"
                 >
                   <X size={16} />
@@ -199,7 +199,10 @@ export default function GalleryPage() {
 
             {/* Category Filter Chips */}
             <div className="flex items-center justify-center gap-2 flex-wrap">
-              <Filter size={15} className="text-ink-muted-on-dark mr-1 hidden sm:inline-block" />
+              <Filter
+                size={15}
+                className="text-muted-foreground dark:text-ink-muted-on-dark mr-1 hidden sm:inline-block"
+              />
               {categories.map((category) => {
                 const count = allPhotos.filter((p) => p.category === category).length;
                 const isSelected = selectedCategory === category;
@@ -212,13 +215,15 @@ export default function GalleryPage() {
                     className={`px-3.5 min-h-11 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-300 ease-out cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
                       isSelected
                         ? 'bg-primary text-white shadow-raised'
-                        : 'bg-secondary/90 text-ink-on-dark hover:text-white hover:bg-white/5 border border-white/10'
+                        : 'bg-surface-card dark:bg-secondary/90 text-muted-foreground dark:text-ink-on-dark hover:text-foreground dark:text-white hover:bg-surface-muted dark:hover:bg-white/5 border border-border dark:border-white/10'
                     }`}
                   >
                     <span>{category}</span>
                     <span
                       className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
-                        isSelected ? 'bg-blue-800 text-white' : 'bg-white/5 text-ink-muted-on-dark'
+                        isSelected
+                          ? 'bg-blue-800 text-white'
+                          : 'bg-surface-muted dark:bg-white/5 text-muted-foreground dark:text-ink-muted-on-dark'
                       }`}
                     >
                       {count}
@@ -240,7 +245,7 @@ export default function GalleryPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
         {filteredPhotos.length === 0 ? (
           <div className="py-20 text-center space-y-4">
-            <p className="text-ink-muted-on-dark text-base">
+            <p className="text-muted-foreground dark:text-ink-muted-on-dark text-base">
               No photos match your current search or category filter.
             </p>
             <button
@@ -262,7 +267,7 @@ export default function GalleryPage() {
                 type="button"
                 data-gallery-photo={photo.id}
                 onClick={() => setSelectedPhotoId(photo.id)}
-                className="group relative h-88 rounded-3xl overflow-hidden border border-white/10/80 bg-secondary cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-700 transition-all shadow-xl"
+                className="group relative h-88 rounded-3xl overflow-hidden border border-border dark:border-white/10/80 bg-surface-card dark:bg-secondary cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-primary dark:hover:border-slate-700 transition-all shadow-xl"
               >
                 <Image
                   src={photo.url}
@@ -289,12 +294,12 @@ export default function GalleryPage() {
 
                 {/* Bottom Caption */}
                 <div className="absolute bottom-0 inset-x-0 p-5 z-10 space-y-1.5">
-                  <h2 className="font-bold text-white text-base sm:text-lg leading-snug group-hover:text-primary-light transition-colors duration-300 ease-out line-clamp-2">
+                  <h2 className="font-bold text-foreground dark:text-white text-base sm:text-lg leading-snug group-hover:text-primary-dark dark:group-hover:text-primary-light transition-colors duration-300 ease-out line-clamp-2">
                     {photo.caption}
                   </h2>
-                  <div className="flex items-center justify-between text-xs text-ink-muted-on-dark">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                     <span className="flex items-center gap-1 truncate max-w-[70%]">
-                      <MapPin size={12} className="text-accent-gold shrink-0" />
+                      <MapPin size={12} className="text-accent dark:text-accent-gold shrink-0" />
                       <span className="truncate">{photo.location}</span>
                     </span>
                     <span className="font-mono text-[10px] text-slate-500 shrink-0">
@@ -320,7 +325,7 @@ export default function GalleryPage() {
           <div className="pt-2">
             <a
               href="mailto:contact@indivisiblefairoaks.org?subject=Community%20Photo%20Submission"
-              className="inline-block px-8 py-3.5 rounded-2xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25"
+              className="inline-block px-8 py-3.5 rounded-2xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25"
             >
               Submit Grassroots Photos
             </a>
@@ -427,7 +432,7 @@ export default function GalleryPage() {
                     </button>
                     <Link
                       href="/events"
-                      className="px-4 py-2 rounded-xl bg-primary-bright hover:bg-primary-light text-white text-xs font-bold uppercase tracking-wider transition-all"
+                      className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white text-xs font-bold uppercase tracking-wider transition-all"
                     >
                       Attend Next Action
                     </Link>

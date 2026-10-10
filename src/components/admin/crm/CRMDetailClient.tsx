@@ -512,7 +512,7 @@ export function CRMDetailClient({
     `inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors ${
       activeTab === id
         ? 'bg-primary text-white shadow-xs'
-        : 'bg-white text-slate-600 hover:bg-slate-100'
+        : 'bg-surface-card text-muted-foreground hover:bg-surface-muted'
     }`;
 
   return (
@@ -521,7 +521,7 @@ export function CRMDetailClient({
       <div>
         <Link
           href="/admin/crm"
-          className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-500 hover:text-primary transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
         >
           <ArrowLeft size={14} /> Back to Constituent Directory
         </Link>
@@ -530,17 +530,17 @@ export function CRMDetailClient({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column — 360 Profile Summary */}
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
+          <div className="bg-surface-card rounded-2xl border border-border shadow-xs p-6 space-y-6">
             {isInlineEditing ? (
               <form onSubmit={handleSaveContactInline} className="space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                <div className="flex items-center justify-between pb-2 border-b border-border">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary dark:text-primary-on-dark">
                     Edit Constituent In-Place
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsInlineEditing(false)}
-                    className="p-1 rounded text-slate-400 hover:text-slate-600"
+                    className="p-1 rounded text-muted-foreground hover:text-muted-foreground"
                   >
                     <X size={16} />
                   </button>
@@ -548,42 +548,42 @@ export function CRMDetailClient({
 
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                    <label className="block text-[10px] font-black uppercase text-muted-foreground">
                       <span className="block mb-1">First Name</span>
                       <input
                         type="text"
                         value={editFirstName}
                         onChange={(e) => setEditFirstName(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                       />
                     </label>
-                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                    <label className="block text-[10px] font-black uppercase text-muted-foreground">
                       <span className="block mb-1">Last Name</span>
                       <input
                         type="text"
                         value={editLastName}
                         onChange={(e) => setEditLastName(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                       />
                     </label>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                    <label className="block text-[10px] font-black uppercase text-muted-foreground">
                       <span className="block mb-1">Phone</span>
                       <input
                         type="text"
                         value={editPhone}
                         onChange={(e) => setEditPhone(e.target.value)}
                         placeholder="(916) 555-0199"
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                       />
                     </label>
-                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                    <label className="block text-[10px] font-black uppercase text-muted-foreground">
                       <span className="block mb-1">District</span>
                       <select
                         value={editDistrict}
                         onChange={(e) => setEditDistrict(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                       >
                         <option value="CA-06">CA-06</option>
                         <option value="CA-03">CA-03</option>
@@ -591,7 +591,7 @@ export function CRMDetailClient({
                       </select>
                     </label>
                   </div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400">
+                  <label className="block text-[10px] font-black uppercase text-muted-foreground">
                     <span className="block mb-1">Status</span>
                     <select
                       value={editStatus}
@@ -606,7 +606,7 @@ export function CRMDetailClient({
                             | 'inactive'
                         )
                       }
-                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                      className="w-full px-2 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                     >
                       <option value="active_volunteer">Active Volunteer</option>
                       <option value="supporter">Supporter</option>
@@ -616,54 +616,54 @@ export function CRMDetailClient({
                       <option value="inactive">Inactive</option>
                     </select>
                   </label>
-                  <label className="block text-[10px] font-black uppercase text-slate-400">
+                  <label className="block text-[10px] font-black uppercase text-muted-foreground">
                     <span className="block mb-1">Address</span>
                     <input
                       type="text"
                       value={editAddress}
                       onChange={(e) => setEditAddress(e.target.value)}
                       placeholder="Street address"
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                     />
                   </label>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                    <label className="block text-[10px] font-black uppercase text-muted-foreground">
                       <span className="block mb-1">City</span>
                       <input
                         type="text"
                         value={editCity}
                         onChange={(e) => setEditCity(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                       />
                     </label>
-                    <label className="block text-[10px] font-black uppercase text-slate-400">
+                    <label className="block text-[10px] font-black uppercase text-muted-foreground">
                       <span className="block mb-1">Zip</span>
                       <input
                         type="text"
                         value={editZipCode}
                         onChange={(e) => setEditZipCode(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                       />
                     </label>
                   </div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400">
+                  <label className="block text-[10px] font-black uppercase text-muted-foreground">
                     <span className="block mb-1">Organizer Notes</span>
                     <textarea
                       rows={3}
                       value={editNotes}
                       onChange={(e) => setEditNotes(e.target.value)}
                       placeholder="Background, skills, interests..."
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                     />
                   </label>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
                   <button
                     type="button"
                     onClick={() => setIsInlineEditing(false)}
                     disabled={savingContactInline}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                    className="px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-muted-foreground hover:bg-surface-muted transition-colors"
                   >
                     Cancel
                   </button>
@@ -681,13 +681,13 @@ export function CRMDetailClient({
               <>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary block mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary dark:text-primary-on-dark block mb-1">
                       Constituent 360°
                     </span>
-                    <h1 className="text-2xl font-black uppercase tracking-tight text-secondary">
+                    <h1 className="text-2xl font-black uppercase tracking-tight text-foreground">
                       {fullName}
                     </h1>
-                    <p className="text-xs text-slate-400 mt-0.5">{contact.email}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{contact.email}</p>
                   </div>
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-800 border border-blue-200 shrink-0">
                     {contact.status.replace('_', ' ')}
@@ -697,7 +697,7 @@ export function CRMDetailClient({
                 {/* Email consent state */}
                 <div className="flex items-center justify-between gap-3 p-3 rounded-xl border">
                   <label htmlFor="consent-state" className="min-w-0">
-                    <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <span className="block text-[10px] font-black uppercase tracking-wider text-muted-foreground">
                       Email consent
                     </span>
                     <select
@@ -707,7 +707,7 @@ export function CRMDetailClient({
                       }
                       disabled={consentBusy}
                       onChange={(e) => void handleConsentChange(e.target.value as ConsentDecision)}
-                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
+                      className="mt-1 w-full rounded-lg border border-border bg-surface-card px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:opacity-50"
                     >
                       <option value="unasked">Never asked — not in the audience</option>
                       <option value="true">Opted out — not in the audience</option>
@@ -715,7 +715,7 @@ export function CRMDetailClient({
                     </select>
                   </label>
                   {contact.unsubscribed_at && (
-                    <span className="shrink-0 text-[10px] font-medium text-slate-400">
+                    <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
                       Unsubscribed{' '}
                       {new Date(contact.unsubscribed_at).toLocaleDateString('en-US', {
                         year: 'numeric',
@@ -727,24 +727,24 @@ export function CRMDetailClient({
                 </div>
 
                 {/* Quick Metadata */}
-                <div className="space-y-3 pt-4 border-t border-slate-100 text-xs">
-                  <div className="flex items-center gap-2.5 text-slate-600">
-                    <MapPin size={15} className="text-slate-400 shrink-0" />
+                <div className="space-y-3 pt-4 border-t border-border text-xs">
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <MapPin size={15} className="text-muted-foreground shrink-0" />
                     <span>
                       {contact.city || 'Fair Oaks'}, {contact.zip_code || 'CA'} &middot;{' '}
-                      <strong className="text-secondary font-mono">{contact.district}</strong>
+                      <strong className="text-foreground font-mono">{contact.district}</strong>
                     </span>
                   </div>
 
                   {contact.phone && (
-                    <div className="flex items-center gap-2.5 text-slate-600">
-                      <Phone size={15} className="text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-2.5 text-muted-foreground">
+                      <Phone size={15} className="text-muted-foreground shrink-0" />
                       <span className="font-mono">{contact.phone}</span>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2.5 text-slate-600">
-                    <Calendar size={15} className="text-slate-400 shrink-0" />
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
+                    <Calendar size={15} className="text-muted-foreground shrink-0" />
                     <span>
                       Member since{' '}
                       {new Date(contact.created_at).toLocaleDateString('en-US', {
@@ -755,7 +755,7 @@ export function CRMDetailClient({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2.5 text-slate-600">
+                  <div className="flex items-center gap-2.5 text-muted-foreground">
                     <DollarSign size={15} className="text-emerald-500 shrink-0" />
                     <span>
                       Total Contributions:{' '}
@@ -766,10 +766,10 @@ export function CRMDetailClient({
                   </div>
 
                   {(tasksTruncated ? openTaskCount : openTasks.length) > 0 && (
-                    <div className="flex items-center gap-2.5 text-slate-600">
+                    <div className="flex items-center gap-2.5 text-muted-foreground">
                       <CalendarCheck size={15} className="text-amber-500 shrink-0" />
                       <span>
-                        <strong className="text-secondary">
+                        <strong className="text-foreground">
                           {tasksTruncated ? openTaskCount : openTasks.length}
                         </strong>{' '}
                         open follow-up
@@ -780,16 +780,16 @@ export function CRMDetailClient({
                 </div>
 
                 {/* Tags section with inline CRUD */}
-                <div className="pt-4 border-t border-slate-100">
+                <div className="pt-4 border-t border-border">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
                       Interest & Action Tags
                     </div>
                     {!isAddingTag && (
                       <button
                         type="button"
                         onClick={() => setIsAddingTag(true)}
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-primary dark:text-primary-on-dark hover:underline"
                       >
                         <Plus size={11} /> Add Tag
                       </button>
@@ -811,7 +811,7 @@ export function CRMDetailClient({
                           }
                         }}
                         placeholder="new-tag-name"
-                        className="flex-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-mono text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        className="flex-1 px-2.5 py-1 rounded-lg border border-border text-xs font-mono text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         autoFocus
                       />
                       <button
@@ -825,7 +825,7 @@ export function CRMDetailClient({
                       <button
                         type="button"
                         onClick={() => setIsAddingTag(false)}
-                        className="p-1 rounded text-slate-400 hover:text-slate-600"
+                        className="p-1 rounded text-muted-foreground hover:text-muted-foreground"
                       >
                         <X size={14} />
                       </button>
@@ -834,12 +834,12 @@ export function CRMDetailClient({
 
                   <div className="flex flex-wrap gap-1.5">
                     {contact.tags.length === 0 ? (
-                      <span className="text-xs text-slate-400 italic">No tags assigned</span>
+                      <span className="text-xs text-muted-foreground italic">No tags assigned</span>
                     ) : (
                       contact.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium group/chip"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface-muted text-slate-700 rounded-lg text-xs font-medium group/chip"
                         >
                           #{tag}
                           <button
@@ -847,7 +847,7 @@ export function CRMDetailClient({
                             onClick={() => void handleRemoveTagInline(tag)}
                             disabled={tagBusy}
                             title={`Remove #${tag}`}
-                            className="text-slate-400 hover:text-red-600 ml-0.5 rounded-full p-0.5 transition-colors"
+                            className="text-muted-foreground hover:text-red-600 ml-0.5 rounded-full p-0.5 transition-colors"
                           >
                             <X size={11} />
                           </button>
@@ -859,23 +859,23 @@ export function CRMDetailClient({
 
                 {/* Internal Notes */}
                 {contact.notes && (
-                  <div className="pt-4 border-t border-slate-100">
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">
+                  <div className="pt-4 border-t border-border">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">
                       Organizer Notes
                     </div>
-                    <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-xs text-muted-foreground bg-surface-muted p-3 rounded-xl border border-border whitespace-pre-wrap leading-relaxed">
                       {contact.notes}
                     </p>
                   </div>
                 )}
 
                 {/* Actions */}
-                <div className="flex items-center justify-between gap-2 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between gap-2 pt-4 border-t border-border">
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setIsInlineEditing(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded-xl transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary dark:text-primary-on-dark text-xs font-bold rounded-xl transition-colors"
                       title="Quick edit fields on this card"
                     >
                       <Edit2 size={13} /> Quick Edit
@@ -883,14 +883,14 @@ export function CRMDetailClient({
                     <button
                       type="button"
                       onClick={() => setIsEditorOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-secondary text-xs font-bold rounded-xl transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-foreground text-xs font-bold rounded-xl transition-colors"
                     >
                       Modal
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsMergeOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-secondary text-xs font-bold rounded-xl transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-foreground text-xs font-bold rounded-xl transition-colors"
                       title="Merge a duplicate contact into this profile"
                     >
                       <GitMerge size={13} /> Merge
@@ -927,7 +927,7 @@ export function CRMDetailClient({
             pattern, and AGENTS.md for why it exists.
           */}
           <fieldset
-            className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto"
+            className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto"
             // biome-ignore lint/a11y/noNoninteractiveTabindex: WAI-ARIA scrollable region, see AGENTS.md "Scrollable regions must be focusable"
             tabIndex={0}
           >
@@ -975,8 +975,8 @@ export function CRMDetailClient({
 
           {/* Tab: Timeline */}
           {activeTab === 'timeline' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
-              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">
+            <div className="bg-surface-card rounded-2xl border border-border shadow-xs p-6">
+              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground mb-6">
                 Interaction History & Civic Record
               </h2>
 
@@ -990,14 +990,14 @@ export function CRMDetailClient({
                 whole one is worse than an obviously long one.
               */}
               {activities.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 text-xs">
+                <div className="text-center py-12 text-muted-foreground text-xs">
                   No recorded activities yet for this constituent.
                 </div>
               ) : (
-                <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-surface-muted">
                   {activities.map((act) => {
                     let icon = <FileText size={12} />;
-                    let badgeClass = 'bg-slate-100 text-slate-700';
+                    let badgeClass = 'bg-surface-muted text-slate-700';
 
                     if (act.type === 'email_sent') {
                       icon = <Mail size={12} />;
@@ -1021,11 +1021,11 @@ export function CRMDetailClient({
 
                     return (
                       <div key={act.id} className="relative group">
-                        <span className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-white border-2 border-primary flex items-center justify-center text-[8px]" />
-                        <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 hover:border-slate-200 transition-colors space-y-2">
+                        <span className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-surface-card border-2 border-primary flex items-center justify-center text-[8px]" />
+                        <div className="p-4 rounded-xl bg-surface-muted/70 border border-border hover:border-border transition-colors space-y-2">
                           {editingNoteId === act.id ? (
                             <div className="space-y-3">
-                              <div className="text-xs font-bold text-secondary flex items-center justify-between">
+                              <div className="text-xs font-bold text-foreground flex items-center justify-between">
                                 <span className="flex items-center gap-1.5">
                                   <span className={`p-1 rounded-md ${badgeClass}`}>{icon}</span>
                                   Edit Note
@@ -1035,21 +1035,21 @@ export function CRMDetailClient({
                                 type="text"
                                 value={editingNoteTitle}
                                 onChange={(e) => setEditingNoteTitle(e.target.value)}
-                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 placeholder="Note title"
                               />
                               <textarea
                                 value={editingNoteDesc}
                                 onChange={(e) => setEditingNoteDesc(e.target.value)}
                                 rows={3}
-                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 placeholder="Note details…"
                               />
                               <div className="flex items-center justify-end gap-2 pt-1">
                                 <button
                                   type="button"
                                   onClick={() => setEditingNoteId(null)}
-                                  className="px-2.5 py-1 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
+                                  className="px-2.5 py-1 text-xs font-bold text-muted-foreground hover:bg-surface-muted rounded-lg transition-colors"
                                 >
                                   Cancel
                                 </button>
@@ -1071,12 +1071,12 @@ export function CRMDetailClient({
                           ) : (
                             <>
                               <div className="flex items-center justify-between gap-2 text-xs">
-                                <span className="font-bold text-secondary flex items-center gap-1.5">
+                                <span className="font-bold text-foreground flex items-center gap-1.5">
                                   <span className={`p-1 rounded-md ${badgeClass}`}>{icon}</span>
                                   {act.title}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[11px] text-slate-400">
+                                  <span className="text-[11px] text-muted-foreground">
                                     {new Date(act.created_at).toLocaleString('en-US', {
                                       month: 'short',
                                       day: 'numeric',
@@ -1090,7 +1090,7 @@ export function CRMDetailClient({
                                       <button
                                         type="button"
                                         onClick={() => handleStartEditNote(act)}
-                                        className="p-1 text-slate-400 hover:text-primary hover:bg-white rounded transition-colors"
+                                        className="p-1 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark hover:bg-surface-card rounded transition-colors"
                                         title="Edit note"
                                       >
                                         <Edit2 size={12} />
@@ -1100,7 +1100,7 @@ export function CRMDetailClient({
                                         message={`Delete note "${act.title}"? This cannot be undone.`}
                                         confirmLabel="Delete Note"
                                         danger
-                                        idleClassName="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded transition-colors"
+                                        idleClassName="p-1 text-muted-foreground hover:text-rose-600 hover:bg-surface-card rounded transition-colors"
                                         onConfirm={() => void handleDeleteNote(act.id)}
                                       >
                                         <Trash2 size={12} />
@@ -1110,7 +1110,7 @@ export function CRMDetailClient({
                                 </div>
                               </div>
                               {act.description && (
-                                <p className="text-xs text-slate-600 whitespace-pre-wrap pl-6 pt-1 leading-relaxed">
+                                <p className="text-xs text-muted-foreground whitespace-pre-wrap pl-6 pt-1 leading-relaxed">
                                   {act.description}
                                 </p>
                               )}
@@ -1138,17 +1138,20 @@ export function CRMDetailClient({
 
           {/* Tab: Follow-ups */}
           {activeTab === 'tasks' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
+            <div className="bg-surface-card rounded-2xl border border-border shadow-xs p-6 space-y-6">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary dark:text-primary-on-dark">
                   Organizer Follow-ups
                 </span>
-                <h2 className="text-lg font-black uppercase tracking-tight text-secondary">
+                <h2 className="text-lg font-black uppercase tracking-tight text-foreground">
                   Schedule & Track Tasks
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Due-dated commitments for this constituent.{' '}
-                  <Link href="/admin/crm/tasks" className="text-primary font-bold hover:underline">
+                  <Link
+                    href="/admin/crm/tasks"
+                    className="text-primary dark:text-primary-on-dark font-bold hover:underline"
+                  >
                     Open the full board →
                   </Link>
                 </p>
@@ -1159,7 +1162,7 @@ export function CRMDetailClient({
                   <div className="sm:col-span-2">
                     <label
                       htmlFor="task-title"
-                      className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                      className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
                     >
                       Task *
                     </label>
@@ -1171,13 +1174,13 @@ export function CRMDetailClient({
                       value={taskTitle}
                       onChange={(e) => setTaskTitle(e.target.value)}
                       placeholder="e.g. Call about Saturday canvass"
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+                      className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
                     />
                   </div>
                   <div>
                     <label
                       htmlFor="task-due"
-                      className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                      className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
                     >
                       Due date
                     </label>
@@ -1186,14 +1189,14 @@ export function CRMDetailClient({
                       type="date"
                       value={taskDue}
                       onChange={(e) => setTaskDue(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+                      className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
                     />
                   </div>
                 </div>
                 <div>
                   <label
                     htmlFor="task-details"
-                    className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                    className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
                   >
                     Details
                   </label>
@@ -1203,7 +1206,7 @@ export function CRMDetailClient({
                     value={taskDetails}
                     onChange={(e) => setTaskDetails(e.target.value)}
                     placeholder="Context, phone number, promised deliverable…"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+                    className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
                   />
                 </div>
                 <div className="flex justify-end">
@@ -1219,7 +1222,7 @@ export function CRMDetailClient({
               </form>
 
               {tasks.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-xs border-t border-slate-100">
+                <div className="text-center py-8 text-muted-foreground text-xs border-t border-border">
                   No follow-ups yet.
                 </div>
               ) : (
@@ -1233,45 +1236,45 @@ export function CRMDetailClient({
                       still stored — manage the full list on the tasks board.
                     </p>
                   )}
-                  <ul className="divide-y divide-slate-100 border-t border-slate-100">
+                  <ul className="divide-y divide-border border-t border-border">
                     {tasks.map((task) => (
                       <li key={task.id} className="py-3">
                         {editingTaskId === task.id ? (
-                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                            <div className="text-xs font-bold text-secondary flex items-center justify-between">
+                          <div className="p-3 bg-surface-muted rounded-xl border border-border space-y-3">
+                            <div className="text-xs font-bold text-foreground flex items-center justify-between">
                               <span>Edit Follow-up</span>
-                              <span className="text-[10px] text-slate-400 font-mono">
+                              <span className="text-[10px] text-muted-foreground font-mono">
                                 ID: {task.id.slice(0, 8)}
                               </span>
                             </div>
-                            <label className="block text-[10px] font-black uppercase text-slate-400">
+                            <label className="block text-[10px] font-black uppercase text-muted-foreground">
                               <span className="block mb-1">Task Title *</span>
                               <input
                                 type="text"
                                 value={editingTaskTitle}
                                 onChange={(e) => setEditingTaskTitle(e.target.value)}
-                                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                                className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                                 placeholder="Task title"
                               />
                             </label>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <label className="block text-[10px] font-black uppercase text-slate-400">
+                              <label className="block text-[10px] font-black uppercase text-muted-foreground">
                                 <span className="block mb-1">Details</span>
                                 <input
                                   type="text"
                                   value={editingTaskDetails}
                                   onChange={(e) => setEditingTaskDetails(e.target.value)}
-                                  className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                                  className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                                   placeholder="Context or notes"
                                 />
                               </label>
-                              <label className="block text-[10px] font-black uppercase text-slate-400">
+                              <label className="block text-[10px] font-black uppercase text-muted-foreground">
                                 <span className="block mb-1">Due Date</span>
                                 <input
                                   type="date"
                                   value={editingTaskDue}
                                   onChange={(e) => setEditingTaskDue(e.target.value)}
-                                  className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                                  className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                                 />
                               </label>
                             </div>
@@ -1279,7 +1282,7 @@ export function CRMDetailClient({
                               <button
                                 type="button"
                                 onClick={() => setEditingTaskId(null)}
-                                className="px-2.5 py-1 text-xs font-bold text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
+                                className="px-2.5 py-1 text-xs font-bold text-muted-foreground hover:bg-surface-muted rounded-lg transition-colors"
                               >
                                 Cancel
                               </button>
@@ -1321,20 +1324,24 @@ export function CRMDetailClient({
                             </button>
                             <div className="min-w-0 flex-1">
                               <div
-                                className={`text-xs font-bold text-secondary ${
+                                className={`text-xs font-bold text-foreground ${
                                   task.status === 'done' ? 'line-through opacity-60' : ''
                                 }`}
                               >
                                 {task.title}
                               </div>
                               {task.details && (
-                                <p className="text-[11px] text-slate-500 mt-0.5">{task.details}</p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                  {task.details}
+                                </p>
                               )}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <span
                                 className={`text-[11px] ${
-                                  task.due_at ? 'text-slate-500 font-bold' : 'text-slate-300'
+                                  task.due_at
+                                    ? 'text-muted-foreground font-bold'
+                                    : 'text-muted-foreground'
                                 }`}
                               >
                                 {task.due_at
@@ -1351,7 +1358,7 @@ export function CRMDetailClient({
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditTask(task)}
-                                  className="p-1 text-slate-400 hover:text-primary hover:bg-slate-100 rounded transition-colors"
+                                  className="p-1 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark hover:bg-surface-muted rounded transition-colors"
                                   title="Edit task"
                                 >
                                   <Edit2 size={13} />
@@ -1361,7 +1368,7 @@ export function CRMDetailClient({
                                   message={`Delete follow-up "${task.title}"?`}
                                   confirmLabel="Delete"
                                   danger
-                                  idleClassName="p-1 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded transition-colors"
+                                  idleClassName="p-1 text-muted-foreground hover:text-rose-600 hover:bg-surface-muted rounded transition-colors"
                                   onConfirm={() => void handleDeleteTask(task.id)}
                                 >
                                   <Trash2 size={13} />
@@ -1380,18 +1387,21 @@ export function CRMDetailClient({
 
           {/* Tab: Send Direct Email */}
           {activeTab === 'email' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
+            <div className="bg-surface-card rounded-2xl border border-border shadow-xs p-6 space-y-6">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary dark:text-primary-on-dark">
                   Resend Email Engine
                 </span>
-                <h2 className="text-lg font-black uppercase tracking-tight text-secondary">
+                <h2 className="text-lg font-black uppercase tracking-tight text-foreground">
                   Direct Outreach to {fullName}
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Sends directly to <strong className="text-secondary">{contact.email}</strong>{' '}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Sends directly to <strong className="text-foreground">{contact.email}</strong>{' '}
                   using the Sensory Luxury email template from{' '}
-                  <code className="text-primary font-bold">contact@indivisiblefairoaks.org</code>.
+                  <code className="text-primary dark:text-primary-on-dark font-bold">
+                    contact@indivisiblefairoaks.org
+                  </code>
+                  .
                 </p>
                 {contact.do_not_email === true && (
                   <p className="mt-2 text-xs font-bold text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
@@ -1419,7 +1429,7 @@ export function CRMDetailClient({
                 <div>
                   <label
                     htmlFor="email-subject"
-                    className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                    className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
                   >
                     Subject Line *
                   </label>
@@ -1431,14 +1441,14 @@ export function CRMDetailClient({
                     value={emailSubject}
                     onChange={(e) => setEmailSubject(e.target.value)}
                     placeholder="e.g. Next steps for our Postcard Blitz campaign"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm disabled:bg-slate-50 disabled:text-slate-400"
+                    className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm disabled:bg-surface-muted disabled:text-muted-foreground"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="email-message"
-                    className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                    className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
                   >
                     Message Body *
                   </label>
@@ -1450,12 +1460,12 @@ export function CRMDetailClient({
                     value={emailMessage}
                     onChange={(e) => setEmailMessage(e.target.value)}
                     placeholder="Type your message to this constituent..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm leading-relaxed disabled:bg-slate-50 disabled:text-slate-400"
+                    className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm leading-relaxed disabled:bg-surface-muted disabled:text-muted-foreground"
                   />
                 </div>
 
                 <div className="flex items-center justify-between pt-2">
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-muted-foreground">
                     Replies will route to chapter inbox:{' '}
                     <strong>contact@indivisiblefairoaks.org</strong>
                   </span>
@@ -1474,15 +1484,15 @@ export function CRMDetailClient({
 
           {/* Tab: Log Organizer Note */}
           {activeTab === 'note' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
+            <div className="bg-surface-card rounded-2xl border border-border shadow-xs p-6 space-y-6">
               <div>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary dark:text-primary-on-dark">
                   Organizer Observations
                 </span>
-                <h2 className="text-lg font-black uppercase tracking-tight text-secondary">
+                <h2 className="text-lg font-black uppercase tracking-tight text-foreground">
                   Log Meeting Note or Engagement Activity
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Record organizing interactions, volunteer commitments, or conversations.
                 </p>
               </div>
@@ -1491,7 +1501,7 @@ export function CRMDetailClient({
                 <div>
                   <label
                     htmlFor="note-title"
-                    className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1"
+                    className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1"
                   >
                     Activity Title / Summary *
                   </label>
@@ -1502,7 +1512,7 @@ export function CRMDetailClient({
                     value={noteTitle}
                     onChange={(e) => setNoteTitle(e.target.value)}
                     placeholder="e.g. Spoke at General Meeting about choir rehearsals"
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
+                    className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm"
                   />
                 </div>
 
@@ -1510,14 +1520,14 @@ export function CRMDetailClient({
                   <div className="flex items-center justify-between mb-1">
                     <label
                       htmlFor="note-desc"
-                      className="block text-[11px] font-black uppercase tracking-wider text-slate-500"
+                      className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground"
                     >
                       Detailed Notes & Action Items
                     </label>
                     <button
                       type="button"
                       onClick={() => setIsMediaModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-primary dark:text-primary-on-dark hover:bg-primary/10 rounded-lg transition-colors"
                     >
                       <ImageIcon size={13} /> Attach Storage Media
                     </button>
@@ -1528,7 +1538,7 @@ export function CRMDetailClient({
                     value={noteDesc}
                     onChange={(e) => setNoteDesc(e.target.value)}
                     placeholder="Details of the conversation, follow-up dates, volunteer availability..."
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm leading-relaxed"
+                    className="w-full px-4 py-2.5 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm leading-relaxed"
                   />
                 </div>
 
@@ -1548,16 +1558,16 @@ export function CRMDetailClient({
 
           {/* Tab: Storage Media Assets */}
           {activeTab === 'media' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+            <div className="bg-surface-card rounded-2xl border border-border shadow-xs p-6 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary dark:text-primary-on-dark">
                     Supabase S3 Assets
                   </span>
-                  <h2 className="text-lg font-black uppercase tracking-tight text-secondary">
+                  <h2 className="text-lg font-black uppercase tracking-tight text-foreground">
                     Constituent Media & Documents
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Browse and attach assets hosted in your Supabase S3 bucket for this profile.
                   </p>
                 </div>
@@ -1570,13 +1580,15 @@ export function CRMDetailClient({
                 </button>
               </div>
 
-              <div className="p-8 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-center space-y-3">
-                <div className="p-3 rounded-full bg-blue-50 text-primary">
+              <div className="p-8 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-center space-y-3">
+                <div className="p-3 rounded-full bg-blue-50 text-primary dark:text-primary-on-dark">
                   <ImageIcon className="h-8 w-8" />
                 </div>
                 <div className="max-w-md">
-                  <h3 className="text-sm font-bold text-secondary">Manage Supabase Media Assets</h3>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <h3 className="text-sm font-bold text-foreground">
+                    Manage Supabase Media Assets
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
                     Upload photos from rallies, volunteer sign-up sheets, or documents directly to
                     your Supabase S3 storage bucket.
                   </p>

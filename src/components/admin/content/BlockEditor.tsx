@@ -567,10 +567,10 @@ export function BlockEditor({ blocks, onChange }: Props) {
           return (
             <li
               key={block.id}
-              className={`group relative rounded-xl border px-2 py-1 transition-colors focus-within:border-slate-300 ${
+              className={`group relative rounded-xl border px-2 py-1 transition-colors focus-within:border-border ${
                 dropIndex === index && dragIndex !== index
                   ? 'border-primary bg-blue-50'
-                  : 'border-transparent hover:border-slate-200'
+                  : 'border-transparent hover:border-border'
               } ${dragIndex === index ? 'opacity-40' : ''}`}
               data-block-type={block.type}
               onDragOver={(e) => {
@@ -611,7 +611,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   onClick={() => openSlash(index)}
                   aria-label="Insert or change block"
                   title="Add or change block"
-                  className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <Plus size={14} aria-hidden="true" />
                 </button>
@@ -645,7 +645,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   aria-label={`Reorder ${def.label} block`}
                   aria-describedby="block-reorder-help"
                   title="Drag to reorder, or Alt+Arrow Up/Down"
-                  className="cursor-grab rounded-md p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
+                  className="cursor-grab rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
                 >
                   <GripVertical size={14} aria-hidden="true" />
                 </button>
@@ -658,7 +658,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   onClick={() => move(index, -1)}
                   disabled={index === 0}
                   aria-label="Move block up"
-                  className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <ChevronUp size={14} aria-hidden="true" />
                 </button>
@@ -667,7 +667,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   onClick={() => move(index, 1)}
                   disabled={index === blocks.length - 1}
                   aria-label="Move block down"
-                  className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <ChevronDown size={14} aria-hidden="true" />
                 </button>
@@ -675,7 +675,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   type="button"
                   onClick={() => duplicateAt(index)}
                   aria-label="Duplicate block"
-                  className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <Copy size={14} aria-hidden="true" />
                 </button>
@@ -683,7 +683,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   type="button"
                   onClick={() => removeAt(index)}
                   aria-label="Delete block"
-                  className="rounded-md p-1 text-slate-400 transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <Trash2 size={14} aria-hidden="true" />
                 </button>
@@ -735,7 +735,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
           });
           pendingFocus.current = created.id;
         }}
-        className="flex w-full items-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:border-primary hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+        className="flex w-full items-center gap-2 rounded-xl border border-dashed border-border px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
       >
         <Plus size={16} aria-hidden="true" />
         Add a block
@@ -802,7 +802,7 @@ function InlineToolbar({
   restoreSelection: () => void;
 }) {
   return (
-    <div className="mb-1 flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+    <div className="mb-1 flex items-center gap-1 rounded-lg border border-border bg-surface-muted p-1">
       {INLINE_FORMATS.map((format) => {
         const Icon = format.icon;
         return (
@@ -817,7 +817,7 @@ function InlineToolbar({
             }}
             aria-label={format.label}
             title={`${format.label} (${format.key})`}
-            className="rounded-md p-1.5 text-slate-600 transition-colors hover:bg-white hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Icon size={14} />
           </button>
@@ -835,8 +835,8 @@ function InlineToolbar({
         title="Add or edit link (Ctrl+K)"
         className={`rounded-md p-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
           linkEditorOpen
-            ? 'bg-white text-primary'
-            : 'text-slate-600 hover:bg-white hover:text-primary'
+            ? 'bg-surface-card text-primary dark:text-primary-on-dark'
+            : 'text-muted-foreground hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark'
         }`}
       >
         <Link2 size={14} />
@@ -877,7 +877,7 @@ function BlockTypeMenu({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="mb-1 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+        className="mb-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
       >
         <Icon size={13} aria-hidden="true" />
         {def.label}
@@ -891,7 +891,7 @@ function BlockTypeMenu({
             className="fixed inset-0 z-10 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute left-0 top-full z-20 mt-1 max-h-72 w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-float">
+          <div className="absolute left-0 top-full z-20 mt-1 max-h-72 w-56 overflow-y-auto rounded-xl border border-border bg-surface-card p-1 shadow-float">
             {BLOCK_DEFINITIONS.map((entry) => {
               const EntryIcon = entry.icon;
               return (
@@ -906,14 +906,14 @@ function BlockTypeMenu({
                 >
                   <EntryIcon
                     size={15}
-                    className="mt-0.5 shrink-0 text-primary"
+                    className="mt-0.5 shrink-0 text-primary dark:text-primary-on-dark"
                     aria-hidden="true"
                   />
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-secondary">
+                    <span className="block text-sm font-semibold text-foreground">
                       {entry.label}
                     </span>
-                    <span className="block text-xs text-slate-500">{entry.hint}</span>
+                    <span className="block text-xs text-muted-foreground">{entry.hint}</span>
                   </span>
                 </button>
               );
@@ -962,7 +962,7 @@ function BlockBody({
           This block uses markup the editor has no control for. It is kept exactly as written so
           saving does not delete it, but you cannot edit it here.
         </p>
-        <pre className="mt-2 max-h-32 overflow-auto rounded-lg bg-white/70 p-2 text-xs text-amber-900">
+        <pre className="mt-2 max-h-32 overflow-auto rounded-lg bg-surface-card/70 p-2 text-xs text-amber-900">
           {block.html}
         </pre>
       </div>
@@ -980,7 +980,7 @@ function BlockBody({
 
   if (block.type === 'image') {
     return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="rounded-xl border border-border bg-surface-muted p-3">
         <BlockTypeMenu block={block} onPick={onPickBlock} />
         <div className="mb-3">
           <ContentImageInput
@@ -1014,7 +1014,7 @@ function BlockBody({
           />
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <label className="block text-xs font-medium text-slate-600">
+          <label className="block text-xs font-medium text-muted-foreground">
             Alt text
             <input
               type="text"
@@ -1027,10 +1027,10 @@ function BlockBody({
                 )
               }
               placeholder="Describe the image for screen readers"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
             />
           </label>
-          <label className="block text-xs font-medium text-slate-600">
+          <label className="block text-xs font-medium text-muted-foreground">
             Caption
             <input
               type="text"
@@ -1043,7 +1043,7 @@ function BlockBody({
                 )
               }
               placeholder="Optional"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
             />
           </label>
         </div>
@@ -1064,7 +1064,7 @@ function BlockBody({
 
   if (block.type === 'code') {
     return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="rounded-xl border border-border bg-surface-muted p-3">
         <BlockTypeMenu block={block} onPick={onPickBlock} />
         <textarea
           value={block.text}
@@ -1074,7 +1074,7 @@ function BlockBody({
           rows={4}
           spellCheck={false}
           aria-label="Code block content"
-          className="w-full rounded-lg border border-slate-200 bg-secondary px-3 py-2 font-mono text-sm text-ink-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+          className="w-full rounded-lg border border-border bg-secondary px-3 py-2 font-mono text-sm text-ink-on-dark focus-visible:ring-2 focus-visible:ring-primary"
         />
       </div>
     );
@@ -1082,10 +1082,10 @@ function BlockBody({
 
   if (block.type === 'button') {
     return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="rounded-xl border border-border bg-surface-muted p-3">
         <BlockTypeMenu block={block} onPick={onPickBlock} />
         <div className="grid gap-2 sm:grid-cols-2">
-          <label className="block text-xs font-medium text-slate-600">
+          <label className="block text-xs font-medium text-muted-foreground">
             Label
             <input
               type="text"
@@ -1097,10 +1097,10 @@ function BlockBody({
                   `type:label:${block.id}`
                 )
               }
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
             />
           </label>
-          <label className="block text-xs font-medium text-slate-600">
+          <label className="block text-xs font-medium text-muted-foreground">
             Destination
             <input
               type="text"
@@ -1113,7 +1113,7 @@ function BlockBody({
                 )
               }
               placeholder="/contact"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-primary"
             />
           </label>
         </div>
@@ -1134,7 +1134,7 @@ function BlockBody({
 
   if (block.type === 'table') {
     return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="rounded-xl border border-border bg-surface-muted p-3">
         <BlockTypeMenu block={block} onPick={onPickBlock} />
         {/*
           WAI-ARIA scrollable-region pattern. An `overflow-x-auto` box is no
@@ -1180,7 +1180,7 @@ function BlockBody({
                           `type:head:${block.id}:${colIndex}`
                         );
                       }}
-                      className="w-full min-w-24 rounded border border-slate-200 bg-white px-2 py-1 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-primary"
+                      className="w-full min-w-24 rounded border border-border bg-surface-card px-2 py-1 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-primary"
                     />
                   </th>
                 ))}
@@ -1191,7 +1191,7 @@ function BlockBody({
                       onUpdate(block.id, { head: [...block.head, 'New column'] } as Partial<Block>)
                     }
                     aria-label="Add column"
-                    className="rounded px-1.5 py-1 text-slate-500 transition-colors hover:bg-white hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                    className="rounded px-1.5 py-1 text-muted-foreground transition-colors hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <Plus size={14} aria-hidden="true" />
                   </button>
@@ -1221,7 +1221,7 @@ function BlockBody({
                             `type:cell:${block.id}:${rowIndex}:${colIndex}`
                           );
                         }}
-                        className="w-full min-w-24 rounded border border-slate-200 bg-white px-2 py-1 text-sm focus-visible:ring-2 focus-visible:ring-primary"
+                        className="w-full min-w-24 rounded border border-border bg-surface-card px-2 py-1 text-sm focus-visible:ring-2 focus-visible:ring-primary"
                       />
                     </td>
                   ))}
@@ -1237,7 +1237,7 @@ function BlockBody({
                         } as Partial<Block>)
                       }
                       aria-label={`Add row ${rowIndex + 2}`}
-                      className="rounded px-1.5 py-1 text-slate-500 transition-colors hover:bg-white hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+                      className="rounded px-1.5 py-1 text-muted-foreground transition-colors hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       <Plus size={14} aria-hidden="true" />
                     </button>
@@ -1251,7 +1251,7 @@ function BlockBody({
           <button
             type="button"
             onClick={() => onUpdate(block.id, { rows: block.rows.slice(0, -1) } as Partial<Block>)}
-            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition-colors hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Trash2 size={12} aria-hidden="true" />
             Remove last row
@@ -1304,7 +1304,7 @@ function BlockBody({
       <div className="flex flex-wrap items-center gap-2">
         <BlockTypeMenu block={block} onPick={onPickBlock} />
         {block.type === 'heading' && (
-          <label className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600">
+          <label className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             Level
             <select
               value={String(block.level)}
@@ -1313,7 +1313,7 @@ function BlockBody({
                   level: Number(e.target.value) as HeadingLevel,
                 } as Partial<Block>)
               }
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs focus-visible:ring-2 focus-visible:ring-primary"
+              className="rounded-lg border border-border bg-surface-card px-2 py-1 text-xs focus-visible:ring-2 focus-visible:ring-primary"
             >
               {INSERTABLE_HEADING_LEVELS.map((level) => (
                 <option key={level} value={String(level)}>
@@ -1324,14 +1324,14 @@ function BlockBody({
           </label>
         )}
         {block.type === 'callout' && (
-          <label className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600">
+          <label className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             Tone
             <select
               value={block.tone}
               onChange={(e) =>
                 onUpdate(block.id, { tone: e.target.value as CalloutTone } as Partial<Block>)
               }
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs focus-visible:ring-2 focus-visible:ring-primary"
+              className="rounded-lg border border-border bg-surface-card px-2 py-1 text-xs focus-visible:ring-2 focus-visible:ring-primary"
             >
               {CALLOUT_TONES.map((tone) => (
                 <option key={tone} value={tone}>
@@ -1503,11 +1503,11 @@ function SlashMenu({
         role="dialog"
         aria-label="Insert block"
         onKeyDown={onMenuKeyDown}
-        className="fixed z-50 w-72 rounded-2xl border border-slate-200 bg-white p-2 shadow-float"
+        className="fixed z-50 w-72 rounded-2xl border border-border bg-surface-card p-2 shadow-float"
         style={{ top: position.top, left: position.left }}
       >
-        <div className="mb-1 flex items-center gap-2 border-b border-slate-100 px-2 pb-2">
-          <TypeIcon size={14} className="text-slate-400" aria-hidden="true" />
+        <div className="mb-1 flex items-center gap-2 border-b border-border px-2 pb-2">
+          <TypeIcon size={14} className="text-muted-foreground" aria-hidden="true" />
           {/*
             A combobox, not a plain text input. `aria-activedescendant` is what
             makes the highlighted option announceable while focus stays in the
@@ -1529,13 +1529,13 @@ function SlashMenu({
             aria-activedescendant={
               results[activeIndex] ? `slash-option-${results[activeIndex].kind}` : undefined
             }
-            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           <button
             type="button"
             onClick={onClose}
             aria-label="Close block menu"
-            className="rounded p-0.5 text-slate-400 transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-primary"
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
           >
             <X size={14} aria-hidden="true" />
           </button>
@@ -1555,7 +1555,7 @@ function SlashMenu({
           className="max-h-72 overflow-y-auto"
         >
           {results.length === 0 && (
-            <p className="px-3 py-6 text-center text-sm text-slate-500">
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               No blocks match “{query}”.
             </p>
           )}
@@ -1598,10 +1598,14 @@ function SlashMenu({
                   isActive ? 'bg-surface-muted' : 'hover:bg-surface-muted'
                 }`}
               >
-                <Icon size={16} className="shrink-0 text-primary" aria-hidden="true" />
+                <Icon
+                  size={16}
+                  className="shrink-0 text-primary dark:text-primary-on-dark"
+                  aria-hidden="true"
+                />
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-secondary">{def.label}</span>
-                  <span className="block truncate text-xs text-slate-500">{def.hint}</span>
+                  <span className="block text-sm font-semibold text-foreground">{def.label}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{def.hint}</span>
                 </span>
               </button>
             );

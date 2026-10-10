@@ -47,7 +47,7 @@ export function CRMSubNav() {
           className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-colors ${
             isActive(href)
               ? 'bg-secondary text-white'
-              : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-secondary'
+              : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
           }`}
         >
           <Icon size={13} aria-hidden="true" />

@@ -82,21 +82,21 @@ export default async function AdminCRMPage({
   return (
     <div className="space-y-8">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-8">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-xs">
               <UsersRound size={20} />
             </div>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
               Admin Panel · Grassroots CRM
             </span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-secondary uppercase">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground uppercase">
             Constituent Directory
           </h1>
           <div className="h-1.5 w-24 bg-primary mt-3" />
-          <p className="mt-3 text-xs font-bold text-slate-500 max-w-2xl">
+          <p className="mt-3 text-xs font-bold text-muted-foreground max-w-2xl">
             Track activists, resist choir singers, grassroots donors, and local supporters across
             CA-06 and CA-03 with direct Resend outreach and campaign blasts.
           </p>
@@ -136,7 +136,7 @@ export default async function AdminCRMPage({
         <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
           <Link
             href="/admin/crm/tasks"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-secondary hover:bg-slate-50 border border-slate-200 text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface-card text-foreground hover:bg-surface-muted border border-border text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
           >
             <CalendarCheck size={14} className="text-amber-600" />
             Follow-ups{stats.openTasks > 0 ? ` (${stats.openTasks})` : ''}
@@ -154,55 +154,55 @@ export default async function AdminCRMPage({
       {/* KPI / Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Constituents */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+        <div className="bg-surface-card p-5 rounded-2xl border border-border shadow-xs flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
             <UsersRound size={22} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
               Total Constituents
             </p>
-            <p className="text-2xl font-black text-secondary mt-0.5">{stats.totalContacts}</p>
+            <p className="text-2xl font-black text-foreground mt-0.5">{stats.totalContacts}</p>
           </div>
         </div>
 
         {/* Active Volunteers */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+        <div className="bg-surface-card p-5 rounded-2xl border border-border shadow-xs flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
             <HeartHandshake size={22} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
               Volunteers & Organizers
             </p>
-            <p className="text-2xl font-black text-secondary mt-0.5">{stats.activeVolunteers}</p>
+            <p className="text-2xl font-black text-foreground mt-0.5">{stats.activeVolunteers}</p>
           </div>
         </div>
 
         {/* Local District */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+        <div className="bg-surface-card p-5 rounded-2xl border border-border shadow-xs flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
             <MapPin size={22} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
               CA-06 / CA-03 Grassroots
             </p>
-            <p className="text-2xl font-black text-secondary mt-0.5">{stats.localDistrict}</p>
+            <p className="text-2xl font-black text-foreground mt-0.5">{stats.localDistrict}</p>
           </div>
         </div>
 
         {/* Grassroots Donors */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+        <div className="bg-surface-card p-5 rounded-2xl border border-border shadow-xs flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
             <DollarSign size={22} />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
               Grassroots Donors
             </p>
             <div className="flex items-baseline gap-2 mt-0.5">
-              <p className="text-2xl font-black text-secondary">{stats.totalDonors}</p>
+              <p className="text-2xl font-black text-foreground">{stats.totalDonors}</p>
               <span className="text-xs font-bold text-amber-700">
                 $
                 {(stats.totalDonationsCents / 100).toLocaleString('en-US', {

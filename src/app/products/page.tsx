@@ -94,19 +94,19 @@ export default async function ProductsPage({
   }));
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-background min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12">
         <div className="flex flex-col md:flex-row gap-12">
           {/* Sidebar / Categories */}
           <div className="w-full md:w-64 shrink-0">
-            <h2 className="text-xl font-black text-secondary uppercase tracking-widest mb-6 border-b-2 border-primary pb-2 inline-block">
+            <h2 className="text-xl font-black text-foreground uppercase tracking-widest mb-6 border-b-2 border-primary pb-2 inline-block">
               Categories
             </h2>
             <ul className="space-y-1">
               <li>
                 <Link
                   href="/products"
-                  className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${!categorySlug ? 'bg-primary text-white shadow-md' : 'text-secondary hover:bg-slate-50 hover:text-primary'}`}
+                  className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${!categorySlug ? 'bg-primary text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark'}`}
                 >
                   All Gear
                 </Link>
@@ -115,7 +115,7 @@ export default async function ProductsPage({
                 <li key={category.id}>
                   <Link
                     href={`/products?category=${category.slug}`}
-                    className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${categorySlug === category.slug ? 'bg-primary text-white shadow-md' : 'text-secondary hover:bg-slate-50 hover:text-primary'}`}
+                    className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${categorySlug === category.slug ? 'bg-primary text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark'}`}
                   >
                     {category.name}
                   </Link>
@@ -123,11 +123,11 @@ export default async function ProductsPage({
               ))}
             </ul>
 
-            <div className="mt-12 bg-slate-50 p-6 rounded-2xl border border-slate-100 hidden md:block">
-              <h3 className="text-sm font-black text-secondary uppercase tracking-widest mb-4">
+            <div className="mt-12 bg-surface-muted p-6 rounded-2xl border border-border hidden md:block">
+              <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-4">
                 Need Help?
               </h3>
-              <p className="text-xs text-slate-500 leading-relaxed mb-4 font-medium">
+              <p className="text-xs text-muted-foreground leading-relaxed mb-4 font-medium">
                 Can&apos;t find what you&apos;re looking for? Contact our gear experts for advice.
               </p>
               <Link
@@ -142,7 +142,7 @@ export default async function ProductsPage({
           {/* Product Grid */}
           <div className="flex-1">
             <div className="flex flex-col mb-10">
-              <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">
+              <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
                 {categorySlug
                   ? categories?.find((c) => c.slug === categorySlug)?.name || 'Gear'
                   : 'All Gear'}
@@ -151,8 +151,8 @@ export default async function ProductsPage({
             </div>
 
             {products?.length === 0 ? (
-              <div className="text-center py-24 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                <p className="text-slate-500 font-bold uppercase tracking-widest">
+              <div className="text-center py-24 bg-surface-muted rounded-3xl border border-dashed border-border">
+                <p className="text-muted-foreground font-bold uppercase tracking-widest">
                   No gear found in this category.
                 </p>
                 <Link

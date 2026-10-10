@@ -88,7 +88,7 @@ export default async function AdminOrderDetailPage({
     <div>
       <Link
         href="/admin/orders"
-        className="inline-flex items-center gap-2 text-[11px] font-black text-slate-400 uppercase tracking-widest hover:text-secondary transition-colors mb-6"
+        className="inline-flex items-center gap-2 text-[11px] font-black text-muted-foreground uppercase tracking-widest hover:text-foreground transition-colors mb-6"
       >
         <ArrowLeft size={12} /> Back to Orders
       </Link>
@@ -96,18 +96,18 @@ export default async function AdminOrderDetailPage({
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Package size={14} className="text-secondary" />
+            <Package size={14} className="text-foreground" />
           </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel
           </span>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">
+            <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
               Order #{order.id}
             </h1>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1.5">
+            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-1.5">
               {order.created_at
                 ? new Date(order.created_at).toLocaleString('en-NZ', {
                     day: 'numeric',
@@ -136,7 +136,7 @@ export default async function AdminOrderDetailPage({
         <div className="bg-secondary rounded-3xl p-6 lg:col-span-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center">
-              <ShoppingBag size={16} className="text-secondary" />
+              <ShoppingBag size={16} className="text-foreground" />
             </div>
             <div>
               <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">
@@ -156,7 +156,7 @@ export default async function AdminOrderDetailPage({
                 Payment method
               </p>
               <p className="text-sm text-white font-black mt-1 flex items-center gap-1.5">
-                <CreditCard size={13} className="text-primary" />
+                <CreditCard size={13} className="text-primary dark:text-primary-on-dark" />
                 {order.source === 'woocommerce'
                   ? 'WooCommerce'
                   : order.source === 'manual'
@@ -171,7 +171,7 @@ export default async function AdminOrderDetailPage({
                 href={stripeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-[10px] font-black text-white/40 uppercase tracking-widest hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1.5 text-[10px] font-black text-white/40 uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
               >
                 <ExternalLink size={11} /> Stripe Dashboard
               </a>
@@ -180,37 +180,37 @@ export default async function AdminOrderDetailPage({
         </div>
 
         {/* Customer */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
-            <User size={14} className="text-primary" />
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+            <User size={14} className="text-primary dark:text-primary-on-dark" />
+            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
               Customer
             </h2>
           </div>
-          <p className="text-lg font-black text-secondary uppercase tracking-tight">{name}</p>
+          <p className="text-lg font-black text-foreground uppercase tracking-tight">{name}</p>
           {customer?.email && (
-            <p className="text-sm text-slate-500 font-bold mt-1 flex items-center gap-2">
-              <Mail size={12} className="text-slate-300" /> {customer.email}
+            <p className="text-sm text-muted-foreground font-bold mt-1 flex items-center gap-2">
+              <Mail size={12} className="text-muted-foreground" /> {customer.email}
             </p>
           )}
           <EmailActions email={customer?.email ?? null} />
           <span
-            className={`inline-block mt-3 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1 ${customer ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-700'}`}
+            className={`inline-block mt-3 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1 ${customer ? 'bg-surface-muted text-muted-foreground' : 'bg-amber-50 text-amber-700'}`}
           >
             {customer ? 'Registered' : 'Guest checkout'}
           </span>
         </section>
 
         {/* Shipping */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
-            <MapPin size={14} className="text-primary" />
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+            <MapPin size={14} className="text-primary dark:text-primary-on-dark" />
+            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
               Shipping address
             </h2>
           </div>
           {addr && Object.keys(addr).length > 0 ? (
-            <address className="not-italic text-sm text-slate-600 font-bold leading-relaxed">
+            <address className="not-italic text-sm text-muted-foreground font-bold leading-relaxed">
               {addr.line1 ?? addr.address_1}
               {(addr.line2 ?? addr.address_2) && (
                 <span className="block">{addr.line2 ?? addr.address_2}</span>
@@ -220,43 +220,45 @@ export default async function AdminOrderDetailPage({
                 {(addr.postal_code ?? addr.postcode) ? ` ${addr.postal_code ?? addr.postcode}` : ''}
               </span>
               <span className="flex items-center gap-2 mt-1">
-                <Globe size={12} className="text-slate-300" /> {addr.country}
+                <Globe size={12} className="text-muted-foreground" /> {addr.country}
               </span>
             </address>
           ) : (
-            <p className="not-italic text-sm text-slate-400 font-bold">No shipping address.</p>
+            <p className="not-italic text-sm text-muted-foreground font-bold">
+              No shipping address.
+            </p>
           )}
         </section>
 
         {/* Order reference */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
-            <CreditCard size={14} className="text-primary" />
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+            <CreditCard size={14} className="text-primary dark:text-primary-on-dark" />
+            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
               Order reference
             </h2>
           </div>
           <dl className="space-y-2.5 text-sm">
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-400 font-bold uppercase tracking-wider text-[10px] pt-0.5">
+              <dt className="text-muted-foreground font-bold uppercase tracking-wider text-[10px] pt-0.5">
                 ID
               </dt>
-              <dd className="text-secondary font-black">#{order.id}</dd>
+              <dd className="text-foreground font-black">#{order.id}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-400 font-bold uppercase tracking-wider text-[10px] pt-0.5">
+              <dt className="text-muted-foreground font-bold uppercase tracking-wider text-[10px] pt-0.5">
                 Session
               </dt>
-              <dd className="text-secondary font-black text-[11px] truncate max-w-[180px]">
+              <dd className="text-foreground font-black text-[11px] truncate max-w-[180px]">
                 {order.stripe_session_id ?? '—'}
               </dd>
             </div>
             {order.coupon_code && (
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-400 font-bold uppercase tracking-wider text-[10px] pt-0.5">
+                <dt className="text-muted-foreground font-bold uppercase tracking-wider text-[10px] pt-0.5">
                   Coupon
                 </dt>
-                <dd className="text-secondary font-black text-[11px]">{order.coupon_code}</dd>
+                <dd className="text-foreground font-black text-[11px]">{order.coupon_code}</dd>
               </div>
             )}
           </dl>
@@ -264,39 +266,39 @@ export default async function AdminOrderDetailPage({
       </div>
 
       {/* Line items */}
-      <section className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
-        <div className="bg-slate-50 px-8 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+      <section className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm">
+        <div className="bg-surface-muted px-8 py-4 border-b border-border flex items-center justify-between">
+          <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
             Items ({order.order_items.length})
           </h2>
         </div>
-        <ul className="px-8 py-4 divide-y divide-slate-50">
+        <ul className="px-8 py-4 divide-y divide-border">
           {order.order_items.map((item) => (
             <li key={item.id} className="py-4 flex justify-between items-center gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
-                  <ShoppingBag size={14} className="text-primary" />
+                  <ShoppingBag size={14} className="text-primary-on-dark" />
                 </div>
                 <div>
-                  <p className="text-sm font-black text-secondary uppercase tracking-wider">
+                  <p className="text-sm font-black text-foreground uppercase tracking-wider">
                     {item.product_name}
                   </p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">
                     Quantity: {item.quantity}
                   </p>
                 </div>
               </div>
-              <p className="text-sm font-black text-secondary">{formatPrice(item.unit_price)}</p>
+              <p className="text-sm font-black text-foreground">{formatPrice(item.unit_price)}</p>
             </li>
           ))}
         </ul>
       </section>
 
       {/* Fulfilment */}
-      <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm mt-6">
+      <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm mt-6">
         <div className="flex items-center gap-2 mb-2">
-          <Package size={14} className="text-primary" />
-          <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+          <Package size={14} className="text-primary dark:text-primary-on-dark" />
+          <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
             Fulfilment
           </h2>
           {order.tracking_number && (

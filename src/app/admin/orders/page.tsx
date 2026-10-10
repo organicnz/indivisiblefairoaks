@@ -212,13 +212,13 @@ export default async function AdminOrdersPage({
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Package size={14} className="text-secondary" />
+            <Package size={14} className="text-foreground" />
           </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">Orders</h1>
+        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">Orders</h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
       </div>
 
@@ -231,7 +231,7 @@ export default async function AdminOrdersPage({
           { label: 'Total Revenue', value: formatPrice(totalRevenue), icon: TrendingUp },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="bg-secondary rounded-3xl p-6">
-            <Icon size={16} className="text-primary mb-3" />
+            <Icon size={16} className="text-primary-on-dark mb-3" />
             <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-1">
               {label}
             </p>
@@ -250,7 +250,7 @@ export default async function AdminOrdersPage({
               className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-colors ${
                 filters.status === s
                   ? 'bg-primary text-secondary'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-secondary'
+                  : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
               }`}
             >
               {s}
@@ -264,8 +264,8 @@ export default async function AdminOrdersPage({
               href={buildHref({ range: r })}
               className={`px-3 py-2 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-colors ${
                 filters.range === r
-                  ? 'bg-secondary text-primary'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-secondary'
+                  ? 'bg-secondary text-primary dark:text-primary-on-dark'
+                  : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
               }`}
             >
               {r === 'all' ? 'All time' : `Last ${r}`}
@@ -275,14 +275,14 @@ export default async function AdminOrdersPage({
         <form
           action="/admin/orders"
           method="get"
-          className="flex items-center gap-2 bg-slate-100 rounded-full px-4 py-2 ml-auto"
+          className="flex items-center gap-2 bg-surface-muted rounded-full px-4 py-2 ml-auto"
         >
-          <Search size={13} className="text-slate-400" />
+          <Search size={13} className="text-muted-foreground" />
           <input
             name="q"
             defaultValue={filters.search}
             placeholder="Search order, customer, item, coupon…"
-            className="bg-transparent text-sm font-bold text-secondary outline-none placeholder:text-slate-400 w-56"
+            className="bg-transparent text-sm font-bold text-foreground outline-none placeholder:text-muted-foreground w-56"
           />
           {filters.status !== 'all' && <input type="hidden" name="status" value={filters.status} />}
           {filters.range !== 'all' && <input type="hidden" name="range" value={filters.range} />}
@@ -313,7 +313,7 @@ export default async function AdminOrdersPage({
 
       {/* Pagination (top) */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">
+        <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">
           {total.toLocaleString()} order{total === 1 ? '' : 's'}
           {total > PAGE_SIZE && ` · showing ${PAGE_SIZE} per page`}
         </p>
@@ -322,27 +322,27 @@ export default async function AdminOrdersPage({
             {safePage > 1 ? (
               <Link
                 href={buildHref({ page: safePage - 1 })}
-                className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-secondary text-[11px] font-black uppercase tracking-widest transition-colors"
+                className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground text-[11px] font-black uppercase tracking-widest transition-colors"
               >
                 <ChevronLeft size={12} /> Prev
               </Link>
             ) : (
-              <span className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-slate-100 text-slate-300 text-[11px] font-black uppercase tracking-widest cursor-not-allowed">
+              <span className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-surface-muted text-muted-foreground text-[11px] font-black uppercase tracking-widest cursor-not-allowed">
                 <ChevronLeft size={12} /> Prev
               </span>
             )}
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+            <span className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">
               Page {safePage} of {totalPages}
             </span>
             {safePage < totalPages ? (
               <Link
                 href={buildHref({ page: safePage + 1 })}
-                className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-secondary text-[11px] font-black uppercase tracking-widest transition-colors"
+                className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground text-[11px] font-black uppercase tracking-widest transition-colors"
               >
                 Next <ChevronRight size={12} />
               </Link>
             ) : (
-              <span className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-slate-100 text-slate-300 text-[11px] font-black uppercase tracking-widest cursor-not-allowed">
+              <span className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-surface-muted text-muted-foreground text-[11px] font-black uppercase tracking-widest cursor-not-allowed">
                 Next <ChevronRight size={12} />
               </span>
             )}
@@ -359,12 +359,12 @@ export default async function AdminOrdersPage({
         </div>
         <div className="space-y-6">
           {orders.length === 0 ? (
-            <div className="bg-slate-50 p-16 rounded-3xl border border-dashed border-slate-200 text-center">
-              <p className="text-slate-400 font-black uppercase tracking-widest text-sm">
+            <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
+              <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
                 {total === 0 ? 'No orders yet.' : 'No orders match the filter.'}
               </p>
               {total === 0 && (
-                <p className="mt-2 text-xs font-bold text-slate-400">
+                <p className="mt-2 text-xs font-bold text-muted-foreground">
                   Orders will appear here once a store is connected.
                 </p>
               )}
@@ -384,23 +384,24 @@ export default async function AdminOrdersPage({
               return (
                 <div
                   key={order.id}
-                  className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                  className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                 >
                   {/* Order header */}
-                  <div className="bg-slate-50 px-8 py-6 border-b border-slate-100 grid grid-cols-2 md:grid-cols-5 gap-4 items-center">
+                  <div className="bg-surface-muted px-8 py-6 border-b border-border grid grid-cols-2 md:grid-cols-5 gap-4 items-center">
                     <div className="flex items-center gap-3">
                       <OrderCheckbox orderId={order.id} />
                       <div className="min-w-0">
-                        <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                           Order
                         </p>
                         <Link
                           href={`/admin/orders/${order.id}`}
-                          className="text-sm text-secondary font-black hover:text-primary transition-colors"
+                          className="text-sm text-foreground font-black hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
                         >
-                          #{order.id} <ExternalLink size={10} className="inline text-slate-300" />
+                          #{order.id}{' '}
+                          <ExternalLink size={10} className="inline text-muted-foreground" />
                         </Link>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
                           {order.created_at
                             ? new Date(order.created_at).toLocaleDateString('en-NZ', {
                                 day: 'numeric',
@@ -420,39 +421,39 @@ export default async function AdminOrdersPage({
                     </div>
 
                     <div>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                         Customer
                       </p>
                       <div className="flex items-center gap-1.5">
-                        <User size={11} className="text-slate-400 shrink-0" />
-                        <p className="text-sm text-secondary font-black truncate">{name}</p>
+                        <User size={11} className="text-muted-foreground shrink-0" />
+                        <p className="text-sm text-foreground font-black truncate">{name}</p>
                       </div>
                       {customer?.email && (
-                        <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                           {customer.email}
                         </p>
                       )}
                     </div>
 
                     <div>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                         Ship To
                       </p>
                       <div className="flex items-start gap-1.5">
-                        <MapPin size={11} className="text-slate-400 shrink-0 mt-0.5" />
-                        <p className="text-[11px] text-slate-600 font-bold leading-tight">
+                        <MapPin size={11} className="text-muted-foreground shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-muted-foreground font-bold leading-tight">
                           {shippingAddr}
                         </p>
                       </div>
                     </div>
 
                     <div>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
                         Total
                       </p>
-                      <p className="text-lg text-primary font-black">
+                      <p className="text-lg text-primary dark:text-primary-on-dark font-black">
                         {formatPrice(order.total)}
-                        <span className="text-[10px] text-slate-400 font-bold ml-1">
+                        <span className="text-[10px] text-muted-foreground font-bold ml-1">
                           {(order.currency || CURRENCY_CODE).toUpperCase()}
                         </span>
                       </p>
@@ -468,7 +469,7 @@ export default async function AdminOrdersPage({
                           href={stripeUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-primary transition-colors"
+                          className="inline-flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
                         >
                           <ExternalLink size={11} /> Stripe
                         </a>
@@ -478,21 +479,21 @@ export default async function AdminOrdersPage({
 
                   {/* Line items */}
                   <div className="px-8 py-5">
-                    <ul className="divide-y divide-slate-50">
+                    <ul className="divide-y divide-border">
                       {order.order_items.map((item) => (
                         <li key={item.id} className="py-3 flex justify-between items-center group">
                           <div className="flex items-center gap-3">
                             <div className="w-1.5 h-1.5 bg-primary rounded-full group-hover:scale-150 transition-transform" />
                             <div>
-                              <p className="text-sm font-black text-secondary uppercase tracking-wider">
+                              <p className="text-sm font-black text-foreground uppercase tracking-wider">
                                 {item.product_name}
                               </p>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">
                                 Qty: {item.quantity}
                               </p>
                             </div>
                           </div>
-                          <p className="text-sm font-black text-secondary">
+                          <p className="text-sm font-black text-foreground">
                             {formatPrice(item.unit_price)}
                           </p>
                         </li>
@@ -512,27 +513,27 @@ export default async function AdminOrdersPage({
           {safePage > 1 ? (
             <Link
               href={buildHref({ page: safePage - 1 })}
-              className="inline-flex items-center gap-1 px-5 py-2.5 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-secondary text-[11px] font-black uppercase tracking-widest transition-colors"
+              className="inline-flex items-center gap-1 px-5 py-2.5 rounded-full bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground text-[11px] font-black uppercase tracking-widest transition-colors"
             >
               <ChevronLeft size={12} /> Prev
             </Link>
           ) : (
-            <span className="inline-flex items-center gap-1 px-5 py-2.5 rounded-full bg-slate-100 text-slate-300 text-[11px] font-black uppercase tracking-widest cursor-not-allowed">
+            <span className="inline-flex items-center gap-1 px-5 py-2.5 rounded-full bg-surface-muted text-muted-foreground text-[11px] font-black uppercase tracking-widest cursor-not-allowed">
               <ChevronLeft size={12} /> Prev
             </span>
           )}
-          <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+          <span className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">
             Page {safePage} of {totalPages}
           </span>
           {safePage < totalPages ? (
             <Link
               href={buildHref({ page: safePage + 1 })}
-              className="inline-flex items-center gap-1 px-5 py-2.5 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-secondary text-[11px] font-black uppercase tracking-widest transition-colors"
+              className="inline-flex items-center gap-1 px-5 py-2.5 rounded-full bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground text-[11px] font-black uppercase tracking-widest transition-colors"
             >
               Next <ChevronRight size={12} />
             </Link>
           ) : (
-            <span className="inline-flex items-center gap-1 px-5 py-2.5 rounded-full bg-slate-100 text-slate-300 text-[11px] font-black uppercase tracking-widest cursor-not-allowed">
+            <span className="inline-flex items-center gap-1 px-5 py-2.5 rounded-full bg-surface-muted text-muted-foreground text-[11px] font-black uppercase tracking-widest cursor-not-allowed">
               Next <ChevronRight size={12} />
             </span>
           )}

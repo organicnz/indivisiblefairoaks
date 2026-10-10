@@ -130,7 +130,7 @@ export function ChoirSongbookExplorer() {
   });
 
   return (
-    <div className="rounded-3xl bg-secondary/90 border border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl space-y-8">
+    <div className="rounded-3xl bg-secondary border border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl space-y-8">
       <div>
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-3">
           <Music size={14} className="text-accent-gold" />
@@ -146,7 +146,7 @@ export function ChoirSongbookExplorer() {
       </div>
 
       {/* Filter and Search Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary/70 border border-white/10">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary border border-white/10">
         <div className="relative flex-1">
           <Search
             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark"

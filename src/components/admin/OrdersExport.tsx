@@ -63,7 +63,7 @@ export function OrdersExport({ orders }: { orders: ExportOrder[] }) {
     <button
       type="button"
       onClick={handleExport}
-      className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:border-primary hover:text-secondary transition-colors"
+      className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-[11px] font-black uppercase tracking-widest text-muted-foreground hover:border-primary hover:text-foreground transition-colors"
     >
       <Download size={12} /> Export CSV ({orders.length})
     </button>

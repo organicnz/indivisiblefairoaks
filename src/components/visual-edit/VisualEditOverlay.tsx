@@ -4,13 +4,17 @@ import {
   Activity,
   ArrowDown,
   ArrowUp,
+  Bold,
+  Code,
   Copy,
   ExternalLink,
   Eye,
   EyeOff,
   FolderOpen,
   History,
+  Italic,
   Layers,
+  Link as LinkIcon,
   Loader2,
   PenLine,
   Plus,
@@ -18,6 +22,7 @@ import {
   RefreshCw,
   Settings,
   Sparkles,
+  Strikethrough,
   Trash2,
   Undo2,
   X,
@@ -71,6 +76,7 @@ import {
   redo as redoHistory,
   undo as undoHistory,
 } from '@/lib/editor-history';
+import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import { highlightPageSection } from '@/lib/visual-edit-mode';
 import {
   buildVisualSections,
@@ -84,14 +90,14 @@ import type { CRMBackendStatus } from '@/types/crm';
 import type {
   CRMMediaTarget,
   VisualContentRow,
-  VisualSectionAddBlockDetail,
-  VisualSectionDeleteDetail,
-  VisualSectionDuplicateDetail,
-  VisualSectionFocusEventDetail,
-  VisualSectionMoveEventDetail,
+  AddBlockDetail as VisualSectionAddBlockDetail,
+  DeleteSectionDetail as VisualSectionDeleteDetail,
+  DuplicateSectionDetail as VisualSectionDuplicateDetail,
+  FocusSectionDetail as VisualSectionFocusEventDetail,
+  MoveSectionDetail as VisualSectionMoveEventDetail,
   VisualSectionOverlayItem,
-  VisualSectionToggleEventDetail,
-} from '@/types/visual-edit';
+  ToggleSectionDetail as VisualSectionToggleEventDetail,
+} from '@/types/unified';
 
 /**
  * Visual editing surface for every page across the site.
@@ -437,6 +443,61 @@ export function VisualEditOverlay() {
     [findEffectiveVisualEditRoot, sections]
   );
 
+  /** Wrap selected text in a textarea with prefix/suffix tags. */
+  const wrapSelection = useCallback((textareaId: string, prefix: string, suffix: string) => {
+    const textarea = document.getElementById(textareaId) as HTMLTextAreaElement | null;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selected = text.slice(start, end);
+    const wrapped = selected ? `${prefix}${selected}${suffix}` : `${prefix}${suffix}`;
+    textarea.value = text.slice(0, start) + wrapped + text.slice(end);
+    textarea.focus();
+    // Restore cursor position after wrapped text
+    const newPos = start + wrapped.length;
+    textarea.setSelectionRange(newPos, newPos);
+    // Trigger React change event
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }, []);
+
+  /** Insert a link at cursor position. */
+  const insertLink = useCallback((textareaId: string) => {
+    const textarea = document.getElementById(textareaId) as HTMLTextAreaElement | null;
+    if (!textarea) return;
+    const url = prompt('Enter link URL:');
+    if (!url) return;
+    const text = prompt('Enter link text:', 'Link') || 'Link';
+    const linkHtml = `<a href="${url}">${text}</a>`;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = textarea.value;
+    textarea.value = currentText.slice(0, start) + linkHtml + currentText.slice(end);
+    textarea.focus();
+    const newPos = start + linkHtml.length;
+    textarea.setSelectionRange(newPos, newPos);
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }, []);
+
+  /** Handle keyboard shortcuts in the editor. */
+  const handleEditorShortcuts = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>, textareaId: string) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === 'b') {
+        e.preventDefault();
+        wrapSelection(textareaId, '<strong>', '</strong>');
+      } else if (key === 'i') {
+        e.preventDefault();
+        wrapSelection(textareaId, '<em>', '</em>');
+      } else if (key === 'k') {
+        e.preventDefault();
+        insertLink(textareaId);
+      }
+    },
+    [wrapSelection, insertLink]
+  );
+
   // Load content row and blocks when visual editing is turned on
   const loadContentData = useCallback(async () => {
     // A region is addressed by its own slug; the whole page keeps the old
@@ -599,7 +660,7 @@ export function VisualEditOverlay() {
   const publishSectionsToHeader = useCallback(
     (next: VisualSection[], enabled: ReadonlySet<string>) => {
       window.dispatchEvent(
-        new CustomEvent('indivisible:page-sections-updated', {
+        new CustomEvent(VISUAL_EDIT_EVENTS.sectionsPublished, {
           // `regionId` is part of the publication, not just the pathname: the
           // header compares on it so a section list cannot outlive the region it
           // described. Without it, switching regions leaves the menu listing the
@@ -730,6 +791,7 @@ export function VisualEditOverlay() {
 
       items.push({
         index: section.domIndex,
+        domIndex: section.domIndex,
         label: section.label,
         top: r.top,
         left: r.left,
@@ -887,6 +949,8 @@ export function VisualEditOverlay() {
                   featured_image: pageFeaturedImage || null,
                   metadata: {},
                   updated_at: res.data?.updatedAt,
+                  created_at: new Date().toISOString(),
+                  published_at: new Date().toISOString(),
                 }
           );
           /**
@@ -988,27 +1052,6 @@ export function VisualEditOverlay() {
     }, 2500);
     return () => window.clearTimeout(timer);
   }, [contentRow, dirty, enabled, handlePersistBlocks, isAdmin, savingBackend]);
-
-  // ⌘Z / ⌘⇧Z and ⌘S, so the editor is usable without the dock.
-  useEffect(() => {
-    if (!enabled || !isAdmin) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey)) return;
-      const key = event.key.toLowerCase();
-      if (key === 's') {
-        event.preventDefault();
-        void handlePersistBlocks(blocksRef.current);
-        return;
-      }
-      if (key === 'z') {
-        event.preventDefault();
-        if (event.shiftKey) handleRedo();
-        else handleUndo();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [enabled, handlePersistBlocks, handleRedo, handleUndo, isAdmin]);
 
   const handleTogglePageStatus = async () => {
     if (!contentRow) return;
@@ -1170,6 +1213,76 @@ export function VisualEditOverlay() {
     [commitBlocks, handlePersistBlocks]
   );
 
+  // ⌘Z / ⌘⇧Z, ⌘S, and section shortcuts (⌘D, ⌘⇧↑/↓, ⌘⇧⌫)
+  // Placed after all handler declarations to avoid use-before-declaration.
+  useEffect(() => {
+    if (!enabled || !isAdmin) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      // Don't intercept shortcuts when typing in inputs
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        // Allow default browser shortcuts in inputs (bold, italic, etc.)
+        if (['b', 'i', 'k'].includes(event.key.toLowerCase())) return;
+      }
+      if (!(event.metaKey || event.ctrlKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 's') {
+        event.preventDefault();
+        void handlePersistBlocks(blocksRef.current);
+        return;
+      }
+      if (key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) handleRedo();
+        else handleUndo();
+        return;
+      }
+      // Section navigation shortcuts
+      if (key === 'arrowup' && event.shiftKey) {
+        event.preventDefault();
+        if (activeBlockIndex !== null && activeBlockIndex > 0) {
+          handleMoveSection(activeBlockIndex, 'up');
+        }
+        return;
+      }
+      if (key === 'arrowdown' && event.shiftKey) {
+        event.preventDefault();
+        if (activeBlockIndex !== null && activeBlockIndex < blocksRef.current.length - 1) {
+          handleMoveSection(activeBlockIndex, 'down');
+        }
+        return;
+      }
+      // Duplicate section (⌘D)
+      if (key === 'd' && activeBlockIndex !== null) {
+        event.preventDefault();
+        handleDuplicateSection(activeBlockIndex);
+        return;
+      }
+      // Delete section (⌘⌫ or ⌘Delete)
+      if (
+        (key === 'backspace' || key === 'delete') &&
+        event.shiftKey &&
+        activeBlockIndex !== null
+      ) {
+        event.preventDefault();
+        handleDeleteSection(activeBlockIndex);
+        return;
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    enabled,
+    handlePersistBlocks,
+    handleRedo,
+    handleUndo,
+    isAdmin,
+    activeBlockIndex,
+    handleMoveSection,
+    handleDuplicateSection,
+    handleDeleteSection,
+  ]);
+
   // Revisions management
   const handleOpenRevisions = useCallback(async () => {
     if (!contentRow) {
@@ -1291,30 +1404,30 @@ export function VisualEditOverlay() {
       setActiveRegionId(next);
     };
 
-    window.addEventListener('indivisible:focus-section', handleFocusSection);
-    window.addEventListener('indivisible:toggle-section-visual', handleToggleSectionVisual);
-    window.addEventListener('indivisible:move-section', handleMoveSectionEvent);
-    window.addEventListener('indivisible:add-block-at', handleAddBlockAtEvent);
-    window.addEventListener('indivisible:add-block', handleAddBlockGeneral);
-    window.addEventListener('indivisible:duplicate-section', handleDuplicateSectionEvent);
-    window.addEventListener('indivisible:delete-section', handleDeleteSectionEvent);
-    window.addEventListener('indivisible:open-media-library', handleOpenMediaLibrary);
-    window.addEventListener('indivisible:open-revisions', handleOpenRevisions);
-    window.addEventListener('indivisible:open-settings', handleOpenSettings);
-    window.addEventListener('indivisible:select-region', handleSelectRegion);
+    window.addEventListener(VISUAL_EDIT_EVENTS.focusSection, handleFocusSection);
+    window.addEventListener(VISUAL_EDIT_EVENTS.toggleSection, handleToggleSectionVisual);
+    window.addEventListener(VISUAL_EDIT_EVENTS.moveSection, handleMoveSectionEvent);
+    window.addEventListener(VISUAL_EDIT_EVENTS.addBlockAt, handleAddBlockAtEvent);
+    window.addEventListener(VISUAL_EDIT_EVENTS.addBlock, handleAddBlockGeneral);
+    window.addEventListener(VISUAL_EDIT_EVENTS.duplicateSection, handleDuplicateSectionEvent);
+    window.addEventListener(VISUAL_EDIT_EVENTS.deleteSection, handleDeleteSectionEvent);
+    window.addEventListener(VISUAL_EDIT_EVENTS.openMediaLibrary, handleOpenMediaLibrary);
+    window.addEventListener(VISUAL_EDIT_EVENTS.openRevisions, handleOpenRevisions);
+    window.addEventListener(VISUAL_EDIT_EVENTS.openSettings, handleOpenSettings);
+    window.addEventListener(VISUAL_EDIT_EVENTS.selectRegion, handleSelectRegion);
 
     return () => {
-      window.removeEventListener('indivisible:focus-section', handleFocusSection);
-      window.removeEventListener('indivisible:toggle-section-visual', handleToggleSectionVisual);
-      window.removeEventListener('indivisible:move-section', handleMoveSectionEvent);
-      window.removeEventListener('indivisible:add-block-at', handleAddBlockAtEvent);
-      window.removeEventListener('indivisible:add-block', handleAddBlockGeneral);
-      window.removeEventListener('indivisible:duplicate-section', handleDuplicateSectionEvent);
-      window.removeEventListener('indivisible:delete-section', handleDeleteSectionEvent);
-      window.removeEventListener('indivisible:open-media-library', handleOpenMediaLibrary);
-      window.removeEventListener('indivisible:open-revisions', handleOpenRevisions);
-      window.removeEventListener('indivisible:open-settings', handleOpenSettings);
-      window.removeEventListener('indivisible:select-region', handleSelectRegion);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.focusSection, handleFocusSection);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.toggleSection, handleToggleSectionVisual);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.moveSection, handleMoveSectionEvent);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.addBlockAt, handleAddBlockAtEvent);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.addBlock, handleAddBlockGeneral);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.duplicateSection, handleDuplicateSectionEvent);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.deleteSection, handleDeleteSectionEvent);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.openMediaLibrary, handleOpenMediaLibrary);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.openRevisions, handleOpenRevisions);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.openSettings, handleOpenSettings);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.selectRegion, handleSelectRegion);
     };
   }, [
     activeRegionId,
@@ -1382,6 +1495,8 @@ export function VisualEditOverlay() {
                 featured_image: pageFeaturedImage || null,
                 metadata: {},
                 updated_at: res.data?.updatedAt,
+                created_at: new Date().toISOString(),
+                published_at: new Date().toISOString(),
               }
         );
         setIsSettingsOpen(false);
@@ -2276,15 +2391,70 @@ export function VisualEditOverlay() {
                     htmlFor={paragraphContentId}
                     className="block text-xs font-bold text-slate-700 mb-1"
                   >
-                    Paragraph Content (HTML supported)
+                    Paragraph Content
                   </label>
-                  <textarea
-                    id={paragraphContentId}
-                    rows={4}
-                    value={editingBlock.html}
-                    onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-primary"
-                  />
+                  <div className="border border-slate-300 rounded-lg overflow-hidden">
+                    {/* Inline formatting toolbar */}
+                    <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 bg-slate-50 border-b border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => wrapSelection(paragraphContentId, '<strong>', '</strong>')}
+                        title="Bold (⌘B)"
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 transition-colors"
+                        aria-label="Bold"
+                      >
+                        <Bold size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => wrapSelection(paragraphContentId, '<em>', '</em>')}
+                        title="Italic (⌘I)"
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 transition-colors"
+                        aria-label="Italic"
+                      >
+                        <Italic size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => wrapSelection(paragraphContentId, '<code>', '</code>')}
+                        title="Inline Code"
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 transition-colors"
+                        aria-label="Inline Code"
+                      >
+                        <Code size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => wrapSelection(paragraphContentId, '<s>', '</s>')}
+                        title="Strikethrough"
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 transition-colors"
+                        aria-label="Strikethrough"
+                      >
+                        <Strikethrough size={14} />
+                      </button>
+                      <div className="w-px h-5 bg-slate-300 mx-1" />
+                      <button
+                        type="button"
+                        onClick={() => insertLink(paragraphContentId)}
+                        title="Insert Link (⌘K)"
+                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 transition-colors"
+                        aria-label="Insert Link"
+                      >
+                        <LinkIcon size={14} />
+                      </button>
+                      <span className="flex-1" />
+                      <span className="text-[10px] text-slate-400 font-mono">HTML supported</span>
+                    </div>
+                    <textarea
+                      id={paragraphContentId}
+                      rows={5}
+                      value={editingBlock.html}
+                      onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
+                      onKeyDown={(e) => handleEditorShortcuts(e, paragraphContentId)}
+                      className="w-full border-0 p-3 text-sm focus:outline-none resize-none font-sans"
+                      spellCheck={true}
+                    />
+                  </div>
                 </div>
               )}
 

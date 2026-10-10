@@ -8,7 +8,7 @@ export const instant = false;
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();
   return (
-    <div className="bg-white min-h-screen pt-(--header-h) pb-16">
+    <div className="bg-surface-card min-h-screen pt-(--header-h) pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {isE2EMode() && (
           <div

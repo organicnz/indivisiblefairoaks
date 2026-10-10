@@ -15,7 +15,11 @@ export function UserSettings() {
   if (isLoading && !settings) {
     return (
       <div className="flex justify-center p-12" role="status" aria-label="Loading settings">
-        <Loader2 className="animate-spin text-primary" size={32} aria-hidden="true" />
+        <Loader2
+          className="animate-spin text-primary dark:text-primary-on-dark"
+          size={32}
+          aria-hidden="true"
+        />
       </div>
     );
   }
@@ -33,28 +37,28 @@ export function UserSettings() {
         {/* Notifications */}
         <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-slate-50 text-secondary rounded-2xl">
+            <div className="p-3 bg-surface-muted text-secondary rounded-2xl">
               <Bell size={24} />
             </div>
             <div>
               <h3 className="text-lg font-black text-secondary uppercase tracking-tighter">
                 Notifications
               </h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
                 Manage how we reach you
               </p>
             </div>
           </div>
 
           <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group transition-all hover:bg-white hover:shadow-inner border border-transparent hover:border-slate-100">
+            <div className="flex items-center justify-between p-4 bg-surface-muted rounded-2xl group transition-all hover:bg-surface-card hover:shadow-inner border border-transparent hover:border-border">
               <div className="flex items-center gap-3">
-                <Mail size={18} className="text-slate-400" />
+                <Mail size={18} className="text-muted-foreground" />
                 <div>
                   <p className="text-xs font-black text-secondary uppercase tracking-wider">
                     Marketing Emails
                   </p>
-                  <p className="text-[10px] text-slate-400 font-medium">
+                  <p className="text-[10px] text-muted-foreground font-medium">
                     New gear & exclusive offers
                   </p>
                 </div>
@@ -77,14 +81,14 @@ export function UserSettings() {
               </button>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group transition-all hover:bg-white hover:shadow-inner border border-transparent hover:border-slate-100">
+            <div className="flex items-center justify-between p-4 bg-surface-muted rounded-2xl group transition-all hover:bg-surface-card hover:shadow-inner border border-transparent hover:border-border">
               <div className="flex items-center gap-3">
-                <CheckCircle2 size={18} className="text-slate-400" />
+                <CheckCircle2 size={18} className="text-muted-foreground" />
                 <div>
                   <p className="text-xs font-black text-secondary uppercase tracking-wider">
                     Order Updates
                   </p>
-                  <p className="text-[10px] text-slate-400 font-medium">
+                  <p className="text-[10px] text-muted-foreground font-medium">
                     Tracking & delivery status
                   </p>
                 </div>
@@ -110,16 +114,16 @@ export function UserSettings() {
         </div>
 
         {/* Store region */}
-        <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-surface-card border border-border rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-slate-50 text-secondary rounded-2xl">
+            <div className="p-3 bg-surface-muted text-secondary rounded-2xl">
               <MapPin size={24} aria-hidden="true" />
             </div>
             <div>
               <h3 className="text-lg font-black text-secondary uppercase tracking-tighterer">
                 Store Region
               </h3>
-              <p className="text-[11px] text-slate-500 font-bold uppercase tracking-[0.2em]">
+              <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.2em]">
                 Where we ship and what we charge
               </p>
             </div>
@@ -132,13 +136,13 @@ export function UserSettings() {
             It is replaced by the two facts a shopper actually needs.
           */}
           <dl className="space-y-4">
-            <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between gap-4">
+            <div className="p-4 bg-surface-muted rounded-2xl flex items-center justify-between gap-4">
               <dt className="text-xs font-black text-secondary uppercase tracking-wider">
                 Currency
               </dt>
               <dd className="text-sm font-bold text-primary-ink">{CURRENCY_CODE}</dd>
             </div>
-            <div className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between gap-4">
+            <div className="p-4 bg-surface-muted rounded-2xl flex items-center justify-between gap-4">
               <dt className="text-xs font-black text-secondary uppercase tracking-wider">
                 Ships from
               </dt>

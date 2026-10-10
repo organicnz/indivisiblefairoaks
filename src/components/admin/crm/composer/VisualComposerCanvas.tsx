@@ -469,7 +469,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
   return (
     <div className="space-y-4">
       {/* Top Composer Control Toolbar: Undo/Redo & View Mode Toggles */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 bg-surface-muted border border-border rounded-2xl">
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -477,7 +477,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
             disabled={!canUndo}
             title="Undo (Cmd+Z)"
             aria-label="Undo block edit"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 hover:bg-white hover:shadow-2xs disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 hover:bg-surface-card hover:shadow-2xs disabled:opacity-30 disabled:hover:bg-transparent transition-all"
           >
             <Undo2 size={13} />
             <span>Undo</span>
@@ -488,12 +488,12 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
             disabled={!canRedo}
             title="Redo (Cmd+Shift+Z)"
             aria-label="Redo block edit"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 hover:bg-white hover:shadow-2xs disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 hover:bg-surface-card hover:shadow-2xs disabled:opacity-30 disabled:hover:bg-transparent transition-all"
           >
             <Redo2 size={13} />
             <span>Redo</span>
           </button>
-          <span className="text-[11px] font-mono text-slate-400 pl-1">
+          <span className="text-[11px] font-mono text-muted-foreground pl-1">
             {blocks.length} {blocks.length === 1 ? 'block' : 'blocks'}
           </span>
         </div>
@@ -502,25 +502,25 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={openMediaLibraryGlobal}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors shadow-2xs"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-surface-card border border-border hover:bg-surface-muted transition-colors shadow-2xs"
             title="Browse Supabase S3 Media Library"
           >
-            <FolderOpen size={13} className="text-primary" />
+            <FolderOpen size={13} className="text-primary dark:text-primary-on-dark" />
             <span>Supabase Media</span>
           </button>
           <button
             type="button"
             onClick={toggleAllPreviews}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition-colors shadow-2xs"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-muted-foreground bg-surface-card border border-border hover:bg-surface-muted transition-colors shadow-2xs"
           >
             {previewBlockIds.size === blocks.length ? (
               <>
-                <EyeOff size={13} className="text-slate-500" />
+                <EyeOff size={13} className="text-muted-foreground" />
                 Form View All
               </>
             ) : (
               <>
-                <Eye size={13} className="text-primary" />
+                <Eye size={13} className="text-primary dark:text-primary-on-dark" />
                 Live Preview All
               </>
             )}
@@ -528,7 +528,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={toggleAllCollapse}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition-colors shadow-2xs"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-muted-foreground bg-surface-card border border-border hover:bg-surface-muted transition-colors shadow-2xs"
           >
             {collapsedBlockIds.size === blocks.length ? (
               <>
@@ -556,14 +556,16 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           return (
             <div
               key={block.id}
-              className="group relative rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs transition-all hover:border-slate-300 hover:shadow-xs"
+              className="group relative rounded-2xl border border-border bg-surface-card p-4 shadow-2xs transition-all hover:border-border hover:shadow-xs"
             >
               {/* Block Header & Action Controls */}
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-border">
                 <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600">
-                    {block.type === 'header' && <Heading size={12} className="text-primary" />}
-                    {block.type === 'text' && <Type size={12} className="text-slate-500" />}
+                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-surface-muted text-muted-foreground">
+                    {block.type === 'header' && (
+                      <Heading size={12} className="text-primary dark:text-primary-on-dark" />
+                    )}
+                    {block.type === 'text' && <Type size={12} className="text-muted-foreground" />}
                     {block.type === 'image' && <ImageIcon size={12} className="text-cyan-600" />}
                     {block.type === 'quote' && <QuoteIcon size={12} className="text-amber-600" />}
                     {block.type === 'stat' && <BarChart3 size={12} className="text-emerald-600" />}
@@ -576,11 +578,13 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                       <ExternalLink size={12} className="text-blue-500" />
                     )}
                     {block.type === 'event' && <Calendar size={12} className="text-purple-500" />}
-                    {block.type === 'divider' && <Minus size={12} className="text-slate-400" />}
+                    {block.type === 'divider' && (
+                      <Minus size={12} className="text-muted-foreground" />
+                    )}
                     {block.type === 'signoff' && <PenTool size={12} className="text-emerald-500" />}
                     {block.type}
                   </span>
-                  <span className="text-[10px] font-bold text-slate-400">#{idx + 1}</span>
+                  <span className="text-[10px] font-bold text-muted-foreground">#{idx + 1}</span>
 
                   {/* Morph Block dropdown for compatible text-like blocks */}
                   {['text', 'header', 'callout', 'quote'].includes(block.type) && (
@@ -590,7 +594,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                         morphBlockType(block, e.target.value as ComposerBlock['type'])
                       }
                       title="Convert block type"
-                      className="text-[10px] font-bold text-slate-500 bg-transparent border-none py-0 pl-1 pr-4 focus:ring-0 cursor-pointer hover:text-secondary"
+                      className="text-[10px] font-bold text-muted-foreground bg-transparent border-none py-0 pl-1 pr-4 focus:ring-0 cursor-pointer hover:text-foreground"
                     >
                       <option value="text">as Text</option>
                       <option value="header">as Header</option>
@@ -609,8 +613,8 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     aria-label={`Toggle preview for block ${idx + 1}`}
                     className={`p-1 rounded transition-colors ${
                       isPreviewing
-                        ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                        : 'text-slate-400 hover:text-secondary hover:bg-slate-100'
+                        ? 'text-primary dark:text-primary-on-dark bg-primary/10 hover:bg-primary/20'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-surface-muted'
                     }`}
                   >
                     {isPreviewing ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -621,7 +625,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     disabled={isFirst}
                     title="Move up"
                     aria-label={`Move block ${idx + 1} up`}
-                    className="p-1 rounded text-slate-400 hover:text-secondary hover:bg-slate-100 disabled:opacity-20"
+                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface-muted disabled:opacity-20"
                   >
                     <ArrowUp size={14} />
                   </button>
@@ -631,7 +635,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     disabled={isLast}
                     title="Move down"
                     aria-label={`Move block ${idx + 1} down`}
-                    className="p-1 rounded text-slate-400 hover:text-secondary hover:bg-slate-100 disabled:opacity-20"
+                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface-muted disabled:opacity-20"
                   >
                     <ArrowDown size={14} />
                   </button>
@@ -640,7 +644,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     onClick={() => duplicateBlock(idx)}
                     title="Duplicate block"
                     aria-label={`Duplicate block ${idx + 1}`}
-                    className="p-1 rounded text-slate-400 hover:text-secondary hover:bg-slate-100"
+                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface-muted"
                   >
                     <Copy size={14} />
                   </button>
@@ -649,7 +653,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     onClick={() => toggleBlockCollapse(block.id)}
                     title={isCollapsed ? 'Expand block' : 'Collapse block'}
                     aria-label={`Collapse block ${idx + 1}`}
-                    className="p-1 rounded text-slate-400 hover:text-secondary hover:bg-slate-100"
+                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface-muted"
                   >
                     {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
                   </button>
@@ -658,7 +662,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     onClick={() => removeBlock(block.id)}
                     title="Delete block"
                     aria-label={`Delete block ${idx + 1}`}
-                    className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50"
+                    className="p-1 rounded text-muted-foreground hover:text-red-600 hover:bg-red-50"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -673,16 +677,16 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {block.type === 'header' && (
                       <div className="space-y-1">
                         {block.eyebrow && (
-                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase bg-primary/10 text-primary">
+                          <span className="inline-block px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase bg-primary/10 text-primary dark:text-primary-on-dark">
                             {block.eyebrow}
                           </span>
                         )}
                         {block.level === 2 ? (
-                          <h2 className="text-lg font-black text-secondary uppercase tracking-tight">
+                          <h2 className="text-lg font-black text-foreground uppercase tracking-tight">
                             {block.heading || '(Empty headline)'}
                           </h2>
                         ) : (
-                          <h1 className="text-xl font-black text-secondary uppercase tracking-tight">
+                          <h1 className="text-xl font-black text-foreground uppercase tracking-tight">
                             {block.heading || '(Empty headline)'}
                           </h1>
                         )}
@@ -710,15 +714,17 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                           <img
                             src={block.url}
                             alt={block.alt || 'Campaign banner'}
-                            className="max-h-64 rounded-xl object-cover inline-block border border-slate-200"
+                            className="max-h-64 rounded-xl object-cover inline-block border border-border"
                           />
                         ) : (
-                          <div className="h-32 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 text-xs">
+                          <div className="h-32 bg-surface-muted rounded-xl flex items-center justify-center text-muted-foreground text-xs">
                             No image URL provided
                           </div>
                         )}
                         {block.caption && (
-                          <p className="text-[11px] text-slate-500 italic">{block.caption}</p>
+                          <p className="text-[11px] text-muted-foreground italic">
+                            {block.caption}
+                          </p>
                         )}
                       </div>
                     )}
@@ -728,7 +734,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                         <p className="text-xs font-medium text-slate-800 italic">
                           “{block.quote || 'Quote text'}”
                         </p>
-                        <p className="text-[10px] font-bold text-slate-600">
+                        <p className="text-[10px] font-bold text-muted-foreground">
                           — {block.author}
                           {block.role ? `, ${block.role}` : ''}
                         </p>
@@ -736,15 +742,17 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     )}
 
                     {block.type === 'stat' && (
-                      <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 text-center space-y-1">
-                        <div className="text-2xl font-black text-primary tracking-tight">
+                      <div className="p-4 rounded-xl border border-border bg-surface-muted text-center space-y-1">
+                        <div className="text-2xl font-black text-primary dark:text-primary-on-dark tracking-tight">
                           {block.value || '0'}
                         </div>
-                        <div className="text-xs font-black uppercase text-secondary">
+                        <div className="text-xs font-black uppercase text-foreground">
                           {block.label || 'Metric Label'}
                         </div>
                         {block.description && (
-                          <div className="text-[11px] text-slate-500">{block.description}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {block.description}
+                          </div>
                         )}
                       </div>
                     )}
@@ -754,7 +762,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                         {block.items.map((item, i) => (
                           // biome-ignore lint/suspicious/noArrayIndexKey: ephemeral list items without database IDs
                           <div key={i} className="flex items-start gap-2 text-xs text-slate-700">
-                            <span className="font-bold text-primary">
+                            <span className="font-bold text-primary dark:text-primary-on-dark">
                               {block.style === 'numbered' ? `${i + 1}.` : '•'}
                             </span>
                             <span>{item}</span>
@@ -764,9 +772,9 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     )}
 
                     {block.type === 'social' && (
-                      <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 text-center space-y-2">
+                      <div className="p-3 rounded-xl border border-border bg-surface-muted text-center space-y-2">
                         {block.heading && (
-                          <p className="text-xs font-black uppercase tracking-wider text-slate-600">
+                          <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">
                             {block.heading}
                           </p>
                         )}
@@ -775,7 +783,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             <span
                               // biome-ignore lint/suspicious/noArrayIndexKey: ephemeral social link items
                               key={i}
-                              className="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-bold text-secondary shadow-2xs"
+                              className="px-2.5 py-1 rounded-full bg-surface-card border border-border text-[11px] font-bold text-foreground shadow-2xs"
                             >
                               {ch.label || ch.platform}
                             </span>
@@ -810,7 +818,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             block.variant === 'accent'
                               ? 'bg-amber-600 text-white'
                               : block.variant === 'outline'
-                                ? 'border border-primary text-primary bg-white'
+                                ? 'border border-primary text-primary dark:text-primary-on-dark bg-surface-card'
                                 : 'bg-primary text-white'
                           }`}
                         >
@@ -833,7 +841,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
 
                     {block.type === 'divider' && (
                       <div className="py-2">
-                        <hr className="border-slate-200" />
+                        <hr className="border-border" />
                       </div>
                     )}
 
@@ -851,38 +859,38 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {block.type === 'header' && (
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                          <label className="sm:col-span-3 block text-[10px] font-black uppercase text-slate-400">
+                          <label className="sm:col-span-3 block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Eyebrow Badge (Optional)</span>
                             <input
                               type="text"
                               value={block.eyebrow || ''}
                               onChange={(e) => updateBlock(block.id, { eyebrow: e.target.value })}
                               placeholder="e.g. RALLY ALERT or BREAKING"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
-                          <label className="block text-[10px] font-black uppercase text-slate-400">
+                          <label className="block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Hierarchy</span>
                             <select
                               value={block.level || 1}
                               onChange={(e) =>
                                 updateBlock(block.id, { level: Number(e.target.value) as 1 | 2 })
                               }
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             >
                               <option value={1}>H1 (Main Title)</option>
                               <option value={2}>H2 (Section Header)</option>
                             </select>
                           </label>
                         </div>
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Headline Text</span>
                           <input
                             type="text"
                             value={block.heading}
                             onChange={(e) => updateBlock(block.id, { heading: e.target.value })}
                             placeholder="e.g. Stand Up for Democracy in Fair Oaks"
-                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-black text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            className="w-full px-3 py-2 rounded-xl border border-border text-sm font-black text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                           />
                         </label>
                       </div>
@@ -892,7 +900,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {block.type === 'text' && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="block text-[10px] font-black uppercase text-slate-400">
+                          <span className="block text-[10px] font-black uppercase text-muted-foreground">
                             Message Content (Plain Text / Markdown)
                           </span>
                           <div className="relative">
@@ -903,22 +911,22 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                   activeTokenBlockId === block.id ? null : block.id
                                 )
                               }
-                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1"
+                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-muted hover:bg-surface-muted text-slate-700 flex items-center gap-1"
                             >
                               <span>+ Insert Tag</span>
                               <ChevronDown size={11} />
                             </button>
                             {activeTokenBlockId === block.id && (
-                              <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-white border border-slate-200 shadow-lg p-1.5 z-20 space-y-0.5">
+                              <div className="absolute right-0 top-full mt-1 w-48 rounded-xl bg-surface-card border border-border shadow-lg p-1.5 z-20 space-y-0.5">
                                 {MERGE_TAGS.map((t) => (
                                   <button
                                     key={t.tag}
                                     type="button"
                                     onClick={() => insertTokenIntoBlock(block.id, t.tag)}
-                                    className="w-full text-left px-2 py-1 rounded text-[11px] hover:bg-slate-100 font-medium text-slate-700 flex items-center justify-between"
+                                    className="w-full text-left px-2 py-1 rounded text-[11px] hover:bg-surface-muted font-medium text-slate-700 flex items-center justify-between"
                                   >
                                     <span>{t.label}</span>
-                                    <code className="text-[9px] font-mono text-slate-400">
+                                    <code className="text-[9px] font-mono text-muted-foreground">
                                       {t.tag}
                                     </code>
                                   </button>
@@ -933,7 +941,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                           onChange={(e) => updateBlock(block.id, { content: e.target.value })}
                           placeholder="Type message narrative, bullet points, or updates..."
                           aria-label="Message Content"
-                          className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 leading-relaxed font-sans placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          className="w-full px-3 py-2 rounded-xl border border-border text-xs text-slate-800 leading-relaxed font-sans placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         />
                       </div>
                     )}
@@ -942,10 +950,13 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {block.type === 'image' && (
                       <div className="space-y-3">
                         {/* Supabase Storage Controls */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-surface-muted border border-border">
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-bold text-secondary flex items-center gap-1.5">
-                              <ImageIcon size={14} className="text-primary" />
+                            <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                              <ImageIcon
+                                size={14}
+                                className="text-primary dark:text-primary-on-dark"
+                              />
                               <span>Supabase S3 Media</span>
                             </span>
                             {block.url?.includes('/storage/v1/object/public/media/') && (
@@ -958,9 +969,12 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             <button
                               type="button"
                               onClick={() => openMediaLibraryForBlock(block.id)}
-                              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                              className="px-2.5 py-1 rounded-lg bg-surface-card border border-border hover:bg-surface-muted text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
                             >
-                              <FolderOpen size={13} className="text-primary" />
+                              <FolderOpen
+                                size={13}
+                                className="text-primary dark:text-primary-on-dark"
+                              />
                               <span>Browse Storage</span>
                             </button>
                             <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-dark text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs">
@@ -988,7 +1002,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
 
                         {/* Image preview thumbnail inside form if url is set */}
                         {block.url && (
-                          <div className="relative aspect-video max-h-48 rounded-xl border border-slate-200 overflow-hidden bg-slate-100 flex items-center justify-center">
+                          <div className="relative aspect-video max-h-48 rounded-xl border border-border overflow-hidden bg-surface-muted flex items-center justify-center">
                             {/* biome-ignore lint/performance/noImgElement: user-supplied external campaign banner in visual composer preview */}
                             <img
                               src={block.url}
@@ -999,17 +1013,17 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                         )}
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <label className="sm:col-span-2 block text-[10px] font-black uppercase text-slate-400">
+                          <label className="sm:col-span-2 block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Image URL *</span>
                             <input
                               type="url"
                               value={block.url}
                               onChange={(e) => updateBlock(block.id, { url: e.target.value })}
                               placeholder="https://... or select from Supabase Storage"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
-                          <label className="block text-[10px] font-black uppercase text-slate-400">
+                          <label className="block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Alignment</span>
                             <select
                               value={block.alignment || 'center'}
@@ -1018,7 +1032,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                   alignment: e.target.value as ImageBlock['alignment'],
                                 })
                               }
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             >
                               <option value="center">Center</option>
                               <option value="left">Left</option>
@@ -1028,35 +1042,35 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                           </label>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <label className="block text-[10px] font-black uppercase text-slate-400">
+                          <label className="block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Alt Text (Accessibility)</span>
                             <input
                               type="text"
                               value={block.alt}
                               onChange={(e) => updateBlock(block.id, { alt: e.target.value })}
                               placeholder="e.g. Fair Oaks democracy rally attendees"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
-                          <label className="block text-[10px] font-black uppercase text-slate-400">
+                          <label className="block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Click-through Link URL (Optional)</span>
                             <input
                               type="url"
                               value={block.linkUrl || ''}
                               onChange={(e) => updateBlock(block.id, { linkUrl: e.target.value })}
                               placeholder="https://indivisiblefairoaks.org/actions"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-mono text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
                         </div>
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Caption Note (Optional)</span>
                           <input
                             type="text"
                             value={block.caption || ''}
                             onChange={(e) => updateBlock(block.id, { caption: e.target.value })}
                             placeholder="Photo credit or brief note..."
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                       </div>
@@ -1065,35 +1079,35 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {/* QUOTE BLOCK */}
                     {block.type === 'quote' && (
                       <div className="space-y-3">
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Quote Copy *</span>
                           <textarea
                             rows={2}
                             value={block.quote}
                             onChange={(e) => updateBlock(block.id, { quote: e.target.value })}
                             placeholder="Inspiring quote from an organizer, constituent, or speaker..."
-                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-2 rounded-xl border border-border text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <label className="block text-[10px] font-black uppercase text-slate-400">
+                          <label className="block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Author / Speaker *</span>
                             <input
                               type="text"
                               value={block.author}
                               onChange={(e) => updateBlock(block.id, { author: e.target.value })}
                               placeholder="e.g. Maria Gonzalez"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
-                          <label className="block text-[10px] font-black uppercase text-slate-400">
+                          <label className="block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Role / Title (Optional)</span>
                             <input
                               type="text"
                               value={block.role || ''}
                               onChange={(e) => updateBlock(block.id, { role: e.target.value })}
                               placeholder="e.g. Fair Oaks Volunteer Coordinator"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
                         </div>
@@ -1104,35 +1118,35 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {block.type === 'stat' && (
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <label className="block text-[10px] font-black uppercase text-slate-400">
+                          <label className="block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Stat / Metric *</span>
                             <input
                               type="text"
                               value={block.value}
                               onChange={(e) => updateBlock(block.id, { value: e.target.value })}
                               placeholder="e.g. $12,450 or 850+"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-black text-primary dark:text-primary-on-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             />
                           </label>
-                          <label className="sm:col-span-2 block text-[10px] font-black uppercase text-slate-400">
+                          <label className="sm:col-span-2 block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Metric Label *</span>
                             <input
                               type="text"
                               value={block.label}
                               onChange={(e) => updateBlock(block.id, { label: e.target.value })}
                               placeholder="e.g. Grassroots Funds Raised or Doors Knocked"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
                         </div>
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Context / Explanation (Optional)</span>
                           <input
                             type="text"
                             value={block.description || ''}
                             onChange={(e) => updateBlock(block.id, { description: e.target.value })}
                             placeholder="e.g. Across Carmichael, Fair Oaks, and Citrus Heights"
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                       </div>
@@ -1142,7 +1156,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {block.type === 'list' && (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase text-slate-400">
+                          <span className="text-[10px] font-black uppercase text-muted-foreground">
                             List Items
                           </span>
                           <select
@@ -1152,7 +1166,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                 style: e.target.value as ListBlock['style'],
                               })
                             }
-                            className="px-2 py-0.5 rounded text-[10px] font-bold border border-slate-200 text-slate-700"
+                            className="px-2 py-0.5 rounded text-[10px] font-bold border border-border text-slate-700"
                           >
                             <option value="bullet">Bullet Points (•)</option>
                             <option value="numbered">Numbered List (1, 2, 3)</option>
@@ -1162,7 +1176,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                           {block.items.map((item, itemIdx) => (
                             // biome-ignore lint/suspicious/noArrayIndexKey: dynamic form inputs without permanent database IDs
                             <div key={itemIdx} className="flex items-center gap-2">
-                              <span className="text-[11px] font-mono text-slate-400 w-4 text-right">
+                              <span className="text-[11px] font-mono text-muted-foreground w-4 text-right">
                                 {block.style === 'numbered' ? `${itemIdx + 1}.` : '•'}
                               </span>
                               <input
@@ -1174,7 +1188,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                   updateBlock(block.id, { items: nextItems });
                                 }}
                                 placeholder="List item copy..."
-                                className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                className="flex-1 px-3 py-1.5 rounded-lg border border-border text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                               />
                               <button
                                 type="button"
@@ -1184,7 +1198,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                     items: nextItems.length ? nextItems : [''],
                                   });
                                 }}
-                                className="p-1 text-slate-400 hover:text-red-600 rounded"
+                                className="p-1 text-muted-foreground hover:text-red-600 rounded"
                                 title="Delete item"
                               >
                                 <Trash2 size={13} />
@@ -1194,7 +1208,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                           <button
                             type="button"
                             onClick={() => updateBlock(block.id, { items: [...block.items, ''] })}
-                            className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 mt-1"
+                            className="text-[10px] font-bold text-primary dark:text-primary-on-dark hover:underline flex items-center gap-1 mt-1"
                           >
                             <Plus size={11} /> Add another item
                           </button>
@@ -1205,14 +1219,14 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {/* SOCIAL CHANNELS BLOCK */}
                     {block.type === 'social' && (
                       <div className="space-y-3">
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Section Heading</span>
                           <input
                             type="text"
                             value={block.heading || ''}
                             onChange={(e) => updateBlock(block.id, { heading: e.target.value })}
                             placeholder="e.g. Connect With Our Campaign"
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                         <div className="space-y-2">
@@ -1229,7 +1243,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                   };
                                   updateBlock(block.id, { channels: next });
                                 }}
-                                className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary"
+                                className="px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground"
                               >
                                 <option value="website">Website</option>
                                 <option value="actblue">ActBlue / Donate</option>
@@ -1247,7 +1261,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                   updateBlock(block.id, { channels: next });
                                 }}
                                 placeholder="https://..."
-                                className="sm:col-span-2 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-mono text-slate-700"
+                                className="sm:col-span-2 px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-slate-700"
                               />
                             </div>
                           ))}
@@ -1265,7 +1279,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                 ],
                               })
                             }
-                            className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1 mt-1"
+                            className="text-[10px] font-bold text-primary dark:text-primary-on-dark hover:underline flex items-center gap-1 mt-1"
                           >
                             <Plus size={11} /> Add link channel
                           </button>
@@ -1277,17 +1291,17 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {block.type === 'callout' && (
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <label className="sm:col-span-2 block text-[10px] font-black uppercase text-slate-400">
+                          <label className="sm:col-span-2 block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Callout Header</span>
                             <input
                               type="text"
                               value={block.title || ''}
                               onChange={(e) => updateBlock(block.id, { title: e.target.value })}
                               placeholder="e.g. Urgent Vote / Notice"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
-                          <label className="block text-[10px] font-black uppercase text-slate-400">
+                          <label className="block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Callout Style</span>
                             <select
                               value={block.variant || 'info'}
@@ -1296,7 +1310,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                   variant: e.target.value as CalloutBlock['variant'],
                                 })
                               }
-                              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             >
                               <option value="info">Info (Blue)</option>
                               <option value="alert">Alert (Amber)</option>
@@ -1304,14 +1318,14 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             </select>
                           </label>
                         </div>
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Callout Message</span>
                           <textarea
                             rows={2}
                             value={block.text}
                             onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                             placeholder="Key takeaway, challenge deadline, or call script..."
-                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-2 rounded-xl border border-border text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                       </div>
@@ -1320,24 +1334,24 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {/* BUTTON BLOCK */}
                     {block.type === 'button' && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Button Label</span>
                           <input
                             type="text"
                             value={block.label}
                             onChange={(e) => updateBlock(block.id, { label: e.target.value })}
                             placeholder="e.g. RSVP for Town Hall"
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Target Destination URL</span>
                           <input
                             type="url"
                             value={block.url}
                             onChange={(e) => updateBlock(block.id, { url: e.target.value })}
                             placeholder="https://indivisiblefairoaks.org/actions"
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-mono text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                       </div>
@@ -1346,35 +1360,35 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     {/* EVENT BLOCK */}
                     {block.type === 'event' && (
                       <div className="space-y-3">
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Event Title</span>
                           <input
                             type="text"
                             value={block.title}
                             onChange={(e) => updateBlock(block.id, { title: e.target.value })}
                             placeholder="e.g. Saturday Rally for Democracy"
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <label className="block text-[10px] font-black uppercase text-slate-400">
+                          <label className="block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Date & Time</span>
                             <input
                               type="text"
                               value={block.date}
                               onChange={(e) => updateBlock(block.id, { date: e.target.value })}
                               placeholder="Saturday, Oct 14 · 10am"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
-                          <label className="sm:col-span-2 block text-[10px] font-black uppercase text-slate-400">
+                          <label className="sm:col-span-2 block text-[10px] font-black uppercase text-muted-foreground">
                             <span className="block mb-1">Location / Venue</span>
                             <input
                               type="text"
                               value={block.location}
                               onChange={(e) => updateBlock(block.id, { location: e.target.value })}
                               placeholder="Carmichael Park Main Pavilion"
-                              className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
                         </div>
@@ -1383,32 +1397,32 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
 
                     {/* DIVIDER BLOCK */}
                     {block.type === 'divider' && (
-                      <div className="py-2 text-center text-slate-300">
-                        <div className="h-px w-full bg-slate-200" />
+                      <div className="py-2 text-center text-muted-foreground">
+                        <div className="h-px w-full bg-surface-muted" />
                       </div>
                     )}
 
                     {/* SIGNOFF BLOCK */}
                     {block.type === 'signoff' && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Closing Salutation</span>
                           <input
                             type="text"
                             value={block.closing}
                             onChange={(e) => updateBlock(block.id, { closing: e.target.value })}
                             placeholder="In solidarity,"
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
-                        <label className="block text-[10px] font-black uppercase text-slate-400">
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground">
                           <span className="block mb-1">Organizer / Team Name</span>
                           <input
                             type="text"
                             value={block.sender}
                             onChange={(e) => updateBlock(block.id, { sender: e.target.value })}
                             placeholder="Indivisible Fair Oaks Steering Committee"
-                            className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                       </div>
@@ -1421,31 +1435,31 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
       </div>
 
       {/* Add Block Action Bar with 12 Blocks */}
-      <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl shadow-2xs space-y-3">
-        <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+      <div className="p-4 bg-surface-muted border border-border rounded-2xl shadow-2xs space-y-3">
+        <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
           + Add Section Block
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
           <button
             type="button"
             onClick={() => addBlock('header')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
-            <Heading size={13} className="text-primary" />
+            <Heading size={13} className="text-primary dark:text-primary-on-dark" />
             Headline
           </button>
           <button
             type="button"
             onClick={() => addBlock('text')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
-            <Type size={13} className="text-slate-600" />
+            <Type size={13} className="text-muted-foreground" />
             Text / Story
           </button>
           <button
             type="button"
             onClick={() => addBlock('image')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
             <ImageIcon size={13} className="text-cyan-600" />
             Photo / Banner
@@ -1453,7 +1467,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={() => addBlock('quote')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
             <QuoteIcon size={13} className="text-amber-600" />
             Quote Box
@@ -1461,7 +1475,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={() => addBlock('stat')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
             <BarChart3 size={13} className="text-emerald-600" />
             Stat Counter
@@ -1469,7 +1483,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={() => addBlock('list')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
             <ListIcon size={13} className="text-indigo-600" />
             Checklist
@@ -1477,7 +1491,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={() => addBlock('callout')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
             <AlertCircle size={13} className="text-amber-600" />
             Callout Box
@@ -1485,7 +1499,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={() => addBlock('button')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
             <ExternalLink size={13} className="text-blue-600" />
             CTA Button
@@ -1493,7 +1507,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={() => addBlock('event')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
             <Calendar size={13} className="text-purple-600" />
             Event Card
@@ -1501,7 +1515,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={() => addBlock('social')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
             <Share2 size={13} className="text-blue-600" />
             Social Links
@@ -1509,15 +1523,15 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={() => addBlock('divider')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
-            <Minus size={13} className="text-slate-400" />
+            <Minus size={13} className="text-muted-foreground" />
             Divider
           </button>
           <button
             type="button"
             onClick={() => addBlock('signoff')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-secondary hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-2xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground hover:bg-surface-muted hover:border-border transition-colors shadow-2xs"
           >
             <PenTool size={13} className="text-emerald-600" />
             Sign-off

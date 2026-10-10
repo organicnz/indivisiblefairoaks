@@ -208,13 +208,13 @@ export default async function AdminDashboardPage() {
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <TrendingUp size={14} className="text-secondary" />
+            <TrendingUp size={14} className="text-foreground" />
           </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">Dashboard</h1>
+        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">Dashboard</h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
       </div>
 
@@ -237,7 +237,7 @@ export default async function AdminDashboardPage() {
           { label: 'Awaiting shipment', value: toShip.length, icon: Package },
         ].map(({ label, value, icon: Icon, delta }) => (
           <div key={label} className="bg-secondary rounded-3xl p-6">
-            <Icon size={16} className="text-primary mb-3" />
+            <Icon size={16} className="text-primary-on-dark mb-3" />
             <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-1">
               {label}
             </p>
@@ -271,19 +271,19 @@ export default async function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Revenue chart */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm lg:col-span-2">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
               Revenue — last 14 days
             </h2>
             <div className="flex items-center gap-3">
-              <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest inline-flex items-center gap-1">
+              <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest inline-flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-primary" /> This period
               </span>
-              <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest inline-flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-slate-200" /> Prior period
+              <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest inline-flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-surface-muted" /> Prior period
               </span>
-              <span className="text-[10px] text-slate-300 font-black uppercase tracking-widest">
+              <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">
                 {fmtMoney(maxDay)}↑ best day
               </span>
             </div>
@@ -299,13 +299,13 @@ export default async function AdminDashboardPage() {
                   {prev > 0 && (
                     <div
                       title={`${dayLabels.get(day)} (prior period) — ${fmtMoney(prev)}`}
-                      className="rounded-t-sm bg-slate-200 transition-all"
+                      className="rounded-t-sm bg-surface-muted transition-all"
                       style={{ height: `${ph}%` }}
                     />
                   )}
                   <div
                     title={`${dayLabels.get(day)} — ${fmtMoney(v)}`}
-                    className={`rounded-t-md transition-all ${v > 0 ? 'bg-primary' : 'bg-slate-100'}`}
+                    className={`rounded-t-md transition-all ${v > 0 ? 'bg-primary' : 'bg-surface-muted'}`}
                     style={{ height: `${h}%` }}
                   />
                 </div>
@@ -314,7 +314,7 @@ export default async function AdminDashboardPage() {
           </div>
           <div className="flex justify-between mt-2">
             {[...dayBuckets.keys()].map((day) => (
-              <span key={day} className="text-[9px] text-slate-300 font-bold uppercase">
+              <span key={day} className="text-[9px] text-muted-foreground font-bold uppercase">
                 {dayLabels.get(day)}
               </span>
             ))}
@@ -322,24 +322,24 @@ export default async function AdminDashboardPage() {
         </section>
 
         {/* Top products */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
-          <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] mb-6">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
+          <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em] mb-6">
             Top products (30d)
           </h2>
           {topProducts.length === 0 ? (
-            <p className="text-slate-400 font-bold text-sm">No sales yet.</p>
+            <p className="text-muted-foreground font-bold text-sm">No sales yet.</p>
           ) : (
             <ul className="space-y-4">
               {topProducts.map(([name, units], i) => (
                 <li key={name} className="flex items-center gap-3">
-                  <span className="w-7 h-7 rounded-xl bg-slate-100 flex items-center justify-center text-[10px] font-black text-secondary">
+                  <span className="w-7 h-7 rounded-xl bg-surface-muted flex items-center justify-center text-[10px] font-black text-foreground">
                     {i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-secondary uppercase tracking-wider truncate">
+                    <p className="text-sm font-black text-foreground uppercase tracking-wider truncate">
                       {name}
                     </p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">
                       {units} sold
                     </p>
                   </div>
@@ -352,19 +352,19 @@ export default async function AdminDashboardPage() {
 
       {/* Status distribution */}
       {statusStats.length > 0 && (
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm mb-8">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm mb-8">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
               Order status (30d)
             </h2>
             <Link
               href="/admin/orders"
-              className="inline-flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
             >
               View orders <ArrowRight size={11} />
             </Link>
           </div>
-          <div className="flex h-2 rounded-full overflow-hidden mb-6 bg-slate-100">
+          <div className="flex h-2 rounded-full overflow-hidden mb-6 bg-surface-muted">
             {statusStats.map((s) => (
               <div
                 key={s.status}
@@ -376,22 +376,22 @@ export default async function AdminDashboardPage() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {statusStats.map((s) => (
-              <div key={s.status} className="rounded-2xl bg-slate-50 p-4">
+              <div key={s.status} className="rounded-2xl bg-surface-muted p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span
                     className={`w-2 h-2 rounded-full ${statusColours[s.status] || 'bg-slate-300'}`}
                   />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     {s.status}
                   </p>
                 </div>
-                <p className="text-xl font-black text-secondary">
+                <p className="text-xl font-black text-foreground">
                   {s.count}
-                  <span className="text-[10px] text-slate-400 font-bold ml-1">
+                  <span className="text-[10px] text-muted-foreground font-bold ml-1">
                     {s.pct.toFixed(0)}%
                   </span>
                 </p>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mt-0.5">
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight mt-0.5">
                   {fmtMoney(s.revenue)}
                 </p>
               </div>
@@ -402,20 +402,20 @@ export default async function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Pending fulfilment */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
               Pending fulfilment
             </h2>
             <Link
               href="/admin/orders?status=processing"
-              className="inline-flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
             >
               View all <ArrowRight size={11} />
             </Link>
           </div>
           {topPending.length === 0 ? (
-            <p className="text-slate-400 font-bold text-sm">All caught up.</p>
+            <p className="text-muted-foreground font-bold text-sm">All caught up.</p>
           ) : (
             <ul className="space-y-4">
               {topPending.map((o) => {
@@ -428,12 +428,12 @@ export default async function AdminDashboardPage() {
                   <li key={o.id} className="flex items-center gap-3">
                     <Link
                       href={`/admin/orders/${o.id}`}
-                      className="flex-1 min-w-0 hover:text-primary transition-colors"
+                      className="flex-1 min-w-0 hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
                     >
-                      <p className="text-sm font-black text-secondary uppercase tracking-wider truncate">
+                      <p className="text-sm font-black text-foreground uppercase tracking-wider truncate">
                         #{o.id} · {name}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">
                         {o.created_at
                           ? new Date(o.created_at).toLocaleDateString('en-NZ', {
                               day: 'numeric',
@@ -453,12 +453,12 @@ export default async function AdminDashboardPage() {
         </section>
 
         {/* Stock alert */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
-          <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em] mb-6">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
+          <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em] mb-6">
             Stock alerts
           </h2>
           {outOfStock.length === 0 && backorder.length === 0 ? (
-            <p className="text-slate-400 font-bold text-sm">All products in stock.</p>
+            <p className="text-muted-foreground font-bold text-sm">All products in stock.</p>
           ) : (
             <ul className="space-y-3">
               {outOfStock.slice(0, 5).map((p) => (
@@ -493,39 +493,39 @@ export default async function AdminDashboardPage() {
           )}
           <Link
             href="/admin/products"
-            className="inline-flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-primary transition-colors mt-4"
+            className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors mt-4"
           >
             Manage products <ArrowRight size={11} />
           </Link>
         </section>
 
         {/* Coupon usage */}
-        <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+        <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.25em]">
+            <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
               Coupon usage (30d)
             </h2>
             <Link
               href="/admin/coupons"
-              className="inline-flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
             >
               Manage <ArrowRight size={11} />
             </Link>
           </div>
           {couponStats.size === 0 ? (
-            <p className="text-slate-400 font-bold text-sm">No coupons used yet.</p>
+            <p className="text-muted-foreground font-bold text-sm">No coupons used yet.</p>
           ) : (
             <ul className="space-y-4">
               {[...couponStats.entries()].map(([code, stat]) => (
                 <li key={code} className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-xl bg-primary flex items-center justify-center">
-                    <BadgePercent size={13} className="text-secondary" />
+                    <BadgePercent size={13} className="text-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-secondary uppercase tracking-wider">
+                    <p className="text-sm font-black text-foreground uppercase tracking-wider">
                       {code}
                     </p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">
                       {stat.uses}× · {fmtMoney(stat.revenue)} in orders
                     </p>
                   </div>
@@ -535,7 +535,7 @@ export default async function AdminDashboardPage() {
           )}
           <Link
             href="/admin/customers"
-            className="inline-flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-primary transition-colors mt-4"
+            className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors mt-4"
           >
             <Users size={11} /> View customers
           </Link>

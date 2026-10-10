@@ -81,15 +81,15 @@ export default function ContentPage({ params }: { params: Promise<{ slug: string
 
 function ContentSkeleton() {
   return (
-    <div className="bg-white min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto animate-pulse">
         <div className="flex flex-col mb-12">
-          <div className="h-12 w-3/4 bg-slate-100 rounded" />
-          <div className="h-2 w-24 bg-slate-100 mt-4" />
+          <div className="h-12 w-3/4 bg-surface-muted rounded" />
+          <div className="h-2 w-24 bg-surface-muted mt-4" />
         </div>
         <div className="space-y-4">
           {['95%', '88%', '81%', '74%', '67%', '60%', '53%', '40%'].map((width) => (
-            <div key={width} className="h-4 bg-slate-100 rounded" style={{ width }} />
+            <div key={width} className="h-4 bg-surface-muted rounded" style={{ width }} />
           ))}
         </div>
       </div>
@@ -159,7 +159,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
   const jsonLd = [breadcrumbJsonLd, articleJsonLd].filter(Boolean);
 
   return (
-    <div className="bg-white min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
       {jsonLd.length > 0 && (
         <script
           type="application/ld+json"
@@ -169,14 +169,14 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
       )}
       <div className="max-w-4xl mx-auto">
         <div className="flex flex-col mb-12">
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-secondary uppercase mb-4 leading-tight">
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-foreground uppercase mb-4 leading-tight">
             {content.title}
           </h1>
           <div className="h-2 w-24 bg-primary" />
           {content.type === 'post' && content.created_at && (
             <time
               dateTime={content.created_at}
-              className="mt-6 text-xs font-black text-slate-400 uppercase tracking-[0.2em]"
+              className="mt-6 text-xs font-black text-muted-foreground uppercase tracking-[0.2em]"
             >
               Published{' '}
               {new Date(content.created_at).toLocaleDateString('en-US', {
@@ -225,20 +225,20 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
         */}
         <div
           className="cw prose prose-slate prose-lg max-w-none
-            prose-headings:text-secondary prose-headings:uppercase prose-headings:font-black
-            prose-p:text-slate-600 prose-p:leading-relaxed
-            prose-a:text-primary prose-a:font-bold prose-a:no-underline hover:prose-a:underline
-            prose-strong:text-secondary prose-strong:font-black
+            prose-headings:text-foreground prose-headings:uppercase prose-headings:font-black
+            prose-p:text-muted-foreground prose-p:leading-relaxed
+            prose-a:text-primary dark:text-primary-on-dark prose-a:font-bold prose-a:no-underline hover:prose-a:underline
+            prose-strong:text-foreground prose-strong:font-black
             prose-img:rounded-3xl prose-img:shadow-lg"
           data-visual-edit-root=""
           // cleanBody is produced by sanitizeWPContent (line 28)
           dangerouslySetInnerHTML={{ __html: cleanBody }}
         />
         {content.type === 'post' && (
-          <div className="mt-20 pt-10 border-t border-slate-100 flex justify-between items-center">
+          <div className="mt-20 pt-10 border-t border-border flex justify-between items-center">
             <Link
               href="/"
-              className="text-sm font-black text-secondary uppercase tracking-widest hover:text-primary transition-colors flex items-center gap-2"
+              className="text-sm font-black text-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors flex items-center gap-2"
             >
               <span>&larr;</span> Back to Home
             </Link>

@@ -75,16 +75,16 @@ export default async function AdminProductsPage({
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Package size={14} className="text-secondary" />
+            <Package size={14} className="text-foreground" />
           </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">Products</h1>
+        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">Products</h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+          <p className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">
             {filtered.length} of {rows.length} products
           </p>
           <Link
@@ -106,27 +106,27 @@ export default async function AdminProductsPage({
               className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-colors ${
                 stockFilter === s
                   ? 'bg-primary text-secondary'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-secondary'
+                  : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
               }`}
             >
               {s === 'all' ? 'All' : stockLabel[s] || s}
             </Link>
           ))}
         </nav>
-        <form className="flex items-center gap-2 bg-slate-100 rounded-full px-4 py-2 ml-auto">
-          <Search size={13} className="text-slate-400" />
+        <form className="flex items-center gap-2 bg-surface-muted rounded-full px-4 py-2 ml-auto">
+          <Search size={13} className="text-muted-foreground" />
           <input
             name="q"
             defaultValue={q}
             placeholder="Search products…"
-            className="bg-transparent text-sm font-bold text-secondary outline-none focus:ring-2 focus:ring-primary rounded-md placeholder:text-slate-400 w-56"
+            className="bg-transparent text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary rounded-md placeholder:text-muted-foreground w-56"
           />
         </form>
       </div>
       <div className="space-y-3">
         {filtered.length === 0 ? (
-          <div className="bg-slate-50 p-16 rounded-3xl border border-dashed border-slate-200 text-center">
-            <p className="text-slate-400 font-black uppercase tracking-widest text-sm">
+          <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
+            <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
               {rows.length === 0 ? 'No products found.' : 'No products match the filter.'}
             </p>
           </div>
@@ -138,7 +138,7 @@ export default async function AdminProductsPage({
               return (
                 <div
                   key={p.id}
-                  className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm"
+                  className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm"
                 >
                   <div className="px-8 py-5 flex flex-wrap items-center gap-6">
                     <ProductCheckbox productId={p.id} />
@@ -148,23 +148,24 @@ export default async function AdminProductsPage({
                         alt={p.name}
                         width={56}
                         height={56}
-                        className="w-14 h-14 rounded-2xl object-cover bg-slate-100 shrink-0"
+                        className="w-14 h-14 rounded-2xl object-cover bg-surface-muted shrink-0"
                       />
                     ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-slate-100 shrink-0" />
+                      <div className="w-14 h-14 rounded-2xl bg-surface-muted shrink-0" />
                     )}
 
                     <div className="flex-1 min-w-64">
                       <div className="flex items-center gap-3 flex-wrap">
                         <Link
                           href={`/admin/products/${p.id}`}
-                          className="text-sm font-black text-secondary uppercase tracking-wider hover:text-primary transition-colors"
+                          className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
                         >
                           {p.name}
                         </Link>
                         <span
                           className={`text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 ${
-                            stockBadge[p.stock_status || ''] || 'bg-slate-100 text-slate-500'
+                            stockBadge[p.stock_status || ''] ||
+                            'bg-surface-muted text-muted-foreground'
                           }`}
                         >
                           {stockLabel[p.stock_status || ''] || p.stock_status || 'unknown'}
@@ -175,7 +176,7 @@ export default async function AdminProductsPage({
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight mt-1">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight mt-1">
                         {p.categories
                           .flatMap((c) => c.categories ?? [])
                           .map((c) => c.name)
@@ -186,10 +187,10 @@ export default async function AdminProductsPage({
                     </div>
 
                     <div className="text-right shrink-0">
-                      <p className="text-lg text-primary font-black">
+                      <p className="text-lg text-primary dark:text-primary-on-dark font-black">
                         ${Number(p.price).toFixed(2)}
                         {onSale && (
-                          <span className="text-[10px] text-slate-400 font-bold ml-1 line-through">
+                          <span className="text-[10px] text-muted-foreground font-bold ml-1 line-through">
                             ${Number(p.regular_price).toFixed(2)}
                           </span>
                         )}

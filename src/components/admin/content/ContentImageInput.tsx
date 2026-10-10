@@ -214,7 +214,7 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium text-slate-600">{label}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
 
       <section
         aria-label={`${label} upload area`}
@@ -231,7 +231,7 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
         }}
         onPaste={onPaste}
         className={`rounded-xl border-2 border-dashed p-3 transition-colors ${
-          dragging ? 'border-primary bg-blue-50' : 'border-slate-200 bg-slate-50'
+          dragging ? 'border-primary bg-blue-50' : 'border-border bg-surface-muted'
         }`}
       >
         {value ? (
@@ -242,18 +242,18 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
               width={aspect === 'thumb' ? 96 : 320}
               height={aspect === 'thumb' ? 96 : 180}
               unoptimized
-              className={`shrink-0 rounded-lg bg-slate-100 object-cover ${
+              className={`shrink-0 rounded-lg bg-surface-muted object-cover ${
                 aspect === 'thumb' ? 'h-16 w-16' : 'h-28 w-48'
               }`}
             />
             <div className="min-w-0 flex-1 space-y-2">
-              <p className="truncate text-xs text-slate-500">{value}</p>
+              <p className="truncate text-xs text-muted-foreground">{value}</p>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => inputRef.current?.click()}
                   disabled={busy}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-slate-300 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
                 >
                   {busy ? (
                     <Loader2 size={13} className="animate-spin" aria-hidden="true" />
@@ -266,7 +266,7 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
                   type="button"
                   onClick={remove}
                   disabled={busy}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-rose-50 hover:text-accent-red focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
                 >
                   Remove
                 </button>
@@ -281,14 +281,18 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
             className="flex w-full flex-col items-center gap-1.5 rounded-lg py-5 text-center focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
           >
             {busy ? (
-              <Loader2 size={20} className="animate-spin text-primary" aria-hidden="true" />
+              <Loader2
+                size={20}
+                className="animate-spin text-primary dark:text-primary-on-dark"
+                aria-hidden="true"
+              />
             ) : (
-              <ImagePlus size={20} className="text-slate-400" aria-hidden="true" />
+              <ImagePlus size={20} className="text-muted-foreground" aria-hidden="true" />
             )}
-            <span className="text-xs font-semibold text-slate-600">
+            <span className="text-xs font-semibold text-muted-foreground">
               {busy ? 'Uploading…' : 'Drop an image, paste, or click to choose'}
             </span>
-            {hint && <span className="text-[11px] text-slate-400">{hint}</span>}
+            {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
           </button>
         )}
       </section>
@@ -303,15 +307,15 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
           onChange={(e) => onChange(e.target.value)}
           placeholder="…or paste a full image URL"
           aria-label={`${label} URL`}
-          className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs focus-visible:ring-2 focus-visible:ring-primary"
+          className="flex-1 rounded-lg border border-border px-3 py-2 text-xs focus-visible:ring-2 focus-visible:ring-primary"
         />
         <button
           type="button"
           onClick={() => setMediaModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors shadow-2xs shrink-0"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-surface-card hover:bg-surface-muted text-xs font-bold text-slate-700 transition-colors shadow-2xs shrink-0"
           title="Browse Supabase S3 Media Library"
         >
-          <FolderOpen size={13} className="text-primary" />
+          <FolderOpen size={13} className="text-primary dark:text-primary-on-dark" />
           <span>Storage</span>
         </button>
       </div>

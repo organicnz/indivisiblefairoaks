@@ -159,7 +159,7 @@ export function WallEChatWidget() {
                           <a
                             key={citation.url}
                             href={citation.url}
-                            className="block rounded-lg bg-slate-50 px-2 py-1.5 font-semibold text-primary transition hover:bg-primary/10"
+                            className="block rounded-lg bg-slate-50 px-2 py-1.5 font-semibold text-primary dark:text-primary-on-dark transition hover:bg-primary/10"
                           >
                             <span className="mr-1">↗</span>
                             {citation.title}

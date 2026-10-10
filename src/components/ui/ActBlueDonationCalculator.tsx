@@ -98,7 +98,7 @@ export function ActBlueDonationCalculator() {
   };
 
   return (
-    <div className="rounded-3xl bg-secondary/90 border border-accent-gold/30 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl space-y-8">
+    <div className="rounded-3xl bg-secondary border border-accent-gold/30 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl space-y-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-white/10">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/20 text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
@@ -183,7 +183,7 @@ export function ActBlueDonationCalculator() {
       </fieldset>
 
       {/* Custom Amount Input */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-secondary/70 border border-white/10">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-secondary border border-white/10">
         <label
           htmlFor="custom-amount"
           className="text-xs font-mono text-ink-on-dark whitespace-nowrap"
@@ -232,7 +232,7 @@ export function ActBlueDonationCalculator() {
           {impact.tangibleMetrics.map((metric) => (
             <div
               key={metric}
-              className="p-3 rounded-xl bg-secondary/70 border border-white/10 text-xs font-medium text-slate-200 flex items-center gap-2"
+              className="p-3 rounded-xl bg-secondary border border-white/10 text-xs font-medium text-slate-200 flex items-center gap-2"
             >
               <Check size={14} className="text-emerald-400 shrink-0" />
               <span>{metric}</span>

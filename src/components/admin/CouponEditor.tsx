@@ -48,7 +48,7 @@ export function CouponEditor({
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 text-slate-400 hover:bg-slate-100 hover:text-secondary transition-colors"
+          className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground transition-colors"
         >
           <Edit3 size={11} /> Edit
         </button>
@@ -57,13 +57,15 @@ export function CouponEditor({
   }
 
   return (
-    <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Edit {code}</p>
+    <div className="bg-surface-muted rounded-2xl p-4 space-y-3">
+      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+        Edit {code}
+      </p>
       <div className="flex flex-wrap items-center gap-2">
         <select
           value={type}
           onChange={(e) => setType(e.target.value as 'percent' | 'fixed')}
-          className="text-xs font-black bg-white border border-slate-200 rounded-xl px-2.5 py-2 outline-none focus:border-primary cursor-pointer"
+          className="text-xs font-black bg-surface-card border border-border rounded-xl px-2.5 py-2 outline-none focus:border-primary cursor-pointer"
         >
           <option value="percent">Percent %</option>
           <option value="fixed">Fixed $</option>
@@ -73,13 +75,13 @@ export function CouponEditor({
           onChange={(e) => setAmountValue(e.target.value)}
           inputMode="decimal"
           placeholder="10"
-          className="text-xs font-black bg-white border border-slate-200 rounded-xl px-2.5 py-2 w-20 outline-none focus:border-primary"
+          className="text-xs font-black bg-surface-card border border-border rounded-xl px-2.5 py-2 w-20 outline-none focus:border-primary"
         />
         <input
           type="date"
           value={expiry}
           onChange={(e) => setExpiry(e.target.value)}
-          className="text-xs font-black bg-white border border-slate-200 rounded-xl px-2.5 py-2 outline-none focus:border-primary"
+          className="text-xs font-black bg-surface-card border border-border rounded-xl px-2.5 py-2 outline-none focus:border-primary"
         />
         <button
           type="button"
@@ -93,7 +95,7 @@ export function CouponEditor({
           type="button"
           onClick={() => setEditing(false)}
           disabled={isPending}
-          className="inline-flex items-center text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-2 text-slate-400 hover:text-secondary transition-colors"
+          className="inline-flex items-center text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           Cancel
         </button>

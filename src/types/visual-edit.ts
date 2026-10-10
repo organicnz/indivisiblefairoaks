@@ -1,26 +1,32 @@
 /**
  * Visual editor domain types.
  *
- * These were the last third of `src/types/crm.ts`, which made one file the
- * source of truth for two unrelated domains and meant a reader looking for the
- * CRM's media types had to scroll past the section editor's event signatures.
- * They live here now, next to `src/lib/visual-sections.ts` which is the module
- * that actually produces most of them.
- *
- * Only what a component imports is declared. The previous version also carried
- * a parallel `VisualSection`, `VisualSectionMedia`, `VisualSectionSaveResult`
- * and five more that nothing imported — a second, subtly different model of the
- * same thing, which is worse than no model because it looks like the real one.
+ * These types are specific to the visual editor's client-side state and events.
+ * Shared platform types (Storage, Edge Functions, CRM) live in `src/types/unified.ts`.
  */
 
-import type { ContentRow } from '@/lib/actions/content';
-import type { ContentBlockType } from '@/lib/blocks';
-import type { PublishedSection, VisualSection } from '@/lib/visual-sections';
+import type { PublishedSection } from '@/lib/visual-sections';
 
-// Re-export so overlay/header code has one import site for the page domain.
-/** Deprecated alias — use `ContentBlockType`. */
-export type { BlockType, ContentBlockType } from '@/lib/blocks';
-export type { PublishedSection, VisualSection };
+// Re-export PublishedSection from visual-sections
+export type { PublishedSection } from '@/lib/visual-sections';
+// Re-export shared platform types for backward compatibility
+export type {
+  AddBlockDetail as VisualSectionAddBlockDetail,
+  BackendStatus as VisualBackendStatus,
+  CopyRegionDefinition,
+  DeleteSectionDetail as VisualSectionDeleteDetail,
+  DuplicateSectionDetail as VisualSectionDuplicateDetail,
+  EdgeFunctionHealth as VisualEdgeFunctionHealth,
+  FocusSectionDetail as VisualSectionFocusEventDetail,
+  MediaFolder as VisualMediaFolder,
+  MediaItem as VisualMediaItem,
+  MediaUploadResult as VisualMediaUploadResult,
+  MoveSectionDetail as VisualSectionMoveEventDetail,
+  ToggleSectionDetail as VisualSectionToggleEventDetail,
+  VisualSaveResult,
+  VisualSectionOverlayItem,
+  VisualSectionsPublishedDetail,
+} from './unified';
 
 /**
  * The `content` row the visual editor is bound to.
@@ -32,24 +38,37 @@ export type { PublishedSection, VisualSection };
  */
 export interface VisualContentRow
   extends Pick<
-    ContentRow,
-    'id' | 'title' | 'slug' | 'excerpt' | 'type' | 'status' | 'body' | 'featured_image'
+    {
+      id: number;
+      title: string;
+      slug: string;
+      excerpt: string | null;
+      type: string;
+      status: string;
+      body: string | null;
+      featured_image: string | null;
+      metadata: Record<string, string> | null;
+      created_at: string | null;
+      published_at: string | null;
+      updated_at: string | null;
+    },
+    | 'id'
+    | 'title'
+    | 'slug'
+    | 'excerpt'
+    | 'type'
+    | 'status'
+    | 'body'
+    | 'featured_image'
+    | 'created_at'
+    | 'published_at'
+    | 'updated_at'
   > {
   metadata: Record<string, string> | null;
-  created_at?: string | null;
-  published_at?: string | null;
-  /**
-   * The optimistic-concurrency preimage.
-   *
-   * Adopted from every save's response rather than from the clock, because a
-   * `BEFORE UPDATE` trigger owns this column and two clocks disagree. See
-   * `saveContent` in `src/lib/actions/content.ts`.
-   */
-  updated_at?: string | null;
 }
 
 /** Where a picked piece of media is going. */
-export type CRMMediaTarget = 'featured' | 'section';
+export type VisualMediaTarget = 'featured' | 'section';
 
 /**
  * One positioned frame drawn over the page.
@@ -63,8 +82,8 @@ export type CRMMediaTarget = 'featured' | 'section';
  * `ordinal` are intentionally omitted — the overlay already holds the section;
  * the item is the frame, not a second section list to drift.
  */
-export interface VisualSectionOverlayItem
-  extends Pick<VisualSection, 'label' | 'blockIndex' | 'blockType'> {
+export interface VisualSectionOverlayItemLegacy
+  extends Pick<PublishedSection, 'label' | 'blockIndex' | 'blockType'> {
   top: number;
   left: number;
   width: number;
@@ -74,9 +93,6 @@ export interface VisualSectionOverlayItem
   /** DOM ordinal the frame was measured from (== `domIndex` when framed). */
   index: number;
 }
-
-/** A media folder the editor can browse, and therefore delete from. */
-export type VisualMediaFolder = 'crm' | 'content' | 'products';
 
 /** Whether the overlay has unsaved changes, and what happened last. */
 export interface VisualSaveState {
@@ -88,63 +104,33 @@ export interface VisualSaveState {
   conflict?: boolean;
 }
 
-// ── Event payloads ─────────────────────────────────────────────────────────
-//
-// The navbar and the overlay are two client components whose only common
-// ancestor is the root layout, a Server Component, so they talk over window
-// CustomEvents. These are the shapes.
-//
-// Every one of them addresses a section by `blockIndex` — the overlay's own
-// coordinate, carried on the `PublishedSection` the header renders. An earlier
-// revision used the DOM ordinal and had the overlay translate, which is the
-// design that produced the wrong-block bug: the header's ordinal and the
-// overlay's block index were only equal while the sanitizer had removed
-// nothing, and the failure was silent. One coordinate, end to end, cannot
-// disagree with itself.
+/** Event names for window CustomEvents between navbar and overlay. */
+export const VISUAL_EDIT_EVENTS = {
+  /** The overlay publishes the document's real section list. */
+  sectionsPublished: 'indivisible:page-sections-updated',
+  /** The navbar asks the overlay to load a different copy region. */
+  selectRegion: 'indivisible:select-region',
+  /** Frame or unframe a block — one, or all at once. */
+  toggleSection: 'indivisible:toggle-section-visual',
+  /** Scroll to a block, optionally opening its editor. */
+  focusSection: 'indivisible:focus-section',
+  /** Move a block one position up or down. */
+  moveSection: 'indivisible:move-section',
+  /** Duplicate a block directly after itself. */
+  duplicateSection: 'indivisible:duplicate-section',
+  /** Remove a block from the document and persist. */
+  deleteSection: 'indivisible:delete-section',
+  /** Insert a block after the active section, or append to the page. */
+  addBlock: 'indivisible:add-block',
+  /** Insert a block at a specific position. */
+  addBlockAt: 'indivisible:add-block-at',
+  /** Open the Supabase storage media library. */
+  openMediaLibrary: 'indivisible:open-media-library',
+  /** Open the revision history panel. */
+  openRevisions: 'indivisible:open-revisions',
+  /** Open the document settings panel. */
+  openSettings: 'indivisible:open-settings',
+} as const;
 
-export interface VisualSectionToggleEventDetail {
-  /** Block index, or omit when `all` is set. */
-  blockIndex?: number;
-  enabled?: boolean;
-  all?: boolean;
-}
-
-export interface VisualSectionFocusEventDetail {
-  blockIndex: number;
-  openEdit?: boolean;
-  highlightOnly?: boolean;
-}
-
-export interface VisualSectionMoveEventDetail {
-  blockIndex: number;
-  direction: 'up' | 'down';
-}
-
-export interface VisualSectionAddBlockDetail {
-  /** Block index to insert after; omit to append. */
-  insertAfterBlockIndex?: number;
-  type?: ContentBlockType;
-}
-
-export interface VisualSectionDuplicateDetail {
-  blockIndex: number;
-}
-
-export interface VisualSectionDeleteDetail {
-  blockIndex: number;
-}
-
-/** The event the overlay dispatches so the navbar renders the real model. */
-export interface VisualSectionsPublishedDetail {
-  sections: PublishedSection[];
-  pathname: string;
-  /**
-   * Which copy region these sections belong to, or null for the whole page.
-   *
-   * Published so the header can tell a stale list from a current one: `pathname`
-   * alone is not enough now that a page can hold several regions, each with its
-   * own document and its own sections. A section list that outlives its region is
-   * a list of controls that address nothing.
-   */
-  regionId: string | null;
-}
+/** Every event the visual editor puts on the window. */
+export type VisualEventName = keyof typeof VISUAL_EDIT_EVENTS;
