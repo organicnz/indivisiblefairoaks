@@ -1,13 +1,14 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { Heart, Menu, Search, X } from 'lucide-react';
+import { ArrowUpRight, Heart, Menu, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { AccountButton } from '@/components/layout/AccountButton';
 import { EditorialButton, EditorialDrawerRow } from '@/components/layout/EditorialButton';
+import { NavDropdown } from '@/components/layout/NavDropdown';
 import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
 import { isActiveRoute, ROUTES } from '@/config/routes';
 import { SITE_CONTACT } from '@/config/site';
@@ -154,6 +155,11 @@ function HeaderInner() {
             <nav aria-label="Primary" className="hidden 2xl:flex items-center gap-5">
               {ROUTES.map((link) => {
                 const isActive = isActiveRoute(pathname, link);
+                // Links with children render as a dropdown trigger; the row keeps
+                // one item per route so the 2xl width budget is unchanged.
+                if (link.children) {
+                  return <NavDropdown key={link.href} link={link} isActive={isActive} />;
+                }
                 return (
                   <Link
                     key={link.href}
@@ -306,6 +312,50 @@ function HeaderInner() {
 
               {ROUTES.map((link) => {
                 const isActive = isActiveRoute(pathname, link);
+                // Dropdown parents expand inline: drawer users must reach every
+                // child, and an always-visible group needs no accordion state.
+                if (link.children) {
+                  return (
+                    <div key={link.href} className="py-2">
+                      <Link
+                        href={link.href}
+                        onClick={() => setIsMenuOpen(false)}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={`text-xl font-bold uppercase tracking-wide transition-colors duration-300 ease-out py-2 rounded-sm ${FOCUS_RING} ${
+                          isActive ? 'text-accent-gold' : 'text-ink-on-dark hover:text-white'
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                      <ul className="mt-1 ml-1 border-l border-white/10 pl-4 flex flex-col gap-0.5">
+                        {link.children.map((child) => (
+                          <li key={child.href}>
+                            {child.external ? (
+                              <a
+                                href={child.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setIsMenuOpen(false)}
+                                className={`inline-flex items-center gap-1.5 text-base font-medium transition-colors duration-300 ease-out py-1.5 rounded-sm ${FOCUS_RING} text-ink-muted-on-dark hover:text-white`}
+                              >
+                                {child.label}
+                                <ArrowUpRight size={14} aria-hidden="true" />
+                              </a>
+                            ) : (
+                              <Link
+                                href={child.href}
+                                onClick={() => setIsMenuOpen(false)}
+                                className={`block text-base font-medium transition-colors duration-300 ease-out py-1.5 rounded-sm ${FOCUS_RING} text-ink-muted-on-dark hover:text-white`}
+                              >
+                                {child.label}
+                              </Link>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                }
                 return (
                   <Link
                     key={link.href}

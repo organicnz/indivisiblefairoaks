@@ -113,10 +113,14 @@ export default function VoterInfoPage() {
         </div>
 
         {/* 10x Pro Interactive District & Representative Lookup Tool */}
-        <SacramentoRepresentativeFinder />
+        {/* `id` is a nav target: the Voter Info dropdown links here. `scroll-mt`
+            clears the fixed header so the anchored section is not hidden under it. */}
+        <div id="representatives" className="scroll-mt-28">
+          <SacramentoRepresentativeFinder />
+        </div>
 
         {/* Detailed Guides Section */}
-        <div className="space-y-8">
+        <div id="guides" className="space-y-8 scroll-mt-28">
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             Voter Rights & Educational Guides
           </h2>
@@ -221,7 +225,10 @@ export default function VoterInfoPage() {
         </div>
 
         {/* Official County Contacts & Hotlines */}
-        <div className="p-8 rounded-2xl bg-gradient-to-r from-blue-950/60 to-slate-900 border border-primary-bright/30 space-y-6">
+        <div
+          id="hotlines"
+          className="p-8 rounded-2xl bg-gradient-to-r from-blue-950/60 to-slate-900 border border-primary-bright/30 space-y-6 scroll-mt-28"
+        >
           <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
             <Phone className="text-accent-gold" />
             <span>Sacramento County Elections & Voter Hotlines</span>

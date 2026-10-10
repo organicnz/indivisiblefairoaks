@@ -2,6 +2,7 @@
 
 import { CalendarPlus, Clock, Download, ExternalLink, MapPin, Music, Search } from 'lucide-react';
 import { useState } from 'react';
+import { buildGoogleCalendarUrl } from '@/lib/civic-events';
 
 export interface CivicEvent {
   id: string;
@@ -134,14 +135,9 @@ export function InteractiveEventsCalendar({
     return matchesCategory && matchesSearch;
   });
 
-  const generateGoogleCalendarUrl = (event: CivicEvent) => {
-    const title = encodeURIComponent(`Indivisible: ${event.title}`);
-    const details = encodeURIComponent(
-      `${event.description}\n\nRSVP / More info: ${event.rsvpUrl}`
-    );
-    const location = encodeURIComponent(`${event.locationName}, ${event.address}`);
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${event.isoDateStart}/${event.isoDateEnd}&details=${details}&location=${location}`;
-  };
+  // Single Google Calendar builder in `@/lib/civic-events`, shared with the
+  // homepage gathering card so the two links cannot drift into different shapes.
+  const generateGoogleCalendarUrl = (event: CivicEvent) => buildGoogleCalendarUrl(event);
 
   const downloadIcsFile = (event: CivicEvent) => {
     const icsContent = [
