@@ -25,6 +25,7 @@ import {
   Strikethrough,
   Trash2,
   Undo2,
+  UploadCloud,
   X,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -51,7 +52,7 @@ import {
   saveContent,
   setContentStatus,
 } from '@/lib/actions/content';
-import { getCRMEdgeFunctionHealth } from '@/lib/actions/crm';
+import { getCRMEdgeFunctionHealth, uploadCRMMedia } from '@/lib/actions/crm';
 import { getVisualPageContext } from '@/lib/actions/visual';
 import {
   type Block,
@@ -86,10 +87,10 @@ import {
   sectionLabelForBlock,
   type VisualSection,
 } from '@/lib/visual-sections';
-import type { CRMBackendStatus } from '@/types/crm';
 import type {
-  CRMMediaTarget,
+  BackendStatus,
   VisualContentRow,
+  VisualMediaTarget,
   AddBlockDetail as VisualSectionAddBlockDetail,
   DeleteSectionDetail as VisualSectionDeleteDetail,
   DuplicateSectionDetail as VisualSectionDuplicateDetail,
@@ -278,7 +279,7 @@ export function VisualEditOverlay() {
   const [sections, setSections] = useState<VisualSection[]>([]);
   const [contentRow, setContentRow] = useState<VisualContentRow | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const [backendStatus, setBackendStatus] = useState<CRMBackendStatus | null>(null);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [savingBackend, setSavingBackend] = useState(false);
   /**
@@ -348,7 +349,7 @@ export function VisualEditOverlay() {
 
   // Supabase S3 Storage media library modal state
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
-  const [mediaTarget, setMediaTarget] = useState<CRMMediaTarget>('section');
+  const [mediaTarget, setMediaTarget] = useState<VisualMediaTarget>('section');
 
   // Revisions history modal state
   const [isRevisionsOpen, setIsRevisionsOpen] = useState(false);
@@ -2525,7 +2526,7 @@ export function VisualEditOverlay() {
                 </div>
               )}
 
-              {/* Image Fields (with Supabase S3 storage modal) */}
+              {/* Image Fields (with Supabase S3 storage modal + direct upload) */}
               {editingBlock.type === 'image' && (
                 <div className="space-y-3">
                   <div>
@@ -2556,6 +2557,52 @@ export function VisualEditOverlay() {
                         <span>S3 Storage</span>
                       </button>
                     </div>
+                  </div>
+                  {/* Direct file upload */}
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error('Image must be 5MB or smaller');
+                          return;
+                        }
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        formData.append('folder', 'content');
+                        setSavingBackend(true);
+                        try {
+                          const res = await uploadCRMMedia(formData);
+                          if (res.success && res.data) {
+                            setEditingBlock({
+                              ...editingBlock,
+                              src: res.data.url,
+                              alt: res.data.name,
+                              width: res.data.width,
+                              height: res.data.height,
+                            });
+                            toast.success('Image uploaded to Supabase Storage');
+                          } else {
+                            toast.error(res.error || 'Upload failed');
+                          }
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : 'Upload failed');
+                        } finally {
+                          setSavingBackend(false);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 w-full rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 shadow-2xs"
+                    >
+                      <UploadCloud size={14} className="text-emerald-600" />
+                      <span>Upload Direct</span>
+                    </button>
                   </div>
                   {editingBlock.src && (
                     <div className="relative aspect-video w-full max-h-48 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">

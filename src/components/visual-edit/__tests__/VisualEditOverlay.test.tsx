@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
-import type { PublishedSection, VisualSectionsPublishedDetail } from '@/types/visual-edit';
+import type { PublishedSection, VisualSectionsPublishedDetail } from '@/types/unified';
 
 /**
  * What the in-page editor owes an organiser who is editing a live site.
@@ -42,7 +42,7 @@ vi.mock('@/lib/actions/content', () => ({
   getContentRevisions,
   restoreContentRevision,
 }));
-vi.mock('@/lib/actions/crm', () => ({ getCRMEdgeFunctionHealth }));
+vi.mock('@/lib/actions/crm', () => ({ getCRMEdgeFunctionHealth, uploadCRMMedia: vi.fn() }));
 vi.mock('@/lib/actions/visual', () => ({ getVisualPageContext }));
 vi.mock('sonner', () => ({ toast }));
 

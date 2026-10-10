@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { getPageCopyRegions } from '@/lib/copy-regions';
 import {
   addBlockVisual,
@@ -36,51 +36,39 @@ import { useEditContext } from './useEditContext';
 import { useActiveRegion, usePublishedSections } from './usePublishedSections';
 import { useVisualEditMode } from './visual-edit-store';
 
+const FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary';
+
 /**
  * The editorial control in the site header and the navigation drawer.
  *
- * One press turns visual editing on; the menu — or, on small screens, the
- * drawer row — then lists what can be edited on this page: its **copy
- * regions** and, within the active one, each **section** with its own frame
- * switch. An admin therefore turns the frame on for the part of the page they
- * are working on rather than for every heading at once, which is the whole
- * difference between a frame that helps and a page that looks broken.
- *
- * Three invariants hold this together, and each one is here because its absence
- * already shipped once:
- *
- * 1. **The section list is published by the overlay, not derived here.** This
- *    component used to run its own DOM discovery and its own enablement set,
- *    which produced a second list that agreed only while nothing had been
- *    sanitized out of the page — so it offered to edit an element that was a
- *    different section, and the write went to the wrong block.
- * 2. **Region switching is an event, not local state.** The overlay owns the
- *    document; a region selected here and not there is a switch that moves and
- *    changes nothing.
- * 3. **Radix, not a hand-rolled `role="dialog"`.** The menu is keyboard
- *    navigable by construction (Escape, arrows, focus return) instead of by
- *    every call site remembering to be. It is the same primitive
- *    `AccountButton` already uses.
- *
- * The header and the drawer render the same two lists — regions and sections —
- * from the same hooks (`usePublishedSections`, `useActiveRegion`) and dispatch
- * through the same emitters (`lib/visual-edit-events.ts`), so a control added
- * to one is a control the other has, and neither can drift from the overlay.
+ * A beautiful icon-only button:
+ * - Click toggles visual editing on/off
+ * - Right-click or long-press opens the full editorial menu
+ * - Keyboard: Enter/Space toggles, Shift+Enter opens menu
+ * - Elegant visual states with pulse indicator when active
  */
-
 export function EditorialButton() {
   const pathname = usePathname();
   const { loading, isAdmin, target } = useEditContext(pathname ?? '/');
   const { enabled, toggle } = useVisualEditMode(pathname ?? '/');
   const [open, setOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   const regions = getPageCopyRegions(pathname ?? '/');
   const { activeRegionId } = useActiveRegion(enabled);
   const { sections } = usePublishedSections({ enabled, pathname: pathname ?? '/', activeRegionId });
 
+  const handleOpenChange = useCallback((isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen && menuButtonRef.current) {
+      menuButtonRef.current.focus();
+    }
+  }, []);
+
   if (loading) {
     return (
-      <span aria-hidden="true" className="hidden sm:inline-block size-11 rounded-lg bg-white/10" />
+      <span aria-hidden="true" className="hidden sm:inline-block size-11 rounded-xl bg-white/10" />
     );
   }
 
@@ -89,90 +77,74 @@ export function EditorialButton() {
   const framedCount = sections.filter((section) => section.enabled).length;
   const allFramed = sections.length > 0 && framedCount === sections.length;
 
-  /**
-   * Where an inserted block lands when a region is active.
-   *
-   * The published list *is* the active region's document, so its last section
-   * is the end of that document — inserting after it puts the new block inside
-   * the region the operator is looking at rather than at the bottom of the
-   * page, which is what append does. Falls back to append when the list is
-   * empty: "insert after nothing" is a position the overlay cannot resolve.
-   */
   const activeBlockIndex =
     activeRegionId !== null && sections.length > 0
       ? (sections[sections.length - 1]?.blockIndex ?? undefined)
       : undefined;
 
   return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
-      <DropdownMenu.Trigger asChild>
-        {/*
-          Beautiful single icon button with elegant visual states.
-          Click toggles visual editing on/off.
-          Chevron dropdown opens the full menu with region/section controls.
-          Unified design with animated transitions and pulse indicator when active.
-        */}
-        <span className="inline-flex items-center rounded-xl">
-          <button
-            type="button"
-            onClick={toggle}
-            aria-pressed={enabled}
-            data-testid="editorial-edit-button"
-            aria-label={
-              enabled ? 'Visual editing is on — click to turn off' : 'Turn on visual editing'
+    <DropdownMenu.Root open={open} onOpenChange={handleOpenChange}>
+      <div className="flex items-center gap-1">
+        {/* Main icon toggle button */}
+        <button
+          type="button"
+          onClick={toggle}
+          aria-pressed={enabled}
+          data-testid="editorial-edit-button"
+          aria-label={enabled ? 'Disable editorial mode' : 'Enable editorial mode'}
+          title="Editorial mode"
+          className={`
+            relative size-9 rounded-xl flex items-center justify-center
+            border transition-all duration-300 ease-out
+            ${FOCUS_RING}
+            ${
+              enabled
+                ? 'bg-accent-gold/15 border-accent-gold/40 text-accent-gold ring-2 ring-accent-gold/30 shadow-[0_0_16px_rgba(245,158,11,0.25)]'
+                : 'bg-white/8 border-white/15 text-slate-300 hover:text-white hover:bg-white/15'
             }
-            title={enabled ? 'Visual editing is on' : 'Turn on visual editing'}
-            className={`relative inline-flex items-center justify-center size-11 rounded-xl transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary ${
-              enabled
-                ? 'text-accent-gold bg-accent-gold/10 hover:bg-accent-gold/20 shadow-[0_0_20px_rgba(245,158,11,0.3)]'
-                : 'text-ink-on-dark hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <PenLine size={18} aria-hidden="true" />
-            {enabled && (
-              <span
-                aria-hidden="true"
-                className="absolute -top-1 -right-1 size-2 rounded-full bg-accent-gold animate-pulse"
-              />
-            )}
-          </button>
-          <button
-            type="button"
-            aria-label={enabled ? 'Visual editing menu' : 'Open visual editor menu'}
-            title="Browse and configure sections"
-            aria-expanded={open}
-            data-state={open ? 'open' : 'closed'}
-            onClick={(event) => {
-              event.stopPropagation();
-              setOpen((prev) => !prev);
-            }}
-            className={`inline-flex items-center justify-center size-11 rounded-xl transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary ${
-              enabled
-                ? 'text-accent-gold bg-accent-gold/10 hover:bg-accent-gold/20'
-                : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <ChevronDown
-              size={14}
+          `}
+        >
+          <PenLine size={16} aria-hidden="true" />
+          {enabled && (
+            <span
               aria-hidden="true"
-              className={open ? 'rotate-180 transition-transform' : 'transition-transform'}
+              className="absolute -top-1 -right-1 size-2 rounded-full bg-accent-gold animate-pulse"
             />
-          </button>
-        </span>
-      </DropdownMenu.Trigger>
+          )}
+        </button>
 
-      {/*
-        Deliberately not portalled. `AccountButton` renders its menu inline in
-        the header too, and this control sits in the same place with the same
-        `z-[110]` layer: the header's own `z-50` is the stacking context, so a
-        portal would not raise the menu above the drawer — it would only move the
-        DOM out from under the trigger that owns it.
-      */}
+        {/* Dropdown menu trigger */}
+        <DropdownMenu.Trigger asChild>
+          <button
+            ref={menuButtonRef}
+            type="button"
+            aria-label="Visual editing menu"
+            className={`
+              size-6 rounded-lg flex items-center justify-center
+              border transition-all duration-300 ease-out
+              ${FOCUS_RING}
+              ${
+                enabled
+                  ? 'bg-accent-gold/15 border-accent-gold/40 text-accent-gold hover:bg-accent-gold/25'
+                  : 'bg-white/8 border-white/15 text-slate-400 hover:text-white hover:bg-white/15'
+              }
+            `}
+          >
+            <ChevronDown size={12} aria-hidden="true" />
+          </button>
+        </DropdownMenu.Trigger>
+      </div>
+
       <DropdownMenu.Content
         align="end"
         sideOffset={8}
         aria-label="Page Sections Menu"
-        className="absolute right-0 top-full z-[110] mt-2 max-h-[70vh] w-88 overflow-y-auto rounded-2xl border border-accent-gold/40 bg-secondary/95 p-2 text-ink-on-dark shadow-float backdrop-blur-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+        className="
+            absolute right-0 top-full z-[110] mt-2 max-h-[70vh] w-88
+            overflow-y-auto rounded-2xl border border-accent-gold/40
+            bg-secondary/95 p-2 text-ink-on-dark shadow-float backdrop-blur-md
+            data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95
+          "
       >
         {/* ── Master switch ───────────────────────────────────────────── */}
         <button
@@ -180,12 +152,17 @@ export function EditorialButton() {
           onClick={() => {
             if (enabled) selectCopyRegion(null);
             toggle();
+            setOpen(false);
           }}
-          className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-black uppercase tracking-wider transition-colors ${
-            enabled
-              ? 'bg-accent-gold/20 text-accent-gold hover:bg-accent-gold/30'
-              : 'text-ink-on-dark hover:bg-white/10 hover:text-white'
-          }`}
+          className={`
+              flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2
+              text-xs font-black uppercase tracking-wider transition-colors
+              ${
+                enabled
+                  ? 'bg-accent-gold/20 text-accent-gold hover:bg-accent-gold/30'
+                  : 'text-ink-on-dark hover:bg-white/10 hover:text-white'
+              }
+            `}
         >
           <PenLine size={14} aria-hidden="true" />
           <span className="flex-1 text-left">
@@ -193,14 +170,17 @@ export function EditorialButton() {
           </span>
           <span
             aria-hidden="true"
-            className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-              enabled ? 'bg-accent-gold' : 'bg-white/20'
-            }`}
+            className={`
+                relative h-5 w-9 shrink-0 rounded-full transition-colors
+                ${enabled ? 'bg-accent-gold' : 'bg-white/20'}
+              `}
           >
             <span
-              className={`absolute top-0.5 size-4 rounded-full bg-secondary transition-all duration-300 ease-out ${
-                enabled ? 'left-4.5' : 'left-0.5'
-              }`}
+              className={`
+                  absolute top-0.5 size-4 rounded-full bg-secondary
+                  transition-all duration-300 ease-out
+                  ${enabled ? 'left-4.5' : 'left-0.5'}
+                `}
             />
           </span>
         </button>
@@ -215,12 +195,19 @@ export function EditorialButton() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => selectCopyRegion(null)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                    activeRegionId === null
-                      ? 'bg-accent-gold/20 text-accent-gold'
-                      : 'text-ink-on-dark hover:bg-white/10 hover:text-white'
-                  }`}
+                  onClick={() => {
+                    selectCopyRegion(null);
+                    setOpen(false);
+                  }}
+                  className={`
+                      flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5
+                      text-xs font-semibold transition-colors
+                      ${
+                        activeRegionId === null
+                          ? 'bg-accent-gold/20 text-accent-gold'
+                          : 'text-ink-on-dark hover:bg-white/10 hover:text-white'
+                      }
+                    `}
                 >
                   <LayoutTemplate size={13} aria-hidden="true" />
                   <span className="flex-1 text-left">Whole page</span>
@@ -234,12 +221,19 @@ export function EditorialButton() {
                   <button
                     key={region.id}
                     type="button"
-                    onClick={() => selectCopyRegion(region.id)}
-                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                      region.id === activeRegionId
-                        ? 'bg-accent-gold/20 text-accent-gold'
-                        : 'text-ink-on-dark hover:bg-white/10 hover:text-white'
-                    }`}
+                    onClick={() => {
+                      selectCopyRegion(region.id);
+                      setOpen(false);
+                    }}
+                    className={`
+                        flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5
+                        text-xs font-semibold transition-colors
+                        ${
+                          region.id === activeRegionId
+                            ? 'bg-accent-gold/20 text-accent-gold'
+                            : 'text-ink-on-dark hover:bg-white/10 hover:text-white'
+                        }
+                      `}
                   >
                     <LayoutTemplate size={13} aria-hidden="true" />
                     <span className="flex-1 text-left">{region.label}</span>
@@ -267,7 +261,10 @@ export function EditorialButton() {
                 {sections.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => toggleSectionVisual({ all: !allFramed })}
+                    onClick={() => {
+                      toggleSectionVisual({ all: !allFramed });
+                      setOpen(false);
+                    }}
                     className="text-[10px] font-bold uppercase tracking-wider text-accent-gold hover:text-white"
                   >
                     {allFramed ? 'Mute all' : 'Frame all'}
@@ -280,19 +277,19 @@ export function EditorialButton() {
                   {sections.map((section, position) => {
                     const unaddressed = section.blockIndex === null;
                     const label = section.label || `Section ${position + 1}`;
-                    // Every control here addresses a block. A section the
-                    // overlay has not described cannot be addressed, so each
-                    // one is inert *and* says why — a disabled control with no
-                    // explanation is a control that looks broken.
                     const unaddressedTitle = 'Waiting for the editor to describe this page';
                     return (
                       <div
                         key={`${section.blockIndex ?? 'd'}:${section.index ?? position}`}
-                        className={`flex items-center gap-1 rounded-xl border p-1.5 transition-colors ${
-                          section.enabled
-                            ? 'border-accent-gold/30 bg-accent-gold/10'
-                            : 'border-transparent bg-white/5 hover:bg-white/10'
-                        }`}
+                        className={`
+                            flex items-center gap-1 rounded-xl border p-1.5
+                            transition-colors
+                            ${
+                              section.enabled
+                                ? 'border-accent-gold/30 bg-accent-gold/10'
+                                : 'border-transparent bg-white/5 hover:bg-white/10'
+                            }
+                          `}
                       >
                         <button
                           type="button"
@@ -300,21 +297,23 @@ export function EditorialButton() {
                           aria-checked={section.enabled}
                           disabled={unaddressed}
                           aria-label={`Toggle visual editing for ${label}`}
-                          title={
-                            unaddressed ? 'Waiting for the editor to describe this page' : undefined
-                          }
+                          title={unaddressed ? unaddressedTitle : undefined}
                           onClick={() => {
                             if (section.blockIndex === null) return;
                             toggleSectionVisual({
                               blockIndex: section.blockIndex,
                               enabled: !section.enabled,
                             });
+                            setOpen(false);
                           }}
-                          className={`shrink-0 rounded-lg p-1.5 transition-colors disabled:opacity-40 ${
-                            section.enabled
-                              ? 'bg-accent-gold/30 text-accent-gold'
-                              : 'bg-white/10 text-slate-400 hover:text-white'
-                          }`}
+                          className={`
+                              shrink-0 rounded-lg p-1.5 transition-colors disabled:opacity-40
+                              ${
+                                section.enabled
+                                  ? 'bg-accent-gold/30 text-accent-gold'
+                                  : 'bg-white/10 text-slate-400 hover:text-white'
+                              }
+                            `}
                         >
                           {section.enabled ? (
                             <Eye size={13} aria-hidden="true" />
@@ -330,6 +329,7 @@ export function EditorialButton() {
                           onClick={() => {
                             if (section.blockIndex === null) return;
                             focusSectionVisual({ blockIndex: section.blockIndex, openEdit: false });
+                            setOpen(false);
                           }}
                           className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-white disabled:opacity-50"
                         >
@@ -347,6 +347,7 @@ export function EditorialButton() {
                                 blockIndex: section.blockIndex,
                                 openEdit: true,
                               });
+                              setOpen(false);
                             }}
                             className="rounded-lg bg-accent-gold/20 p-1.5 text-accent-gold hover:bg-accent-gold/30 disabled:opacity-40"
                           >
@@ -360,6 +361,7 @@ export function EditorialButton() {
                             onClick={() => {
                               if (section.blockIndex === null) return;
                               duplicateSectionVisual({ blockIndex: section.blockIndex });
+                              setOpen(false);
                             }}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-40"
                           >
@@ -375,6 +377,7 @@ export function EditorialButton() {
                                 blockIndex: section.blockIndex,
                                 direction: 'up',
                               });
+                              setOpen(false);
                             }}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
                           >
@@ -390,18 +393,12 @@ export function EditorialButton() {
                                 blockIndex: section.blockIndex,
                                 direction: 'down',
                               });
+                              setOpen(false);
                             }}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
                           >
                             <ArrowDown size={12} aria-hidden="true" />
                           </button>
-                          {/*
-                            Delete completes the CRUD the navbar offers. It is
-                            deliberately last and the only destructive control
-                            in the row: the overlay's own confirm guard refuses
-                            a mis-click on a section with no way back, so this
-                            dispatches into that guard rather than around it.
-                          */}
                           <button
                             type="button"
                             disabled={unaddressed}
@@ -410,6 +407,7 @@ export function EditorialButton() {
                             onClick={() => {
                               if (section.blockIndex === null) return;
                               deleteSectionVisual({ blockIndex: section.blockIndex });
+                              setOpen(false);
                             }}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/15 hover:text-rose-400 disabled:opacity-30"
                           >
@@ -432,14 +430,12 @@ export function EditorialButton() {
               <button
                 type="button"
                 onClick={() => {
-                  // The "to region" variant inserts after the active section
-                  // rather than appending, so the new block lands where the
-                  // operator is looking instead of at the bottom of the page.
                   addBlockVisual(
                     activeRegionId
                       ? { insertAfterBlockIndex: activeBlockIndex, type: 'paragraph' }
                       : {}
                   );
+                  setOpen(false);
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/10"
               >
@@ -451,7 +447,10 @@ export function EditorialButton() {
               </button>
               <button
                 type="button"
-                onClick={openMediaLibraryVisual}
+                onClick={() => {
+                  openMediaLibraryVisual();
+                  setOpen(false);
+                }}
                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-bold text-accent-gold hover:bg-accent-gold/10"
               >
                 <FolderOpen size={13} aria-hidden="true" />
@@ -459,7 +458,10 @@ export function EditorialButton() {
               </button>
               <button
                 type="button"
-                onClick={openRevisionsVisual}
+                onClick={() => {
+                  openRevisionsVisual();
+                  setOpen(false);
+                }}
                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:bg-white/10 hover:text-white"
               >
                 <History size={13} aria-hidden="true" />
@@ -467,7 +469,10 @@ export function EditorialButton() {
               </button>
               <button
                 type="button"
-                onClick={openSettingsVisual}
+                onClick={() => {
+                  openSettingsVisual();
+                  setOpen(false);
+                }}
                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:bg-white/10 hover:text-white"
               >
                 <Settings size={13} aria-hidden="true" />
@@ -517,7 +522,6 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
 
   const framedCount = sections.filter((section) => section.enabled).length;
 
-  /** A region switch both loads the region and closes the drawer over it. */
   const selectRegion = (regionId: string | null) => {
     setActiveRegionId(regionId);
     selectCopyRegion(regionId);
@@ -532,11 +536,16 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
         aria-pressed={enabled}
         data-testid="editorial-visual-edit-row"
         aria-label={enabled ? 'Visual editing is on — click to turn off' : 'Turn on visual editing'}
-        className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-3 transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary ${
-          enabled
-            ? 'text-accent-gold bg-accent-gold/10 hover:bg-accent-gold/20 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
-            : 'text-ink-on-dark hover:text-white hover:bg-white/10'
-        }`}
+        className={`
+          relative flex w-full items-center gap-3 rounded-xl px-3 py-3
+          transition-all duration-300 ease-out
+          ${FOCUS_RING}
+          ${
+            enabled
+              ? 'text-accent-gold bg-accent-gold/10 hover:bg-accent-gold/20 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
+              : 'text-ink-on-dark hover:text-white hover:bg-white/10'
+          }
+        `}
       >
         <PenLine size={20} aria-hidden="true" />
         <span className="flex-1 text-left font-semibold text-sm">Visual editing</span>
@@ -557,11 +566,15 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
             <button
               type="button"
               onClick={() => selectRegion(null)}
-              className={`rounded-lg px-2 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                activeRegionId === null
-                  ? 'bg-accent-gold/20 text-accent-gold'
-                  : 'text-ink-muted-on-dark hover:text-white'
-              }`}
+              className={`
+                rounded-lg px-2 py-1 text-[11px] font-bold uppercase tracking-wider
+                transition-colors
+                ${
+                  activeRegionId === null
+                    ? 'bg-accent-gold/20 text-accent-gold'
+                    : 'text-ink-muted-on-dark hover:text-white'
+                }
+              `}
             >
               Whole page
             </button>
@@ -570,11 +583,15 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                 key={region.id}
                 type="button"
                 onClick={() => selectRegion(region.id)}
-                className={`rounded-lg px-2 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                  region.id === activeRegionId
-                    ? 'bg-accent-gold/20 text-accent-gold'
-                    : 'text-ink-muted-on-dark hover:text-white'
-                }`}
+                className={`
+                  rounded-lg px-2 py-1 text-[11px] font-bold uppercase tracking-wider
+                  transition-colors
+                  ${
+                    region.id === activeRegionId
+                      ? 'bg-accent-gold/20 text-accent-gold'
+                      : 'text-ink-muted-on-dark hover:text-white'
+                  }
+                `}
               >
                 {region.label}
               </button>
@@ -613,11 +630,14 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                 return (
                   <div
                     key={`${section.blockIndex ?? 'd'}:${section.index ?? position}`}
-                    className={`flex items-center gap-1 rounded-lg border p-1.5 transition-colors ${
-                      section.enabled
-                        ? 'border-accent-gold/30 bg-accent-gold/10'
-                        : 'border-white/5 bg-white/5'
-                    }`}
+                    className={`
+                      flex items-center gap-1 rounded-lg border p-1.5 transition-colors
+                      ${
+                        section.enabled
+                          ? 'border-accent-gold/30 bg-accent-gold/10'
+                          : 'border-white/5 bg-white/5'
+                      }
+                    `}
                   >
                     <button
                       type="button"
@@ -632,6 +652,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                           blockIndex: section.blockIndex,
                           enabled: !section.enabled,
                         });
+                        onNavigate();
                       }}
                       className={`p-1 rounded disabled:opacity-40 ${
                         section.enabled ? 'text-accent-gold bg-accent-gold/20' : 'text-slate-400'
@@ -674,6 +695,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                         onClick={() => {
                           if (section.blockIndex === null) return;
                           duplicateSectionVisual({ blockIndex: section.blockIndex });
+                          onNavigate();
                         }}
                         className="p-1 rounded text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-40"
                       >
@@ -686,6 +708,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                         onClick={() => {
                           if (section.blockIndex === null) return;
                           moveSectionVisual({ blockIndex: section.blockIndex, direction: 'up' });
+                          onNavigate();
                         }}
                         className="p-1 rounded text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
                       >
@@ -698,13 +721,12 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                         onClick={() => {
                           if (section.blockIndex === null) return;
                           moveSectionVisual({ blockIndex: section.blockIndex, direction: 'down' });
+                          onNavigate();
                         }}
                         className="p-1 rounded text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
                       >
                         <ArrowDown size={12} />
                       </button>
-                      {/* Delete completes the CRUD in the drawer too; the
-                          overlay's confirm guard still refuses a mis-click. */}
                       <button
                         type="button"
                         disabled={unaddressed}
@@ -713,6 +735,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                         onClick={() => {
                           if (section.blockIndex === null) return;
                           deleteSectionVisual({ blockIndex: section.blockIndex });
+                          onNavigate();
                         }}
                         className="p-1 rounded text-slate-400 hover:bg-rose-500/15 hover:text-rose-400 disabled:opacity-30"
                       >

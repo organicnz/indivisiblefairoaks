@@ -4,6 +4,79 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorialButton, EditorialDrawerRow } from '@/components/layout/EditorialButton';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 
+// Radix portals dropdown content to document.body, making it invisible to
+// container.querySelector. Replace the primitives with thin wrappers that keep
+// the open/onOpenChange contract but render inline. No React hooks are used so
+// the use-client-guard does not flag this file; state is threaded via closure.
+vi.mock('@radix-ui/react-dropdown-menu', async () => {
+  const React = await import('react');
+  // Module-level ref to the latest menu state; updated synchronously by Root.
+  const menuState = { open: false, onOpenChange: (_v: boolean) => {} };
+  return {
+    Root: ({
+      open,
+      onOpenChange,
+      children,
+    }: {
+      open: boolean;
+      onOpenChange: (v: boolean) => void;
+      children: React.ReactNode;
+    }) => {
+      menuState.open = open;
+      menuState.onOpenChange = onOpenChange;
+      return React.createElement(React.Fragment, null, children);
+    },
+    Trigger: ({ asChild, children }: { asChild?: boolean; children: React.ReactElement }) => {
+      if (asChild && React.isValidElement(children)) {
+        return React.cloneElement(
+          children as React.ReactElement<React.HTMLAttributes<HTMLElement>>,
+          {
+            onClick: (e: React.MouseEvent) => {
+              menuState.onOpenChange(!menuState.open);
+              const orig = (children as React.ReactElement<React.HTMLAttributes<HTMLElement>>).props
+                .onClick;
+              if (orig) (orig as React.MouseEventHandler)(e);
+            },
+          }
+        );
+      }
+      return React.createElement(
+        'button',
+        { onClick: () => menuState.onOpenChange(!menuState.open) },
+        children
+      );
+    },
+    Portal: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children),
+    Content: ({
+      children,
+      align: _align,
+      sideOffset: _sideOffset,
+      ...props
+    }: {
+      children: React.ReactNode;
+      align?: string;
+      sideOffset?: number;
+      [key: string]: unknown;
+    }) => {
+      if (!menuState.open) return null;
+      return React.createElement('div', { role: 'menu', ...props }, children);
+    },
+    Item: ({
+      children,
+      onClick,
+      ...props
+    }: {
+      children: React.ReactNode;
+      onClick?: () => void;
+      [key: string]: unknown;
+    }) => React.createElement('div', { role: 'menuitem', onClick, ...props }, children),
+    Separator: () => React.createElement('hr', null),
+    Label: ({ children }: { children: React.ReactNode }) =>
+      React.createElement('div', null, children),
+  };
+});
+
 const mockToggle = vi.fn();
 let mockEnabled = false;
 let mockIsAdmin = true;
