@@ -1,8 +1,13 @@
 /**
  * Unified CRM Domain Types
  *
- * Single source of truth for CRM constituents, tasks, campaigns, visual
- * email composer blocks, media storage assets, and edge function payloads.
+ * Single source of truth for CRM constituents, tasks, campaigns, the visual
+ * email composer blocks, media storage assets and edge function payloads.
+ *
+ * The *page* visual editor's own types live in `src/types/visual-edit.ts`. They
+ * were here once, which made this file the source of truth for two domains and
+ * left a second, unused model of the section editor beside the one the overlay
+ * actually uses.
  */
 
 import type { Database } from '@/types/supabase';
@@ -20,12 +25,13 @@ export type CRMActivityInsert = Database['public']['Tables']['crm_activities']['
 
 /**
  * A broadcast campaign row.
- * `marked_failed_at` and `marked_failed_by` are tracked for failure audit.
+ *
+ * Plain `Row` — `marked_failed_at` / `marked_failed_by` already exist on the
+ * generated row as `string | null` (see `src/types/supabase.ts`), so the
+ * previous `Row & { marked_failed_at?: … }` intersection only diverged
+ * optional-vs-required and is removed.
  */
-export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'] & {
-  marked_failed_at?: string | null;
-  marked_failed_by?: string | null;
-};
+export type CRMBroadcast = Database['public']['Tables']['crm_broadcasts']['Row'];
 export type CRMBroadcastInsert = Database['public']['Tables']['crm_broadcasts']['Insert'];
 export type CRMBroadcastUpdate = Database['public']['Tables']['crm_broadcasts']['Update'];
 
@@ -194,216 +200,10 @@ export interface CRMBroadcastDispatchResult {
 // `composer/types.ts` is the definition site (the visual editor's domain);
 // this is the canonical import path, so no consumer imports the same symbol
 // from two places and drifts when one of them moves.
+/** Deprecated alias — use `EmailBlockType` (disjoint from page `ContentBlockType`). */
 export type {
   BlockType,
   ComposerBlock,
   ComposerTemplate,
+  EmailBlockType,
 } from '@/components/admin/crm/composer/types';
-
-// ==========================================
-// 6. Visual Page Editor Domain Types
-// ==========================================
-
-export interface VisualPageSection {
-  index: number;
-  label: string;
-  id?: string;
-  domId?: string;
-  type?: string;
-  html?: string;
-  blockCount?: number;
-  isModified?: boolean;
-}
-
-export interface VisualContentRow {
-  id: number;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  type: string;
-  status: 'publish' | 'draft' | string;
-  body: string | null;
-  featured_image: string | null;
-  metadata: Record<string, string> | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  published_at?: string | null;
-}
-
-export type VisualSectionActionType =
-  | 'edit'
-  | 'add'
-  | 'delete'
-  | 'move_up'
-  | 'move_down'
-  | 'duplicate'
-  | 'settings'
-  | 'revisions';
-
-export interface VisualBackendSyncState {
-  status: 'idle' | 'saving' | 'saved' | 'error';
-  lastSavedAt?: string;
-  error?: string;
-}
-
-export interface VisualSectionOverlayItem {
-  index: number;
-  label: string;
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-  bottom: number;
-  right: number;
-  blockIndex?: number;
-  blockType?: string;
-}
-
-export type CRMMediaTarget = 'featured' | 'section';
-
-export interface VisualRevisionItem {
-  id: number;
-  content_id: number;
-  title: string | null;
-  slug: string | null;
-  excerpt: string | null;
-  type: string | null;
-  status: string | null;
-  body: string | null;
-  featured_image: string | null;
-  metadata: Record<string, string> | null;
-  created_at: string;
-  published_at?: string | null;
-}
-
-export interface VisualBlockData {
-  id: string;
-  type: string;
-  html?: string;
-  level?: number;
-  items?: string[];
-  src?: string;
-  alt?: string;
-  caption?: string;
-  tone?: string;
-  label?: string;
-  href?: string;
-  width?: number | null;
-  height?: number | null;
-  className?: string;
-}
-
-export interface VisualEditTarget {
-  kind: 'visual-section';
-  sectionId: string;
-  title: string;
-  type: 'cms' | 'crm';
-}
-
-export interface VisualEditorState {
-  enabled: boolean;
-  activeSectionIndex: number | null;
-  hoveredSectionIndex: number | null;
-  showSectionBadges: boolean;
-  showAllSectionBorders: boolean;
-  enabledSectionIndices?: number[];
-  isRevisionsOpen?: boolean;
-  isSettingsOpen?: boolean;
-  mediaModalOpen?: boolean;
-}
-
-/** A visual editor section associated with a CMS content row or CRM entity. */
-export interface VisualSection {
-  id: string;
-  type: 'cms' | 'crm' | 'custom';
-  title: string;
-  slug: string | null;
-  content?: string;
-  excerpt?: string | null;
-  metadata?: Record<string, string>;
-  status: 'publish' | 'draft' | string;
-  backendId: number | string | null; // content.id or crm_contact.id etc.
-  media: VisualSectionMedia[];
-  createdAt?: string;
-  updatedAt?: string;
-  blocks?: VisualBlockData[];
-  isTurnedOn?: boolean;
-}
-
-/** Media item within a visual section, linked to Supabase Storage. */
-export interface VisualSectionMedia {
-  id: string;
-  name: string;
-  path: string;
-  url: string;
-  mimeType: string;
-  size: number;
-  width?: number | null;
-  height?: number | null;
-  altText?: string;
-  caption?: string;
-  sortOrder: number;
-}
-
-/** Result of saving a visual section with all its media. */
-export interface VisualSectionSaveResult {
-  success: boolean;
-  section: VisualSection;
-  error?: string;
-}
-
-/** Result of deleting a visual section. */
-export interface VisualSectionDeleteResult {
-  success: boolean;
-  error?: string;
-}
-
-/** Result of refreshing sections from backend. */
-export interface VisualSectionRefreshResult {
-  success: boolean;
-  sections: VisualSection[];
-  error?: string;
-}
-
-/** Action to perform on a visual section. */
-export type VisualSectionAction =
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'refresh'
-  | 'uploadMedia'
-  | 'deleteMedia';
-
-// ==========================================
-// 7. Visual Section Custom Event Signatures
-// ==========================================
-
-export interface VisualSectionToggleEventDetail {
-  index?: number;
-  enabled?: boolean;
-  all?: boolean;
-}
-
-export interface VisualSectionFocusEventDetail {
-  index: number;
-  openEdit?: boolean;
-  highlightOnly?: boolean;
-}
-
-export interface VisualSectionMoveEventDetail {
-  index: number;
-  direction: 'up' | 'down';
-}
-
-export interface VisualSectionAddBlockDetail {
-  insertAfterIndex?: number;
-  type?: string;
-}
-
-export interface VisualSectionDuplicateDetail {
-  index: number;
-}
-
-export interface VisualSectionDeleteDetail {
-  index: number;
-}

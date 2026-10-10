@@ -5,13 +5,22 @@
  * Uses the browser Supabase client — no 'use cache', no next/headers.
  */
 import { createClient } from '@/lib/supabase';
+import type { Database } from '@/types/supabase';
+
+/** Raw DB row — the canonical `gallery_photos` row (has `id: number` + `slug`). */
+export type GalleryPhotoRow = Database['public']['Tables']['gallery_photos']['Row'];
 
 /**
- * Represents a gallery photo from the gallery_photos table.
- * The `url` field is set from the storage_path using the public Supabase Storage URL pattern.
+ * Gallery photo with its `storage_path` resolved to a public URL.
+ *
+ * `id` stays the `slug` string the gallery UI keys on; `dbId` carries the
+ * numeric PK for joins. `storage_path` is kept (the view type omits it) so
+ * the uploader and the visual editor can ref-check before delete.
  */
 export interface GalleryPhoto {
   id: string;
+  dbId: number | null;
+  slug: string;
   storage_path: string;
   url: string;
   caption: string;
@@ -27,51 +36,21 @@ export interface GalleryPhoto {
   label?: string;
 }
 
-// Raw DB row shape for gallery_photos. Auto-generated types don't include
-// this table yet — pending the next `types:generate` run.
-interface GalleryPhotoRow {
-  slug: string;
-  storage_path: string;
-  caption: string | null;
-  location: string | null;
-  category: string | null;
-  sign_quote: string | null;
-  date_label: string | null;
-  photographer: string | null;
-  is_hero: boolean | null;
-  is_pair: boolean | null;
-  alt: string | null;
-  sort_order: number | null;
-}
-
 /**
- * Fetches gallery photos from the gallery_photos table.
+ * Fetches gallery photos from the `gallery_photos` table.
  *
- * Uses a cast to bypass auto-generated Supabase types — the table exists in
- * the DB (migration 20260904120000_gallery_photos.sql) but has not been
- * picked up by `types:generate` yet. Remove the cast after the next run.
+ * Uses the generated `Database` row type directly — no casts, no stale
+ * "pending types:generate" workaround. `label` is optional on the row and
+ * flows through when present.
  */
 export async function getGalleryPhotos(): Promise<GalleryPhoto[]> {
   try {
     const supabase = createClient();
 
-    // Cast needed until gallery_photos appears in auto-generated types.
-    // The table exists in the DB (migration 20260904120000_gallery_photos.sql)
-    // but has not been picked up by `types:generate` yet.
-    const client = supabase as unknown as {
-      from(t: string): {
-        select(s: string): {
-          order(
-            c: string,
-            o: { ascending: boolean }
-          ): Promise<{ data: GalleryPhotoRow[] | null; error: { message: string } | null }>;
-        };
-      };
-    };
-    const { data, error } = await client
+    const { data, error } = await supabase
       .from('gallery_photos')
       .select(
-        'slug,storage_path,caption,location,category,sign_quote,date_label,photographer,is_hero,is_pair,alt,sort_order'
+        'id,slug,storage_path,caption,location,category,sign_quote,date_label,photographer,is_hero,is_pair,alt,sort_order'
       )
       .order('sort_order', { ascending: true });
 
@@ -91,6 +70,8 @@ export async function getGalleryPhotos(): Promise<GalleryPhoto[]> {
 
       return {
         id: row.slug,
+        dbId: row.id,
+        slug: row.slug,
         storage_path: storagePath,
         url,
         caption: row.caption ?? '',

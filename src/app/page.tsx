@@ -41,6 +41,8 @@ export default async function HomePage() {
   const [galleryRows, events] = await Promise.all([getGalleryPhotos(), getEvents()]);
   const galleryPhotos: GalleryPhotoView[] = galleryRows.map((row) => ({
     id: String(row.id),
+    dbId: row.id,
+    slug: row.slug,
     url: getStorageUrl(row.storage_path),
     alt: row.alt || row.caption,
     caption: row.caption,

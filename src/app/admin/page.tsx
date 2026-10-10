@@ -11,6 +11,16 @@ import {
 import Link from 'next/link';
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect';
 import { requireAdmin } from '@/lib/admin-auth';
+import type { AdminOrder } from '@/types/orders';
+
+// Dashboard projection of the canonical `AdminOrder` — only the columns this
+// select reads, so the cast stays sound without a parallel `Order` shape.
+type Order = Pick<
+  AdminOrder,
+  'id' | 'created_at' | 'status' | 'total' | 'currency' | 'order_items' | 'profiles'
+> & {
+  coupon_code?: string | null;
+};
 
 // Deliberate Cache Components opt-out (Block): admin dashboard with live order metrics behind requireAdmin().
 export const instant = false;
@@ -18,17 +28,6 @@ export const instant = false;
 export const metadata = {
   title: 'Dashboard — Admin · Indivisible Fair Oaks',
   robots: { index: false, follow: false },
-};
-
-type Order = {
-  id: number;
-  created_at: string | null;
-  status: string | null;
-  total: number | null;
-  currency: string | null;
-  coupon_code: string | null;
-  order_items: { product_name: string | null; quantity: number | null }[];
-  profiles: { first_name: string | null; last_name: string | null; email: string | null } | null;
 };
 
 type Product = {

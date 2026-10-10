@@ -353,6 +353,7 @@ export function CRMContactList({
   // Multi-selection state for bulk batch actions
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkTagInput, setBulkTagInput] = useState('');
+  const [bulkDistrictInput, setBulkDistrictInput] = useState('');
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
@@ -554,6 +555,86 @@ export function CRMContactList({
       toast.error('Failed to add tags');
     } finally {
       setBulkActionBusy(false);
+    }
+  };
+
+  const handleBulkDistrict = async () => {
+    const trimmed = bulkDistrictInput.trim();
+    if (!trimmed || selectedIds.size === 0) return;
+    setBulkActionBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const res = await bulkUpdateCRMContacts({ contactIds: ids, district: trimmed });
+      if (res.success) {
+        toast.success(`Set district for ${res.updatedCount ?? ids.length} constituents`);
+        setBulkDistrictInput('');
+        setSelectedIds(new Set());
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to set district');
+      }
+    } catch {
+      toast.error('Failed to set district');
+    } finally {
+      setBulkActionBusy(false);
+    }
+  };
+
+  const handleBulkConsent = async (consent: ConsentDecision) => {
+    if (selectedIds.size === 0) return;
+    setBulkActionBusy(true);
+    try {
+      const ids = Array.from(selectedIds);
+      const res = await bulkUpdateCRMContacts({ contactIds: ids, consent });
+      if (res.success) {
+        const label =
+          consent === 'opted_out'
+            ? 'opted out'
+            : consent === 'opted_in'
+              ? 'opted in'
+              : 'marked unasked';
+        toast.success(
+          `${label === 'marked unasked' ? 'Marked' : 'Opted'} ${res.updatedCount ?? ids.length} constituents ${label === 'marked unasked' ? 'as never asked' : label}`
+        );
+        setSelectedIds(new Set());
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update consent');
+      }
+    } catch {
+      toast.error('Failed to update consent');
+    } finally {
+      setBulkActionBusy(false);
+    }
+  };
+
+  const handleUpdateSegment = async (segment: CRMSegment) => {
+    setSavingSegment(true);
+    try {
+      // In-place filter edit: the stored name rides through, the *current*
+      // on-screen filters replace the stored set. Previously this required
+      // delete + save-new, which lost the segment id every edit.
+      const filters = appliedFilters();
+      const consent = parseConsentFilter(filters.consent);
+      const res = await saveCRMSegment({
+        id: segment.id,
+        name: segment.name,
+        query: filters.query.trim(),
+        statuses: splitActiveValues(filters.status),
+        districts: splitActiveValues(filters.district),
+        tags: splitActiveValues(filters.tag),
+        consent: consent === 'all' ? undefined : consent,
+      });
+      if (res.success) {
+        toast.success(`Segment "${segment.name}" updated to match current filters`);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update segment');
+      }
+    } catch {
+      toast.error('Failed to update segment');
+    } finally {
+      setSavingSegment(false);
     }
   };
 
@@ -864,6 +945,16 @@ export function CRMContactList({
                     aria-label={`Rename segment ${seg.name}`}
                   >
                     <Edit2 size={11} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleUpdateSegment(seg)}
+                    disabled={savingSegment}
+                    className="p-0.5 hover:text-emerald-600 transition-colors disabled:opacity-50"
+                    title={`Update "${seg.name}" to match the current filters`}
+                    aria-label={`Update segment ${seg.name} to current filters`}
+                  >
+                    <RefreshCw size={11} aria-hidden="true" />
                   </button>
                   <ConfirmAction
                     label={`Delete segment ${seg.name}`}
@@ -1427,6 +1518,56 @@ export function CRMContactList({
             >
               Add
             </button>
+          </div>
+
+          {/* Bulk District */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              placeholder="District…"
+              value={bulkDistrictInput}
+              disabled={bulkActionBusy}
+              onChange={(e) => setBulkDistrictInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void handleBulkDistrict();
+                }
+              }}
+              className="bg-slate-800 text-white placeholder-slate-400 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 w-24 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={() => void handleBulkDistrict()}
+              disabled={!bulkDistrictInput.trim() || bulkActionBusy}
+              className="px-2.5 py-1.5 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-40"
+            >
+              Set
+            </button>
+          </div>
+
+          {/* Bulk Consent */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-slate-400 whitespace-nowrap">Email:</span>
+            <select
+              disabled={bulkActionBusy}
+              onChange={(e) => {
+                if (e.target.value) {
+                  void handleBulkConsent(e.target.value as ConsentDecision);
+                  e.target.value = '';
+                }
+              }}
+              defaultValue=""
+              aria-label="Change email consent for selected constituents"
+              className="bg-slate-800 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 border border-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+            >
+              <option value="" disabled>
+                Consent…
+              </option>
+              <option value="opted_in">Opt in</option>
+              <option value="opted_out">Opt out</option>
+              <option value="unasked">Mark unasked</option>
+            </select>
           </div>
 
           {/* Bulk Delete */}

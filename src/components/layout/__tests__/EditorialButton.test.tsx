@@ -16,19 +16,49 @@ vi.mock('@/components/layout/useEditContext', () => ({
   }),
 }));
 
+// The section list comes from the overlay, not from the header. These mock the
+// mode store only — the tests that exercise a section list publish one, because
+// a header that derived its own list was the bug.
 vi.mock('@/components/layout/visual-edit-store', () => ({
   useVisualEditMode: () => ({
     enabled: mockEnabled,
     toggle: mockToggle,
   }),
-  enableAllSectionVisuals: vi.fn(),
-  disableAllSectionVisuals: vi.fn(),
-  setSectionVisualEnabled: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/about',
 }));
+
+/**
+ * Publish the section list the overlay would send, as the overlay sends it.
+ *
+ * Every field matters: `index` is the DOM ordinal, `blockIndex` is the block the
+ * controls address, and `enabled` is whether the overlay is drawing a frame. A
+ * test that leaves one out is testing a shape no component produces.
+ */
+function publishSections(
+  sections: {
+    index: number | null;
+    label: string;
+    blockIndex: number | null;
+    blockType?: string | null;
+    enabled?: boolean;
+  }[]
+) {
+  window.dispatchEvent(
+    new CustomEvent('indivisible:page-sections-updated', {
+      detail: {
+        sections: sections.map((section) => ({
+          blockType: null,
+          enabled: false,
+          ...section,
+        })),
+        pathname: '/about',
+      },
+    })
+  );
+}
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -79,17 +109,11 @@ describe('EditorialButton component', () => {
   it('renders section dropdown trigger when visual editing is ON', async () => {
     mockEnabled = true;
 
-    // Set up mock DOM sections
-    const main = document.createElement('main');
-    const sec1 = document.createElement('section');
-    const h1 = document.createElement('h2');
-    h1.textContent = 'Mission Statement';
-    sec1.appendChild(h1);
-    main.appendChild(sec1);
-    document.body.appendChild(main);
-
     await act(async () => {
       root.render(<EditorialButton />);
+    });
+    await act(async () => {
+      publishSections([{ index: 0, label: 'Mission Statement', blockIndex: 0 }]);
     });
 
     const btn = container.querySelector<HTMLButtonElement>('[data-testid="editorial-edit-button"]');
@@ -113,19 +137,14 @@ describe('EditorialButton component', () => {
   it('dispatches focus event when a section is clicked in the menu', async () => {
     mockEnabled = true;
 
-    const main = document.createElement('main');
-    const sec1 = document.createElement('section');
-    const h1 = document.createElement('h2');
-    h1.textContent = 'Community Voices';
-    sec1.appendChild(h1);
-    main.appendChild(sec1);
-    document.body.appendChild(main);
-
     const eventListener = vi.fn();
     window.addEventListener('indivisible:focus-section', eventListener);
 
     await act(async () => {
       root.render(<EditorialButton />);
+    });
+    await act(async () => {
+      publishSections([{ index: 0, label: 'Community Voices', blockIndex: 0 }]);
     });
 
     const dropdownTrigger = container.querySelector<HTMLButtonElement>(
@@ -146,7 +165,7 @@ describe('EditorialButton component', () => {
 
     expect(eventListener).toHaveBeenCalledWith(
       expect.objectContaining({
-        detail: { index: 0, openEdit: false },
+        detail: { blockIndex: 0, openEdit: false },
       })
     );
     window.removeEventListener('indivisible:focus-section', eventListener);
@@ -155,19 +174,14 @@ describe('EditorialButton component', () => {
   it('toggles visual frame for an individual section', async () => {
     mockEnabled = true;
 
-    const main = document.createElement('main');
-    const sec1 = document.createElement('section');
-    const h1 = document.createElement('h2');
-    h1.textContent = 'Action Alerts';
-    sec1.appendChild(h1);
-    main.appendChild(sec1);
-    document.body.appendChild(main);
-
     const toggleListener = vi.fn();
     window.addEventListener('indivisible:toggle-section-visual', toggleListener);
 
     await act(async () => {
       root.render(<EditorialButton />);
+    });
+    await act(async () => {
+      publishSections([{ index: 0, label: 'Action Alerts', blockIndex: 0, enabled: true }]);
     });
 
     const dropdownTrigger = container.querySelector<HTMLButtonElement>(
@@ -190,7 +204,7 @@ describe('EditorialButton component', () => {
 
     expect(toggleListener).toHaveBeenCalledWith(
       expect.objectContaining({
-        detail: { index: 0, enabled: false },
+        detail: { blockIndex: 0, enabled: false },
       })
     );
     window.removeEventListener('indivisible:toggle-section-visual', toggleListener);
@@ -199,19 +213,14 @@ describe('EditorialButton component', () => {
   it('dispatches duplicate-section event when duplicate button is clicked', async () => {
     mockEnabled = true;
 
-    const main = document.createElement('main');
-    const sec1 = document.createElement('section');
-    const h1 = document.createElement('h2');
-    h1.textContent = 'Community Calendar';
-    sec1.appendChild(h1);
-    main.appendChild(sec1);
-    document.body.appendChild(main);
-
     const dupListener = vi.fn();
     window.addEventListener('indivisible:duplicate-section', dupListener);
 
     await act(async () => {
       root.render(<EditorialButton />);
+    });
+    await act(async () => {
+      publishSections([{ index: 0, label: 'Community Calendar', blockIndex: 0 }]);
     });
 
     const dropdownTrigger = container.querySelector<HTMLButtonElement>(
@@ -230,7 +239,7 @@ describe('EditorialButton component', () => {
 
     expect(dupListener).toHaveBeenCalledWith(
       expect.objectContaining({
-        detail: { index: 0 },
+        detail: { blockIndex: 0 },
       })
     );
     window.removeEventListener('indivisible:duplicate-section', dupListener);
@@ -243,6 +252,9 @@ describe('EditorialButton component', () => {
     await act(async () => {
       root.render(<EditorialDrawerRow onNavigate={onNavigate} />);
     });
+    await act(async () => {
+      publishSections([{ index: 0, label: 'Get Out The Vote', blockIndex: 0, enabled: true }]);
+    });
 
     const switchBtn = container.querySelector<HTMLButtonElement>(
       '[data-testid="editorial-visual-edit-row"]'
@@ -254,5 +266,43 @@ describe('EditorialButton component', () => {
       switchBtn?.click();
     });
     expect(mockToggle).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * A section the overlay has not described cannot be addressed.
+   *
+   * `blockIndex: null` is what `discoverPageSections` returns for the DOM-only
+   * fallback, and every control on such a row must be inert rather than
+   * dispatching an event the overlay would have to guess at. Rendering them live
+   * is how the header came to offer "edit section 3" for an element that was
+   * really section 4.
+   */
+  it('disables every control for a section the overlay has not described', async () => {
+    mockEnabled = true;
+
+    await act(async () => {
+      root.render(<EditorialButton />);
+    });
+    await act(async () => {
+      publishSections([{ index: 0, label: 'Not yet described', blockIndex: null }]);
+    });
+
+    const dropdownTrigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle section editor menu"]'
+    );
+    await act(async () => {
+      dropdownTrigger?.click();
+    });
+
+    const controls = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[role="switch"], button[title]')
+    );
+    const sectionControls = controls.filter((button) =>
+      button.getAttribute('title')?.includes('Waiting for the editor')
+    );
+    expect(sectionControls.length).toBeGreaterThan(0);
+    for (const control of sectionControls) {
+      expect(control.disabled).toBe(true);
+    }
   });
 });

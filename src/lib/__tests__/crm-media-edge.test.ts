@@ -203,26 +203,78 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
   });
 
   describe('deleteCRMMedia', () => {
-    it('refuses deletion outside the crm/ namespace', async () => {
-      const res = await deleteCRMMedia('content/crucial-page.jpg');
+    /**
+     * The namespace guard used to be `crm/` only, which refused every delete
+     * the media library made possible: the dialog the visual editor and the
+     * content editor both open defaults to `content/`, so its delete button
+     * answered "not allowed" for a file the same dialog had just uploaded. A
+     * guard that refuses its own uploads protects nothing, so the guard is now
+     * "one of the three folders, with the right reference check for that
+     * folder".
+     */
+    it('refuses a namespace that is not a media folder', async () => {
+      const res = await deleteCRMMedia('secret/crucial-page.jpg');
       expect(res.success).toBe(false);
-      expect(res.error).toContain('restricted to the crm/ media folder');
+      expect(res.error).toContain('restricted to the crm, content, products media folders');
+      expect(mockStorageFrom.remove).not.toHaveBeenCalled();
     });
 
     it('refuses path traversal attempts', async () => {
       const res = await deleteCRMMedia('crm/../sensitive.jpg');
       expect(res.success).toBe(false);
-      expect(res.error).toContain('restricted to the crm/ media folder');
+      expect(res.error).toContain('restricted to the crm, content, products media folders');
+      expect(mockStorageFrom.remove).not.toHaveBeenCalled();
+    });
+
+    it('removes a content/ asset no page or revision references', async () => {
+      mockAdminClient.from.mockImplementation(() => ({
+        select: vi.fn(() => ({
+          like: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+          eq: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        })),
+      }));
+      mockStorageFrom.remove.mockResolvedValueOnce({
+        data: [{ name: 'content/crucial-page.jpg' }],
+        error: null,
+      });
+
+      const res = await deleteCRMMedia('content/crucial-page.jpg');
+      expect(res.success).toBe(true);
+      expect(mockStorageFrom.remove).toHaveBeenCalledWith(['content/crucial-page.jpg']);
+    });
+
+    it('refuses a content/ asset a live page still references', async () => {
+      mockAdminClient.from.mockImplementation(() => ({
+        select: vi.fn(() => ({
+          like: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ data: [{ id: 7 }], error: null }),
+          })),
+          eq: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        })),
+      }));
+
+      const res = await deleteCRMMedia('content/crucial-page.jpg');
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('still used by a page or one of its revisions');
+      expect(mockStorageFrom.remove).not.toHaveBeenCalled();
     });
 
     it('removes allowed crm/ assets no broadcast references', async () => {
-      mockAdminClient.from.mockReturnValueOnce({
+      // `mediaReferenceReason` checks broadcasts + content + revisions for a
+      // `crm/` path, so all three reads resolve empty here.
+      mockAdminClient.from.mockImplementation(() => ({
         select: vi.fn(() => ({
           like: vi.fn(() => ({
             limit: vi.fn().mockResolvedValue({ data: [], error: null }),
           })),
         })),
-      });
+      }));
       mockStorageFrom.remove.mockResolvedValueOnce({
         data: [{ name: 'crm/test.jpg' }],
         error: null,
@@ -234,13 +286,13 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
     });
 
     it('surfaces the storage error message when the removal itself fails', async () => {
-      mockAdminClient.from.mockReturnValueOnce({
+      mockAdminClient.from.mockImplementation(() => ({
         select: vi.fn(() => ({
           like: vi.fn(() => ({
             limit: vi.fn().mockResolvedValue({ data: [], error: null }),
           })),
         })),
-      });
+      }));
       mockStorageFrom.remove.mockResolvedValueOnce({
         data: null,
         error: { message: 'storage backend unreachable' },

@@ -16,6 +16,14 @@ import { FulfilmentEditor } from '@/components/admin/FulfilmentEditor';
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect';
 import { CURRENCY_CODE, formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
+import { type AdminOrder, statusStyle } from '@/types/orders';
+
+// Detail-only columns beyond the canonical `AdminOrder` select.
+type Order = AdminOrder & {
+  coupon_code?: string | null;
+  tracking_number?: string | null;
+  admin_notes?: string | null;
+};
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -28,14 +36,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-const statusColours: Record<string, string> = {
-  processing: 'bg-amber-100 text-amber-800',
-  completed: 'bg-emerald-100 text-emerald-800',
-  cancelled: 'bg-rose-100 text-rose-800',
-  refunded: 'bg-slate-100 text-slate-600',
-  'on-hold': 'bg-blue-100 text-blue-800',
-};
-
 const statusLabels: Record<string, string> = {
   processing: 'Processing',
   completed: 'Completed',
@@ -44,40 +44,8 @@ const statusLabels: Record<string, string> = {
   'on-hold': 'On Hold',
 };
 
-type Order = {
-  id: number;
-  created_at: string | null;
-  status: string | null;
-  total: number | null;
-  currency: string | null;
-  stripe_session_id: string | null;
-  coupon_code: string | null;
-  // Provider seam (migration 20261009000000). Optional until the migration has
-  // been pushed and this query selects these columns.
-  source?: string | null;
-  external_id?: string | null;
-  shipping_address: {
-    line1?: string;
-    line2?: string;
-    city?: string;
-    state?: string;
-    postal_code?: string;
-    country?: string;
-  } | null;
-  tracking_number: string | null;
-  admin_notes: string | null;
-  order_items: {
-    id: number;
-    product_name: string | null;
-    quantity: number | null;
-    unit_price: number | null;
-  }[];
-  profiles: {
-    first_name: string | null;
-    last_name: string | null;
-    email: string | null;
-  } | null;
-};
+// `Order` is the canonical `AdminOrder` (`src/types/orders.ts`); pill colors
+// come from `statusStyle` so the detail, directory and dashboard agree.
 
 export default async function AdminOrderDetailPage({
   params,
@@ -153,7 +121,7 @@ export default async function AdminOrderDetailPage({
           </div>
           <div className="flex flex-col items-end gap-2">
             <span
-              className={`text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 ${statusColours[status] || statusColours.processing}`}
+              className={`text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 ${statusStyle(status)}`}
             >
               {statusLabels[status] || status}
             </span>
@@ -339,8 +307,8 @@ export default async function AdminOrderDetailPage({
         </div>
         <FulfilmentEditor
           orderId={order.id}
-          trackingNumber={order.tracking_number}
-          adminNotes={order.admin_notes}
+          trackingNumber={order.tracking_number ?? null}
+          adminNotes={order.admin_notes ?? null}
         />
       </section>
     </div>

@@ -1,4 +1,12 @@
-export type BlockType =
+/**
+ * Email composer block discriminator.
+ *
+ * Canonical name is `EmailBlockType`. `BlockType` is kept as a
+ * backward-compatible alias — it collides by name with the page editor's
+ * `ContentBlockType` (`src/lib/blocks/types.ts`), which is a disjoint union.
+ * New code imports `EmailBlockType`.
+ */
+export type EmailBlockType =
   | 'header'
   | 'text'
   | 'callout'
@@ -12,9 +20,12 @@ export type BlockType =
   | 'list'
   | 'social';
 
+/** Deprecated alias — use `EmailBlockType`. */
+export type BlockType = EmailBlockType;
+
 export interface BaseBlock {
   id: string;
-  type: BlockType;
+  type: EmailBlockType;
 }
 
 export interface HeaderBlock extends BaseBlock {
