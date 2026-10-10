@@ -107,10 +107,10 @@ export function EditorialButton() {
     <DropdownMenu.Root open={open} onOpenChange={setOpen}>
       <DropdownMenu.Trigger asChild>
         {/*
-          Beautiful icon-only button with elegant visual states.
-          The icon changes color and shows a subtle pulse when active.
-          Clicking the icon toggles visual editing on/off.
-          The chevron button opens the full menu with region/section controls.
+          Beautiful single icon button with elegant visual states.
+          Click toggles visual editing on/off.
+          Chevron dropdown opens the full menu with region/section controls.
+          Unified design with animated transitions and pulse indicator when active.
         */}
         <span className="inline-flex items-center rounded-xl">
           <button

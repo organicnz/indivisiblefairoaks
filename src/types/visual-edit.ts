@@ -5,8 +5,6 @@
  * Shared platform types (Storage, Edge Functions, CRM) live in `src/types/unified.ts`.
  */
 
-import type { PublishedSection } from '@/lib/visual-sections';
-
 // Re-export PublishedSection from visual-sections
 export type { PublishedSection } from '@/lib/visual-sections';
 // Re-export shared platform types for backward compatibility
@@ -69,30 +67,6 @@ export interface VisualContentRow
 
 /** Where a picked piece of media is going. */
 export type VisualMediaTarget = 'featured' | 'section';
-
-/**
- * One positioned frame drawn over the page.
- *
- * The `Pick<VisualSection>` half is the block coordinate truth (label,
- * blockIndex, blockType); the box is the measured rect the frame is drawn
- * from. `blockIndex` is the coordinate every mutation uses; `index` is the
- * DOM ordinal the frame was measured from. Both are carried because the frame
- * is positioned from the element and the edit is applied to the block, and
- * losing either one means re-deriving it by guessing. `key`/`domIndex`/
- * `ordinal` are intentionally omitted — the overlay already holds the section;
- * the item is the frame, not a second section list to drift.
- */
-export interface VisualSectionOverlayItemLegacy
-  extends Pick<PublishedSection, 'label' | 'blockIndex' | 'blockType'> {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-  bottom: number;
-  right: number;
-  /** DOM ordinal the frame was measured from (== `domIndex` when framed). */
-  index: number;
-}
 
 /** Whether the overlay has unsaved changes, and what happened last. */
 export interface VisualSaveState {
