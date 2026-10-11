@@ -43,16 +43,27 @@ function mediaUrl(path: string): string {
   return getStorageUrl(path, 'media');
 }
 
+/**
+ * Refuse a media write against a content row that is not live.
+ *
+ * The `data === null` half is the one that matters, and it was missing: with a
+ * `service_role` client (RLS bypassed) a draft row produces **no error**, just
+ * an empty result — `maybeSingle()` resolves `{ data: null, error: null }`. The
+ * previous version threw only on `error`, so every draft page sailed through a
+ * gate whose entire job was to stop it. The hand-rolled mock in the old suite
+ * answered the no-match case with an *error*, which is why a green suite and an
+ * open gate coexisted.
+ */
 async function assertContentPublished(contentId: number): Promise<void> {
   const { adminClient } = await requireAdmin();
-  const { error } = await adminClient
+  const { data, error } = await adminClient
     .from('content')
     .select('id')
     .eq('id', contentId)
     .eq('status', 'publish')
     .lte('published_at', new Date().toISOString())
     .maybeSingle();
-  if (error) throw new Error('Content row not found or unpublished');
+  if (error || data === null) throw new Error('Content row not found or unpublished');
 }
 
 /**

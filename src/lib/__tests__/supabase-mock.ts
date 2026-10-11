@@ -45,7 +45,7 @@ import { vi } from 'vitest';
 
 /** A filter recorded by `.eq()` / `.is()` / `.like()`, applied by the terminal. */
 interface Filter {
-  kind: 'eq' | 'is' | 'like' | 'neq' | 'lt' | 'in' | 'notIs';
+  kind: 'eq' | 'is' | 'like' | 'ilike' | 'lte' | 'neq' | 'lt' | 'in' | 'notIs';
   column: string;
   value: unknown;
 }
@@ -69,12 +69,16 @@ interface Order {
  * `.like('body', '%a_b%')` match where Postgres would not, which turns a real
  * reference check into a false pass — the exact failure this file exists to
  * prevent.
+ *
+ * `ci` is the `ILIKE` half: the same wildcard rules, case-folded. The storage
+ * reference check in `deleteContentMediaRow` uses both spellings against the
+ * same column, so one must not silently become the other.
  */
-function likeMatches(actual: unknown, pattern: string): boolean {
+function likeMatches(actual: unknown, pattern: string, ci = false): boolean {
   if (typeof actual !== 'string') return false;
   const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const body = escaped.split('%').join('.*');
-  return new RegExp(`^${body}$`, 's').test(actual);
+  return new RegExp(`^${body}$`, ci ? 'is' : 's').test(actual);
 }
 
 export interface MockTableConfig {
@@ -144,6 +148,7 @@ function matches(row: Record<string, unknown>, filters: readonly Filter[]): bool
     // difference is the point; a mock that treats them alike would let a
     // null-precondition bug pass.
     if (kind === 'like') return likeMatches(actual, String(value));
+    if (kind === 'ilike') return likeMatches(actual, String(value), true);
     if (kind === 'in') {
       // A null *inside* the list is the trap, not a null list: `in.(null,'CA-03')`
       // still matches the non-null entries, but the null entry compares as
@@ -162,14 +167,18 @@ function matches(row: Record<string, unknown>, filters: readonly Filter[]): bool
       if (actual === null || actual === undefined) return false;
       return actual !== value;
     }
-    if (kind === 'lt') {
-      // Both sides are `unknown` on the row and the filter, but `lt` is only
-      // ever applied to ordered scalars here — an ISO timestamp or a number —
-      // and `a < b` is exactly Postgres's comparison for those. A null operand
-      // is UNKNOWN and therefore not true, on either side.
+    if (kind === 'lt' || kind === 'lte') {
+      // Both sides are `unknown` on the row and the filter, but `lt`/`lte` are
+      // only ever applied to ordered scalars here — an ISO timestamp or a
+      // number — and `a < b` / `a <= b` is exactly Postgres's comparison for
+      // those. A null operand is UNKNOWN and therefore not true, on either
+      // side. `lte` is the form `assertContentPublished` needs: a row published
+      // exactly at `now()` is published, so the boundary is inclusive.
       if (actual === null || actual === undefined) return false;
       if (value === null || value === undefined) return false;
-      return (actual as number | string) < (value as number | string);
+      return kind === 'lte'
+        ? (actual as number | string) <= (value as number | string)
+        : (actual as number | string) < (value as number | string);
     }
     if (kind === 'eq') {
       if (value === null || value === undefined) return false;
@@ -272,6 +281,11 @@ export class MockQueryBuilder {
     return this;
   }
 
+  lte(column: string, value: unknown) {
+    this.filters.push({ kind: 'lte', column, value });
+    return this;
+  }
+
   in(column: string, values: readonly unknown[]) {
     this.filters.push({ kind: 'in', column, value: values });
     return this;
@@ -279,6 +293,18 @@ export class MockQueryBuilder {
 
   like(column: string, pattern: string) {
     this.filters.push({ kind: 'like', column, value: pattern });
+    return this;
+  }
+
+  /**
+   * Case-insensitive `LIKE` — `col=ilike.%x%`. A distinct method rather than a
+   * flag on `like`, because supabase-js distinguishes them and a caller writes
+   * one or the other deliberately: the storage reference check in
+   * `deleteContentMediaRow` asks about `content.body` with `.ilike` while the
+   * CRM search sanitises its term before it becomes one.
+   */
+  ilike(column: string, pattern: string) {
+    this.filters.push({ kind: 'ilike', column, value: pattern });
     return this;
   }
 
