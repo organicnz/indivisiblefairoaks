@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test';
  * they must bounce unauthenticated visitors to /login.
  */
 test.describe('Civic CRM admin gate', () => {
-  const CRM_ROUTES = ['/admin/crm', '/admin/crm/tasks', '/admin/crm/broadcasts'];
+  const CRM_ROUTES = ['/admin/crm', '/admin/crm/tasks', '/admin/crm/broadcasts', '/admin/crm/segments'];
 
   for (const route of CRM_ROUTES) {
     test(`redirects unauthenticated users away from ${route}`, async ({ page }) => {
