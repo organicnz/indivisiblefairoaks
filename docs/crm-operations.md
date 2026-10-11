@@ -936,3 +936,25 @@ runs on every call, and that a refused caller never reaches the scan.
   `updated_at` precondition, so two organizers would be back to
   last-write-wins. The task form version only changes style, so it was not
   ported either.
+
+## CRM panel in the visual editor overlay
+
+The visual editor overlay (`src/components/visual-edit/VisualEditOverlay.tsx`)
+includes a **Constituents** panel (`src/components/visual-edit/CRMPanel.tsx`)
+that brings full CRM CRUD into the page author's workflow:
+
+- **Search constituents** — debounced `getCRMContacts({ query, page, pageSize, consent })`
+- **Create / edit** — reuses `CRMContactEditorModal` (optimistic concurrency via `expectedUpdatedAt`)
+- **Delete** — `deleteCRMContact` behind `ConfirmAction`
+- **Consent tri-state** — `setCRMEmailConsent` with `opted_in` / `opted_out` / `unasked`
+- **Follow-ups** — `CRMTaskForm` reuse via `addCRMTask` / `getCRMTasksForContact`
+- **Segments** — read-only chips + link to `/admin/crm/segments`
+
+All mutations go through the existing server actions (`src/lib/actions/crm.ts`);
+no new API surface is exposed. The panel is a `Dialog` that opens from the
+overlay's dock (`Constituents` button, `UsersRound` icon). It is admin-gated
+through the existing `requireAdmin()` checks in the server actions.
+
+No email sending from the overlay — the send paths (`sendCRMBroadcast`,
+`sendCRMDirectEmail`) are E2E-refused and dispatch a live Edge Function; the
+overlay is not the surface for a blast.
