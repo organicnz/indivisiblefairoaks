@@ -91,13 +91,17 @@ test.describe('theme toggle', () => {
     await expect(drawerToggle).toHaveAttribute('data-theme-mode', 'system');
     await drawerToggle.click();
 
-    // The pin is shared: the header's own control reads the same store, so
-    // closing the drawer shows a header that agrees with what was just set.
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    // One click from system (with light effective) cycles to light (explicit pin).
+    // The header's control reads the same store and stays in sync.
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(page.getByRole('button', { name: /^Color theme:/ }).first()).toHaveAttribute(
+      'data-theme-mode',
+      'light'
+    );
     await page.getByRole('button', { name: 'Close menu' }).click();
     await expect(page.getByRole('button', { name: /^Color theme:/ }).first()).toHaveAttribute(
       'data-theme-mode',
-      'dark'
+      'light'
     );
   });
 });

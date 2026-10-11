@@ -63,7 +63,10 @@ test('a11y: all public pages pass axe in the dark palette', async ({ page }) => 
     if (serious.length > 0) {
       failures.push({
         page: name ?? path,
-        violations: serious.map((v) => `${v.id}: ${v.help}`),
+        violations: serious.map(
+          (v) =>
+            `${v.id}: ${v.help} - targets: ${JSON.stringify(v.nodes?.map((n) => n.target) || [])}`
+        ),
       });
     }
   }
