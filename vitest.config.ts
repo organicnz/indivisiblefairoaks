@@ -162,10 +162,12 @@ export default defineConfig({
          * those branches left the file) plus tests for the paged history read
          * and `markCRMBroadcastFailed`. Raised 2026-10-06 to 94.2 / 84 / 100 / 97.8
          * with broadcast-send type validation and tag query coverage.
+         * Raised 2026-10-07 to 95.41 / 85.31 / 100 / 98.38 by covering the
+         * `payload.warning` ternary branches in the dispatch json-parse path.
          */
         'src/lib/actions/crm.ts': {
           statements: 89,
-          branches: 84,
+          branches: 85,
           functions: 100,
           lines: 93,
         },

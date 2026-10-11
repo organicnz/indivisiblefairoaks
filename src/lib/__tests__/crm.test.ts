@@ -1692,6 +1692,101 @@ describe('Civic CRM Server Actions', () => {
       expect(res.warning).toBeUndefined();
     });
 
+    it('surfaces a warning string returned by the sender', async () => {
+      // Distinct identity — the 5/min broadcast limit is per admin.
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-warning-str-uuid';
+      try {
+        tables.crm_contacts = {
+          rows: [
+            {
+              id: 'w1',
+              email: 'warn@example.com',
+              first_name: 'W',
+              last_name: 'X',
+              unsubscribe_token: 'tw1',
+              do_not_email: false,
+              status: 'supporter',
+            },
+          ],
+        };
+        tables.crm_broadcasts = { rows: [], insert: { id: 'b-warn' } };
+
+        mockEnv.CRM_BROADCAST_FUNCTION_URL =
+          'https://project.supabase.co/functions/v1/crm-broadcast-send';
+        mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+
+        // Health pre-flight returns ready: true; dispatch returns ok with a
+        // warning string — exercises the `typeof payload.warning === 'string'`
+        // true branch at the json-parse site (line ~2464).
+        global.fetch = vi
+          .fn()
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ ready: true }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              warning: '3 activity rows could not be written — timeline may be incomplete',
+            }),
+          });
+
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
+
+        expect(res.success).toBe(true);
+        expect(res.warning).toMatch(/activity rows/);
+      } finally {
+        session.adminUserId = savedId;
+      }
+    });
+
+    it('treats a non-string warning field as no warning', async () => {
+      // Covers the false branch of `typeof payload.warning === 'string'`:
+      // the sender returned valid JSON but the warning field is absent or numeric.
+      const savedId = session.adminUserId;
+      session.adminUserId = 'admin-user-no-warn-uuid';
+      try {
+        tables.crm_contacts = {
+          rows: [
+            {
+              id: 'nw1',
+              email: 'nowarn@example.com',
+              first_name: 'N',
+              last_name: 'W',
+              unsubscribe_token: 'tnw1',
+              do_not_email: false,
+              status: 'supporter',
+            },
+          ],
+        };
+        tables.crm_broadcasts = { rows: [], insert: { id: 'b-nowarn' } };
+
+        mockEnv.CRM_BROADCAST_FUNCTION_URL =
+          'https://project.supabase.co/functions/v1/crm-broadcast-send';
+        mockEnv.SUPABASE_SECRET_KEY = 'service-key';
+
+        global.fetch = vi
+          .fn()
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ ready: true }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            // `warning` is a number, not a string — the false branch returns undefined.
+            json: async () => ({ skipped: false, warning: 42 }),
+          });
+
+        const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
+
+        expect(res.success).toBe(true);
+        expect(res.warning).toBeUndefined();
+      } finally {
+        session.adminUserId = savedId;
+      }
+    });
+
     it('fails the broadcast when the health pre-flight reports missing secrets', async () => {
       // Use a distinct admin identity to avoid spending the shared rate-limit slot.
       const savedId = session.adminUserId;

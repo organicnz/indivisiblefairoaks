@@ -629,7 +629,7 @@ deployed green and broke silently.
   Vitest's bare `statements: 90` is checked against the *aggregate* over every included
   file, so a stricter file cannot raise it and a looser one silently lowers it for
   everything else. `vitest.config.ts` therefore names globs: 90 across the board, with
-  `src/lib/actions/crm.ts` on an explicit floor of **89 / 84 / 100 / 93** and
+  `src/lib/actions/crm.ts` on an explicit floor of **89 / 85 / 100 / 93** and
   `src/lib/actions/content.ts` on **58 / 54 / 61 / 65**. Both were in **no threshold
   at all** until recently — neither was in the `include` list — which is how a
   ceiling refusal stayed dead code and a `created_by` column stayed unwritten with
