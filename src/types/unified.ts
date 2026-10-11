@@ -10,7 +10,6 @@
 
 import type { ComposerBlock } from '@/components/admin/crm/composer/types';
 import type { ContentBlockType } from '@/lib/blocks';
-import type { PublishedSection } from '@/lib/visual-sections';
 import type { Database } from '@/types/supabase';
 
 // ==========================================
