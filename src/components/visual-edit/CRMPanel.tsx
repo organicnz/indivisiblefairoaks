@@ -23,6 +23,8 @@ import {
   addCRMNote,
   updateCRMNote,
   deleteCRMNote,
+  setCRMTaskStatus,
+  deleteCRMTask,
 } from '@/lib/actions/crm';
 import type { CRMContact, CRMSegment, CRMTask } from '@/types/crm';
 import type { CRMActivity } from '@/types/crm';
@@ -32,10 +34,12 @@ interface CRMPanelProps {
   onClose: () => void;
 }
 
-const CONSENT_LABELS: Record<string, { label: string; color: string }> = {
-  opted_in: { label: 'Opted in', color: 'text-emerald-400 bg-emerald-500/10' },
-  opted_out: { label: 'Opted out', color: 'text-rose-400 bg-rose-500/10' },
-  unasked: { label: 'Never asked', color: 'text-amber-400 bg-amber-500/10' },
+import { consentLabel, ConsentFilter, splitActiveValues } from '@/lib/crm-filters';
+
+const CONSENT_COLORS: Record<string, string> = {
+  opted_in: 'bg-emerald-500/10 text-emerald-400',
+  opted_out: 'bg-rose-500/10 text-rose-400',
+  unasked: 'bg-amber-500/10 text-amber-400',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -56,9 +60,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [selectedContact, setSelectedContact] = useState<CRMContact | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
-  const [consentFilter, setConsentFilter] = useState<'all' | 'opted_in' | 'opted_out' | 'unasked'>(
-    'all'
-  );
+  const [consentFilter, setConsentFilter] = useState<ConsentFilter>('all');
   const [tasks, setTasks] = useState<CRMTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [segments, setSegments] = useState<CRMSegment[]>([]);
@@ -70,11 +72,6 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [editingNoteDesc, setEditingNoteDesc] = useState('');
 
   const PAGE_SIZE = 25;
-
-  const consentFromDoNotEmail = (value: boolean | null): 'opted_in' | 'opted_out' | 'unasked' => {
-    if (value === null) return 'unasked';
-    return value ? 'opted_out' : 'opted_in';
-  };
 
   const loadContacts = useCallback(async () => {
     setLoading(true);
@@ -344,13 +341,13 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                         </div>
                         <div className="flex items-center gap-1.5 mt-1">
                           {consentOptions.map((opt) => {
-                            const currentConsent = consentFromDoNotEmail(contact.do_not_email);
+                            const currentConsent = consentLabel(contact.do_not_email);
                             return (
                               <span
                                 key={opt.value}
                                 className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                                   currentConsent === opt.value
-                                    ? CONSENT_LABELS[opt.value].color
+                                    ? CONSENT_COLORS[opt.value]
                                     : 'bg-muted/50 text-muted-foreground'
                                 }`}
                               >
@@ -445,7 +442,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                             {selectedContact.status.replace('_', ' ')}
                           </span>
                           {consentOptions.map((opt) => {
-                            const currentConsent = consentFromDoNotEmail(
+                            const currentConsent = consentLabel(
                               selectedContact.do_not_email
                             );
                             return (
@@ -453,7 +450,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                 key={opt.value}
                                 className={`px-2 py-0.5 rounded text-xs font-medium ${
                                   currentConsent === opt.value
-                                    ? CONSENT_LABELS[opt.value].color
+                                    ? CONSENT_COLORS[opt.value]
                                     : 'bg-muted/50 text-muted-foreground'
                                 }`}
                               >
@@ -547,7 +544,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       <h4 className="font-bold text-sm mb-2">Email Consent</h4>
                       <div className="flex flex-wrap gap-2">
                         {consentOptions.map((opt) => {
-                          const currentConsent = consentFromDoNotEmail(
+                          const currentConsent = consentLabel(
                             selectedContact.do_not_email
                           );
                           const isActive = currentConsent === opt.value;
@@ -559,7 +556,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                               disabled={loading}
                               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                                 isActive
-                                  ? `${CONSENT_LABELS[opt.value].color.replace('bg-', 'bg-').replace('text-', 'text-')} ring-2 ring-offset-2 ring-offset-background`
+                                  ? `${CONSENT_COLORS[opt.value]} ring-2 ring-offset-2 ring-offset-background`
                                   : 'bg-muted text-muted-foreground hover:bg-muted/50'
                               }`}
                             >
@@ -610,6 +607,33 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                 >
                                   {task.status.replace('_', ' ')}
                                 </span>
+                              </div>
+                              <div className="flex items-center gap-1 mt-2">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await setCRMTaskStatus({ id: task.id, status: task.status === 'done' ? 'open' : 'done' });
+                                    loadTasks(selectedContact!.id);
+                                  }}
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-muted hover:bg-muted text-muted-foreground"
+                                  aria-label={task.status === 'done' ? 'Reopen' : 'Complete'}
+                                >
+                                  {task.status === 'done' ? 'Reopen' : 'Done'}
+                                </button>
+                                <ConfirmAction
+                                  label="Delete task"
+                                  message={`Delete "${task.title}"?`}
+                                  confirmLabel="Delete"
+                                  danger
+                                  idleClassName="text-[10px] font-bold px-1.5 py-0.5 rounded hover:text-rose-600 text-muted-foreground"
+                                  onConfirm={async () => {
+                                    await deleteCRMTask(task.id);
+                                    loadTasks(selectedContact!.id);
+                                    toast.success('Task deleted');
+                                  }}
+                                >
+                                  Del
+                                </ConfirmAction>
                               </div>
                               {task.due_at && (
                                 <p className="text-[10px] text-muted-foreground mt-1">
