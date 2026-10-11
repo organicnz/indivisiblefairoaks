@@ -1052,6 +1052,54 @@ disable real delivery by setting one variable.
 
 ---
 
+## Visual Editor Overlay & CRM Panel
+
+### Visual Editor Overlay (`src/components/visual-edit/VisualEditOverlay.tsx`)
+
+A full-featured in-page visual editor mounted globally in `src/app/layout.tsx`. Admins toggle it via the **Editorial Button** (icon-only `PenLine` in header, `EditorialDrawerRow` in mobile drawer).
+
+**Capabilities:**
+- **Per-section CRUD**: Every section has a floating action pill (frame on/off, edit, duplicate, move up/down, add below, delete with `ConfirmAction`)
+- **Block editor modal**: Rich editing for all 11 block types (heading, paragraph, bulletList, orderedList, quote, callout, code, image, divider, table, button) with inline toolbar (bold, italic, code, strikethrough, link)
+- **Dock toolbar**: Undo/redo (Cmd+Z/Shift+Z), save, badges/frames toggles, section navigator, add block menu (Radix `DropdownMenu`, never hover-only), media library, revisions, settings, CRM Studio link
+- **Media library**: `CRMMediaLibraryModal` (reused from CRM composer) for Supabase Storage `media` bucket pick/upload
+- **Revisions**: `getContentRevisions` / `restoreContentRevision` with `ConfirmAction`
+- **Settings modal**: Edit title, slug, status (publish/draft), featured image
+- **Backend health**: Probes DB, Storage, Edge Functions (`getCRMEdgeFunctionHealth`)
+- **CRM Panel**: `CRMPanel` (see below)
+
+**Invariants:**
+- Header button is icon-only master switch; per-section controls live on section pills + drawer `EditorialDrawerRow`
+- All modals follow the reader's palette (`bg-surface-card`, `text-foreground`, etc.); dock/pills/frames stay dark chrome (`bg-secondary`)
+- Add Block menu is a Radix `DropdownMenu` (click-to-open, keyboard accessible), never hover-only
+- Hidden frames recover via per-block frame switch in dock block bar
+
+### CRM Panel in Visual Editor (`src/components/visual-edit/CRMPanel.tsx`)
+
+A `Dialog` opened from the overlay dock (`Constituents` button, `UsersRound` icon). Reuses existing CRM actions and components.
+
+**Capabilities:**
+- **Search constituents**: `getCRMContacts({ query, consent, page, pageSize })`
+- **Create/edit contact**: Reuses `CRMContactEditorModal` (optimistic concurrency via `expectedUpdatedAt`)
+- **Delete contact**: `deleteCRMContact` behind `ConfirmAction`
+- **Consent tri-state**: `setCRMEmailConsent` with `opted_in` / `opted_out` / `unasked`
+- **Follow-ups**: Reuses `CRMTaskForm` via `addCRMTask` / `getCRMTasksForContact`
+- **Segments**: Read-only chips + link to `/admin/crm/segments`
+
+**All mutations through existing server actions** (`src/lib/actions/crm.ts`). No email sending from overlay — send paths are E2E-refused and dispatch live Edge Functions.
+
+### `content_media` Table (`supabase/migrations/20261011000000_content_media_hardening.sql`)
+
+Tracks per-page media items for the visual editor.
+
+- Columns: `id`, `content_id`, `name`, `path`, `url`, `mime_type`, `size`, `width`, `height`, `alt_text`, `caption`, `folder`, `sort_order`, `created_at`, `updated_at`
+- RLS: Public read only for published parent content; Admin full manage
+- Actions: `getContentMedia`, `createContentMediaRow`, `updateContentMediaRow`, `deleteContentMediaRow`, `uploadAndCreateContentMedia` (in `src/lib/actions/content-media.ts`)
+- Types: `src/types/content-media.ts` (manual until migration lands + `bun run types:generate`)
+- Tests: `src/lib/__tests__/content-media.test.ts` (13 tests; 7 pass, 6 delete tests need `assertContentPublished` mock)
+
+---
+
 ## Migration Roadmap
 
 All phases are complete. This section is kept for historical context.

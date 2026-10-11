@@ -13,8 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { deleteCRMContact, getCRMContacts, setCRMEmailConsent } from '@/lib/actions/crm';
-import type { CRMContact } from '@/types/crm';
+import {
+  deleteCRMContact,
+  getCRMContacts,
+  getCRMSegments,
+  getCRMTasksForContact,
+  setCRMEmailConsent,
+} from '@/lib/actions/crm';
+import type { CRMContact, CRMSegment, CRMTask } from '@/types/crm';
 
 interface CRMPanelProps {
   isOpen: boolean;
@@ -48,6 +54,10 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [consentFilter, setConsentFilter] = useState<'all' | 'opted_in' | 'opted_out' | 'unasked'>(
     'all'
   );
+  const [tasks, setTasks] = useState<CRMTask[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [segments, setSegments] = useState<CRMSegment[]>([]);
+  const [showSegments, setShowSegments] = useState(false);
 
   const PAGE_SIZE = 25;
 
@@ -74,9 +84,44 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     }
   }, [searchQuery, page, consentFilter]);
 
+  const loadTasks = useCallback(async (contactId: string) => {
+    setTasksLoading(true);
+    try {
+      const res = await getCRMTasksForContact(contactId);
+      setTasks(res);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load tasks');
+    } finally {
+      setTasksLoading(false);
+    }
+  }, []);
+
+  const loadSegments = useCallback(async () => {
+    try {
+      const res = await getCRMSegments();
+      setSegments(res.segments);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load segments');
+    }
+  }, []);
+
   useEffect(() => {
     loadContacts();
   }, [loadContacts]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadSegments();
+    }
+  }, [isOpen, loadSegments]);
+
+  useEffect(() => {
+    if (selectedContact) {
+      loadTasks(selectedContact.id);
+    } else {
+      setTasks([]);
+    }
+  }, [selectedContact, loadTasks]);
 
   const handleDeleteContact = async (id: string) => {
     try {
@@ -84,6 +129,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
       if (res.success) {
         toast.success('Contact deleted');
         loadContacts();
+        if (selectedContact?.id === id) setSelectedContact(null);
       } else {
         toast.error(res.error ?? 'Failed to delete contact');
       }
@@ -137,7 +183,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
             contactName={`${selectedContact.first_name} ${selectedContact.last_name}`}
             onDone={() => {
               setIsTaskFormOpen(false);
-              loadContacts();
+              loadTasks(selectedContact.id);
             }}
           />
         </DialogContent>
@@ -158,14 +204,37 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                   Search, create, and manage constituents. Changes persist to Supabase.
                 </DialogDescription>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-2 rounded-lg hover:bg-muted transition-colors"
-                aria-label="Close CRM panel"
-              >
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSegments(!showSegments)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    showSegments
+                      ? 'bg-primary text-white'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/50'
+                  }`}
+                >
+                  Segments
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedContact(null);
+                    setIsEditorOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors"
+                >
+                  <Plus size={12} className="mr-1" /> Add
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="p-2 rounded-lg hover:bg-muted transition-colors"
+                  aria-label="Close CRM panel"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
           </DialogHeader>
 
@@ -224,7 +293,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       <button
                         key={contact.id}
                         type="button"
-                        className="w-full px-3 py-2 hover:bg-background/50 text-left transition-colors"
+                        className={`w-full px-3 py-2 text-left transition-colors ${
+                          selectedContact?.id === contact.id
+                            ? 'bg-primary/10'
+                            : 'hover:bg-background/50'
+                        }`}
                         onClick={() => setSelectedContact(contact)}
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -301,7 +374,37 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
 
             {/* Detail / Editor Panel */}
             <div className="flex-1 flex flex-col overflow-hidden">
-              {selectedContact ? (
+              {showSegments ? (
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  <h3 className="font-black uppercase tracking-tight text-lg">Segments</h3>
+                  {segments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No segments yet. Create segments in the admin CRM.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {segments.map((segment) => (
+                        <div
+                          key={segment.id}
+                          className="p-3 rounded-lg border border-border bg-background"
+                        >
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-sm">{segment.name}</h4>
+                            <span className="text-xs text-muted-foreground">
+                              Filter:{' '}
+                              {segment.query
+                                ? segment.query.slice(0, 30) +
+                                  (segment.query.length > 30 ? '…' : '')
+                                : 'all'}
+                            </span>
+                          </div>
+                          {}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : selectedContact ? (
                 <>
                   <div className="p-4 border-b border-border">
                     <div className="flex items-start justify-between gap-4">
@@ -455,10 +558,42 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                         </button>
                       </div>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {/* Tasks would load here - simplified for now */}
-                        <p className="text-xs text-muted-foreground text-center py-4">
-                          Follow-ups loading… (integrate getCRMTasksForContact)
-                        </p>
+                        {tasksLoading ? (
+                          <div className="text-center py-4">
+                            <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : tasks.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-4">
+                            No follow-ups yet
+                          </p>
+                        ) : (
+                          tasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="p-2 rounded-lg border border-border bg-background"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-medium truncate">{task.title}</p>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    task.status === 'done'
+                                      ? 'bg-emerald-500/10 text-emerald-400'
+                                      : task.status === 'in_progress'
+                                        ? 'bg-amber-500/10 text-amber-400'
+                                        : 'bg-slate-500/10 text-slate-400'
+                                  }`}
+                                >
+                                  {task.status.replace('_', ' ')}
+                                </span>
+                              </div>
+                              {task.due_at && (
+                                <p className="text-[10px] text-muted-foreground mt-1">
+                                  Due: {new Date(task.due_at ?? '').toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
 

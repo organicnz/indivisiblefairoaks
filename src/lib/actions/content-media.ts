@@ -62,8 +62,7 @@ export async function getContentMedia(contentId: number): Promise<ContentMediaLi
   const { adminClient } = await requireAdmin();
   await assertContentPublished(contentId);
 
-  // biome-ignore lint/suspicious/noExplicitAny: content_media table not in generated types
-  const { data, error } = await (adminClient as any)
+  const { data, error } = await adminClient
     .from('content_media')
     .select('*')
     .eq('content_id', contentId)
@@ -71,7 +70,7 @@ export async function getContentMedia(contentId: number): Promise<ContentMediaLi
     .order('created_at', { ascending: true });
 
   if (error) throw new Error(`Failed to list content media: ${error.message}`);
-  return { items: data ?? [], folders: ['content'] };
+  return { items: (data as ContentMediaRow[]) ?? [], folders: ['content'] };
 }
 
 /**
@@ -86,8 +85,7 @@ export async function createContentMediaRow(
   if (!parsed.success) return { success: false, error: parsed.error.message };
   await assertContentPublished(input.content_id);
 
-  // biome-ignore lint/suspicious/noExplicitAny: content_media table not in generated types
-  const { data, error } = await (adminClient as any)
+  const { data, error } = await adminClient
     .from('content_media')
     .insert(parsed.data)
     .select()
@@ -108,8 +106,7 @@ export async function updateContentMediaRow(
   const parsed = PATCH_PARTIAL.safeParse(patch);
   if (!parsed.success) return { success: false, error: parsed.error.message };
 
-  // biome-ignore lint/suspicious/noExplicitAny: content_media table not in generated types
-  const { data: existing, error: fetchErr } = await (adminClient as any)
+  const { data: existing, error: fetchErr } = await adminClient
     .from('content_media')
     .select('content_id')
     .eq('id', id)
@@ -119,8 +116,7 @@ export async function updateContentMediaRow(
   if (!existing) return { success: false, error: 'Media row not found' };
   await assertContentPublished(existing.content_id);
 
-  // biome-ignore lint/suspicious/noExplicitAny: content_media table not in generated types
-  const { data, error } = await (adminClient as any)
+  const { data, error } = await adminClient
     .from('content_media')
     .update(parsed.data)
     .eq('id', id)
@@ -141,8 +137,7 @@ export async function deleteContentMediaRow(
 ): Promise<ContentMediaUploadResult<ContentMediaDeleteResult>> {
   const { adminClient } = await requireAdmin();
 
-  // biome-ignore lint/suspicious/noExplicitAny: content_media table not in generated types
-  const { data: target, error: fetchErr } = await (adminClient as any)
+  const { data: target, error: fetchErr } = await adminClient
     .from('content_media')
     .select('path, content_id')
     .eq('id', id)
@@ -188,12 +183,10 @@ export async function deleteContentMediaRow(
   const { error: storageErr } = await client.storage.from('media').remove([path]);
   if (storageErr) return { success: false, error: `Storage delete failed: ${storageErr.message}` };
 
-  // biome-ignore lint/suspicious/noExplicitAny: content_media table not in generated types
-  const { error: dbErr } = await (client as any).from('content_media').delete().eq('id', id);
+  const { error: dbErr } = await client.from('content_media').delete().eq('id', id);
   if (dbErr) return { success: false, error: dbErr.message };
 
-  // biome-ignore lint/suspicious/noExplicitAny: ContentMediaDeleteResult shape differs from ContentMediaRow
-  return { success: true, data: { deleted: true } as any };
+  return { success: true, data: { deleted: true } };
 }
 
 /**
@@ -209,8 +202,7 @@ export async function uploadAndCreateContentMedia(
 
   const file = formData.get('file') as File | null;
   if (!file) return { success: false, error: 'No file provided' };
-  // biome-ignore lint/suspicious/noExplicitAny: File.type is string but CONTENT_IMAGE_TYPES is readonly tuple
-  if (!CONTENT_IMAGE_TYPES.includes(file.type as any)) {
+  if (!CONTENT_IMAGE_TYPES.includes(file.type as (typeof CONTENT_IMAGE_TYPES)[number])) {
     return { success: false, error: 'Only JPEG, PNG, WebP, GIF are allowed' };
   }
   if (file.size > MAX_CONTENT_IMAGE_BYTES) {
