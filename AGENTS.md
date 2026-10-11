@@ -1096,7 +1096,13 @@ Tracks per-page media items for the visual editor.
 - RLS: Public read only for published parent content; Admin full manage
 - Actions: `getContentMedia`, `createContentMediaRow`, `updateContentMediaRow`, `deleteContentMediaRow`, `uploadAndCreateContentMedia` (in `src/lib/actions/content-media.ts`)
 - Types: `src/types/content-media.ts` (manual until migration lands + `bun run types:generate`)
-- Tests: `src/lib/__tests__/content-media.test.ts` (13 tests; 7 pass, 6 delete tests need `assertContentPublished` mock)
+- Tests: `src/lib/__tests__/content-media.test.ts` (19 tests, all on the shared
+  row-based mock). It used to hand-roll a builder whose `maybeSingle()` answered
+  a no-match read with an *error* — the inverse of PostgREST's
+  `{ data: null, error: null }` — so `assertContentPublished`'s error-only guard
+  passed every green test while drafts sailed through in production. The guard
+  now also refuses `data === null`, and the suite is converted to
+  `createMockAdminClient`.
 
 ---
 
