@@ -1084,7 +1084,11 @@ A `Dialog` opened from the overlay dock (`Constituents` button, `UsersRound` ico
 - **Delete contact**: `deleteCRMContact` behind `ConfirmAction`
 - **Consent tri-state**: `setCRMEmailConsent` with `opted_in` / `opted_out` / `unasked`
 - **Follow-ups**: Reuses `CRMTaskForm` via `addCRMTask` / `getCRMTasksForContact`
-- **Segments**: Read-only chips + link to `/admin/crm/segments`
+- **Notes** — `crm_activities` timeline (`getCRMContactDetail`), with add (`addCRMNote`), in-place edit (`updateCRMNote`) and `ConfirmAction` delete (`deleteCRMNote`). Existing `notes` column kept.
+- **Task mutation** — `setCRMTaskStatus` toggle + edit (`updateCRMTask`) + `ConfirmAction` delete (`deleteCRMTask`)
+- **Consent** — derived from `crm-filters.ts` (`ConsentFilter`, `consentLabel`, `splitActiveValues`); local `consentFromDoNotEmail` removed
+- **Segments** — read-only chips + `/admin/crm/segments` link (using overlay `<a>` precedent); stray `{}` JSX artifact removed; `generateMetadata` fixed to use `pageMetadata`
+- Tests: `src/components/visual-edit/__tests__/CRMPanel.test.tsx` scaffolded per `VisualEditOverlay.test.tsx` convention (`createRoot`, hoisted mocks, `ConfirmAction` stub)
 
 **All mutations through existing server actions** (`src/lib/actions/crm.ts`). No email sending from overlay — send paths are E2E-refused and dispatch live Edge Functions.
 

@@ -55,9 +55,7 @@ describe('CRMPanel', () => {
 
   it('renders notes timeline from crm_activities', async () => {
     await new Promise((r) => setTimeout(r, 50));
-    // Assert note is present
-    const noteText = container.querySelector('[data-testid="note-body"]');
-    expect(noteText || container.textContent).toContain('Note');
+    expect(container.textContent).toContain('Note');
   });
 
   it('provides a link to /admin/crm/segments', async () => {
