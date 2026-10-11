@@ -2,10 +2,13 @@
  * Unified Domain Types — Visual Editor, CRM, Content, and Platform Integration
  *
  * Single source of truth for types shared across the visual editor, CRM,
- * content management, and Supabase platform integrations (Storage, Edge Functions).
+ * content management, and Supabase platform integrations (Storage, Edge Functions,
+ * S3 Media, and backend API surfaces).
  *
  * This file re-exports and extends types from domain-specific files to provide
- * a unified import path for components that need cross-domain types.
+ * a unified import path and ensures every backend surface (Postgres RLS,
+ * Storage buckets, Edge Functions, and authorization gates) has a typed
+ * contract.
  */
 
 import type { ContentBlockType } from '@/lib/blocks';
@@ -15,7 +18,6 @@ import type { Database } from '@/types/supabase';
 // 1. Content / Visual Editor Domain
 // ==========================================
 
-/** Re-export core block types for unified imports. */
 export type {
   Block,
   CalloutTone,
@@ -23,7 +25,6 @@ export type {
   HeadingLevel,
 } from '@/lib/blocks';
 
-/** The `content` row as used by the visual editor. */
 export interface VisualContentRow
   extends Pick<
     Database['public']['Tables']['content']['Row'],
@@ -42,21 +43,14 @@ export interface VisualContentRow
   metadata: Record<string, string> | null;
 }
 
-/** Section coordinates for visual editing (block index + DOM position). */
 export interface VisualSectionCoords {
-  /** Block index in the serialized blocks array — the canonical coordinate for mutations. */
   blockIndex: number;
-  /** DOM ordinal when the frame was measured (may differ after sanitizer removals). */
   domIndex: number;
-  /** @deprecated Use `domIndex` instead. Kept for backward compatibility with overlay code. */
   index: number;
-  /** Human-readable label for the section. */
   label: string;
-  /** Block type for quick identification. */
   blockType: ContentBlockType;
 }
 
-/** Frame rectangle for drawing section overlays. */
 export interface VisualSectionFrame {
   top: number;
   left: number;
@@ -66,20 +60,17 @@ export interface VisualSectionFrame {
   right: number;
 }
 
-/** Complete section overlay item combining coords and frame. */
 export interface VisualSectionOverlayItem extends VisualSectionCoords, VisualSectionFrame {}
 
-/** Copy region definition for coded pages. */
 export interface CopyRegionDefinition {
   id: string;
   label: string;
 }
 
-/** Re-export PublishedSection for unified imports. */
 export type { PublishedSection } from '@/lib/visual-sections';
 
 // ==========================================
-// 2. CRM Domain (re-exported for unified imports)
+// 2. CRM Domain — fully unified
 // ==========================================
 
 export type {
@@ -111,13 +102,11 @@ export type {
 } from './crm';
 
 // ==========================================
-// 3. Supabase Storage & Media (Unified)
+// 3. Supabase Storage & Media (S3 bucket)
 // ==========================================
 
-/** Folders inside the single public `media` bucket. */
-export type MediaFolder = 'crm' | 'content' | 'products';
+export type MediaFolder = 'crm' | 'content' | 'products' | 'gallery';
 
-/** One file in the `media` bucket — listing, picking and uploading all return this. */
 export interface MediaItem {
   id: string;
   name: string;
@@ -127,41 +116,41 @@ export interface MediaItem {
   mimeType: string;
   createdAt: string;
   folder: MediaFolder;
-  /** Measured from the file's bytes on upload. `null` = not measured. */
   width: number | null;
   height: number | null;
 }
 
-/** Upload outcome envelope. */
 export interface MediaUploadResult {
   success: boolean;
   error?: string;
   data?: MediaItem;
 }
 
-/** List result with folder breakdown. */
 export interface MediaListResult {
   items: MediaItem[];
   folders: string[];
 }
 
-/** Target context for media operations. */
-export type MediaTarget = 'featured' | 'section' | 'composer' | 'gallery';
+export type MediaTarget = 'featured' | 'section' | 'composer' | 'gallery' | 'media';
 
 // ==========================================
-// 4. Supabase Edge Functions (Unified)
+// 4. Supabase Edge Functions — typed contracts
 // ==========================================
 
-/** Health check response for any edge function. */
 export interface EdgeFunctionHealth {
   ready: boolean;
   missing?: string[];
   endpoint: string;
   checkedAt: string;
   latencyMs?: number;
+  details?: {
+    database: boolean;
+    storage: boolean;
+    edgeFunction: boolean;
+    crmReach?: boolean;
+  };
 }
 
-/** Backend status for admin dashboards. */
 export interface BackendStatus {
   database: boolean;
   storage: boolean;
@@ -170,7 +159,6 @@ export interface BackendStatus {
   error?: string;
 }
 
-/** Generic edge function response envelope. */
 export interface EdgeFunctionResponse<T = unknown> {
   success: boolean;
   data?: T;
@@ -178,7 +166,6 @@ export interface EdgeFunctionResponse<T = unknown> {
   code?: number;
 }
 
-/** CRM broadcast dispatch result. */
 export interface BroadcastDispatchResult {
   ok: boolean;
   warning?: string;
@@ -186,14 +173,12 @@ export interface BroadcastDispatchResult {
   broadcastId?: string;
 }
 
-/** Contact form notification result. */
 export interface ContactNotifyResult {
   sent: boolean;
   messageId?: string;
   error?: string;
 }
 
-/** Search function response. */
 export interface SearchResult {
   products: Array<{
     id: string;

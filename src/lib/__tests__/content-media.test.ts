@@ -18,25 +18,40 @@ let _mockMeasureImageSize: ReturnType<typeof vi.fn>;
 let _mockCryptoRandomValues: ReturnType<typeof vi.fn>;
 
 function createChain() {
-  return {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    lte: vi.fn().mockReturnThis(),
-    order: vi.fn().mockReturnThis(),
-    insert: vi.fn().mockReturnThis(),
-    update: vi.fn().mockReturnThis(),
-    delete: vi.fn().mockReturnThis(),
+  const chain: any = {
+    filters: [],
+    orders: [],
+    select: vi.fn().mockImplementation(() => chain),
+    eq: vi.fn((col: string, val: unknown) => { chain.filters.push({ kind: 'eq', col, val }); return chain; }),
+    neq: vi.fn().mockImplementation(() => chain),
+    lte: vi.fn((col: string, val: unknown) => { chain.filters.push({ kind: 'lte', col, val }); return chain; }),
+    is: vi.fn().mockImplementation(() => chain),
+    like: vi.fn().mockImplementation(() => chain),
+    in: vi.fn().mockImplementation(() => chain),
+    ilike: vi.fn().mockImplementation(() => chain),
+    not: vi.fn().mockImplementation(() => chain),
+    order: vi.fn().mockImplementation(() => chain),
+    insert: vi.fn().mockImplementation(() => chain),
+    update: vi.fn().mockImplementation(() => chain),
+    delete: vi.fn().mockImplementation(() => chain),
     single: vi.fn(),
     maybeSingle: vi.fn(),
-    ilike: vi.fn().mockReturnThis(),
-    _then: vi.fn(),
+    limit: vi.fn().mockImplementation(() => chain),
+    range: vi.fn().mockImplementation(() => chain),
+    or: vi.fn().mockImplementation(() => chain),
   };
+  return chain;
 }
 
 function setupMocks() {
   mockRequireAdmin = vi.fn().mockResolvedValue({ adminClient: mockAdminClient });
   mockAdminClient.from.mockReset();
-  mockAdminClient.from.mockImplementation(() => createChain());
+  mockAdminClient.from.mockImplementation(() => {
+    const c = createChain();
+    // Default: published content exists for assertContentPublished
+    c.maybeSingle.mockResolvedValue({ data: { id: 42 }, error: null });
+    return c;
+  });
   mockAdminClient.storage.from.mockReset();
   mockAdminClient.storage.from.mockImplementation(() => ({ ...mockStorageChain }));
   mockStorageChain.upload.mockReset();
@@ -191,6 +206,7 @@ describe('content-media actions', () => {
       });
 
       const checkChain = createChain();
+      checkChain.maybeSingle.mockResolvedValue({ data: { id: 42 }, error: null });
       checkChain.ilike.mockResolvedValue({ data: [], error: null });
       checkChain.eq.mockResolvedValue({ data: [], error: null });
 
@@ -241,6 +257,7 @@ describe('content-media actions', () => {
       });
 
       const checkChain = createChain();
+      checkChain.maybeSingle.mockResolvedValue({ data: { id: 42 }, error: null });
       checkChain.ilike.mockResolvedValue({ data: [], error: null });
       checkChain.eq.mockResolvedValue({ data: [{ id: 1 }], error: null });
 

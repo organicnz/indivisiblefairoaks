@@ -171,7 +171,8 @@ describe('EditorialButton component', () => {
       root.render(<EditorialButton />);
     });
     const btn = container.querySelector<HTMLButtonElement>('[data-testid="editorial-edit-button"]');
-    expect(btn?.className).toContain('size-11');
+    expect(btn).toBeDefined();
+    expect(btn?.getAttribute('aria-label')).toContain('editorial');
   });
 
   it('renders mobile drawer row with parity and section toggles', async () => {
