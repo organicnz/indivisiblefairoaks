@@ -110,7 +110,9 @@ describe('content-media actions', () => {
       const rows = [makeMediaRow({ sort_order: 1 }), makeMediaRow({ sort_order: 0 })];
       const chain = createChain();
       chain.order.mockReturnThis();
-      chain._then.mockImplementation((cb) => cb({ data: rows, error: null }));
+      chain._then.mockImplementation((cb: (res: { data: typeof rows; error: null }) => unknown) =>
+        cb({ data: rows, error: null })
+      );
       mockAdminClient.from.mockImplementation(() => chain);
 
       const result = await getContentMedia(42);
