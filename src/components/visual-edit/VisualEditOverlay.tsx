@@ -1339,7 +1339,9 @@ export function VisualEditOverlay() {
     handleDeleteSection,
   ]);
 
-  // Revisions management
+  // Revisions management — restore is destructive; the confirm step lives at the
+  // button level via ConfirmAction (JSX component: label/message/danger/onConfirm),
+  // not as a promise call (ConfirmActionProps has no .then interface).
   const handleOpenRevisions = useCallback(async () => {
     if (!contentRow) {
       toast.info('Connect this page to Supabase CMS first to access revision history');

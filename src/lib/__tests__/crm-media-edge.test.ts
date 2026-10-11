@@ -8,6 +8,12 @@ vi.mock('next/cache', () => ({
 }));
 vi.mock('server-only', () => ({}));
 
+// Note: the `.or()` query in mediaReferenceReason (folder 'products') is the one
+// filter the shared row mock does not model — per its documented contract
+// ("No .or(), .contains(), .textSearch(); if a test reaches one without declaring
+// it returns no rows, the omission fails loudly"). The DB reference half of this
+// suite uses the mock for `.like()` + `.limit()` checks; `.or()` is covered by
+// explicit filter-set assertion rather than synthetic OR logic.
 const mockStorageFrom = {
   list: vi.fn(),
   upload: vi.fn(),
