@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import { getPageCopyRegions } from '@/lib/copy-regions';
 import {
   addBlockVisual,
@@ -33,33 +34,8 @@ import { useActiveRegion, usePublishedSections } from './usePublishedSections';
 import { useVisualEditMode } from './visual-edit-store';
 
 const FOCUS_RING =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f172a]';
 
-/**
- * The editorial control in the site header.
- *
- * One press turns visual editing on and off. That is the whole control.
- *
- * It used to be a two-part button — an icon plus a chevron opening a menu of
- * regions and per-section switches — and the split had a cost that was not
- * visible in review: two controls of two sizes for one intent, a 44px target
- * achieved by stacking 36px and 24px, and a menu that duplicated a list the
- * overlay already publishes. So the header control is now only the master
- * switch.
- *
- * Per-section visual editing is not lost, because it was never really here:
- * - **On the page** — each framed section carries its own action pill with
- *   frame / jump / edit / duplicate / move / add / delete
- *   (`SectionFrames` in `components/visual-edit/`).
- * - **In the drawer** — `EditorialDrawerRow` below keeps the full editorial
- *   card: regions, every per-section control, and the block shortcuts.
- *
- * One invariant still holds and is the reason this component stays small: it
- * **never derives a section list of its own**. The overlay publishes the real
- * list (`VISUAL_EDIT_EVENTS.sectionsPublished`) and the drawer renders that,
- * because a second list agreed only while nothing had been sanitized out of the
- * page — and then offered to edit an element that was a different section.
- */
 export function EditorialButton() {
   const pathname = usePathname();
   const { loading, isAdmin } = useEditContext(pathname ?? '/');
@@ -67,54 +43,76 @@ export function EditorialButton() {
 
   if (loading) {
     return (
-      <span aria-hidden="true" className="hidden sm:inline-block size-11 rounded-xl bg-white/10" />
+      <span
+        aria-hidden="true"
+        className="hidden sm:inline-block h-11 w-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 animate-pulse"
+      />
     );
   }
 
   if (!isAdmin) return null;
 
+  // ⌘E / Ctrl-E toggles the mode from anywhere on the page. The overlay and the
+  // drawer already own per-section controls; this is the one keyboard shortcut
+  // that reaches them without hunting for a button, and it mirrors ⌘K (search)
+  // and ⌘S (save) instead of inventing a new shape.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'e') return;
+      event.preventDefault();
+      toggle();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [toggle]);
+
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-pressed={enabled}
-      data-testid="editorial-edit-button"
-      aria-label={enabled ? 'Disable editorial mode' : 'Enable editorial mode'}
-      title={enabled ? 'Editorial mode is on' : 'Editorial mode'}
+    <>
+      {/* The mode change is a screen-reader event, not a toast: the button's
+          aria-pressed already says "on", but nothing announces the transition,
+          so a keyboard user who pressed ⌘E gets silence. */}
+      <span role="status" aria-live="polite" className="sr-only">
+        {enabled ? 'Editorial mode is now on' : 'Editorial mode is now off'}
+      </span>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={enabled}
+        data-testid="editorial-edit-button"
+        aria-label={
+          enabled ? 'Disable editorial mode' : 'Enable editorial mode — plan and edit sections (⌘E)'
+        }
+        title={enabled ? 'Editorial mode is on (⌘E)' : 'Plan and edit sections (⌘E)'}
       className={`
-        relative size-11 rounded-xl flex items-center justify-center
-        border transition-all duration-300 ease-out
+        group relative inline-flex items-center gap-2.5 h-11 px-4 rounded-2xl
+        border transition-all duration-300 ease-out shadow-sm
         ${FOCUS_RING}
         ${
           enabled
-            ? 'bg-accent-gold/15 border-accent-gold/40 text-accent-gold ring-2 ring-accent-gold/30 shadow-[0_0_16px_rgba(245,158,11,0.25)]'
-            : 'bg-white/8 border-white/15 text-slate-300 hover:text-white hover:bg-white/15'
+            ? 'bg-gradient-to-br from-amber-500/20 via-amber-400/10 to-amber-600/20 border-amber-300/60 text-amber-200 shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:shadow-[0_0_30px_rgba(245,158,11,0.35)] hover:-translate-y-0.5'
+            : 'bg-gradient-to-br from-slate-800/80 to-slate-900/90 border-white/10 text-slate-200 hover:text-white hover:border-white/25 hover:-translate-y-0.5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]'
         }
       `}
     >
-      <PenLine size={18} aria-hidden="true" />
+      <span
+        className={`inline-flex items-center justify-center w-7 h-7 rounded-xl transition-colors ${enabled ? 'bg-amber-400/20 text-amber-300' : 'bg-white/5 text-slate-300 group-hover:text-white group-hover:bg-white/10'}`}
+      >
+        <PenLine size={16} aria-hidden="true" strokeWidth={2.5} />
+      </span>
+      <span className="hidden sm:inline text-xs font-bold uppercase tracking-[0.15em] whitespace-nowrap">
+        {enabled ? 'Editing' : 'Plan'}
+      </span>
       {enabled && (
         <span
           aria-hidden="true"
-          className="absolute -top-1 -right-1 size-2 rounded-full bg-accent-gold animate-pulse"
+          className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)] animate-pulse ring-2 ring-[#0f172a]"
         />
       )}
     </button>
+    </>
   );
 }
 
-/**
- * Editorial drawer section for mobile and small-screen layouts.
- *
- * Full parity with the header button — the mode switch, the region list, every
- * per-section control (frame, jump, edit, duplicate, move, delete) and the
- * block shortcuts. A drawer entry that offered less than the header would be a
- * second, weaker editor on the small screens that need one most.
- *
- * The lists are the header's lists, read from the same hooks; nothing here
- * re-derives a section or a region, so the two surfaces cannot disagree about
- * which document they are on.
- */
 export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
   const pathname = usePathname();
   const { loading, isAdmin } = useEditContext(pathname ?? '/');
@@ -134,52 +132,61 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
   };
 
   return (
-    <div className="rounded-xl border border-accent-gold/30 bg-accent/15 p-2 space-y-2">
+    <div className="rounded-2xl border border-amber-300/20 bg-gradient-to-b from-slate-800/60 to-slate-900/80 p-3 space-y-3 shadow-[0_10px_40px_-15px_rgba(245,158,11,0.15)]">
       <button
         type="button"
         onClick={toggle}
         aria-pressed={enabled}
         data-testid="editorial-visual-edit-row"
-        aria-label={enabled ? 'Visual editing is on — click to turn off' : 'Turn on visual editing'}
+        aria-label={
+          enabled
+            ? 'Visual editing is on — click to turn off'
+            : 'Turn on visual editing to plan sections'
+        }
         className={`
-          relative flex w-full items-center gap-3 rounded-xl px-3 py-3
-          transition-all duration-300 ease-out
+          relative flex w-full items-center gap-3 rounded-xl px-4 py-3.5
+          transition-all duration-300 ease-out shadow-sm
           ${FOCUS_RING}
           ${
             enabled
-              ? 'text-accent-gold bg-accent-gold/10 hover:bg-accent-gold/20 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
-              : 'text-ink-on-dark hover:text-white hover:bg-white/10'
+              ? 'text-amber-200 bg-gradient-to-r from-amber-500/15 to-amber-400/10 hover:from-amber-500/25 hover:to-amber-400/15 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
+              : 'text-slate-100 hover:text-white bg-gradient-to-r from-white/5 to-white/[0.03] hover:from-white/10 hover:to-white/[0.05]'
           }
         `}
       >
-        <PenLine size={20} aria-hidden="true" />
-        <span className="flex-1 text-left font-semibold text-sm">Visual editing</span>
+        <span
+          className={`inline-flex items-center justify-center w-9 h-9 rounded-xl transition-colors ${enabled ? 'bg-amber-400/20 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.3)]' : 'bg-white/10 text-slate-300'}`}
+        >
+          <PenLine size={18} aria-hidden="true" strokeWidth={2} />
+        </span>
+        <div className="flex-1 text-left">
+          <span className="block text-sm font-bold">Visual editing</span>
+          <span className="block text-[10px] font-medium text-slate-400">
+            Plan and edit sections on this page
+          </span>
+        </div>
         {enabled && (
           <span
             aria-hidden="true"
-            className="absolute -top-1 -right-1 size-2 rounded-full bg-accent-gold animate-pulse"
+            className="absolute -top-2 -right-2 h-3.5 w-3.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)] animate-pulse ring-2 ring-[#0f172a]"
           />
         )}
       </button>
 
       {enabled && regions.length > 0 && (
-        <div className="border-t border-accent-gold/20 pt-2 space-y-1">
-          <p className="px-2 text-[10px] font-black uppercase tracking-widest text-ink-muted-on-dark">
+        <div className="border-t border-amber-300/10 pt-3 space-y-2">
+          <p className="px-1 text-[10px] font-black uppercase tracking-[0.15em] text-amber-300/80">
             Editable region
           </p>
-          <div className="flex flex-wrap gap-1 px-1">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => selectRegion(null)}
-              className={`
-                rounded-lg px-2 py-1 text-[11px] font-bold uppercase tracking-wider
-                transition-colors
-                ${
-                  activeRegionId === null
-                    ? 'bg-accent-gold/20 text-accent-gold'
-                    : 'text-ink-muted-on-dark hover:text-white'
-                }
-              `}
+              className={`rounded-xl px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
+                activeRegionId === null
+                  ? 'bg-amber-400/20 text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.15)]'
+                  : 'text-slate-300 hover:text-white hover:bg-white/10'
+              }`}
             >
               Whole page
             </button>
@@ -188,15 +195,11 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                 key={region.id}
                 type="button"
                 onClick={() => selectRegion(region.id)}
-                className={`
-                  rounded-lg px-2 py-1 text-[11px] font-bold uppercase tracking-wider
-                  transition-colors
-                  ${
-                    region.id === activeRegionId
-                      ? 'bg-accent-gold/20 text-accent-gold'
-                      : 'text-ink-muted-on-dark hover:text-white'
-                  }
-                `}
+                className={`rounded-xl px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-all ${
+                  region.id === activeRegionId
+                    ? 'bg-amber-400/20 text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.15)]'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
+                }`}
               >
                 {region.label}
               </button>
@@ -206,16 +209,16 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
       )}
 
       {enabled && (
-        <div className="border-t border-accent-gold/20 pt-2 space-y-1">
-          <div className="flex items-center justify-between px-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-ink-muted-on-dark">
+        <div className="border-t border-amber-300/10 pt-3 space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-amber-300/80">
               Sections {sections.length > 0 ? `(${framedCount}/${sections.length})` : ''}
             </p>
             {sections.length > 0 && (
               <button
                 type="button"
                 onClick={() => toggleSectionVisual({ all: framedCount !== sections.length })}
-                className="text-[10px] font-bold uppercase tracking-wider text-accent-gold hover:text-white"
+                className="text-[10px] font-bold uppercase tracking-wider text-amber-300 hover:text-amber-200 transition-colors"
               >
                 {framedCount === sections.length ? 'Mute all' : 'Frame all'}
               </button>
@@ -223,11 +226,11 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
           </div>
 
           {sections.length === 0 ? (
-            <p className="px-2 py-2 text-xs text-ink-muted-on-dark">
+            <p className="px-1 py-2 text-xs text-slate-400">
               No editable sections in this document yet.
             </p>
           ) : (
-            <div className="space-y-1 pt-1 max-h-52 overflow-y-auto no-scrollbar">
+            <div className="space-y-1.5 pt-1 max-h-60 overflow-y-auto no-scrollbar">
               {sections.map((section, position) => {
                 const unaddressed = section.blockIndex === null;
                 const label = section.label || `Section ${position + 1}`;
@@ -235,14 +238,11 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                 return (
                   <div
                     key={`${section.blockIndex ?? 'd'}:${section.index ?? position}`}
-                    className={`
-                      flex items-center gap-1 rounded-lg border p-1.5 transition-colors
-                      ${
-                        section.enabled
-                          ? 'border-accent-gold/30 bg-accent-gold/10'
-                          : 'border-white/5 bg-white/5'
-                      }
-                    `}
+                    className={`flex items-center gap-2 rounded-xl border p-2 transition-all ${
+                      section.enabled
+                        ? 'border-amber-300/30 bg-gradient-to-r from-amber-400/10 to-amber-500/5 shadow-[0_0_10px_rgba(245,158,11,0.08)]'
+                        : 'border-white/10 bg-white/[0.03]'
+                    }`}
                   >
                     <button
                       type="button"
@@ -259,11 +259,13 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                         });
                         onNavigate();
                       }}
-                      className={`p-1 rounded disabled:opacity-40 ${
-                        section.enabled ? 'text-accent-gold bg-accent-gold/20' : 'text-slate-400'
+                      className={`p-1.5 rounded-xl transition-all ${
+                        section.enabled
+                          ? 'text-amber-300 bg-amber-400/20 shadow-[0_0_8px_rgba(245,158,11,0.25)]'
+                          : 'text-slate-500 hover:text-slate-300'
                       }`}
                     >
-                      {section.enabled ? <Eye size={12} /> : <EyeOff size={12} />}
+                      {section.enabled ? <Eye size={14} /> : <EyeOff size={14} />}
                     </button>
                     <button
                       type="button"
@@ -274,7 +276,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                         onNavigate();
                         focusSectionVisual({ blockIndex: section.blockIndex, openEdit: false });
                       }}
-                      className="flex-1 text-left text-xs text-white truncate disabled:opacity-50"
+                      className="flex-1 text-left text-xs font-semibold text-white truncate disabled:opacity-40 hover:text-amber-200 transition-colors"
                     >
                       {label}
                     </button>
@@ -288,7 +290,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                           onNavigate();
                           focusSectionVisual({ blockIndex: section.blockIndex, openEdit: true });
                         }}
-                        className="p-1 rounded bg-accent-gold/20 text-accent-gold disabled:opacity-40"
+                        className="p-1.5 rounded-xl bg-amber-400/20 text-amber-300 hover:bg-amber-400/30 disabled:opacity-40 transition-colors shadow-[0_0_8px_rgba(245,158,11,0.15)]"
                       >
                         <PenLine size={12} />
                       </button>
@@ -302,7 +304,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                           duplicateSectionVisual({ blockIndex: section.blockIndex });
                           onNavigate();
                         }}
-                        className="p-1 rounded text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-40"
+                        className="p-1.5 rounded-xl text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-40 transition-colors"
                       >
                         <Copy size={12} />
                       </button>
@@ -315,7 +317,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                           moveSectionVisual({ blockIndex: section.blockIndex, direction: 'up' });
                           onNavigate();
                         }}
-                        className="p-1 rounded text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                        className="p-1.5 rounded-xl text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30 transition-colors"
                       >
                         <ArrowUp size={12} />
                       </button>
@@ -328,7 +330,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                           moveSectionVisual({ blockIndex: section.blockIndex, direction: 'down' });
                           onNavigate();
                         }}
-                        className="p-1 rounded text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30"
+                        className="p-1.5 rounded-xl text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-30 transition-colors"
                       >
                         <ArrowDown size={12} />
                       </button>
@@ -342,7 +344,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                           deleteSectionVisual({ blockIndex: section.blockIndex });
                           onNavigate();
                         }}
-                        className="p-1 rounded text-slate-400 hover:bg-rose-500/15 hover:text-rose-400 disabled:opacity-30"
+                        className="p-1.5 rounded-xl text-slate-400 hover:bg-rose-500/15 hover:text-rose-400 disabled:opacity-30 transition-colors"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -353,7 +355,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
             </div>
           )}
 
-          <div className="border-t border-accent-gold/20 pt-1">
+          <div className="border-t border-amber-300/10 pt-2 space-y-2">
             <button
               type="button"
               onClick={() => {
@@ -365,11 +367,11 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                 );
                 onNavigate();
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/10"
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/10 transition-all bg-gradient-to-r from-emerald-500/5 to-transparent"
             >
-              <Plus size={13} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
               Add block
-              {activeRegionId && <span className="text-[10px] text-emerald-400/70">to region</span>}
+              {activeRegionId && <span className="text-[10px] text-emerald-300/70">to region</span>}
             </button>
             <button
               type="button"
@@ -377,9 +379,9 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                 openMediaLibraryVisual();
                 onNavigate();
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-bold text-accent-gold hover:bg-accent-gold/10"
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-amber-200 hover:text-amber-100 hover:bg-amber-400/10 transition-all bg-gradient-to-r from-amber-400/5 to-transparent"
             >
-              <FolderOpen size={13} aria-hidden="true" />
+              <FolderOpen size={14} aria-hidden="true" />
               Supabase media library
             </button>
             <button
@@ -388,9 +390,9 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                 openRevisionsVisual();
                 onNavigate();
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:bg-white/10 hover:text-white"
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-all bg-gradient-to-r from-white/5 to-transparent"
             >
-              <History size={13} aria-hidden="true" />
+              <History size={14} aria-hidden="true" />
               Revisions
             </button>
             <button
@@ -399,9 +401,9 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                 openSettingsVisual();
                 onNavigate();
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:bg-white/10 hover:text-white"
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-all bg-gradient-to-r from-white/5 to-transparent"
             >
-              <Settings size={13} aria-hidden="true" />
+              <Settings size={14} aria-hidden="true" />
               Document settings
             </button>
             <button
@@ -412,9 +414,9 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                 toggle();
                 onNavigate();
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-500/10"
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-rose-300 hover:text-rose-200 hover:bg-rose-500/10 transition-all bg-gradient-to-r from-rose-500/5 to-transparent"
             >
-              <X size={13} aria-hidden="true" />
+              <X size={14} aria-hidden="true" />
               Turn off visual editing
             </button>
           </div>

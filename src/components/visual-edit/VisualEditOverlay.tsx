@@ -141,14 +141,16 @@ function isStaleConflict(message: string | undefined): boolean {
  * converted back to, and a label removed here but left there is the reverse.
  */
 const ADD_BLOCK_OPTIONS: ReadonlyArray<{ type: Block['type']; label: string }> = [
-  { type: 'heading', label: 'Heading (H2)' },
   { type: 'paragraph', label: 'Paragraph Text' },
+  { type: 'heading', label: 'Heading (H2)' },
   { type: 'bulletList', label: 'Bullet List' },
   { type: 'orderedList', label: 'Numbered Steps' },
   { type: 'image', label: 'Image (S3 Storage)' },
+  { type: 'table', label: 'Data Table' },
   { type: 'callout', label: 'Alert / Callout' },
   { type: 'button', label: 'Button CTA' },
   { type: 'quote', label: 'Quote Block' },
+  { type: 'code', label: 'Code Block' },
   { type: 'divider', label: 'Divider Line' },
 ];
 
@@ -191,6 +193,22 @@ function extractBlocksFromDOM(root: HTMLElement): Block[] {
         caption: '',
         width: img.naturalWidth || null,
         height: img.naturalHeight || null,
+      });
+      return;
+    }
+
+    // Check table (checked before lists — a table can contain <ul>/<li>)
+    const table = child.matches('table') ? (child as HTMLTableElement) : child.querySelector('table');
+    if (table) {
+      const head = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent?.trim() || '');
+      const rows = Array.from(table.querySelectorAll('tbody tr')).map((row) =>
+        Array.from(row.querySelectorAll('td')).map((td) => td.textContent?.trim() || '')
+      );
+      extracted.push({
+        id: blockId,
+        type: 'table',
+        head: head.length > 0 ? head : (rows[0]?.length ? rows.shift() ?? [] : ['Column']),
+        rows: rows.length > 0 ? rows : [['Cell']],
       });
       return;
     }
@@ -419,6 +437,7 @@ export function VisualEditOverlay() {
   const buttonLabelId = useId();
   const buttonHrefId = useId();
   const quoteTextId = useId();
+  const codeTextId = useId();
   const listItemsId = useId();
 
   const findEffectiveVisualEditRoot = useCallback((): HTMLElement | null => {
@@ -814,7 +833,6 @@ export function VisualEditOverlay() {
       if (r.bottom < -200 || r.top > window.innerHeight + 200) continue;
 
       items.push({
-        index: section.domIndex,
         domIndex: section.domIndex,
         label: section.label,
         top: r.top,
@@ -1133,6 +1151,17 @@ export function VisualEditOverlay() {
         case 'orderedList':
           freshBlock = { id: freshId, type: 'orderedList', items: ['Step 1', 'Step 2'] };
           break;
+        case 'table':
+          freshBlock = {
+            id: freshId,
+            type: 'table',
+            head: ['Column A', 'Column B'],
+            rows: [
+              ['Row 1', 'Row 1'],
+              ['Row 2', 'Row 2'],
+            ],
+          };
+          break;
         case 'callout':
           freshBlock = {
             id: freshId,
@@ -1160,6 +1189,9 @@ export function VisualEditOverlay() {
           break;
         case 'divider':
           freshBlock = { id: freshId, type: 'divider' };
+          break;
+        case 'code':
+          freshBlock = { id: freshId, type: 'code', text: '// inline code block' };
           break;
         default:
           freshBlock = { id: freshId, type: 'paragraph', html: 'Content' };
@@ -1583,7 +1615,7 @@ export function VisualEditOverlay() {
         <div aria-hidden="false" className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
           {sectionOverlays.map((item) => (
             <div
-              key={item.index}
+              key={item.domIndex}
               style={{
                 position: 'fixed',
                 top: `${item.top}px`,
@@ -1666,15 +1698,43 @@ export function VisualEditOverlay() {
                     </button>
                   )}
 
-                  {/* Add block below */}
-                  <button
-                    type="button"
-                    onClick={() => handleAddNewSection('paragraph', item.blockIndex)}
-                    title="Add block below"
-                    className="rounded p-1 text-emerald-400 hover:bg-white/15 hover:text-emerald-300 transition-colors"
-                  >
-                    <Plus size={13} />
-                  </button>
+                  {/* Add block below — a menu of every type, not just a paragraph.
+                      A pen-over-here control that can only append one block type
+                      is a control that lies by omission; the dock menu already
+                      owns the canonical option list, so this reuses it. */}
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                      <button
+                        type="button"
+                        title="Add block below"
+                        aria-label="Add block below"
+                        className="rounded p-1 text-emerald-400 hover:bg-white/15 hover:text-emerald-300 transition-colors"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content
+                        side="bottom"
+                        align="start"
+                        sideOffset={6}
+                        aria-label="Add block below"
+                        className="z-50 w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                      >
+                        {ADD_BLOCK_OPTIONS.map((option) => (
+                          <DropdownMenu.Item
+                            key={option.type}
+                            onSelect={() =>
+                              handleAddNewSection(option.type, item.blockIndex)
+                            }
+                            className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                          >
+                            {option.label}
+                          </DropdownMenu.Item>
+                        ))}
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
 
                   {/* Turn off visual frame for this section */}
                   <button
@@ -2321,6 +2381,16 @@ export function VisualEditOverlay() {
                         type: 'orderedList',
                         items: ['Step 1', 'Step 2'],
                       });
+                    } else if (newType === 'table') {
+                      setEditingBlock({
+                        id: editingBlock.id,
+                        type: 'table',
+                        head: ['Column A', 'Column B'],
+                        rows: [
+                          ['Row 1', 'Row 1'],
+                          ['Row 2', 'Row 2'],
+                        ],
+                      });
                     } else if (newType === 'callout') {
                       setEditingBlock({
                         id: editingBlock.id,
@@ -2349,6 +2419,8 @@ export function VisualEditOverlay() {
                       setEditingBlock({ id: editingBlock.id, type: 'quote', html: 'Quote text' });
                     } else if (newType === 'divider') {
                       setEditingBlock({ id: editingBlock.id, type: 'divider' });
+                    } else if (newType === 'code') {
+                      setEditingBlock({ id: editingBlock.id, type: 'code', text: '// code' });
                     } else {
                       setEditingBlock({
                         id: editingBlock.id,
@@ -2364,9 +2436,11 @@ export function VisualEditOverlay() {
                   <option value="bulletList">Bullet List</option>
                   <option value="orderedList">Numbered Steps</option>
                   <option value="image">Image (Supabase S3)</option>
+                  <option value="table">Data Table</option>
                   <option value="callout">Callout / Alert</option>
                   <option value="button">Button CTA</option>
                   <option value="quote">Quote</option>
+                  <option value="code">Code</option>
                   <option value="divider">Divider</option>
                 </select>
               </div>
@@ -2507,6 +2581,147 @@ export function VisualEditOverlay() {
                     }
                     placeholder="Enter each item on a new line..."
                     className="w-full rounded-lg border border-border p-3 text-sm focus:ring-2 focus:ring-primary font-mono"
+                  />
+                </div>
+              )}
+
+              {/* Table Fields — a real grid editor, add/remove rows and columns */}
+              {editingBlock.type === 'table' && (
+                <div className="space-y-3">
+                  <p className="text-[11px] text-muted-foreground">
+                    Edit cells directly. Row 1 is the header. Empty cells save as empty.
+                  </p>
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="p-1 w-8 text-[10px] text-muted-foreground">#</th>
+                          {editingBlock.head.map((cell, col) => (
+                            <th key={`th-${col}`} className="p-1">
+                              <input
+                                aria-label={`Header cell ${col + 1}`}
+                                type="text"
+                                value={cell}
+                                onChange={(e) => {
+                                  const head = [...editingBlock.head];
+                                  head[col] = e.target.value;
+                                  setEditingBlock({ ...editingBlock, head });
+                                }}
+                                className="w-full min-w-24 rounded border border-border bg-surface-muted px-2 py-1 text-xs font-bold"
+                              />
+                            </th>
+                          ))}
+                          <th className="p-1 w-8">
+                            <button
+                              type="button"
+                              aria-label="Add column"
+                              title="Add column"
+                              onClick={() => {
+                                const columns = Math.max(editingBlock.head.length, ...editingBlock.rows.map((r) => r.length), 0);
+                                setEditingBlock({
+                                  ...editingBlock,
+                                  head: [...editingBlock.head, `Column ${columns + 1}`],
+                                  rows: editingBlock.rows.map((row) => [...row, '']),
+                                });
+                              }}
+                              className="rounded p-1 text-primary hover:bg-primary/10"
+                            >
+                              <Plus size={12} />
+                            </button>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {editingBlock.rows.map((row, r) => (
+                          <tr key={`tr-${r}`}>
+                            <td className="p-1 text-center text-[10px] text-muted-foreground">{r + 1}</td>
+                            {row.map((cell, c) => (
+                              <td key={`td-${r}-${c}`} className="p-1">
+                                <input
+                                  aria-label={`Row ${r + 1} cell ${c + 1}`}
+                                  type="text"
+                                  value={cell}
+                                  onChange={(e) => {
+                                    const rows = editingBlock.rows.map((rowItem) => [...rowItem]);
+                                    rows[r][c] = e.target.value;
+                                    setEditingBlock({ ...editingBlock, rows });
+                                  }}
+                                  className="w-full min-w-24 rounded border border-border px-2 py-1 text-xs"
+                                />
+                              </td>
+                            ))}
+                            <td className="p-1 w-8 text-center">
+                              <button
+                                type="button"
+                                aria-label={`Delete row ${r + 1}`}
+                                title="Delete row"
+                                onClick={() =>
+                                  setEditingBlock({
+                                    ...editingBlock,
+                                    rows: editingBlock.rows.filter((_, i) => i !== r),
+                                  })
+                                }
+                                className="rounded p-1 text-rose-500 hover:bg-rose-500/10"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingBlock({
+                          ...editingBlock,
+                          rows: [
+                            ...editingBlock.rows,
+                            Array.from({ length: Math.max(editingBlock.head.length, 1) }, () => ''),
+                          ],
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-3 py-1.5 text-xs font-bold text-foreground hover:bg-border"
+                    >
+                      <Plus size={12} />
+                      Add row
+                    </button>
+                    {editingBlock.head.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const last = editingBlock.head.length - 1;
+                          setEditingBlock({
+                            ...editingBlock,
+                            head: editingBlock.head.filter((_, i) => i !== last),
+                            rows: editingBlock.rows.map((row) => row.filter((_, i) => i !== last)),
+                          });
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-3 py-1.5 text-xs font-bold text-foreground hover:bg-border"
+                      >
+                        <Trash2 size={12} />
+                        Remove last column
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Code Fields */}
+              {editingBlock.type === 'code' && (
+                <div>
+                  <label htmlFor={codeTextId} className="block text-xs font-bold text-foreground mb-1">
+                    Code (rendered verbatim, escaped)
+                  </label>
+                  <textarea
+                    id={codeTextId}
+                    rows={5}
+                    value={editingBlock.text}
+                    onChange={(e) => setEditingBlock({ ...editingBlock, text: e.target.value })}
+                    placeholder="Paste or type code..."
+                    className="w-full rounded-lg border border-border p-3 text-sm font-mono focus:ring-2 focus:ring-primary"
                   />
                 </div>
               )}
