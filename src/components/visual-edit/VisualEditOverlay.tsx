@@ -27,6 +27,7 @@ import {
   Trash2,
   Undo2,
   UploadCloud,
+  UsersRound,
   X,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -100,6 +101,7 @@ import type {
   VisualContentRow,
   VisualSectionOverlayItem,
 } from '@/types/unified';
+import { CRMPanel } from './CRMPanel';
 
 /**
  * Visual editing surface for every page across the site.
@@ -373,6 +375,7 @@ export function VisualEditOverlay() {
 
   // Revisions history modal state
   const [isRevisionsOpen, setIsRevisionsOpen] = useState(false);
+  const [isCRMPanelOpen, setIsCRMPanelOpen] = useState(false);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
 
@@ -2028,6 +2031,17 @@ export function VisualEditOverlay() {
               </button>
             )}
 
+            {/* CRM Panel */}
+            <button
+              type="button"
+              onClick={() => setIsCRMPanelOpen(true)}
+              title="Open CRM Panel (Constituents, Tasks, Consent)"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+            >
+              <UsersRound size={14} className="text-emerald-400" />
+              <span className="hidden sm:inline">Constituents</span>
+            </button>
+
             {/* Quick CRM Studio Link */}
             <a
               href="/admin/crm/broadcasts"
@@ -3050,6 +3064,9 @@ export function VisualEditOverlay() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ── CRM Panel ─────────────────────────────────────────────────────── */}
+      <CRMPanel isOpen={isCRMPanelOpen} onClose={() => setIsCRMPanelOpen(false)} />
     </>
   );
 }

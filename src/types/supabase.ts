@@ -177,6 +177,68 @@ export type Database = {
         }
         Relationships: []
       }
+      content_media: {
+        Row: {
+          alt_text: string | null
+          caption: string | null
+          content_id: number
+          created_at: string
+          folder: string
+          height: number | null
+          id: string
+          mime_type: string
+          name: string
+          path: string
+          size: number
+          sort_order: number
+          updated_at: string
+          url: string
+          width: number | null
+        }
+        Insert: {
+          alt_text?: string | null
+          caption?: string | null
+          content_id: number
+          created_at?: string
+          folder?: string
+          height?: number | null
+          id?: string
+          mime_type: string
+          name: string
+          path: string
+          size: number
+          sort_order?: number
+          updated_at?: string
+          url: string
+          width?: number | null
+        }
+        Update: {
+          alt_text?: string | null
+          caption?: string | null
+          content_id?: number
+          created_at?: string
+          folder?: string
+          height?: number | null
+          id?: string
+          mime_type?: string
+          name?: string
+          path?: string
+          size?: number
+          sort_order?: number
+          updated_at?: string
+          url?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_media_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_revisions: {
         Row: {
           body: string | null

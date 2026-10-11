@@ -56,8 +56,9 @@ function sourceOf(relative: string): string {
 const LIGHT_TEXT = /text-slate-([56789]\d\d)/;
 /** Light hairlines: the deliberate dark-chrome borders are 700/800. */
 const LIGHT_BORDER = /border-slate-(50|100|200|300|500|600)(?![\d])/;
-/** Light fills: the deliberate dark fills are 700/800/900/950. */
-const LIGHT_FILL = /bg-slate-(50|100|200|300|500|600)(?![\d])/;
+/** Light fills: the deliberate dark fills are 700/800/900/950.
+ *  Excludes opacity modifiers like `/10` (e.g., `bg-slate-500/10` is a status color, not a fill). */
+const LIGHT_FILL = /bg-slate-(50|100|200|300|500|600)(?![\d/])/;
 /** Any slate hover — the sweep left none, on either surface. */
 const SLATE_HOVER = /hover:(bg|text|border|file)-slate-\d+/;
 /** A bare `bg-white` — every deliberate white carries an alpha (`bg-white/10`). */
