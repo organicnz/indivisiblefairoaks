@@ -12,6 +12,7 @@
  */
 
 import type { ContentBlockType } from '@/lib/blocks';
+import type { PublishedSection } from '@/lib/visual-sections';
 import type { Database } from '@/types/supabase';
 
 // ==========================================
@@ -45,8 +46,7 @@ export interface VisualContentRow
 
 export interface VisualSectionCoords {
   blockIndex: number;
-  domIndex: number;
-  index: number;
+  domIndex: number | null;
   label: string;
   blockType: ContentBlockType;
 }
@@ -213,7 +213,13 @@ export type {
 // ==========================================
 
 export interface VisualSectionsPublishedDetail {
-  sections: Array<VisualSectionOverlayItem & { enabled: boolean }>;
+  /**
+   * The overlay's real section list — `PublishedSection[]` from
+   * `src/lib/visual-sections.ts`, not a local copy. The header renders this
+   * verbatim; a parallel shape here is how the header ended up offering to edit
+   * a section that was really a different one.
+   */
+  sections: PublishedSection[];
   pathname: string;
   regionId: string | null;
 }

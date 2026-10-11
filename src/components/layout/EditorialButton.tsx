@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import { getPageCopyRegions } from '@/lib/copy-regions';
 import {
   addBlockVisual,
@@ -51,16 +52,37 @@ export function EditorialButton() {
 
   if (!isAdmin) return null;
 
+  // ⌘E / Ctrl-E toggles the mode from anywhere on the page. The overlay and the
+  // drawer already own per-section controls; this is the one keyboard shortcut
+  // that reaches them without hunting for a button, and it mirrors ⌘K (search)
+  // and ⌘S (save) instead of inventing a new shape.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'e') return;
+      event.preventDefault();
+      toggle();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [toggle]);
+
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-pressed={enabled}
-      data-testid="editorial-edit-button"
-      aria-label={
-        enabled ? 'Disable editorial mode' : 'Enable editorial mode — plan and edit sections'
-      }
-      title={enabled ? 'Editorial mode is on' : 'Plan and edit sections'}
+    <>
+      {/* The mode change is a screen-reader event, not a toast: the button's
+          aria-pressed already says "on", but nothing announces the transition,
+          so a keyboard user who pressed ⌘E gets silence. */}
+      <span role="status" aria-live="polite" className="sr-only">
+        {enabled ? 'Editorial mode is now on' : 'Editorial mode is now off'}
+      </span>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={enabled}
+        data-testid="editorial-edit-button"
+        aria-label={
+          enabled ? 'Disable editorial mode' : 'Enable editorial mode — plan and edit sections (⌘E)'
+        }
+        title={enabled ? 'Editorial mode is on (⌘E)' : 'Plan and edit sections (⌘E)'}
       className={`
         group relative inline-flex items-center gap-2.5 h-11 px-4 rounded-2xl
         border transition-all duration-300 ease-out shadow-sm
@@ -87,6 +109,7 @@ export function EditorialButton() {
         />
       )}
     </button>
+    </>
   );
 }
 
