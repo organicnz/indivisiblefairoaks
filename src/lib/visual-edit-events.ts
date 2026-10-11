@@ -17,13 +17,13 @@
  */
 
 import type {
-  VisualSectionAddBlockDetail,
-  VisualSectionDeleteDetail,
-  VisualSectionDuplicateDetail,
-  VisualSectionFocusEventDetail,
-  VisualSectionMoveEventDetail,
-  VisualSectionToggleEventDetail,
-} from '@/types/visual-edit';
+  AddBlockDetail,
+  DeleteSectionDetail,
+  DuplicateSectionDetail,
+  FocusSectionDetail,
+  MoveSectionDetail,
+  ToggleSectionDetail,
+} from '@/types/unified';
 
 /** Every event the visual editor puts on the window. */
 export const VISUAL_EDIT_EVENTS = {
@@ -70,29 +70,29 @@ export function selectCopyRegion(regionId: string | null): void {
 }
 
 /** Frame or unframe one block, or every block when `all` is set. */
-export function toggleSectionVisual(detail: VisualSectionToggleEventDetail): void {
+export function toggleSectionVisual(detail: ToggleSectionDetail): void {
   window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.toggleSection, { detail }));
 }
 
 /** Scroll a block into view; `openEdit` opens its inline editor too. */
-export function focusSectionVisual(detail: VisualSectionFocusEventDetail): void {
+export function focusSectionVisual(detail: FocusSectionDetail): void {
   window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.focusSection, { detail }));
 }
 
-export function moveSectionVisual(detail: VisualSectionMoveEventDetail): void {
+export function moveSectionVisual(detail: MoveSectionDetail): void {
   window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.moveSection, { detail }));
 }
 
-export function duplicateSectionVisual(detail: VisualSectionDuplicateDetail): void {
+export function duplicateSectionVisual(detail: DuplicateSectionDetail): void {
   window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.duplicateSection, { detail }));
 }
 
-export function deleteSectionVisual(detail: VisualSectionDeleteDetail): void {
+export function deleteSectionVisual(detail: DeleteSectionDetail): void {
   window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail }));
 }
 
 /** Append a block, or insert one after a position when `insertAfterBlockIndex` is set. */
-export function addBlockVisual(detail: VisualSectionAddBlockDetail = {}): void {
+export function addBlockVisual(detail: AddBlockDetail = {}): void {
   const at = detail.insertAfterBlockIndex === undefined;
   window.dispatchEvent(
     new CustomEvent(at ? VISUAL_EDIT_EVENTS.addBlock : VISUAL_EDIT_EVENTS.addBlockAt, { detail })

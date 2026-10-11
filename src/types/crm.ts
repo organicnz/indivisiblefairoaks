@@ -1,23 +1,17 @@
 /**
  * Unified CRM Domain Types
  *
- * Single source of truth for CRM constituents, tasks, campaigns, the visual
- * email composer blocks, media storage assets and edge function payloads.
+ * Single source of truth for CRM constituents, tasks, campaigns and the visual
+ * email composer blocks.
  *
- * Shared platform types (Storage, Edge Functions, Media) are re-exported from
- * `src/types/unified.ts`. The *page* visual editor's own types live in
- * `src/types/visual-edit.ts`.
+ * Shared platform types (Storage, Edge Functions, Media) live in
+ * `src/types/unified.ts` and are imported from there directly — no CRM-prefixed
+ * alias is kept, because two names for one shape is how a field added to one
+ * side silently stops reaching the other. The page visual editor's own types
+ * live in `src/types/unified.ts` too.
  */
 
 import type { Database } from '@/types/supabase';
-import type {
-  BackendStatus,
-  BroadcastDispatchResult,
-  EdgeFunctionHealth,
-  MediaItem,
-  MediaListResult,
-  MediaUploadResult,
-} from './unified';
 
 // ==========================================
 // 1. Core Supabase Database Entities
@@ -146,44 +140,17 @@ export interface CRMBroadcastEmailEvent {
 }
 
 // ==========================================
-// 3. Supabase S3 Storage & Media Assets (re-exported from unified)
-// ==========================================
-
-/** @deprecated Use `MediaFolder` from `@/types/unified` */
-export type { MediaFolder } from './unified';
-
-/** @deprecated Use `MediaItem` from `@/types/unified` */
-export type CRMMediaItem = MediaItem;
-
-/** @deprecated Use `MediaListResult` from `@/types/unified` */
-export type CRMMediaListResult = MediaListResult;
-
-/** @deprecated Use `MediaUploadResult` from `@/types/unified` */
-export type CRMMediaUploadResult = MediaUploadResult;
-
-// ==========================================
-// 4. Supabase Edge Functions & API Integration (re-exported from unified)
-// ==========================================
-
-/** @deprecated Use `EdgeFunctionHealth` from `@/types/unified` */
-export type CRMEdgeFunctionHealth = EdgeFunctionHealth;
-
-/** @deprecated Use `BackendStatus` from `@/types/unified` */
-export type CRMBackendStatus = BackendStatus;
-
-/** @deprecated Use `BroadcastDispatchResult` from `@/types/unified` */
-export type CRMBroadcastDispatchResult = BroadcastDispatchResult;
-
-// ==========================================
-// 5. Visual Composer Types Integration
+// 3. Visual Composer Types Integration
 // ==========================================
 
 // `composer/types.ts` is the definition site (the visual editor's domain);
 // this is the canonical import path, so no consumer imports the same symbol
 // from two places and drifts when one of them moves.
-/** Deprecated alias — use `EmailBlockType` (disjoint from page `ContentBlockType`). */
+//
+// `BlockType` is deliberately NOT re-exported: the definition site deprecates
+// it in favour of `EmailBlockType`, and re-exporting it here would keep the
+// deprecated name alive on a second path.
 export type {
-  BlockType,
   ComposerBlock,
   ComposerTemplate,
   EmailBlockType,

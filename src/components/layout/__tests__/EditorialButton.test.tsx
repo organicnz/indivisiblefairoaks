@@ -91,6 +91,18 @@ describe('EditorialButton component', () => {
     expect(container.querySelector('[data-testid="editorial-edit-button"]')).toBeNull();
   });
 
+  it('renders nothing while the admin check is in flight', async () => {
+    mockLoading = true;
+    await act(async () => {
+      root.render(<EditorialButton />);
+    });
+    // A skeleton the loading state can swap for, not a control that answers the
+    // question before it is known. It must carry no testid, or a test — and a
+    // reader using one — mistakes a placeholder for the real control.
+    expect(container.querySelector('[data-testid="editorial-edit-button"]')).toBeNull();
+    expect(container.querySelector('button')).toBeNull();
+  });
+
   it('renders idle toggle button for admin', async () => {
     mockIsAdmin = true;
     mockEnabled = false;
@@ -107,146 +119,59 @@ describe('EditorialButton component', () => {
     expect(mockToggle).toHaveBeenCalledTimes(1);
   });
 
-  it('renders section dropdown trigger when visual editing is ON', async () => {
+  it('reports the on state through aria-pressed and the accessible name', async () => {
     mockEnabled = true;
-
     await act(async () => {
       root.render(<EditorialButton />);
     });
-    await act(async () => {
-      publishSections([{ index: 0, label: 'Mission Statement', blockIndex: 0 }]);
-    });
-
     const btn = container.querySelector<HTMLButtonElement>('[data-testid="editorial-edit-button"]');
     expect(btn?.getAttribute('aria-pressed')).toBe('true');
-
-    const dropdownTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Visual editing menu"]'
-    );
-    expect(dropdownTrigger).not.toBeNull();
-
-    // Open dropdown
-    await act(async () => {
-      dropdownTrigger?.click();
-    });
-
-    // Radix renders `role="menu"`, not a hand-rolled `role="dialog"` — the
-    // control is keyboard navigable by construction rather than by every call
-    // site remembering to be.
-    const menu = container.querySelector('[role="menu"][aria-label="Page Sections Menu"]');
-    expect(menu).not.toBeNull();
-    expect(menu?.textContent).toContain('Mission Statement');
+    expect(btn?.getAttribute('aria-label')).toBe('Disable editorial mode');
   });
 
-  it('dispatches focus event when a section is clicked in the menu', async () => {
+  /**
+   * The header button is the master switch and nothing else.
+   *
+   * It used to be two controls of two sizes — an icon plus a chevron opening a
+   * menu — which gave one intent two hit areas and duplicated a section list the
+   * overlay already publishes. Per-section editing lives on each section's own
+   * action pill and in the drawer's editorial card, so a second section list
+   * here is a surface that must not come back.
+   */
+  it('offers no section menu of its own, however many sections exist', async () => {
     mockEnabled = true;
-
-    const eventListener = vi.fn();
-    window.addEventListener(VISUAL_EDIT_EVENTS.focusSection, eventListener);
 
     await act(async () => {
       root.render(<EditorialButton />);
     });
     await act(async () => {
-      publishSections([{ index: 0, label: 'Community Voices', blockIndex: 0 }]);
+      publishSections([
+        { index: 0, label: 'Mission Statement', blockIndex: 0 },
+        { index: 1, label: 'Join Our Next Gathering', blockIndex: 1 },
+      ]);
     });
 
-    const dropdownTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Visual editing menu"]'
-    );
-    await act(async () => {
-      dropdownTrigger?.click();
-    });
-
-    const sectionBtn = container.querySelector<HTMLButtonElement>(
-      'button[title="Jump to Community Voices"]'
-    );
-    expect(sectionBtn).not.toBeNull();
-
-    await act(async () => {
-      sectionBtn?.click();
-    });
-
-    expect(eventListener).toHaveBeenCalledWith(
-      expect.objectContaining({
-        detail: { blockIndex: 0, openEdit: false },
-      })
-    );
-    window.removeEventListener(VISUAL_EDIT_EVENTS.focusSection, eventListener);
+    // One control, one job.
+    expect(container.querySelectorAll('button')).toHaveLength(1);
+    expect(container.textContent).not.toContain('Mission Statement');
+    expect(container.querySelector('button[aria-label="Visual editing menu"]')).toBeNull();
+    expect(container.querySelector('[role="switch"]')).toBeNull();
   });
 
-  it('toggles visual frame for an individual section', async () => {
-    mockEnabled = true;
-
-    const toggleListener = vi.fn();
-    window.addEventListener(VISUAL_EDIT_EVENTS.toggleSection, toggleListener);
-
+  /**
+   * 44px, not 36px.
+   *
+   * The old pair achieved an adequate target by stacking a `size-9` icon and a
+   * `size-6` chevron; the single control has to be big enough on its own, which
+   * is the convention every other header control already follows.
+   */
+  it('keeps a 44px hit target, matching the other header controls', async () => {
+    mockEnabled = false;
     await act(async () => {
       root.render(<EditorialButton />);
     });
-    await act(async () => {
-      publishSections([{ index: 0, label: 'Action Alerts', blockIndex: 0, enabled: true }]);
-    });
-
-    const dropdownTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Visual editing menu"]'
-    );
-    await act(async () => {
-      dropdownTrigger?.click();
-    });
-
-    const toggleSwitch = container.querySelector<HTMLButtonElement>(
-      'button[role="switch"][aria-label="Toggle visual editing for Action Alerts"]'
-    );
-    expect(toggleSwitch).not.toBeNull();
-    expect(toggleSwitch?.getAttribute('aria-checked')).toBe('true');
-
-    // Click to toggle off
-    await act(async () => {
-      toggleSwitch?.click();
-    });
-
-    expect(toggleListener).toHaveBeenCalledWith(
-      expect.objectContaining({
-        detail: { blockIndex: 0, enabled: false },
-      })
-    );
-    window.removeEventListener(VISUAL_EDIT_EVENTS.toggleSection, toggleListener);
-  });
-
-  it('dispatches duplicate-section event when duplicate button is clicked', async () => {
-    mockEnabled = true;
-
-    const dupListener = vi.fn();
-    window.addEventListener(VISUAL_EDIT_EVENTS.duplicateSection, dupListener);
-
-    await act(async () => {
-      root.render(<EditorialButton />);
-    });
-    await act(async () => {
-      publishSections([{ index: 0, label: 'Community Calendar', blockIndex: 0 }]);
-    });
-
-    const dropdownTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Visual editing menu"]'
-    );
-    await act(async () => {
-      dropdownTrigger?.click();
-    });
-
-    const dupBtn = container.querySelector<HTMLButtonElement>('button[title="Duplicate section"]');
-    expect(dupBtn).not.toBeNull();
-
-    await act(async () => {
-      dupBtn?.click();
-    });
-
-    expect(dupListener).toHaveBeenCalledWith(
-      expect.objectContaining({
-        detail: { blockIndex: 0 },
-      })
-    );
-    window.removeEventListener(VISUAL_EDIT_EVENTS.duplicateSection, dupListener);
+    const btn = container.querySelector<HTMLButtonElement>('[data-testid="editorial-edit-button"]');
+    expect(btn?.className).toContain('size-11');
   });
 
   it('renders mobile drawer row with parity and section toggles', async () => {
@@ -277,8 +202,8 @@ describe('EditorialButton component', () => {
    *
    * These are the controls the small-screen surface gained with the parity
    * pass. A drawer that offered only the frame switch left a phone user unable
-   * to do anything else an admin can do from the desktop menu — the one place
-   * that needs it most. Each dispatch is asserted because the whole point of
+   * to do anything else an admin can do from the page — the one place that
+   * needs it most. Each dispatch is asserted because the whole point of
    * `lib/visual-edit-events.ts` is that a control which fires an event nobody
    * listens for is indistinguishable from a broken control.
    */
@@ -355,7 +280,7 @@ describe('EditorialButton component', () => {
   /**
    * `Frame all` / `Mute all` must state the *next* state, not the current one.
    *
-   * The header's control reads "Mute all" while everything is framed and
+   * The drawer's control reads "Mute all" while everything is framed and
    * "Frame all" while something is unframed. The inverse — labelling the
    * control with the state it describes — reads as a control that does the
    * wrong thing, and the payload proves which of the two it is.
@@ -422,17 +347,10 @@ describe('EditorialButton component', () => {
     mockEnabled = true;
 
     await act(async () => {
-      root.render(<EditorialButton />);
+      root.render(<EditorialDrawerRow onNavigate={() => {}} />);
     });
     await act(async () => {
       publishSections([{ index: 0, label: 'Not yet described', blockIndex: null }]);
-    });
-
-    const dropdownTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Visual editing menu"]'
-    );
-    await act(async () => {
-      dropdownTrigger?.click();
     });
 
     const controls = Array.from(
@@ -448,7 +366,7 @@ describe('EditorialButton component', () => {
   });
 
   /**
-   * `/about` has copy regions, so the menu must offer them and switching one
+   * `/about` has copy regions, so the drawer must offer them and switching one
    * must reach the overlay as an event.
    *
    * The overlay owns the document; a region selected here and nowhere else is a
@@ -460,13 +378,7 @@ describe('EditorialButton component', () => {
     window.addEventListener(VISUAL_EDIT_EVENTS.selectRegion, selectListener);
 
     await act(async () => {
-      root.render(<EditorialButton />);
-    });
-    await act(async () => {
-      const trigger = container.querySelector<HTMLButtonElement>(
-        'button[aria-label="Visual editing menu"]'
-      );
-      trigger?.click();
+      root.render(<EditorialDrawerRow onNavigate={() => {}} />);
     });
 
     // `/about` is mocked as the pathname and registers four regions.
@@ -505,11 +417,11 @@ describe('EditorialButton component', () => {
     mockEnabled = true;
 
     await act(async () => {
-      root.render(<EditorialButton />);
+      root.render(<EditorialDrawerRow onNavigate={() => {}} />);
     });
 
-    // A list for a region the header is not on. The header stays on the whole
-    // page (`activeRegionId === null`), so this publication is about a different
+    // A list for a region the drawer is not on. It stays on the whole page
+    // (`activeRegionId === null`), so this publication is about a different
     // document and must be dropped rather than rendered.
     await act(async () => {
       window.dispatchEvent(
@@ -523,13 +435,6 @@ describe('EditorialButton component', () => {
           },
         })
       );
-    });
-
-    await act(async () => {
-      const trigger = container.querySelector<HTMLButtonElement>(
-        'button[aria-label="Visual editing menu"]'
-      );
-      trigger?.click();
     });
 
     const jumpButtons = Array.from(

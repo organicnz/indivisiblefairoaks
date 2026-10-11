@@ -95,6 +95,7 @@ export default defineConfig({
         'src/lib/admin-auth.ts',
         'src/lib/actions/settings.ts',
         'src/lib/actions/content.ts',
+        'src/lib/actions/content-media.ts',
         'src/lib/actions/crm.ts',
         'src/lib/error-report.ts',
         'src/lib/crm-unsubscribe.ts',
@@ -162,10 +163,12 @@ export default defineConfig({
          * those branches left the file) plus tests for the paged history read
          * and `markCRMBroadcastFailed`. Raised 2026-10-06 to 94.2 / 84 / 100 / 97.8
          * with broadcast-send type validation and tag query coverage.
+         * Raised 2026-10-07 to 95.41 / 85.31 / 100 / 98.38 by covering the
+         * `payload.warning` ternary branches in the dispatch json-parse path.
          */
         'src/lib/actions/crm.ts': {
           statements: 89,
-          branches: 84,
+          branches: 85,
           functions: 100,
           lines: 93,
         },
@@ -202,6 +205,19 @@ export default defineConfig({
           branches: 54,
           functions: 61,
           lines: 65,
+        },
+
+        /**
+         * `content-media.ts` is a new actions module for the visual editor's
+         * per-page media panel. It mirrors the `content.ts` pattern (pure
+         * server actions with Supabase admin client) so the same 90% floor
+         * applies — no ratchet needed since it's new code we can test fully.
+         */
+        'src/lib/actions/content-media.ts': {
+          statements: 90,
+          branches: 90,
+          functions: 90,
+          lines: 90,
         },
       },
     },

@@ -8,7 +8,6 @@
  * a unified import path for components that need cross-domain types.
  */
 
-import type { ComposerBlock } from '@/components/admin/crm/composer/types';
 import type { ContentBlockType } from '@/lib/blocks';
 import type { Database } from '@/types/supabase';
 
@@ -76,13 +75,8 @@ export interface CopyRegionDefinition {
   label: string;
 }
 
-/** Result of a visual editor save operation. */
-export interface VisualSaveResult {
-  success: boolean;
-  error?: string;
-  row?: VisualContentRow;
-  conflict?: boolean;
-}
+/** Re-export PublishedSection for unified imports. */
+export type { PublishedSection } from '@/lib/visual-sections';
 
 // ==========================================
 // 2. CRM Domain (re-exported for unified imports)
@@ -153,18 +147,6 @@ export interface MediaListResult {
 
 /** Target context for media operations. */
 export type MediaTarget = 'featured' | 'section' | 'composer' | 'gallery';
-
-/** @deprecated Use `MediaTarget` from `@/types/unified` */
-export type CRMMediaTarget = MediaTarget;
-
-/** Media library filter options. */
-export interface MediaLibraryFilters {
-  folder?: MediaFolder;
-  mimePrefix?: string;
-  search?: string;
-  limit?: number;
-  offset?: number;
-}
 
 // ==========================================
 // 4. Supabase Edge Functions (Unified)
@@ -241,90 +223,9 @@ export type {
   EmailBlockType,
 } from '@/components/admin/crm/composer/types';
 
-/** Composer block types (disjoint from page ContentBlockType). */
-export type ComposerBlockType =
-  | 'header'
-  | 'text'
-  | 'callout'
-  | 'button'
-  | 'event'
-  | 'divider'
-  | 'signoff'
-  | 'image'
-  | 'quote'
-  | 'stat'
-  | 'list'
-  | 'social';
-
-/** Complete email compose state. */
-export interface ComposeState {
-  subject: string;
-  preheader: string;
-  blocks: ComposerBlock[];
-  selectedBlockId: string | null;
-  template: string | null;
-}
-
 // ==========================================
-// 6. Content Editor Shared Types
+// 6. Visual Edit Events & Communication
 // ==========================================
-
-export type ContentStatus = 'publish' | 'draft';
-
-export type ContentType = 'page' | 'post' | 'landing' | 'copy-region';
-
-export interface ContentMetadata {
-  meta_title?: string;
-  meta_description?: string;
-  og_image?: string;
-  og_type?: string;
-  noindex?: boolean;
-  nofollow?: boolean;
-  canonical_url?: string;
-}
-
-export interface ContentEditorFields {
-  title: string;
-  slug: string;
-  excerpt: string;
-  type: ContentType;
-  status: ContentStatus;
-  featuredImage: string;
-  body: string;
-  metaTitle: string;
-  metaDescription: string;
-}
-
-export interface ContentRevision {
-  id: number;
-  content_id: number;
-  body: string;
-  featured_image: string | null;
-  metadata: ContentMetadata | null;
-  created_at: string;
-  created_by: string | null;
-}
-
-// ==========================================
-// 7. Visual Edit Events & Communication
-// ==========================================
-
-export const VISUAL_EDIT_EVENTS = {
-  sectionsPublished: 'indivisible:page-sections-updated',
-  selectRegion: 'indivisible:select-region',
-  toggleSection: 'indivisible:toggle-section-visual',
-  focusSection: 'indivisible:focus-section',
-  moveSection: 'indivisible:move-section',
-  duplicateSection: 'indivisible:duplicate-section',
-  deleteSection: 'indivisible:delete-section',
-  addBlock: 'indivisible:add-block',
-  addBlockAt: 'indivisible:add-block-at',
-  openMediaLibrary: 'indivisible:open-media-library',
-  openRevisions: 'indivisible:open-revisions',
-  openSettings: 'indivisible:open-settings',
-} as const;
-
-export type VisualEventName = keyof typeof VISUAL_EDIT_EVENTS;
 
 export interface VisualSectionsPublishedDetail {
   sections: Array<VisualSectionOverlayItem & { enabled: boolean }>;
@@ -360,100 +261,4 @@ export interface DuplicateSectionDetail {
 
 export interface DeleteSectionDetail {
   blockIndex: number;
-}
-
-// ==========================================
-// 8. Admin & Permissions
-// ==========================================
-
-export type AdminRole = 'super_admin' | 'editor' | 'moderator';
-
-export interface AdminUser {
-  id: string;
-  email: string;
-  role: AdminRole;
-  mfaEnrolled: boolean;
-  mfaVerified: boolean;
-}
-
-/** Permission flags for admin actions. */
-export interface AdminPermissions {
-  canEditContent: boolean;
-  canManageCRM: boolean;
-  canManageBroadcasts: boolean;
-  canManageUsers: boolean;
-  canAccessSettings: boolean;
-  canViewAnalytics: boolean;
-}
-
-// ==========================================
-// 9. Theme & Appearance
-// ==========================================
-
-export type ThemeMode = 'system' | 'light' | 'dark';
-
-export interface ThemeState {
-  mode: ThemeMode;
-  effective: 'light' | 'dark';
-  resolvedAt: number;
-}
-
-// ==========================================
-// 10. Utility Types
-// ==========================================
-
-/** Make all properties optional recursively. */
-export type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
-
-/** Make specific keys required. */
-export type RequireKeys<T, K extends keyof T> = T & Required<Pick<T, K>>;
-
-/** Make specific keys optional. */
-export type OptionalKeys<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
-
-/** Extract non-null type. */
-export type NonNullable<T> = T extends null | undefined ? never : T;
-
-/** Function that returns a promise. */
-export type AsyncFn<TArgs extends unknown[], TReturn> = (...args: TArgs) => Promise<TReturn>;
-
-/** Event handler type. */
-export type EventHandler<TEvent extends Event = Event> = (event: TEvent) => void;
-
-/** Result type for operations that can fail. */
-export type Result<T, E = Error> = { success: true; data: T } | { success: false; error: E };
-
-// ==========================================
-// 11. API & Server Action Patterns
-// ==========================================
-
-/** Standard server action response. */
-export interface ActionResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  code?: string;
-}
-
-/** Paginated list response. */
-export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
-
-/** Optimistic concurrency control. */
-export interface OptimisticLock {
-  expectedUpdatedAt: string | null;
-}
-
-/** File upload progress. */
-export interface UploadProgress {
-  loaded: number;
-  total: number;
-  percentage: number;
 }

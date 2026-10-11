@@ -477,7 +477,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
             disabled={!canUndo}
             title="Undo (Cmd+Z)"
             aria-label="Undo block edit"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 hover:bg-surface-card hover:shadow-2xs disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-foreground hover:bg-surface-card hover:shadow-2xs disabled:opacity-30 disabled:hover:bg-transparent transition-all"
           >
             <Undo2 size={13} />
             <span>Undo</span>
@@ -488,7 +488,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
             disabled={!canRedo}
             title="Redo (Cmd+Shift+Z)"
             aria-label="Redo block edit"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 hover:bg-surface-card hover:shadow-2xs disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-foreground hover:bg-surface-card hover:shadow-2xs disabled:opacity-30 disabled:hover:bg-transparent transition-all"
           >
             <Redo2 size={13} />
             <span>Redo</span>
@@ -502,7 +502,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
           <button
             type="button"
             onClick={openMediaLibraryGlobal}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 bg-surface-card border border-border hover:bg-surface-muted transition-colors shadow-2xs"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-foreground bg-surface-card border border-border hover:bg-surface-muted transition-colors shadow-2xs"
             title="Browse Supabase S3 Media Library"
           >
             <FolderOpen size={13} className="text-primary dark:text-primary-on-dark" />
@@ -694,7 +694,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     )}
 
                     {block.type === 'text' && (
-                      <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap font-sans">
+                      <div className="text-xs text-foreground leading-relaxed whitespace-pre-wrap font-sans">
                         {block.content || '(Empty text block)'}
                       </div>
                     )}
@@ -731,7 +731,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
 
                     {block.type === 'quote' && (
                       <div className="p-4 rounded-xl border-l-4 border-amber-500 bg-amber-50/50 space-y-1">
-                        <p className="text-xs font-medium text-slate-800 italic">
+                        <p className="text-xs font-medium text-foreground italic">
                           “{block.quote || 'Quote text'}”
                         </p>
                         <p className="text-[10px] font-bold text-muted-foreground">
@@ -761,7 +761,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                       <div className="space-y-1">
                         {block.items.map((item, i) => (
                           // biome-ignore lint/suspicious/noArrayIndexKey: ephemeral list items without database IDs
-                          <div key={i} className="flex items-start gap-2 text-xs text-slate-700">
+                          <div key={i} className="flex items-start gap-2 text-xs text-foreground">
                             <span className="font-bold text-primary dark:text-primary-on-dark">
                               {block.style === 'numbered' ? `${i + 1}.` : '•'}
                             </span>
@@ -846,7 +846,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                     )}
 
                     {block.type === 'signoff' && (
-                      <div className="text-xs text-slate-700 space-y-0.5">
+                      <div className="text-xs text-foreground space-y-0.5">
                         <p className="italic">{block.closing}</p>
                         <p className="font-bold">{block.sender}</p>
                       </div>
@@ -911,7 +911,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                   activeTokenBlockId === block.id ? null : block.id
                                 )
                               }
-                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-muted hover:bg-surface-muted text-slate-700 flex items-center gap-1"
+                              className="px-2 py-0.5 rounded text-[10px] font-bold bg-surface-muted hover:bg-surface-muted text-foreground flex items-center gap-1"
                             >
                               <span>+ Insert Tag</span>
                               <ChevronDown size={11} />
@@ -923,7 +923,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                     key={t.tag}
                                     type="button"
                                     onClick={() => insertTokenIntoBlock(block.id, t.tag)}
-                                    className="w-full text-left px-2 py-1 rounded text-[11px] hover:bg-surface-muted font-medium text-slate-700 flex items-center justify-between"
+                                    className="w-full text-left px-2 py-1 rounded text-[11px] hover:bg-surface-muted font-medium text-foreground flex items-center justify-between"
                                   >
                                     <span>{t.label}</span>
                                     <code className="text-[9px] font-mono text-muted-foreground">
@@ -941,7 +941,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                           onChange={(e) => updateBlock(block.id, { content: e.target.value })}
                           placeholder="Type message narrative, bullet points, or updates..."
                           aria-label="Message Content"
-                          className="w-full px-3 py-2 rounded-xl border border-border text-xs text-slate-800 leading-relaxed font-sans placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          className="w-full px-3 py-2 rounded-xl border border-border text-xs text-foreground leading-relaxed font-sans placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         />
                       </div>
                     )}
@@ -969,7 +969,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             <button
                               type="button"
                               onClick={() => openMediaLibraryForBlock(block.id)}
-                              className="px-2.5 py-1 rounded-lg bg-surface-card border border-border hover:bg-surface-muted text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                              className="px-2.5 py-1 rounded-lg bg-surface-card border border-border hover:bg-surface-muted text-foreground text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
                             >
                               <FolderOpen
                                 size={13}
@@ -1020,7 +1020,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                               value={block.url}
                               onChange={(e) => updateBlock(block.id, { url: e.target.value })}
                               placeholder="https://... or select from Supabase Storage"
-                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
                           <label className="block text-[10px] font-black uppercase text-muted-foreground">
@@ -1049,7 +1049,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                               value={block.alt}
                               onChange={(e) => updateBlock(block.id, { alt: e.target.value })}
                               placeholder="e.g. Fair Oaks democracy rally attendees"
-                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
                           <label className="block text-[10px] font-black uppercase text-muted-foreground">
@@ -1059,7 +1059,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                               value={block.linkUrl || ''}
                               onChange={(e) => updateBlock(block.id, { linkUrl: e.target.value })}
                               placeholder="https://indivisiblefairoaks.org/actions"
-                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
                         </div>
@@ -1070,7 +1070,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             value={block.caption || ''}
                             onChange={(e) => updateBlock(block.id, { caption: e.target.value })}
                             placeholder="Photo credit or brief note..."
-                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                       </div>
@@ -1086,7 +1086,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             value={block.quote}
                             onChange={(e) => updateBlock(block.id, { quote: e.target.value })}
                             placeholder="Inspiring quote from an organizer, constituent, or speaker..."
-                            className="w-full px-3 py-2 rounded-xl border border-border text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-2 rounded-xl border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1107,7 +1107,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                               value={block.role || ''}
                               onChange={(e) => updateBlock(block.id, { role: e.target.value })}
                               placeholder="e.g. Fair Oaks Volunteer Coordinator"
-                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
                         </div>
@@ -1146,7 +1146,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             value={block.description || ''}
                             onChange={(e) => updateBlock(block.id, { description: e.target.value })}
                             placeholder="e.g. Across Carmichael, Fair Oaks, and Citrus Heights"
-                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                       </div>
@@ -1166,7 +1166,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                 style: e.target.value as ListBlock['style'],
                               })
                             }
-                            className="px-2 py-0.5 rounded text-[10px] font-bold border border-border text-slate-700"
+                            className="px-2 py-0.5 rounded text-[10px] font-bold border border-border text-foreground"
                           >
                             <option value="bullet">Bullet Points (•)</option>
                             <option value="numbered">Numbered List (1, 2, 3)</option>
@@ -1188,7 +1188,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                   updateBlock(block.id, { items: nextItems });
                                 }}
                                 placeholder="List item copy..."
-                                className="flex-1 px-3 py-1.5 rounded-lg border border-border text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                className="flex-1 px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                               />
                               <button
                                 type="button"
@@ -1261,7 +1261,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                   updateBlock(block.id, { channels: next });
                                 }}
                                 placeholder="https://..."
-                                className="sm:col-span-2 px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-slate-700"
+                                className="sm:col-span-2 px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-foreground"
                               />
                             </div>
                           ))}
@@ -1325,7 +1325,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             value={block.text}
                             onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                             placeholder="Key takeaway, challenge deadline, or call script..."
-                            className="w-full px-3 py-2 rounded-xl border border-border text-xs text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-2 rounded-xl border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                       </div>
@@ -1351,7 +1351,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             value={block.url}
                             onChange={(e) => updateBlock(block.id, { url: e.target.value })}
                             placeholder="https://indivisiblefairoaks.org/actions"
-                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs font-mono text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                       </div>
@@ -1378,7 +1378,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                               value={block.date}
                               onChange={(e) => updateBlock(block.id, { date: e.target.value })}
                               placeholder="Saturday, Oct 14 · 10am"
-                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
                           <label className="sm:col-span-2 block text-[10px] font-black uppercase text-muted-foreground">
@@ -1388,7 +1388,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                               value={block.location}
                               onChange={(e) => updateBlock(block.id, { location: e.target.value })}
                               placeholder="Carmichael Park Main Pavilion"
-                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                              className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                             />
                           </label>
                         </div>
@@ -1422,7 +1422,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                             value={block.sender}
                             onChange={(e) => updateBlock(block.id, { sender: e.target.value })}
                             placeholder="Indivisible Fair Oaks Steering Committee"
-                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
+                            className="w-full px-3 py-1.5 rounded-lg border border-border text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-normal"
                           />
                         </label>
                       </div>

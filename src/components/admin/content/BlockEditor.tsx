@@ -786,7 +786,7 @@ interface BodyProps {
 }
 
 const INLINE_CLASS =
-  'min-h-[1.75rem] w-full rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+  'min-h-[1.75rem] w-full rounded-lg px-3 py-2 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 
 function InlineToolbar({
   onApply,

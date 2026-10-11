@@ -66,7 +66,7 @@ export default async function ProductDetails({ params }: { params: Promise<{ slu
 
 function ProductSkeleton() {
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white dark:bg-background min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12 sm:py-20 animate-pulse">
         <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
           <div className="aspect-square rounded-3xl bg-slate-100" />
@@ -195,7 +195,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
     categoryIds.length > 0 ? await getRelatedProducts(product.id, categoryIds) : [];
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white dark:bg-background min-h-screen">
       <script
         type="application/ld+json"
         // Structured data, not WP content: sanitizeWPContent intentionally not applied
@@ -304,7 +304,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
                 Description
               </h3>
               <div
-                className="text-base text-slate-600 leading-relaxed space-y-4"
+                className="text-base text-slate-600 dark:text-foreground leading-relaxed space-y-4"
                 dangerouslySetInnerHTML={{
                   __html: sanitizeWPContent(product.description || product.short_description || ''),
                 }}

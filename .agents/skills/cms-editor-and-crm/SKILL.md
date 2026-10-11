@@ -412,7 +412,7 @@ that only go up.
 green. **Cover the new file — never widen an exclusion to accommodate it.**
 
 **Current floors, stated on single lines where the gate checks them.**
-`src/lib/actions/crm.ts` on an explicit floor of **89 / 84 / 100 / 93**; `src/lib/actions/content.ts` on **58 / 54 / 61 / 65** — both re-derived from
+`src/lib/actions/crm.ts` on an explicit floor of **89 / 85 / 100 / 93**; `src/lib/actions/content.ts` on **58 / 54 / 61 / 65** — both re-derived from
 `vitest.config.ts` by `scripts/check-doc-claims.mjs`, which fails on a mismatch.
 (The single-line rule matters: that script matches per line, so a guarded number
 split across two lines matches nothing and the staleness goes silent. That is
@@ -765,7 +765,7 @@ missing its columns, and the read sites use intersection casts until it lands.
 Never hand-edit `src/types/supabase.ts`; the next regeneration will show a phantom
 diff and quietly undo the fix.
 
-`lefthook` enforces a suppression baseline (currently 22 across `src/`) and
+`lefthook` enforces a suppression baseline (currently 24 across `src/`) and
 `no-new-hardcoded-ref`. Both are ratchets, not walls: raising one is a `chore:`
 commit that says why, and a migration file cannot be edited once committed —
 add another one.

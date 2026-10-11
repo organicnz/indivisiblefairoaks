@@ -42,6 +42,7 @@ const APP_TABLES = new Set([
   'coalition_links',
   'contact_submissions',
   'content',
+  'content_media',
   'content_revisions',
   'coupons',
   'crm_activities',

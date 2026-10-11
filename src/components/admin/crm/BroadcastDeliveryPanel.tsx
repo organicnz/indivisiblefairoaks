@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { type CRMBroadcastEmailEvent, getBroadcastEmailEvents } from '@/lib/actions/crm';
+import { getBroadcastEmailEvents } from '@/lib/actions/crm';
+import type { CRMBroadcastEmailEvent } from '@/types/crm';
 
 /**
  * Delivery events for one campaign, inside its expanded history row.

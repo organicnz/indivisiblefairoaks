@@ -5,7 +5,8 @@
 # Skip one command     : LEFTHOOK_EXCLUDE=<name> git <action>
 #
 # ── Baseline metrics (update when intentionally changed) ─────────────────────
-    # suppress-count baseline: 23  (checked in pre-push; +3 CRM scrollable regions, +7 visual-composer admin previews/ephemeral items, +1 visual edit overlay
+    # suppress-count baseline: 24  (checked in pre-push; composition is
+    # documented beside the BASELINE below)
 
 # coverage threshold     : 90% (checked in pre-push + vitest.config.ts)
 # env contract           : every code-referenced env var exists in .env.example
@@ -342,8 +343,20 @@ pre-push:
     suppress-count:
       priority: 30
       run: |
-        # Baseline 7 → 9 → 10 → 12 → 15 → 22. None of the additions is a workaround for a
+        # Baseline 7 → 9 → 10 → 12 → 15 → 22 → 24. None of the additions is a workaround for a
         # real defect; in two cases the rule is wrong rather than the code.
+        #
+        # Baseline 22 → 24, two `noDangerouslySetInnerHtml` on the security
+        # boundary itself — both landed without bumping the baseline, which is
+        # why main sat red on this gate:
+        #
+        #   1x CopyRegion.tsx — a copy region renders the sanitized body, the
+        #      same boundary as the baselined ContentPreview suppression: the
+        #      suppression *is* the boundary, not a workaround.
+        #   1x app/layout.tsx — the theme bootstrap script, emitted from the
+        #      pure `themeBootstrapScript()` in `lib/theme.ts` with no
+        #      interpolation. A blocking first-paint script cannot be inlined
+        #      any other way; the alternative is a flash of the wrong palette.
         #
         # Baseline 15 → 22, seven suppressions from the composer rewrite and the
         # media library:
@@ -411,7 +424,7 @@ pre-push:
         #   1x noDangerouslySetInnerHtml — ContentPreview renders the sanitized
         #      body through the same sanitizeWPContent boundary as the public
         #      page. The suppression is the security boundary, not a workaround.
-        BASELINE=22
+        BASELINE=24
         COUNT=$(grep -rn "@ts-ignore\|@ts-nocheck\|biome-ignore\|eslint-disable" \
           src --include="*.ts" --include="*.tsx" 2>/dev/null \
           | grep -v "__tests__" | wc -l | tr -d ' ')

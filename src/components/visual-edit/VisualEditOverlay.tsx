@@ -1,5 +1,6 @@
 'use client';
 
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {
   Activity,
   ArrowDown,
@@ -25,6 +26,8 @@ import {
   Strikethrough,
   Trash2,
   Undo2,
+  UploadCloud,
+  UsersRound,
   X,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -51,7 +54,7 @@ import {
   saveContent,
   setContentStatus,
 } from '@/lib/actions/content';
-import { getCRMEdgeFunctionHealth } from '@/lib/actions/crm';
+import { getCRMEdgeFunctionHealth, uploadCRMMedia } from '@/lib/actions/crm';
 import { getVisualPageContext } from '@/lib/actions/visual';
 import {
   type Block,
@@ -86,18 +89,19 @@ import {
   sectionLabelForBlock,
   type VisualSection,
 } from '@/lib/visual-sections';
-import type { CRMBackendStatus } from '@/types/crm';
 import type {
-  CRMMediaTarget,
+  AddBlockDetail,
+  BackendStatus,
+  DeleteSectionDetail,
+  DuplicateSectionDetail,
+  FocusSectionDetail,
+  MediaTarget,
+  MoveSectionDetail,
+  ToggleSectionDetail,
   VisualContentRow,
-  AddBlockDetail as VisualSectionAddBlockDetail,
-  DeleteSectionDetail as VisualSectionDeleteDetail,
-  DuplicateSectionDetail as VisualSectionDuplicateDetail,
-  FocusSectionDetail as VisualSectionFocusEventDetail,
-  MoveSectionDetail as VisualSectionMoveEventDetail,
   VisualSectionOverlayItem,
-  ToggleSectionDetail as VisualSectionToggleEventDetail,
 } from '@/types/unified';
+import { CRMPanel } from './CRMPanel';
 
 /**
  * Visual editing surface for every page across the site.
@@ -128,6 +132,25 @@ const STALE_SAVE_CONFLICT_PREFIX = 'Someone else saved this page';
 function isStaleConflict(message: string | undefined): boolean {
   return typeof message === 'string' && message.startsWith(STALE_SAVE_CONFLICT_PREFIX);
 }
+
+/**
+ * The dock's Add Block menu options.
+ *
+ * One list, not nine hand-written buttons: a label added here and not to the
+ * section editor's type selector is a block that can be created but never
+ * converted back to, and a label removed here but left there is the reverse.
+ */
+const ADD_BLOCK_OPTIONS: ReadonlyArray<{ type: Block['type']; label: string }> = [
+  { type: 'heading', label: 'Heading (H2)' },
+  { type: 'paragraph', label: 'Paragraph Text' },
+  { type: 'bulletList', label: 'Bullet List' },
+  { type: 'orderedList', label: 'Numbered Steps' },
+  { type: 'image', label: 'Image (S3 Storage)' },
+  { type: 'callout', label: 'Alert / Callout' },
+  { type: 'button', label: 'Button CTA' },
+  { type: 'quote', label: 'Quote Block' },
+  { type: 'divider', label: 'Divider Line' },
+];
 
 /**
  * Intelligently extracts structured blocks from a live rendered DOM element
@@ -278,7 +301,7 @@ export function VisualEditOverlay() {
   const [sections, setSections] = useState<VisualSection[]>([]);
   const [contentRow, setContentRow] = useState<VisualContentRow | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const [backendStatus, setBackendStatus] = useState<CRMBackendStatus | null>(null);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [savingBackend, setSavingBackend] = useState(false);
   /**
@@ -348,10 +371,11 @@ export function VisualEditOverlay() {
 
   // Supabase S3 Storage media library modal state
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
-  const [mediaTarget, setMediaTarget] = useState<CRMMediaTarget>('section');
+  const [mediaTarget, setMediaTarget] = useState<MediaTarget>('section');
 
   // Revisions history modal state
   const [isRevisionsOpen, setIsRevisionsOpen] = useState(false);
+  const [isCRMPanelOpen, setIsCRMPanelOpen] = useState(false);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
 
@@ -1330,15 +1354,14 @@ export function VisualEditOverlay() {
     if (!enabled || !isAdmin) return;
 
     const handleFocusSection = (e: Event) => {
-      const { blockIndex, openEdit } =
-        (e as CustomEvent<VisualSectionFocusEventDetail>).detail ?? {};
+      const { blockIndex, openEdit } = (e as CustomEvent<FocusSectionDetail>).detail ?? {};
       if (blockIndex === undefined) return;
       jumpTo(blockIndex);
       if (openEdit) handleOpenEditSection(blockIndex);
     };
 
     const handleToggleSectionVisual = (e: Event) => {
-      const detail = (e as CustomEvent<VisualSectionToggleEventDetail>).detail;
+      const detail = (e as CustomEvent<ToggleSectionDetail>).detail;
       if (!detail) return;
 
       if (detail.all !== undefined) {
@@ -1360,13 +1383,13 @@ export function VisualEditOverlay() {
     };
 
     const handleMoveSectionEvent = (e: Event) => {
-      const detail = (e as CustomEvent<VisualSectionMoveEventDetail>).detail;
+      const detail = (e as CustomEvent<MoveSectionDetail>).detail;
       if (detail?.blockIndex === undefined || !detail.direction) return;
       handleMoveSection(detail.blockIndex, detail.direction);
     };
 
     const handleAddBlockAtEvent = (e: Event) => {
-      const detail = (e as CustomEvent<VisualSectionAddBlockDetail>).detail;
+      const detail = (e as CustomEvent<AddBlockDetail>).detail;
       handleAddNewSection(detail?.type ?? 'paragraph', detail?.insertAfterBlockIndex);
     };
 
@@ -1375,13 +1398,13 @@ export function VisualEditOverlay() {
     };
 
     const handleDuplicateSectionEvent = (e: Event) => {
-      const detail = (e as CustomEvent<VisualSectionDuplicateDetail>).detail;
+      const detail = (e as CustomEvent<DuplicateSectionDetail>).detail;
       if (detail?.blockIndex === undefined) return;
       handleDuplicateSection(detail.blockIndex);
     };
 
     const handleDeleteSectionEvent = (e: Event) => {
-      const detail = (e as CustomEvent<VisualSectionDeleteDetail>).detail;
+      const detail = (e as CustomEvent<DeleteSectionDetail>).detail;
       if (detail?.blockIndex === undefined) return;
       handleDeleteSection(detail.blockIndex);
     };
@@ -1932,81 +1955,43 @@ export function VisualEditOverlay() {
               </div>
             )}
 
-            {/* Add Section Menu */}
-            <div className="relative group">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                <Plus size={14} />
-                <span>Add Block</span>
-              </button>
-              <div className="absolute bottom-full right-0 mb-2 hidden w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float group-hover:block z-50">
+            {/* Add Block — a Radix menu, never hover.
+                `group-hover:block` hid this menu from every keyboard and touch
+                user, and left it in no tab order at all. Click-to-open keeps
+                touch first-class and hands keyboard users Enter/arrows/Escape
+                by construction — the same primitive and rationale as
+                NavDropdown. It opens upward because the dock sits at the
+                viewport bottom. */}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
                 <button
                   type="button"
-                  onClick={() => handleAddNewSection('heading')}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold"
                 >
-                  Heading (H2)
+                  <Plus size={14} />
+                  <span>Add Block</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddNewSection('paragraph')}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  align="end"
+                  side="top"
+                  sideOffset={8}
+                  aria-label="Add block"
+                  className="z-50 w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
                 >
-                  Paragraph Text
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddNewSection('bulletList')}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                >
-                  Bullet List
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddNewSection('orderedList')}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                >
-                  Numbered Steps
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddNewSection('image')}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                >
-                  Image (S3 Storage)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddNewSection('callout')}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                >
-                  Alert / Callout
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddNewSection('button')}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                >
-                  Button CTA
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddNewSection('quote')}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                >
-                  Quote Block
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddNewSection('divider')}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10"
-                >
-                  Divider Line
-                </button>
-              </div>
-            </div>
+                  {ADD_BLOCK_OPTIONS.map((option) => (
+                    <DropdownMenu.Item
+                      key={option.type}
+                      onSelect={() => handleAddNewSection(option.type)}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                    >
+                      {option.label}
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
 
             {/* S3 Storage Media Library */}
             <button
@@ -2045,6 +2030,17 @@ export function VisualEditOverlay() {
                 <span className="hidden sm:inline">Revisions</span>
               </button>
             )}
+
+            {/* CRM Panel */}
+            <button
+              type="button"
+              onClick={() => setIsCRMPanelOpen(true)}
+              title="Open CRM Panel (Constituents, Tasks, Consent)"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+            >
+              <UsersRound size={14} className="text-emerald-400" />
+              <span className="hidden sm:inline">Constituents</span>
+            </button>
 
             {/* Quick CRM Studio Link */}
             <a
@@ -2190,56 +2186,84 @@ export function VisualEditOverlay() {
           </div>
         </div>
 
-        {/* Section List Quick Links bar */}
+        {/* Section List Quick Links bar.
+            Every block carries its own frame switch here, because the
+            in-page pill's EyeOff only hides: once hidden, the pill is gone
+            and nothing on the page can bring that one frame back. Without a
+            switch here the only recovery is the drawer's "Frame all", which
+            reframes every section to recover one. */}
         {blocks.length > 0 && (
           <div className="mt-2.5 flex items-center gap-2 overflow-x-auto border-t border-white/10 pt-2 text-xs no-scrollbar">
             <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-ink-muted-on-dark">
               Blocks:
             </span>
-            {blocks.map((block, idx) => (
-              <div
-                key={block.id}
-                className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[11px] text-ink-on-dark"
-              >
-                <span className="font-semibold capitalize truncate max-w-[90px]">{block.type}</span>
-                <button
-                  type="button"
-                  onClick={() => handleOpenEditSection(idx)}
-                  title="Edit block"
-                  className="text-accent-gold hover:text-white p-0.5"
+            {blocks.map((block, idx) => {
+              const label = sectionLabelForBlock(block);
+              const section = sections.find((item) => item.blockIndex === idx);
+              const framed = section ? enabledSectionKeys.has(section.key) : false;
+              return (
+                <div
+                  key={block.id}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[11px] text-ink-on-dark"
                 >
-                  <PenLine size={11} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDuplicateSection(idx)}
-                  title="Duplicate block"
-                  className="text-slate-400 hover:text-white p-0.5"
-                >
-                  <Copy size={11} />
-                </button>
-                {idx > 0 && (
+                  <span className="font-semibold truncate max-w-[90px]" title={label}>
+                    {label}
+                  </span>
+                  {section && (
+                    <button
+                      type="button"
+                      onClick={() => toggleSectionFrame(idx)}
+                      aria-pressed={framed}
+                      aria-label={framed ? `Hide frame for ${label}` : `Show frame for ${label}`}
+                      title={framed ? 'Hide visual frame' : 'Show visual frame'}
+                      className={`p-0.5 transition-colors ${
+                        framed
+                          ? 'text-accent-gold hover:text-white'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {framed ? <Eye size={11} /> : <EyeOff size={11} />}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => handleMoveSection(idx, 'up')}
-                    title="Move up"
-                    className="text-slate-400 hover:text-white p-0.5"
+                    onClick={() => handleOpenEditSection(idx)}
+                    title="Edit block"
+                    className="text-accent-gold hover:text-white p-0.5"
                   >
-                    <ArrowUp size={11} />
+                    <PenLine size={11} />
                   </button>
-                )}
-                {idx < blocks.length - 1 && (
                   <button
                     type="button"
-                    onClick={() => handleMoveSection(idx, 'down')}
-                    title="Move down"
+                    onClick={() => handleDuplicateSection(idx)}
+                    title="Duplicate block"
                     className="text-slate-400 hover:text-white p-0.5"
                   >
-                    <ArrowDown size={11} />
+                    <Copy size={11} />
                   </button>
-                )}
-              </div>
-            ))}
+                  {idx > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleMoveSection(idx, 'up')}
+                      title="Move up"
+                      className="text-slate-400 hover:text-white p-0.5"
+                    >
+                      <ArrowUp size={11} />
+                    </button>
+                  )}
+                  {idx < blocks.length - 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleMoveSection(idx, 'down')}
+                      title="Move down"
+                      className="text-slate-400 hover:text-white p-0.5"
+                    >
+                      <ArrowDown size={11} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </aside>
@@ -2253,12 +2277,12 @@ export function VisualEditOverlay() {
             and elements had already diverged, and it told the operator nothing
             about what they were about to change.
           */}
-          <DialogContent className="max-w-2xl bg-white text-secondary p-6 rounded-3xl">
+          <DialogContent className="max-w-2xl bg-surface-card text-foreground p-6 rounded-3xl">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black uppercase tracking-tight text-secondary">
+              <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground">
                 {activeSectionLabel || `Block ${(editingBlockIndex ?? 0) + 1}`}
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500">
+              <DialogDescription className="text-xs text-muted-foreground">
                 Editing a {editingBlock.type} block. Changes persist directly to the Supabase
                 backend, and undo brings this one back if you change your mind.
               </DialogDescription>
@@ -2269,7 +2293,7 @@ export function VisualEditOverlay() {
               <div>
                 <label
                   htmlFor={blockTypeId}
-                  className="block text-xs font-bold text-slate-700 mb-1"
+                  className="block text-xs font-bold text-foreground mb-1"
                 >
                   Block Type
                 </label>
@@ -2333,7 +2357,7 @@ export function VisualEditOverlay() {
                       });
                     }
                   }}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary"
                 >
                   <option value="paragraph">Paragraph Text</option>
                   <option value="heading">Heading</option>
@@ -2359,7 +2383,7 @@ export function VisualEditOverlay() {
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
                           editingBlock.level === lvl
                             ? 'bg-primary text-white'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            : 'bg-surface-muted text-foreground hover:bg-border border border-border'
                         }`}
                       >
                         H{lvl}
@@ -2369,7 +2393,7 @@ export function VisualEditOverlay() {
                   <div>
                     <label
                       htmlFor={headingContentId}
-                      className="block text-xs font-bold text-slate-700 mb-1"
+                      className="block text-xs font-bold text-foreground mb-1"
                     >
                       Heading Content
                     </label>
@@ -2378,7 +2402,7 @@ export function VisualEditOverlay() {
                       type="text"
                       value={editingBlock.html}
                       onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+                      className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </div>
@@ -2389,18 +2413,18 @@ export function VisualEditOverlay() {
                 <div>
                   <label
                     htmlFor={paragraphContentId}
-                    className="block text-xs font-bold text-slate-700 mb-1"
+                    className="block text-xs font-bold text-foreground mb-1"
                   >
                     Paragraph Content
                   </label>
-                  <div className="border border-slate-300 rounded-lg overflow-hidden">
+                  <div className="border border-border rounded-lg overflow-hidden">
                     {/* Inline formatting toolbar */}
-                    <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 bg-slate-50 border-b border-slate-200">
+                    <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 bg-surface-muted border-b border-border">
                       <button
                         type="button"
                         onClick={() => wrapSelection(paragraphContentId, '<strong>', '</strong>')}
                         title="Bold (⌘B)"
-                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 transition-colors"
+                        className="p-1.5 rounded hover:bg-border text-foreground transition-colors"
                         aria-label="Bold"
                       >
                         <Bold size={14} />
@@ -2409,7 +2433,7 @@ export function VisualEditOverlay() {
                         type="button"
                         onClick={() => wrapSelection(paragraphContentId, '<em>', '</em>')}
                         title="Italic (⌘I)"
-                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 transition-colors"
+                        className="p-1.5 rounded hover:bg-border text-foreground transition-colors"
                         aria-label="Italic"
                       >
                         <Italic size={14} />
@@ -2418,7 +2442,7 @@ export function VisualEditOverlay() {
                         type="button"
                         onClick={() => wrapSelection(paragraphContentId, '<code>', '</code>')}
                         title="Inline Code"
-                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 transition-colors"
+                        className="p-1.5 rounded hover:bg-border text-foreground transition-colors"
                         aria-label="Inline Code"
                       >
                         <Code size={14} />
@@ -2427,23 +2451,25 @@ export function VisualEditOverlay() {
                         type="button"
                         onClick={() => wrapSelection(paragraphContentId, '<s>', '</s>')}
                         title="Strikethrough"
-                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 transition-colors"
+                        className="p-1.5 rounded hover:bg-border text-foreground transition-colors"
                         aria-label="Strikethrough"
                       >
                         <Strikethrough size={14} />
                       </button>
-                      <div className="w-px h-5 bg-slate-300 mx-1" />
+                      <div className="w-px h-5 bg-border mx-1" />
                       <button
                         type="button"
                         onClick={() => insertLink(paragraphContentId)}
                         title="Insert Link (⌘K)"
-                        className="p-1.5 rounded hover:bg-slate-200 text-slate-700 transition-colors"
+                        className="p-1.5 rounded hover:bg-border text-foreground transition-colors"
                         aria-label="Insert Link"
                       >
                         <LinkIcon size={14} />
                       </button>
                       <span className="flex-1" />
-                      <span className="text-[10px] text-slate-400 font-mono">HTML supported</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        HTML supported
+                      </span>
                     </div>
                     <textarea
                       id={paragraphContentId}
@@ -2463,7 +2489,7 @@ export function VisualEditOverlay() {
                 <div>
                   <label
                     htmlFor={listItemsId}
-                    className="block text-xs font-bold text-slate-700 mb-1"
+                    className="block text-xs font-bold text-foreground mb-1"
                   >
                     {editingBlock.type === 'bulletList'
                       ? 'Bullet Items (one item per line)'
@@ -2480,7 +2506,7 @@ export function VisualEditOverlay() {
                       })
                     }
                     placeholder="Enter each item on a new line..."
-                    className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-primary font-mono"
+                    className="w-full rounded-lg border border-border p-3 text-sm focus:ring-2 focus:ring-primary font-mono"
                   />
                 </div>
               )}
@@ -2489,7 +2515,7 @@ export function VisualEditOverlay() {
               {editingBlock.type === 'callout' && (
                 <div className="space-y-3">
                   <fieldset className="border-0 p-0 m-0">
-                    <legend className="block text-xs font-bold text-slate-700 mb-1">Tone</legend>
+                    <legend className="block text-xs font-bold text-foreground mb-1">Tone</legend>
                     <div className="flex gap-2">
                       {CALLOUT_TONES.map((t) => (
                         <button
@@ -2499,7 +2525,7 @@ export function VisualEditOverlay() {
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize ${
                             editingBlock.tone === t
                               ? 'bg-accent-gold text-secondary'
-                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                              : 'bg-surface-muted text-foreground hover:bg-border border border-border'
                           }`}
                         >
                           {t}
@@ -2510,7 +2536,7 @@ export function VisualEditOverlay() {
                   <div>
                     <label
                       htmlFor={calloutMessageId}
-                      className="block text-xs font-bold text-slate-700 mb-1"
+                      className="block text-xs font-bold text-foreground mb-1"
                     >
                       Callout Message
                     </label>
@@ -2519,19 +2545,19 @@ export function VisualEditOverlay() {
                       rows={3}
                       value={editingBlock.html}
                       onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
-                      className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-primary"
+                      className="w-full rounded-lg border border-border p-3 text-sm focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </div>
               )}
 
-              {/* Image Fields (with Supabase S3 storage modal) */}
+              {/* Image Fields (with Supabase S3 storage modal + direct upload) */}
               {editingBlock.type === 'image' && (
                 <div className="space-y-3">
                   <div>
                     <label
                       htmlFor={imageSrcId}
-                      className="block text-xs font-bold text-slate-700 mb-1"
+                      className="block text-xs font-bold text-foreground mb-1"
                     >
                       Image URL
                     </label>
@@ -2542,7 +2568,7 @@ export function VisualEditOverlay() {
                         value={editingBlock.src}
                         onChange={(e) => setEditingBlock({ ...editingBlock, src: e.target.value })}
                         placeholder="https://...supabase.co/storage/v1/object/public/media/..."
-                        className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+                        className="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
                       />
                       <button
                         type="button"
@@ -2550,15 +2576,61 @@ export function VisualEditOverlay() {
                           setMediaTarget('section');
                           setMediaModalOpen(true);
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 shadow-2xs shrink-0"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs font-bold text-foreground hover:bg-border shadow-2xs shrink-0"
                       >
                         <FolderOpen size={14} className="text-primary" />
                         <span>S3 Storage</span>
                       </button>
                     </div>
                   </div>
+                  {/* Direct file upload */}
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error('Image must be 5MB or smaller');
+                          return;
+                        }
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        formData.append('folder', 'content');
+                        setSavingBackend(true);
+                        try {
+                          const res = await uploadCRMMedia(formData);
+                          if (res.success && res.data) {
+                            setEditingBlock({
+                              ...editingBlock,
+                              src: res.data.url,
+                              alt: res.data.name,
+                              width: res.data.width,
+                              height: res.data.height,
+                            });
+                            toast.success('Image uploaded to Supabase Storage');
+                          } else {
+                            toast.error(res.error || 'Upload failed');
+                          }
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : 'Upload failed');
+                        } finally {
+                          setSavingBackend(false);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 w-full rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 shadow-2xs"
+                    >
+                      <UploadCloud size={14} className="text-emerald-600" />
+                      <span>Upload Direct</span>
+                    </button>
+                  </div>
                   {editingBlock.src && (
-                    <div className="relative aspect-video w-full max-h-48 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
+                    <div className="relative aspect-video w-full max-h-48 rounded-xl bg-surface-muted overflow-hidden border border-border">
                       <Image
                         src={editingBlock.src}
                         alt={editingBlock.alt || ''}
@@ -2572,7 +2644,7 @@ export function VisualEditOverlay() {
                     <div>
                       <label
                         htmlFor={imageAltId}
-                        className="block text-xs font-bold text-slate-700 mb-1"
+                        className="block text-xs font-bold text-foreground mb-1"
                       >
                         Alt Text
                       </label>
@@ -2581,13 +2653,13 @@ export function VisualEditOverlay() {
                         type="text"
                         value={editingBlock.alt}
                         onChange={(e) => setEditingBlock({ ...editingBlock, alt: e.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs"
+                        className="w-full rounded-lg border border-border px-3 py-2 text-xs"
                       />
                     </div>
                     <div>
                       <label
                         htmlFor={imageCaptionId}
-                        className="block text-xs font-bold text-slate-700 mb-1"
+                        className="block text-xs font-bold text-foreground mb-1"
                       >
                         Caption
                       </label>
@@ -2598,7 +2670,7 @@ export function VisualEditOverlay() {
                         onChange={(e) =>
                           setEditingBlock({ ...editingBlock, caption: e.target.value })
                         }
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs"
+                        className="w-full rounded-lg border border-border px-3 py-2 text-xs"
                       />
                     </div>
                   </div>
@@ -2612,7 +2684,7 @@ export function VisualEditOverlay() {
                     <div>
                       <label
                         htmlFor={buttonLabelId}
-                        className="block text-xs font-bold text-slate-700 mb-1"
+                        className="block text-xs font-bold text-foreground mb-1"
                       >
                         Button Label
                       </label>
@@ -2623,13 +2695,13 @@ export function VisualEditOverlay() {
                         onChange={(e) =>
                           setEditingBlock({ ...editingBlock, label: e.target.value })
                         }
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-border px-3 py-2 text-sm"
                       />
                     </div>
                     <div>
                       <label
                         htmlFor={buttonHrefId}
-                        className="block text-xs font-bold text-slate-700 mb-1"
+                        className="block text-xs font-bold text-foreground mb-1"
                       >
                         Destination URL
                       </label>
@@ -2638,12 +2710,12 @@ export function VisualEditOverlay() {
                         type="text"
                         value={editingBlock.href}
                         onChange={(e) => setEditingBlock({ ...editingBlock, href: e.target.value })}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-border px-3 py-2 text-sm"
                       />
                     </div>
                   </div>
                   <div>
-                    <span className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                    <span className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                       CRM &amp; Civic Action Presets
                     </span>
                     <div className="flex flex-wrap gap-1.5">
@@ -2665,7 +2737,7 @@ export function VisualEditOverlay() {
                               href: preset.href,
                             })
                           }
-                          className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium border border-slate-200 transition-colors"
+                          className="px-2.5 py-1 rounded-lg bg-surface-muted hover:bg-border text-foreground text-xs font-medium border border-border transition-colors"
                         >
                           {preset.label}
                         </button>
@@ -2680,7 +2752,7 @@ export function VisualEditOverlay() {
                 <div>
                   <label
                     htmlFor={quoteTextId}
-                    className="block text-xs font-bold text-slate-700 mb-1"
+                    className="block text-xs font-bold text-foreground mb-1"
                   >
                     Quote Text
                   </label>
@@ -2689,20 +2761,20 @@ export function VisualEditOverlay() {
                     rows={3}
                     value={editingBlock.html}
                     onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 p-3 text-sm"
+                    className="w-full rounded-lg border border-border p-3 text-sm"
                   />
                 </div>
               )}
 
               {/* Divider Notice */}
               {editingBlock.type === 'divider' && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
+                <div className="p-3 bg-surface-muted border border-border rounded-xl text-xs text-muted-foreground">
                   A visual horizontal rule dividing sections.
                 </div>
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-2">
+            <div className="flex items-center justify-between border-t border-border pt-4 mt-2">
               {editingBlockIndex !== null && (
                 <ConfirmAction
                   label="Delete Section"
@@ -2722,7 +2794,7 @@ export function VisualEditOverlay() {
                 <button
                   type="button"
                   onClick={() => setIsSectionModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
                 >
                   Cancel
                 </button>
@@ -2744,19 +2816,19 @@ export function VisualEditOverlay() {
       {/* ── Page Settings Modal (Title, Slug, Featured Image) ─────────── */}
       {isSettingsOpen && (
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-          <DialogContent className="max-w-lg bg-white text-secondary p-6 rounded-3xl">
+          <DialogContent className="max-w-lg bg-surface-card text-foreground p-6 rounded-3xl">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black uppercase tracking-tight text-secondary">
+              <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground">
                 Page Settings &amp; Metadata
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500">
+              <DialogDescription className="text-xs text-muted-foreground">
                 Update document metadata and the featured hero image stored in Supabase S3 storage.
               </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSavePageSettings} className="space-y-4 my-2">
               <div>
-                <label htmlFor={titleId} className="block text-xs font-bold text-slate-700 mb-1">
+                <label htmlFor={titleId} className="block text-xs font-bold text-foreground mb-1">
                   Page Title
                 </label>
                 <input
@@ -2765,12 +2837,12 @@ export function VisualEditOverlay() {
                   value={pageTitle}
                   onChange={(e) => setPageTitle(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
                 />
               </div>
 
               <div>
-                <label htmlFor={slugId} className="block text-xs font-bold text-slate-700 mb-1">
+                <label htmlFor={slugId} className="block text-xs font-bold text-foreground mb-1">
                   URL Slug
                 </label>
                 {activeRegion ? (
@@ -2781,7 +2853,7 @@ export function VisualEditOverlay() {
                       value={copyRegionSlug(activeRegion.id)}
                       readOnly
                       disabled
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500"
+                      className="w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-muted-foreground"
                     />
                     {/*
                       Read-only, and saying why. The slug is the registry's
@@ -2790,7 +2862,7 @@ export function VisualEditOverlay() {
                       rendering a row nobody reads while the page's copy stays
                       frozen. That is the shadowed-CMS failure in a new costume.
                     */}
-                    <p className="mt-1 text-[11px] text-slate-500">
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       This is the <strong>{activeRegion.label}</strong> copy region on{' '}
                       <code className="font-mono">{pathname}</code>. Its slug is managed by the
                       region, so it cannot be renamed here.
@@ -2803,7 +2875,7 @@ export function VisualEditOverlay() {
                     value={pageSlug}
                     onChange={(e) => setPageSlug(e.target.value)}
                     required
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
                   />
                 )}
               </div>
@@ -2811,7 +2883,7 @@ export function VisualEditOverlay() {
               <div>
                 <label
                   htmlFor={featuredImageId}
-                  className="block text-xs font-bold text-slate-700 mb-1"
+                  className="block text-xs font-bold text-foreground mb-1"
                 >
                   Featured Hero Image
                 </label>
@@ -2822,7 +2894,7 @@ export function VisualEditOverlay() {
                     value={pageFeaturedImage}
                     onChange={(e) => setPageFeaturedImage(e.target.value)}
                     placeholder="https://...supabase.co/storage/v1/object/public/media/..."
-                    className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+                    className="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
                   />
                   <button
                     type="button"
@@ -2830,7 +2902,7 @@ export function VisualEditOverlay() {
                       setMediaTarget('featured');
                       setMediaModalOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 shrink-0"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-3 py-2 text-xs font-bold text-foreground hover:bg-border shrink-0"
                   >
                     <FolderOpen size={14} className="text-primary" />
                     <span>S3 Storage</span>
@@ -2839,7 +2911,7 @@ export function VisualEditOverlay() {
               </div>
 
               {pageFeaturedImage && (
-                <div className="relative aspect-video w-full max-h-36 rounded-xl bg-slate-100 overflow-hidden border border-slate-200">
+                <div className="relative aspect-video w-full max-h-36 rounded-xl bg-surface-muted overflow-hidden border border-border">
                   <Image
                     src={pageFeaturedImage}
                     alt="Hero preview"
@@ -2851,7 +2923,7 @@ export function VisualEditOverlay() {
               )}
 
               <fieldset className="border-0 p-0 m-0">
-                <legend className="block text-xs font-bold text-slate-700 mb-1">
+                <legend className="block text-xs font-bold text-foreground mb-1">
                   Publication Status
                 </legend>
                 <div className="flex gap-2">
@@ -2861,7 +2933,7 @@ export function VisualEditOverlay() {
                     className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${
                       pageStatus === 'publish'
                         ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        : 'bg-surface-muted text-foreground hover:bg-border border border-border'
                     }`}
                   >
                     Published
@@ -2872,7 +2944,7 @@ export function VisualEditOverlay() {
                     className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${
                       pageStatus === 'draft'
                         ? 'bg-amber-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        : 'bg-surface-muted text-foreground hover:bg-border border border-border'
                     }`}
                   >
                     Draft
@@ -2880,11 +2952,11 @@ export function VisualEditOverlay() {
                 </div>
               </fieldset>
 
-              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
                 <button
                   type="button"
                   onClick={() => setIsSettingsOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
                 >
                   Cancel
                 </button>
@@ -2930,13 +3002,13 @@ export function VisualEditOverlay() {
       {/* ── Revisions History Modal ────────────────────────────────────── */}
       {isRevisionsOpen && (
         <Dialog open={isRevisionsOpen} onOpenChange={setIsRevisionsOpen}>
-          <DialogContent className="max-w-xl bg-white text-secondary p-6 rounded-3xl">
+          <DialogContent className="max-w-xl bg-surface-card text-foreground p-6 rounded-3xl">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black uppercase tracking-tight text-secondary flex items-center gap-2">
+              <DialogTitle className="text-xl font-black uppercase tracking-tight text-foreground flex items-center gap-2">
                 <History size={20} className="text-accent-gold" />
                 <span>Page Revision History</span>
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500">
+              <DialogDescription className="text-xs text-muted-foreground">
                 Restore any earlier snapshot saved to the Supabase backend.
               </DialogDescription>
             </DialogHeader>
@@ -2950,13 +3022,13 @@ export function VisualEditOverlay() {
                 revisions.map((rev) => (
                   <div
                     key={rev.id}
-                    className="flex items-center justify-between p-3 rounded-2xl border border-slate-200 hover:border-accent-gold/50 bg-slate-50 transition-colors gap-3"
+                    className="flex items-center justify-between p-3 rounded-2xl border border-border hover:border-accent-gold/50 bg-surface-muted transition-colors gap-3"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-900 truncate">
+                      <p className="text-xs font-bold text-foreground truncate">
                         {rev.title || 'Untitled Snapshot'}
                       </p>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-[11px] text-muted-foreground">
                         {new Date(rev.created_at).toLocaleString()} · {rev.type || 'page'} ·{' '}
                         {rev.status || 'draft'}
                       </p>
@@ -2974,17 +3046,17 @@ export function VisualEditOverlay() {
                   </div>
                 ))
               ) : (
-                <p className="text-center py-6 text-xs text-slate-500">
+                <p className="text-center py-6 text-xs text-muted-foreground">
                   No previous revisions recorded yet for this page.
                 </p>
               )}
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-slate-100">
+            <div className="flex justify-end pt-2 border-t border-border">
               <button
                 type="button"
                 onClick={() => setIsRevisionsOpen(false)}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
               >
                 Close
               </button>
@@ -2992,6 +3064,9 @@ export function VisualEditOverlay() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ── CRM Panel ─────────────────────────────────────────────────────── */}
+      <CRMPanel isOpen={isCRMPanelOpen} onClose={() => setIsCRMPanelOpen(false)} />
     </>
   );
 }

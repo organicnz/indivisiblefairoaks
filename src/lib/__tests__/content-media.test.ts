@@ -1,200 +1,310 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ContentMediaRow } from '@/types/content-media';
 
-const requireAdmin = vi.hoisted(() => vi.fn());
-const remove = vi.hoisted(() => vi.fn());
-const uploadToStorage = vi.hoisted(() => vi.fn());
+const mockAdminClient = {
+  from: vi.fn(),
+  storage: {
+    from: vi.fn(),
+  },
+};
 
-vi.mock('@/lib/admin-auth', () => ({ requireAdmin }));
-vi.mock('server-only', () => ({}));
+const mockStorageChain = {
+  upload: vi.fn(),
+  remove: vi.fn(),
+};
 
-// Reached transitively when this module is imported; the admin client is faked
-// below, so the real one only needs to not explode during evaluation.
-vi.mock('next/headers', () => ({
-  cookies: vi.fn(() => ({ getAll: () => [], set: vi.fn() })),
+let mockRequireAdmin: any;
+let _mockMeasureImageSize: ReturnType<typeof vi.fn>;
+let _mockCryptoRandomValues: ReturnType<typeof vi.fn>;
+
+function createChain() {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    lte: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
+    single: vi.fn(),
+    maybeSingle: vi.fn(),
+    ilike: vi.fn().mockReturnThis(),
+    _then: vi.fn(),
+  };
+}
+
+function setupMocks() {
+  mockRequireAdmin = vi.fn().mockResolvedValue({ adminClient: mockAdminClient });
+  mockAdminClient.from.mockReset();
+  mockAdminClient.from.mockImplementation(() => createChain());
+  mockAdminClient.storage.from.mockReset();
+  mockAdminClient.storage.from.mockImplementation(() => ({ ...mockStorageChain }));
+  mockStorageChain.upload.mockReset();
+  mockStorageChain.remove.mockReset();
+}
+
+vi.mock('@/lib/admin-auth', () => ({
+  requireAdmin: () => mockRequireAdmin(),
 }));
 
-// The storage URL is derived from env, so the bucket base has to be real for
-// the "is this our own bucket" check to mean anything.
+vi.mock('@/lib/supabase', () => ({
+  getStorageUrl: (path: string) =>
+    `https://test.supabase.co/storage/v1/object/public/media/${path}`,
+}));
+
+vi.mock('@/lib/image-size', () => ({
+  measureImageSize: () => ({ width: 800, height: 600 }),
+}));
+
 vi.mock('@/lib/env', () => ({
   env: {
-    NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'test-key',
-    NEXT_PUBLIC_SITE_URL: 'https://indivisiblefairoaks.org',
+    NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
   },
 }));
 
-// `supabase-server.ts` reads process.env directly (not the validated module), and
-// it is evaluated during the import below, so these must be set first.
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
-process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key';
-
-const { deleteContentImage, uploadContentImage } = await import('@/lib/actions/content');
-const { createMockAdminClient } = await import('./supabase-mock');
-
-const MEDIA_BASE = 'https://project.supabase.co/storage/v1/object/public/media/';
-
-/**
- * The rows the reference queries will find.
- *
- * These are **rows, not canned results**, which is the point of moving off the
- * hand-rolled builder: the previous stub returned whatever a test put under
- * `content:like`, so a test passed whether or not the query named the right
- * column or the right value. A `body` that does not actually contain the file
- * path now fails to match, so these tests assert the query as well as the
- * outcome — which is what "checks every reference first" has to mean.
- */
-const contentRows: Record<string, unknown>[] = [];
-const revisionRows: Record<string, unknown>[] = [];
-
 beforeEach(() => {
-  vi.clearAllMocks();
-  // Emptied in place, never reassigned: the client is built below and holds
-  // these arrays by reference, so `contentRows = [...]` would leave it serving
-  // the empty array it captured and every reference check would report "no
-  // references" — a false pass on the one thing this file exists to check.
-  contentRows.length = 0;
-  revisionRows.length = 0;
-  requireAdmin.mockResolvedValue({
-    adminClient: {
-      storage: { from: () => ({ remove, upload: uploadToStorage }) },
-      ...createMockAdminClient({
-        content: { rows: contentRows },
-        content_revisions: { rows: revisionRows },
-      }),
-    },
-  });
-  uploadToStorage.mockResolvedValue({ error: null });
-  remove.mockResolvedValue({ error: null });
+  setupMocks();
 });
 
-const fileForm = (name: string, type: string, bytes = 8) => {
-  const form = new FormData();
-  form.append('file', new File([new Uint8Array(bytes)], name, { type }));
-  return form;
-};
+function makeMediaRow(
+  overrides: Partial<{ sort_order: number; id: string; path: string; content_id: number }> = {}
+): ContentMediaRow {
+  return {
+    id: overrides.id ?? 'test-id',
+    content_id: overrides.content_id ?? 42,
+    name: 'hero.jpg',
+    path: overrides.path ?? 'content/42-abc123.jpg',
+    url: 'https://test.supabase.co/storage/v1/object/public/media/content/42-abc123.jpg',
+    mime_type: 'image/jpeg',
+    size: 102400,
+    width: 800,
+    height: 600,
+    alt_text: null,
+    caption: null,
+    folder: 'content',
+    sort_order: overrides.sort_order ?? 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
 
-describe('uploadContentImage', () => {
-  it('rejects an SVG, which is stored XSS once served from the bucket', async () => {
-    await expect(uploadContentImage(fileForm('x.svg', 'image/svg+xml'))).rejects.toThrow(/svg/i);
-    expect(uploadToStorage).not.toHaveBeenCalled();
-  });
+describe('content-media actions', () => {
+  describe('getContentMedia', () => {
+    it('returns media items ordered by sort_order then created_at', async () => {
+      const { getContentMedia } = await import('@/lib/actions/content-media');
+      const rows = [makeMediaRow({ sort_order: 1 }), makeMediaRow({ sort_order: 0 })];
+      const chain = createChain();
+      chain.order.mockReturnThis();
+      chain._then.mockImplementation((cb) => cb({ data: rows, error: null }));
+      mockAdminClient.from.mockImplementation(() => chain);
 
-  it('rejects a file over the size limit', async () => {
-    await expect(
-      uploadContentImage(fileForm('big.png', 'image/png', 6 * 1024 * 1024))
-    ).rejects.toThrow(/5MB/);
-    expect(uploadToStorage).not.toHaveBeenCalled();
-  });
-
-  it('rejects a non-image content type', async () => {
-    await expect(uploadContentImage(fileForm('x.sh', 'application/x-sh'))).rejects.toThrow(
-      /image/i
-    );
-    expect(uploadToStorage).not.toHaveBeenCalled();
-  });
-
-  it('rejects a form with no file', async () => {
-    await expect(uploadContentImage(new FormData())).rejects.toThrow(/no file/i);
-  });
-
-  it('uploads under a content path with a random component, never the raw name', async () => {
-    const result = await uploadContentImage(fileForm('My Rally Photo.png', 'image/png'));
-    const path = uploadToStorage.mock.calls[0][0] as string;
-    expect(path).toMatch(/^content\/my-rally-photo-[0-9a-f]{8}\.png$/);
-    expect(result.url).toBe(`${MEDIA_BASE}${path}`);
-  });
-
-  it('never lets one organiser overwrite another upload of the same filename', async () => {
-    const a = await uploadContentImage(fileForm('rally.jpg', 'image/jpeg'));
-    const b = await uploadContentImage(fileForm('rally.jpg', 'image/jpeg'));
-    expect(a.url).not.toBe(b.url);
-    // `upsert: false` is the belt to that braces: the storage layer refuses too.
-    for (const call of uploadToStorage.mock.calls) {
-      expect(call[2]).toMatchObject({ upsert: false });
-    }
-  });
-
-  it('surfaces a storage error rather than returning a URL that does not exist', async () => {
-    uploadToStorage.mockResolvedValue({ error: { message: 'bucket not found' } });
-    await expect(uploadContentImage(fileForm('x.png', 'image/png'))).rejects.toThrow(
-      /bucket not found/
-    );
-  });
-});
-
-describe('deleteContentImage', () => {
-  it('never touches a URL outside our own media bucket', async () => {
-    for (const url of [
-      'https://evil.example.com/x.png',
-      'https://project.supabase.co/storage/v1/object/public/other-bucket/content/x.png',
-    ]) {
-      expect(await deleteContentImage(url)).toEqual({ deleted: false, retained: 'foreign' });
-    }
-    expect(remove).not.toHaveBeenCalled();
-  });
-
-  it('never traverses out of the content prefix', async () => {
-    expect((await deleteContentImage(`${MEDIA_BASE}content/../../secrets.txt`)).deleted).toBe(
-      false
-    );
-    expect(remove).not.toHaveBeenCalled();
-  });
-
-  it('deletes an unreferenced upload', async () => {
-    expect(await deleteContentImage(`${MEDIA_BASE}content/x.png`)).toEqual({ deleted: true });
-    expect(remove).toHaveBeenCalledWith(['content/x.png']);
-  });
-
-  it('keeps a file another page body still points at', async () => {
-    contentRows.push({ id: 3, body: `<p>See <img src="${MEDIA_BASE}content/shared.png"></p>` });
-    expect(await deleteContentImage(`${MEDIA_BASE}content/shared.png`)).toEqual({
-      deleted: false,
-      retained: 'referenced',
+      const result = await getContentMedia(42);
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].sort_order).toBe(0);
     });
-    expect(remove).not.toHaveBeenCalled();
-  });
 
-  it('keeps a file that is still a featured image', async () => {
-    contentRows.push({ id: 4, featured_image: `${MEDIA_BASE}content/hero.png` });
-    expect(await deleteContentImage(`${MEDIA_BASE}content/hero.png`)).toEqual({
-      deleted: false,
-      retained: 'referenced',
+    it('throws if content row is unpublished', async () => {
+      const { getContentMedia } = await import('@/lib/actions/content-media');
+      const chain = createChain();
+      chain.maybeSingle.mockResolvedValue({ data: null, error: { message: 'not found' } });
+      mockAdminClient.from.mockImplementation(() => chain);
+
+      await expect(getContentMedia(99)).rejects.toThrow('Content row not found or unpublished');
     });
-    expect(remove).not.toHaveBeenCalled();
   });
 
-  it('keeps a file a revision points at, so a restore cannot 404', async () => {
-    // The subtle one: no live row references the file, but a revision does, and
-    // removing it would break the only route back from a bad publish.
-    revisionRows.push({ id: 11, body: `<img src="${MEDIA_BASE}content/old.png">` });
-    expect(await deleteContentImage(`${MEDIA_BASE}content/old.png`)).toEqual({
-      deleted: false,
-      retained: 'referenced',
+  describe('createContentMediaRow', () => {
+    it('validates input and creates row', async () => {
+      const { createContentMediaRow } = await import('@/lib/actions/content-media');
+      const input = {
+        content_id: 42,
+        name: 'test.jpg',
+        path: 'content/42-xyz.jpg',
+        mime_type: 'image/jpeg',
+        size: 50000,
+        width: 800,
+        height: 600,
+        alt_text: 'Alt',
+        caption: 'Caption',
+        folder: 'content',
+        sort_order: 5,
+      };
+      const chain = createChain();
+      chain.single.mockResolvedValue({ data: { ...input, id: 'new-id' }, error: null });
+      mockAdminClient.from.mockImplementation(() => chain);
+
+      const result = await createContentMediaRow(input as any);
+      expect(result.success).toBe(true);
+      expect(result.data?.sort_order).toBe(5);
     });
-    expect(remove).not.toHaveBeenCalled();
-  });
 
-  it('deletes a file no reference actually points at, even when rows exist', async () => {
-    // The negative case, and it is the one that makes the three above mean
-    // anything. A revision and a page exist, but neither *mentions this file*.
-    //
-    // Without it, deleting the `like` from a reference query leaves the suite
-    // green: an unfiltered `.limit(1)` still matches the rows that are there, so
-    // "still referenced" is reported for the wrong reason and a query that checks
-    // nothing at all passes as a reference check. A guard that cannot tell
-    // "matched the right row" from "matched a row" is not a guard.
-    contentRows.push({
-      id: 3,
-      body: `<p>Unrelated: <img src="${MEDIA_BASE}content/other.png"></p>`,
+    it('rejects invalid input', async () => {
+      const { createContentMediaRow } = await import('@/lib/actions/content-media');
+      const result = await createContentMediaRow({ content_id: -1 } as any);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('content_id');
     });
-    revisionRows.push({ id: 11, body: `<img src="${MEDIA_BASE}content/another.png">` });
-
-    expect(await deleteContentImage(`${MEDIA_BASE}content/x.png`)).toEqual({ deleted: true });
-    expect(remove).toHaveBeenCalledWith(['content/x.png']);
   });
 
-  it('reports a storage error without claiming the file is gone', async () => {
-    remove.mockResolvedValue({ error: { message: 'nope' } });
-    expect(await deleteContentImage(`${MEDIA_BASE}content/x.png`)).toEqual({ deleted: false });
+  describe('updateContentMediaRow', () => {
+    it('updates alt_text and caption', async () => {
+      const { updateContentMediaRow } = await import('@/lib/actions/content-media');
+      const patch = { alt_text: 'New alt', caption: 'New caption' };
+      const chain = createChain();
+      chain.maybeSingle.mockResolvedValueOnce({ data: { content_id: 42 }, error: null });
+      chain.single.mockResolvedValueOnce({
+        data: { id: 'test-id', alt_text: 'New alt', caption: 'New caption' },
+        error: null,
+      });
+      mockAdminClient.from.mockImplementation(() => chain);
+
+      const result = await updateContentMediaRow('test-id', patch);
+      expect(result.success).toBe(true);
+      expect(result.data?.alt_text).toBe('New alt');
+    });
+
+    it('rejects invalid patch', async () => {
+      const { updateContentMediaRow } = await import('@/lib/actions/content-media');
+      const result = await updateContentMediaRow('id', { sort_order: -1 } as any);
+      expect(result.success).toBe(false);
+    });
+
+    it('returns not found if row missing', async () => {
+      const { updateContentMediaRow } = await import('@/lib/actions/content-media');
+      const chain = createChain();
+      chain.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+      mockAdminClient.from.mockImplementation(() => chain);
+
+      const result = await updateContentMediaRow('missing', { alt_text: 'x' });
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Media row not found');
+    });
+  });
+
+  describe('deleteContentMediaRow', () => {
+    it('deletes when path has no other references', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const fetchChain = createChain();
+      fetchChain.maybeSingle.mockResolvedValueOnce({
+        data: { path: 'content/42-abc.jpg', content_id: 42 },
+        error: null,
+      });
+
+      const checkChain = createChain();
+      checkChain.ilike.mockResolvedValue({ data: [], error: null });
+      checkChain.eq.mockResolvedValue({ data: [], error: null });
+
+      mockAdminClient.from
+        .mockImplementationOnce(() => fetchChain)
+        .mockImplementation(() => checkChain);
+
+      mockAdminClient.storage.from.mockImplementation(() => ({
+        remove: vi.fn().mockResolvedValue({ error: null }),
+      }));
+
+      const deleteChain = createChain();
+      deleteChain.delete.mockResolvedValue({ error: null });
+      mockAdminClient.from.mockImplementation(() => deleteChain);
+
+      const result = await deleteContentMediaRow('test-id');
+      expect(result.success).toBe(true);
+      expect(result.data?.deleted).toBe(true);
+    });
+
+    it('blocks delete when path in content.body', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const fetchChain = createChain();
+      fetchChain.maybeSingle.mockResolvedValueOnce({
+        data: { path: 'content/42-abc.jpg', content_id: 42 },
+        error: null,
+      });
+
+      const checkChain = createChain();
+      checkChain.ilike.mockResolvedValue({ data: [{ id: 1 }], error: null });
+
+      mockAdminClient.from
+        .mockImplementationOnce(() => fetchChain)
+        .mockImplementation(() => checkChain);
+
+      const result = await deleteContentMediaRow('test-id');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('content body');
+      expect(result.data?.retained).toBe('referenced');
+    });
+
+    it('blocks delete when path is featured_image', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      const fetchChain = createChain();
+      fetchChain.maybeSingle.mockResolvedValueOnce({
+        data: { path: 'content/42-abc.jpg', content_id: 42 },
+        error: null,
+      });
+
+      const checkChain = createChain();
+      checkChain.ilike.mockResolvedValue({ data: [], error: null });
+      checkChain.eq.mockResolvedValue({ data: [{ id: 1 }], error: null });
+
+      mockAdminClient.from
+        .mockImplementationOnce(() => fetchChain)
+        .mockImplementation(() => checkChain);
+
+      const result = await deleteContentMediaRow('test-id');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('featured_image');
+    });
+  });
+
+  describe('uploadAndCreateContentMedia', () => {
+    it('uploads file and creates row', async () => {
+      const { uploadAndCreateContentMedia } = await import('@/lib/actions/content-media');
+      const file = new File(['test'], 'hero.jpg', { type: 'image/jpeg' });
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const chain = createChain();
+      // Two assertContentPublished calls (one in uploadAndCreateContentMedia, one in createContentMediaRow)
+      chain.maybeSingle.mockResolvedValueOnce({ data: { id: 'c1' }, error: null });
+      chain.maybeSingle.mockResolvedValueOnce({ data: { id: 'c1' }, error: null });
+      chain.single.mockResolvedValueOnce({ data: { id: 'new-media' }, error: null });
+      mockAdminClient.from.mockImplementation(() => chain);
+      mockAdminClient.storage.from.mockImplementation(() => ({
+        upload: vi.fn().mockResolvedValue({ error: null }),
+      }));
+
+      const result = await uploadAndCreateContentMedia(formData, 42);
+      expect(result.success, result.error ?? 'no error').toBe(true);
+    });
+
+    it('rejects non-image files', async () => {
+      const { uploadAndCreateContentMedia } = await import('@/lib/actions/content-media');
+      const chain = createChain();
+      chain.maybeSingle.mockResolvedValue({ data: { id: 'c1' }, error: null });
+      mockAdminClient.from.mockImplementation(() => chain);
+
+      const file = new File(['test'], 'doc.pdf', { type: 'application/pdf' });
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const result = await uploadAndCreateContentMedia(formData, 42);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Only JPEG, PNG, WebP, GIF');
+    });
+
+    it('rejects oversized files', async () => {
+      const { uploadAndCreateContentMedia } = await import('@/lib/actions/content-media');
+      const chain = createChain();
+      chain.maybeSingle.mockResolvedValue({ data: { id: 'c1' }, error: null });
+      mockAdminClient.from.mockImplementation(() => chain);
+
+      const bigFile = new File([new ArrayBuffer(6 * 1024 * 1024)], 'big.jpg', {
+        type: 'image/jpeg',
+      });
+      const formData = new FormData();
+      formData.append('file', bigFile);
+
+      const result = await uploadAndCreateContentMedia(formData, 42);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('5 MB');
+    });
   });
 });

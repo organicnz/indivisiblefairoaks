@@ -634,6 +634,80 @@ The predicate rejects lookalike hosts
 (`evil-indivisiblefairoaks.org`), protocol-relative `//evil.com`, and
 non-http schemes. `mailto:`, `tel:` and `#anchor` are allowed.
 
+### The header button is the master switch, and nothing else
+
+The header's editorial control is one icon button that turns visual editing on
+and off. It used to be two controls of two sizes — the icon plus a chevron
+opening a menu of regions and per-section switches — which gave one intent two
+hit areas and duplicated a section list the overlay already publishes.
+
+Per-section editing was never really in that menu, so removing it loses
+nothing. It lives in two places that each own their half: **on the page**,
+where every framed section carries its own action pill (frame, jump, edit,
+duplicate, move, add below, hide, delete), and **in the drawer**, where
+`EditorialDrawerRow` keeps the full editorial card with regions and every
+per-section control for the small screens that need it most. The header never
+derives a section list of its own — a second list agreed only while nothing had
+been sanitized out of the page, and then offered to edit an element that was a
+different section.
+
+- `__tests__/EditorialButton.test.tsx` — one button and no menu however many
+  sections publish; the drawer keeps regions, CRUD dispatches, Frame-all
+  semantics, inert undescribed rows and region-scoped adoption
+
+### A hidden frame is recoverable per section, from the dock
+
+The in-page pill's EyeOff hides a frame, and a hidden frame has no pill — so
+the control that hid it cannot bring it back. The only recovery was the
+drawer's "Frame all", which reframes every section to recover one.
+
+Every block in the dock's block bar now carries its own frame switch
+(Eye/EyeOff with `aria-pressed`), addressing the block by index through the
+same `toggleSectionFrame` the pill uses. A block with no measured section —
+unpaired with any element — gets no switch rather than a switch that guesses.
+The chip names the block with `sectionLabelForBlock`, the same label the pill
+and the drawer show, not the raw `block.type`.
+
+### Editor chrome opens on click, never on hover
+
+The dock's Add Block menu was `group-hover:block`: invisible to every keyboard
+and touch user, and in no tab order at all. It is a Radix `DropdownMenu` now —
+click-to-open, arrows to move, Escape to dismiss — the same primitive and the
+same rationale as `NavDropdown`. It opens upward because the dock sits at the
+viewport bottom, and its options come from one `ADD_BLOCK_OPTIONS` list so a
+creatable block and a convertible block cannot drift apart.
+
+### Editor dialogs follow the reader's palette
+
+The section editor, settings and revisions dialogs were hardcoded light
+(`bg-white`, `text-slate-700`, `border-slate-300`), so in dark mode an admin
+got a blinding white modal over a dark page. Every light-surface class is now
+a token (`bg-surface-card`, `text-foreground`, `border-border`,
+`bg-surface-muted`, `text-muted-foreground`) — identical paint in light mode,
+adaptive in dark. The dock, pills and frames stay deliberately dark chrome on
+opaque `bg-secondary`, like the site header: they are dark because they say so,
+not because the reader is in dark mode.
+
+- `__tests__/design-tokens.test.ts` — scans every `.tsx` under
+  `components/visual-edit`, `components/admin` and `app/admin` for
+  light-surface text, hairlines, fills, slate hovers and bare `bg-white`, with
+  the deliberate dark-chrome classes documented as the exception list. Modelled
+  on `commerce-no-nzd.test.ts`: a ratchet, not a wall.
+
+### One name per shape, in one module
+
+Cross-domain types live in `src/types/unified.ts`; CRM row types live in
+`src/types/crm.ts`. There is no third copy of either: the duplicate
+`VISUAL_EDIT_EVENTS` literal, the conflicting `ContentRevision`, the
+`VisualSave*` / `MediaTarget` / admin / theme / utility dead weight, the ten
+`VisualSection*Detail` aliases and the seven `CRM*` aliases are all gone, and
+`src/types/visual-edit.ts` (zero importers) is deleted. The event bus
+(`lib/visual-edit-events.ts`) speaks the canonical `ToggleSectionDetail` /
+`FocusSectionDetail` / … names, and client components import types from
+`@/types/crm` / `@/types/unified` directly — the `'use server'` actions module
+no longer re-exports types, so a field added to one side cannot silently stop
+reaching the other.
+
 ## Shortcuts
 
 | Key | Action |

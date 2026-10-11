@@ -14,11 +14,11 @@ import {
   VISUAL_EDIT_EVENTS,
 } from '@/lib/visual-edit-events';
 import type {
-  VisualSectionAddBlockDetail,
-  VisualSectionFocusEventDetail,
-  VisualSectionMoveEventDetail,
-  VisualSectionToggleEventDetail,
-} from '@/types/visual-edit';
+  AddBlockDetail,
+  FocusSectionDetail,
+  MoveSectionDetail,
+  ToggleSectionDetail,
+} from '@/types/unified';
 
 /**
  * A window that records what was dispatched, in order.
@@ -104,18 +104,18 @@ describe('emitters', () => {
     const win = recordingWindow();
     toggleSectionVisual({ blockIndex: 3, enabled: true });
     toggleSectionVisual({ all: true });
-    expect(win.seen[0].detail).toEqual<VisualSectionToggleEventDetail>({
+    expect(win.seen[0].detail).toEqual<ToggleSectionDetail>({
       blockIndex: 3,
       enabled: true,
     });
-    expect(win.seen[1].detail).toEqual<VisualSectionToggleEventDetail>({ all: true });
+    expect(win.seen[1].detail).toEqual<ToggleSectionDetail>({ all: true });
     win.restore();
   });
 
   it('focusSectionVisual passes openEdit through', () => {
     const win = recordingWindow();
     focusSectionVisual({ blockIndex: 7, openEdit: true });
-    expect(win.seen[0].detail).toEqual<VisualSectionFocusEventDetail>({
+    expect(win.seen[0].detail).toEqual<FocusSectionDetail>({
       blockIndex: 7,
       openEdit: true,
     });
@@ -125,7 +125,7 @@ describe('emitters', () => {
   it('moveSectionVisual carries a direction', () => {
     const win = recordingWindow();
     moveSectionVisual({ blockIndex: 1, direction: 'down' });
-    expect(win.seen[0].detail).toEqual<VisualSectionMoveEventDetail>({
+    expect(win.seen[0].detail).toEqual<MoveSectionDetail>({
       blockIndex: 1,
       direction: 'down',
     });
@@ -160,7 +160,7 @@ describe('emitters', () => {
     expect(win.seen[0].type).toBe(VISUAL_EDIT_EVENTS.addBlock);
     expect(win.seen[1].type).toBe(VISUAL_EDIT_EVENTS.addBlock);
     expect(win.seen[2].type).toBe(VISUAL_EDIT_EVENTS.addBlockAt);
-    expect(win.seen[2].detail).toEqual<VisualSectionAddBlockDetail>({
+    expect(win.seen[2].detail).toEqual<AddBlockDetail>({
       insertAfterBlockIndex: 5,
       type: 'paragraph',
     });
@@ -187,7 +187,7 @@ describe('readVisualEventDetail', () => {
     const event = new CustomEvent(VISUAL_EDIT_EVENTS.toggleSection, {
       detail: { blockIndex: 4, enabled: false },
     });
-    expect(readVisualEventDetail<VisualSectionToggleEventDetail>(event)).toEqual({
+    expect(readVisualEventDetail<ToggleSectionDetail>(event)).toEqual({
       blockIndex: 4,
       enabled: false,
     });

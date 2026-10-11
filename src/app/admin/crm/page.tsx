@@ -143,7 +143,7 @@ export default async function AdminCRMPage({
           </Link>
           <Link
             href="/admin/crm/broadcasts"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white hover:bg-slate-800 text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
           >
             <Megaphone size={14} className="text-primary-light" />
             Email Broadcasts

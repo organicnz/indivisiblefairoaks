@@ -13,7 +13,7 @@ import {
   getCRMStats,
 } from '@/lib/actions/crm';
 import { requireAdmin } from '@/lib/admin-auth';
-import type { CRMBackendStatus, CRMMediaListResult, CRMSegment, CRMStats } from '@/types/crm';
+import type { BackendStatus, CRMSegment, CRMStats, MediaListResult } from '@/types/unified';
 
 /**
  * One backend context for the in-page visual editor.
@@ -46,8 +46,8 @@ export interface VisualPageContext {
   content: ContentRow | null;
   revisions: ContentRevision[];
   revisionsTruncated: boolean;
-  media: CRMMediaListResult;
-  backend: CRMBackendStatus;
+  media: MediaListResult;
+  backend: BackendStatus;
   crmStats: CRMStats | null;
   segments: CRMSegment[];
   segmentsTruncated: boolean;
@@ -73,7 +73,7 @@ export async function getVisualPageContext(input?: {
 }): Promise<VisualPageContext> {
   const { adminClient } = await requireAdmin();
 
-  const emptyMedia: CRMMediaListResult = { items: [], folders: ['crm', 'content', 'products'] };
+  const emptyMedia: MediaListResult = { items: [], folders: ['crm', 'content', 'products'] };
 
   // Resolve the content row first — everything else is independent and runs
   // together. A failure in one summary read must not fail the whole open:
@@ -102,14 +102,14 @@ export async function getVisualPageContext(input?: {
         return { revisions: [] as ContentRevision[], truncated: false };
       }
     })(),
-    (async (): Promise<CRMMediaListResult> => {
+    (async (): Promise<MediaListResult> => {
       try {
         return await getCRMMediaFiles({ folder: 'all', limit: 60 });
       } catch {
         return emptyMedia;
       }
     })(),
-    (async (): Promise<CRMBackendStatus> => {
+    (async (): Promise<BackendStatus> => {
       try {
         return await getCRMEdgeFunctionHealth();
       } catch (err) {

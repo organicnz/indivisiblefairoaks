@@ -1,0 +1,512 @@
+'use client';
+
+import { Loader2, Mail, MapPin, Phone, Plus, Search, Tag, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
+import { CRMTaskForm } from '@/components/admin/crm/CRMTaskForm';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
+import { deleteCRMContact, getCRMContacts, setCRMEmailConsent } from '@/lib/actions/crm';
+import type { CRMContact } from '@/types/crm';
+
+interface CRMPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const CONSENT_LABELS: Record<string, { label: string; color: string }> = {
+  opted_in: { label: 'Opted in', color: 'text-emerald-400 bg-emerald-500/10' },
+  opted_out: { label: 'Opted out', color: 'text-rose-400 bg-rose-500/10' },
+  unasked: { label: 'Never asked', color: 'text-amber-400 bg-amber-500/10' },
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  active_volunteer: 'bg-emerald-500/10 text-emerald-400',
+  supporter: 'bg-slate-500/10 text-slate-400',
+  donor: 'bg-amber-500/10 text-amber-400',
+  choir: 'bg-purple-500/10 text-purple-400',
+  organizer: 'bg-blue-500/10 text-blue-400',
+  inactive: 'bg-rose-500/10 text-rose-400',
+};
+
+export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
+  const [contacts, setContacts] = useState<CRMContact[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [selectedContact, setSelectedContact] = useState<CRMContact | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
+  const [consentFilter, setConsentFilter] = useState<'all' | 'opted_in' | 'opted_out' | 'unasked'>(
+    'all'
+  );
+
+  const PAGE_SIZE = 25;
+
+  const consentFromDoNotEmail = (value: boolean | null): 'opted_in' | 'opted_out' | 'unasked' => {
+    if (value === null) return 'unasked';
+    return value ? 'opted_out' : 'opted_in';
+  };
+
+  const loadContacts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getCRMContacts({
+        query: searchQuery || undefined,
+        consent: consentFilter === 'all' ? undefined : consentFilter,
+        page,
+        pageSize: PAGE_SIZE,
+      });
+      setContacts(res.contacts);
+      setTotalCount(res.totalCount);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load contacts');
+    } finally {
+      setLoading(false);
+    }
+  }, [searchQuery, page, consentFilter]);
+
+  useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
+
+  const handleDeleteContact = async (id: string) => {
+    try {
+      const res = await deleteCRMContact(id);
+      if (res.success) {
+        toast.success('Contact deleted');
+        loadContacts();
+      } else {
+        toast.error(res.error ?? 'Failed to delete contact');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete contact');
+    }
+  };
+
+  const handleSetConsent = async (id: string, consent: 'opted_in' | 'opted_out' | 'unasked') => {
+    try {
+      const res = await setCRMEmailConsent({ contactId: id, doNotEmail: consent });
+      if (res.success) {
+        toast.success('Consent updated');
+        loadContacts();
+      } else {
+        toast.error(res.error ?? 'Failed to update consent');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update consent');
+    }
+  };
+
+  const consentOptions = [
+    { value: 'opted_in' as const, label: 'Opted in' },
+    { value: 'opted_out' as const, label: 'Opted out' },
+    { value: 'unasked' as const, label: 'Never asked' },
+  ];
+
+  const editorModal = isEditorOpen ? (
+    <CRMContactEditorModal
+      contact={selectedContact ?? undefined}
+      isOpen={isEditorOpen}
+      onClose={() => setIsEditorOpen(false)}
+    />
+  ) : null;
+
+  const taskFormModal =
+    isTaskFormOpen && selectedContact ? (
+      <Dialog open={isTaskFormOpen} onOpenChange={() => setIsTaskFormOpen(false)}>
+        <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black uppercase tracking-tight">
+              Add Follow-up
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Create a follow-up task for {selectedContact.first_name} {selectedContact.last_name}
+            </DialogDescription>
+          </DialogHeader>
+          <CRMTaskForm
+            contactId={selectedContact.id}
+            contactName={`${selectedContact.first_name} ${selectedContact.last_name}`}
+            onDone={() => {
+              setIsTaskFormOpen(false);
+              loadContacts();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    ) : null;
+
+  return (
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[85vh] bg-surface-card text-foreground p-0">
+          <DialogHeader className="p-4 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-lg font-black uppercase tracking-tight">
+                  Constituents
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Search, create, and manage constituents. Changes persist to Supabase.
+                </DialogDescription>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 rounded-lg hover:bg-muted transition-colors"
+                aria-label="Close CRM panel"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </DialogHeader>
+
+          <div className="flex h-[calc(100%-80px)] overflow-hidden">
+            {/* Contact List */}
+            <div className="w-96 flex flex-col border-r border-border bg-muted/30">
+              {/* Search & Filters */}
+              <div className="p-3 border-b border-border space-y-2">
+                <div className="relative">
+                  <Search
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    size={16}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search constituents…"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <select
+                  value={consentFilter}
+                  onChange={(e) => {
+                    setConsentFilter(
+                      e.target.value as 'all' | 'opted_in' | 'opted_out' | 'unasked'
+                    );
+                    setPage(1);
+                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary"
+                >
+                  <option value="all">All consent states</option>
+                  <option value="opted_in">Opted in</option>
+                  <option value="opted_out">Opted out</option>
+                  <option value="unasked">Never asked</option>
+                </select>
+              </div>
+
+              {/* Contact List */}
+              <div className="flex-1 overflow-y-auto">
+                {loading ? (
+                  <div className="p-4 text-center text-muted-foreground">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+                  </div>
+                ) : contacts.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground">
+                    <p className="font-medium">No constituents found</p>
+                    <p className="text-xs mt-1">Adjust your search or create a new constituent</p>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {contacts.map((contact) => (
+                      <button
+                        key={contact.id}
+                        type="button"
+                        className="w-full px-3 py-2 hover:bg-background/50 text-left transition-colors"
+                        onClick={() => setSelectedContact(contact)}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">
+                              {contact.first_name} {contact.last_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {contact.email}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${STATUS_COLORS[contact.status] || 'bg-muted text-muted-foreground'}`}
+                            >
+                              {contact.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {consentOptions.map((opt) => {
+                            const currentConsent = consentFromDoNotEmail(contact.do_not_email);
+                            return (
+                              <span
+                                key={opt.value}
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                                  currentConsent === opt.value
+                                    ? CONSENT_LABELS[opt.value].color
+                                    : 'bg-muted/50 text-muted-foreground'
+                                }`}
+                              >
+                                {opt.value === 'opted_in'
+                                  ? '✓'
+                                  : opt.value === 'opted_out'
+                                    ? '✗'
+                                    : '?'}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </button>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Pagination */}
+                {totalCount > PAGE_SIZE && (
+                  <div className="p-3 border-t border-border flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Page {page} of {Math.ceil(totalCount / PAGE_SIZE)} ({totalCount} total)
+                    </span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        disabled={page === 1 || loading}
+                        onClick={() => setPage((p) => p - 1)}
+                        className="px-2 py-1 text-xs rounded border border-border hover:bg-muted disabled:opacity-50"
+                      >
+                        Prev
+                      </button>
+                      <button
+                        type="button"
+                        disabled={page * PAGE_SIZE >= totalCount || loading}
+                        onClick={() => setPage((p) => p + 1)}
+                        className="px-2 py-1 text-xs rounded border border-border hover:bg-muted disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Detail / Editor Panel */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {selectedContact ? (
+                <>
+                  <div className="p-4 border-b border-border">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-black uppercase tracking-tight text-lg">
+                          {selectedContact.first_name} {selectedContact.last_name}
+                        </h3>
+                        <p className="text-muted-foreground text-sm">{selectedContact.email}</p>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[selectedContact.status] || 'bg-muted text-muted-foreground'}`}
+                          >
+                            {selectedContact.status.replace('_', ' ')}
+                          </span>
+                          {consentOptions.map((opt) => {
+                            const currentConsent = consentFromDoNotEmail(
+                              selectedContact.do_not_email
+                            );
+                            return (
+                              <span
+                                key={opt.value}
+                                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  currentConsent === opt.value
+                                    ? CONSENT_LABELS[opt.value].color
+                                    : 'bg-muted/50 text-muted-foreground'
+                                }`}
+                              >
+                                {opt.value === 'opted_in'
+                                  ? '✓ Opted in'
+                                  : opt.value === 'opted_out'
+                                    ? '✗ Opted out'
+                                    : '? Never asked'}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditorOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors"
+                        >
+                          <Plus size={12} className="mr-1" /> Edit
+                        </button>
+                        <ConfirmAction
+                          label="Delete constituent"
+                          message={`Delete "${selectedContact.first_name} ${selectedContact.last_name}"? This cannot be undone.`}
+                          confirmLabel="Delete"
+                          danger
+                          onConfirm={() => handleDeleteContact(selectedContact.id)}
+                          idleClassName="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 text-xs font-bold hover:bg-rose-500/20 transition-colors"
+                        >
+                          <span className="hidden sm:inline">Delete</span>
+                        </ConfirmAction>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {/* Contact Details */}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {selectedContact.phone && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone size={14} className="text-muted-foreground" />
+                          <span>{selectedContact.phone}</span>
+                        </div>
+                      )}
+                      {selectedContact.address && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <MapPin size={14} className="text-muted-foreground" />
+                          <span>
+                            {selectedContact.address}, {selectedContact.city}{' '}
+                            {selectedContact.zip_code}
+                          </span>
+                        </div>
+                      )}
+                      {selectedContact.district && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Tag size={14} className="text-muted-foreground" />
+                          <span>District: {selectedContact.district}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail size={14} className="text-muted-foreground" />
+                        <span>Source: {selectedContact.source}</span>
+                      </div>
+                      {selectedContact.total_donated_cents &&
+                        selectedContact.total_donated_cents > 0 && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Tag size={14} className="text-muted-foreground" />
+                            <span>
+                              Donated: ${(selectedContact.total_donated_cents / 100).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                      {selectedContact.tags.length > 0 && (
+                        <div className="sm:col-span-2 flex flex-wrap gap-1">
+                          {selectedContact.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2 py-1 rounded bg-muted text-xs font-medium text-muted-foreground"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Consent Control */}
+                    <div className="border-t border-border pt-4">
+                      <h4 className="font-bold text-sm mb-2">Email Consent</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {consentOptions.map((opt) => {
+                          const currentConsent = consentFromDoNotEmail(
+                            selectedContact.do_not_email
+                          );
+                          const isActive = currentConsent === opt.value;
+                          return (
+                            <button
+                              type="button"
+                              key={opt.value}
+                              onClick={() => handleSetConsent(selectedContact.id, opt.value)}
+                              disabled={loading}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                isActive
+                                  ? `${CONSENT_LABELS[opt.value].color.replace('bg-', 'bg-').replace('text-', 'text-')} ring-2 ring-offset-2 ring-offset-background`
+                                  : 'bg-muted text-muted-foreground hover:bg-muted/50'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Follow-ups */}
+                    <div className="border-t border-border pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-bold text-sm">Follow-ups</h4>
+                        <button
+                          type="button"
+                          onClick={() => setIsTaskFormOpen(true)}
+                          className="px-2 py-1 text-xs font-bold rounded bg-primary text-white hover:bg-primary-light"
+                        >
+                          <Plus size={12} className="mr-1" /> Add
+                        </button>
+                      </div>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {/* Tasks would load here - simplified for now */}
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          Follow-ups loading… (integrate getCRMTasksForContact)
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Tags */}
+                    {selectedContact.tags.length > 0 && (
+                      <div className="border-t border-border pt-4">
+                        <h4 className="font-bold text-sm mb-2">Tags</h4>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedContact.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2 py-1 rounded bg-muted text-xs font-medium text-muted-foreground"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    {selectedContact.notes && (
+                      <div className="border-t border-border pt-4">
+                        <h4 className="font-bold text-sm mb-2">Notes</h4>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          {selectedContact.notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                  <p className="text-center">Select a constituent to view details</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contact Editor Modal */}
+      {editorModal}
+
+      {/* Task Form Modal */}
+      {taskFormModal}
+    </>
+  );
+};
+
+export default CRMPanel;

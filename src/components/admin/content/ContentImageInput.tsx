@@ -253,7 +253,7 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
                   type="button"
                   onClick={() => inputRef.current?.click()}
                   disabled={busy}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-2.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
                 >
                   {busy ? (
                     <Loader2 size={13} className="animate-spin" aria-hidden="true" />
@@ -312,7 +312,7 @@ export function ContentImageInput({ value, onChange, label, hint, aspect = 'thum
         <button
           type="button"
           onClick={() => setMediaModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-surface-card hover:bg-surface-muted text-xs font-bold text-slate-700 transition-colors shadow-2xs shrink-0"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-surface-card hover:bg-surface-muted text-xs font-bold text-foreground transition-colors shadow-2xs shrink-0"
           title="Browse Supabase S3 Media Library"
         >
           <FolderOpen size={13} className="text-primary dark:text-primary-on-dark" />
