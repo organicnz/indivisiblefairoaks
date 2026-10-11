@@ -26,9 +26,6 @@ import { CRMPager } from '@/components/admin/crm/CRMPager';
 import {
   bulkDeleteCRMContacts,
   bulkUpdateCRMContacts,
-  type ConsentDecision,
-  type CRMContact,
-  type CRMSegment,
   deleteCRMContact,
   deleteCRMSegment,
   exportCRMContacts,
@@ -49,6 +46,7 @@ import {
   splitActiveValues,
   totalPages,
 } from '@/lib/crm-filters';
+import type { ConsentDecision, CRMContact, CRMSegment } from '@/types/crm';
 
 interface Props {
   initialContacts: CRMContact[];
@@ -82,7 +80,7 @@ const STATUS_COLORS: Record<string, string> = {
   organizer: 'bg-purple-100 text-purple-800 border-purple-300',
   choir: 'bg-blue-100 text-blue-800 border-blue-300',
   donor: 'bg-amber-100 text-amber-800 border-amber-300',
-  supporter: 'bg-surface-muted text-slate-700 border-border',
+  supporter: 'bg-surface-muted text-foreground border-border',
   inactive: 'bg-rose-100 text-rose-700 border-rose-300',
 };
 
@@ -801,7 +799,7 @@ export function CRMContactList({
                 setConsent('all');
                 applyFilters(cleared);
               }}
-              className="px-3 py-2.5 text-xs text-muted-foreground hover:text-slate-800 rounded-xl hover:bg-surface-muted transition-colors"
+              className="px-3 py-2.5 text-xs text-muted-foreground hover:text-foreground rounded-xl hover:bg-surface-muted transition-colors"
             >
               Reset
             </button>
@@ -855,7 +853,7 @@ export function CRMContactList({
                 }}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                   isActive
-                    ? 'bg-slate-900 text-white shadow-xs'
+                    ? 'bg-primary text-white shadow-xs'
                     : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted'
                 }`}
               >
@@ -1001,7 +999,7 @@ export function CRMContactList({
             <button
               type="button"
               onClick={() => setShowSaveSegment(false)}
-              className="px-2 py-1.5 text-xs text-muted-foreground hover:text-slate-700"
+              className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
             >
               Cancel
             </button>
@@ -1031,7 +1029,7 @@ export function CRMContactList({
               onClick={handleExportCSV}
               disabled={exporting || !totalCount}
               title="Export ALL filtered constituents to CSV (not just this page)"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl font-bold transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl font-bold transition-colors disabled:opacity-50"
             >
               <Download size={13} />
               {exporting ? 'Exporting…' : 'Export CSV'}
@@ -1041,7 +1039,7 @@ export function CRMContactList({
               type="button"
               onClick={() => setIsImportOpen(true)}
               title="Import constituents from CSV (existing emails are skipped)"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl font-bold transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl font-bold transition-colors"
             >
               <Upload size={13} />
               Import CSV
@@ -1052,7 +1050,7 @@ export function CRMContactList({
               onClick={handleSyncData}
               disabled={syncing}
               title="Sync historical contacts from contact_submissions, profiles & orders"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl font-bold transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl font-bold transition-colors disabled:opacity-50"
             >
               <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
               {syncing ? 'Syncing...' : 'Sync History'}
@@ -1239,7 +1237,7 @@ export function CRMContactList({
 
                       {/* District & City */}
                       <td className="py-3.5 px-4">
-                        <span className="inline-block font-mono font-bold text-[11px] px-2 py-0.5 rounded-md bg-surface-muted text-slate-700">
+                        <span className="inline-block font-mono font-bold text-[11px] px-2 py-0.5 rounded-md bg-surface-muted text-foreground">
                           {contact.district || 'CA-06'}
                         </span>
                         {contact.city && (

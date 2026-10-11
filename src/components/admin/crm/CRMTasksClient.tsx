@@ -24,12 +24,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import {
-  type CRMTaskWithContact,
-  deleteCRMTask,
-  setCRMTaskStatus,
-  updateCRMTask,
-} from '@/lib/actions/crm';
+import { deleteCRMTask, setCRMTaskStatus, updateCRMTask } from '@/lib/actions/crm';
+import type { CRMTaskWithContact } from '@/types/crm';
 
 interface Props {
   tasks: CRMTaskWithContact[];
@@ -197,7 +193,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
             disabled={isPending}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
               scope === s.id
-                ? 'bg-slate-900 text-white shadow-xs'
+                ? 'bg-primary text-white shadow-xs'
                 : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted'
             }`}
           >

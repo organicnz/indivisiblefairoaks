@@ -3,13 +3,13 @@ import { createRoot, type Root } from 'react-dom/client';
 import { toast as sonnerToast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CRMBroadcastComposer } from '@/components/admin/crm/CRMBroadcastComposer';
-import type { CRMBroadcast } from '@/lib/actions/crm';
 import {
   getBroadcastProgress,
   getBroadcastRecipientCount,
   previewCRMBroadcast,
   saveCRMBroadcastDraft,
 } from '@/lib/actions/crm';
+import type { CRMBroadcast } from '@/types/crm';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),

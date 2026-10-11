@@ -12,8 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { type CRMContact, saveCRMContact } from '@/lib/actions/crm';
+import { saveCRMContact } from '@/lib/actions/crm';
 import { MAX_CONTACT_NOTES_LENGTH } from '@/lib/crm-import';
+import type { CRMContact } from '@/types/crm';
 
 interface Props {
   contact?: CRMContact;
@@ -351,7 +352,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
               <button
                 type="button"
                 onClick={handleAddTag}
-                className="px-4 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-1"
+                className="px-4 py-2 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-1"
               >
                 <Plus size={14} /> Add Tag
               </button>
@@ -416,7 +417,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-slate-800 transition-colors"
+              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
             >
               Cancel
             </button>

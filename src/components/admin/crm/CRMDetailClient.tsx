@@ -36,10 +36,6 @@ import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLi
 import {
   addCRMNote,
   addCRMTask,
-  type ConsentDecision,
-  type CRMActivity,
-  type CRMContact,
-  type CRMTask,
   deleteCRMContact,
   deleteCRMNote,
   deleteCRMTask,
@@ -50,6 +46,7 @@ import {
   updateCRMNote,
   updateCRMTask,
 } from '@/lib/actions/crm';
+import type { ConsentDecision, CRMActivity, CRMContact, CRMTask } from '@/types/crm';
 
 interface Props {
   contact: CRMContact;
@@ -839,7 +836,7 @@ export function CRMDetailClient({
                       contact.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface-muted text-slate-700 rounded-lg text-xs font-medium group/chip"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-surface-muted text-foreground rounded-lg text-xs font-medium group/chip"
                         >
                           #{tag}
                           <button
@@ -997,7 +994,7 @@ export function CRMDetailClient({
                 <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-surface-muted">
                   {activities.map((act) => {
                     let icon = <FileText size={12} />;
-                    let badgeClass = 'bg-surface-muted text-slate-700';
+                    let badgeClass = 'bg-surface-muted text-foreground';
 
                     if (act.type === 'email_sent') {
                       icon = <Mail size={12} />;

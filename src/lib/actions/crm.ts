@@ -40,75 +40,25 @@ import type {
   BroadcastRecipient,
   BroadcastTarget,
   ConsentDecision,
-  ConsentFilter,
   CRMActivity,
-  CRMActivityInsert,
-  CRMBackendStatus,
   CRMBroadcast,
-  CRMBroadcastDispatchResult,
   CRMBroadcastEmailEvent,
-  CRMBroadcastInsert,
-  CRMBroadcastUpdate,
   CRMContact,
   CRMContactInsert,
-  CRMContactStatus,
   CRMContactUpdate,
-  CRMEdgeFunctionHealth,
-  CRMMediaItem,
-  CRMMediaListResult,
-  CRMMediaUploadResult,
   CRMSegment,
-  CRMSegmentInsert,
-  CRMSegmentUpdate,
   CRMStats,
-  CRMTagCount,
   CRMTask,
-  CRMTaskInsert,
-  CRMTaskStatus,
-  CRMTaskUpdate,
   CRMTaskWithContact,
-  MediaItem,
-  MediaListResult,
-  MediaUploadResult,
 } from '@/types/crm';
 import type { Database } from '@/types/supabase';
-
-export type {
-  BroadcastProgress,
-  BroadcastRecipient,
-  BroadcastTarget,
-  ConsentDecision,
-  ConsentFilter,
-  CRMActivity,
-  CRMActivityInsert,
-  CRMBackendStatus,
-  CRMBroadcast,
-  CRMBroadcastDispatchResult,
-  CRMBroadcastEmailEvent,
-  CRMBroadcastInsert,
-  CRMBroadcastUpdate,
-  CRMContact,
-  CRMContactInsert,
-  CRMContactStatus,
-  CRMContactUpdate,
-  CRMEdgeFunctionHealth,
-  CRMMediaItem,
-  CRMMediaListResult,
-  CRMMediaUploadResult,
-  CRMSegment,
-  CRMSegmentInsert,
-  CRMSegmentUpdate,
-  CRMStats,
-  CRMTagCount,
-  CRMTask,
-  CRMTaskInsert,
-  CRMTaskStatus,
-  CRMTaskUpdate,
-  CRMTaskWithContact,
+import type {
+  BackendStatus,
+  EdgeFunctionHealth,
   MediaItem,
   MediaListResult,
   MediaUploadResult,
-};
+} from '@/types/unified';
 
 /**
  * Tag shape is enforced identically on both write paths. The CSV importer already
@@ -2813,7 +2763,7 @@ const HEADER_PROBE_BYTES = 64 * 1024;
 const MEDIA_FOLDERS = ['crm', 'content', 'products'] as const;
 /**
  * The union lives in `src/types/crm.ts` now, so the uploader's `folder`, the
- * listing's `folder` and `CRMMediaItem.folder` are one type rather than three
+ * listing's `folder` and `MediaItem.folder` are one type rather than three
  * spellings. The local alias is kept because this file names it a hundred times.
  */
 type MediaFolder = (typeof MEDIA_FOLDERS)[number];
@@ -2830,7 +2780,7 @@ export async function getCRMMediaFiles(options?: {
   folder?: string;
   search?: string;
   limit?: number;
-}): Promise<CRMMediaListResult> {
+}): Promise<MediaListResult> {
   const { adminClient } = await requireAdmin();
   const folder = options?.folder || 'crm';
   const search = options?.search?.trim().toLowerCase() || '';
@@ -2839,7 +2789,7 @@ export async function getCRMMediaFiles(options?: {
   const foldersToScan =
     folder === 'all' ? [...MEDIA_FOLDERS] : [isMediaFolder(folder) ? folder : 'crm'];
 
-  const results: CRMMediaItem[] = [];
+  const results: MediaItem[] = [];
 
   for (const f of foldersToScan) {
     const { data, error } = await adminClient.storage.from('media').list(f, {
@@ -2897,11 +2847,11 @@ export async function getCRMMediaFiles(options?: {
  * `content` / `content_revisions` for a `content/` one, so an upload that
  * crossed over was deletable while still in use.
  *
- * The return type is the shared `CRMMediaUploadResult` rather than an inline
- * literal: that literal was a second copy of `CRMMediaItem`'s fields, which is
+ * The return type is the shared `MediaUploadResult` rather than an inline
+ * literal: that literal was a second copy of `MediaItem`'s fields, which is
  * how `folder` ended up `string` in one place and a union in the other.
  */
-export async function uploadCRMMedia(formData: FormData): Promise<CRMMediaUploadResult> {
+export async function uploadCRMMedia(formData: FormData): Promise<MediaUploadResult> {
   try {
     const file = formData.get('file');
     if (!(file instanceof File)) {
@@ -3101,11 +3051,11 @@ async function mediaReferenceReason(
  * Used by the CRM admin dashboard and broadcast composer to give real-time
  * visibility into infrastructure readiness before launching campaigns.
  */
-export async function getCRMEdgeFunctionHealth(): Promise<CRMBackendStatus> {
+export async function getCRMEdgeFunctionHealth(): Promise<BackendStatus> {
   let dbOk = false;
   let storageOk = false;
   let edgeOk = false;
-  let edgeDetails: CRMEdgeFunctionHealth | undefined;
+  let edgeDetails: EdgeFunctionHealth | undefined;
   let errMessage: string | undefined;
 
   try {

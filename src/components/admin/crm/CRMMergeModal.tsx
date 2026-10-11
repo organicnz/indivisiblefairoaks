@@ -12,7 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { type CRMContact, mergeCRMContacts } from '@/lib/actions/crm';
+import { mergeCRMContacts } from '@/lib/actions/crm';
+import type { CRMContact } from '@/types/crm';
 
 interface Props {
   keep: CRMContact;
@@ -127,7 +128,7 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
             <button
               type="submit"
               disabled={searching}
-              className="px-4 py-2.5 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
+              className="px-4 py-2.5 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
             >
               {searching ? '…' : 'Search'}
             </button>
@@ -163,7 +164,7 @@ export function CRMMergeModal({ keep, isOpen, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-slate-800 transition-colors"
+              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
             >
               Cancel
             </button>

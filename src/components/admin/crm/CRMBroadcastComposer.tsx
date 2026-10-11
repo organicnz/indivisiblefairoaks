@@ -41,9 +41,6 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import {
-  type BroadcastProgress,
-  type CRMBroadcast,
-  type CRMSegment,
   deleteCRMBroadcastDraft,
   getBroadcastProgress,
   getBroadcastRecipientCount,
@@ -56,6 +53,7 @@ import {
 import { BROADCAST_RECIPIENT_CEILING } from '@/lib/crm-broadcast';
 import { countPages, pageRange } from '@/lib/crm-filters';
 import { BROADCAST_HISTORY_PAGE_SIZE, PROGRESS_POLL_TIMEOUT_MS } from '@/lib/crm-limits';
+import type { BroadcastProgress, CRMBroadcast, CRMSegment } from '@/types/crm';
 import type { BackendStatus, ComposerBlock, ComposerTemplate } from '@/types/unified';
 
 interface Props {
@@ -1022,7 +1020,7 @@ export function CRMBroadcastComposer({
 
             {/* Filter Summary */}
             <div className="p-4 bg-surface-muted rounded-xl border border-border text-xs text-muted-foreground space-y-1">
-              <div className="font-bold text-slate-700">Targeting Rules Applied:</div>
+              <div className="font-bold text-foreground">Targeting Rules Applied:</div>
               <div>
                 Status: {selectedStatuses.length > 0 ? selectedStatuses.join(', ') : 'All Statuses'}
               </div>
@@ -1153,7 +1151,7 @@ export function CRMBroadcastComposer({
                     }}
                     placeholder="Dear Neighbor,&#10;&#10;Join us this Saturday at Carmichael Park as we rally for democracy...&#10;&#10;Here are the three ways to take immediate action..."
                     aria-describedby="broadcast-body-hint"
-                    className="w-full px-4 py-3 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm text-slate-800 leading-relaxed font-sans placeholder:text-muted-foreground"
+                    className="w-full px-4 py-3 rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:border-primary text-sm text-foreground leading-relaxed font-sans placeholder:text-muted-foreground"
                   />
                   <p id="broadcast-body-hint" className="mt-1.5 text-[11px] text-muted-foreground">
                     Plain text / Markdown. Blank lines become paragraph breaks; URLs become
@@ -1231,7 +1229,7 @@ export function CRMBroadcastComposer({
                     type="button"
                     onClick={handleSaveDraft}
                     disabled={savingDraft || !subject.trim() || !body.trim()}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-border text-slate-700 hover:border-border disabled:opacity-50 text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-border text-foreground hover:border-border disabled:opacity-50 text-xs font-black uppercase tracking-wider rounded-xl transition-colors"
                   >
                     {savingDraft ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -1404,7 +1402,7 @@ export function CRMBroadcastComposer({
               type="button"
               disabled={isSending}
               onClick={handleSend}
-              className="flex-1 px-4 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-slate-300 rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-xs flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2.5 bg-primary text-white hover:bg-primary-light disabled:bg-border rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-xs flex items-center justify-center gap-2"
             >
               {isSending ? (
                 <>
@@ -1468,7 +1466,7 @@ export function CRMBroadcastComposer({
                       message={`Loading “${draft.subject || 'Untitled'}” replaces whatever is in the composer now. Unsaved typing in the composer will be lost.`}
                       confirmLabel="Load draft"
                       disabled={loaded}
-                      idleClassName="rounded-xl border border-border px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                      idleClassName="rounded-xl border border-border px-3 py-1.5 text-xs font-bold text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
                       onConfirm={() => handleLoadDraft(draft)}
                     >
                       {loaded ? 'Loaded' : 'Resume'}
@@ -1829,7 +1827,7 @@ export function CRMBroadcastComposer({
                   className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
                     templateModalTab === 'presets'
                       ? 'bg-surface-card text-foreground shadow-xs'
-                      : 'text-muted-foreground hover:text-slate-900'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Activist Presets
@@ -1840,7 +1838,7 @@ export function CRMBroadcastComposer({
                   className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
                     templateModalTab === 'drafts'
                       ? 'bg-surface-card text-foreground shadow-xs'
-                      : 'text-muted-foreground hover:text-slate-900'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Saved Drafts ({drafts.length})
@@ -1905,7 +1903,7 @@ export function CRMBroadcastComposer({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-surface-muted text-slate-700">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-surface-muted text-foreground">
                           Draft
                         </span>
                         <span className="text-[11px] text-muted-foreground font-medium">

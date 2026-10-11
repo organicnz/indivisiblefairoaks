@@ -21,12 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import {
-  deleteCRMMedia,
-  getCRMMediaFiles,
-  type MediaItem,
-  uploadCRMMedia,
-} from '@/lib/actions/crm';
+import { deleteCRMMedia, getCRMMediaFiles, uploadCRMMedia } from '@/lib/actions/crm';
+import type { MediaItem } from '@/types/unified';
 
 interface Props {
   isOpen: boolean;
@@ -228,7 +224,7 @@ export function CRMMediaLibraryModal({
                 placeholder="Filter files..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-border text-xs text-slate-800 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-border text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
             </div>
 
@@ -279,7 +275,7 @@ export function CRMMediaLibraryModal({
                 <ImageIcon className="h-8 w-8" />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-700">No media assets found</p>
+                <p className="text-sm font-bold text-foreground">No media assets found</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {search
                     ? `No matches for "${search}" in folder "${folder}".`
@@ -311,7 +307,7 @@ export function CRMMediaLibraryModal({
                   {/* Metadata */}
                   <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
                     <div>
-                      <p className="text-xs font-bold text-slate-800 truncate" title={item.name}>
+                      <p className="text-xs font-bold text-foreground truncate" title={item.name}>
                         {item.name}
                       </p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -344,7 +340,7 @@ export function CRMMediaLibraryModal({
                         type="button"
                         onClick={() => handleCopyUrl(item.url)}
                         title="Copy Public URL"
-                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-slate-800 hover:bg-surface-muted transition-colors"
+                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-surface-muted transition-colors"
                       >
                         {copiedUrl === item.url ? (
                           <Check size={13} className="text-emerald-600" />

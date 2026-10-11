@@ -218,7 +218,7 @@ export function CRMSegmentManager({
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-bold text-slate-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2.5 py-1 text-[11px] font-bold text-foreground">
                         <Users size={12} aria-hidden="true" />
                         {count ? `${count.count} reachable` : '…'}
                       </span>
