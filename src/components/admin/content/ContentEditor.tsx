@@ -898,14 +898,14 @@ export function ContentEditor({ initial, siteHost }: Props) {
               <button
                 type="button"
                 onClick={() => handleSetStatus(status === 'publish' ? 'draft' : 'publish')}
-                className="rounded-xl border border-border px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
+                className="rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
               >
                 {status === 'publish' ? 'Move to draft' : 'Publish'}
               </button>
               <button
                 type="button"
                 onClick={handleDuplicate}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <Copy size={15} aria-hidden="true" />
                 Duplicate
@@ -914,7 +914,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 type="button"
                 onClick={() => setShowRevisions((v) => !v)}
                 aria-expanded={showRevisions}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <History size={15} aria-hidden="true" />
                 History
@@ -922,7 +922,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
               <button
                 type="button"
                 onClick={() => setShowPreview(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <Eye size={15} aria-hidden="true" />
                 Preview
@@ -1406,7 +1406,7 @@ function RevisionsPanel({
                 className="rounded-xl border border-border bg-surface-muted px-3 py-2"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm text-slate-700">
+                  <span className="text-sm text-foreground">
                     {date}
                     {revision.title && (
                       <span className="ml-2 text-xs text-muted-foreground">“{revision.title}”</span>
@@ -1442,7 +1442,7 @@ function RevisionsPanel({
                     <button
                       type="button"
                       onClick={() => setConfirmingId(revision.id)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-card px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       <RotateCcw size={13} aria-hidden="true" />
                       Restore
@@ -1458,7 +1458,7 @@ function RevisionsPanel({
                     ) : (
                       changes.map((change) => (
                         <div key={change.field} className="flex flex-wrap gap-x-2">
-                          <dt className="font-bold text-slate-700">{change.field}:</dt>
+                          <dt className="font-bold text-foreground">{change.field}:</dt>
                           <dd className="text-muted-foreground">
                             <s>{change.from}</s> →{' '}
                             <span className="font-medium text-foreground">{change.to}</span>

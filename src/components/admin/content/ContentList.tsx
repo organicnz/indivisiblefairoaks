@@ -11,11 +11,11 @@ import { CONTENT_TYPES } from '@/lib/content';
 
 const STATUS_BADGE: Record<string, string> = {
   publish: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-  draft: 'bg-surface-muted text-slate-700 border-border',
+  draft: 'bg-surface-muted text-foreground border-border',
 };
 
 const TYPE_BADGE: Record<string, string> = {
-  page: 'bg-surface-muted text-slate-700 border-border',
+  page: 'bg-surface-muted text-foreground border-border',
   post: 'bg-blue-50 text-blue-800 border-blue-200',
   action: 'bg-amber-50 text-amber-800 border-amber-200',
   event: 'bg-purple-50 text-purple-800 border-purple-200',
@@ -148,7 +148,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
         </select>
         <button
           type="submit"
-          className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
+          className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
         >
           Apply
         </button>
@@ -385,7 +385,7 @@ function PageLink({
   return (
     <Link
       href={`/admin/content?${search.toString()}`}
-      className="rounded-lg border border-border px-3 py-1.5 font-medium text-slate-700 transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
+      className="rounded-lg border border-border px-3 py-1.5 font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
     >
       {label}
     </Link>

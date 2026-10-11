@@ -196,7 +196,7 @@ export default async function AdminDashboardPage() {
     processing: 'bg-amber-400',
     'on-hold': 'bg-blue-400',
     completed: 'bg-emerald-400',
-    refunded: 'bg-slate-300',
+    refunded: 'bg-border',
     cancelled: 'bg-rose-400',
   };
 
@@ -369,7 +369,7 @@ export default async function AdminDashboardPage() {
               <div
                 key={s.status}
                 title={`${s.status}: ${s.count}`}
-                className={`${statusColours[s.status] || 'bg-slate-300'} transition-all`}
+                className={`${statusColours[s.status] || 'bg-border'} transition-all`}
                 style={{ width: `${s.pct}%` }}
               />
             ))}
@@ -379,7 +379,7 @@ export default async function AdminDashboardPage() {
               <div key={s.status} className="rounded-2xl bg-surface-muted p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span
-                    className={`w-2 h-2 rounded-full ${statusColours[s.status] || 'bg-slate-300'}`}
+                    className={`w-2 h-2 rounded-full ${statusColours[s.status] || 'bg-border'}`}
                   />
                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     {s.status}

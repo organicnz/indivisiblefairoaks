@@ -75,7 +75,7 @@ export function CRMPager({ page, totalCount, pageSize, basePath, params }: Props
   };
 
   const navLink =
-    'inline-flex items-center gap-1 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl text-xs font-bold transition-colors';
+    'inline-flex items-center gap-1 px-3 py-2 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl text-xs font-bold transition-colors';
   const navDisabled =
     'inline-flex items-center gap-1 px-3 py-2 text-muted-foreground text-xs font-bold cursor-not-allowed';
 
@@ -119,7 +119,7 @@ export function CRMPager({ page, totalCount, pageSize, basePath, params }: Props
                 <Link
                   href={hrefFor(p)}
                   aria-label={`Page ${p}`}
-                  className="inline-flex items-center justify-center min-w-8 px-2 py-2 bg-surface-muted hover:bg-surface-muted text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                  className="inline-flex items-center justify-center min-w-8 px-2 py-2 bg-surface-muted hover:bg-surface-muted text-foreground rounded-xl text-xs font-bold transition-colors"
                 >
                   {p}
                 </Link>

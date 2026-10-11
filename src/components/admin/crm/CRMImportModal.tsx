@@ -165,7 +165,7 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => handleFile(e.target.files?.[0])}
-              className="block w-full text-xs text-muted-foreground file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-surface-muted file:text-slate-700 file:text-xs file:font-bold hover:file:bg-surface-muted"
+              className="block w-full text-xs text-muted-foreground file:mr-3 file:px-4 file:py-2 file:rounded-xl file:border-0 file:bg-surface-muted file:text-foreground file:text-xs file:font-bold hover:file:bg-surface-muted"
             />
             {fileName && (
               <p className="text-[11px] text-muted-foreground mt-1 font-mono">{fileName}</p>
@@ -227,7 +227,7 @@ export function CRMImportModal({ isOpen, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-slate-800 transition-colors"
+              className="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
             >
               {lastResult ? 'Done' : 'Cancel'}
             </button>

@@ -96,7 +96,7 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
             setOpen(false);
             reset();
           }}
-          className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-slate-700"
+          className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
           aria-label="Cancel"
         >
           <X size={16} aria-hidden="true" />
