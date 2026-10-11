@@ -1,6 +1,6 @@
 export default function Loading() {
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white dark:bg-background min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-16">
         <div className="flex flex-col md:flex-row gap-12">
           {/* Sidebar Skeleton */}
