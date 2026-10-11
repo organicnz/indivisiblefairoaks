@@ -56,7 +56,7 @@ import {
 import { BROADCAST_RECIPIENT_CEILING } from '@/lib/crm-broadcast';
 import { countPages, pageRange } from '@/lib/crm-filters';
 import { BROADCAST_HISTORY_PAGE_SIZE, PROGRESS_POLL_TIMEOUT_MS } from '@/lib/crm-limits';
-import type { ComposerBlock, ComposerTemplate, CRMBackendStatus } from '@/types/crm';
+import type { BackendStatus, ComposerBlock, ComposerTemplate } from '@/types/unified';
 
 interface Props {
   initialBroadcasts: CRMBroadcast[];
@@ -88,7 +88,7 @@ interface Props {
    */
   tagsMayBeIncomplete?: boolean;
   /** Live infrastructure readiness from Supabase DB, S3 Storage, and Edge Function. */
-  backendStatus?: CRMBackendStatus;
+  backendStatus?: BackendStatus;
 }
 
 const AVAILABLE_STATUSES = [

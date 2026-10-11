@@ -22,9 +22,9 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import {
-  type CRMMediaItem,
   deleteCRMMedia,
   getCRMMediaFiles,
+  type MediaItem,
   uploadCRMMedia,
 } from '@/lib/actions/crm';
 
@@ -57,7 +57,7 @@ export function CRMMediaLibraryModal({
 }: Props) {
   const [folder, setFolder] = useState<string>(initialFolder);
   const [search, setSearch] = useState('');
-  const [mediaItems, setMediaItems] = useState<CRMMediaItem[]>([]);
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);

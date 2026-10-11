@@ -6,7 +6,7 @@
  *
  * Shared platform types (Storage, Edge Functions, Media) are re-exported from
  * `src/types/unified.ts`. The *page* visual editor's own types live in
- * `src/types/visual-edit.ts`.
+ * `src/types/unified.ts`.
  */
 
 import type { Database } from '@/types/supabase';
@@ -14,6 +14,7 @@ import type {
   BackendStatus,
   BroadcastDispatchResult,
   EdgeFunctionHealth,
+  MediaFolder,
   MediaItem,
   MediaListResult,
   MediaUploadResult,
@@ -149,29 +150,23 @@ export interface CRMBroadcastEmailEvent {
 // 3. Supabase S3 Storage & Media Assets (re-exported from unified)
 // ==========================================
 
-/** @deprecated Use `MediaFolder` from `@/types/unified` */
-export type { MediaFolder } from './unified';
+export type { MediaFolder, MediaItem, MediaListResult, MediaUploadResult } from './unified';
 
-/** @deprecated Use `MediaItem` from `@/types/unified` */
+// Backward compatibility aliases
+export type CRMMediaFolder = MediaFolder;
 export type CRMMediaItem = MediaItem;
-
-/** @deprecated Use `MediaListResult` from `@/types/unified` */
 export type CRMMediaListResult = MediaListResult;
-
-/** @deprecated Use `MediaUploadResult` from `@/types/unified` */
 export type CRMMediaUploadResult = MediaUploadResult;
 
 // ==========================================
 // 4. Supabase Edge Functions & API Integration (re-exported from unified)
 // ==========================================
 
-/** @deprecated Use `EdgeFunctionHealth` from `@/types/unified` */
+export type { BackendStatus, BroadcastDispatchResult, EdgeFunctionHealth } from './unified';
+
+// Backward compatibility aliases
 export type CRMEdgeFunctionHealth = EdgeFunctionHealth;
-
-/** @deprecated Use `BackendStatus` from `@/types/unified` */
 export type CRMBackendStatus = BackendStatus;
-
-/** @deprecated Use `BroadcastDispatchResult` from `@/types/unified` */
 export type CRMBroadcastDispatchResult = BroadcastDispatchResult;
 
 // ==========================================
@@ -181,7 +176,6 @@ export type CRMBroadcastDispatchResult = BroadcastDispatchResult;
 // `composer/types.ts` is the definition site (the visual editor's domain);
 // this is the canonical import path, so no consumer imports the same symbol
 // from two places and drifts when one of them moves.
-/** Deprecated alias — use `EmailBlockType` (disjoint from page `ContentBlockType`). */
 export type {
   BlockType,
   ComposerBlock,

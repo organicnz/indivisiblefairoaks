@@ -23,7 +23,7 @@ import type {
   VisualSectionFocusEventDetail,
   VisualSectionMoveEventDetail,
   VisualSectionToggleEventDetail,
-} from '@/types/visual-edit';
+} from '@/types/unified';
 
 /** Every event the visual editor puts on the window. */
 export const VISUAL_EDIT_EVENTS = {

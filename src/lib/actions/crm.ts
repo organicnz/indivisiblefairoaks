@@ -67,6 +67,9 @@ import type {
   CRMTaskStatus,
   CRMTaskUpdate,
   CRMTaskWithContact,
+  MediaItem,
+  MediaListResult,
+  MediaUploadResult,
 } from '@/types/crm';
 import type { Database } from '@/types/supabase';
 
@@ -102,6 +105,9 @@ export type {
   CRMTaskStatus,
   CRMTaskUpdate,
   CRMTaskWithContact,
+  MediaItem,
+  MediaListResult,
+  MediaUploadResult,
 };
 
 /**

@@ -10,6 +10,7 @@
 
 import type { ComposerBlock } from '@/components/admin/crm/composer/types';
 import type { ContentBlockType } from '@/lib/blocks';
+import type { PublishedSection } from '@/lib/visual-sections';
 import type { Database } from '@/types/supabase';
 
 // ==========================================
@@ -83,6 +84,22 @@ export interface VisualSaveResult {
   row?: VisualContentRow;
   conflict?: boolean;
 }
+
+/** Where a picked piece of media is going. */
+export type VisualMediaTarget = 'featured' | 'section';
+
+/** Whether the overlay has unsaved changes, and what happened last. */
+export interface VisualSaveState {
+  status: 'idle' | 'saving' | 'saved' | 'error';
+  /** Snapshot the last successful save wrote, for the dirty comparison. */
+  savedSnapshot: string | null;
+  error?: string;
+  /** True when a save was refused because someone else wrote first. */
+  conflict?: boolean;
+}
+
+/** Re-export PublishedSection for unified imports. */
+export type { PublishedSection } from '@/lib/visual-sections';
 
 // ==========================================
 // 2. CRM Domain (re-exported for unified imports)
@@ -361,6 +378,30 @@ export interface DuplicateSectionDetail {
 export interface DeleteSectionDetail {
   blockIndex: number;
 }
+
+/** @deprecated Use `ToggleSectionDetail` instead. */
+export type VisualSectionToggleEventDetail = ToggleSectionDetail;
+
+/** @deprecated Use `FocusSectionDetail` instead. */
+export type VisualSectionFocusEventDetail = FocusSectionDetail;
+
+/** @deprecated Use `MoveSectionDetail` instead. */
+export type VisualSectionMoveEventDetail = MoveSectionDetail;
+
+/** @deprecated Use `AddBlockDetail` instead. */
+export type VisualSectionAddBlockDetail = AddBlockDetail;
+
+/** @deprecated Use `DuplicateSectionDetail` instead. */
+export type VisualSectionDuplicateEventDetail = DuplicateSectionDetail;
+
+/** @deprecated Use `DuplicateSectionDetail` instead. */
+export type VisualSectionDuplicateDetail = DuplicateSectionDetail;
+
+/** @deprecated Use `DeleteSectionDetail` instead. */
+export type VisualSectionDeleteEventDetail = DeleteSectionDetail;
+
+/** @deprecated Use `DeleteSectionDetail` instead. */
+export type VisualSectionDeleteDetail = DeleteSectionDetail;
 
 // ==========================================
 // 8. Admin & Permissions

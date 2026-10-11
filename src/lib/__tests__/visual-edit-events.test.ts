@@ -18,7 +18,7 @@ import type {
   VisualSectionFocusEventDetail,
   VisualSectionMoveEventDetail,
   VisualSectionToggleEventDetail,
-} from '@/types/visual-edit';
+} from '@/types/unified';
 
 /**
  * A window that records what was dispatched, in order.

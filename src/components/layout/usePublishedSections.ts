@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import type { PublishedSection } from '@/lib/visual-sections';
 import { discoverPageSections, isPublishedSectionListCurrent } from '@/lib/visual-sections';
-import type { VisualSectionsPublishedDetail } from '@/types/visual-edit';
+import type { VisualSectionsPublishedDetail } from '@/types/unified';
 
 /**
  * The published section list for one pathname and one region.
