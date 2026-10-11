@@ -16,11 +16,16 @@ import {
 import {
   deleteCRMContact,
   getCRMContacts,
+  getCRMContactDetail,
   getCRMSegments,
   getCRMTasksForContact,
   setCRMEmailConsent,
+  addCRMNote,
+  updateCRMNote,
+  deleteCRMNote,
 } from '@/lib/actions/crm';
 import type { CRMContact, CRMSegment, CRMTask } from '@/types/crm';
+import type { CRMActivity } from '@/types/crm';
 
 interface CRMPanelProps {
   isOpen: boolean;
@@ -58,6 +63,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [tasksLoading, setTasksLoading] = useState(false);
   const [segments, setSegments] = useState<CRMSegment[]>([]);
   const [showSegments, setShowSegments] = useState(false);
+  const [activities, setActivities] = useState<CRMActivity[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteTitle, setEditingNoteTitle] = useState('');
+  const [editingNoteDesc, setEditingNoteDesc] = useState('');
 
   const PAGE_SIZE = 25;
 
@@ -115,13 +125,28 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen, loadSegments]);
 
+  const loadActivities = useCallback(async (contactId: string) => {
+    setActivitiesLoading(true);
+    try {
+      const detail = await getCRMContactDetail(contactId);
+      const activities = (detail as { activities?: CRMActivity[] }).activities ?? [];
+      setActivities(activities.filter((a: CRMActivity) => a.type === 'note').slice(0, 20));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load notes');
+    } finally {
+      setActivitiesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (selectedContact) {
       loadTasks(selectedContact.id);
+      loadActivities(selectedContact.id);
     } else {
       setTasks([]);
+      setActivities([]);
     }
-  }, [selectedContact, loadTasks]);
+  }, [selectedContact, loadTasks, loadActivities]);
 
   const handleDeleteContact = async (id: string) => {
     try {
@@ -614,15 +639,120 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       </div>
                     )}
 
-                    {/* Notes */}
-                    {selectedContact.notes && (
-                      <div className="border-t border-border pt-4">
-                        <h4 className="font-bold text-sm mb-2">Notes</h4>
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                          {selectedContact.notes}
-                        </p>
+                    {/* Notes — from crm_activities type === 'note', with edit/add/delete */}
+                    <div className="border-t border-border pt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-bold text-sm">Notes</h4>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingNoteId(null);
+                            setEditingNoteTitle('');
+                            setEditingNoteDesc('');
+                          }}
+                          className="text-xs font-bold text-primary dark:text-primary-on-dark hover:underline"
+                        >
+                          <Plus size={10} className="inline mr-0.5" /> New
+                        </button>
                       </div>
-                    )}
+                      {activitiesLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : activities.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No notes yet.</p>
+                      ) : (
+                        <div className="space-y-3 max-h-56 overflow-y-auto">
+                          {activities.map((act) => (
+                            <div key={act.id} className="p-3 rounded-lg bg-surface-muted border border-border">
+                              {editingNoteId === act.id ? (
+                                <div className="space-y-2">
+                                  <input
+                                    type="text"
+                                    value={editingNoteTitle}
+                                    onChange={(e) => setEditingNoteTitle(e.target.value)}
+                                    className="w-full px-2 py-1 rounded border border-border text-xs font-bold"
+                                    placeholder="Note title"
+                                  />
+                                  <textarea
+                                    value={editingNoteDesc}
+                                    onChange={(e) => setEditingNoteDesc(e.target.value)}
+                                    rows={2}
+                                    className="w-full px-2 py-1 rounded border border-border text-xs text-muted-foreground"
+                                    placeholder="Note details"
+                                  />
+                                  <div className="flex gap-2 justify-end">
+                                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setEditingNoteId(null)}>
+                                      Cancel
+                                    </button>
+                                    <ConfirmAction
+                                      label="Save Note"
+                                      message="Save changes to this note?"
+                                      confirmLabel="Save"
+                                      idleClassName="text-xs font-bold bg-primary text-white px-2 py-1 rounded hover:bg-primary-light"
+                                      onConfirm={async () => {
+                                        if (!selectedContact || !editingNoteTitle.trim()) return;
+                                        await updateCRMNote({ activityId: act.id, title: editingNoteTitle.trim(), description: editingNoteDesc.trim() || '' });
+                                        setEditingNoteId(null);
+                                        setEditingNoteTitle('');
+                                        setEditingNoteDesc('');
+                                        loadActivities(selectedContact.id);
+                                        toast.success('Note updated');
+                                      }}
+                                    >
+                                      Save
+                                    </ConfirmAction>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-foreground">{act.title || '(no title)'}</span>
+                                    <div className="flex gap-1">
+                                      <button type="button" className="p-0.5 text-[10px] text-muted-foreground hover:text-primary" title="Edit" onClick={() => { setEditingNoteId(act.id); setEditingNoteTitle(act.title || ''); setEditingNoteDesc(act.description || ''); }}>
+                                        ✎
+                                      </button>
+                                      <ConfirmAction
+                                        label="Delete Note"
+                                        message={`Delete note "${act.title}"?`}
+                                        confirmLabel="Delete"
+                                        danger
+                                        idleClassName="text-[10px] text-muted-foreground hover:text-rose-600"
+                                        onConfirm={async () => {
+                                          await deleteCRMNote(act.id);
+                                          loadActivities(selectedContact!.id);
+                                          toast.success('Note deleted');
+                                        }}
+                                      >
+                                        🗑
+                                      </ConfirmAction>
+                                    </div>
+                                  </div>
+                                  {act.description && <p className="text-[11px] text-muted-foreground mt-1">{act.description}</p>}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Add form */}
+                      <form
+                        className="mt-2 flex gap-2"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          const titleEl = (e.target as HTMLFormElement).querySelector('input[name="title"]') as HTMLInputElement;
+                          const descEl = (e.target as HTMLFormElement).querySelector('textarea[name="desc"]') as HTMLTextAreaElement;
+                          if (!selectedContact || !titleEl?.value.trim()) return;
+                          await addCRMNote({ contactId: selectedContact.id, title: titleEl.value.trim(), description: (descEl?.value.trim() || '') as string });
+                          titleEl.value = '';
+                          if (descEl) descEl.value = '';
+                          loadActivities(selectedContact.id);
+                          toast.success('Note added');
+                        }}
+                      >
+                        <input name="title" placeholder="Title…" className="flex-1 px-2 py-1 text-xs rounded border border-border" required />
+                        <textarea name="desc" placeholder="Details (optional)" rows={1} className="w-full mt-1 px-2 py-1 text-xs rounded border border-border resize-none" />
+                        <button type="submit" className="self-end text-xs font-bold px-2 py-1 bg-primary text-white rounded hover:bg-primary-light">Add</button>
+                      </form>
+                    </div>
                   </div>
                 </>
               ) : (
