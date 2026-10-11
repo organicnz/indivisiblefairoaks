@@ -95,6 +95,7 @@ export default defineConfig({
         'src/lib/admin-auth.ts',
         'src/lib/actions/settings.ts',
         'src/lib/actions/content.ts',
+        'src/lib/actions/content-media.ts',
         'src/lib/actions/crm.ts',
         'src/lib/error-report.ts',
         'src/lib/crm-unsubscribe.ts',
@@ -204,6 +205,19 @@ export default defineConfig({
           branches: 54,
           functions: 61,
           lines: 65,
+        },
+
+        /**
+         * `content-media.ts` is a new actions module for the visual editor's
+         * per-page media panel. It mirrors the `content.ts` pattern (pure
+         * server actions with Supabase admin client) so the same 90% floor
+         * applies — no ratchet needed since it's new code we can test fully.
+         */
+        'src/lib/actions/content-media.ts': {
+          statements: 90,
+          branches: 90,
+          functions: 90,
+          lines: 90,
         },
       },
     },
