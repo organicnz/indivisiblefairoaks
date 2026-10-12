@@ -15,6 +15,7 @@ import {
   EyeOff,
   FolderOpen,
   History,
+  Image as ImageIcon,
   Italic,
   Keyboard,
   Layers,
@@ -1773,6 +1774,23 @@ export function VisualEditOverlay() {
                     <PenLine size={13} />
                   </button>
 
+                  {/* Quick media picker if image block */}
+                  {item.blockType === 'image' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveBlockIndex(item.blockIndex);
+                        handleOpenEditSection(item.blockIndex);
+                        setMediaTarget('section');
+                        setMediaModalOpen(true);
+                      }}
+                      title="Replace image from Supabase S3 storage"
+                      className="rounded p-1 text-sky-400 hover:bg-white/15 hover:text-sky-300 transition-colors"
+                    >
+                      <ImageIcon size={13} />
+                    </button>
+                  )}
+
                   {/* Duplicate section */}
                   <button
                     type="button"
@@ -3420,6 +3438,19 @@ export function VisualEditOverlay() {
                 height: item.height ?? null,
               });
               toast.success('Image selected from Supabase storage');
+            } else {
+              const newImageBlock: Block = {
+                id: nextBlockId(),
+                type: 'image',
+                src: item.url,
+                alt: item.alt || item.name,
+                caption: item.name,
+                width: item.width ?? null,
+                height: item.height ?? null,
+              };
+              const nextBlocks = [...blocksRef.current, newImageBlock];
+              commitBlocks(nextBlocks);
+              toast.success(`Inserted "${item.name}" as a new image section`);
             }
             setMediaModalOpen(false);
           }}

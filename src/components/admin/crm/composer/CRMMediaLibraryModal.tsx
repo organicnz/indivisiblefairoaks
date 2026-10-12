@@ -89,12 +89,15 @@ export function CRMMediaLibraryModal({
 
     const formData = new FormData();
     formData.append('file', file);
+    const targetFolder =
+      folder === 'all' ? (initialFolder === 'all' ? 'crm' : initialFolder) : folder;
+    formData.append('folder', targetFolder);
 
     setIsUploading(true);
     try {
       const res = await uploadCRMMedia(formData);
       if (res.success && res.data) {
-        toast.success(`Uploaded ${res.data.name} to Supabase S3 storage`);
+        toast.success(`Uploaded ${res.data.name} to Supabase S3 storage (${targetFolder})`);
         await loadMedia();
         // Automatically select the freshly uploaded asset
         onSelectMedia({
@@ -349,7 +352,9 @@ export function CRMMediaLibraryModal({
                         )}
                       </button>
 
-                      {item.folder === 'crm' && (
+                      {(item.folder === 'crm' ||
+                        item.folder === 'content' ||
+                        item.folder === 'products') && (
                         <ConfirmAction
                           label="Delete Asset"
                           message={`Permanently remove "${item.name}" from Supabase S3 storage?`}

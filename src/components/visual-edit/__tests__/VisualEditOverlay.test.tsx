@@ -444,4 +444,28 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(clickSpy).toHaveBeenCalledTimes(1);
     clickSpy.mockRestore();
   });
+
+  it('renders quick media replacement button on image block section frames', async () => {
+    const imgBody =
+      '<p>Intro copy.</p><figure><img src="https://example.com/banner.jpg" alt="Banner" /></figure>';
+    renderPage(imgBody);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 8,
+      title: 'Gallery Page',
+      slug: 'gallery',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: imgBody,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+
+    const mediaBtn = container.querySelector<HTMLButtonElement>(
+      'button[title="Replace image from Supabase S3 storage"]'
+    );
+    expect(mediaBtn).not.toBeNull();
+  });
 });
