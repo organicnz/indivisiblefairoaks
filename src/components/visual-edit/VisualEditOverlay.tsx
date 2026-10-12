@@ -92,6 +92,7 @@ import {
 import type {
   AddBlockDetail,
   BackendStatus,
+  BackendSummary,
   DeleteSectionDetail,
   DuplicateSectionDetail,
   FocusSectionDetail,
@@ -198,16 +199,20 @@ function extractBlocksFromDOM(root: HTMLElement): Block[] {
     }
 
     // Check table (checked before lists — a table can contain <ul>/<li>)
-    const table = child.matches('table') ? (child as HTMLTableElement) : child.querySelector('table');
+    const table = child.matches('table')
+      ? (child as HTMLTableElement)
+      : child.querySelector('table');
     if (table) {
-      const head = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent?.trim() || '');
+      const head = Array.from(table.querySelectorAll('thead th')).map(
+        (th) => th.textContent?.trim() || ''
+      );
       const rows = Array.from(table.querySelectorAll('tbody tr')).map((row) =>
         Array.from(row.querySelectorAll('td')).map((td) => td.textContent?.trim() || '')
       );
       extracted.push({
         id: blockId,
         type: 'table',
-        head: head.length > 0 ? head : (rows[0]?.length ? rows.shift() ?? [] : ['Column']),
+        head: head.length > 0 ? head : rows[0]?.length ? (rows.shift() ?? []) : ['Column'],
         rows: rows.length > 0 ? rows : [['Cell']],
       });
       return;
@@ -329,14 +334,7 @@ export function VisualEditOverlay() {
    * the first successful fetch; a failure leaves the previous summary (or
    * nothing) rather than blanking the panel.
    */
-  const [backendSummary, setBackendSummary] = useState<{
-    crmTotal: number | null;
-    segments: number;
-    products: number;
-    gallery: number;
-    events: number;
-    mediaItems: number;
-  } | null>(null);
+  const [backendSummary, setBackendSummary] = useState<BackendSummary | null>(null);
 
   /** Section keys whose frame is drawn. The overlay owns this; the header asks. */
   const [enabledSectionKeys, setEnabledSectionKeys] = useState<Set<string>>(new Set());
@@ -679,10 +677,13 @@ export function VisualEditOverlay() {
       setBackendSummary({
         crmTotal: ctx.crmStats?.totalContacts ?? null,
         segments: ctx.segments.length,
+        segmentsTruncated: ctx.segmentsTruncated,
         products: ctx.catalog.products,
         gallery: ctx.catalog.galleryPhotos,
         events: ctx.catalog.events,
         mediaItems: ctx.media.items.length,
+        mediaTruncated: ctx.media.items.length >= 60,
+        revisionsTruncated: ctx.revisionsTruncated,
       });
     } catch {
       // Summary is enrichment, not the probe — a failure keeps the old one.
@@ -1726,9 +1727,7 @@ export function VisualEditOverlay() {
                         {ADD_BLOCK_OPTIONS.map((option) => (
                           <DropdownMenu.Item
                             key={option.type}
-                            onSelect={() =>
-                              handleAddNewSection(option.type, item.blockIndex)
-                            }
+                            onSelect={() => handleAddNewSection(option.type, item.blockIndex)}
                             className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
                           >
                             {option.label}
@@ -2202,6 +2201,7 @@ export function VisualEditOverlay() {
                           <span className="text-ink-muted-on-dark font-medium">
                             {' '}
                             · {backendSummary.segments} segments
+                            {backendSummary.segmentsTruncated ? '+' : ''}
                           </span>
                         </span>
                       </div>
@@ -2214,8 +2214,18 @@ export function VisualEditOverlay() {
                       </div>
                       <div className="flex justify-between items-center text-ink-on-dark">
                         <span>Media library</span>
-                        <span className="font-bold">{backendSummary.mediaItems} recent files</span>
+                        <span className="font-bold">
+                          {backendSummary.mediaItems} recent files
+                          {backendSummary.mediaTruncated ? '+' : ''}
+                        </span>
                       </div>
+                      {(backendSummary.mediaTruncated ||
+                        backendSummary.segmentsTruncated ||
+                        backendSummary.revisionsTruncated) && (
+                        <p className="text-[10px] text-ink-muted-on-dark">
+                          Capped window — open the picker for the full list.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2599,6 +2609,7 @@ export function VisualEditOverlay() {
                         <tr>
                           <th className="p-1 w-8 text-[10px] text-muted-foreground">#</th>
                           {editingBlock.head.map((cell, col) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: positional grid — inputs are controlled, so values stay correct; a content key would remount (and unfocus) the cell on every keystroke.
                             <th key={`th-${col}`} className="p-1">
                               <input
                                 aria-label={`Header cell ${col + 1}`}
@@ -2619,7 +2630,11 @@ export function VisualEditOverlay() {
                               aria-label="Add column"
                               title="Add column"
                               onClick={() => {
-                                const columns = Math.max(editingBlock.head.length, ...editingBlock.rows.map((r) => r.length), 0);
+                                const columns = Math.max(
+                                  editingBlock.head.length,
+                                  ...editingBlock.rows.map((r) => r.length),
+                                  0
+                                );
                                 setEditingBlock({
                                   ...editingBlock,
                                   head: [...editingBlock.head, `Column ${columns + 1}`],
@@ -2635,9 +2650,13 @@ export function VisualEditOverlay() {
                       </thead>
                       <tbody>
                         {editingBlock.rows.map((row, r) => (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: positional grid — see the header-cell note above; delete removes the addressed row from state, not from the DOM order.
                           <tr key={`tr-${r}`}>
-                            <td className="p-1 text-center text-[10px] text-muted-foreground">{r + 1}</td>
+                            <td className="p-1 text-center text-[10px] text-muted-foreground">
+                              {r + 1}
+                            </td>
                             {row.map((cell, c) => (
+                              // biome-ignore lint/suspicious/noArrayIndexKey: positional grid — see the header-cell note above; only the last column is ever removed, so earlier cells keep their nodes.
                               <td key={`td-${r}-${c}`} className="p-1">
                                 <input
                                   aria-label={`Row ${r + 1} cell ${c + 1}`}
@@ -2714,7 +2733,10 @@ export function VisualEditOverlay() {
               {/* Code Fields */}
               {editingBlock.type === 'code' && (
                 <div>
-                  <label htmlFor={codeTextId} className="block text-xs font-bold text-foreground mb-1">
+                  <label
+                    htmlFor={codeTextId}
+                    className="block text-xs font-bold text-foreground mb-1"
+                  >
                     Code (rendered verbatim, escaped)
                   </label>
                   <textarea

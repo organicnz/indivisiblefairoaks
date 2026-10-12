@@ -34,29 +34,24 @@ import { useActiveRegion, usePublishedSections } from './usePublishedSections';
 import { useVisualEditMode } from './visual-edit-store';
 
 const FOCUS_RING =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f172a]';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary';
 
 export function EditorialButton() {
   const pathname = usePathname();
   const { loading, isAdmin } = useEditContext(pathname ?? '/');
   const { enabled, toggle } = useVisualEditMode(pathname ?? '/');
 
-  if (loading) {
-    return (
-      <span
-        aria-hidden="true"
-        className="hidden sm:inline-block h-11 w-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 animate-pulse"
-      />
-    );
-  }
-
-  if (!isAdmin) return null;
-
   // ⌘E / Ctrl-E toggles the mode from anywhere on the page. The overlay and the
   // drawer already own per-section controls; this is the one keyboard shortcut
   // that reaches them without hunting for a button, and it mirrors ⌘K (search)
   // and ⌘S (save) instead of inventing a new shape.
+  //
+  // Above the early returns on purpose: hooks must run in the same order on
+  // every render, and a return for a non-admin must not unschedule them.
+  // The guard inside preserves the old behaviour — only a resolved admin
+  // subscribes — so a visitor never toggles a mode nothing renders.
   useEffect(() => {
+    if (loading || !isAdmin) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'e') return;
       event.preventDefault();
@@ -64,7 +59,18 @@ export function EditorialButton() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [toggle]);
+  }, [toggle, loading, isAdmin]);
+
+  if (loading) {
+    return (
+      <span
+        aria-hidden="true"
+        className="inline-block size-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800 animate-pulse"
+      />
+    );
+  }
+
+  if (!isAdmin) return null;
 
   return (
     <>
@@ -83,8 +89,8 @@ export function EditorialButton() {
           enabled ? 'Disable editorial mode' : 'Enable editorial mode — plan and edit sections (⌘E)'
         }
         title={enabled ? 'Editorial mode is on (⌘E)' : 'Plan and edit sections (⌘E)'}
-      className={`
-        group relative inline-flex items-center gap-2.5 h-11 px-4 rounded-2xl
+        className={`
+        group relative inline-flex items-center justify-center size-11 rounded-2xl
         border transition-all duration-300 ease-out shadow-sm
         ${FOCUS_RING}
         ${
@@ -93,22 +99,19 @@ export function EditorialButton() {
             : 'bg-gradient-to-br from-slate-800/80 to-slate-900/90 border-white/10 text-slate-200 hover:text-white hover:border-white/25 hover:-translate-y-0.5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]'
         }
       `}
-    >
-      <span
-        className={`inline-flex items-center justify-center w-7 h-7 rounded-xl transition-colors ${enabled ? 'bg-amber-400/20 text-amber-300' : 'bg-white/5 text-slate-300 group-hover:text-white group-hover:bg-white/10'}`}
       >
-        <PenLine size={16} aria-hidden="true" strokeWidth={2.5} />
-      </span>
-      <span className="hidden sm:inline text-xs font-bold uppercase tracking-[0.15em] whitespace-nowrap">
-        {enabled ? 'Editing' : 'Plan'}
-      </span>
-      {enabled && (
         <span
-          aria-hidden="true"
-          className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)] animate-pulse ring-2 ring-[#0f172a]"
-        />
-      )}
-    </button>
+          className={`inline-flex items-center justify-center w-7 h-7 rounded-xl transition-colors ${enabled ? 'bg-amber-400/20 text-amber-300' : 'bg-white/5 text-slate-300 group-hover:text-white group-hover:bg-white/10'}`}
+        >
+          <PenLine size={18} aria-hidden="true" strokeWidth={2.5} />
+        </span>
+        {enabled && (
+          <span
+            aria-hidden="true"
+            className="absolute -top-1.5 -right-1.5 h-3 w-3 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)] animate-pulse ring-2 ring-[#0f172a]"
+          />
+        )}
+      </button>
     </>
   );
 }

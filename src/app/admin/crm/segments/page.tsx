@@ -1,7 +1,7 @@
-import { pageMetadata } from '@/lib/metadata';
 import { CRMSegmentManager } from '@/components/admin/crm/CRMSegmentManager';
 import { getCRMSegments } from '@/lib/actions/crm';
 import { requireAdmin } from '@/lib/admin-auth';
+import { pageMetadata } from '@/lib/metadata';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;

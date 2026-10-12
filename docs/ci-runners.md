@@ -530,13 +530,13 @@ ones that finish:
 |---|---|
 | 32 pre-commit guards | lefthook, on `git commit` |
 | documentation claims | `bun scripts/check-doc-claims.mjs` — guards, baseline, spec counts |
-| suppression ratchet | pre-push, baseline 24 |
+| suppression ratchet | pre-push, baseline 27 |
 | lint | `bun run lint:check` |
 | unit + coverage | `bun run test:coverage` — full suite, per-file thresholds |
 | types | `bunx tsc --noEmit` |
 | production build | `NEXT_E2E_BUILD=true bun run build` |
 | peer deps | `bun scripts/check-peer-deps.mjs --all` |
-| e2e | `playwright test --workers=2` — 92 specs (92 + no running tests) |
+| e2e | `playwright test --workers=2` — 93 specs (93 + no running tests) |
 
 A merge is only as trustworthy as the last full local run, so run all of them
 before merging anything that CI would otherwise have gated.
