@@ -1,7 +1,21 @@
 'use client';
 
-import { Loader2, Mail, MapPin, Phone, Plus, Search, Tag, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import {
+  AlertCircle,
+  Check,
+  Copy,
+  ExternalLink,
+  Loader2,
+  Mail,
+  MapPin,
+  MessageSquare,
+  Phone,
+  Plus,
+  Search,
+  Tag,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
@@ -26,15 +40,13 @@ import {
   setCRMTaskStatus,
   updateCRMNote,
 } from '@/lib/actions/crm';
-import type { CRMActivity, CRMContact, CRMSegment, CRMTask } from '@/types/unified';
+import { consentLabel } from '@/lib/crm-filters';
+import type { ConsentFilter, CRMActivity, CRMContact, CRMSegment, CRMTask } from '@/types/unified';
 
 interface CRMPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
-import { consentLabel } from '@/lib/crm-filters';
-import type { ConsentFilter } from '@/types/unified';
 
 const CONSENT_COLORS: Record<string, string> = {
   opted_in: 'bg-emerald-500/10 text-emerald-400',
@@ -70,6 +82,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteTitle, setEditingNoteTitle] = useState('');
   const [editingNoteDesc, setEditingNoteDesc] = useState('');
+  const [newNoteTitle, setNewNoteTitle] = useState('');
+  const [newNoteDesc, setNewNoteDesc] = useState('');
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const PAGE_SIZE = 25;
 
@@ -122,6 +139,22 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen, loadSegments]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === '/' &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen]);
+
   const loadActivities = useCallback(async (contactId: string) => {
     setActivitiesLoading(true);
     try {
@@ -144,6 +177,13 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
       setActivities([]);
     }
   }, [selectedContact, loadTasks, loadActivities]);
+
+  const handleCopy = (text: string, label: string) => {
+    void navigator.clipboard?.writeText(text);
+    setCopiedField(label);
+    toast.success(`Copied ${label} to clipboard`);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   const handleDeleteContact = async (id: string) => {
     try {
@@ -171,6 +211,53 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update consent');
+    }
+  };
+
+  const handleAddNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedContact || !newNoteTitle.trim()) return;
+    setIsAddingNote(true);
+    try {
+      const res = await addCRMNote({
+        contactId: selectedContact.id,
+        title: newNoteTitle.trim(),
+        description: newNoteDesc.trim(),
+      });
+      if (res.success) {
+        setNewNoteTitle('');
+        setNewNoteDesc('');
+        loadActivities(selectedContact.id);
+        toast.success('Note added');
+      } else {
+        toast.error(res.error ?? 'Failed to add note');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add note');
+    } finally {
+      setIsAddingNote(false);
+    }
+  };
+
+  const handleUpdateNote = async (activityId: string) => {
+    if (!selectedContact || !editingNoteTitle.trim()) return;
+    try {
+      const res = await updateCRMNote({
+        activityId,
+        title: editingNoteTitle.trim(),
+        description: editingNoteDesc.trim(),
+      });
+      if (res.success) {
+        setEditingNoteId(null);
+        setEditingNoteTitle('');
+        setEditingNoteDesc('');
+        loadActivities(selectedContact.id);
+        toast.success('Note updated');
+      } else {
+        toast.error(res.error ?? 'Failed to update note');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update note');
     }
   };
 
@@ -232,7 +319,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                   onClick={() => setShowSegments(!showSegments)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                     showSegments
-                      ? 'bg-primary text-white'
+                      ? 'bg-primary text-white shadow-xs'
                       : 'bg-muted text-muted-foreground hover:bg-muted/50'
                   }`}
                 >
@@ -244,7 +331,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                     setSelectedContact(null);
                     setIsEditorOpen(true);
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors"
+                  className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors shadow-xs"
                 >
                   <Plus size={12} className="mr-1" /> Add
                 </button>
@@ -267,19 +354,34 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
               <div className="p-3 border-b border-border space-y-2">
                 <div className="relative">
                   <Search
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
                     size={16}
                   />
                   <input
+                    ref={searchInputRef}
                     type="text"
-                    placeholder="Search constituents…"
+                    placeholder="Search constituents… (/)"
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       setPage(1);
                     }}
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary"
+                    className="w-full pl-10 pr-8 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setPage(1);
+                        searchInputRef.current?.focus();
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground rounded"
+                      aria-label="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
                 <select
                   value={consentFilter}
@@ -404,9 +506,10 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       href="/admin/crm/segments"
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs font-bold text-primary hover:underline"
+                      className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1"
                     >
-                      Manage segments
+                      <span>Manage segments</span>
+                      <ExternalLink size={12} />
                     </a>
                   </div>
                   {segments.length === 0 ? (
@@ -418,10 +521,10 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       {segments.map((segment) => (
                         <div
                           key={segment.id}
-                          className="p-3 rounded-lg border border-border bg-background"
+                          className="p-3 rounded-xl border border-border bg-background transition-colors hover:border-primary/30"
                         >
                           <div className="flex items-center justify-between">
-                            <h4 className="font-bold text-sm">{segment.name}</h4>
+                            <h4 className="font-bold text-sm text-foreground">{segment.name}</h4>
                             <span className="text-xs text-muted-foreground">
                               Filter:{' '}
                               {segment.query
@@ -430,7 +533,6 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                 : 'all'}
                             </span>
                           </div>
-                          {}
                         </div>
                       ))}
                     </div>
@@ -441,10 +543,45 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                   <div className="p-4 border-b border-border">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-black uppercase tracking-tight text-lg">
+                        <h3 className="font-black uppercase tracking-tight text-lg text-foreground">
                           {selectedContact.first_name} {selectedContact.last_name}
                         </h3>
-                        <p className="text-muted-foreground text-sm">{selectedContact.email}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-muted-foreground text-sm font-medium">
+                            {selectedContact.email}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(selectedContact.email, 'email')}
+                            title="Copy email address"
+                            aria-label="Copy email"
+                            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          >
+                            {copiedField === 'email' ? (
+                              <Check size={13} className="text-emerald-500" />
+                            ) : (
+                              <Copy size={13} />
+                            )}
+                          </button>
+                          <a
+                            href={`mailto:${selectedContact.email}`}
+                            title="Send email via default client"
+                            aria-label="Send email"
+                            className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            <Mail size={13} />
+                          </a>
+                          <a
+                            href={`/admin/crm/broadcasts?recipient=${encodeURIComponent(selectedContact.email)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Compose broadcast in CRM Studio"
+                            aria-label="Compose broadcast"
+                            className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            <MessageSquare size={13} />
+                          </a>
+                        </div>
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
                           <span
                             className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[selectedContact.status] || 'bg-muted text-muted-foreground'}`}
@@ -478,7 +615,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                           onClick={() => {
                             setIsEditorOpen(true);
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors"
+                          className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors shadow-xs"
                         >
                           <Plus size={12} className="mr-1" /> Edit
                         </button>
@@ -501,33 +638,70 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                     <div className="grid gap-3 sm:grid-cols-2">
                       {selectedContact.phone && (
                         <div className="flex items-center gap-2 text-sm">
-                          <Phone size={14} className="text-muted-foreground" />
+                          <Phone size={14} className="text-muted-foreground shrink-0" />
                           <span>{selectedContact.phone}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (selectedContact.phone) {
+                                handleCopy(selectedContact.phone, 'phone');
+                              }
+                            }}
+                            title="Copy phone number"
+                            aria-label="Copy phone"
+                            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          >
+                            {copiedField === 'phone' ? (
+                              <Check size={13} className="text-emerald-500" />
+                            ) : (
+                              <Copy size={13} />
+                            )}
+                          </button>
+                          <a
+                            href={`tel:${selectedContact.phone}`}
+                            title="Call phone number"
+                            aria-label="Call phone"
+                            className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            <Phone size={13} />
+                          </a>
                         </div>
                       )}
                       {selectedContact.address && (
                         <div className="flex items-center gap-2 text-sm">
-                          <MapPin size={14} className="text-muted-foreground" />
-                          <span>
+                          <MapPin size={14} className="text-muted-foreground shrink-0" />
+                          <span className="truncate">
                             {selectedContact.address}, {selectedContact.city}{' '}
                             {selectedContact.zip_code}
                           </span>
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                              `${selectedContact.address}, ${selectedContact.city || ''} ${selectedContact.zip_code || ''}`
+                            )}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="View on Google Maps"
+                            aria-label="View on Google Maps"
+                            className="p-1 rounded text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            <ExternalLink size={13} />
+                          </a>
                         </div>
                       )}
                       {selectedContact.district && (
                         <div className="flex items-center gap-2 text-sm">
-                          <Tag size={14} className="text-muted-foreground" />
+                          <Tag size={14} className="text-muted-foreground shrink-0" />
                           <span>District: {selectedContact.district}</span>
                         </div>
                       )}
                       <div className="flex items-center gap-2 text-sm">
-                        <Mail size={14} className="text-muted-foreground" />
+                        <Mail size={14} className="text-muted-foreground shrink-0" />
                         <span>Source: {selectedContact.source}</span>
                       </div>
                       {selectedContact.total_donated_cents &&
                         selectedContact.total_donated_cents > 0 && (
                           <div className="flex items-center gap-2 text-sm">
-                            <Tag size={14} className="text-muted-foreground" />
+                            <Tag size={14} className="text-muted-foreground shrink-0" />
                             <span>
                               Donated: ${(selectedContact.total_donated_cents / 100).toFixed(2)}
                             </span>
@@ -538,7 +712,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                           {selectedContact.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="px-2 py-1 rounded bg-muted text-xs font-medium text-muted-foreground"
+                              className="px-2 py-0.5 rounded bg-surface-muted border border-border text-xs font-semibold text-foreground"
                             >
                               {tag}
                             </span>
@@ -580,7 +754,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                         <button
                           type="button"
                           onClick={() => setIsTaskFormOpen(true)}
-                          className="px-2 py-1 text-xs font-bold rounded bg-primary text-white hover:bg-primary-light"
+                          className="px-2 py-1 text-xs font-bold rounded bg-primary text-white hover:bg-primary-light transition-colors"
                         >
                           <Plus size={12} className="mr-1" /> Add
                         </button>
@@ -595,86 +769,95 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                             No follow-ups yet
                           </p>
                         ) : (
-                          tasks.map((task) => (
-                            <div
-                              key={task.id}
-                              className="p-2 rounded-lg border border-border bg-background"
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-sm font-medium truncate">{task.title}</p>
-                                <span
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                    task.status === 'done'
-                                      ? 'bg-emerald-500/10 text-emerald-400'
-                                      : task.status === 'in_progress'
-                                        ? 'bg-amber-500/10 text-amber-400'
-                                        : 'bg-slate-500/10 text-slate-400'
-                                  }`}
-                                >
-                                  {task.status.replace('_', ' ')}
-                                </span>
+                          tasks.map((task) => {
+                            const isOverdue =
+                              task.due_at &&
+                              task.status !== 'done' &&
+                              new Date(task.due_at).getTime() < Date.now();
+                            return (
+                              <div
+                                key={task.id}
+                                className="p-2.5 rounded-xl border border-border bg-background transition-colors hover:border-primary/30"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-medium truncate text-foreground">
+                                    {task.title}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {isOverdue && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-500">
+                                        <AlertCircle size={10} />
+                                        <span>Overdue</span>
+                                      </span>
+                                    )}
+                                    <span
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                        task.status === 'done'
+                                          ? 'bg-emerald-500/10 text-emerald-400'
+                                          : task.status === 'in_progress'
+                                            ? 'bg-amber-500/10 text-amber-400'
+                                            : 'bg-slate-500/10 text-slate-400'
+                                      }`}
+                                    >
+                                      {task.status.replace('_', ' ')}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between mt-2 pt-1 border-t border-border/50 text-[10px]">
+                                  {task.due_at ? (
+                                    <span
+                                      className={
+                                        isOverdue
+                                          ? 'font-bold text-rose-500'
+                                          : 'text-muted-foreground'
+                                      }
+                                    >
+                                      Due: {new Date(task.due_at).toLocaleDateString()}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">No due date</span>
+                                  )}
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const contactId = selectedContact?.id;
+                                        if (!contactId) return;
+                                        await setCRMTaskStatus({
+                                          id: task.id,
+                                          status: task.status === 'done' ? 'open' : 'done',
+                                        });
+                                        loadTasks(contactId);
+                                      }}
+                                      className="font-bold px-2 py-0.5 rounded bg-surface-muted hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                      aria-label={task.status === 'done' ? 'Reopen' : 'Complete'}
+                                    >
+                                      {task.status === 'done' ? 'Reopen' : 'Done'}
+                                    </button>
+                                    <ConfirmAction
+                                      label="Delete task"
+                                      message={`Delete "${task.title}"?`}
+                                      confirmLabel="Delete"
+                                      danger
+                                      idleClassName="font-bold px-2 py-0.5 rounded hover:text-rose-600 text-muted-foreground hover:bg-rose-500/10 transition-colors"
+                                      onConfirm={async () => {
+                                        const contactId = selectedContact?.id;
+                                        if (!contactId) return;
+                                        await deleteCRMTask(task.id);
+                                        loadTasks(contactId);
+                                        toast.success('Task deleted');
+                                      }}
+                                    >
+                                      Del
+                                    </ConfirmAction>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1 mt-2">
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    const contactId = selectedContact?.id;
-                                    if (!contactId) return;
-                                    await setCRMTaskStatus({
-                                      id: task.id,
-                                      status: task.status === 'done' ? 'open' : 'done',
-                                    });
-                                    loadTasks(contactId);
-                                  }}
-                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-muted hover:bg-muted text-muted-foreground"
-                                  aria-label={task.status === 'done' ? 'Reopen' : 'Complete'}
-                                >
-                                  {task.status === 'done' ? 'Reopen' : 'Done'}
-                                </button>
-                                <ConfirmAction
-                                  label="Delete task"
-                                  message={`Delete "${task.title}"?`}
-                                  confirmLabel="Delete"
-                                  danger
-                                  idleClassName="text-[10px] font-bold px-1.5 py-0.5 rounded hover:text-rose-600 text-muted-foreground"
-                                  onConfirm={async () => {
-                                    const contactId = selectedContact?.id;
-                                    if (!contactId) return;
-                                    await deleteCRMTask(task.id);
-                                    loadTasks(contactId);
-                                    toast.success('Task deleted');
-                                  }}
-                                >
-                                  Del
-                                </ConfirmAction>
-                              </div>
-                              {task.due_at && (
-                                <p className="text-[10px] text-muted-foreground mt-1">
-                                  Due: {new Date(task.due_at ?? '').toLocaleDateString()}
-                                </p>
-                              )}
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     </div>
-
-                    {/* Tags */}
-                    {selectedContact.tags.length > 0 && (
-                      <div className="border-t border-border pt-4">
-                        <h4 className="font-bold text-sm mb-2">Tags</h4>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedContact.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="px-2 py-1 rounded bg-muted text-xs font-medium text-muted-foreground"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Notes — from crm_activities type === 'note', with edit/add/delete */}
                     <div className="border-t border-border pt-4">
@@ -701,7 +884,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                           {activities.map((act) => (
                             <div
                               key={act.id}
-                              className="p-3 rounded-lg bg-surface-muted border border-border"
+                              className="p-3 rounded-xl bg-surface-muted border border-border transition-colors hover:border-primary/20"
                             >
                               {editingNoteId === act.id ? (
                                 <div className="space-y-2">
@@ -709,58 +892,46 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                     type="text"
                                     value={editingNoteTitle}
                                     onChange={(e) => setEditingNoteTitle(e.target.value)}
-                                    className="w-full px-2 py-1 rounded border border-border text-xs font-bold"
+                                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs font-bold focus:ring-2 focus:ring-primary focus:outline-none"
                                     placeholder="Note title"
                                   />
                                   <textarea
                                     value={editingNoteDesc}
                                     onChange={(e) => setEditingNoteDesc(e.target.value)}
                                     rows={2}
-                                    className="w-full px-2 py-1 rounded border border-border text-xs text-muted-foreground"
+                                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none resize-none"
                                     placeholder="Note details"
                                   />
                                   <div className="flex gap-2 justify-end">
                                     <button
                                       type="button"
-                                      className="text-xs text-muted-foreground hover:text-foreground"
+                                      className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
                                       onClick={() => setEditingNoteId(null)}
                                     >
                                       Cancel
                                     </button>
-                                    <ConfirmAction
-                                      label="Save Note"
-                                      message="Save changes to this note?"
-                                      confirmLabel="Save"
-                                      idleClassName="text-xs font-bold bg-primary text-white px-2 py-1 rounded hover:bg-primary-light"
-                                      onConfirm={async () => {
-                                        if (!selectedContact || !editingNoteTitle.trim()) return;
-                                        await updateCRMNote({
-                                          activityId: act.id,
-                                          title: editingNoteTitle.trim(),
-                                          description: editingNoteDesc.trim() || '',
-                                        });
-                                        setEditingNoteId(null);
-                                        setEditingNoteTitle('');
-                                        setEditingNoteDesc('');
-                                        loadActivities(selectedContact.id);
-                                        toast.success('Note updated');
-                                      }}
+                                    <button
+                                      type="button"
+                                      disabled={!editingNoteTitle.trim()}
+                                      onClick={() => handleUpdateNote(act.id)}
+                                      className="text-xs font-bold bg-primary text-white px-3 py-1 rounded-lg hover:bg-primary-light disabled:opacity-50 transition-colors shadow-xs"
                                     >
-                                      Save
-                                    </ConfirmAction>
+                                      Save Note
+                                    </button>
                                   </div>
                                 </div>
                               ) : (
                                 <div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-foreground">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-bold text-foreground truncate">
                                       {act.title || '(no title)'}
                                     </span>
-                                    <div className="flex gap-1">
+                                    <div className="flex gap-1 shrink-0">
                                       <button
                                         type="button"
-                                        className="p-0.5 text-[10px] text-muted-foreground hover:text-primary"
-                                        title="Edit"
+                                        className="p-1 text-[11px] text-muted-foreground hover:text-primary rounded transition-colors"
+                                        title="Edit note"
+                                        aria-label="Edit note"
                                         onClick={() => {
                                           setEditingNoteId(act.id);
                                           setEditingNoteTitle(act.title || '');
@@ -774,7 +945,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                         message={`Delete note "${act.title}"?`}
                                         confirmLabel="Delete"
                                         danger
-                                        idleClassName="text-[10px] text-muted-foreground hover:text-rose-600"
+                                        idleClassName="p-1 text-[11px] text-muted-foreground hover:text-rose-600 rounded transition-colors"
                                         onConfirm={async () => {
                                           const contactId = selectedContact?.id;
                                           if (!contactId) return;
@@ -788,8 +959,13 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                     </div>
                                   </div>
                                   {act.description && (
-                                    <p className="text-[11px] text-muted-foreground mt-1">
+                                    <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap leading-relaxed">
                                       {act.description}
+                                    </p>
+                                  )}
+                                  {act.created_at && (
+                                    <p className="text-[10px] text-muted-foreground/70 mt-1.5">
+                                      {new Date(act.created_at).toLocaleDateString()}
                                     </p>
                                   )}
                                 </div>
@@ -798,47 +974,37 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                           ))}
                         </div>
                       )}
+
                       {/* Add form */}
                       <form
-                        className="mt-2 flex gap-2"
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          const titleEl = (e.target as HTMLFormElement).querySelector(
-                            'input[name="title"]'
-                          ) as HTMLInputElement;
-                          const descEl = (e.target as HTMLFormElement).querySelector(
-                            'textarea[name="desc"]'
-                          ) as HTMLTextAreaElement;
-                          if (!selectedContact || !titleEl?.value.trim()) return;
-                          await addCRMNote({
-                            contactId: selectedContact.id,
-                            title: titleEl.value.trim(),
-                            description: (descEl?.value.trim() || '') as string,
-                          });
-                          titleEl.value = '';
-                          if (descEl) descEl.value = '';
-                          loadActivities(selectedContact.id);
-                          toast.success('Note added');
-                        }}
+                        onSubmit={handleAddNote}
+                        className="mt-3 p-3 rounded-xl bg-surface-muted border border-border space-y-2"
                       >
                         <input
-                          name="title"
-                          placeholder="Title…"
-                          className="flex-1 px-2 py-1 text-xs rounded border border-border"
+                          type="text"
+                          value={newNoteTitle}
+                          onChange={(e) => setNewNoteTitle(e.target.value)}
+                          placeholder="Note title (e.g. Call summary)…"
+                          className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:outline-none"
                           required
                         />
                         <textarea
-                          name="desc"
-                          placeholder="Details (optional)"
-                          rows={1}
-                          className="w-full mt-1 px-2 py-1 text-xs rounded border border-border resize-none"
+                          value={newNoteDesc}
+                          onChange={(e) => setNewNoteDesc(e.target.value)}
+                          placeholder="Details or action items (optional)…"
+                          rows={2}
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background resize-none focus:ring-2 focus:ring-primary focus:outline-none"
                         />
-                        <button
-                          type="submit"
-                          className="self-end text-xs font-bold px-2 py-1 bg-primary text-white rounded hover:bg-primary-light"
-                        >
-                          Add
-                        </button>
+                        <div className="flex justify-end">
+                          <button
+                            type="submit"
+                            disabled={isAddingNote || !newNoteTitle.trim()}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light disabled:opacity-50 transition-colors shadow-xs"
+                          >
+                            {isAddingNote && <Loader2 size={12} className="animate-spin" />}
+                            <span>Add Note</span>
+                          </button>
+                        </div>
                       </form>
                     </div>
                   </div>

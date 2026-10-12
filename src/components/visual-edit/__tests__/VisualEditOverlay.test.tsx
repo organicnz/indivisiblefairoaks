@@ -287,4 +287,53 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
 
     expect(container.querySelector('[data-testid="visual-edit-overlay"]')).toBeNull();
   });
+
+  it('opens keyboard shortcuts cheat sheet when clicking the shortcuts dock button', async () => {
+    await withPage();
+
+    const shortcutsBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Keyboard shortcuts cheat sheet"]'
+    );
+    expect(shortcutsBtn).not.toBeNull();
+
+    await act(async () => {
+      shortcutsBtn?.click();
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('Visual Editor Shortcuts');
+  });
+
+  it('copies block definition JSON to clipboard from the section editor', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    await withPage();
+
+    const editButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[title="Edit section content"]')
+    );
+    const firstFrame = editButtons.at(0);
+    expect(firstFrame).toBeDefined();
+
+    await act(async () => {
+      firstFrame?.click();
+    });
+
+    const copyBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((btn) =>
+      btn.textContent?.includes('Copy JSON')
+    );
+    expect(copyBtn).toBeDefined();
+
+    await act(async () => {
+      copyBtn?.click();
+    });
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"type": "paragraph"'));
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringContaining('copied to clipboard as JSON')
+    );
+  });
 });
