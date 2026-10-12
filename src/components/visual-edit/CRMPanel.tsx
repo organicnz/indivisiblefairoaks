@@ -4,6 +4,7 @@ import {
   AlertCircle,
   Check,
   Copy,
+  Download,
   ExternalLink,
   Loader2,
   Mail,
@@ -32,6 +33,7 @@ import {
   deleteCRMContact,
   deleteCRMNote,
   deleteCRMTask,
+  exportCRMContacts,
   getCRMContactDetail,
   getCRMContacts,
   getCRMSegments,
@@ -73,6 +75,8 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [consentFilter, setConsentFilter] = useState<ConsentFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<CRMContact['status'] | 'all'>('all');
+  const [isExporting, setIsExporting] = useState(false);
   const [tasks, setTasks] = useState<CRMTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [segments, setSegments] = useState<CRMSegment[]>([]);
@@ -96,6 +100,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
       const res = await getCRMContacts({
         query: searchQuery || undefined,
         consent: consentFilter === 'all' ? undefined : consentFilter,
+        status: statusFilter === 'all' ? undefined : statusFilter,
         page,
         pageSize: PAGE_SIZE,
       });
@@ -106,7 +111,44 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, page, consentFilter]);
+  }, [searchQuery, page, consentFilter, statusFilter]);
+
+  const handleExportCSV = async () => {
+    if (totalCount === 0) {
+      toast.error('No constituents to export');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const res = await exportCRMContacts({
+        query: searchQuery || undefined,
+        consent: consentFilter === 'all' ? undefined : consentFilter,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+      });
+      if (res.error || !res.csv) {
+        toast.error(res.error || 'Failed to export CSV');
+        return;
+      }
+      const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `indivisible-crm-constituents-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (res.truncated) {
+        toast.info(`Exported ${res.count} of ${res.matchedCount} constituents (file capped)`);
+      } else {
+        toast.success(`Exported ${res.count} constituents to CSV`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const loadTasks = useCallback(async (contactId: string) => {
     setTasksLoading(true);
@@ -327,6 +369,21 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                 </button>
                 <button
                   type="button"
+                  onClick={handleExportCSV}
+                  disabled={isExporting || totalCount === 0}
+                  title="Export filtered constituents to CSV"
+                  aria-label="Export CSV"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-bold text-foreground hover:bg-muted transition-colors disabled:opacity-50 shadow-2xs"
+                >
+                  {isExporting ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Download size={12} />
+                  )}
+                  <span>Export</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
                     setSelectedContact(null);
                     setIsEditorOpen(true);
@@ -383,21 +440,41 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                     </button>
                   )}
                 </div>
-                <select
-                  value={consentFilter}
-                  onChange={(e) => {
-                    setConsentFilter(
-                      e.target.value as 'all' | 'opted_in' | 'opted_out' | 'unasked'
-                    );
-                    setPage(1);
-                  }}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary"
-                >
-                  <option value="all">All consent states</option>
-                  <option value="opted_in">Opted in</option>
-                  <option value="opted_out">Opted out</option>
-                  <option value="unasked">Never asked</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={consentFilter}
+                    onChange={(e) => {
+                      setConsentFilter(
+                        e.target.value as 'all' | 'opted_in' | 'opted_out' | 'unasked'
+                      );
+                      setPage(1);
+                    }}
+                    aria-label="Filter by email consent"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate"
+                  >
+                    <option value="all">All consent</option>
+                    <option value="opted_in">Opted in</option>
+                    <option value="opted_out">Opted out</option>
+                    <option value="unasked">Never asked</option>
+                  </select>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value as CRMContact['status'] | 'all');
+                      setPage(1);
+                    }}
+                    aria-label="Filter by constituent status"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate"
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="active_volunteer">Active volunteer</option>
+                    <option value="supporter">Supporter</option>
+                    <option value="donor">Donor</option>
+                    <option value="choir">Choir</option>
+                    <option value="organizer">Organizer</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
 
               {/* Contact List */}

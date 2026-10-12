@@ -336,4 +336,69 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       expect.stringContaining('copied to clipboard as JSON')
     );
   });
+
+  it('pastes block definition JSON from clipboard into the section editor', async () => {
+    const readText = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        type: 'heading',
+        level: 2,
+        html: 'Pasted Heading',
+      })
+    );
+    Object.assign(navigator, { clipboard: { readText, writeText: vi.fn() } });
+
+    await withPage();
+
+    const editButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[title="Edit section content"]')
+    );
+    const firstFrame = editButtons.at(0);
+    expect(firstFrame).toBeDefined();
+
+    await act(async () => {
+      firstFrame?.click();
+    });
+
+    const pasteBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (btn) => btn.textContent?.includes('Paste JSON')
+    );
+    expect(pasteBtn).toBeDefined();
+
+    await act(async () => {
+      pasteBtn?.click();
+    });
+
+    expect(readText).toHaveBeenCalledTimes(1);
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringContaining('Replaced block with pasted heading definition')
+    );
+  });
+
+  it('exports page document as JSON snapshot from settings modal', async () => {
+    globalThis.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-json');
+    globalThis.URL.revokeObjectURL = vi.fn();
+
+    await withPage();
+
+    const settingsBtn = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (btn) => btn.getAttribute('title')?.includes('Edit page title, slug')
+    );
+    expect(settingsBtn).toBeDefined();
+
+    await act(async () => {
+      settingsBtn?.click();
+    });
+
+    const exportBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (btn) => btn.textContent?.includes('Export JSON')
+    );
+    expect(exportBtn).toBeDefined();
+
+    await act(async () => {
+      exportBtn?.click();
+    });
+
+    expect(globalThis.URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(toast.success).toHaveBeenCalledWith('Page snapshot exported as JSON');
+  });
 });

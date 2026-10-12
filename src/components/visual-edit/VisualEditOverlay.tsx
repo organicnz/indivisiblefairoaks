@@ -6,8 +6,10 @@ import {
   ArrowDown,
   ArrowUp,
   Bold,
+  ClipboardPaste,
   Code,
   Copy,
+  Download,
   ExternalLink,
   Eye,
   EyeOff,
@@ -410,6 +412,54 @@ export function VisualEditOverlay() {
     void navigator.clipboard?.writeText(JSON.stringify(editingBlock, null, 2));
     toast.success('Block definition copied to clipboard as JSON');
   }, [editingBlock]);
+
+  /** Paste block JSON from clipboard to update the currently edited block */
+  const handlePasteBlockJson = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard?.readText();
+      if (!text?.trim()) {
+        toast.error('Clipboard is empty');
+        return;
+      }
+      const parsed = JSON.parse(text);
+      if (!parsed || typeof parsed !== 'object' || !parsed.type) {
+        toast.error('Clipboard does not contain a valid block object');
+        return;
+      }
+      const pastedBlock: Block = {
+        ...parsed,
+        id: nextBlockId(),
+      };
+      setEditingBlock(pastedBlock);
+      toast.success(`Replaced block with pasted ${pastedBlock.type} definition`);
+    } catch {
+      toast.error('Failed to read or parse block JSON from clipboard');
+    }
+  }, []);
+
+  /** Export the current document and all its blocks as a portable JSON snapshot */
+  const handleExportPageJson = useCallback(() => {
+    const exportPayload = {
+      version: 1,
+      title: contentRow?.title || pageTitle || pathname,
+      slug: contentRow?.slug || pageSlug || pathname.replace(/^\//, '') || 'page',
+      type: contentRow?.type || 'page',
+      status: contentRow?.status || 'draft',
+      exportedAt: new Date().toISOString(),
+      blocks,
+    };
+    const jsonStr = JSON.stringify(exportPayload, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${exportPayload.slug || 'page'}-snapshot-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Page snapshot exported as JSON');
+  }, [contentRow, pageTitle, pathname, pageSlug, blocks]);
 
   /**
    * Where the local draft for this document lives.
@@ -3077,6 +3127,15 @@ export function VisualEditOverlay() {
                   <Code size={14} className="text-muted-foreground" />
                   <span>Copy JSON</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={handlePasteBlockJson}
+                  title="Paste block definition from clipboard"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors"
+                >
+                  <ClipboardPaste size={14} className="text-muted-foreground" />
+                  <span>Paste JSON</span>
+                </button>
               </div>
               <div className="flex items-center gap-2 ml-auto">
                 <button
@@ -3240,22 +3299,33 @@ export function VisualEditOverlay() {
                 </div>
               </fieldset>
 
-              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+              <div className="flex items-center justify-between border-t border-border pt-4">
                 <button
                   type="button"
-                  onClick={() => setIsSettingsOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
+                  onClick={handleExportPageJson}
+                  title="Export page document and blocks as JSON"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors"
                 >
-                  Cancel
+                  <Download size={14} className="text-muted-foreground" />
+                  <span>Export JSON</span>
                 </button>
-                <button
-                  type="submit"
-                  disabled={savingBackend}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white shadow-raised hover:bg-primary-dark"
-                >
-                  {savingBackend && <Loader2 size={13} className="animate-spin" />}
-                  <span>Save Page Settings</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSettingsOpen(false)}
+                    className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingBackend}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white shadow-raised hover:bg-primary-dark"
+                  >
+                    {savingBackend && <Loader2 size={13} className="animate-spin" />}
+                    <span>Save Page Settings</span>
+                  </button>
+                </div>
               </div>
             </form>
           </DialogContent>
@@ -3432,6 +3502,12 @@ export function VisualEditOverlay() {
                         ⌘ ⇧ Z
                       </kbd>
                     </div>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Copy / Paste Block JSON</span>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Section Modal
+                    </span>
                   </div>
                 </div>
               </div>
