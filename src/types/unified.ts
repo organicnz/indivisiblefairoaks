@@ -14,6 +14,7 @@
 import type { ContentBlockType } from '@/lib/blocks';
 import type { PublishedSection } from '@/lib/visual-sections';
 import type { Database } from '@/types/supabase';
+import type { CRMSegment, CRMStats } from './crm';
 
 // ==========================================
 // 1. Content / Visual Editor Domain
@@ -252,4 +253,60 @@ export interface DuplicateSectionDetail {
 
 export interface DeleteSectionDetail {
   blockIndex: number;
+}
+
+// ==========================================
+// 7. Visual page context — one backend snapshot
+// ==========================================
+
+export type {
+  ContentMediaDeleteResult,
+  ContentMediaInsert,
+  ContentMediaListResult,
+  ContentMediaPatch,
+  ContentMediaRow,
+  ContentMediaUpdate,
+  ContentMediaUploadResult,
+} from './content-media';
+
+export interface VisualCatalogCounts {
+  products: number;
+  galleryPhotos: number;
+  events: number;
+}
+
+/**
+ * The dock health panel's summary, derived from the one-gate
+ * `getVisualPageContext` snapshot. Caps are reported, never silent:
+ * media is the 60 most recent files, revisions the 20-cap, segments the
+ * 500-cap — so each count that can be cut carries its truncation flag.
+ */
+export interface BackendSummary {
+  crmTotal: number | null;
+  segments: number;
+  segmentsTruncated: boolean;
+  products: number;
+  gallery: number;
+  events: number;
+  mediaItems: number;
+  mediaTruncated: boolean;
+  revisionsTruncated: boolean;
+}
+
+/**
+ * One backend context for the in-page visual editor: content row, revision
+ * window, media window, edge health, CRM stats, segments and catalog counts.
+ * Defined here (not in the server action) so the overlay, the drawer and the
+ * action import one shape from one path.
+ */
+export interface VisualPageContext {
+  content: VisualContentRow | null;
+  revisions: Database['public']['Tables']['content_revisions']['Row'][];
+  revisionsTruncated: boolean;
+  media: MediaListResult;
+  backend: BackendStatus;
+  crmStats: CRMStats | null;
+  segments: CRMSegment[];
+  segmentsTruncated: boolean;
+  catalog: VisualCatalogCounts;
 }

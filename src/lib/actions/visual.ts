@@ -13,7 +13,16 @@ import {
   getCRMStats,
 } from '@/lib/actions/crm';
 import { requireAdmin } from '@/lib/admin-auth';
-import type { BackendStatus, CRMSegment, CRMStats, MediaListResult } from '@/types/unified';
+import type {
+  BackendStatus,
+  CRMSegment,
+  CRMStats,
+  MediaListResult,
+  VisualCatalogCounts,
+  VisualPageContext,
+} from '@/types/unified';
+
+export type { VisualCatalogCounts, VisualPageContext } from '@/types/unified';
 
 /**
  * One backend context for the in-page visual editor.
@@ -35,24 +44,6 @@ import type { BackendStatus, CRMSegment, CRMStats, MediaListResult } from '@/typ
  * Every capped read reports (`truncated`), per the CRM convention: a count
  * without one is a claim of completeness.
  */
-
-export interface VisualCatalogCounts {
-  products: number;
-  galleryPhotos: number;
-  events: number;
-}
-
-export interface VisualPageContext {
-  content: ContentRow | null;
-  revisions: ContentRevision[];
-  revisionsTruncated: boolean;
-  media: MediaListResult;
-  backend: BackendStatus;
-  crmStats: CRMStats | null;
-  segments: CRMSegment[];
-  segmentsTruncated: boolean;
-  catalog: VisualCatalogCounts;
-}
 
 function slugForPath(pathname: string): string | null {
   const clean = pathname.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
@@ -156,8 +147,8 @@ export async function getVisualPageContext(input?: {
   ]);
 
   return {
-    content,
-    revisions: revisionsRes.revisions,
+    content: content as VisualPageContext['content'],
+    revisions: revisionsRes.revisions as VisualPageContext['revisions'],
     revisionsTruncated: revisionsRes.truncated,
     media: mediaRes,
     backend: healthRes,

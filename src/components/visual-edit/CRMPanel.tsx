@@ -14,27 +14,27 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import {
+  addCRMNote,
   deleteCRMContact,
-  getCRMContacts,
+  deleteCRMNote,
+  deleteCRMTask,
   getCRMContactDetail,
+  getCRMContacts,
   getCRMSegments,
   getCRMTasksForContact,
   setCRMEmailConsent,
-  addCRMNote,
-  updateCRMNote,
-  deleteCRMNote,
   setCRMTaskStatus,
-  deleteCRMTask,
+  updateCRMNote,
 } from '@/lib/actions/crm';
-import type { CRMContact, CRMSegment, CRMTask } from '@/types/crm';
-import type { CRMActivity } from '@/types/crm';
+import type { CRMActivity, CRMContact, CRMSegment, CRMTask } from '@/types/unified';
 
 interface CRMPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-import { consentLabel, ConsentFilter, splitActiveValues } from '@/lib/crm-filters';
+import { consentLabel } from '@/lib/crm-filters';
+import type { ConsentFilter } from '@/types/unified';
 
 const CONSENT_COLORS: Record<string, string> = {
   opted_in: 'bg-emerald-500/10 text-emerald-400',
@@ -398,7 +398,17 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
             <div className="flex-1 flex flex-col overflow-hidden">
               {showSegments ? (
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  <h3 className="font-black uppercase tracking-tight text-lg">Segments</h3>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-black uppercase tracking-tight text-lg">Segments</h3>
+                    <a
+                      href="/admin/crm/segments"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-bold text-primary hover:underline"
+                    >
+                      Manage segments
+                    </a>
+                  </div>
                   {segments.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       No segments yet. Create segments in the admin CRM.
@@ -442,9 +452,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                             {selectedContact.status.replace('_', ' ')}
                           </span>
                           {consentOptions.map((opt) => {
-                            const currentConsent = consentLabel(
-                              selectedContact.do_not_email
-                            );
+                            const currentConsent = consentLabel(selectedContact.do_not_email);
                             return (
                               <span
                                 key={opt.value}
@@ -544,9 +552,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       <h4 className="font-bold text-sm mb-2">Email Consent</h4>
                       <div className="flex flex-wrap gap-2">
                         {consentOptions.map((opt) => {
-                          const currentConsent = consentLabel(
-                            selectedContact.do_not_email
-                          );
+                          const currentConsent = consentLabel(selectedContact.do_not_email);
                           const isActive = currentConsent === opt.value;
                           return (
                             <button
@@ -612,8 +618,13 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                 <button
                                   type="button"
                                   onClick={async () => {
-                                    await setCRMTaskStatus({ id: task.id, status: task.status === 'done' ? 'open' : 'done' });
-                                    loadTasks(selectedContact!.id);
+                                    const contactId = selectedContact?.id;
+                                    if (!contactId) return;
+                                    await setCRMTaskStatus({
+                                      id: task.id,
+                                      status: task.status === 'done' ? 'open' : 'done',
+                                    });
+                                    loadTasks(contactId);
                                   }}
                                   className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-surface-muted hover:bg-muted text-muted-foreground"
                                   aria-label={task.status === 'done' ? 'Reopen' : 'Complete'}
@@ -627,8 +638,10 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                   danger
                                   idleClassName="text-[10px] font-bold px-1.5 py-0.5 rounded hover:text-rose-600 text-muted-foreground"
                                   onConfirm={async () => {
+                                    const contactId = selectedContact?.id;
+                                    if (!contactId) return;
                                     await deleteCRMTask(task.id);
-                                    loadTasks(selectedContact!.id);
+                                    loadTasks(contactId);
                                     toast.success('Task deleted');
                                   }}
                                 >
@@ -686,7 +699,10 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       ) : (
                         <div className="space-y-3 max-h-56 overflow-y-auto">
                           {activities.map((act) => (
-                            <div key={act.id} className="p-3 rounded-lg bg-surface-muted border border-border">
+                            <div
+                              key={act.id}
+                              className="p-3 rounded-lg bg-surface-muted border border-border"
+                            >
                               {editingNoteId === act.id ? (
                                 <div className="space-y-2">
                                   <input
@@ -704,7 +720,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                     placeholder="Note details"
                                   />
                                   <div className="flex gap-2 justify-end">
-                                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setEditingNoteId(null)}>
+                                    <button
+                                      type="button"
+                                      className="text-xs text-muted-foreground hover:text-foreground"
+                                      onClick={() => setEditingNoteId(null)}
+                                    >
                                       Cancel
                                     </button>
                                     <ConfirmAction
@@ -714,7 +734,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                       idleClassName="text-xs font-bold bg-primary text-white px-2 py-1 rounded hover:bg-primary-light"
                                       onConfirm={async () => {
                                         if (!selectedContact || !editingNoteTitle.trim()) return;
-                                        await updateCRMNote({ activityId: act.id, title: editingNoteTitle.trim(), description: editingNoteDesc.trim() || '' });
+                                        await updateCRMNote({
+                                          activityId: act.id,
+                                          title: editingNoteTitle.trim(),
+                                          description: editingNoteDesc.trim() || '',
+                                        });
                                         setEditingNoteId(null);
                                         setEditingNoteTitle('');
                                         setEditingNoteDesc('');
@@ -729,9 +753,20 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                               ) : (
                                 <div>
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-foreground">{act.title || '(no title)'}</span>
+                                    <span className="text-xs font-bold text-foreground">
+                                      {act.title || '(no title)'}
+                                    </span>
                                     <div className="flex gap-1">
-                                      <button type="button" className="p-0.5 text-[10px] text-muted-foreground hover:text-primary" title="Edit" onClick={() => { setEditingNoteId(act.id); setEditingNoteTitle(act.title || ''); setEditingNoteDesc(act.description || ''); }}>
+                                      <button
+                                        type="button"
+                                        className="p-0.5 text-[10px] text-muted-foreground hover:text-primary"
+                                        title="Edit"
+                                        onClick={() => {
+                                          setEditingNoteId(act.id);
+                                          setEditingNoteTitle(act.title || '');
+                                          setEditingNoteDesc(act.description || '');
+                                        }}
+                                      >
                                         ✎
                                       </button>
                                       <ConfirmAction
@@ -741,8 +776,10 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                         danger
                                         idleClassName="text-[10px] text-muted-foreground hover:text-rose-600"
                                         onConfirm={async () => {
+                                          const contactId = selectedContact?.id;
+                                          if (!contactId) return;
                                           await deleteCRMNote(act.id);
-                                          loadActivities(selectedContact!.id);
+                                          loadActivities(contactId);
                                           toast.success('Note deleted');
                                         }}
                                       >
@@ -750,7 +787,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                       </ConfirmAction>
                                     </div>
                                   </div>
-                                  {act.description && <p className="text-[11px] text-muted-foreground mt-1">{act.description}</p>}
+                                  {act.description && (
+                                    <p className="text-[11px] text-muted-foreground mt-1">
+                                      {act.description}
+                                    </p>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -762,19 +803,42 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                         className="mt-2 flex gap-2"
                         onSubmit={async (e) => {
                           e.preventDefault();
-                          const titleEl = (e.target as HTMLFormElement).querySelector('input[name="title"]') as HTMLInputElement;
-                          const descEl = (e.target as HTMLFormElement).querySelector('textarea[name="desc"]') as HTMLTextAreaElement;
+                          const titleEl = (e.target as HTMLFormElement).querySelector(
+                            'input[name="title"]'
+                          ) as HTMLInputElement;
+                          const descEl = (e.target as HTMLFormElement).querySelector(
+                            'textarea[name="desc"]'
+                          ) as HTMLTextAreaElement;
                           if (!selectedContact || !titleEl?.value.trim()) return;
-                          await addCRMNote({ contactId: selectedContact.id, title: titleEl.value.trim(), description: (descEl?.value.trim() || '') as string });
+                          await addCRMNote({
+                            contactId: selectedContact.id,
+                            title: titleEl.value.trim(),
+                            description: (descEl?.value.trim() || '') as string,
+                          });
                           titleEl.value = '';
                           if (descEl) descEl.value = '';
                           loadActivities(selectedContact.id);
                           toast.success('Note added');
                         }}
                       >
-                        <input name="title" placeholder="Title…" className="flex-1 px-2 py-1 text-xs rounded border border-border" required />
-                        <textarea name="desc" placeholder="Details (optional)" rows={1} className="w-full mt-1 px-2 py-1 text-xs rounded border border-border resize-none" />
-                        <button type="submit" className="self-end text-xs font-bold px-2 py-1 bg-primary text-white rounded hover:bg-primary-light">Add</button>
+                        <input
+                          name="title"
+                          placeholder="Title…"
+                          className="flex-1 px-2 py-1 text-xs rounded border border-border"
+                          required
+                        />
+                        <textarea
+                          name="desc"
+                          placeholder="Details (optional)"
+                          rows={1}
+                          className="w-full mt-1 px-2 py-1 text-xs rounded border border-border resize-none"
+                        />
+                        <button
+                          type="submit"
+                          className="self-end text-xs font-bold px-2 py-1 bg-primary text-white rounded hover:bg-primary-light"
+                        >
+                          Add
+                        </button>
                       </form>
                     </div>
                   </div>
