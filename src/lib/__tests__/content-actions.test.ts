@@ -33,8 +33,14 @@ vi.mock('@/lib/env', () => ({
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key';
 
-const { getContentForEdit, deleteContent, duplicateContent, getContentRevisions, saveContent } =
-  await import('@/lib/actions/content');
+const {
+  getContentForEdit,
+  getContentList,
+  deleteContent,
+  duplicateContent,
+  getContentRevisions,
+  saveContent,
+} = await import('@/lib/actions/content');
 const { createMockAdminClient, defaultInsertedUpdatedAt } = await import('./supabase-mock');
 
 // ---------------------------------------------------------------------------
@@ -71,6 +77,59 @@ describe('getContentForEdit', () => {
     });
 
     await expect(getContentForEdit(5)).rejects.toThrow('connection failed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getContentList
+// ---------------------------------------------------------------------------
+
+describe('getContentList', () => {
+  it('applies status, type and query filters with explicit paging', async () => {
+    // The query reaches `.or()`, which is PostgREST syntax the row-based mock
+    // does not parse — so the matching subset is declared as `filterRows` and
+    // the modelled `.eq()` filters compose on top of it.
+    const match = {
+      id: 1,
+      title: 'Hello hall',
+      slug: 'hello',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      published_at: null,
+      featured_image: null,
+      updated_at: '2026-01-02T00:00:00.000Z',
+      created_at: '2026-01-01T00:00:00.000Z',
+    };
+    const other = {
+      id: 2,
+      title: 'Draft notes',
+      slug: 'draft',
+      excerpt: null,
+      type: 'post',
+      status: 'draft',
+      published_at: null,
+      featured_image: null,
+      updated_at: '2026-01-01T00:00:00.000Z',
+      created_at: '2026-01-01T00:00:00.000Z',
+    };
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: { rows: [match, other], filterRows: [match] },
+      }),
+    });
+
+    const result = await getContentList({
+      status: 'publish',
+      type: 'page',
+      query: 'hello',
+      pageSize: 5,
+    });
+
+    expect(result.page).toBe(1);
+    expect(result.pageSize).toBe(5);
+    expect(result.totalCount).toBe(1);
+    expect(result.rows.map((row) => row.id)).toEqual([1]);
   });
 });
 
