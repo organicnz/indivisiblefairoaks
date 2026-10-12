@@ -20,6 +20,8 @@ import {
   Layers,
   Link as LinkIcon,
   Loader2,
+  Monitor,
+  Moon,
   PenLine,
   Plus,
   Redo2,
@@ -27,8 +29,10 @@ import {
   Settings,
   Sparkles,
   Strikethrough,
+  Sun,
   Trash2,
   Undo2,
+  Upload,
   UploadCloud,
   UsersRound,
   X,
@@ -39,6 +43,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
+import { useThemeMode } from '@/components/layout/theme-store';
 import { useEditContext } from '@/components/layout/useEditContext';
 import { useVisualEditMode } from '@/components/layout/visual-edit-store';
 import {
@@ -82,6 +87,7 @@ import {
   redo as redoHistory,
   undo as undoHistory,
 } from '@/lib/editor-history';
+import { themeModeLabel } from '@/lib/theme';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import { highlightPageSection } from '@/lib/visual-edit-mode';
 import {
@@ -293,6 +299,7 @@ export function VisualEditOverlay() {
   const pathname = rawPathname ?? '/';
   const { enabled, toggle } = useVisualEditMode(pathname);
   const { isAdmin, target } = useEditContext(pathname);
+  const { mode: themeMode, cycle: cycleTheme } = useThemeMode();
 
   // ── The document being edited ──────────────────────────────────────────────
   //
@@ -972,6 +979,40 @@ export function VisualEditOverlay() {
     },
     [refreshSections]
   );
+
+  /** Import a page snapshot JSON file to replace or restore blocks */
+  const handleImportPageJson = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text) as {
+          title?: string;
+          slug?: string;
+          blocks?: Block[];
+        };
+        if (!Array.isArray(parsed.blocks) || parsed.blocks.length === 0) {
+          toast.error('Invalid page snapshot: no blocks array found');
+          return;
+        }
+        const validatedBlocks: Block[] = parsed.blocks.map((b) => ({
+          ...b,
+          id: nextBlockId(),
+        }));
+        if (parsed.title) setPageTitle(parsed.title);
+        if (parsed.slug) setPageSlug(parsed.slug);
+        commitBlocks(validatedBlocks);
+        toast.success(`Imported ${validatedBlocks.length} blocks from page snapshot`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to import page snapshot JSON');
+      }
+    };
+    input.click();
+  }, [commitBlocks]);
 
   const handleUndo = useCallback(() => {
     const step = undoHistory(history, body);
@@ -2051,6 +2092,24 @@ export function VisualEditOverlay() {
               <span className="hidden md:inline">
                 Frames: {showAllSectionBorders ? 'ON' : 'OFF'}
               </span>
+            </button>
+
+            {/* Theme Mode Preview Toggle */}
+            <button
+              type="button"
+              onClick={cycleTheme}
+              title={`Preview theme: ${themeModeLabel(themeMode)} (click to switch)`}
+              aria-label="Cycle theme mode preview"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/10"
+            >
+              {themeMode === 'light' ? (
+                <Sun size={13} className="text-amber-300" />
+              ) : themeMode === 'dark' ? (
+                <Moon size={13} className="text-blue-300" />
+              ) : (
+                <Monitor size={13} className="text-emerald-300" />
+              )}
+              <span className="hidden lg:inline capitalize">{themeModeLabel(themeMode)}</span>
             </button>
 
             {/* Section Navigator */}
@@ -3300,15 +3359,26 @@ export function VisualEditOverlay() {
               </fieldset>
 
               <div className="flex items-center justify-between border-t border-border pt-4">
-                <button
-                  type="button"
-                  onClick={handleExportPageJson}
-                  title="Export page document and blocks as JSON"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors"
-                >
-                  <Download size={14} className="text-muted-foreground" />
-                  <span>Export JSON</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExportPageJson}
+                    title="Export page document and blocks as JSON"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors"
+                  >
+                    <Download size={14} className="text-muted-foreground" />
+                    <span>Export JSON</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleImportPageJson}
+                    title="Import page snapshot JSON file"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors"
+                  >
+                    <Upload size={14} className="text-muted-foreground" />
+                    <span>Import JSON</span>
+                  </button>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -3507,6 +3577,12 @@ export function VisualEditOverlay() {
                     <span className="text-foreground">Copy / Paste Block JSON</span>
                     <span className="text-[11px] font-mono text-muted-foreground">
                       Section Modal
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Import / Export Page JSON</span>
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      Settings Modal
                     </span>
                   </div>
                 </div>
