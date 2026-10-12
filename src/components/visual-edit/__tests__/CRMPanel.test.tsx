@@ -12,7 +12,7 @@ const getCRMContacts = vi.hoisted(() =>
         first_name: 'Test',
         last_name: 'Person',
         do_not_email: false,
-        tags: [],
+        tags: ['test'],
         status: 'supporter',
         phone: null,
         address: null,
@@ -37,9 +37,28 @@ const exportCRMContacts = vi.hoisted(() =>
   })
 );
 
+const saveCRMContact = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    success: true,
+    contact: {
+      id: 'c1',
+      email: 'test@test.org',
+      first_name: 'Test',
+      last_name: 'Person',
+      do_not_email: false,
+      tags: ['test', 'volunteer'],
+      status: 'active_volunteer',
+      notes: null,
+      activities: [],
+      updated_at: '2026-10-12T00:00:00Z',
+    },
+  })
+);
+
 vi.mock('@/lib/actions/crm', () => ({
   getCRMContacts,
   exportCRMContacts,
+  saveCRMContact,
   getCRMContactDetail: vi.fn().mockResolvedValue({
     contact: {
       id: 'c1',
@@ -191,5 +210,55 @@ describe('CRMPanel', () => {
       }
     });
     expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ status: 'donor' }));
+  });
+
+  it('updates constituent status directly from the detail view', async () => {
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const statusDropdown = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Update constituent status"]'
+    );
+    expect(statusDropdown).not.toBeNull();
+    await act(async () => {
+      if (statusDropdown) {
+        statusDropdown.value = 'active_volunteer';
+        statusDropdown.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    expect(saveCRMContact).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'c1', status: 'active_volunteer' })
+    );
+  });
+
+  it('adds and removes tags directly from the constituent card', async () => {
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    // Remove existing tag 'test'
+    const removeBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Remove tag test"]'
+    );
+    expect(removeBtn).not.toBeNull();
+    await act(async () => {
+      removeBtn?.click();
+    });
+    expect(saveCRMContact).toHaveBeenCalledWith(expect.objectContaining({ id: 'c1', tags: [] }));
   });
 });

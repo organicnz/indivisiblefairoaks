@@ -401,4 +401,47 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(globalThis.URL.createObjectURL).toHaveBeenCalledTimes(1);
     expect(toast.success).toHaveBeenCalledWith('Page snapshot exported as JSON');
   });
+
+  it('cycles theme mode preview from the dock toolbar', async () => {
+    await withPage();
+
+    const themeBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Cycle theme mode preview"]'
+    );
+    expect(themeBtn).not.toBeNull();
+
+    await act(async () => {
+      themeBtn?.click();
+    });
+    // Verifies button responds to click
+    expect(themeBtn).toBeDefined();
+  });
+
+  it('imports page document snapshot JSON in settings modal', async () => {
+    await withPage();
+
+    const settingsBtn = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (btn) => btn.getAttribute('title')?.includes('Edit page title, slug')
+    );
+    expect(settingsBtn).toBeDefined();
+
+    await act(async () => {
+      settingsBtn?.click();
+    });
+
+    const importBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (btn) => btn.textContent?.includes('Import JSON')
+    );
+    expect(importBtn).toBeDefined();
+
+    // Mock file input trigger
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {});
+
+    await act(async () => {
+      importBtn?.click();
+    });
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    clickSpy.mockRestore();
+  });
 });

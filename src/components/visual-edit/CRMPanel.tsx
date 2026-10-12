@@ -38,12 +38,20 @@ import {
   getCRMContacts,
   getCRMSegments,
   getCRMTasksForContact,
+  saveCRMContact,
   setCRMEmailConsent,
   setCRMTaskStatus,
   updateCRMNote,
 } from '@/lib/actions/crm';
 import { consentLabel } from '@/lib/crm-filters';
-import type { ConsentFilter, CRMActivity, CRMContact, CRMSegment, CRMTask } from '@/types/unified';
+import type {
+  ConsentFilter,
+  CRMActivity,
+  CRMContact,
+  CRMContactStatus,
+  CRMSegment,
+  CRMTask,
+} from '@/types/unified';
 
 interface CRMPanelProps {
   isOpen: boolean;
@@ -90,6 +98,8 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [newNoteDesc, setNewNoteDesc] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [isAddingTag, setIsAddingTag] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const PAGE_SIZE = 25;
@@ -253,6 +263,129 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update consent');
+    }
+  };
+
+  const handleSetStatus = async (status: CRMContactStatus) => {
+    if (!selectedContact) return;
+    try {
+      const res = await saveCRMContact({
+        id: selectedContact.id,
+        email: selectedContact.email,
+        first_name: selectedContact.first_name,
+        last_name: selectedContact.last_name,
+        phone: selectedContact.phone,
+        address: selectedContact.address,
+        city: selectedContact.city,
+        zip_code: selectedContact.zip_code,
+        district: selectedContact.district ?? undefined,
+        notes: selectedContact.notes,
+        tags: selectedContact.tags,
+        status,
+        updated_at: selectedContact.updated_at,
+      });
+      if (res.success) {
+        setSelectedContact((prev) =>
+          prev
+            ? {
+                ...prev,
+                status,
+                updated_at: res.updatedAt || prev.updated_at,
+              }
+            : null
+        );
+        toast.success(`Status updated to ${status.replace('_', ' ')}`);
+        loadContacts();
+      } else {
+        toast.error(res.error ?? 'Failed to update status');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update status');
+    }
+  };
+
+  const handleAddTag = async (newTag: string) => {
+    if (!selectedContact || !newTag.trim()) return;
+    const tag = newTag.trim().toLowerCase();
+    if (selectedContact.tags.includes(tag)) {
+      toast.error(`Tag "${tag}" already exists`);
+      return;
+    }
+    const updatedTags = [...selectedContact.tags, tag];
+    try {
+      const res = await saveCRMContact({
+        id: selectedContact.id,
+        email: selectedContact.email,
+        first_name: selectedContact.first_name,
+        last_name: selectedContact.last_name,
+        phone: selectedContact.phone,
+        address: selectedContact.address,
+        city: selectedContact.city,
+        zip_code: selectedContact.zip_code,
+        district: selectedContact.district ?? undefined,
+        notes: selectedContact.notes,
+        status: selectedContact.status as CRMContactStatus,
+        tags: updatedTags,
+        updated_at: selectedContact.updated_at,
+      });
+      if (res.success) {
+        setSelectedContact((prev) =>
+          prev
+            ? {
+                ...prev,
+                tags: updatedTags,
+                updated_at: res.updatedAt || prev.updated_at,
+              }
+            : null
+        );
+        setNewTagInput('');
+        setIsAddingTag(false);
+        toast.success(`Tag "${tag}" added`);
+        loadContacts();
+      } else {
+        toast.error(res.error ?? 'Failed to add tag');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add tag');
+    }
+  };
+
+  const handleRemoveTag = async (tagToRemove: string) => {
+    if (!selectedContact) return;
+    const updatedTags = selectedContact.tags.filter((t) => t !== tagToRemove);
+    try {
+      const res = await saveCRMContact({
+        id: selectedContact.id,
+        email: selectedContact.email,
+        first_name: selectedContact.first_name,
+        last_name: selectedContact.last_name,
+        phone: selectedContact.phone,
+        address: selectedContact.address,
+        city: selectedContact.city,
+        zip_code: selectedContact.zip_code,
+        district: selectedContact.district ?? undefined,
+        notes: selectedContact.notes,
+        status: selectedContact.status as CRMContactStatus,
+        tags: updatedTags,
+        updated_at: selectedContact.updated_at,
+      });
+      if (res.success) {
+        setSelectedContact((prev) =>
+          prev
+            ? {
+                ...prev,
+                tags: updatedTags,
+                updated_at: res.updatedAt || prev.updated_at,
+              }
+            : null
+        );
+        toast.success(`Tag "${tagToRemove}" removed`);
+        loadContacts();
+      } else {
+        toast.error(res.error ?? 'Failed to remove tag');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove tag');
     }
   };
 
@@ -660,11 +793,22 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                           </a>
                         </div>
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
-                          <span
-                            className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[selectedContact.status] || 'bg-muted text-muted-foreground'}`}
+                          <select
+                            value={selectedContact.status}
+                            onChange={(e) => handleSetStatus(e.target.value as CRMContactStatus)}
+                            aria-label="Update constituent status"
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border border-border transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent-gold ${
+                              STATUS_COLORS[selectedContact.status] ||
+                              'bg-muted text-muted-foreground'
+                            }`}
                           >
-                            {selectedContact.status.replace('_', ' ')}
-                          </span>
+                            <option value="active_volunteer">Active Volunteer</option>
+                            <option value="supporter">Supporter</option>
+                            <option value="donor">Donor</option>
+                            <option value="choir">Choir</option>
+                            <option value="organizer">Organizer</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
                           {consentOptions.map((opt) => {
                             const currentConsent = consentLabel(selectedContact.do_not_email);
                             return (
@@ -784,18 +928,78 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                             </span>
                           </div>
                         )}
-                      {selectedContact.tags.length > 0 && (
-                        <div className="sm:col-span-2 flex flex-wrap gap-1">
+                      <div className="sm:col-span-2 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <Tag size={12} />
+                            <span>Tags ({selectedContact.tags.length})</span>
+                          </span>
+                          {!isAddingTag && (
+                            <button
+                              type="button"
+                              onClick={() => setIsAddingTag(true)}
+                              className="text-xs font-bold text-primary hover:text-primary-light transition-colors inline-flex items-center gap-1"
+                            >
+                              <Plus size={11} /> Add Tag
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 items-center">
                           {selectedContact.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="px-2 py-0.5 rounded bg-surface-muted border border-border text-xs font-semibold text-foreground"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-muted border border-border text-xs font-semibold text-foreground group"
                             >
-                              {tag}
+                              <span>{tag}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTag(tag)}
+                                title={`Remove tag ${tag}`}
+                                aria-label={`Remove tag ${tag}`}
+                                className="text-muted-foreground hover:text-rose-400 transition-colors"
+                              >
+                                <X size={11} />
+                              </button>
                             </span>
                           ))}
+                          {isAddingTag && (
+                            <form
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                handleAddTag(newTagInput);
+                              }}
+                              className="inline-flex items-center gap-1"
+                            >
+                              <input
+                                type="text"
+                                value={newTagInput}
+                                onChange={(e) => setNewTagInput(e.target.value)}
+                                placeholder="New tag…"
+                                autoFocus
+                                className="px-2 py-0.5 text-xs rounded-lg border border-primary bg-background text-foreground focus:outline-none w-28"
+                              />
+                              <button
+                                type="submit"
+                                className="p-1 rounded bg-primary text-white text-xs font-bold hover:bg-primary-light"
+                                title="Add tag"
+                              >
+                                <Check size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAddingTag(false);
+                                  setNewTagInput('');
+                                }}
+                                className="p-1 rounded text-muted-foreground hover:text-foreground"
+                                title="Cancel"
+                              >
+                                <X size={12} />
+                              </button>
+                            </form>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
 
                     {/* Consent Control */}

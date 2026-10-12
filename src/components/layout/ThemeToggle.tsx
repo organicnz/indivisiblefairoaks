@@ -1,7 +1,7 @@
 'use client';
 
 import { Monitor, Moon, Sun } from 'lucide-react';
-import { nextThemeMode, type ThemeMode, themeModeLabel } from '@/lib/theme';
+import { nextThemeMode, THEME_ORDER, type ThemeMode, themeModeLabel } from '@/lib/theme';
 import { useThemeMode } from './theme-store';
 
 // Focus ring, matching the header's other controls. Declared per component by
@@ -43,10 +43,40 @@ function themeToggleLabel(mode: ThemeMode): string {
  * says what a click will do — a control whose glyph and announcement disagree
  * is worse than one with no glyph.
  */
-export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' }) {
-  const { mode, cycle } = useThemeMode();
+export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' | 'segmented' }) {
+  const { mode, setMode, cycle } = useThemeMode();
   const Icon = MODE_ICON[mode];
   const label = themeToggleLabel(mode);
+
+  if (variant === 'segmented') {
+    return (
+      <fieldset className="inline-flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
+        <legend className="sr-only">Color theme</legend>
+        {THEME_ORDER.map((m) => {
+          const ItemIcon = MODE_ICON[m];
+          const isActive = mode === m;
+          return (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => setMode(m)}
+              data-theme-mode={m}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                isActive
+                  ? 'bg-amber-400 text-secondary shadow-xs font-extrabold'
+                  : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'
+              }`}
+              title={`Switch to ${themeModeLabel(m)} theme`}
+            >
+              <ItemIcon size={14} aria-hidden="true" />
+              <span className="capitalize">{themeModeLabel(m)}</span>
+            </button>
+          );
+        })}
+      </fieldset>
+    );
+  }
 
   if (variant === 'icon') {
     return (
@@ -64,19 +94,44 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' }
   }
 
   return (
-    <button
-      type="button"
-      onClick={cycle}
-      data-theme-mode={mode}
-      aria-label={label}
-      title={label}
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-colors duration-300 ease-out text-sm font-medium ${FOCUS_RING}`}
-    >
-      <Icon size={18} aria-hidden="true" />
-      <span>Appearance</span>
-      <span className="ml-auto text-xs font-semibold uppercase tracking-wider text-ink-muted-on-dark">
-        {themeModeLabel(mode)}
-      </span>
-    </button>
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={cycle}
+        data-theme-mode={mode}
+        aria-label={label}
+        title={label}
+        className={`flex w-full items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-colors duration-300 ease-out text-sm font-medium ${FOCUS_RING}`}
+      >
+        <Icon size={18} aria-hidden="true" />
+        <span>Appearance</span>
+        <span className="ml-auto text-xs font-semibold uppercase tracking-wider text-ink-muted-on-dark">
+          {themeModeLabel(mode)}
+        </span>
+      </button>
+      <fieldset className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
+        <legend className="sr-only">Color theme modes</legend>
+        {THEME_ORDER.map((m) => {
+          const ItemIcon = MODE_ICON[m];
+          const isSelected = mode === m;
+          return (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => setMode(m)}
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                isSelected
+                  ? 'bg-amber-400 text-secondary shadow-xs font-black'
+                  : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <ItemIcon size={13} aria-hidden="true" />
+              <span className="capitalize">{themeModeLabel(m)}</span>
+            </button>
+          );
+        })}
+      </fieldset>
+    </div>
   );
 }
