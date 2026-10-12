@@ -14,6 +14,7 @@ import {
   FolderOpen,
   History,
   Italic,
+  Keyboard,
   Layers,
   Link as LinkIcon,
   Loader2,
@@ -392,6 +393,7 @@ export function VisualEditOverlay() {
   // Revisions history modal state
   const [isRevisionsOpen, setIsRevisionsOpen] = useState(false);
   const [isCRMPanelOpen, setIsCRMPanelOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
 
@@ -401,6 +403,13 @@ export function VisualEditOverlay() {
   const titleId = useId();
   const slugId = useId();
   const featuredImageId = useId();
+
+  /** Copy the currently edited block to the clipboard as structured JSON */
+  const handleCopyBlockJson = useCallback(() => {
+    if (!editingBlock) return;
+    void navigator.clipboard?.writeText(JSON.stringify(editingBlock, null, 2));
+    toast.success('Block definition copied to clipboard as JSON');
+  }, [editingBlock]);
 
   /**
    * Where the local draft for this document lives.
@@ -1325,6 +1334,12 @@ export function VisualEditOverlay() {
         handleDeleteSection(activeBlockIndex);
         return;
       }
+      // Toggle shortcuts help (⌘/)
+      if (key === '/') {
+        event.preventDefault();
+        setIsShortcutsOpen((prev) => !prev);
+        return;
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -2115,6 +2130,18 @@ export function VisualEditOverlay() {
               <span className="hidden lg:inline">CRM Studio</span>
             </a>
 
+            {/* Keyboard Shortcuts Help */}
+            <button
+              type="button"
+              onClick={() => setIsShortcutsOpen(true)}
+              title="Keyboard shortcuts cheat sheet (⌘/)"
+              aria-label="Keyboard shortcuts cheat sheet"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+            >
+              <Keyboard size={14} className="text-accent-gold" />
+              <span className="hidden xl:inline">Shortcuts</span>
+            </button>
+
             {/* Backend Health Badge */}
             <div className="relative">
               <button
@@ -2490,6 +2517,9 @@ export function VisualEditOverlay() {
                       onChange={(e) => setEditingBlock({ ...editingBlock, html: e.target.value })}
                       className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
                     />
+                    <div className="mt-1 flex items-center justify-end text-[11px] text-muted-foreground">
+                      <span>{editingBlock.html.length} characters</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2566,6 +2596,14 @@ export function VisualEditOverlay() {
                       className="w-full border-0 p-3 text-sm focus:outline-none resize-none font-sans"
                       spellCheck={true}
                     />
+                  </div>
+                  <div className="mt-1 flex items-center justify-end gap-2 text-[11px] text-muted-foreground">
+                    <span>
+                      {editingBlock.html.trim() ? editingBlock.html.trim().split(/\s+/).length : 0}{' '}
+                      words
+                    </span>
+                    <span>·</span>
+                    <span>{editingBlock.html.length} characters</span>
                   </div>
                 </div>
               )}
@@ -3014,21 +3052,32 @@ export function VisualEditOverlay() {
             </div>
 
             <div className="flex items-center justify-between border-t border-border pt-4 mt-2">
-              {editingBlockIndex !== null && (
-                <ConfirmAction
-                  label="Delete Section"
-                  message="Delete this section from the page?"
-                  danger
-                  onConfirm={() => {
-                    setIsSectionModalOpen(false);
-                    handleDeleteSection(editingBlockIndex);
-                  }}
-                  idleClassName="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-bold"
+              <div className="flex items-center gap-2">
+                {editingBlockIndex !== null && (
+                  <ConfirmAction
+                    label="Delete Section"
+                    message="Delete this section from the page?"
+                    danger
+                    onConfirm={() => {
+                      setIsSectionModalOpen(false);
+                      handleDeleteSection(editingBlockIndex);
+                    }}
+                    idleClassName="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-bold"
+                  >
+                    <Trash2 size={14} />
+                    <span>Delete Section</span>
+                  </ConfirmAction>
+                )}
+                <button
+                  type="button"
+                  onClick={handleCopyBlockJson}
+                  title="Copy block definition as JSON"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-foreground hover:bg-surface-muted text-xs font-bold transition-colors"
                 >
-                  <Trash2 size={14} />
-                  <span>Delete Section</span>
-                </ConfirmAction>
-              )}
+                  <Code size={14} className="text-muted-foreground" />
+                  <span>Copy JSON</span>
+                </button>
+              </div>
               <div className="flex items-center gap-2 ml-auto">
                 <button
                   type="button"
@@ -3298,6 +3347,129 @@ export function VisualEditOverlay() {
                 className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
               >
                 Close
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── Keyboard Shortcuts Cheat Sheet ─────────────────────────────────── */}
+      {isShortcutsOpen && (
+        <Dialog open={isShortcutsOpen} onOpenChange={setIsShortcutsOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Keyboard size={18} className="text-accent-gold" />
+                <span>Visual Editor Shortcuts</span>
+              </DialogTitle>
+              <DialogDescription>
+                Power-user shortcuts to navigate, format, and manage page content rapidly.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 my-3 text-xs">
+              <div>
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                  Navigation & Global
+                </h4>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Toggle Shortcuts Cheat Sheet</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ /
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Toggle Visual Editor</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ E
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Next / Previous Section</span>
+                    <div className="flex gap-1">
+                      <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                        J / ↓
+                      </kbd>
+                      <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                        K / ↑
+                      </kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Edit Selected Section</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      Enter
+                    </kbd>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                  Section & History Actions
+                </h4>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Duplicate Active Section</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ D
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Delete Active Section</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ ⌫
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Undo / Redo Edit</span>
+                    <div className="flex gap-1">
+                      <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                        ⌘ Z
+                      </kbd>
+                      <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                        ⌘ ⇧ Z
+                      </kbd>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                  In-Editor Formatting
+                </h4>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Bold Selection</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ B
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Italic Selection</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ I
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Insert Link</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ K
+                    </kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setIsShortcutsOpen(false)}
+                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
+              >
+                Got It
               </button>
             </div>
           </DialogContent>

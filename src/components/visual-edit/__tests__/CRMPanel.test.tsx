@@ -130,4 +130,25 @@ describe('CRMPanel', () => {
     expect(link).not.toBeNull();
     expect(link?.getAttribute('target')).toBe('_blank');
   });
+
+  it('provides email and broadcast compose quick actions on constituent 360', async () => {
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const mailtoLink = document.body.querySelector('a[href="mailto:test@test.org"]');
+    expect(mailtoLink).not.toBeNull();
+
+    const broadcastLink = document.body.querySelector(
+      'a[href="/admin/crm/broadcasts?recipient=test%40test.org"]'
+    );
+    expect(broadcastLink).not.toBeNull();
+  });
 });
