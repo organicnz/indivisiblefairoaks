@@ -3,8 +3,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CRMPanel } from '@/components/visual-edit/CRMPanel';
 
-vi.mock('@/lib/actions/crm', () => ({
-  getCRMContacts: vi.fn().mockResolvedValue({
+const getCRMContacts = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
     contacts: [
       {
         id: 'c1',
@@ -25,7 +25,21 @@ vi.mock('@/lib/actions/crm', () => ({
       },
     ],
     totalCount: 1,
-  }),
+  })
+);
+
+const exportCRMContacts = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    csv: 'id,email\nc1,test@test.org',
+    count: 1,
+    matchedCount: 1,
+    truncated: false,
+  })
+);
+
+vi.mock('@/lib/actions/crm', () => ({
+  getCRMContacts,
+  exportCRMContacts,
   getCRMContactDetail: vi.fn().mockResolvedValue({
     contact: {
       id: 'c1',
@@ -80,6 +94,8 @@ describe('CRMPanel', () => {
     vi.clearAllMocks();
     container = document.createElement('div');
     document.body.appendChild(container);
+    globalThis.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
+    globalThis.URL.revokeObjectURL = vi.fn();
     await act(async () => {
       root = createRoot(container);
       root.render(<CRMPanel isOpen onClose={() => {}} />);
@@ -150,5 +166,30 @@ describe('CRMPanel', () => {
       'a[href="/admin/crm/broadcasts?recipient=test%40test.org"]'
     );
     expect(broadcastLink).not.toBeNull();
+  });
+
+  it('exports constituents to CSV when clicking the export button', async () => {
+    const exportBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.getAttribute('aria-label') === 'Export CSV' || b.textContent?.includes('Export')
+    );
+    expect(exportBtn).not.toBeUndefined();
+    await act(async () => {
+      exportBtn?.click();
+    });
+    expect(exportCRMContacts).toHaveBeenCalledTimes(1);
+  });
+
+  it('filters constituents by status dropdown', async () => {
+    const statusSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Filter by constituent status"]'
+    );
+    expect(statusSelect).not.toBeNull();
+    await act(async () => {
+      if (statusSelect) {
+        statusSelect.value = 'donor';
+        statusSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ status: 'donor' }));
   });
 });
