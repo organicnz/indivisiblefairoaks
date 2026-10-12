@@ -199,12 +199,17 @@ export default defineConfig({
          *
          * Achieved 2026-09-30: 58.82 statements / 54.54 branches / 61.53
          * functions / 65.71 lines.
+         *
+         * Raised 2026-10-12 to 65 / 57 / 70 / 70: the first getContentList
+         * suite (status/type/query filters with explicit paging) moved
+         * branches 51.92 → 60.25. Branches sit tight because that metric is
+         * what failed; the rest keep headroom.
          */
         'src/lib/actions/content.ts': {
-          statements: 58,
-          branches: 54,
-          functions: 61,
-          lines: 65,
+          statements: 65,
+          branches: 57,
+          functions: 70,
+          lines: 70,
         },
 
         /**

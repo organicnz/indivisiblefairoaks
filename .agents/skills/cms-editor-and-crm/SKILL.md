@@ -412,7 +412,7 @@ that only go up.
 green. **Cover the new file — never widen an exclusion to accommodate it.**
 
 **Current floors, stated on single lines where the gate checks them.**
-`src/lib/actions/crm.ts` on an explicit floor of **89 / 85 / 100 / 93**; `src/lib/actions/content.ts` on **58 / 54 / 61 / 65** — both re-derived from
+`src/lib/actions/crm.ts` on an explicit floor of **89 / 85 / 100 / 93**; `src/lib/actions/content.ts` on **65 / 57 / 70 / 70** — both re-derived from
 `vitest.config.ts` by `scripts/check-doc-claims.mjs`, which fails on a mismatch.
 (The single-line rule matters: that script matches per line, so a guarded number
 split across two lines matches nothing and the staleness goes silent. That is

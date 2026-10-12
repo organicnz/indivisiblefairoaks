@@ -14,7 +14,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/lib/image-size', () => ({
-  measureImageSize: () => ({ width: 800, height: 600 }),
+  measureImageSize: vi.fn(() => ({ width: 800, height: 600 })),
 }));
 
 /** The storage object the actions talk to — one per `configure` call. */
@@ -140,6 +140,18 @@ describe('content-media actions', () => {
 
       await expect(getContentMedia(99)).rejects.toThrow('Content row not found or unpublished');
     });
+
+    it('throws when the media list query fails', async () => {
+      const { getContentMedia } = await import('@/lib/actions/content-media');
+      configure({
+        content: { rows: [publishedRow(42)] },
+        content_media: { rows: [], error: { message: 'list blew up' } },
+      });
+
+      await expect(getContentMedia(42)).rejects.toThrow(
+        'Failed to list content media: list blew up'
+      );
+    });
   });
 
   describe('createContentMediaRow', () => {
@@ -177,6 +189,27 @@ describe('content-media actions', () => {
       } as unknown as ContentMediaInsert);
       expect(result.success).toBe(false);
       expect(result.error).toContain('content_id');
+    });
+
+    it('reports an insert failure', async () => {
+      const { createContentMediaRow } = await import('@/lib/actions/content-media');
+      configure({
+        content: { rows: [publishedRow(42)] },
+        content_media: { rows: [], error: { message: 'insert blew up' } },
+      });
+
+      const result = await createContentMediaRow({
+        content_id: 42,
+        name: 'test.jpg',
+        path: 'content/42-xyz.jpg',
+        url: 'https://test.supabase.co/storage/v1/object/public/media/content/42-xyz.jpg',
+        mime_type: 'image/jpeg',
+        size: 50000,
+        width: 800,
+        height: 600,
+      });
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('insert blew up');
     });
 
     it('refuses a draft content row', async () => {
@@ -235,6 +268,21 @@ describe('content-media actions', () => {
       const result = await updateContentMediaRow('missing', { alt_text: 'x' });
       expect(result.success).toBe(false);
       expect(result.error).toBe('Media row not found');
+    });
+
+    it('reports a fetch failure', async () => {
+      const { updateContentMediaRow } = await import('@/lib/actions/content-media');
+      configure({
+        content: { rows: [publishedRow(42)] },
+        content_media: {
+          rows: [mediaRow({ id: 'test-id', content_id: 42 })],
+          error: { message: 'fetch blew up' },
+        },
+      });
+
+      const result = await updateContentMediaRow('test-id', { alt_text: 'x' });
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('fetch blew up');
     });
   });
 
@@ -342,6 +390,22 @@ describe('content-media actions', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Media row not found');
     });
+
+    it('reports a fetch failure', async () => {
+      const { deleteContentMediaRow } = await import('@/lib/actions/content-media');
+      configure({
+        content: { rows: [publishedRow(42)] },
+        content_media: {
+          rows: [mediaRow({ id: 'test-id', path: REFERENCED_PATH })],
+          error: { message: 'fetch blew up' },
+        },
+        content_revisions: { rows: [] },
+      });
+
+      const result = await deleteContentMediaRow('test-id');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('fetch blew up');
+    });
   });
 
   describe('uploadAndCreateContentMedia', () => {
@@ -413,6 +477,54 @@ describe('content-media actions', () => {
         'Content row not found or unpublished'
       );
       expect(storageMocks.upload).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing file', async () => {
+      const { uploadAndCreateContentMedia } = await import('@/lib/actions/content-media');
+      configure({ content: { rows: [publishedRow(42)] }, content_media: { rows: [] } });
+
+      const result = await uploadAndCreateContentMedia(new FormData(), 42);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('No file provided');
+      expect(storageMocks.upload).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a storage upload failure', async () => {
+      const { uploadAndCreateContentMedia } = await import('@/lib/actions/content-media');
+      configure(
+        {
+          content: { rows: [publishedRow(42)] },
+          content_media: { rows: [], insert: { id: 'new-media' } },
+        },
+        { upload: { error: { message: 'disk full' } } }
+      );
+
+      const file = new File(['test'], 'hero.jpg', { type: 'image/jpeg' });
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const result = await uploadAndCreateContentMedia(formData, 42);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('disk full');
+    });
+
+    it('stores null dimensions when the image cannot be measured', async () => {
+      const { uploadAndCreateContentMedia } = await import('@/lib/actions/content-media');
+      const { measureImageSize } = await import('@/lib/image-size');
+      vi.mocked(measureImageSize).mockReturnValueOnce(null);
+      configure({
+        content: { rows: [publishedRow(42)] },
+        content_media: { rows: [], insert: { id: 'new-media' } },
+      });
+
+      const file = new File(['test'], 'hero.jpg', { type: 'image/jpeg' });
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const result = await uploadAndCreateContentMedia(formData, 42);
+      expect(result.success, result.error ?? 'no error').toBe(true);
+      expect(result.data?.width).toBeNull();
+      expect(result.data?.height).toBeNull();
     });
   });
 });
