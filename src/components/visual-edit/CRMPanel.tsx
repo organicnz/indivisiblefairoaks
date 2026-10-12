@@ -10,10 +10,12 @@ import {
   Mail,
   MapPin,
   MessageSquare,
+  PenLine,
   Phone,
   Plus,
   Search,
   Tag,
+  Trash2,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -447,6 +449,12 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
       contact={selectedContact ?? undefined}
       isOpen={isEditorOpen}
       onClose={() => setIsEditorOpen(false)}
+      onSaved={() => {
+        loadContacts();
+        if (selectedContact) {
+          loadActivities(selectedContact.id);
+        }
+      }}
     />
   ) : null;
 
@@ -838,7 +846,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                           }}
                           className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors shadow-xs"
                         >
-                          <Plus size={12} className="mr-1" /> Edit
+                          <PenLine size={12} className="mr-1" /> Edit
                         </button>
                         <ConfirmAction
                           label="Delete constituent"
@@ -1219,7 +1227,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                           setEditingNoteDesc(act.description || '');
                                         }}
                                       >
-                                        ✎
+                                        <PenLine size={12} />
                                       </button>
                                       <ConfirmAction
                                         label="Delete Note"
@@ -1235,7 +1243,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                           toast.success('Note deleted');
                                         }}
                                       >
-                                        🗑
+                                        <Trash2 size={12} />
                                       </ConfirmAction>
                                     </div>
                                   </div>

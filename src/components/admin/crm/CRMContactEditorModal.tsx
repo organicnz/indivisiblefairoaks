@@ -20,9 +20,10 @@ interface Props {
   contact?: CRMContact;
   isOpen: boolean;
   onClose: () => void;
+  onSaved?: () => void;
 }
 
-export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
+export function CRMContactEditorModal({ contact, isOpen, onClose, onSaved }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [tagInput, setTagInput] = useState('');
@@ -121,6 +122,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose }: Props) {
       } else {
         baseVersionRef.current = res.updatedAt ?? null;
         toast.success(contact ? 'Constituent updated' : 'Constituent created');
+        onSaved?.();
         router.refresh();
         onClose();
       }
