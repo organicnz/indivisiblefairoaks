@@ -5,7 +5,7 @@
 # Skip one command     : LEFTHOOK_EXCLUDE=<name> git <action>
 #
 # ── Baseline metrics (update when intentionally changed) ─────────────────────
-    # suppress-count baseline: 24  (checked in pre-push; composition is
+    # suppress-count baseline: 27  (checked in pre-push; composition is
     # documented beside the BASELINE below)
 
 # coverage threshold     : 90% (checked in pre-push + vitest.config.ts)
@@ -343,6 +343,12 @@ pre-push:
     suppress-count:
       priority: 30
       run: |
+        # Baseline 24 → 27, three `noArrayIndexKey` on the visual overlay's
+        # table grid (VisualEditOverlay): header cells, rows, cells. Same
+        # pattern and reasoning as the baselined BlockEditor entry below —
+        # controlled inputs in a positional grid, so the index is the
+        # identity and a content key would unfocus the cell mid-keystroke.
+        #
         # Baseline 7 → 9 → 10 → 12 → 15 → 22 → 24. None of the additions is a workaround for a
         # real defect; in two cases the rule is wrong rather than the code.
         #
@@ -424,7 +430,7 @@ pre-push:
         #   1x noDangerouslySetInnerHtml — ContentPreview renders the sanitized
         #      body through the same sanitizeWPContent boundary as the public
         #      page. The suppression is the security boundary, not a workaround.
-        BASELINE=24
+        BASELINE=27
         COUNT=$(grep -rn "@ts-ignore\|@ts-nocheck\|biome-ignore\|eslint-disable" \
           src --include="*.ts" --include="*.tsx" 2>/dev/null \
           | grep -v "__tests__" | wc -l | tr -d ' ')
