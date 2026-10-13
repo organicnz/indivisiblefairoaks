@@ -104,11 +104,14 @@ jobs:
   # ── 0. Change scope ──────────────────────────────────────────────────────
   # Docs-only pushes skip the heavy jobs. No third-party filter action: the
   # pattern mirrors RUNTIME_PATTERN in scripts/hooks/e2e-gate.mjs (the local
-  # pre-push gate). ubuntu-latest, seconds, never holds a self-hosted slot.
+  # pre-push gate). Self-hosted like every other job here: GitHub-hosted
+  # minutes are billing-gated and a dead account fails this gate in 3s, which
+  # then skips the entire pipeline. A seconds-long checkout plus bash holds a
+  # fleet slot briefly; a gate that cannot start holds everything forever.
   # Fail-open: if the diff cannot be computed, runtime=true runs everything.
   changes:
     name: Change scope
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, frontend-runner]
     timeout-minutes: 5
     outputs:
       runtime: ${{ steps.scope.outputs.runtime }}
@@ -436,14 +439,15 @@ jobs:
   # red. Do not re-add it. This job reads the REST API instead, which is the
   # only shape that works without `vercel link` state (the CLI aborts on CI).
   #
-  # Runs on `ubuntu-latest`, not the fleet: this job is a sleep-poll over
-  # HTTPS plus two file writes. Nothing in it needs the tailnet, a warm bun
-  # cache, or any private network, and holding a self-hosted slot for a ~10
-  # minute poll blocks real jobs behind it. GitHub-hosted minutes for a
-  # push-to-main-only job are noise next to that.
+  # Self-hosted like every other job here, on the backend role: this job is a
+  # sleep-poll over HTTPS plus two file writes. Nothing in it needs a warm bun
+  # cache, and GitHub-hosted minutes are billing-gated — a dead account fails
+  # this gate in 3s on every main push. A ~10 minute poll holds a fleet slot,
+  # which is the price of a gate that can start; the backend role keeps it off
+  # the frontend build path.
   vercel-deploy:
     name: Vercel Deployment
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, backend-runner]
     # Deliberately NOT `needs: [build]`. This observes Vercel's deploy, which
     # has its own lifecycle; waiting on our build only gave it a reason to be
     # stale. Push-only, because a pull request has not shipped anything.
