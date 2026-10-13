@@ -33,12 +33,15 @@ import {
 } from '@/components/ui/Dialog';
 import {
   addCRMNote,
+  bulkDeleteCRMContacts,
+  bulkUpdateCRMContacts,
   deleteCRMContact,
   deleteCRMNote,
   deleteCRMTask,
   exportCRMContacts,
   getCRMContactDetail,
   getCRMContacts,
+  getCRMExistingTags,
   getCRMSegments,
   getCRMTasksForContact,
   saveCRMContact,
@@ -88,6 +91,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [consentFilter, setConsentFilter] = useState<ConsentFilter>('all');
   const [statusFilter, setStatusFilter] = useState<CRMContact['status'] | 'all'>('all');
   const [isExporting, setIsExporting] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string>('');
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState('');
   const [tasks, setTasks] = useState<CRMTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [segments, setSegments] = useState<CRMSegment[]>([]);
@@ -116,6 +124,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
         query: searchQuery || undefined,
         consent: consentFilter === 'all' ? undefined : consentFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
+        tag: selectedTag || undefined,
         page,
         pageSize: PAGE_SIZE,
       });
@@ -126,7 +135,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, page, consentFilter, statusFilter]);
+  }, [searchQuery, page, consentFilter, statusFilter, selectedTag]);
 
   const handleExportCSV = async () => {
     if (totalCount === 0) {
@@ -139,6 +148,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
         query: searchQuery || undefined,
         consent: consentFilter === 'all' ? undefined : consentFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
+        tag: selectedTag || undefined,
       });
       if (res.error || !res.csv) {
         toast.error(res.error || 'Failed to export CSV');
@@ -186,6 +196,15 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     }
   }, []);
 
+  const loadTags = useCallback(async () => {
+    try {
+      const res = await getCRMExistingTags();
+      setAvailableTags(res.tags);
+    } catch {
+      // Non-fatal if tag metadata fails to load
+    }
+  }, []);
+
   useEffect(() => {
     loadContacts();
   }, [loadContacts]);
@@ -193,8 +212,9 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen) {
       loadSegments();
+      loadTags();
     }
-  }, [isOpen, loadSegments]);
+  }, [isOpen, loadSegments, loadTags]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -365,6 +385,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
         setIsAddingTag(false);
         toast.success(`Tag "${tag}" added`);
         loadContacts();
+        loadTags();
       } else {
         toast.error(res.error ?? 'Failed to add tag');
       }
@@ -404,11 +425,111 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
         );
         toast.success(`Tag "${tagToRemove}" removed`);
         loadContacts();
+        loadTags();
       } else {
         toast.error(res.error ?? 'Failed to remove tag');
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove tag');
+    }
+  };
+
+  const handleBulkStatus = async (status: CRMContactStatus) => {
+    if (selectedContactIds.size === 0) return;
+    setIsBulkUpdating(true);
+    try {
+      const res = await bulkUpdateCRMContacts({
+        contactIds: Array.from(selectedContactIds),
+        status,
+      });
+      if (res.success) {
+        toast.success(
+          `Updated status for ${res.updatedCount ?? selectedContactIds.size} constituents`
+        );
+        setSelectedContactIds(new Set());
+        loadContacts();
+      } else {
+        toast.error(res.error ?? 'Failed to update status');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update status');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const handleBulkConsent = async (consent: 'opted_in' | 'opted_out' | 'unasked') => {
+    if (selectedContactIds.size === 0) return;
+    setIsBulkUpdating(true);
+    try {
+      const res = await bulkUpdateCRMContacts({
+        contactIds: Array.from(selectedContactIds),
+        consent,
+      });
+      if (res.success) {
+        toast.success(
+          `Updated consent for ${res.updatedCount ?? selectedContactIds.size} constituents`
+        );
+        setSelectedContactIds(new Set());
+        loadContacts();
+      } else {
+        toast.error(res.error ?? 'Failed to update consent');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update consent');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const handleBulkAddTag = async () => {
+    if (selectedContactIds.size === 0 || !bulkTagInput.trim()) return;
+    const tag = bulkTagInput.trim().toLowerCase();
+    setIsBulkUpdating(true);
+    try {
+      const res = await bulkUpdateCRMContacts({
+        contactIds: Array.from(selectedContactIds),
+        addTags: [tag],
+      });
+      if (res.success) {
+        toast.success(
+          `Added tag #${tag} to ${res.updatedCount ?? selectedContactIds.size} constituents`
+        );
+        setBulkTagInput('');
+        setSelectedContactIds(new Set());
+        loadContacts();
+        loadTags();
+      } else {
+        toast.error(res.error ?? 'Failed to add tag');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add tag');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedContactIds.size === 0) return;
+    setIsBulkUpdating(true);
+    try {
+      const ids = Array.from(selectedContactIds);
+      const res = await bulkDeleteCRMContacts(ids);
+      if (res.success) {
+        toast.success(`Deleted ${res.deletedCount ?? ids.length} constituents`);
+        if (selectedContact && ids.includes(selectedContact.id)) {
+          setSelectedContact(null);
+        }
+        setSelectedContactIds(new Set());
+        loadContacts();
+        loadTags();
+      } else {
+        toast.error(res.error ?? 'Failed to delete constituents');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete constituents');
+    } finally {
+      setIsBulkUpdating(false);
     }
   };
 
@@ -637,7 +758,204 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={selectedTag}
+                    onChange={(e) => {
+                      setSelectedTag(e.target.value);
+                      setPage(1);
+                    }}
+                    aria-label="Filter by tag"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate"
+                  >
+                    <option value="">
+                      All tags{availableTags.length > 0 ? ` (${availableTags.length})` : ''}
+                    </option>
+                    {availableTags.map((tag) => (
+                      <option key={tag} value={tag}>
+                        #{tag}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedTag && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTag('');
+                        setPage(1);
+                      }}
+                      className="px-2 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1 transition-colors"
+                      aria-label="Clear tag filter"
+                      title="Clear tag filter"
+                    >
+                      <X size={12} />
+                      <span>Clear</span>
+                    </button>
+                  )}
+                </div>
+                {selectedTag && (
+                  <div className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Tag size={12} className="shrink-0" />
+                      <span className="font-semibold truncate">Filtered by #{selectedTag}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTag('');
+                        setPage(1);
+                      }}
+                      className="text-primary hover:text-primary-dark p-0.5 rounded"
+                      aria-label="Remove active tag filter"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {/* Select All & Multi-Select Toolbar */}
+              {contacts.length > 0 && (
+                <div className="px-3 py-1.5 bg-muted/50 border-b border-border flex items-center justify-between text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all constituents on page"
+                      checked={
+                        contacts.length > 0 && contacts.every((c) => selectedContactIds.has(c.id))
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedContactIds((prev) => {
+                            const next = new Set(prev);
+                            for (const c of contacts) {
+                              next.add(c.id);
+                            }
+                            return next;
+                          });
+                        } else {
+                          setSelectedContactIds((prev) => {
+                            const next = new Set(prev);
+                            for (const c of contacts) {
+                              next.delete(c.id);
+                            }
+                            return next;
+                          });
+                        }
+                      }}
+                      className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5 cursor-pointer"
+                    />
+                    <span className="text-muted-foreground font-medium">
+                      {selectedContactIds.size > 0
+                        ? `${selectedContactIds.size} selected`
+                        : `Select all (${contacts.length})`}
+                    </span>
+                  </label>
+                  {selectedContactIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedContactIds(new Set())}
+                      className="text-muted-foreground hover:text-foreground text-[11px] underline"
+                      aria-label="Clear selection"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {selectedContactIds.size > 0 && (
+                <div className="p-2.5 bg-primary/5 border-b border-primary/20 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-primary">
+                    <span className="flex items-center gap-1.5">
+                      <Check size={13} className="text-primary" />
+                      <span>Bulk Actions ({selectedContactIds.size})</span>
+                    </span>
+                    {isBulkUpdating && <Loader2 size={12} className="animate-spin text-primary" />}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          void handleBulkStatus(e.target.value as CRMContactStatus);
+                          e.target.value = '';
+                        }
+                      }}
+                      defaultValue=""
+                      disabled={isBulkUpdating}
+                      aria-label="Bulk update status"
+                      className="px-2 py-1 rounded bg-background border border-border text-[11px] font-medium focus:ring-1 focus:ring-primary truncate disabled:opacity-50"
+                    >
+                      <option value="" disabled>
+                        Change status…
+                      </option>
+                      <option value="active_volunteer">Active volunteer</option>
+                      <option value="supporter">Supporter</option>
+                      <option value="donor">Donor</option>
+                      <option value="choir">Choir</option>
+                      <option value="organizer">Organizer</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          void handleBulkConsent(
+                            e.target.value as 'opted_in' | 'opted_out' | 'unasked'
+                          );
+                          e.target.value = '';
+                        }
+                      }}
+                      defaultValue=""
+                      disabled={isBulkUpdating}
+                      aria-label="Bulk update consent"
+                      className="px-2 py-1 rounded bg-background border border-border text-[11px] font-medium focus:ring-1 focus:ring-primary truncate disabled:opacity-50"
+                    >
+                      <option value="" disabled>
+                        Change consent…
+                      </option>
+                      <option value="opted_in">Opt in</option>
+                      <option value="opted_out">Opt out</option>
+                      <option value="unasked">Never asked</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={bulkTagInput}
+                      onChange={(e) => setBulkTagInput(e.target.value)}
+                      placeholder="Add tag to selected…"
+                      disabled={isBulkUpdating}
+                      aria-label="Bulk tag name input"
+                      className="w-full px-2 py-1 text-[11px] rounded bg-background border border-border focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void handleBulkAddTag();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleBulkAddTag}
+                      disabled={!bulkTagInput.trim() || isBulkUpdating}
+                      aria-label="Apply bulk tag"
+                      className="px-2 py-1 text-[11px] font-bold rounded bg-primary text-white hover:bg-primary-light disabled:opacity-50 shrink-0 transition-colors"
+                    >
+                      Tag
+                    </button>
+                    <ConfirmAction
+                      label={`Delete ${selectedContactIds.size} constituents`}
+                      message={`Delete ${selectedContactIds.size} selected constituents? This cannot be undone.`}
+                      confirmLabel="Delete all"
+                      danger
+                      onConfirm={handleBulkDelete}
+                      idleClassName="p-1 rounded bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 text-xs transition-colors shrink-0 disabled:opacity-50"
+                    >
+                      <Trash2 size={13} />
+                    </ConfirmAction>
+                  </div>
+                </div>
+              )}
 
               {/* Contact List */}
               <div className="flex-1 overflow-y-auto">
@@ -653,55 +971,79 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                 ) : (
                   <ul className="divide-y divide-border">
                     {contacts.map((contact) => (
-                      <button
+                      <li
                         key={contact.id}
-                        type="button"
-                        className={`w-full px-3 py-2 text-left transition-colors ${
+                        className={`flex items-start gap-2.5 px-3 py-2 transition-colors ${
                           selectedContact?.id === contact.id
                             ? 'bg-primary/10'
                             : 'hover:bg-background/50'
                         }`}
-                        onClick={() => setSelectedContact(contact)}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">
-                              {contact.first_name} {contact.last_name}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {contact.email}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${STATUS_COLORS[contact.status] || 'bg-muted text-muted-foreground'}`}
-                            >
-                              {contact.status.replace('_', ' ')}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          {consentOptions.map((opt) => {
-                            const currentConsent = consentLabel(contact.do_not_email);
-                            return (
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${contact.first_name} ${contact.last_name}`}
+                          checked={selectedContactIds.has(contact.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setSelectedContactIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) {
+                                next.add(contact.id);
+                              } else {
+                                next.delete(contact.id);
+                              }
+                              return next;
+                            });
+                          }}
+                          className="rounded border-border text-primary focus:ring-primary w-3.5 h-3.5 mt-1 shrink-0 cursor-pointer"
+                        />
+                        <button
+                          type="button"
+                          className="flex-1 min-w-0 text-left cursor-pointer focus:outline-none"
+                          onClick={() => setSelectedContact(contact)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate text-foreground text-sm">
+                                {contact.first_name} {contact.last_name}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {contact.email}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
                               <span
-                                key={opt.value}
-                                className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
-                                  currentConsent === opt.value
-                                    ? CONSENT_COLORS[opt.value]
-                                    : 'bg-muted/50 text-muted-foreground'
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  STATUS_COLORS[contact.status] || 'bg-muted text-muted-foreground'
                                 }`}
                               >
-                                {opt.value === 'opted_in'
-                                  ? '✓'
-                                  : opt.value === 'opted_out'
-                                    ? '✗'
-                                    : '?'}
+                                {contact.status.replace('_', ' ')}
                               </span>
-                            );
-                          })}
-                        </div>
-                      </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            {consentOptions.map((opt) => {
+                              const currentConsent = consentLabel(contact.do_not_email);
+                              return (
+                                <span
+                                  key={opt.value}
+                                  className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                                    currentConsent === opt.value
+                                      ? CONSENT_COLORS[opt.value]
+                                      : 'bg-muted/50 text-muted-foreground'
+                                  }`}
+                                >
+                                  {opt.value === 'opted_in'
+                                    ? '✓'
+                                    : opt.value === 'opted_out'
+                                      ? '✗'
+                                      : '?'}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </button>
+                      </li>
                     ))}
                   </ul>
                 )}
@@ -1006,7 +1348,19 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                               key={tag}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-muted border border-border text-xs font-semibold text-foreground group"
                             >
-                              <span>{tag}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTag(tag);
+                                  setPage(1);
+                                  toast.info(`Filtered by tag #${tag}`);
+                                }}
+                                className="hover:text-primary hover:underline transition-colors flex items-center gap-1 cursor-pointer"
+                                title={`Filter constituents by #${tag}`}
+                                aria-label={`Filter constituents by tag ${tag}`}
+                              >
+                                <span>#{tag}</span>
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveTag(tag)}

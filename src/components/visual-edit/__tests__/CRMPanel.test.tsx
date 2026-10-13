@@ -1,3 +1,6 @@
+// @vitest-environment jsdom
+(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -55,10 +58,35 @@ const saveCRMContact = vi.hoisted(() =>
   })
 );
 
+const bulkUpdateCRMContacts = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    success: true,
+    updatedCount: 1,
+  })
+);
+
+const bulkDeleteCRMContacts = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    success: true,
+    deletedCount: 1,
+  })
+);
+
+const getCRMExistingTags = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    tags: ['test', 'volunteer', 'donor'],
+    truncated: false,
+    scanned: 3,
+  })
+);
+
 vi.mock('@/lib/actions/crm', () => ({
   getCRMContacts,
   exportCRMContacts,
   saveCRMContact,
+  bulkUpdateCRMContacts,
+  bulkDeleteCRMContacts,
+  getCRMExistingTags,
   getCRMContactDetail: vi.fn().mockResolvedValue({
     contact: {
       id: 'c1',
@@ -349,5 +377,196 @@ describe('CRMPanel', () => {
     });
     expect(document.body.textContent).toContain('Call voter');
     expect(document.body.textContent).not.toContain('Sent sticker');
+  });
+
+  it('filters constituents by tag dropdown and allows clearing filter', async () => {
+    const tagSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Filter by tag"]'
+    );
+    expect(tagSelect).not.toBeNull();
+    await act(async () => {
+      if (tagSelect) {
+        tagSelect.value = 'volunteer';
+        tagSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ tag: 'volunteer' }));
+
+    // Verify active tag filter badge is displayed
+    expect(document.body.textContent).toContain('Filtered by #volunteer');
+
+    // Clear tag filter
+    const clearBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Remove active tag filter"]'
+    );
+    expect(clearBtn).not.toBeNull();
+    await act(async () => {
+      clearBtn?.click();
+    });
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ tag: undefined }));
+  });
+
+  it('filters constituents when clicking tag badge in constituent 360 card', async () => {
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const tagFilterBadgeBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Filter constituents by tag test"]'
+    );
+    expect(tagFilterBadgeBtn).not.toBeNull();
+    await act(async () => {
+      tagFilterBadgeBtn?.click();
+    });
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ tag: 'test' }));
+  });
+
+  it('toggles select-all and individual contact checkboxes', async () => {
+    const selectAllCheckbox = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Select all constituents on page"]'
+    );
+    expect(selectAllCheckbox).not.toBeNull();
+
+    // Select all
+    await act(async () => {
+      selectAllCheckbox?.click();
+    });
+    expect(document.body.textContent).toContain('1 selected');
+    expect(document.body.textContent).toContain('Bulk Actions (1)');
+
+    // Deselect individual
+    const contactCheckbox = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Select Test Person"]'
+    );
+    expect(contactCheckbox).not.toBeNull();
+    await act(async () => {
+      contactCheckbox?.click();
+    });
+    expect(document.body.textContent).toContain('Select all (1)');
+    expect(document.body.textContent).not.toContain('Bulk Actions (1)');
+  });
+
+  it('performs bulk status update for selected constituents', async () => {
+    const selectAllCheckbox = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Select all constituents on page"]'
+    );
+    expect(selectAllCheckbox).not.toBeNull();
+    await act(async () => {
+      selectAllCheckbox?.click();
+    });
+
+    const bulkStatusSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Bulk update status"]'
+    );
+    expect(bulkStatusSelect).not.toBeNull();
+    await act(async () => {
+      if (bulkStatusSelect) {
+        bulkStatusSelect.value = 'organizer';
+        bulkStatusSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    expect(bulkUpdateCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contactIds: ['c1'],
+        status: 'organizer',
+      })
+    );
+  });
+
+  it('performs bulk consent update for selected constituents', async () => {
+    const selectAllCheckbox = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Select all constituents on page"]'
+    );
+    expect(selectAllCheckbox).not.toBeNull();
+    await act(async () => {
+      selectAllCheckbox?.click();
+    });
+
+    const bulkConsentSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Bulk update consent"]'
+    );
+    expect(bulkConsentSelect).not.toBeNull();
+    await act(async () => {
+      if (bulkConsentSelect) {
+        bulkConsentSelect.value = 'opted_in';
+        bulkConsentSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    expect(bulkUpdateCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contactIds: ['c1'],
+        consent: 'opted_in',
+      })
+    );
+  });
+
+  it('performs bulk add tag for selected constituents', async () => {
+    const selectAllCheckbox = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Select all constituents on page"]'
+    );
+    expect(selectAllCheckbox).not.toBeNull();
+    await act(async () => {
+      selectAllCheckbox?.click();
+    });
+
+    const tagInput = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Bulk tag name input"]'
+    );
+    expect(tagInput).not.toBeNull();
+    await act(async () => {
+      if (tagInput) {
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        )?.set;
+        nativeSetter?.call(tagInput, 'canvass2026');
+        tagInput.dispatchEvent(new Event('input', { bubbles: true }));
+        tagInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    const applyTagBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Apply bulk tag"]'
+    );
+    expect(applyTagBtn).not.toBeNull();
+    await act(async () => {
+      applyTagBtn?.click();
+    });
+
+    expect(bulkUpdateCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contactIds: ['c1'],
+        addTags: ['canvass2026'],
+      })
+    );
+  });
+
+  it('performs bulk delete for selected constituents', async () => {
+    const selectAllCheckbox = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Select all constituents on page"]'
+    );
+    expect(selectAllCheckbox).not.toBeNull();
+    await act(async () => {
+      selectAllCheckbox?.click();
+    });
+
+    const bulkDeleteTrigger = document.body.querySelector<HTMLButtonElement>(
+      'button[data-label="Delete 1 constituents"]'
+    );
+    expect(bulkDeleteTrigger).not.toBeNull();
+    await act(async () => {
+      bulkDeleteTrigger?.click();
+    });
+
+    expect(bulkDeleteCRMContacts).toHaveBeenCalledWith(['c1']);
   });
 });
