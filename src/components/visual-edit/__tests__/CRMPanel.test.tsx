@@ -87,6 +87,11 @@ vi.mock('@/lib/actions/crm', () => ({
   deleteCRMTask: vi.fn().mockResolvedValue({ success: true }),
 }));
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+  usePathname: () => '/',
+}));
+
 vi.mock('@/lib/crm-filters', () => ({
   consentLabel: (v: boolean | null) => (v === null ? 'Never asked' : v ? 'Opted out' : 'Opted in'),
   ConsentFilter: null,
@@ -260,5 +265,17 @@ describe('CRMPanel', () => {
       removeBtn?.click();
     });
     expect(saveCRMContact).toHaveBeenCalledWith(expect.objectContaining({ id: 'c1', tags: [] }));
+  });
+
+  it('opens add constituent modal when clicking Add button', async () => {
+    const addBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim().includes('Add') ?? false
+    );
+    expect(addBtn).not.toBeUndefined();
+    await act(async () => {
+      addBtn?.click();
+    });
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
   });
 });
