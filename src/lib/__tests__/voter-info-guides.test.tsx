@@ -82,13 +82,17 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     expect(docLink?.target).toBe('_blank');
   });
 
-  it('contains target anchors for navigation sublinks', async () => {
+  it('renders the SAVE America Act educational video spotlight with valid iframe attributes', async () => {
     await act(async () => {
       root.render(<VoterInfoPage />);
     });
 
-    expect(container.querySelector('#representatives')).not.toBeNull();
-    expect(container.querySelector('#guides')).not.toBeNull();
-    expect(container.querySelector('#hotlines')).not.toBeNull();
+    expect(container.textContent).toContain('Understanding the SAVE America Act');
+    expect(container.textContent).toContain('Analysis by Lawyer Oyer');
+
+    const iframe = container.querySelector<HTMLIFrameElement>('iframe[src*="0a9zLvWVqgQ"]');
+    expect(iframe).not.toBeNull();
+    expect(iframe?.title).toContain('The SAVE America Act');
+    expect(iframe?.allowFullscreen).toBe(true);
   });
 });

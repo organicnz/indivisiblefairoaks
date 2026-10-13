@@ -95,13 +95,13 @@ export default async function HomePage() {
                 </h1>
 
                 <p className="text-lg sm:text-xl text-slate-200 leading-relaxed mb-8 drop-shadow-sm">
-                  We are{' '}
+                  The mission of the{' '}
                   <strong className="text-white font-extrabold">
-                    Indivisible Fair Oaks-Carmichael
-                  </strong>
-                  . We organize residents in and near Fair Oaks and Carmichael, California, to
-                  cultivate a disciplined, non-violent grassroots movement that defends democratic
-                  norms and builds progressive power.
+                    Fair Oaks-Carmichael chapter of Indivisible
+                  </strong>{' '}
+                  is to cultivate a non-violent grassroots movement to stop the rise of
+                  authoritarianism, to support and defend democratic norms, elect bold leaders, and
+                  secure progressive policies.
                 </p>
 
                 <div className="flex flex-wrap items-center gap-4">

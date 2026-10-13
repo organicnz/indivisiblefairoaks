@@ -72,8 +72,10 @@ describe('gatheringCard', () => {
   it('renders the static fallback when the table holds no meeting', () => {
     const card = gatheringCard(undefined);
     expect(card.title).toContain('Monthly Chapter Meeting');
+    expect(card.dateLine).toBe('Tuesday, November 10, 2026 • 6:30 PM – 8:00 PM');
     expect(card.rsvpUrl).toBe('https://www.mobilize.us/indivisible/');
     expect(card.calendarUrl).toContain('calendar.google.com/calendar/render');
+    expect(card.calendarUrl).toContain('20261110T183000');
   });
 });
 

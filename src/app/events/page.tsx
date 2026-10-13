@@ -1,5 +1,6 @@
-import { AlertCircle, Calendar, ExternalLink, Users } from 'lucide-react';
+import { AlertCircle, Calendar, ExternalLink, Music, Users } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
@@ -43,6 +44,45 @@ export default async function EventsPage() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
         <InteractiveEventsCalendar initialEvents={initialEvents} />
+
+        {/* Ongoing Street Corner Singing Protest Spotlight (Issue #87) */}
+        <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-border dark:border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-accent-gold shrink-0 mt-1 border border-white/10">
+              <Music size={24} />
+            </div>
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-accent-gold text-[11px] font-bold uppercase tracking-wide mb-1.5">
+                Ongoing Community Action
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-foreground dark:text-white tracking-tight">
+                Carmichael Resistance Choir: Street Corner Singing Protest
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1">
+                Every Saturday Afternoon • 3:00 PM – 4:30 PM • Corner of Fair Oaks Blvd &amp; Manzanita Ave, Carmichael, CA
+              </p>
+              <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark mt-2 leading-relaxed max-w-2xl">
+                We sing our protest to afternoon traffic and community patrons. Bring your signs, lawn chairs, and voices to stand up for democracy! No singing experience required — all community members are warmly welcomed.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full md:w-auto">
+            <Link
+              href="/choir"
+              className="w-full sm:w-auto text-center px-4 py-2.5 rounded-xl border border-slate-700 hover:bg-white/5 text-slate-200 text-xs font-semibold uppercase tracking-wider transition-all"
+            >
+              Explore Songbook
+            </Link>
+            <a
+              href="https://www.mobilize.us/indivisible/event/1011420/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto text-center px-5 py-2.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md"
+            >
+              Join Next Protest
+            </a>
+          </div>
+        </div>
 
         {/* Trainings & Campaign Initiatives — copy region */}
         <div className="space-y-6 pt-6 border-t border-border dark:border-white/10">
