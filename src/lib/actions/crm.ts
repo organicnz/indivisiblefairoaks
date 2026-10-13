@@ -3078,7 +3078,11 @@ export async function getCRMEdgeFunctionHealth(): Promise<BackendStatus> {
         ? `${env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/health`
         : undefined);
     if (functionUrl) {
-      const probeUrl = functionUrl.endsWith('/health') ? functionUrl : `${functionUrl}/health`;
+      const probeUrl = functionUrl.endsWith('/health')
+        ? functionUrl
+        : functionUrl.includes('/functions/v1/')
+          ? `${functionUrl.split('/functions/v1/')[0]}/functions/v1/health`
+          : `${functionUrl}/health`;
       const startTime = Date.now();
       try {
         const res = await fetch(probeUrl, {

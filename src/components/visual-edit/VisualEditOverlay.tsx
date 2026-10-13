@@ -68,6 +68,8 @@ import { getVisualPageContext } from '@/lib/actions/visual';
 import {
   type Block,
   CALLOUT_TONES,
+  type CalloutTone,
+  convertBlock,
   type HeadingLevel,
   nextBlockId,
   parseHtml,
@@ -103,6 +105,7 @@ import type {
   AddBlockDetail,
   BackendStatus,
   BackendSummary,
+  ConvertSectionDetail,
   DeleteSectionDetail,
   DuplicateSectionDetail,
   FocusSectionDetail,
@@ -163,6 +166,23 @@ const ADD_BLOCK_OPTIONS: ReadonlyArray<{ type: Block['type']; label: string }> =
   { type: 'quote', label: 'Quote Block' },
   { type: 'code', label: 'Code Block' },
   { type: 'divider', label: 'Divider Line' },
+];
+
+const CONVERT_BLOCK_OPTIONS: ReadonlyArray<{
+  type: Block['type'];
+  label: string;
+  headingLevel?: HeadingLevel;
+  calloutTone?: CalloutTone;
+}> = [
+  { type: 'heading', label: 'Heading 2 (H2)', headingLevel: 2 },
+  { type: 'heading', label: 'Heading 3 (H3)', headingLevel: 3 },
+  { type: 'paragraph', label: 'Paragraph Text' },
+  { type: 'callout', label: 'Callout (Info)', calloutTone: 'info' },
+  { type: 'callout', label: 'Callout (Action)', calloutTone: 'action' },
+  { type: 'callout', label: 'Callout (Warning)', calloutTone: 'warning' },
+  { type: 'quote', label: 'Quote Block' },
+  { type: 'bulletList', label: 'Bullet List' },
+  { type: 'code', label: 'Code Snippet' },
 ];
 
 /**
@@ -346,6 +366,7 @@ export function VisualEditOverlay() {
    * nothing) rather than blanking the panel.
    */
   const [backendSummary, setBackendSummary] = useState<BackendSummary | null>(null);
+  const [isDiagnosticsModalOpen, setIsDiagnosticsModalOpen] = useState(false);
 
   /** Section keys whose frame is drawn. The overlay owns this; the header asks. */
   const [enabledSectionKeys, setEnabledSectionKeys] = useState<Set<string>>(new Set());
@@ -1371,6 +1392,24 @@ export function VisualEditOverlay() {
     [commitBlocks, handlePersistBlocks]
   );
 
+  const handleConvertSection = useCallback(
+    async (
+      blockIndex: number,
+      targetType: Block['type'],
+      options?: { headingLevel?: HeadingLevel; calloutTone?: CalloutTone }
+    ) => {
+      const source = blocksRef.current[blockIndex];
+      if (!source) return;
+      const converted = convertBlock(source, targetType, options);
+      if (converted === source) return;
+      const nextBlocks = [...blocksRef.current];
+      nextBlocks[blockIndex] = converted;
+      commitBlocks(nextBlocks, null);
+      await handlePersistBlocks(nextBlocks, `Section converted to ${targetType}`);
+    },
+    [commitBlocks, handlePersistBlocks]
+  );
+
   // ⌘Z / ⌘⇧Z, ⌘S, and section shortcuts (⌘D, ⌘⇧↑/↓, ⌘⇧⌫)
   // Placed after all handler declarations to avoid use-before-declaration.
   useEffect(() => {
@@ -1551,6 +1590,15 @@ export function VisualEditOverlay() {
       handleDeleteSection(detail.blockIndex);
     };
 
+    const handleConvertSectionEvent = (e: Event) => {
+      const detail = (e as CustomEvent<ConvertSectionDetail>).detail;
+      if (detail?.blockIndex === undefined || !detail.type) return;
+      handleConvertSection(detail.blockIndex, detail.type, {
+        headingLevel: detail.headingLevel,
+        calloutTone: detail.calloutTone,
+      });
+    };
+
     const handleOpenMediaLibrary = () => {
       setMediaTarget('section');
       setMediaModalOpen(true);
@@ -1580,6 +1628,7 @@ export function VisualEditOverlay() {
     window.addEventListener(VISUAL_EDIT_EVENTS.addBlock, handleAddBlockGeneral);
     window.addEventListener(VISUAL_EDIT_EVENTS.duplicateSection, handleDuplicateSectionEvent);
     window.addEventListener(VISUAL_EDIT_EVENTS.deleteSection, handleDeleteSectionEvent);
+    window.addEventListener(VISUAL_EDIT_EVENTS.convertSection, handleConvertSectionEvent);
     window.addEventListener(VISUAL_EDIT_EVENTS.openMediaLibrary, handleOpenMediaLibrary);
     window.addEventListener(VISUAL_EDIT_EVENTS.openRevisions, handleOpenRevisions);
     window.addEventListener(VISUAL_EDIT_EVENTS.openSettings, handleOpenSettings);
@@ -1594,6 +1643,7 @@ export function VisualEditOverlay() {
       window.removeEventListener(VISUAL_EDIT_EVENTS.addBlock, handleAddBlockGeneral);
       window.removeEventListener(VISUAL_EDIT_EVENTS.duplicateSection, handleDuplicateSectionEvent);
       window.removeEventListener(VISUAL_EDIT_EVENTS.deleteSection, handleDeleteSectionEvent);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.convertSection, handleConvertSectionEvent);
       window.removeEventListener(VISUAL_EDIT_EVENTS.openMediaLibrary, handleOpenMediaLibrary);
       window.removeEventListener(VISUAL_EDIT_EVENTS.openRevisions, handleOpenRevisions);
       window.removeEventListener(VISUAL_EDIT_EVENTS.openSettings, handleOpenSettings);
@@ -1605,6 +1655,7 @@ export function VisualEditOverlay() {
     enabled,
     isAdmin,
     handleAddNewSection,
+    handleConvertSection,
     handleDeleteSection,
     handleDuplicateSection,
     handleMoveSection,
@@ -1830,6 +1881,114 @@ export function VisualEditOverlay() {
                       <ArrowDown size={13} />
                     </button>
                   )}
+
+                  {/* Quick heading level toggles if heading */}
+                  {item.blockType === 'heading' && (
+                    <div className="flex items-center gap-0.5 border-l border-white/20 pl-1">
+                      {([2, 3, 4] as const).map((lvl) => {
+                        const activeBlock = blocks[item.blockIndex];
+                        const isCurrentLevel =
+                          activeBlock?.type === 'heading' && activeBlock.level === lvl;
+                        return (
+                          <button
+                            key={lvl}
+                            type="button"
+                            onClick={() =>
+                              handleConvertSection(item.blockIndex, 'heading', {
+                                headingLevel: lvl,
+                              })
+                            }
+                            title={`Set heading to H${lvl}`}
+                            aria-label={`Set heading level ${lvl}`}
+                            className={`px-1 py-0.5 rounded text-[10px] font-black transition-colors ${
+                              isCurrentLevel
+                                ? 'bg-accent-gold text-secondary font-black shadow-2xs'
+                                : 'text-slate-300 hover:text-white hover:bg-white/15'
+                            }`}
+                          >
+                            H{lvl}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Quick callout tone toggles if callout */}
+                  {item.blockType === 'callout' && (
+                    <div className="flex items-center gap-0.5 border-l border-white/20 pl-1">
+                      {(['info', 'action', 'warning'] as const).map((tone) => {
+                        const activeBlock = blocks[item.blockIndex];
+                        const isCurrentTone =
+                          activeBlock?.type === 'callout' && activeBlock.tone === tone;
+                        return (
+                          <button
+                            key={tone}
+                            type="button"
+                            onClick={() =>
+                              handleConvertSection(item.blockIndex, 'callout', {
+                                calloutTone: tone,
+                              })
+                            }
+                            title={`Set tone to ${tone}`}
+                            aria-label={`Set callout tone ${tone}`}
+                            className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase transition-colors ${
+                              isCurrentTone
+                                ? 'bg-accent-gold text-secondary font-black shadow-2xs'
+                                : 'text-slate-300 hover:text-white hover:bg-white/15'
+                            }`}
+                          >
+                            {tone}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Convert section block type */}
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                      <button
+                        type="button"
+                        title="Convert section type"
+                        aria-label="Convert section type"
+                        className="rounded p-1 text-purple-400 hover:bg-white/15 hover:text-purple-300 transition-colors"
+                      >
+                        <Sparkles size={13} />
+                      </button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content
+                        side="bottom"
+                        align="start"
+                        sideOffset={6}
+                        aria-label="Convert section type"
+                        className="z-50 w-52 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                      >
+                        <div className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-ink-muted-on-dark border-b border-white/10 mb-1">
+                          Turn into
+                        </div>
+                        {CONVERT_BLOCK_OPTIONS.map((option) => (
+                          <DropdownMenu.Item
+                            key={`${option.type}-${option.headingLevel ?? option.calloutTone ?? 'default'}`}
+                            onSelect={() =>
+                              handleConvertSection(item.blockIndex, option.type, {
+                                headingLevel: option.headingLevel,
+                                calloutTone: option.calloutTone,
+                              })
+                            }
+                            className="flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                          >
+                            <span>{option.label}</span>
+                            {item.blockType === option.type && (
+                              <span className="text-[10px] text-accent-gold uppercase font-mono">
+                                Current
+                              </span>
+                            )}
+                          </DropdownMenu.Item>
+                        ))}
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
 
                   {/* Add block below — a menu of every type, not just a paragraph.
                       A pen-over-here control that can only append one block type
@@ -2388,6 +2547,16 @@ export function VisualEditOverlay() {
                       )}
                     </div>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowHealthDetails(false);
+                      setIsDiagnosticsModalOpen(true);
+                    }}
+                    className="w-full text-center py-1 mt-1 text-[11px] font-bold text-accent-gold hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-colors"
+                  >
+                    System Diagnostics →
+                  </button>
                 </div>
               )}
             </div>
@@ -2534,72 +2703,7 @@ export function VisualEditOverlay() {
                   value={editingBlock.type}
                   onChange={(e) => {
                     const newType = e.target.value as Block['type'];
-                    if (newType === 'heading') {
-                      setEditingBlock({
-                        id: editingBlock.id,
-                        type: 'heading',
-                        level: 2,
-                        html: 'Heading',
-                      });
-                    } else if (newType === 'bulletList') {
-                      setEditingBlock({
-                        id: editingBlock.id,
-                        type: 'bulletList',
-                        items: ['Action item 1', 'Action item 2'],
-                      });
-                    } else if (newType === 'orderedList') {
-                      setEditingBlock({
-                        id: editingBlock.id,
-                        type: 'orderedList',
-                        items: ['Step 1', 'Step 2'],
-                      });
-                    } else if (newType === 'table') {
-                      setEditingBlock({
-                        id: editingBlock.id,
-                        type: 'table',
-                        head: ['Column A', 'Column B'],
-                        rows: [
-                          ['Row 1', 'Row 1'],
-                          ['Row 2', 'Row 2'],
-                        ],
-                      });
-                    } else if (newType === 'callout') {
-                      setEditingBlock({
-                        id: editingBlock.id,
-                        type: 'callout',
-                        tone: 'info',
-                        html: 'Note',
-                      });
-                    } else if (newType === 'image') {
-                      setEditingBlock({
-                        id: editingBlock.id,
-                        type: 'image',
-                        src: '',
-                        alt: '',
-                        caption: '',
-                        width: null,
-                        height: null,
-                      });
-                    } else if (newType === 'button') {
-                      setEditingBlock({
-                        id: editingBlock.id,
-                        type: 'button',
-                        label: 'Click',
-                        href: '/',
-                      });
-                    } else if (newType === 'quote') {
-                      setEditingBlock({ id: editingBlock.id, type: 'quote', html: 'Quote text' });
-                    } else if (newType === 'divider') {
-                      setEditingBlock({ id: editingBlock.id, type: 'divider' });
-                    } else if (newType === 'code') {
-                      setEditingBlock({ id: editingBlock.id, type: 'code', text: '// code' });
-                    } else {
-                      setEditingBlock({
-                        id: editingBlock.id,
-                        type: 'paragraph',
-                        html: 'Paragraph copy',
-                      });
-                    }
+                    setEditingBlock(convertBlock(editingBlock, newType));
                   }}
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary"
                 >
@@ -3659,6 +3763,179 @@ export function VisualEditOverlay() {
                 className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
               >
                 Got It
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── System Diagnostics Modal ────────────────────────────────────────── */}
+      {isDiagnosticsModalOpen && (
+        <Dialog open={isDiagnosticsModalOpen} onOpenChange={setIsDiagnosticsModalOpen}>
+          <DialogContent className="max-w-xl bg-surface-card text-foreground p-6 rounded-3xl">
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                    <Activity className="text-accent-gold" size={18} />
+                    System &amp; Edge Diagnostics
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    Live health verification of Supabase PostgreSQL, S3 Media Storage, and Edge
+                    Functions.
+                  </DialogDescription>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => probeBackendHealth()}
+                  disabled={statusLoading}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors disabled:opacity-50 shadow-xs"
+                >
+                  <RefreshCw size={12} className={statusLoading ? 'animate-spin' : ''} />
+                  <span>{statusLoading ? 'Probing…' : 'Probe Now'}</span>
+                </button>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-3 my-4">
+              {/* Database */}
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-muted border border-border">
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`size-2.5 rounded-full ${
+                      backendStatus?.database ? 'bg-emerald-500' : 'bg-rose-500'
+                    }`}
+                  />
+                  <div>
+                    <p className="text-xs font-bold text-foreground">PostgreSQL Database</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      RLS-secured tables (content, CRM, products, catalog)
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                    backendStatus?.database
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-rose-500/10 text-rose-500'
+                  }`}
+                >
+                  {backendStatus?.database ? 'Connected' : 'Offline'}
+                </span>
+              </div>
+
+              {/* S3 Storage */}
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-muted border border-border">
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`size-2.5 rounded-full ${
+                      backendStatus?.storage ? 'bg-emerald-500' : 'bg-rose-500'
+                    }`}
+                  />
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Supabase S3 Storage</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Bucket &quot;media&quot; (crm, content, products folders)
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                    backendStatus?.storage
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-rose-500/10 text-rose-500'
+                  }`}
+                >
+                  {backendStatus?.storage ? 'Ready' : 'Error'}
+                </span>
+              </div>
+
+              {/* Edge Function */}
+              <div className="p-3 rounded-2xl bg-surface-muted border border-border space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`size-2.5 rounded-full ${
+                        backendStatus?.edgeFunction ? 'bg-emerald-500' : 'bg-amber-500'
+                      }`}
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Edge Functions API</p>
+                      <p className="text-[11px] font-mono text-muted-foreground truncate max-w-[280px]">
+                        {backendStatus?.edgeFunctionDetails?.endpoint || 'functions/v1/health'}
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                      backendStatus?.edgeFunction
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'bg-amber-500/10 text-amber-500'
+                    }`}
+                  >
+                    {backendStatus?.edgeFunction ? 'Healthy' : 'Degraded'}
+                  </span>
+                </div>
+                {backendStatus?.edgeFunctionDetails && (
+                  <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
+                    <span>
+                      Latency:{' '}
+                      <strong className="text-foreground">
+                        {backendStatus.edgeFunctionDetails.latencyMs ?? '—'}ms
+                      </strong>
+                    </span>
+                    <span>
+                      Checked:{' '}
+                      {backendStatus.edgeFunctionDetails.checkedAt
+                        ? new Date(backendStatus.edgeFunctionDetails.checkedAt).toLocaleTimeString()
+                        : 'Recently'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Platform Overview */}
+              {backendSummary && (
+                <div className="p-3 rounded-2xl bg-surface-muted border border-border">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                    Platform Summary
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 rounded-xl bg-background border border-border">
+                      <span className="text-muted-foreground block text-[10px] font-semibold uppercase">
+                        Constituents
+                      </span>
+                      <span className="text-base font-black text-foreground">
+                        {backendSummary.crmTotal ?? '—'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        {backendSummary.segments} segments
+                        {backendSummary.segmentsTruncated ? '+' : ''}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-background border border-border">
+                      <span className="text-muted-foreground block text-[10px] font-semibold uppercase">
+                        Catalog
+                      </span>
+                      <span className="text-base font-black text-foreground">
+                        {backendSummary.products}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block mt-0.5">
+                        {backendSummary.gallery} photos · {backendSummary.events} events
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setIsDiagnosticsModalOpen(false)}
+                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
+              >
+                Close
               </button>
             </div>
           </DialogContent>

@@ -18,6 +18,7 @@
 
 import type {
   AddBlockDetail,
+  ConvertSectionDetail,
   DeleteSectionDetail,
   DuplicateSectionDetail,
   FocusSectionDetail,
@@ -41,6 +42,8 @@ export const VISUAL_EDIT_EVENTS = {
   duplicateSection: 'indivisible:duplicate-section',
   /** Remove a block from the document and persist. */
   deleteSection: 'indivisible:delete-section',
+  /** Convert a block to a different block type, preserving content. */
+  convertSection: 'indivisible:convert-section',
   /** Insert a block after the active section, or append to the page. */
   addBlock: 'indivisible:add-block',
   /** Insert a block at a specific position. */
@@ -91,6 +94,10 @@ export function duplicateSectionVisual(detail: DuplicateSectionDetail): void {
 
 export function deleteSectionVisual(detail: DeleteSectionDetail): void {
   window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.deleteSection, { detail }));
+}
+
+export function convertSectionVisual(detail: ConvertSectionDetail): void {
+  window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.convertSection, { detail }));
 }
 
 /** Append a block, or insert one after a position when `insertAfterBlockIndex` is set. */

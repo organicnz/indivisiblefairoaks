@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   addBlockVisual,
+  convertSectionVisual,
   deleteSectionVisual,
   duplicateSectionVisual,
   focusSectionVisual,
@@ -142,6 +143,18 @@ describe('emitters', () => {
     expect(win.seen[1].detail).toEqual({ blockIndex: 2 });
     expect(win.seen[0].type).toBe(VISUAL_EDIT_EVENTS.duplicateSection);
     expect(win.seen[1].type).toBe(VISUAL_EDIT_EVENTS.deleteSection);
+    win.restore();
+  });
+
+  it('convertSectionVisual carries the block index and target type options', () => {
+    const win = recordingWindow();
+    convertSectionVisual({ blockIndex: 3, type: 'callout', calloutTone: 'warning' });
+    expect(win.seen[0].type).toBe(VISUAL_EDIT_EVENTS.convertSection);
+    expect(win.seen[0].detail).toEqual({
+      blockIndex: 3,
+      type: 'callout',
+      calloutTone: 'warning',
+    });
     win.restore();
   });
 

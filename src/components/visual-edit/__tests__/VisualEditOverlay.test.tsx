@@ -468,4 +468,82 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     );
     expect(mediaBtn).not.toBeNull();
   });
+
+  it('handles convertSection event, transforming block and persisting', async () => {
+    saveContent.mockResolvedValue({ success: true, data: { id: 7 } });
+    await withPage();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.convertSection, {
+          detail: { blockIndex: 0, type: 'callout', calloutTone: 'action' },
+        })
+      );
+    });
+
+    expect(saveContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('cw-callout--action'),
+      })
+    );
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringContaining('Section converted to callout')
+    );
+  });
+
+  it('renders quick heading level chips and convert button on heading blocks', async () => {
+    const headingBody = '<h2>Activism Today</h2><p>Body copy here.</p>';
+    renderPage(headingBody);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 9,
+      title: 'Action Page',
+      slug: 'action',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: headingBody,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+
+    const h3Chip = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Set heading level 3"]'
+    );
+    expect(h3Chip).not.toBeNull();
+
+    const convertBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Convert section type"]'
+    );
+    expect(convertBtn).not.toBeNull();
+  });
+
+  it('opens and displays the system diagnostics modal', async () => {
+    await withPage();
+
+    const activityBtn = container.querySelector<HTMLButtonElement>(
+      'button[title="Supabase Backend & Edge Function Health"]'
+    );
+    expect(activityBtn).not.toBeNull();
+
+    await act(async () => {
+      activityBtn?.click();
+    });
+
+    const diagLink = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (btn) => btn.textContent?.includes('System Diagnostics')
+    );
+    expect(diagLink).toBeDefined();
+
+    await act(async () => {
+      diagLink?.click();
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('System & Edge Diagnostics');
+    expect(dialog?.textContent).toContain('PostgreSQL Database');
+    expect(dialog?.textContent).toContain('Supabase S3 Storage');
+  });
 });

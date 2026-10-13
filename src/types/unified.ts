@@ -11,7 +11,7 @@
  * contract.
  */
 
-import type { ContentBlockType } from '@/lib/blocks';
+import type { CalloutTone, ContentBlockType, HeadingLevel } from '@/lib/blocks';
 import type { PublishedSection } from '@/lib/visual-sections';
 import type { Database } from '@/types/supabase';
 import type { CRMSegment, CRMStats } from './crm';
@@ -253,6 +253,13 @@ export interface DuplicateSectionDetail {
 
 export interface DeleteSectionDetail {
   blockIndex: number;
+}
+
+export interface ConvertSectionDetail {
+  blockIndex: number;
+  type: ContentBlockType;
+  headingLevel?: HeadingLevel;
+  calloutTone?: CalloutTone;
 }
 
 // ==========================================
