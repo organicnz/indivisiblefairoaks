@@ -93,9 +93,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [selectedTag, setSelectedTag] = useState<string>('');
+  const [districtFilter, setDistrictFilter] = useState<string>('');
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState('');
+  const [bulkDistrictInput, setBulkDistrictInput] = useState('');
   const [tasks, setTasks] = useState<CRMTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [segments, setSegments] = useState<CRMSegment[]>([]);
@@ -125,6 +127,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
         consent: consentFilter === 'all' ? undefined : consentFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
         tag: selectedTag || undefined,
+        district: districtFilter.trim() || undefined,
         page,
         pageSize: PAGE_SIZE,
       });
@@ -135,7 +138,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, page, consentFilter, statusFilter, selectedTag]);
+  }, [searchQuery, page, consentFilter, statusFilter, selectedTag, districtFilter]);
 
   const handleExportCSV = async () => {
     if (totalCount === 0) {
@@ -149,6 +152,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
         consent: consentFilter === 'all' ? undefined : consentFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
         tag: selectedTag || undefined,
+        district: districtFilter.trim() || undefined,
       });
       if (res.error || !res.csv) {
         toast.error(res.error || 'Failed to export CSV');
@@ -300,6 +304,14 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
       const res = await setCRMEmailConsent({ contactId: id, doNotEmail: consent });
       if (res.success) {
         toast.success('Consent updated');
+        if (selectedContact && selectedContact.id === id) {
+          const nextDoNotEmail =
+            consent === 'opted_out' ? true : consent === 'opted_in' ? false : null;
+          setSelectedContact((prev) =>
+            prev ? { ...prev, do_not_email: nextDoNotEmail } : null
+          );
+          loadActivities(id);
+        }
         loadContacts();
       } else {
         toast.error(res.error ?? 'Failed to update consent');
@@ -504,6 +516,32 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add tag');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const handleBulkDistrict = async () => {
+    if (selectedContactIds.size === 0 || !bulkDistrictInput.trim()) return;
+    const district = bulkDistrictInput.trim().toUpperCase();
+    setIsBulkUpdating(true);
+    try {
+      const res = await bulkUpdateCRMContacts({
+        contactIds: Array.from(selectedContactIds),
+        district,
+      });
+      if (res.success) {
+        toast.success(
+          `Assigned district ${district} to ${res.updatedCount ?? selectedContactIds.size} constituents`
+        );
+        setBulkDistrictInput('');
+        setSelectedContactIds(new Set());
+        loadContacts();
+      } else {
+        toast.error(res.error ?? 'Failed to assign district');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to assign district');
     } finally {
       setIsBulkUpdating(false);
     }
@@ -793,23 +831,80 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                     </button>
                   )}
                 </div>
-                {selectedTag && (
-                  <div className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
-                    <span className="flex items-center gap-1.5 truncate">
-                      <Tag size={12} className="shrink-0" />
-                      <span className="font-semibold truncate">Filtered by #{selectedTag}</span>
-                    </span>
+                <div className="flex items-center gap-1.5">
+                  <div className="relative w-full">
+                    <MapPin
+                      size={12}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                    />
+                    <input
+                      type="text"
+                      value={districtFilter}
+                      onChange={(e) => {
+                        setDistrictFilter(e.target.value);
+                        setPage(1);
+                      }}
+                      placeholder="Filter by district (e.g. CA-06)…"
+                      aria-label="Filter by district"
+                      className="w-full pl-7 pr-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary focus:outline-none"
+                    />
+                  </div>
+                  {districtFilter && (
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedTag('');
+                        setDistrictFilter('');
                         setPage(1);
                       }}
-                      className="text-primary hover:text-primary-dark p-0.5 rounded"
-                      aria-label="Remove active tag filter"
+                      className="px-2 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground shrink-0 flex items-center gap-1 transition-colors"
+                      aria-label="Clear district filter"
+                      title="Clear district filter"
                     >
-                      <X size={11} />
+                      <X size={12} />
+                      <span>Clear</span>
                     </button>
+                  )}
+                </div>
+                {(selectedTag || districtFilter) && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedTag && (
+                      <div className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <Tag size={12} className="shrink-0" />
+                          <span className="font-semibold truncate">Filtered by #{selectedTag}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedTag('');
+                            setPage(1);
+                          }}
+                          className="text-primary hover:text-primary-dark p-0.5 rounded"
+                          aria-label="Remove active tag filter"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    )}
+                    {districtFilter && (
+                      <div className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <MapPin size={12} className="shrink-0" />
+                          <span className="font-semibold truncate">District: {districtFilter}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDistrictFilter('');
+                            setPage(1);
+                          }}
+                          className="text-primary hover:text-primary-dark p-0.5 rounded"
+                          aria-label="Remove active district filter"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -954,6 +1049,32 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       <Trash2 size={13} />
                     </ConfirmAction>
                   </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={bulkDistrictInput}
+                      onChange={(e) => setBulkDistrictInput(e.target.value)}
+                      placeholder="Assign district (e.g. CA-06)…"
+                      disabled={isBulkUpdating}
+                      aria-label="Bulk district input"
+                      className="w-full px-2 py-1 text-[11px] rounded bg-background border border-border focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void handleBulkDistrict();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleBulkDistrict}
+                      disabled={!bulkDistrictInput.trim() || isBulkUpdating}
+                      aria-label="Apply bulk district"
+                      className="px-2 py-1 text-[11px] font-bold rounded bg-primary text-white hover:bg-primary-light disabled:opacity-50 shrink-0 transition-colors"
+                    >
+                      District
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1022,6 +1143,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5 mt-1">
+                            {contact.district && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                                {contact.district}
+                              </span>
+                            )}
                             {consentOptions.map((opt) => {
                               const currentConsent = consentLabel(contact.do_not_email);
                               return (
@@ -1309,8 +1435,23 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       )}
                       {selectedContact.district && (
                         <div className="flex items-center gap-2 text-sm">
-                          <Tag size={14} className="text-muted-foreground shrink-0" />
-                          <span>District: {selectedContact.district}</span>
+                          <MapPin size={14} className="text-muted-foreground shrink-0" />
+                          <span>
+                            District:{' '}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDistrictFilter(selectedContact.district ?? '');
+                                setSelectedContact(null);
+                                setPage(1);
+                              }}
+                              className="font-semibold text-primary hover:text-primary-light hover:underline inline-flex items-center gap-1"
+                              title={`Filter directory by district ${selectedContact.district}`}
+                              aria-label={`Filter directory by district ${selectedContact.district}`}
+                            >
+                              <span>{selectedContact.district}</span>
+                            </button>
+                          </span>
                         </div>
                       )}
                       <div className="flex items-center gap-2 text-sm">

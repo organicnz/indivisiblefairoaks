@@ -80,14 +80,8 @@ const getCRMExistingTags = vi.hoisted(() =>
   })
 );
 
-vi.mock('@/lib/actions/crm', () => ({
-  getCRMContacts,
-  exportCRMContacts,
-  saveCRMContact,
-  bulkUpdateCRMContacts,
-  bulkDeleteCRMContacts,
-  getCRMExistingTags,
-  getCRMContactDetail: vi.fn().mockResolvedValue({
+const getCRMContactDetail = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
     contact: {
       id: 'c1',
       email: 'test@test.org',
@@ -97,6 +91,7 @@ vi.mock('@/lib/actions/crm', () => ({
       tags: ['test'],
       status: 'supporter',
       notes: null,
+      district: 'CA-06',
       activities: [],
     },
     activities: [
@@ -109,7 +104,21 @@ vi.mock('@/lib/actions/crm', () => ({
         created_at: '2026-01-02',
       },
     ],
-  }),
+  })
+);
+
+const setCRMEmailConsent = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ success: true })
+);
+
+vi.mock('@/lib/actions/crm', () => ({
+  getCRMContacts,
+  exportCRMContacts,
+  saveCRMContact,
+  bulkUpdateCRMContacts,
+  bulkDeleteCRMContacts,
+  getCRMExistingTags,
+  getCRMContactDetail,
   getCRMSegments: vi
     .fn()
     .mockResolvedValue({
@@ -120,7 +129,7 @@ vi.mock('@/lib/actions/crm', () => ({
     { id: 't1', title: 'Call voter', status: 'open', due_at: null },
     { id: 't2', title: 'Sent sticker', status: 'done', due_at: null },
   ]),
-  setCRMEmailConsent: vi.fn().mockResolvedValue({ success: true }),
+  setCRMEmailConsent,
   addCRMNote: vi.fn().mockResolvedValue({ success: true }),
   updateCRMNote: vi.fn().mockResolvedValue({ success: true }),
   deleteCRMNote: vi.fn().mockResolvedValue({ success: true }),
@@ -568,5 +577,137 @@ describe('CRMPanel', () => {
     });
 
     expect(bulkDeleteCRMContacts).toHaveBeenCalledWith(['c1']);
+  });
+
+  it('filters constituents by district input and clears filter', async () => {
+    const districtInput = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Filter by district"]'
+    );
+    expect(districtInput).not.toBeNull();
+    await act(async () => {
+      if (districtInput) {
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        )?.set;
+        nativeSetter?.call(districtInput, 'CA-06');
+        districtInput.dispatchEvent(new Event('input', { bubbles: true }));
+        districtInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    expect(getCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({ district: 'CA-06' })
+    );
+
+    const clearDistrictBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Clear district filter"]'
+    );
+    expect(clearDistrictBtn).not.toBeNull();
+    await act(async () => {
+      clearDistrictBtn?.click();
+    });
+
+    expect(getCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({ district: undefined })
+    );
+  });
+
+  it('updates email consent immediately on constituent 360 card and refreshes timeline', async () => {
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const optOutBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === 'Opted out'
+    );
+    expect(optOutBtn).not.toBeUndefined();
+
+    await act(async () => {
+      optOutBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(setCRMEmailConsent).toHaveBeenCalledWith({
+      contactId: 'c1',
+      doNotEmail: 'opted_out',
+    });
+    expect(getCRMContactDetail).toHaveBeenCalledWith('c1');
+  });
+
+  it('clicks district button on constituent 360 card to filter directory by that district', async () => {
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const districtFilterBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Filter directory by district CA-06"]'
+    );
+    expect(districtFilterBtn).not.toBeNull();
+    await act(async () => {
+      districtFilterBtn?.click();
+    });
+
+    expect(getCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({ district: 'CA-06' })
+    );
+    expect(document.body.textContent).toContain('District: CA-06');
+  });
+
+  it('performs bulk district assignment for selected constituents', async () => {
+    const selectAllCheckbox = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Select all constituents on page"]'
+    );
+    expect(selectAllCheckbox).not.toBeNull();
+    await act(async () => {
+      selectAllCheckbox?.click();
+    });
+
+    const districtInput = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Bulk district input"]'
+    );
+    expect(districtInput).not.toBeNull();
+    await act(async () => {
+      if (districtInput) {
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        )?.set;
+        nativeSetter?.call(districtInput, 'CA-03');
+        districtInput.dispatchEvent(new Event('input', { bubbles: true }));
+        districtInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    const applyDistrictBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Apply bulk district"]'
+    );
+    expect(applyDistrictBtn).not.toBeNull();
+    await act(async () => {
+      applyDistrictBtn?.click();
+    });
+
+    expect(bulkUpdateCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contactIds: ['c1'],
+        district: 'CA-03',
+      })
+    );
   });
 });
