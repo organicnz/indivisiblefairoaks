@@ -3,6 +3,7 @@
 import {
   Activity,
   AlertCircle,
+  ArrowLeft,
   Check,
   Copy,
   Download,
@@ -14,6 +15,7 @@ import {
   PenLine,
   Phone,
   Plus,
+  RotateCcw,
   Search,
   Tag,
   Trash2,
@@ -79,6 +81,21 @@ const STATUS_COLORS: Record<string, string> = {
   inactive: 'bg-rose-500/10 text-rose-400',
 };
 
+const STATUS_FILTER_LABELS: Record<string, string> = {
+  active_volunteer: 'Active volunteer',
+  supporter: 'Supporter',
+  donor: 'Donor',
+  choir: 'Choir',
+  organizer: 'Organizer',
+  inactive: 'Inactive',
+};
+
+const CONSENT_FILTER_LABELS: Record<string, string> = {
+  opted_in: 'Opted in',
+  opted_out: 'Opted out',
+  unasked: 'Never asked',
+};
+
 export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [contacts, setContacts] = useState<CRMContact[]>([]);
   const [loading, setLoading] = useState(false);
@@ -116,6 +133,23 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [newTagInput, setNewTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const hasActiveFilters = Boolean(
+    searchQuery.trim() ||
+      statusFilter !== 'all' ||
+      consentFilter !== 'all' ||
+      selectedTag ||
+      districtFilter.trim()
+  );
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setConsentFilter('all');
+    setSelectedTag('');
+    setDistrictFilter('');
+    setPage(1);
+  };
 
   const PAGE_SIZE = 25;
 
@@ -727,7 +761,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
 
           <div className="flex h-[calc(100%-80px)] overflow-hidden">
             {/* Contact List */}
-            <div className="w-96 flex flex-col border-r border-border bg-muted/30">
+            <div
+              className={`w-full md:w-96 flex flex-col border-r border-border bg-muted/30 shrink-0 ${
+                selectedContact || showSegments ? 'hidden md:flex' : 'flex'
+              }`}
+            >
               {/* Search & Filters */}
               <div className="p-3 border-b border-border space-y-2">
                 <div className="relative">
@@ -865,8 +903,65 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                     </button>
                   )}
                 </div>
-                {(selectedTag || districtFilter) && (
-                  <div className="flex flex-wrap gap-1.5">
+                {hasActiveFilters && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {searchQuery.trim() && (
+                      <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs max-w-full">
+                        <span className="flex items-center gap-1 truncate">
+                          <Search size={11} className="shrink-0" />
+                          <span className="font-semibold truncate">
+                            Search: &ldquo;{searchQuery.trim()}&rdquo;
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery('');
+                            setPage(1);
+                          }}
+                          className="text-primary hover:text-primary-dark p-0.5 rounded shrink-0"
+                          aria-label="Remove search filter"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    )}
+                    {statusFilter !== 'all' && (
+                      <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
+                        <span className="font-semibold truncate">
+                          Status: {STATUS_FILTER_LABELS[statusFilter] ?? statusFilter}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStatusFilter('all');
+                            setPage(1);
+                          }}
+                          className="text-primary hover:text-primary-dark p-0.5 rounded shrink-0"
+                          aria-label="Remove status filter"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    )}
+                    {consentFilter !== 'all' && (
+                      <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
+                        <span className="font-semibold truncate">
+                          Consent: {CONSENT_FILTER_LABELS[consentFilter] ?? consentFilter}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConsentFilter('all');
+                            setPage(1);
+                          }}
+                          className="text-primary hover:text-primary-dark p-0.5 rounded shrink-0"
+                          aria-label="Remove consent filter"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    )}
                     {selectedTag && (
                       <div className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
                         <span className="flex items-center gap-1.5 truncate">
@@ -886,7 +981,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                         </button>
                       </div>
                     )}
-                    {districtFilter && (
+                    {districtFilter.trim() && (
                       <div className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs">
                         <span className="flex items-center gap-1.5 truncate">
                           <MapPin size={12} className="shrink-0" />
@@ -905,6 +1000,16 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                         </button>
                       </div>
                     )}
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-border bg-background hover:bg-muted text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                      aria-label="Reset all filters"
+                      title="Reset all filters"
+                    >
+                      <RotateCcw size={10} />
+                      <span>Reset all</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -1204,11 +1309,26 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
             </div>
 
             {/* Detail / Editor Panel */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div
+              className={`flex-1 flex flex-col bg-background overflow-hidden ${
+                !selectedContact && !showSegments ? 'hidden md:flex' : 'flex'
+              }`}
+            >
               {showSegments ? (
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-black uppercase tracking-tight text-lg">Segments</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowSegments(false)}
+                        className="md:hidden inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border bg-muted/50 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Back to constituents"
+                      >
+                        <ArrowLeft size={13} />
+                        <span>Back</span>
+                      </button>
+                      <h3 className="font-black uppercase tracking-tight text-lg">Segments</h3>
+                    </div>
                     <a
                       href="/admin/crm/segments"
                       target="_blank"
@@ -1275,6 +1395,17 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
               ) : selectedContact ? (
                 <>
                   <div className="p-4 border-b border-border">
+                    <div className="md:hidden mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedContact(null)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-muted/50 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Back to constituents"
+                      >
+                        <ArrowLeft size={13} />
+                        <span>Back to constituents</span>
+                      </button>
+                    </div>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <h3 className="font-black uppercase tracking-tight text-lg text-foreground">
