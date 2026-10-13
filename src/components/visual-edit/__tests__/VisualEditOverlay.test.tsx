@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
-import { openDiagnosticsVisual, VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
+import { openDiagnosticsVisual, openSettingsVisual, VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import type { PublishedSection, VisualSectionsPublishedDetail } from '@/types/unified';
 
 /**
@@ -559,5 +559,41 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(dialog?.textContent).toContain('System & Edge Diagnostics');
     expect(dialog?.textContent).toContain('PostgreSQL Database');
     expect(dialog?.textContent).toContain('Supabase S3 Storage');
+  });
+
+  it('displays the live SERP and social card preview in page settings and allows toggling tabs', async () => {
+    await withPage();
+
+    await act(async () => {
+      openSettingsVisual();
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('Search & Social Preview');
+    expect(dialog?.textContent).toContain('Google SERP');
+    expect(dialog?.textContent).toContain('indivisiblefairoaks.org');
+
+    const socialTabBtn = dialog?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Preview social share card"]'
+    );
+    expect(socialTabBtn).not.toBeNull();
+
+    await act(async () => {
+      socialTabBtn?.click();
+    });
+
+    expect(dialog?.textContent).toContain('Grassroots action, community advocacy, and voter empowerment.');
+
+    const serpTabBtn = dialog?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Preview Google search snippet"]'
+    );
+    expect(serpTabBtn).not.toBeNull();
+
+    await act(async () => {
+      serpTabBtn?.click();
+    });
+
+    expect(dialog?.textContent).toContain('Google SERP');
   });
 });

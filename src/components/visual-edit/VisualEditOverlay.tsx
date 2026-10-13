@@ -14,6 +14,7 @@ import {
   Eye,
   EyeOff,
   FolderOpen,
+  Globe,
   History,
   Image as ImageIcon,
   Italic,
@@ -416,6 +417,7 @@ export function VisualEditOverlay() {
   const [pageSlug, setPageSlug] = useState('');
   const [pageFeaturedImage, setPageFeaturedImage] = useState('');
   const [pageStatus, setPageStatus] = useState<'publish' | 'draft'>('draft');
+  const [previewTab, setPreviewTab] = useState<'serp' | 'social'>('serp');
 
   // Supabase S3 Storage media library modal state
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
@@ -3461,6 +3463,96 @@ export function VisualEditOverlay() {
                   />
                 </div>
               )}
+
+              {/* Live SERP & Social Sharing Preview */}
+              <div className="rounded-2xl border border-border bg-surface-muted/50 p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Globe size={13} className="text-primary" />
+                    <span>Search &amp; Social Preview</span>
+                  </span>
+                  <div className="flex items-center rounded-lg border border-border bg-background p-0.5 text-[11px] font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTab('serp')}
+                      className={`px-2 py-0.5 rounded-md transition-colors ${
+                        previewTab === 'serp'
+                          ? 'bg-primary text-white shadow-2xs'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                      aria-label="Preview Google search snippet"
+                    >
+                      Google SERP
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTab('social')}
+                      className={`px-2 py-0.5 rounded-md transition-colors ${
+                        previewTab === 'social'
+                          ? 'bg-primary text-white shadow-2xs'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                      aria-label="Preview social share card"
+                    >
+                      Social Card
+                    </button>
+                  </div>
+                </div>
+
+                {previewTab === 'serp' ? (
+                  /* Google SERP Snippet Preview */
+                  <div className="rounded-xl border border-border/80 bg-background p-3 space-y-1 text-left select-none">
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <span className="size-3.5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-black text-primary">
+                        I
+                      </span>
+                      <span className="truncate">indivisiblefairoaks.org</span>
+                      <span className="text-muted-foreground/60">&rsaquo;</span>
+                      <span className="truncate font-mono text-[10px]">
+                        {activeRegion ? pathname.replace(/^\//, '') : pageSlug || 'page'}
+                      </span>
+                    </div>
+                    <div className="text-sm font-semibold text-blue-500 hover:underline truncate cursor-pointer">
+                      {pageTitle.trim() || 'Untitled Page'} | Indivisible Fair Oaks
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                      Official Indivisible Fair Oaks &amp; Carmichael grassroots action, civic events, and community advocacy in Sacramento County.
+                    </p>
+                  </div>
+                ) : (
+                  /* Social Card Preview */
+                  <div className="rounded-xl border border-border/80 bg-background overflow-hidden text-left select-none shadow-xs">
+                    {pageFeaturedImage ? (
+                      <div className="relative aspect-[1.91/1] w-full max-h-32 bg-surface-muted overflow-hidden">
+                        <Image
+                          src={pageFeaturedImage}
+                          alt="Social share preview"
+                          unoptimized
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="aspect-[1.91/1] w-full max-h-24 bg-gradient-to-br from-primary/20 via-background to-accent-gold/10 flex items-center justify-center p-3 text-center">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                          Indivisible Fair Oaks &amp; Carmichael
+                        </span>
+                      </div>
+                    )}
+                    <div className="p-2.5 space-y-0.5 border-t border-border/60">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        indivisiblefairoaks.org
+                      </p>
+                      <p className="text-xs font-bold text-foreground truncate">
+                        {pageTitle.trim() || 'Untitled Page'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground line-clamp-1">
+                        Grassroots action, community advocacy, and voter empowerment.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <fieldset className="border-0 p-0 m-0">
                 <legend className="block text-xs font-bold text-foreground mb-1">

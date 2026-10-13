@@ -839,4 +839,43 @@ describe('CRMPanel', () => {
 
     expect(document.body.textContent).toContain('Select a constituent to view details');
   });
+
+  it('filters activities to system events and auto-focuses new note input', async () => {
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const systemFilterBtn = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.includes('System (') ?? false);
+    expect(systemFilterBtn).not.toBeUndefined();
+
+    await act(async () => {
+      systemFilterBtn?.click();
+    });
+
+    expect(systemFilterBtn?.className).toContain('bg-primary');
+    expect(document.body.textContent).toContain('Broadcast Sent');
+
+    const newNoteBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Add new note"]'
+    );
+    expect(newNoteBtn).not.toBeNull();
+
+    await act(async () => {
+      newNoteBtn?.click();
+    });
+
+    const noteTitleInput = document.body.querySelector<HTMLInputElement>(
+      'input[placeholder="Note title (e.g. Call summary)…"]'
+    );
+    expect(noteTitleInput).not.toBeNull();
+  });
 });
