@@ -403,9 +403,9 @@ export default async function AdminOrdersPage({
                         </Link>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {order.created_at
-                            ? new Date(order.created_at).toLocaleDateString('en-NZ', {
-                                day: 'numeric',
+                            ? new Date(order.created_at).toLocaleDateString('en-US', {
                                 month: 'short',
+                                day: 'numeric',
                                 year: 'numeric',
                                 hour: '2-digit',
                                 minute: '2-digit',

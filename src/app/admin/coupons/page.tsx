@@ -122,9 +122,9 @@ export default async function AdminCouponsPage() {
                       }`}
                     >
                       {c.expiry_date
-                        ? new Date(c.expiry_date).toLocaleDateString('en-NZ', {
-                            day: 'numeric',
+                        ? new Date(c.expiry_date).toLocaleDateString('en-US', {
                             month: 'short',
+                            day: 'numeric',
                             year: 'numeric',
                           })
                         : 'Never'}

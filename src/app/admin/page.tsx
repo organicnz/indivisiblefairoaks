@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect';
+import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 import type { AdminOrder } from '@/types/orders';
 
@@ -123,7 +124,7 @@ export default async function AdminDashboardPage() {
   const dayLabels = new Map(
     [...dayBuckets.keys()].map((k) => [
       k,
-      new Date(`${k}T12:00:00`).toLocaleDateString('en-NZ', { day: '2-digit', month: 'short' }),
+      new Date(`${k}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
     ])
   );
   const dayValues = [...dayBuckets.values()];
@@ -200,8 +201,7 @@ export default async function AdminDashboardPage() {
     cancelled: 'bg-rose-400',
   };
 
-  const fmtMoney = (n: number) =>
-    `$${n.toLocaleString('en-NZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtMoney = (n: number) => formatPrice(n);
 
   return (
     <div>
@@ -435,9 +435,9 @@ export default async function AdminDashboardPage() {
                       </p>
                       <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">
                         {o.created_at
-                          ? new Date(o.created_at).toLocaleDateString('en-NZ', {
-                              day: 'numeric',
+                          ? new Date(o.created_at).toLocaleDateString('en-US', {
                               month: 'short',
+                              day: 'numeric',
                             })
                           : 'N/A'}
                         {' · '}

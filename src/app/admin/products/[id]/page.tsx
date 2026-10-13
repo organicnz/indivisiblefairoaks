@@ -137,9 +137,9 @@ export default async function AdminProductDetailPage({
               {product.created_at && (
                 <span className="inline-flex items-center gap-1">
                   <Calendar size={11} />
-                  {new Date(product.created_at).toLocaleDateString('en-NZ', {
-                    day: 'numeric',
+                  {new Date(product.created_at).toLocaleDateString('en-US', {
                     month: 'short',
+                    day: 'numeric',
                     year: 'numeric',
                   })}
                 </span>
@@ -282,9 +282,9 @@ export default async function AdminProductDetailPage({
                 </span>
                 <span className="text-[11px] text-muted-foreground font-bold">
                   {item.orders.created_at
-                    ? new Date(item.orders.created_at).toLocaleDateString('en-NZ', {
-                        day: 'numeric',
+                    ? new Date(item.orders.created_at).toLocaleDateString('en-US', {
                         month: 'short',
+                        day: 'numeric',
                         year: 'numeric',
                       })
                     : 'N/A'}
