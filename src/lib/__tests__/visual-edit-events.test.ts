@@ -5,6 +5,7 @@ import {
   duplicateSectionVisual,
   focusSectionVisual,
   moveSectionVisual,
+  openCRMVisual,
   openMediaLibraryVisual,
   openRevisionsVisual,
   openSettingsVisual,
@@ -74,6 +75,7 @@ describe('VISUAL_EDIT_EVENTS', () => {
     expect(VISUAL_EDIT_EVENTS.openMediaLibrary).toBe('indivisible:open-media-library');
     expect(VISUAL_EDIT_EVENTS.openRevisions).toBe('indivisible:open-revisions');
     expect(VISUAL_EDIT_EVENTS.openSettings).toBe('indivisible:open-settings');
+    expect(VISUAL_EDIT_EVENTS.openCRM).toBe('indivisible:open-crm');
   });
 
   it('is namespaced, so nothing on the window collides', () => {
@@ -172,10 +174,12 @@ describe('emitters', () => {
     openMediaLibraryVisual();
     openRevisionsVisual();
     openSettingsVisual();
+    openCRMVisual();
     expect(win.seen.map((s) => s.type)).toEqual([
       VISUAL_EDIT_EVENTS.openMediaLibrary,
       VISUAL_EDIT_EVENTS.openRevisions,
       VISUAL_EDIT_EVENTS.openSettings,
+      VISUAL_EDIT_EVENTS.openCRM,
     ]);
     expect(win.seen.every((s) => s.detail === null)).toBe(true);
     win.restore();

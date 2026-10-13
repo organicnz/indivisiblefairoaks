@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Activity,
   AlertCircle,
   Check,
   Copy,
@@ -18,7 +19,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
@@ -93,6 +94,8 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [showSegments, setShowSegments] = useState(false);
   const [activities, setActivities] = useState<CRMActivity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<'all' | 'notes'>('all');
+  const [taskFilter, setTaskFilter] = useState<'all' | 'open' | 'done'>('all');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteTitle, setEditingNoteTitle] = useState('');
   const [editingNoteDesc, setEditingNoteDesc] = useState('');
@@ -213,14 +216,32 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     setActivitiesLoading(true);
     try {
       const detail = await getCRMContactDetail(contactId);
-      const activities = (detail as { activities?: CRMActivity[] }).activities ?? [];
-      setActivities(activities.filter((a: CRMActivity) => a.type === 'note').slice(0, 20));
+      const acts = (detail as { activities?: CRMActivity[] }).activities ?? [];
+      setActivities(acts.slice(0, 50));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load notes');
+      toast.error(err instanceof Error ? err.message : 'Failed to load timeline');
     } finally {
       setActivitiesLoading(false);
     }
   }, []);
+
+  const filteredActivities = useMemo(() => {
+    if (activityFilter === 'notes') {
+      return activities.filter((a) => a.type === 'note');
+    }
+    return activities;
+  }, [activities, activityFilter]);
+
+  const notesCount = useMemo(
+    () => activities.filter((a) => a.type === 'note').length,
+    [activities]
+  );
+
+  const filteredTasks = useMemo(() => {
+    if (taskFilter === 'open') return tasks.filter((t) => t.status !== 'done');
+    if (taskFilter === 'done') return tasks.filter((t) => t.status === 'done');
+    return tasks;
+  }, [tasks, taskFilter]);
 
   useEffect(() => {
     if (selectedContact) {
@@ -736,23 +757,50 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {segments.map((segment) => (
-                        <div
-                          key={segment.id}
-                          className="p-3 rounded-xl border border-border bg-background transition-colors hover:border-primary/30"
-                        >
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-bold text-sm text-foreground">{segment.name}</h4>
-                            <span className="text-xs text-muted-foreground">
-                              Filter:{' '}
-                              {segment.query
-                                ? segment.query.slice(0, 30) +
-                                  (segment.query.length > 30 ? '…' : '')
-                                : 'all'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                      {segments.map((segment) => {
+                        const isApplied = searchQuery === (segment.query || '');
+                        return (
+                          <button
+                            key={segment.id}
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery(segment.query || '');
+                              setPage(1);
+                              setShowSegments(false);
+                              if (segment.query) {
+                                toast.info(`Filtered by segment "${segment.name}"`);
+                              } else {
+                                toast.info(
+                                  `Viewing all constituents from segment "${segment.name}"`
+                                );
+                              }
+                            }}
+                            className={`w-full text-left p-3 rounded-xl border transition-all ${
+                              isApplied
+                                ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
+                                : 'border-border bg-background hover:border-primary/40 hover:bg-muted/40'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                <span>{segment.name}</span>
+                                {isApplied && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary text-white uppercase tracking-wider">
+                                    Active
+                                  </span>
+                                )}
+                              </h4>
+                              <span className="text-xs text-muted-foreground">
+                                Filter:{' '}
+                                {segment.query
+                                  ? segment.query.slice(0, 30) +
+                                    (segment.query.length > 30 ? '…' : '')
+                                  : 'all'}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1039,7 +1087,46 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                     {/* Follow-ups */}
                     <div className="border-t border-border pt-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-bold text-sm">Follow-ups</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-sm">Follow-ups</h4>
+                          {tasks.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setTaskFilter('all')}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                                  taskFilter === 'all'
+                                    ? 'bg-primary text-white shadow-2xs'
+                                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                }`}
+                              >
+                                All ({tasks.length})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTaskFilter('open')}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                                  taskFilter === 'open'
+                                    ? 'bg-primary text-white shadow-2xs'
+                                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                }`}
+                              >
+                                Open ({tasks.filter((t) => t.status !== 'done').length})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTaskFilter('done')}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                                  taskFilter === 'done'
+                                    ? 'bg-primary text-white shadow-2xs'
+                                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                }`}
+                              >
+                                Done ({tasks.filter((t) => t.status === 'done').length})
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => setIsTaskFormOpen(true)}
@@ -1057,8 +1144,12 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                           <p className="text-xs text-muted-foreground text-center py-4">
                             No follow-ups yet
                           </p>
+                        ) : filteredTasks.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-4">
+                            No {taskFilter} follow-ups
+                          </p>
                         ) : (
-                          tasks.map((task) => {
+                          filteredTasks.map((task) => {
                             const isOverdue =
                               task.due_at &&
                               task.status !== 'done' &&
@@ -1148,10 +1239,38 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       </div>
                     </div>
 
-                    {/* Notes — from crm_activities type === 'note', with edit/add/delete */}
+                    {/* Timeline & Notes — from crm_activities with note edit/delete and event history */}
                     <div className="border-t border-border pt-4">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-bold text-sm">Notes</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-sm">Timeline & Notes</h4>
+                          {activities.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setActivityFilter('all')}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                                  activityFilter === 'all'
+                                    ? 'bg-primary text-white shadow-2xs'
+                                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                }`}
+                              >
+                                All ({activities.length})
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setActivityFilter('notes')}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                                  activityFilter === 'notes'
+                                    ? 'bg-primary text-white shadow-2xs'
+                                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                }`}
+                              >
+                                Notes ({notesCount})
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => {
@@ -1161,106 +1280,131 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                           }}
                           className="text-xs font-bold text-primary dark:text-primary-on-dark hover:underline"
                         >
-                          <Plus size={10} className="inline mr-0.5" /> New
+                          <Plus size={10} className="inline mr-0.5" /> New Note
                         </button>
                       </div>
                       {activitiesLoading ? (
                         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                       ) : activities.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No notes yet.</p>
+                        <p className="text-xs text-muted-foreground">No activity recorded yet.</p>
+                      ) : filteredActivities.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No notes recorded yet.</p>
                       ) : (
                         <div className="space-y-3 max-h-56 overflow-y-auto">
-                          {activities.map((act) => (
-                            <div
-                              key={act.id}
-                              className="p-3 rounded-xl bg-surface-muted border border-border transition-colors hover:border-primary/20"
-                            >
-                              {editingNoteId === act.id ? (
-                                <div className="space-y-2">
-                                  <input
-                                    type="text"
-                                    value={editingNoteTitle}
-                                    onChange={(e) => setEditingNoteTitle(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs font-bold focus:ring-2 focus:ring-primary focus:outline-none"
-                                    placeholder="Note title"
-                                  />
-                                  <textarea
-                                    value={editingNoteDesc}
-                                    onChange={(e) => setEditingNoteDesc(e.target.value)}
-                                    rows={2}
-                                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none resize-none"
-                                    placeholder="Note details"
-                                  />
-                                  <div className="flex gap-2 justify-end">
-                                    <button
-                                      type="button"
-                                      className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
-                                      onClick={() => setEditingNoteId(null)}
-                                    >
-                                      Cancel
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={!editingNoteTitle.trim()}
-                                      onClick={() => handleUpdateNote(act.id)}
-                                      className="text-xs font-bold bg-primary text-white px-3 py-1 rounded-lg hover:bg-primary-light disabled:opacity-50 transition-colors shadow-xs"
-                                    >
-                                      Save Note
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-bold text-foreground truncate">
-                                      {act.title || '(no title)'}
-                                    </span>
-                                    <div className="flex gap-1 shrink-0">
+                          {filteredActivities.map((act) => {
+                            const isNote = act.type === 'note';
+                            return (
+                              <div
+                                key={act.id}
+                                className="p-3 rounded-xl bg-surface-muted border border-border transition-colors hover:border-primary/20"
+                              >
+                                {editingNoteId === act.id ? (
+                                  <div className="space-y-2">
+                                    <input
+                                      type="text"
+                                      value={editingNoteTitle}
+                                      onChange={(e) => setEditingNoteTitle(e.target.value)}
+                                      className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs font-bold focus:ring-2 focus:ring-primary focus:outline-none"
+                                      placeholder="Note title"
+                                    />
+                                    <textarea
+                                      value={editingNoteDesc}
+                                      onChange={(e) => setEditingNoteDesc(e.target.value)}
+                                      rows={2}
+                                      className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none resize-none"
+                                      placeholder="Note details"
+                                    />
+                                    <div className="flex gap-2 justify-end">
                                       <button
                                         type="button"
-                                        className="p-1 text-[11px] text-muted-foreground hover:text-primary rounded transition-colors"
-                                        title="Edit note"
-                                        aria-label="Edit note"
-                                        onClick={() => {
-                                          setEditingNoteId(act.id);
-                                          setEditingNoteTitle(act.title || '');
-                                          setEditingNoteDesc(act.description || '');
-                                        }}
+                                        className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+                                        onClick={() => setEditingNoteId(null)}
                                       >
-                                        <PenLine size={12} />
+                                        Cancel
                                       </button>
-                                      <ConfirmAction
-                                        label="Delete Note"
-                                        message={`Delete note "${act.title}"?`}
-                                        confirmLabel="Delete"
-                                        danger
-                                        idleClassName="p-1 text-[11px] text-muted-foreground hover:text-rose-600 rounded transition-colors"
-                                        onConfirm={async () => {
-                                          const contactId = selectedContact?.id;
-                                          if (!contactId) return;
-                                          await deleteCRMNote(act.id);
-                                          loadActivities(contactId);
-                                          toast.success('Note deleted');
-                                        }}
+                                      <button
+                                        type="button"
+                                        disabled={!editingNoteTitle.trim()}
+                                        onClick={() => handleUpdateNote(act.id)}
+                                        className="text-xs font-bold bg-primary text-white px-3 py-1 rounded-lg hover:bg-primary-light disabled:opacity-50 transition-colors shadow-xs"
                                       >
-                                        <Trash2 size={12} />
-                                      </ConfirmAction>
+                                        Save Note
+                                      </button>
                                     </div>
                                   </div>
-                                  {act.description && (
-                                    <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap leading-relaxed">
-                                      {act.description}
-                                    </p>
-                                  )}
-                                  {act.created_at && (
-                                    <p className="text-[10px] text-muted-foreground/70 mt-1.5">
-                                      {new Date(act.created_at).toLocaleDateString()}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                                ) : (
+                                  <div>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        {!isNote && (
+                                          <span className="shrink-0 p-1 rounded bg-background border border-border text-muted-foreground">
+                                            {act.type.includes('email') ||
+                                            act.type.includes('broadcast') ? (
+                                              <Mail size={11} className="text-blue-400" />
+                                            ) : (
+                                              <Activity size={11} className="text-emerald-400" />
+                                            )}
+                                          </span>
+                                        )}
+                                        <span className="text-xs font-bold text-foreground truncate">
+                                          {act.title ||
+                                            (isNote ? '(no title)' : act.type.replace(/_/g, ' '))}
+                                        </span>
+                                        {!isNote && (
+                                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-muted text-muted-foreground shrink-0">
+                                            {act.type.replace(/_/g, ' ')}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {isNote && (
+                                        <div className="flex gap-1 shrink-0">
+                                          <button
+                                            type="button"
+                                            className="p-1 text-[11px] text-muted-foreground hover:text-primary rounded transition-colors"
+                                            title="Edit note"
+                                            aria-label="Edit note"
+                                            onClick={() => {
+                                              setEditingNoteId(act.id);
+                                              setEditingNoteTitle(act.title || '');
+                                              setEditingNoteDesc(act.description || '');
+                                            }}
+                                          >
+                                            <PenLine size={12} />
+                                          </button>
+                                          <ConfirmAction
+                                            label="Delete Note"
+                                            message={`Delete note "${act.title}"?`}
+                                            confirmLabel="Delete"
+                                            danger
+                                            idleClassName="p-1 text-[11px] text-muted-foreground hover:text-rose-600 rounded transition-colors"
+                                            onConfirm={async () => {
+                                              const contactId = selectedContact?.id;
+                                              if (!contactId) return;
+                                              await deleteCRMNote(act.id);
+                                              loadActivities(contactId);
+                                              toast.success('Note deleted');
+                                            }}
+                                          >
+                                            <Trash2 size={12} />
+                                          </ConfirmAction>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {act.description && (
+                                      <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap leading-relaxed">
+                                        {act.description}
+                                      </p>
+                                    )}
+                                    {act.created_at && (
+                                      <p className="text-[10px] text-muted-foreground/70 mt-1.5">
+                                        {new Date(act.created_at).toLocaleDateString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 
