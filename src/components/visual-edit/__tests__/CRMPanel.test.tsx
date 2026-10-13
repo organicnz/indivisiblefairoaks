@@ -710,4 +710,133 @@ describe('CRMPanel', () => {
       })
     );
   });
+
+  it('resets all filters when clicking the Reset all button', async () => {
+    const statusSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Filter by constituent status"]'
+    );
+    expect(statusSelect).not.toBeNull();
+    await act(async () => {
+      if (statusSelect) {
+        statusSelect.value = 'donor';
+        statusSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    const districtInput = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="Filter by district"]'
+    );
+    expect(districtInput).not.toBeNull();
+    await act(async () => {
+      if (districtInput) {
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        )?.set;
+        nativeSetter?.call(districtInput, 'CA-06');
+        districtInput.dispatchEvent(new Event('input', { bubbles: true }));
+        districtInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    expect(document.body.textContent).toContain('Status: Donor');
+    expect(document.body.textContent).toContain('District: CA-06');
+
+    const resetAllBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reset all filters"]'
+    );
+    expect(resetAllBtn).not.toBeNull();
+
+    await act(async () => {
+      resetAllBtn?.click();
+    });
+
+    expect(getCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: undefined,
+        district: undefined,
+        query: undefined,
+        consent: undefined,
+        tag: undefined,
+      })
+    );
+
+    const resetAllAfter = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Reset all filters"]'
+    );
+    expect(resetAllAfter).toBeNull();
+  });
+
+  it('removes individual status and consent filter chips', async () => {
+    const consentSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Filter by email consent"]'
+    );
+    expect(consentSelect).not.toBeNull();
+    await act(async () => {
+      if (consentSelect) {
+        consentSelect.value = 'opted_in';
+        consentSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    expect(document.body.textContent).toContain('Consent: Opted in');
+
+    const removeConsentBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Remove consent filter"]'
+    );
+    expect(removeConsentBtn).not.toBeNull();
+    await act(async () => {
+      removeConsentBtn?.click();
+    });
+
+    expect(getCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({ consent: undefined })
+    );
+    expect(document.body.textContent).not.toContain('Consent: Opted in');
+  });
+
+  it('supports mobile back navigation to return to directory from constituent 360 card', async () => {
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const backBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Back to constituents"]'
+    );
+    expect(backBtn).not.toBeNull();
+
+    await act(async () => {
+      backBtn?.click();
+    });
+
+    expect(document.body.textContent).toContain('Select a constituent to view details');
+  });
+
+  it('supports mobile back navigation from segments view', async () => {
+    const segmentsBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === 'Segments'
+    );
+    expect(segmentsBtn).not.toBeUndefined();
+    await act(async () => {
+      segmentsBtn?.click();
+    });
+
+    const backBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Back to constituents"]'
+    );
+    expect(backBtn).not.toBeNull();
+
+    await act(async () => {
+      backBtn?.click();
+    });
+
+    expect(document.body.textContent).toContain('Select a constituent to view details');
+  });
 });
