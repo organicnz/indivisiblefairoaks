@@ -104,11 +104,11 @@ jobs:
   # ── 0. Change scope ──────────────────────────────────────────────────────
   # Docs-only pushes skip the heavy jobs. No third-party filter action: the
   # pattern mirrors RUNTIME_PATTERN in scripts/hooks/e2e-gate.mjs (the local
-  # pre-push gate). ubuntu-latest, seconds, never holds a self-hosted slot.
+  # pre-push gate). Strictly on self-hosted runner pursuant to AGENTS.md.
   # Fail-open: if the diff cannot be computed, runtime=true runs everything.
   changes:
     name: Change scope
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, backend-runner]
     timeout-minutes: 5
     outputs:
       runtime: ${{ steps.scope.outputs.runtime }}
@@ -437,13 +437,11 @@ jobs:
   # only shape that works without `vercel link` state (the CLI aborts on CI).
   #
   # Runs on `ubuntu-latest`, not the fleet: this job is a sleep-poll over
-  # HTTPS plus two file writes. Nothing in it needs the tailnet, a warm bun
-  # cache, or any private network, and holding a self-hosted slot for a ~10
-  # minute poll blocks real jobs behind it. GitHub-hosted minutes for a
-  # push-to-main-only job are noise next to that.
+  # HTTPS plus two file writes. Strictly on self-hosted runner pursuant to AGENTS.md.
+  # Push-only, because a pull request has not shipped anything.
   vercel-deploy:
     name: Vercel Deployment
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, backend-runner]
     # Deliberately NOT `needs: [build]`. This observes Vercel's deploy, which
     # has its own lifecycle; waiting on our build only gave it a reason to be
     # stale. Push-only, because a pull request has not shipped anything.
