@@ -220,6 +220,7 @@ describe('EditorialButton component', () => {
       'indivisible:add-block',
       'indivisible:select-region',
       'indivisible:open-crm',
+      'indivisible:open-diagnostics',
     ] as const;
     for (const kind of kinds) {
       const listener = (event: Event) => {
@@ -261,6 +262,7 @@ describe('EditorialButton component', () => {
     await click((b) => b.textContent?.includes('Add block') ?? false);
     await click((b) => b.textContent?.includes('Supabase media library') ?? false);
     await click((b) => b.textContent?.includes('Constituents & CRM') ?? false);
+    await click((b) => b.textContent?.includes('System diagnostics') ?? false);
 
     expect(heard['indivisible:focus-section']).toHaveLength(2);
     expect(heard['indivisible:move-section']).toEqual([{ blockIndex: 3, direction: 'up' }]);
@@ -268,6 +270,7 @@ describe('EditorialButton component', () => {
     expect(heard['indivisible:delete-section']).toEqual([{ blockIndex: 3 }]);
     expect(heard['indivisible:add-block']).toHaveLength(1);
     expect(heard['indivisible:open-crm']).toHaveLength(1);
+    expect(heard['indivisible:open-diagnostics']).toHaveLength(1);
     // Every navigation dispatch also closes the drawer, so the operator lands
     // back on the page they are editing rather than under the menu.
     expect(onNavigate).toHaveBeenCalled();
