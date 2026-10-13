@@ -1560,6 +1560,10 @@ export function VisualEditOverlay() {
       setIsSettingsOpen(true);
     };
 
+    const handleOpenCRM = () => {
+      setIsCRMPanelOpen(true);
+    };
+
     const handleSelectRegion = (e: Event) => {
       const detail = (e as CustomEvent<{ regionId?: string | null; at?: number }>).detail;
       // Null and undefined both mean "the whole page"; a region id addresses the
@@ -1579,6 +1583,7 @@ export function VisualEditOverlay() {
     window.addEventListener(VISUAL_EDIT_EVENTS.openMediaLibrary, handleOpenMediaLibrary);
     window.addEventListener(VISUAL_EDIT_EVENTS.openRevisions, handleOpenRevisions);
     window.addEventListener(VISUAL_EDIT_EVENTS.openSettings, handleOpenSettings);
+    window.addEventListener(VISUAL_EDIT_EVENTS.openCRM, handleOpenCRM);
     window.addEventListener(VISUAL_EDIT_EVENTS.selectRegion, handleSelectRegion);
 
     return () => {
@@ -1592,6 +1597,7 @@ export function VisualEditOverlay() {
       window.removeEventListener(VISUAL_EDIT_EVENTS.openMediaLibrary, handleOpenMediaLibrary);
       window.removeEventListener(VISUAL_EDIT_EVENTS.openRevisions, handleOpenRevisions);
       window.removeEventListener(VISUAL_EDIT_EVENTS.openSettings, handleOpenSettings);
+      window.removeEventListener(VISUAL_EDIT_EVENTS.openCRM, handleOpenCRM);
       window.removeEventListener(VISUAL_EDIT_EVENTS.selectRegion, handleSelectRegion);
     };
   }, [

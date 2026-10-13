@@ -72,13 +72,26 @@ vi.mock('@/lib/actions/crm', () => ({
       activities: [],
     },
     activities: [
-      { id: 'a1', type: 'note', title: 'Note', description: 'Body', created_at: '2026-01-01' },
+      { id: 'a1', type: 'note', title: 'Note 1', description: 'Body', created_at: '2026-01-01' },
+      {
+        id: 'a2',
+        type: 'email_sent',
+        title: 'Broadcast Sent',
+        description: 'Hello',
+        created_at: '2026-01-02',
+      },
     ],
   }),
   getCRMSegments: vi
     .fn()
-    .mockResolvedValue({ segments: [{ id: 's1', name: 'Test', query: '' }], truncated: false }),
-  getCRMTasksForContact: vi.fn().mockResolvedValue([]),
+    .mockResolvedValue({
+      segments: [{ id: 's1', name: 'Volunteers', query: 'volunteer' }],
+      truncated: false,
+    }),
+  getCRMTasksForContact: vi.fn().mockResolvedValue([
+    { id: 't1', title: 'Call voter', status: 'open', due_at: null },
+    { id: 't2', title: 'Sent sticker', status: 'done', due_at: null },
+  ]),
   setCRMEmailConsent: vi.fn().mockResolvedValue({ success: true }),
   addCRMNote: vi.fn().mockResolvedValue({ success: true }),
   updateCRMNote: vi.fn().mockResolvedValue({ success: true }),
@@ -277,5 +290,64 @@ describe('CRMPanel', () => {
     });
     const dialog = document.body.querySelector('[role="dialog"]');
     expect(dialog).not.toBeNull();
+  });
+
+  it('filters constituents when clicking a segment', async () => {
+    const segmentsBtn = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.trim() === 'Segments');
+    expect(segmentsBtn).not.toBeUndefined();
+    await act(async () => {
+      segmentsBtn?.click();
+    });
+
+    const segmentCard = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.includes('Volunteers') ?? false);
+    expect(segmentCard).not.toBeUndefined();
+    await act(async () => {
+      segmentCard?.click();
+    });
+
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ query: 'volunteer' }));
+  });
+
+  it('filters timeline activities and tasks in the detail view', async () => {
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    // Check timeline shows both activities initially
+    expect(document.body.textContent).toContain('Note 1');
+    expect(document.body.textContent).toContain('Broadcast Sent');
+
+    // Filter to Notes only
+    const notesTab = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Notes (1)') ?? false
+    );
+    expect(notesTab).not.toBeUndefined();
+    await act(async () => {
+      notesTab?.click();
+    });
+    expect(document.body.textContent).toContain('Note 1');
+    expect(document.body.textContent).not.toContain('Broadcast Sent');
+
+    // Filter tasks
+    const openTasksTab = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.includes('Open (1)') ?? false);
+    expect(openTasksTab).not.toBeUndefined();
+    await act(async () => {
+      openTasksTab?.click();
+    });
+    expect(document.body.textContent).toContain('Call voter');
+    expect(document.body.textContent).not.toContain('Sent sticker');
   });
 });

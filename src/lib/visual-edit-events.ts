@@ -51,6 +51,8 @@ export const VISUAL_EDIT_EVENTS = {
   openRevisions: 'indivisible:open-revisions',
   /** Open the document settings panel. */
   openSettings: 'indivisible:open-settings',
+  /** Open the CRM constituents panel. */
+  openCRM: 'indivisible:open-crm',
 } as const;
 
 /**
@@ -109,6 +111,10 @@ export function openRevisionsVisual(): void {
 
 export function openSettingsVisual(): void {
   window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.openSettings));
+}
+
+export function openCRMVisual(): void {
+  window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.openCRM));
 }
 
 /**

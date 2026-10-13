@@ -12,6 +12,7 @@ import {
   Plus,
   Settings,
   Trash2,
+  UsersRound,
   X,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -23,6 +24,7 @@ import {
   duplicateSectionVisual,
   focusSectionVisual,
   moveSectionVisual,
+  openCRMVisual,
   openMediaLibraryVisual,
   openRevisionsVisual,
   openSettingsVisual,
@@ -386,6 +388,17 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
             >
               <FolderOpen size={14} aria-hidden="true" />
               Supabase media library
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                openCRMVisual();
+                onNavigate();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/10 transition-all bg-gradient-to-r from-emerald-500/5 to-transparent"
+            >
+              <UsersRound size={14} aria-hidden="true" />
+              Constituents & CRM
             </button>
             <button
               type="button"
