@@ -121,7 +121,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [showSegments, setShowSegments] = useState(false);
   const [activities, setActivities] = useState<CRMActivity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
-  const [activityFilter, setActivityFilter] = useState<'all' | 'notes'>('all');
+  const [activityFilter, setActivityFilter] = useState<'all' | 'notes' | 'system'>('all');
   const [taskFilter, setTaskFilter] = useState<'all' | 'open' | 'done'>('all');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteTitle, setEditingNoteTitle] = useState('');
@@ -133,6 +133,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [newTagInput, setNewTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const newNoteInputRef = useRef<HTMLInputElement>(null);
 
   const hasActiveFilters = Boolean(
     searchQuery.trim() ||
@@ -287,11 +288,19 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     if (activityFilter === 'notes') {
       return activities.filter((a) => a.type === 'note');
     }
+    if (activityFilter === 'system') {
+      return activities.filter((a) => a.type !== 'note');
+    }
     return activities;
   }, [activities, activityFilter]);
 
   const notesCount = useMemo(
     () => activities.filter((a) => a.type === 'note').length,
+    [activities]
+  );
+
+  const systemCount = useMemo(
+    () => activities.filter((a) => a.type !== 'note').length,
     [activities]
   );
 
@@ -1894,6 +1903,17 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                               >
                                 Notes ({notesCount})
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => setActivityFilter('system')}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                                  activityFilter === 'system'
+                                    ? 'bg-primary text-white shadow-2xs'
+                                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                }`}
+                              >
+                                System ({systemCount})
+                              </button>
                             </div>
                           )}
                         </div>
@@ -1903,8 +1923,14 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                             setEditingNoteId(null);
                             setEditingNoteTitle('');
                             setEditingNoteDesc('');
+                            newNoteInputRef.current?.focus();
+                            newNoteInputRef.current?.scrollIntoView?.({
+                              behavior: 'smooth',
+                              block: 'nearest',
+                            });
                           }}
                           className="text-xs font-bold text-primary dark:text-primary-on-dark hover:underline"
+                          aria-label="Add new note"
                         >
                           <Plus size={10} className="inline mr-0.5" /> New Note
                         </button>
@@ -1914,7 +1940,13 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       ) : activities.length === 0 ? (
                         <p className="text-xs text-muted-foreground">No activity recorded yet.</p>
                       ) : filteredActivities.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No notes recorded yet.</p>
+                        <p className="text-xs text-muted-foreground">
+                          {activityFilter === 'notes'
+                            ? 'No notes recorded yet.'
+                            : activityFilter === 'system'
+                              ? 'No system events recorded yet.'
+                              : 'No activity recorded yet.'}
+                        </p>
                       ) : (
                         <div className="space-y-3 max-h-56 overflow-y-auto">
                           {filteredActivities.map((act) => {
@@ -2040,6 +2072,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                         className="mt-3 p-3 rounded-xl bg-surface-muted border border-border space-y-2"
                       >
                         <input
+                          ref={newNoteInputRef}
                           type="text"
                           value={newNoteTitle}
                           onChange={(e) => setNewNoteTitle(e.target.value)}
