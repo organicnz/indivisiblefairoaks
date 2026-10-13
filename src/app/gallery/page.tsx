@@ -1,7 +1,7 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { Camera, ChevronLeft, ChevronRight, Filter, MapPin, Search, Share2, X } from 'lucide-react';
+import { Camera, ChevronLeft, ChevronRight, Filter, MapPin, Search, Share2, Video, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -311,6 +311,68 @@ export default function GalleryPage() {
             ))}
           </div>
         )}
+
+        {/* Featured Video Archive: No Kings 3 (Issue #88) */}
+        <div className="mt-16 rounded-3xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8 border-b border-border dark:border-white/10 pb-6">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-accent dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
+                <Video size={14} />
+                <span>Featured Video Archive</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight">
+                No Kings in America: The Movement in Motion
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1 max-w-2xl">
+                Watch official grassroots mobilization footage and documentary highlights from our Sacramento County actions defending constitutional democracy.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-xs font-mono text-muted-foreground dark:text-ink-muted-on-dark bg-secondary/40 px-3 py-1.5 rounded-lg border border-border dark:border-white/5">
+                Archived from Original Platform
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-7">
+              <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-border dark:border-white/10 shadow-float relative">
+                <iframe
+                  className="w-full h-full"
+                  src="https://www.youtube.com/embed/aO2BEp8PCcY"
+                  title="No Kings 3 Grassroots Mobilization Video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+            <div className="lg:col-span-5 space-y-4">
+              <div className="inline-block px-3 py-1 rounded-lg bg-primary-bright/20 border border-primary-on-dark-muted/30 text-primary-ink dark:text-primary-on-dark text-xs font-mono font-bold">
+                Indivisible National &amp; Local Coalition
+              </div>
+              <h3 className="text-xl font-bold text-foreground dark:text-white">
+                No Kings 3 Nationwide Action
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                Highlights from the nationwide peaceful rallies rejecting authoritarian impunity and defending the rule of law. From Sacramento to communities across the country, thousands gathered with signs, chants, and peaceful resolve.
+              </p>
+              <div className="pt-2 flex flex-wrap gap-3">
+                <Link
+                  href="/events"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md"
+                >
+                  <span>Upcoming Rallies</span>
+                </Link>
+                <Link
+                  href="/choir"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border dark:border-slate-700 hover:bg-white/5 text-foreground dark:text-slate-200 font-semibold text-xs uppercase tracking-wider transition-all"
+                >
+                  <span>Choir Anthems</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Submit Photo CTA */}
         <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-white/10 text-center space-y-4 max-w-3xl mx-auto">

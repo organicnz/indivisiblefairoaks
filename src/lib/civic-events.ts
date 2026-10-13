@@ -72,11 +72,11 @@ export function gatheringCard(event: CardEvent | undefined): GatheringCard {
   if (!event) {
     return {
       title: 'Monthly Chapter Meeting & Food Drive',
-      dateLine: 'Tuesday, September 1 • 6:30 PM – 8:00 PM',
+      dateLine: 'Tuesday, November 10, 2026 • 6:30 PM – 8:00 PM',
       locationLine: "St. Michael's Episcopal Church, 2140 Mission Ave, Carmichael",
       rsvpUrl: 'https://www.mobilize.us/indivisible/',
       calendarUrl:
-        'https://calendar.google.com/calendar/render?action=TEMPLATE&text=Indivisible+Fair+Oaks-Carmichael+Monthly+Meeting&dates=20260901T183000/20260901T200000&details=Monthly+community+gathering+and+food+drive.+Bring+non-perishable+food+for+the+local+food+bank.&location=St.+Michael%27s+Episcopal+Church%2C+2140+Mission+Ave%2C+Carmichael%2C+CA',
+        'https://calendar.google.com/calendar/render?action=TEMPLATE&text=Indivisible+Fair+Oaks-Carmichael+Monthly+Meeting&dates=20261110T183000/20261110T200000&details=Monthly+community+gathering+and+food+drive.+Bring+non-perishable+food+for+the+local+food+bank.&location=St.+Michael%27s+Episcopal+Church%2C+2140+Mission+Ave%2C+Carmichael%2C+CA',
     };
   }
   return {

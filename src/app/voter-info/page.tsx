@@ -242,6 +242,44 @@ export default function VoterInfoPage() {
                     </div>
                   </a>
                 </div>
+
+                {/* Save America Act Video Spotlight (Issue #89) */}
+                <div className="mt-8 rounded-2xl bg-secondary border border-white/10 p-5 sm:p-6 shadow-xl">
+                  <div className="flex flex-col lg:flex-row gap-6 items-center">
+                    <div className="w-full lg:w-1/2 aspect-video rounded-xl overflow-hidden bg-black border border-white/10 shrink-0">
+                      <iframe
+                        className="w-full h-full"
+                        src="https://www.youtube.com/embed/0a9zLvWVqgQ"
+                        title="The SAVE America Act Educational Video"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-gold/15 text-accent-gold text-[11px] font-bold uppercase tracking-wider">
+                        Educational Video Spotlight
+                      </div>
+                      <h4 className="text-base sm:text-lg font-bold text-white leading-snug">
+                        Understanding the SAVE America Act (H.R. 8281 / H.R. 7296)
+                      </h4>
+                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                        Watch this concise legal overview explaining the proposed Safeguard American Voter Eligibility (SAVE) Act. Learn how strict documentary proof-of-citizenship mandates impact eligible registered voters—including millions of married women whose legal names differ from their birth certificates, students, rural citizens, and seniors.
+                      </p>
+                      <div className="pt-1 flex items-center gap-4 text-xs">
+                        <span className="text-ink-muted-on-dark">Analysis by Lawyer Oyer</span>
+                        <a
+                          href="https://www.brennancenter.org/our-work/research-reports/save-act-voter-suppression"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary-on-dark hover:underline inline-flex items-center gap-1 font-semibold"
+                        >
+                          <span>Brennan Center Analysis</span>
+                          <ExternalLink size={11} />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
