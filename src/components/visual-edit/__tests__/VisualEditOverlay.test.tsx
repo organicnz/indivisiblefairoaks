@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
-import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
+import { openDiagnosticsVisual, VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import type { PublishedSection, VisualSectionsPublishedDetail } from '@/types/unified';
 
 /**
@@ -538,6 +538,20 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
 
     await act(async () => {
       diagLink?.click();
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('System & Edge Diagnostics');
+    expect(dialog?.textContent).toContain('PostgreSQL Database');
+    expect(dialog?.textContent).toContain('Supabase S3 Storage');
+  });
+
+  it('opens system diagnostics modal when receiving VISUAL_EDIT_EVENTS.openDiagnostics event', async () => {
+    await withPage();
+
+    await act(async () => {
+      openDiagnosticsVisual();
     });
 
     const dialog = document.querySelector('[role="dialog"]');

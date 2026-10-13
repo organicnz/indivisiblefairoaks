@@ -56,6 +56,8 @@ export const VISUAL_EDIT_EVENTS = {
   openSettings: 'indivisible:open-settings',
   /** Open the CRM constituents panel. */
   openCRM: 'indivisible:open-crm',
+  /** Open the system and edge diagnostics modal. */
+  openDiagnostics: 'indivisible:open-diagnostics',
 } as const;
 
 /**
@@ -122,6 +124,10 @@ export function openSettingsVisual(): void {
 
 export function openCRMVisual(): void {
   window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.openCRM));
+}
+
+export function openDiagnosticsVisual(): void {
+  window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.openDiagnostics));
 }
 
 /**
