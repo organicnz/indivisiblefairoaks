@@ -13,12 +13,13 @@
  * two render byte-identical output for the same input — the same contract
  * `commerce-parity.test.ts` already holds for the currency bug that shipped as
  * NZD. If this file is edited, that test fails.
+ *
+ * The site URL is a parameter, not a constant — see `src/lib/crm-broadcast.ts`.
  */
 
 export const BROADCAST_EYEBROW = 'Chapter Broadcast'
 export const BROADCAST_FOOTER =
   'You received this community broadcast as a registered supporter or volunteer.'
-export const BROADCAST_SITE_URL = 'https://indivisiblefairoaks.org'
 export const BROADCAST_ORG = 'Indivisible Fair Oaks-Carmichael Organizing Team'
 
 /** Must match src/lib/crm-broadcast.ts. */
@@ -70,10 +71,12 @@ export function broadcastText({
   recipientName,
   body,
   unsubscribeUrl,
+  siteUrl,
 }: {
   recipientName: string
   body: string
   unsubscribeUrl: string
+  siteUrl: string
 }): string {
   return [
     `Hello ${recipientName},`,
@@ -82,7 +85,7 @@ export function broadcastText({
     '',
     '—',
     BROADCAST_ORG,
-    BROADCAST_SITE_URL,
+    siteUrl,
     '',
     `Unsubscribe: ${unsubscribeUrl}`,
   ].join('\n')
@@ -92,13 +95,16 @@ export function broadcastBodyHtml({
   recipientName,
   body,
   unsubscribeUrl,
+  siteUrl,
 }: {
   recipientName: string
   body: string
   unsubscribeUrl: string
+  siteUrl: string
 }): string {
   const name = escapeBroadcastHtml(recipientName)
   const text = escapeBroadcastHtml(body.trim()).replace(/\n/g, '<br />')
+  const siteHost = siteUrl.replace(/^https?:\/\//, '')
   return `
     <p style="margin:0 0 16px;color:#F1F5F9;font-size:16px;">Hello ${name},</p>
     <div style="margin:0 0 20px;padding:20px;background:#0F172A;border-radius:12px;border-left:3px solid #2563EB;color:#F1F5F9;font-size:14px;line-height:1.7;">
@@ -106,7 +112,7 @@ export function broadcastBodyHtml({
     </div>
     <p style="margin:24px 0 0;color:#94A3B8;font-size:13px;line-height:1.5;">
       ${BROADCAST_ORG}<br />
-      <a href="${BROADCAST_SITE_URL}" style="color:#60A5FA;text-decoration:none;">indivisiblefairoaks.org</a>
+      <a href="${siteUrl}" style="color:#60A5FA;text-decoration:none;">${siteHost}</a>
     </p>
     <p style="margin:12px 0 0;font-size:12px;">
       <a href="${unsubscribeUrl}" style="color:#60A5FA;">Unsubscribe from chapter email</a>
@@ -119,15 +125,16 @@ export interface BrandShellInput {
   body: string
   footer: string
   logoUrl: string
+  siteUrl: string
 }
 
-function brandShellMarkup({ eyebrow, body, footer, logoUrl }: BrandShellInput): string {
+function brandShellMarkup({ eyebrow, body, footer, logoUrl, siteUrl }: BrandShellInput): string {
   return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0F172A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0F172A;padding:40px 16px;">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#1E293B;border-radius:24px;overflow:hidden;border:1px solid rgba(37,99,235,0.25);box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
 <tr><td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,#172554 0%,#1E293B 100%);">
-<a href="${BROADCAST_SITE_URL}" target="_blank" style="text-decoration:none;display:inline-block;">
+<a href="${siteUrl}" target="_blank" style="text-decoration:none;display:inline-block;">
 <img src="${logoUrl}" alt="Indivisible Fair Oaks-Carmichael" width="170" style="display:block;margin:0 auto 12px;max-width:170px;height:auto;" />
 </a>
 <div style="display:inline-block;padding:5px 14px;background:rgba(37,99,235,0.2);border:1px solid rgba(59,130,246,0.35);color:#93C5FD;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.2em;border-radius:9999px;">${eyebrow}</div>
@@ -145,21 +152,24 @@ export function buildBroadcastEmail({
   body,
   unsubscribeUrl,
   logoUrl,
+  siteUrl,
 }: {
   recipientName: string
   body: string
   unsubscribeUrl: string
   logoUrl: string
+  siteUrl: string
 }): { html: string; text: string } {
-  const bodyHtml = broadcastBodyHtml({ recipientName, body, unsubscribeUrl })
+  const bodyHtml = broadcastBodyHtml({ recipientName, body, unsubscribeUrl, siteUrl })
   return {
     html: brandShellMarkup({
       eyebrow: BROADCAST_EYEBROW,
       body: bodyHtml,
       footer: BROADCAST_FOOTER,
       logoUrl,
+      siteUrl,
     }),
-    text: broadcastText({ recipientName, body, unsubscribeUrl }),
+    text: broadcastText({ recipientName, body, unsubscribeUrl, siteUrl }),
   }
 }
 

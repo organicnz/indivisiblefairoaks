@@ -360,7 +360,11 @@ export function CRMDetailClient({
   const handleAddTagInline = async () => {
     const raw = newTagInput.trim().toLowerCase();
     if (!raw) return;
-    if (contact.tags.includes(raw)) {
+    // Compared lowercased: rows written before the normalization fix still hold
+    // mixed case (`Choir` next to `choir`), and the server lowercases the whole
+    // array on save — so a case-sensitive check here would offer to add a tag
+    // the save would immediately merge away.
+    if (contact.tags.some((t) => t.toLowerCase() === raw)) {
       toast.info(`Tag #${raw} is already assigned`);
       setNewTagInput('');
       setIsAddingTag(false);
@@ -392,7 +396,10 @@ export function CRMDetailClient({
   const handleRemoveTagInline = async (tagToRemove: string) => {
     setTagBusy(true);
     try {
-      const updatedTags = contact.tags.filter((t) => t !== tagToRemove);
+      // Case-insensitive like the bulk-remove path on the server: a legacy
+      // mixed-case row must go away when its chip is clicked, not survive
+      // because the stored capitalisation differs from the chip's.
+      const updatedTags = contact.tags.filter((t) => t.toLowerCase() !== tagToRemove.toLowerCase());
       const res = await saveCRMContact({
         id: contact.id,
         email: contact.email,

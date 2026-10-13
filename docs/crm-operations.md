@@ -467,6 +467,19 @@ this value the obvious way recreates the public-in-a-secret-store bug that
 
 No test sends through it: the CRM send paths refuse to run in an e2e build.
 
+### The brand link follows the sending origin
+
+The template's site link used to be a hardcoded apex (`BROADCAST_SITE_URL`) in
+both copies, so a staging build mailed brand links to a host that 302s to
+Google Sites until the cutover — while the unsubscribe URL in the same message
+already pointed at staging. The origin is now a `siteUrl` parameter on
+`buildBroadcastEmail` and every function beneath it: the composer preview and
+direct sends pass `NEXT_PUBLIC_SITE_URL`, the sender passes `APP_URL`. The
+parity test asserts neither copy hardcodes an origin and that a staging origin
+is what every link carries. `brandShell` in `src/lib/email.ts` keeps its
+default for transactional mail — the production apex from `src/config/site.ts`,
+never a literal — and broadcast-adjacent callers pass the origin explicitly.
+
 ---
 
 ## Browser coverage

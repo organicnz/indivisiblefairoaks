@@ -107,9 +107,7 @@ const getCRMContactDetail = vi.hoisted(() =>
   })
 );
 
-const setCRMEmailConsent = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({ success: true })
-);
+const setCRMEmailConsent = vi.hoisted(() => vi.fn().mockResolvedValue({ success: true }));
 
 vi.mock('@/lib/actions/crm', () => ({
   getCRMContacts,
@@ -119,12 +117,29 @@ vi.mock('@/lib/actions/crm', () => ({
   bulkDeleteCRMContacts,
   getCRMExistingTags,
   getCRMContactDetail,
-  getCRMSegments: vi
-    .fn()
-    .mockResolvedValue({
-      segments: [{ id: 's1', name: 'Volunteers', query: 'volunteer' }],
-      truncated: false,
-    }),
+  getCRMSegments: vi.fn().mockResolvedValue({
+    segments: [
+      {
+        id: 's1',
+        name: 'Volunteers',
+        query: 'volunteer',
+        statuses: ['supporter'],
+        districts: [],
+        tags: ['volunteer'],
+        consent: 'opted_in',
+      },
+      {
+        id: 's2',
+        name: 'Multi-status',
+        query: '',
+        statuses: ['donor', 'choir'],
+        districts: [],
+        tags: [],
+        consent: null,
+      },
+    ],
+    truncated: false,
+  }),
   getCRMTasksForContact: vi.fn().mockResolvedValue([
     { id: 't1', title: 'Call voter', status: 'open', due_at: null },
     { id: 't2', title: 'Sent sticker', status: 'done', due_at: null },
@@ -142,11 +157,24 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/',
 }));
 
-vi.mock('@/lib/crm-filters', () => ({
-  consentLabel: (v: boolean | null) => (v === null ? 'Never asked' : v ? 'Opted out' : 'Opted in'),
-  ConsentFilter: null,
-  splitActiveValues: (s: string) => s.split(',').filter(Boolean),
-}));
+vi.mock('@/lib/crm-filters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/crm-filters')>();
+  return {
+    consentLabel: (v: boolean | null) =>
+      v === null ? 'Never asked' : v ? 'Opted out' : 'Opted in',
+    ConsentFilter: null,
+    splitActiveValues: (s: string) =>
+      !s || s === 'all'
+        ? []
+        : s
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean),
+    // The real mapping: the panel tests pin the wiring (segment → action
+    // args), while crm-filters.test.ts pins the mapping itself.
+    filtersFromSegment: actual.filtersFromSegment,
+  };
+});
 
 vi.mock('@/components/admin/ConfirmAction', () => ({
   ConfirmAction: ({ label, onConfirm, children }: any) => (
@@ -317,6 +345,138 @@ describe('CRMPanel', () => {
     expect(saveCRMContact).toHaveBeenCalledWith(expect.objectContaining({ id: 'c1', tags: [] }));
   });
 
+  it('treats a legacy mixed-case tag as already assigned when adding', async () => {
+    // Rows written before the normalization fix still hold `Choir`. The server
+    // lowercases the whole array on save, so adding `choir` must report
+    // already-assigned and never write — otherwise the save stores a duplicate
+    // it immediately merges away.
+    getCRMContacts.mockResolvedValueOnce({
+      contacts: [
+        {
+          id: 'c1',
+          email: 'test@test.org',
+          first_name: 'Test',
+          last_name: 'Person',
+          do_not_email: false,
+          tags: ['Choir'],
+          status: 'supporter',
+          phone: null,
+          address: null,
+          city: null,
+          zip_code: null,
+          district: 'CA-06',
+          notes: null,
+          total_donated_cents: 0,
+          source: 'manual',
+        },
+      ],
+      totalCount: 1,
+    });
+    const statusSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Filter by constituent status"]'
+    );
+    await act(async () => {
+      if (statusSelect) {
+        statusSelect.value = 'donor';
+        statusSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const addTagBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === 'Add Tag'
+    );
+    expect(addTagBtn).not.toBeUndefined();
+    await act(async () => {
+      addTagBtn?.click();
+    });
+    const tagInput = document.body.querySelector<HTMLInputElement>('input[placeholder^="New tag"]');
+    expect(tagInput).not.toBeNull();
+    await act(async () => {
+      if (tagInput) {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        )?.set;
+        setter?.call(tagInput, 'choir');
+        tagInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    const submitBtn = document.body.querySelector<HTMLButtonElement>('button[title="Add tag"]');
+    expect(submitBtn).not.toBeNull();
+    await act(async () => {
+      submitBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(saveCRMContact).not.toHaveBeenCalled();
+  });
+
+  it('removes every spelling of a tag when chips differ only by case', async () => {
+    // A contact carrying both `Choir` and `choir` shows two chips. Removing
+    // one must clear both: the server normalizes on save, so leaving the other
+    // spelling behind resurrects the chip on the next read.
+    getCRMContacts.mockResolvedValueOnce({
+      contacts: [
+        {
+          id: 'c1',
+          email: 'test@test.org',
+          first_name: 'Test',
+          last_name: 'Person',
+          do_not_email: false,
+          tags: ['Choir', 'choir'],
+          status: 'supporter',
+          phone: null,
+          address: null,
+          city: null,
+          zip_code: null,
+          district: 'CA-06',
+          notes: null,
+          total_donated_cents: 0,
+          source: 'manual',
+        },
+      ],
+      totalCount: 1,
+    });
+    const statusSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Filter by constituent status"]'
+    );
+    await act(async () => {
+      if (statusSelect) {
+        statusSelect.value = 'donor';
+        statusSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const contactBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Test Person') ?? false
+    );
+    expect(contactBtn).not.toBeUndefined();
+    await act(async () => {
+      contactBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const removeBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Remove tag Choir"]'
+    );
+    expect(removeBtn).not.toBeNull();
+    await act(async () => {
+      removeBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(saveCRMContact).toHaveBeenCalledWith(expect.objectContaining({ id: 'c1', tags: [] }));
+  });
+
   it('opens add constituent modal when clicking Add button', async () => {
     const addBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
       (b) => b.textContent?.trim().includes('Add') ?? false
@@ -347,6 +507,98 @@ describe('CRMPanel', () => {
     });
 
     expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ query: 'volunteer' }));
+  });
+
+  it('applies a segment as a full filter replacement, not just its text query', async () => {
+    // The old handler set only the text query, so a segment saved with chips
+    // silently became a text search. Every dimension must reach the read.
+    const segmentsBtn = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.trim() === 'Segments');
+    await act(async () => {
+      segmentsBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const segmentCard = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.includes('Volunteers') ?? false);
+    expect(segmentCard).not.toBeUndefined();
+    await act(async () => {
+      segmentCard?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(getCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'volunteer',
+        consent: 'opted_in',
+        statusList: ['supporter'],
+        districtList: [],
+        tagList: ['volunteer'],
+      })
+    );
+    // The applied segment is named on screen, and the manual controls stand down.
+    expect(document.body.textContent).toContain('Segment: Volunteers');
+    const statusSelect = document.body.querySelector<HTMLSelectElement>(
+      'select[aria-label="Filter by constituent status"]'
+    );
+    expect(statusSelect?.disabled).toBe(true);
+  });
+
+  it('passes multi-valued segment dimensions through as lists', async () => {
+    const segmentsBtn = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.trim() === 'Segments');
+    await act(async () => {
+      segmentsBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const segmentCard = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.includes('Multi-status') ?? false);
+    expect(segmentCard).not.toBeUndefined();
+    await act(async () => {
+      segmentCard?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(getCRMContacts).toHaveBeenCalledWith(
+      expect.objectContaining({ statusList: ['donor', 'choir'] })
+    );
+  });
+
+  it('clearing the applied segment returns to manual filters', async () => {
+    const segmentsBtn = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.trim() === 'Segments');
+    await act(async () => {
+      segmentsBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    const segmentCard = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.includes('Volunteers') ?? false);
+    await act(async () => {
+      segmentCard?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(document.body.textContent).toContain('Segment: Volunteers');
+
+    const clearBtn = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Clear applied segment"]'
+    );
+    expect(clearBtn).not.toBeNull();
+    await act(async () => {
+      clearBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(document.body.textContent).not.toContain('Segment: Volunteers');
+    // The read goes back through the (neutral) manual controls.
+    expect(getCRMContacts).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: undefined, tag: undefined, district: undefined })
+    );
   });
 
   it('filters timeline activities and tasks in the detail view', async () => {
@@ -596,9 +848,7 @@ describe('CRMPanel', () => {
       }
     });
 
-    expect(getCRMContacts).toHaveBeenCalledWith(
-      expect.objectContaining({ district: 'CA-06' })
-    );
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ district: 'CA-06' }));
 
     const clearDistrictBtn = document.body.querySelector<HTMLButtonElement>(
       'button[aria-label="Clear district filter"]'
@@ -608,9 +858,7 @@ describe('CRMPanel', () => {
       clearDistrictBtn?.click();
     });
 
-    expect(getCRMContacts).toHaveBeenCalledWith(
-      expect.objectContaining({ district: undefined })
-    );
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ district: undefined }));
   });
 
   it('updates email consent immediately on constituent 360 card and refreshes timeline', async () => {
@@ -664,9 +912,7 @@ describe('CRMPanel', () => {
       districtFilterBtn?.click();
     });
 
-    expect(getCRMContacts).toHaveBeenCalledWith(
-      expect.objectContaining({ district: 'CA-06' })
-    );
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ district: 'CA-06' }));
     expect(document.body.textContent).toContain('District: CA-06');
   });
 
@@ -789,9 +1035,7 @@ describe('CRMPanel', () => {
       removeConsentBtn?.click();
     });
 
-    expect(getCRMContacts).toHaveBeenCalledWith(
-      expect.objectContaining({ consent: undefined })
-    );
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ consent: undefined }));
     expect(document.body.textContent).not.toContain('Consent: Opted in');
   });
 
@@ -820,9 +1064,9 @@ describe('CRMPanel', () => {
   });
 
   it('supports mobile back navigation from segments view', async () => {
-    const segmentsBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
-      (b) => b.textContent?.trim() === 'Segments'
-    );
+    const segmentsBtn = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.trim() === 'Segments');
     expect(segmentsBtn).not.toBeUndefined();
     await act(async () => {
       segmentsBtn?.click();

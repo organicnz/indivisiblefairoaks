@@ -1,3 +1,4 @@
+import { PRODUCTION_SITE_URL } from '@/config/site';
 import { env } from '@/lib/env';
 
 export const RESEND_API_URL = 'https://api.resend.com/emails';
@@ -98,14 +99,24 @@ export const LOGO_URL = `${env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/publi
 /**
  * Shared "Sensory Luxury" branded email shell for transactional mail.
  * Matches website color system: Royal Blue (#2563EB), Deep Navy (#0F172A), Slate Card (#1E293B).
+ *
+ * `siteUrl` is the sending origin and defaults to the production apex — the
+ * single source of truth in `src/config/site.ts`, never a literal. Broadcast
+ * mail passes its own origin explicitly so staging builds link to staging.
  */
-export function brandShell(opts: { eyebrow: string; body: string; footer: string }): string {
+export function brandShell(opts: {
+  eyebrow: string;
+  body: string;
+  footer: string;
+  siteUrl?: string;
+}): string {
+  const siteUrl = opts.siteUrl ?? PRODUCTION_SITE_URL;
   return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0F172A;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0F172A;padding:40px 16px;">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#1E293B;border-radius:24px;overflow:hidden;border:1px solid rgba(37,99,235,0.25);box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
 <tr><td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,#172554 0%,#1E293B 100%);">
-<a href="https://indivisiblefairoaks.org" target="_blank" style="text-decoration:none;display:inline-block;">
+<a href="${siteUrl}" target="_blank" style="text-decoration:none;display:inline-block;">
 <img src="${LOGO_URL}" alt="Indivisible Fair Oaks-Carmichael" width="170" style="display:block;margin:0 auto 12px;max-width:170px;height:auto;" />
 </a>
 <div style="display:inline-block;padding:5px 14px;background:rgba(37,99,235,0.2);border:1px solid rgba(59,130,246,0.35);color:#93C5FD;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.2em;border-radius:9999px;">${opts.eyebrow}</div>

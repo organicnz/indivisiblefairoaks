@@ -586,6 +586,34 @@ describe('CRM mutation failure paths', () => {
       expect(res.error).toBe('Invalid consent value');
     });
 
+    it('rejects bulk-added tags the single-contact schema would refuse', async () => {
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', status: 'supporter', tags: [] }],
+      };
+      for (const bad of ['has,comma', '<b>bold</b>', `x${'y'.repeat(60)}`]) {
+        const res = await bulkUpdateCRMContacts({ contactIds: ['c1'], addTags: [bad] });
+        expect(res.success).toBe(false);
+        expect(res.error ?? '').toMatch(/^Invalid tag "/);
+      }
+      // Nothing was written: the refusal happens before the directory is read.
+      expect(tables.crm_contacts.rows).toEqual([{ id: 'c1', status: 'supporter', tags: [] }]);
+    });
+
+    it('still removes tags that would fail the add-shape check', async () => {
+      // A legacy row can carry a tag this rule predates. Refusing it here
+      // would strand the row — removal matches case-insensitively and removes
+      // unconditionally.
+      tables.crm_contacts = {
+        rows: [{ id: 'c1', status: 'supporter', tags: ['has,comma', 'Choir'] }],
+      };
+      const res = await bulkUpdateCRMContacts({
+        contactIds: ['c1'],
+        removeTags: ['has,comma', 'choir'],
+      });
+      expect(res.success).toBe(true);
+      expect((tables.crm_contacts.rows as { tags: string[] }[])[0].tags).toEqual([]);
+    });
+
     it('bulk-opts contacts out, writing do_not_email and unsubscribed_at', async () => {
       tables.crm_contacts = {
         rows: [
