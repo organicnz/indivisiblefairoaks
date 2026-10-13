@@ -2,7 +2,11 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
-import { openDiagnosticsVisual, openSettingsVisual, VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
+import {
+  openDiagnosticsVisual,
+  openSettingsVisual,
+  VISUAL_EDIT_EVENTS,
+} from '@/lib/visual-edit-events';
 import type { PublishedSection, VisualSectionsPublishedDetail } from '@/types/unified';
 
 /**
@@ -583,7 +587,9 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       socialTabBtn?.click();
     });
 
-    expect(dialog?.textContent).toContain('Grassroots action, community advocacy, and voter empowerment.');
+    expect(dialog?.textContent).toContain(
+      'Grassroots action, community advocacy, and voter empowerment.'
+    );
 
     const serpTabBtn = dialog?.querySelector<HTMLButtonElement>(
       'button[aria-label="Preview Google search snippet"]'
