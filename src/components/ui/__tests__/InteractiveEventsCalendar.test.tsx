@@ -36,7 +36,9 @@ describe('InteractiveEventsCalendar', () => {
     expect(container.textContent).toContain('Saturday, October 17, 2026');
     expect(container.textContent).toContain('Fair Oaks Blvd & Sunrise Blvd');
 
-    expect(container.textContent).toContain('Carmichael Resistance Choir: Street Corner Singing Protest');
+    expect(container.textContent).toContain(
+      'Carmichael Resistance Choir: Street Corner Singing Protest'
+    );
     expect(container.textContent).toContain('Ongoing Every Saturday Afternoon');
   });
 
@@ -55,7 +57,9 @@ describe('InteractiveEventsCalendar', () => {
 
     expect(container.textContent).toContain('Monthly Chapter Gathering & Food Bank Drive');
     expect(container.textContent).not.toContain('No Kings 4');
-    expect(container.textContent).not.toContain('Carmichael Resistance Choir: Street Corner Singing Protest');
+    expect(container.textContent).not.toContain(
+      'Carmichael Resistance Choir: Street Corner Singing Protest'
+    );
 
     const ralliesButton = buttons.find((b) => b.textContent?.trim() === 'Rallies & Street Action');
     await act(async () => {
@@ -89,7 +93,9 @@ describe('InteractiveEventsCalendar', () => {
     });
 
     // Check search filtering
-    expect(container.textContent).toContain('Carmichael Resistance Choir: Street Corner Singing Protest');
+    expect(container.textContent).toContain(
+      'Carmichael Resistance Choir: Street Corner Singing Protest'
+    );
   });
 
   it('provides accessible Google Calendar URLs and ICS download controls', async () => {
@@ -97,12 +103,16 @@ describe('InteractiveEventsCalendar', () => {
       root.render(<InteractiveEventsCalendar />);
     });
 
-    const calLinks = Array.from(container.querySelectorAll<HTMLAnchorElement>('a[title*="Google Calendar"]'));
+    const calLinks = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>('a[title*="Google Calendar"]')
+    );
     expect(calLinks.length).toBeGreaterThan(0);
     const meetingCalLink = calLinks.find((a) => a.href.includes('20261110T183000'));
     expect(meetingCalLink).toBeDefined();
 
-    const icsButtons = Array.from(container.querySelectorAll<HTMLButtonElement>('button[title*="iCal"]'));
+    const icsButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[title*="iCal"]')
+    );
     expect(icsButtons.length).toBeGreaterThan(0);
 
     // Mock URL.createObjectURL and click to test ics export

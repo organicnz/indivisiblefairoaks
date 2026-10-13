@@ -1,7 +1,17 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { Camera, ChevronLeft, ChevronRight, Filter, MapPin, Search, Share2, Video, X } from 'lucide-react';
+import {
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  MapPin,
+  Search,
+  Share2,
+  Video,
+  X,
+} from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -324,7 +334,8 @@ export default function GalleryPage() {
                 No Kings in America: The Movement in Motion
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1 max-w-2xl">
-                Watch official grassroots mobilization footage and documentary highlights from our Sacramento County actions defending constitutional democracy.
+                Watch official grassroots mobilization footage and documentary highlights from our
+                Sacramento County actions defending constitutional democracy.
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -354,7 +365,9 @@ export default function GalleryPage() {
                 No Kings 3 Nationwide Action
               </h3>
               <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
-                Highlights from the nationwide peaceful rallies rejecting authoritarian impunity and defending the rule of law. From Sacramento to communities across the country, thousands gathered with signs, chants, and peaceful resolve.
+                Highlights from the nationwide peaceful rallies rejecting authoritarian impunity and
+                defending the rule of law. From Sacramento to communities across the country,
+                thousands gathered with signs, chants, and peaceful resolve.
               </p>
               <div className="pt-2 flex flex-wrap gap-3">
                 <Link

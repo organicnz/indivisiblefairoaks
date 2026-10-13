@@ -59,10 +59,13 @@ export default async function EventsPage() {
                 Carmichael Resistance Choir: Street Corner Singing Protest
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1">
-                Every Saturday Afternoon • 3:00 PM – 4:30 PM • Corner of Fair Oaks Blvd &amp; Manzanita Ave, Carmichael, CA
+                Every Saturday Afternoon • 3:00 PM – 4:30 PM • Corner of Fair Oaks Blvd &amp;
+                Manzanita Ave, Carmichael, CA
               </p>
               <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark mt-2 leading-relaxed max-w-2xl">
-                We sing our protest to afternoon traffic and community patrons. Bring your signs, lawn chairs, and voices to stand up for democracy! No singing experience required — all community members are warmly welcomed.
+                We sing our protest to afternoon traffic and community patrons. Bring your signs,
+                lawn chairs, and voices to stand up for democracy! No singing experience required —
+                all community members are warmly welcomed.
               </p>
             </div>
           </div>

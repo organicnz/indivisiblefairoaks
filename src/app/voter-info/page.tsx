@@ -141,7 +141,9 @@ export default function VoterInfoPage() {
                     2026 Voter Guide &amp; Ballot Recommendations
                   </h2>
                   <p className="text-sm text-ink-on-dark max-w-2xl leading-relaxed mt-1">
-                    Nonpartisan voting guides, ballot measure analyses, and local candidate recommendations prepared for Fair Oaks, Carmichael, and Sacramento County voters.
+                    Nonpartisan voting guides, ballot measure analyses, and local candidate
+                    recommendations prepared for Fair Oaks, Carmichael, and Sacramento County
+                    voters.
                   </p>
                 </div>
 
@@ -161,7 +163,8 @@ export default function VoterInfoPage() {
                         Sacramento Voter Guide
                       </h3>
                       <p className="text-xs text-ink-muted-on-dark leading-relaxed">
-                        Official guide with recommendations on local candidates and county initiatives.
+                        Official guide with recommendations on local candidates and county
+                        initiatives.
                       </p>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
@@ -263,7 +266,11 @@ export default function VoterInfoPage() {
                         Understanding the SAVE America Act (H.R. 8281 / H.R. 7296)
                       </h4>
                       <p className="text-xs text-ink-muted-on-dark leading-relaxed">
-                        Watch this concise legal overview explaining the proposed Safeguard American Voter Eligibility (SAVE) Act. Learn how strict documentary proof-of-citizenship mandates impact eligible registered voters—including millions of married women whose legal names differ from their birth certificates, students, rural citizens, and seniors.
+                        Watch this concise legal overview explaining the proposed Safeguard American
+                        Voter Eligibility (SAVE) Act. Learn how strict documentary
+                        proof-of-citizenship mandates impact eligible registered voters—including
+                        millions of married women whose legal names differ from their birth
+                        certificates, students, rural citizens, and seniors.
                       </p>
                       <div className="pt-1 flex items-center gap-4 text-xs">
                         <span className="text-ink-muted-on-dark">Analysis by Lawyer Oyer</span>
