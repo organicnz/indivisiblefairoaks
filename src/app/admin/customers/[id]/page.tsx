@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CustomerAdminToggle } from '@/components/admin/CustomerAdminToggle';
+import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 import type { AdminOrder, OrderItem } from '@/types/orders';
 import { statusStyle } from '@/types/orders';
@@ -114,9 +115,9 @@ export default async function AdminCustomerDetailPage({
               <Calendar size={11} />
               Customer since{' '}
               {customer.created_at
-                ? new Date(customer.created_at).toLocaleDateString('en-NZ', {
-                    day: 'numeric',
+                ? new Date(customer.created_at).toLocaleDateString('en-US', {
                     month: 'short',
+                    day: 'numeric',
                     year: 'numeric',
                   })
                 : 'N/A'}
@@ -136,14 +137,14 @@ export default async function AdminCustomerDetailPage({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Total Orders', value: String(orders.length), icon: ShoppingBag },
-          { label: 'Lifetime Spend', value: `$${spend.toFixed(2)}`, icon: CreditCard },
-          { label: 'Avg Order Value', value: `$${aov.toFixed(2)}`, icon: TrendingUp },
+          { label: 'Lifetime Spend', value: formatPrice(spend), icon: CreditCard },
+          { label: 'Avg Order Value', value: formatPrice(aov), icon: TrendingUp },
           {
             label: 'Last Order',
             value: lastOrder?.created_at
-              ? new Date(lastOrder.created_at).toLocaleDateString('en-NZ', {
-                  day: 'numeric',
+              ? new Date(lastOrder.created_at).toLocaleDateString('en-US', {
                   month: 'short',
+                  day: 'numeric',
                   year: 'numeric',
                 })
               : '—',
@@ -197,15 +198,15 @@ export default async function AdminCustomerDetailPage({
                     </span>
                     <span className="text-[11px] text-muted-foreground font-bold">
                       {o.created_at
-                        ? new Date(o.created_at).toLocaleDateString('en-NZ', {
-                            day: 'numeric',
+                        ? new Date(o.created_at).toLocaleDateString('en-US', {
                             month: 'short',
+                            day: 'numeric',
                             year: 'numeric',
                           })
                         : 'N/A'}
                     </span>
                     <span className="ml-auto text-sm font-black text-primary dark:text-primary-on-dark">
-                      ${Number(o.total).toFixed(2)}
+                      {formatPrice(o.total)}
                     </span>
                   </li>
                 ))}

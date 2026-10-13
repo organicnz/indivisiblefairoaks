@@ -1,6 +1,7 @@
 import { Search, Users } from 'lucide-react';
 import Link from 'next/link';
 import { CustomerAdminToggle } from '@/components/admin/CustomerAdminToggle';
+import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
@@ -113,9 +114,9 @@ export default async function AdminCustomersPage({
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       Joined{' '}
                       {c.created_at
-                        ? new Date(c.created_at).toLocaleDateString('en-NZ', {
-                            day: 'numeric',
+                        ? new Date(c.created_at).toLocaleDateString('en-US', {
                             month: 'short',
+                            day: 'numeric',
                             year: 'numeric',
                           })
                         : 'N/A'}
@@ -132,7 +133,7 @@ export default async function AdminCustomersPage({
                       Lifetime Spend
                     </p>
                     <p className="text-lg text-primary dark:text-primary-on-dark font-black">
-                      ${spent.toFixed(2)}
+                      {formatPrice(spent)}
                     </p>
                   </div>
                   <div>
@@ -141,9 +142,9 @@ export default async function AdminCustomersPage({
                     </p>
                     <p className="text-sm text-foreground font-black">
                       {lastOrder
-                        ? new Date(lastOrder.created_at || '').toLocaleDateString('en-NZ', {
-                            day: 'numeric',
+                        ? new Date(lastOrder.created_at || '').toLocaleDateString('en-US', {
                             month: 'short',
+                            day: 'numeric',
                             year: 'numeric',
                           })
                         : '—'}

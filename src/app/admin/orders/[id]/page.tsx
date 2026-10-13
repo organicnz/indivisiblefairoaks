@@ -109,9 +109,9 @@ export default async function AdminOrderDetailPage({
             </h1>
             <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-1.5">
               {order.created_at
-                ? new Date(order.created_at).toLocaleString('en-NZ', {
-                    day: 'numeric',
+                ? new Date(order.created_at).toLocaleString('en-US', {
                     month: 'short',
+                    day: 'numeric',
                     year: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit',
