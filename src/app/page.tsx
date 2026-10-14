@@ -232,20 +232,17 @@ export default async function HomePage() {
       </section>
 
       {/* Four Pillars / Mission Section */}
-      {/* Light section: white cards on surface-muted keep the page alternating.
-          Eyebrows use primary-ink (accent-gold is 2.15:1 on white — surface only).
-          Copy region: the heading, intro and four cards are CMS-editable. */}
-      <section className="py-16 md:py-24 bg-surface-muted text-foreground">
+      <section className="py-16 md:py-24 bg-secondary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <CopyRegion id="home-pillars">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <span className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2">
+              <span className="text-accent-gold text-xs font-black uppercase tracking-widest block mb-2">
                 Our Core Principles
               </span>
               <h2 className="text-3xl sm:text-4xl font-black tracking-tight mb-4">
                 What We Stand For & How We Win
               </h2>
-              <p className="text-muted-foreground text-base leading-relaxed">
+              <p className="text-ink-muted-on-dark text-base leading-relaxed">
                 Rooted in the national Indivisible Guide, our local chapter works tirelessly across
                 the Sacramento region to defend our constitutional democracy through grassroots
                 mobilization.
@@ -253,47 +250,45 @@ export default async function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-blue-900/40 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Shield size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">Stop Authoritarianism</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-lg font-bold text-white mb-2">Stop Authoritarianism</h3>
+                <p className="text-sm text-ink-muted-on-dark leading-relaxed">
                   Countering anti-democratic overreach, defending executive accountability, and
                   raising public alarm through visible resistance.
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-blue-900/40 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Vote size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">Defend Democratic Norms</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-lg font-bold text-white mb-2">Defend Democratic Norms</h3>
+                <p className="text-sm text-ink-muted-on-dark leading-relaxed">
                   Safeguarding free and fair elections, expanding voting access, educating youth
                   voters, and standing up for civil liberties.
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-blue-900/40 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Megaphone size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">Elect Bold Leaders</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-lg font-bold text-white mb-2">Elect Bold Leaders</h3>
+                <p className="text-sm text-ink-muted-on-dark leading-relaxed">
                   Direct voter canvassing, phone banks, candidate accountability, and mobilizing
                   high-turnout civic engagement in every cycle.
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-secondary/80 border border-white/10 hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-blue-900/40 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Users size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">
-                  Secure Progressive Policy
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <h3 className="text-lg font-bold text-white mb-2">Secure Progressive Policy</h3>
+                <p className="text-sm text-ink-muted-on-dark leading-relaxed">
                   Advocating for justice, reproductive autonomy, climate resilience, and economic
                   equity through community solidarity.
                 </p>
