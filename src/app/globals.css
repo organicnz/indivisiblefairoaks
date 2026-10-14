@@ -757,6 +757,34 @@
   border-color: var(--primary);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Visual Editorial Mode & In-Place Click-To-Edit Styling
+   ────────────────────────────────────────────────────────────────────────── */
+.visual-inline-active {
+  outline: 2px solid #f59e0b !important;
+  outline-offset: 3px !important;
+  background-color: rgba(245, 158, 11, 0.08) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.25) !important;
+  transition: all 0.15s ease-out !important;
+}
+
+body[data-editorial-mode='active'] main h1:hover,
+body[data-editorial-mode='active'] main h2:hover,
+body[data-editorial-mode='active'] main h3:hover,
+body[data-editorial-mode='active'] main h4:hover,
+body[data-editorial-mode='active'] main h5:hover,
+body[data-editorial-mode='active'] main h6:hover,
+body[data-editorial-mode='active'] main p:hover,
+body[data-editorial-mode='active'] main li:hover,
+body[data-editorial-mode='active'] main blockquote:hover,
+body[data-editorial-mode='active'] [data-copy-region] *:not(.contents):hover {
+  cursor: text;
+  outline: 1.5px dashed rgba(245, 158, 11, 0.55);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Reduced-motion safety net. Covers CSS animations and transitions *and* the
    enter/exit layer above, because those animations run through the same
    `animation-duration` property.

@@ -132,7 +132,11 @@ export function applyThemeAttribute(
   documentElement: {
     setAttribute: (name: string, value: string) => void;
     style?: { colorScheme?: string };
-    classList?: { toggle?: (token: string, force?: boolean) => boolean; add?: (token: string) => void; remove?: (token: string) => void };
+    classList?: {
+      toggle?: (token: string, force?: boolean) => boolean;
+      add?: (token: string) => void;
+      remove?: (token: string) => void;
+    };
   },
   effective: EffectiveTheme
 ): void {
@@ -175,9 +179,9 @@ export function themeBootstrapScript(): string {
     "var d=m==='dark'||(m!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);",
     "var c=d?'dark':'light';",
     `document.documentElement.setAttribute('${THEME_ATTR}',c);`,
-    "document.documentElement.style.colorScheme=c;",
+    'document.documentElement.style.colorScheme=c;',
     "document.documentElement.classList.toggle('dark',d);",
-    "var tc=document.querySelectorAll('meta[name=\"theme-color\"]');",
+    'var tc=document.querySelectorAll(\'meta[name="theme-color"]\');',
     "for(var i=0;i<tc.length;i++)tc[i].setAttribute('content',d?'#0f172a':'#ffffff');",
     '}catch(e){',
     `document.documentElement.setAttribute('${THEME_ATTR}','light');`,

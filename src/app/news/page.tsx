@@ -1,7 +1,8 @@
-import { ArrowRight, BookOpen, Mail, Megaphone, Newspaper, Send } from 'lucide-react';
+import { Mail, Megaphone, Newspaper, Send } from 'lucide-react';
 import type { Metadata } from 'next';
+import { InteractiveNewslettersList } from '@/components/ui/InteractiveNewslettersList';
 import { pageMetadata } from '@/lib/metadata';
-import { getNewsletters } from '@/lib/queries/civic';
+import { getNewsletters, type NewsletterRow } from '@/lib/queries/civic';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Newsletters & Bulletins',
@@ -10,53 +11,15 @@ export const metadata: Metadata = pageMetadata({
   path: '/news',
 });
 
-const NEWSLETTERS = [
-  {
-    title: 'Indivisible Fair Oaks-Carmichael Summer Action Bulletin',
-    date: 'July 2026',
-    description:
-      'Summer organizing priorities: preparing for upcoming elections, choir street demonstrations at Fair Oaks & Manzanita, local food bank drives, and phone-banking schedules.',
-    topics: ['Election Defense', 'Choir Actions', 'Food Drive', 'Mobilize Events'],
-  },
-  {
-    title: 'Mid-Year Grassroots Review & Legislative Round-up',
-    date: 'June 2026',
-    description:
-      'Review of California state legislative priorities, local city council actions, deep canvass voter persuasion results, and upcoming coalition rallies in Citrus Heights.',
-    topics: ['California Bills', 'Deep Canvass', 'Sunrise Solidarity', 'Voter Outreach'],
-  },
-  {
-    title: 'Spring Mobilization & Resistance Choir Launch',
-    date: 'May 2026',
-    description:
-      'Announcing the official schedule for the Carmichael Resistance Choir, spring town hall debriefs, and youth voter pre-registration drives across Sacramento County.',
-    topics: ['Resistance Choir', 'Youth Pre-Registration', 'Town Halls'],
-  },
-  {
-    title: 'Defending Democratic Norms: Spring Chapter Newsletter',
-    date: 'April 2026',
-    description:
-      'National Indivisible strategy updates, local community resistance workshops, and mutual aid efforts for Fair Oaks and Carmichael neighborhood families.',
-    topics: ['National Strategy', 'Mutual Aid', 'Community Care'],
-  },
-];
-
 export default async function NewsPage() {
-  // Supabase is the source of truth; the inline archive below is a fallback so
-  // pre-migration deploys and DB outages still render.
-  let items = NEWSLETTERS;
+  let initialNewsletters: NewsletterRow[] | undefined;
   try {
     const rows = await getNewsletters();
     if (rows.length > 0) {
-      items = rows.map((r) => ({
-        title: r.title,
-        date: r.date_label,
-        description: r.description,
-        topics: r.topics,
-      }));
+      initialNewsletters = rows;
     }
   } catch {
-    // fall through to NEWSLETTERS
+    // falls through to fallback inside InteractiveNewslettersList
   }
   return (
     <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
@@ -104,60 +67,16 @@ export default async function NewsPage() {
           </div>
         </div>
 
-        {/* Bulletins Archive */}
+        {/* Bulletins Archive with In-Page Visual CRUD */}
         <div className="space-y-6">
           <h2 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
-            <BookOpen className="text-primary-ink dark:text-primary-on-dark-muted" />
-            <span>Past Bulletins & Archives</span>
+            <span className="text-primary-ink dark:text-primary-on-dark-muted font-mono text-xl">
+              ✦
+            </span>
+            <span>Past Bulletins &amp; Archives</span>
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {items.map((newsletter) => (
-              <div
-                key={newsletter.title}
-                className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-border dark:hover:border-slate-700 transition-all flex flex-col justify-between"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-primary-ink dark:text-accent-gold uppercase tracking-wider">
-                      {newsletter.date}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark font-semibold uppercase">
-                      Chapter Bulletin
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold text-foreground dark:text-white leading-snug">
-                    {newsletter.title}
-                  </h3>
-                  <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
-                    {newsletter.description}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 pt-2">
-                    {newsletter.topics.map((topic) => (
-                      <span
-                        key={topic}
-                        className="px-2 py-0.5 rounded-md bg-surface-muted dark:bg-white/5 text-[10px] font-semibold text-muted-foreground dark:text-ink-muted-on-dark"
-                      >
-                        {topic}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="pt-6 border-t border-border dark:border-white/10/80 mt-6 flex items-center justify-between">
-                  <a
-                    href="mailto:contact@indivisiblefairoaks.org?subject=Archive%20Request%20-%20Bulletin"
-                    className="text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark flex items-center gap-1"
-                  >
-                    <span>Request Full Issue</span>
-                    <ArrowRight size={14} />
-                  </a>
-                  <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
-                    PDF & Email Archive
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <InteractiveNewslettersList initialNewsletters={initialNewsletters} />
         </div>
 
         {/* National Indivisible Wire */}

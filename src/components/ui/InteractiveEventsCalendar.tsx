@@ -1,7 +1,24 @@
 'use client';
 
-import { CalendarPlus, Clock, Download, ExternalLink, MapPin, Music, Search } from 'lucide-react';
+import {
+  CalendarPlus,
+  Clock,
+  Download,
+  ExternalLink,
+  MapPin,
+  Music,
+  PenLine,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { CivicEventEditorModal } from '@/components/admin/civic/CivicEventEditorModal';
+import { useEditContext } from '@/components/layout/useEditContext';
+import { useVisualEditMode } from '@/components/layout/visual-edit-store';
+import { type CivicEventRecord, deleteCivicEvent } from '@/lib/actions/civic';
 import { buildGoogleCalendarUrl } from '@/lib/civic-events';
 
 export interface CivicEvent {
@@ -94,12 +111,17 @@ export function InteractiveEventsCalendar({
 }: {
   initialEvents?: CivicEvent[];
 } = {}) {
+  const { enabled } = useVisualEditMode('/events');
+  const { isAdmin } = useEditContext('/events');
   const [activeCategory, setActiveCategory] = useState<string>('All Actions');
   const [searchQuery, setSearchQuery] = useState('');
+  const [eventsList, setEventsList] = useState<CivicEvent[]>(
+    initialEvents && initialEvents.length > 0 ? initialEvents : EVENTS
+  );
+  const [selectedEventForEdit, setSelectedEventForEdit] = useState<CivicEventRecord | null>(null);
+  const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
 
-  // Supabase rows when provided; inline rows keep pre-migration deploys working.
-  const base = initialEvents && initialEvents.length > 0 ? initialEvents : EVENTS;
-  const filteredEvents = base.filter((event) => {
+  const filteredEvents = eventsList.filter((event) => {
     const matchesCategory = activeCategory === 'All Actions' || event.category === activeCategory;
     const matchesSearch =
       event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -107,6 +129,75 @@ export function InteractiveEventsCalendar({
       event.locationName.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  const handleOpenCreateModal = () => {
+    setSelectedEventForEdit(null);
+    setIsEditorModalOpen(true);
+  };
+
+  const handleOpenEditModal = (event: CivicEvent) => {
+    setSelectedEventForEdit({
+      slug: event.id,
+      title: event.title,
+      category: event.category,
+      date_label: event.dateLabel,
+      time_label: event.timeLabel,
+      starts_at: null,
+      ends_at: null,
+      location_name: event.locationName,
+      address: event.address,
+      description: event.description,
+      rsvp_url: event.rsvpUrl,
+      highlight: Boolean(event.highlight),
+      sort_order: 10,
+    });
+    setIsEditorModalOpen(true);
+  };
+
+  const handleDeleteEvent = async (eventId: string, eventTitle: string) => {
+    try {
+      const res = await deleteCivicEvent(eventId);
+      if (res.success) {
+        setEventsList((prev) => prev.filter((e) => e.id !== eventId));
+        toast.success(`Event "${eventTitle}" deleted`);
+      } else {
+        toast.error(res.error || 'Failed to delete event');
+      }
+    } catch {
+      toast.error('Failed to delete event');
+    }
+  };
+
+  const handleEventSaved = (savedRecord: CivicEventRecord) => {
+    setIsEditorModalOpen(false);
+    const updated: CivicEvent = {
+      id: savedRecord.slug,
+      title: savedRecord.title,
+      category: savedRecord.category,
+      dateLabel: savedRecord.date_label,
+      timeLabel: savedRecord.time_label,
+      isoDateStart: savedRecord.starts_at
+        ? savedRecord.starts_at.replace(/[-:]/g, '').slice(0, 15)
+        : '',
+      isoDateEnd: savedRecord.ends_at ? savedRecord.ends_at.replace(/[-:]/g, '').slice(0, 15) : '',
+      locationName: savedRecord.location_name,
+      address: savedRecord.address,
+      description: savedRecord.description,
+      rsvpUrl: savedRecord.rsvp_url,
+      highlight: savedRecord.highlight,
+    };
+
+    setEventsList((prev) => {
+      const idx = prev.findIndex((e) => e.id === updated.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
+      }
+      return [updated, ...prev];
+    });
+    toast.success(`Event "${savedRecord.title}" saved successfully`);
+  };
 
   // Single Google Calendar builder in `@/lib/civic-events`, shared with the
   // homepage gathering card so the two links cannot drift into different shapes.
@@ -175,6 +266,18 @@ export function InteractiveEventsCalendar({
             </button>
           ))}
         </div>
+
+        {/* In-Page Admin Add Event Trigger */}
+        {enabled && isAdmin && (
+          <button
+            type="button"
+            onClick={handleOpenCreateModal}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
+          >
+            <Plus size={15} />
+            <span>Add Event</span>
+          </button>
+        )}
       </div>
 
       {/* Events Grid */}
@@ -204,14 +307,42 @@ export function InteractiveEventsCalendar({
               >
                 <div>
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-primary-on-dark text-xs font-mono font-semibold">
-                      {event.category === 'Resistance Choir' && <Music size={12} />}
-                      {event.category}
-                    </span>
-                    {event.highlight && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-accent-gold text-[11px] font-bold uppercase tracking-wider">
-                        Featured Gathering
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-primary-on-dark text-xs font-mono font-semibold">
+                        {event.category === 'Resistance Choir' && <Music size={12} />}
+                        {event.category}
                       </span>
+                      {event.highlight && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-accent-gold text-[11px] font-bold uppercase tracking-wider">
+                          Featured Gathering
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Admin in-page action bar */}
+                    {enabled && isAdmin && (
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/90 border border-accent-gold/40 shadow-sm backdrop-blur-md">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(event)}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-accent-gold hover:text-white transition-colors cursor-pointer"
+                          title="Edit this event"
+                        >
+                          <PenLine size={12} />
+                          <span>Edit</span>
+                        </button>
+                        <span className="text-white/20">|</span>
+                        <ConfirmAction
+                          label={`Delete event ${event.title}`}
+                          message={`Delete event "${event.title}" from the calendar?`}
+                          danger
+                          onConfirm={() => handleDeleteEvent(event.id, event.title)}
+                          idleClassName="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                        >
+                          <Trash2 size={12} />
+                          <span>Delete</span>
+                        </ConfirmAction>
+                      </div>
                     )}
                   </div>
 
@@ -284,6 +415,16 @@ export function InteractiveEventsCalendar({
           </>
         )}
       </div>
+
+      {/* Admin Event Edit Modal */}
+      {isEditorModalOpen && (
+        <CivicEventEditorModal
+          isOpen={isEditorModalOpen}
+          onClose={() => setIsEditorModalOpen(false)}
+          event={selectedEventForEdit}
+          onSaved={handleEventSaved}
+        />
+      )}
     </div>
   );
 }

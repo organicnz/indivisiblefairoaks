@@ -57,7 +57,16 @@ export function useEditContext(pathname: string): EditContextState {
     let cancelled = false;
     setState(IDLE);
 
-    createClient()
+    let client: ReturnType<typeof createClient>;
+    try {
+      client = createClient();
+    } catch {
+      contextCache.set(pathname, NOT_ADMIN);
+      setState(NOT_ADMIN);
+      return;
+    }
+
+    client
       .auth.getSession()
       .then(({ data: { session } }) => {
         if (cancelled) return;
