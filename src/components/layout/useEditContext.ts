@@ -66,8 +66,8 @@ export function useEditContext(pathname: string): EditContextState {
       return;
     }
 
-    client
-      .auth.getSession()
+    client.auth
+      .getSession()
       .then(({ data: { session } }) => {
         if (cancelled) return;
         if (!session) {

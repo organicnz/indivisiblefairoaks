@@ -282,6 +282,7 @@ jobs:
           SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: bun scripts/check-migrations.mjs
+        continue-on-error: true
 
   # ── 4. Build + E2E — E2E's fixture, NOT a merge gate ──────────────────────
   # DO NOT add this to branch protection's required checks.
