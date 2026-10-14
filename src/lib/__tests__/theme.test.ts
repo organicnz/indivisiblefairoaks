@@ -162,6 +162,21 @@ describe('applyThemeAttribute', () => {
     applyThemeAttribute({ setAttribute }, 'dark');
     expect(setAttribute).toHaveBeenCalledWith(THEME_ATTR, 'dark');
   });
+
+  it('synchronizes colorScheme and classList when present', () => {
+    const setAttribute = vi.fn();
+    const style: { colorScheme?: string } = {};
+    const toggle = vi.fn();
+    applyThemeAttribute({ setAttribute, style, classList: { toggle } }, 'dark');
+    expect(setAttribute).toHaveBeenCalledWith(THEME_ATTR, 'dark');
+    expect(style.colorScheme).toBe('dark');
+    expect(toggle).toHaveBeenCalledWith('dark', true);
+
+    applyThemeAttribute({ setAttribute, style, classList: { toggle } }, 'light');
+    expect(setAttribute).toHaveBeenCalledWith(THEME_ATTR, 'light');
+    expect(style.colorScheme).toBe('light');
+    expect(toggle).toHaveBeenCalledWith('dark', false);
+  });
 });
 
 describe('themeBootstrapScript', () => {

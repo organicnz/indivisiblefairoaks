@@ -12,9 +12,11 @@
    script (see `lib/theme.ts`) has already folded the OS preference into the
    attribute. Keyed on the element *or* any ancestor so a `dark:` class works
    whether the palette lands on `<html>` or a nested root. */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
 
-:root {
+:root,
+[data-theme='light'] {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #0f172a;
   --primary: #1e3a8a;
@@ -95,7 +97,9 @@
    cost is that `text-primary` on a dark surface falls to 3.4:1, so the
    brand-on-dark sweep pairs those call sites with `dark:text-primary-on-dark`
    (6.5:1). The axe gate is what proves each one. */
-[data-theme='dark'] {
+[data-theme='dark'],
+.dark {
+  color-scheme: dark;
   --background: #0f172a;
   --foreground: #cbd5e1;
   --surface-muted: #1e293b;
@@ -240,8 +244,24 @@
    composition model (animate-in sets the timeline, the `fade-in-0` /
    `zoom-in-95` / `slide-in-from-*` classes set the CSS variables it reads), so
    no call site changes.
+/* ─────────────────────────────────────────────────────────────────────────────
+   View transitions for theme switching
+   Smooth, fluid cross-fade transition when switching color modes.
+   Disabled when reduced motion is preferred.
    ───────────────────────────────────────────────────────────────────────────── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 250ms;
+  animation-timing-function: var(--ease-sensory, cubic-bezier(0.16, 1, 0.3, 1));
+}
 
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
 
 @keyframes sensory-enter {
   from {

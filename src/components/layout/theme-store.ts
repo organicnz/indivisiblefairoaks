@@ -102,10 +102,29 @@ export function setThemeMode(next: ThemeMode): ThemeState {
     mode: next,
     effective: resolveEffectiveTheme(next, prefersDark()),
   };
-  if (typeof window !== 'undefined') {
-    applyThemeAttribute(document.documentElement, resolved.effective);
+
+  const apply = () => {
+    if (typeof window !== 'undefined') {
+      applyThemeAttribute(document.documentElement, resolved.effective);
+    }
+    replaceState(resolved);
+  };
+
+  if (
+    typeof document !== 'undefined' &&
+    'startViewTransition' in document &&
+    typeof document.startViewTransition === 'function' &&
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    document.startViewTransition(() => {
+      apply();
+    });
+  } else {
+    apply();
   }
-  replaceState(resolved);
+
   return resolved;
 }
 

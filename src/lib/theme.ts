@@ -129,10 +129,29 @@ export function themeModeLabel(mode: ThemeMode): string {
  * stub, and so the client store never has to know which document it is in.
  */
 export function applyThemeAttribute(
-  documentElement: { setAttribute: (name: string, value: string) => void },
+  documentElement: {
+    setAttribute: (name: string, value: string) => void;
+    style?: { colorScheme?: string };
+    classList?: { toggle?: (token: string, force?: boolean) => boolean; add?: (token: string) => void; remove?: (token: string) => void };
+  },
   effective: EffectiveTheme
 ): void {
   documentElement.setAttribute(THEME_ATTR, effective);
+  if (documentElement.style) {
+    documentElement.style.colorScheme = effective;
+  }
+  if (documentElement.classList?.toggle) {
+    documentElement.classList.toggle('dark', effective === 'dark');
+  }
+  if (typeof document !== 'undefined') {
+    const metas = document.querySelectorAll?.('meta[name="theme-color"]');
+    const color = effective === 'dark' ? '#0f172a' : '#ffffff';
+    if (metas && metas.length > 0) {
+      metas.forEach((meta) => {
+        meta.setAttribute('content', color);
+      });
+    }
+  }
 }
 
 /**
@@ -154,9 +173,16 @@ export function themeBootstrapScript(): string {
     '(function(){try{',
     `var m=localStorage.getItem('${THEME_STORAGE_KEY}');`,
     "var d=m==='dark'||(m!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);",
-    `document.documentElement.setAttribute('${THEME_ATTR}',d?'dark':'light')`,
+    "var c=d?'dark':'light';",
+    `document.documentElement.setAttribute('${THEME_ATTR}',c);`,
+    "document.documentElement.style.colorScheme=c;",
+    "document.documentElement.classList.toggle('dark',d);",
+    "var tc=document.querySelectorAll('meta[name=\"theme-color\"]');",
+    "for(var i=0;i<tc.length;i++)tc[i].setAttribute('content',d?'#0f172a':'#ffffff');",
     '}catch(e){',
-    `document.documentElement.setAttribute('${THEME_ATTR}','light')`,
+    `document.documentElement.setAttribute('${THEME_ATTR}','light');`,
+    "document.documentElement.style.colorScheme='light';",
+    "document.documentElement.classList.remove('dark');",
     '}})();',
   ].join('');
 }
