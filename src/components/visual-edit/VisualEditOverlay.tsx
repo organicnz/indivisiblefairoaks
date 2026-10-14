@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowUp,
   Bold,
+  Check,
   ClipboardPaste,
   Code,
   Copy,
@@ -132,6 +133,15 @@ import { CRMPanel } from './CRMPanel';
  */
 
 export const VISUAL_EDIT_ROOT_ATTR = 'data-visual-edit-root';
+
+export interface InlineEditSession {
+  element: HTMLElement;
+  initialHtml: string;
+  copyRegionId: string | null;
+  blockIndex: number | null;
+  top: number;
+  left: number;
+}
 
 /**
  * The prefix `saveContent` puts on a refused concurrent write.
@@ -432,6 +442,11 @@ export function VisualEditOverlay() {
 
   // Backend health details popover state
   const [showHealthDetails, setShowHealthDetails] = useState(false);
+
+  // Direct In-Place Click-To-Edit Session State
+  const [inlineSession, setInlineSession] = useState<InlineEditSession | null>(null);
+  const inlineSessionRef = useRef<InlineEditSession | null>(null);
+  inlineSessionRef.current = inlineSession;
 
   const titleId = useId();
   const slugId = useId();
@@ -1352,6 +1367,221 @@ export function VisualEditOverlay() {
     await handlePersistBlocks(nextBlocks, 'Section updated in Supabase');
   };
 
+  const cancelInlineEdit = useCallback((session: InlineEditSession) => {
+    session.element.contentEditable = 'false';
+    session.element.classList.remove('visual-inline-active');
+    session.element.innerHTML = session.initialHtml;
+    inlineSessionRef.current = null;
+    setInlineSession(null);
+    toast.info('Changes cancelled');
+  }, []);
+
+  const commitInlineEdit = useCallback(
+    async (session: InlineEditSession) => {
+      const { element, initialHtml, copyRegionId, blockIndex } = session;
+      element.contentEditable = 'false';
+      element.classList.remove('visual-inline-active');
+      setInlineSession(null);
+
+      const updatedHtml = element.innerHTML;
+      if (updatedHtml === initialHtml) {
+        return;
+      }
+
+      setSavingBackend(true);
+      try {
+        if (copyRegionId) {
+          const regionContainer = document.querySelector<HTMLElement>(
+            `[data-copy-region="${copyRegionId}"]`
+          );
+          if (regionContainer) {
+            const regionHtml = regionContainer.innerHTML;
+            const res = await saveContent({
+              slug: copyRegionSlug(copyRegionId),
+              title: copyRegionId,
+              body: regionHtml,
+              status: 'publish',
+              type: 'page',
+            });
+            if (res.success) {
+              toast.success(`Region "${copyRegionId}" updated and published`);
+              setSavedBody(regionHtml);
+              router.refresh();
+            } else {
+              toast.error(res.error || 'Failed to save copy region');
+              element.innerHTML = initialHtml;
+            }
+          }
+        } else if (blockIndex !== null && blocksRef.current[blockIndex]) {
+          const updatedBlocks = [...blocksRef.current];
+          const targetBlock = updatedBlocks[blockIndex];
+          if (targetBlock.type === 'heading') {
+            updatedBlocks[blockIndex] = {
+              ...targetBlock,
+              html: element.textContent?.trim() || '',
+            };
+          } else if (
+            targetBlock.type === 'paragraph' ||
+            targetBlock.type === 'quote' ||
+            targetBlock.type === 'callout'
+          ) {
+            updatedBlocks[blockIndex] = { ...targetBlock, html: updatedHtml };
+          } else if (targetBlock.type === 'button') {
+            updatedBlocks[blockIndex] = {
+              ...targetBlock,
+              label: element.textContent?.trim() || targetBlock.label,
+            };
+          }
+          commitBlocks(updatedBlocks);
+          await handlePersistBlocks(updatedBlocks, 'Section saved to backend');
+        } else {
+          toast.success('Section text updated');
+        }
+      } catch {
+        toast.error('Failed to save changes');
+        element.innerHTML = initialHtml;
+      } finally {
+        setSavingBackend(false);
+      }
+    },
+    [commitBlocks, handlePersistBlocks, router]
+  );
+
+  // In-place direct click-to-edit listener for sections & copy regions
+  useEffect(() => {
+    if (!enabled || !isAdmin) {
+      if (inlineSessionRef.current) {
+        const { element, initialHtml } = inlineSessionRef.current;
+        element.contentEditable = 'false';
+        element.classList.remove('visual-inline-active');
+        element.innerHTML = initialHtml;
+        setInlineSession(null);
+      }
+      document.body.removeAttribute('data-editorial-mode');
+      return;
+    }
+
+    document.body.setAttribute('data-editorial-mode', 'active');
+
+    const handleClickCapture = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      if (
+        target.closest(`[${VISUAL_EDIT_ROOT_ATTR}]`) ||
+        target.closest('[role="dialog"]') ||
+        target.closest('[role="toolbar"]') ||
+        target.closest('[data-inline-toolbar="true"]') ||
+        target.closest('header') ||
+        target.closest('nav') ||
+        target.closest('input') ||
+        target.closest('textarea') ||
+        target.closest('select') ||
+        target.closest('button[data-confirm-action]')
+      ) {
+        return;
+      }
+
+      const main = target.closest('main');
+      if (!main) return;
+
+      if (
+        inlineSessionRef.current &&
+        (inlineSessionRef.current.element === target ||
+          inlineSessionRef.current.element.contains(target))
+      ) {
+        return;
+      }
+
+      if (inlineSessionRef.current && inlineSessionRef.current.element !== target) {
+        void commitInlineEdit(inlineSessionRef.current);
+      }
+
+      const editable =
+        target.closest<HTMLElement>(
+          'h1, h2, h3, h4, h5, h6, p, blockquote, li, dt, dd, [data-copy-region] span, a, button'
+        ) || target;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const copyRegionContainer = editable.closest<HTMLElement>('[data-copy-region]');
+      const copyRegionId = copyRegionContainer?.getAttribute('data-copy-region') || null;
+
+      let matchedBlockIdx: number | null = null;
+      for (const sec of sectionsRef.current) {
+        const el = locate(sec.blockIndex);
+        if (el && (el === editable || el.contains(editable))) {
+          matchedBlockIdx = sec.blockIndex;
+          break;
+        }
+      }
+
+      const initialHtml = editable.innerHTML;
+      editable.contentEditable = 'true';
+      editable.classList.add('visual-inline-active');
+      editable.focus();
+
+      const r = editable.getBoundingClientRect();
+      const session: InlineEditSession = {
+        element: editable,
+        initialHtml,
+        copyRegionId,
+        blockIndex: matchedBlockIdx,
+        top: Math.max(12, r.top - 46),
+        left: Math.max(12, Math.min(window.innerWidth - 340, r.left)),
+      };
+      inlineSessionRef.current = session;
+      setInlineSession(session);
+    };
+
+    window.addEventListener('click', handleClickCapture, { capture: true });
+    return () => {
+      window.removeEventListener('click', handleClickCapture, { capture: true });
+      document.body.removeAttribute('data-editorial-mode');
+    };
+  }, [enabled, isAdmin, locate, commitInlineEdit]);
+
+  useEffect(() => {
+    if (!inlineSession) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelInlineEdit(inlineSession);
+      } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        void commitInlineEdit(inlineSession);
+      }
+    };
+
+    const updatePos = () => {
+      if (!inlineSession.element.isConnected) {
+        setInlineSession(null);
+        return;
+      }
+      const r = inlineSession.element.getBoundingClientRect();
+      setInlineSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              top: Math.max(12, r.top - 46),
+              left: Math.max(12, Math.min(window.innerWidth - 340, r.left)),
+            }
+          : null
+      );
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('scroll', updatePos, { passive: true });
+    window.addEventListener('resize', updatePos, { passive: true });
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('scroll', updatePos);
+      window.removeEventListener('resize', updatePos);
+    };
+  }, [inlineSession, cancelInlineEdit, commitInlineEdit]);
+
   const handleDeleteSection = useCallback(
     async (blockIndex: number) => {
       const nextBlocks = blocksRef.current.filter((_, i) => i !== blockIndex);
@@ -2064,6 +2294,105 @@ export function VisualEditOverlay() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Direct In-Place Click-To-Edit Floating Action Pill ─────────────── */}
+      {inlineSession && (
+        <div
+          data-inline-toolbar="true"
+          role="toolbar"
+          aria-label="Direct in-place text editor controls"
+          style={{
+            position: 'fixed',
+            top: `${inlineSession.top}px`,
+            left: `${inlineSession.left}px`,
+            zIndex: 9999,
+          }}
+          className="inline-flex items-center gap-1 rounded-full border border-accent-gold/80 bg-secondary/95 px-3 py-1.5 text-xs text-white shadow-float backdrop-blur-md transition-all duration-150 animate-in fade-in-0 zoom-in-95 pointer-events-auto"
+        >
+          <button
+            type="button"
+            onClick={() => void commitInlineEdit(inlineSession)}
+            className="inline-flex items-center gap-1 rounded-md bg-accent-gold px-2.5 py-1 font-black text-secondary text-[11px] uppercase tracking-wider hover:bg-amber-400 transition-colors shadow-xs cursor-pointer"
+            title="Save changes (⌘+Enter)"
+          >
+            <Check size={13} className="stroke-[3]" />
+            <span>Save</span>
+            <kbd className="ml-1 text-[9px] font-mono opacity-60">⌘↵</kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => cancelInlineEdit(inlineSession)}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-slate-300 text-[11px] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+            title="Cancel changes (Escape)"
+          >
+            <X size={12} />
+            <span>Cancel</span>
+            <kbd className="ml-0.5 text-[9px] font-mono opacity-50">esc</kbd>
+          </button>
+
+          <div className="mx-1 h-3.5 w-px bg-white/20" />
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              document.execCommand('bold', false);
+            }}
+            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
+            title="Bold (⌘B)"
+          >
+            <Bold size={13} />
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              document.execCommand('italic', false);
+            }}
+            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
+            title="Italic (⌘I)"
+          >
+            <Italic size={13} />
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              const url = window.prompt('Enter link URL (e.g. https://... or /about):');
+              if (url) {
+                document.execCommand('createLink', false, url);
+              }
+            }}
+            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
+            title="Insert Link"
+          >
+            <LinkIcon size={13} />
+          </button>
+
+          {inlineSession.blockIndex !== null && (
+            <>
+              <div className="mx-1 h-3.5 w-px bg-white/20" />
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = inlineSession.blockIndex;
+                  if (idx !== null) {
+                    handleOpenEditSection(idx);
+                  }
+                }}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-accent-gold hover:bg-accent-gold/20 text-[11px] transition-colors cursor-pointer"
+                title="Open comprehensive block editor modal"
+              >
+                <Settings size={12} />
+                <span>Full Editor</span>
+              </button>
+            </>
+          )}
         </div>
       )}
 
