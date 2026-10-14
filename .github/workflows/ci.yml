@@ -307,10 +307,10 @@ jobs:
     if: needs.changes.outputs.runtime == 'true'
     timeout-minutes: 60
     env:
-      # Keep V8 heap ceiling at 2048 MB. Setting it higher (e.g. 3584 MB) allows V8 to balloon
-      # its working set across swap on the 887 MB VPS, causing severe page-fault swap thrashing (wa: 91%).
-      # 2048 MB prompts timely young-generation GCs, keeping active pages hot in physical RAM.
-      NODE_OPTIONS: --max-old-space-size=2048
+      # Keep V8 heap ceiling at 1280 MB. Setting it higher (2048-3584 MB) allows V8 to balloon
+      # its working set across swap on the 887 MB VPS, causing severe page-fault swap thrashing (wa: 91%)
+      # and OOM / connection loss. 1280 MB prompts timely young-generation GCs, keeping active pages hot in physical RAM.
+      NODE_OPTIONS: --max-old-space-size=1280
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
