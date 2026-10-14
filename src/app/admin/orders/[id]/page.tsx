@@ -195,7 +195,7 @@ export default async function AdminOrderDetailPage({
           )}
           <EmailActions email={customer?.email ?? null} />
           <span
-            className={`inline-block mt-3 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1 ${customer ? 'bg-surface-muted text-muted-foreground' : 'bg-amber-50 text-amber-700'}`}
+            className={`inline-block mt-3 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1 ${customer ? 'bg-surface-muted text-muted-foreground' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}`}
           >
             {customer ? 'Registered' : 'Guest checkout'}
           </span>
@@ -302,7 +302,7 @@ export default async function AdminOrderDetailPage({
             Fulfilment
           </h2>
           {order.tracking_number && (
-            <span className="ml-2 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1 bg-emerald-100 text-emerald-800">
+            <span className="ml-2 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300">
               Shipped
             </span>
           )}

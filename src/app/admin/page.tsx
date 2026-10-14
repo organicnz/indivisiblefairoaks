@@ -464,13 +464,13 @@ export default async function AdminDashboardPage() {
               {outOfStock.slice(0, 5).map((p) => (
                 <li
                   key={p.id}
-                  className="flex items-center gap-2.5 bg-rose-50 rounded-2xl px-4 py-3"
+                  className="flex items-center gap-2.5 bg-rose-50 dark:bg-rose-950/40 rounded-2xl px-4 py-3"
                 >
-                  <AlertTriangle size={13} className="text-rose-500 shrink-0" />
-                  <p className="text-sm font-black text-rose-700 uppercase tracking-wider truncate">
+                  <AlertTriangle size={13} className="text-rose-500 dark:text-rose-400 shrink-0" />
+                  <p className="text-sm font-black text-rose-700 dark:text-rose-300 uppercase tracking-wider truncate">
                     {p.name}
                   </p>
-                  <span className="ml-auto text-[10px] font-black text-rose-500 uppercase">
+                  <span className="ml-auto text-[10px] font-black text-rose-500 dark:text-rose-400 uppercase">
                     Out of stock
                   </span>
                 </li>
@@ -478,13 +478,13 @@ export default async function AdminDashboardPage() {
               {backorder.slice(0, 5).map((p) => (
                 <li
                   key={p.id}
-                  className="flex items-center gap-2.5 bg-amber-50 rounded-2xl px-4 py-3"
+                  className="flex items-center gap-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl px-4 py-3"
                 >
-                  <Package size={13} className="text-amber-500 shrink-0" />
-                  <p className="text-sm font-black text-amber-700 uppercase tracking-wider truncate">
+                  <Package size={13} className="text-amber-500 dark:text-amber-400 shrink-0" />
+                  <p className="text-sm font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider truncate">
                     {p.name}
                   </p>
-                  <span className="ml-auto text-[10px] font-black text-amber-500 uppercase">
+                  <span className="ml-auto text-[10px] font-black text-amber-500 dark:text-amber-400 uppercase">
                     Backorder
                   </span>
                 </li>
