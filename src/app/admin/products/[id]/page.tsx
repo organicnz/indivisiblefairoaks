@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ProductDetailForm } from '@/components/admin/ProductDetailForm';
 import { ProductImageUpload } from '@/components/admin/ProductImageUpload';
+import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 import { getStorageUrl } from '@/lib/supabase';
+import { formatDate, statusStyle } from '@/types/orders';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -137,11 +139,7 @@ export default async function AdminProductDetailPage({
               {product.created_at && (
                 <span className="inline-flex items-center gap-1">
                   <Calendar size={11} />
-                  {new Date(product.created_at).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
+                  {formatDate(product.created_at)}
                 </span>
               )}
             </p>
@@ -160,10 +158,10 @@ export default async function AdminProductDetailPage({
               {stockLabel[product.stock_status || ''] || product.stock_status || 'Unknown'}
             </span>
             <p className="text-xl text-primary dark:text-primary-on-dark font-black">
-              ${Number(product.price).toFixed(2)}
+              {formatPrice(product.price)}
               {onSale && (
                 <span className="text-[10px] text-muted-foreground font-bold ml-1 line-through">
-                  ${Number(product.regular_price).toFixed(2)}
+                  {formatPrice(product.regular_price)}
                 </span>
               )}
             </p>
@@ -181,7 +179,7 @@ export default async function AdminProductDetailPage({
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
         {[
           { label: 'Units Sold', value: String(unitsSold), icon: ShoppingBag },
-          { label: 'Revenue', value: `$${revenue.toFixed(2)}`, icon: DollarSign },
+          { label: 'Revenue', value: formatPrice(revenue), icon: DollarSign },
           { label: 'Orders', value: String(orderCount), icon: Package },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="bg-secondary rounded-3xl p-6">
@@ -266,37 +264,18 @@ export default async function AdminProductDetailPage({
                   #{item.orders.id}
                 </Link>
                 <span
-                  className={`text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 ${
-                    item.orders.status === 'completed'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : item.orders.status === 'cancelled'
-                        ? 'bg-rose-100 text-rose-800'
-                        : item.orders.status === 'refunded'
-                          ? 'bg-surface-muted text-muted-foreground'
-                          : item.orders.status === 'on-hold'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-amber-100 text-amber-800'
-                  }`}
+                  className={`text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 ${statusStyle(item.orders.status)}`}
                 >
                   {item.orders.status || 'unknown'}
                 </span>
                 <span className="text-[11px] text-muted-foreground font-bold">
-                  {item.orders.created_at
-                    ? new Date(item.orders.created_at).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })
-                    : 'N/A'}
+                  {formatDate(item.orders.created_at)}
                 </span>
                 <span className="text-[11px] text-muted-foreground font-bold">
                   Qty: {item.quantity}
                 </span>
                 <span className="ml-auto text-sm font-black text-primary dark:text-primary-on-dark">
-                  $
-                  {(Number(item.unit_price) || 0) * (Number(item.quantity) || 0) === 0
-                    ? '0.00'
-                    : ((Number(item.unit_price) || 0) * (Number(item.quantity) || 0)).toFixed(2)}
+                  {formatPrice((Number(item.unit_price) || 0) * (Number(item.quantity) || 0))}
                 </span>
               </li>
             ))}

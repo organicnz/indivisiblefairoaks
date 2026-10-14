@@ -16,7 +16,7 @@ import { FulfilmentEditor } from '@/components/admin/FulfilmentEditor';
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect';
 import { CURRENCY_CODE, formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
-import { type AdminOrder, statusStyle } from '@/types/orders';
+import { type AdminOrder, formatDate, statusStyle } from '@/types/orders';
 
 // Detail-only columns beyond the canonical `AdminOrder` select.
 type Order = AdminOrder & {
@@ -108,15 +108,13 @@ export default async function AdminOrderDetailPage({
               Order #{order.id}
             </h1>
             <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-1.5">
-              {order.created_at
-                ? new Date(order.created_at).toLocaleString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                : 'N/A'}
+              {formatDate(order.created_at, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">

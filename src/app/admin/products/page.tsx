@@ -7,6 +7,7 @@ import {
   ProductCheckbox,
 } from '@/components/admin/BulkStockActions';
 import { ProductEditor } from '@/components/admin/ProductEditor';
+import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 import { getStorageUrl } from '@/lib/supabase';
 
@@ -188,10 +189,10 @@ export default async function AdminProductsPage({
 
                     <div className="text-right shrink-0">
                       <p className="text-lg text-primary dark:text-primary-on-dark font-black">
-                        ${Number(p.price).toFixed(2)}
+                        {formatPrice(p.price)}
                         {onSale && (
                           <span className="text-[10px] text-muted-foreground font-bold ml-1 line-through">
-                            ${Number(p.regular_price).toFixed(2)}
+                            {formatPrice(p.regular_price)}
                           </span>
                         )}
                       </p>

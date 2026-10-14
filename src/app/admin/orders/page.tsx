@@ -21,7 +21,7 @@ import { OrdersExport } from '@/components/admin/OrdersExport';
 import { CURRENCY_CODE, formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 import type { createAdminClient } from '@/lib/supabase-server';
-import { formatAddress, type AdminOrder as Order } from '@/types/orders';
+import { formatAddress, formatDate, type AdminOrder as Order } from '@/types/orders';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -402,15 +402,13 @@ export default async function AdminOrdersPage({
                           <ExternalLink size={10} className="inline text-muted-foreground" />
                         </Link>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {order.created_at
-                            ? new Date(order.created_at).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : 'N/A'}
+                          {formatDate(order.created_at, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </p>
                         {order.coupon_code && (
                           <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-black uppercase tracking-widest rounded-full px-2 py-0.5 bg-primary/20 text-foreground">
