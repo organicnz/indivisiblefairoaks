@@ -28,9 +28,28 @@ export default function GalleryPage() {
   const [dbPhotos, setDbPhotos] = useState<GalleryPhoto[]>([]);
 
   useEffect(() => {
-    getGalleryPhotos().then((photos) => {
-      setDbPhotos(photos);
-    });
+    let cancelled = false;
+    async function loadGallery() {
+      try {
+        const res = await fetch('/api/gallery');
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data.photos) && data.photos.length > 0) {
+            setDbPhotos(data.photos);
+            return;
+          }
+        }
+      } catch {
+        // Fall back gracefully
+      }
+      getGalleryPhotos().then((photos) => {
+        if (!cancelled) setDbPhotos(photos);
+      });
+    }
+    loadGallery();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Use dynamic photos if available, otherwise fall back to static gallery

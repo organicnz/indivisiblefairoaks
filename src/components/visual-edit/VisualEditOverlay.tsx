@@ -75,7 +75,7 @@ import {
   setContentStatus,
 } from '@/lib/actions/content';
 import { getCRMEdgeFunctionHealth, uploadCRMMedia } from '@/lib/actions/crm';
-import { getVisualPageContext } from '@/lib/actions/visual';
+import { getVisualPageContext, type VisualPageContext } from '@/lib/actions/visual';
 import {
   type Block,
   CALLOUT_TONES,
@@ -806,7 +806,7 @@ export function VisualEditOverlay() {
 
     setSavingBackend(true);
     try {
-      const res = await saveContent({
+      const res = await saveContentWithEdgeApi({
         title,
         slug,
         body: serializeBlocks(initialBlocks),
@@ -827,6 +827,28 @@ export function VisualEditOverlay() {
     }
   };
 
+  /**
+   * Save content and copy regions using Edge API function with server action fallback.
+   */
+  const saveContentWithEdgeApi = useCallback(async (payload: Parameters<typeof saveContent>[0]) => {
+    try {
+      const res = await fetch('/api/visual-edit/content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          return { success: true as const, data: json.data };
+        }
+      }
+    } catch {
+      // Fall back gracefully to direct server action
+    }
+    return await saveContent(payload);
+  }, []);
+
   // Probe backend health (DB, S3 Storage, Edge Functions) + summary counts.
   const probeBackendHealth = useCallback(async () => {
     setStatusLoading(true);
@@ -837,7 +859,20 @@ export function VisualEditOverlay() {
       setBackendStatus({ database: false, storage: false, edgeFunction: false });
     }
     try {
-      const ctx = await getVisualPageContext({ pathname });
+      let ctx: VisualPageContext | null = null;
+      try {
+        const res = await fetch(
+          `/api/visual-edit/context?pathname=${encodeURIComponent(pathname)}`
+        );
+        if (res.ok) {
+          ctx = (await res.json()) as VisualPageContext;
+        }
+      } catch {
+        // Fall through to server action
+      }
+      if (!ctx) {
+        ctx = await getVisualPageContext({ pathname });
+      }
       setBackendSummary({
         crmTotal: ctx.crmStats?.totalContacts ?? null,
         segments: ctx.segments.length,
@@ -1173,7 +1208,7 @@ export function VisualEditOverlay() {
           target?.label ||
           slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-        const res = await saveContent({
+        const res = await saveContentWithEdgeApi({
           id: contentRow?.id,
           title,
           slug,
@@ -1251,6 +1286,7 @@ export function VisualEditOverlay() {
       pageTitle,
       pathname,
       router,
+      saveContentWithEdgeApi,
       target,
     ]
   );
@@ -1467,7 +1503,7 @@ export function VisualEditOverlay() {
           );
           if (regionContainer) {
             const regionHtml = regionContainer.innerHTML;
-            const res = await saveContent({
+            const res = await saveContentWithEdgeApi({
               slug: copyRegionSlug(copyRegionId),
               title: copyRegionId,
               body: regionHtml,
@@ -1515,7 +1551,7 @@ export function VisualEditOverlay() {
         setSavingBackend(false);
       }
     },
-    [commitBlocks, handlePersistBlocks, router]
+    [commitBlocks, handlePersistBlocks, router, saveContentWithEdgeApi]
   );
 
   const handleSaveImageAlt = useCallback(
@@ -1530,7 +1566,7 @@ export function VisualEditOverlay() {
           );
           if (regionContainer) {
             const regionHtml = regionContainer.innerHTML;
-            const res = await saveContent({
+            const res = await saveContentWithEdgeApi({
               slug: copyRegionSlug(copyRegionId),
               title: copyRegionId,
               body: regionHtml,
@@ -1562,7 +1598,7 @@ export function VisualEditOverlay() {
         setSavingBackend(false);
       }
     },
-    [commitBlocks, handlePersistBlocks, router]
+    [commitBlocks, handlePersistBlocks, router, saveContentWithEdgeApi]
   );
 
   const handleDirectImageUpload = useCallback(
@@ -1585,7 +1621,7 @@ export function VisualEditOverlay() {
             );
             if (regionContainer) {
               const regionHtml = regionContainer.innerHTML;
-              const saveRes = await saveContent({
+              const saveRes = await saveContentWithEdgeApi({
                 slug: copyRegionSlug(session.copyRegionId),
                 title: session.copyRegionId,
                 body: regionHtml,
@@ -1621,7 +1657,7 @@ export function VisualEditOverlay() {
         if (e.target) e.target.value = '';
       }
     },
-    [commitBlocks, handlePersistBlocks, router]
+    [commitBlocks, handlePersistBlocks, router, saveContentWithEdgeApi]
   );
 
   // Responsive Viewport Simulation effect: smoothly constrain <main>
@@ -2276,7 +2312,7 @@ export function VisualEditOverlay() {
             .toLowerCase();
       }
 
-      const res = await saveContent({
+      const res = await saveContentWithEdgeApi({
         id: contentRow?.id,
         title: pageTitle,
         slug,
@@ -4666,7 +4702,7 @@ export function VisualEditOverlay() {
                 );
                 if (regionContainer) {
                   const regionHtml = regionContainer.innerHTML;
-                  void saveContent({
+                  void saveContentWithEdgeApi({
                     slug: copyRegionSlug(copyRegionId),
                     title: copyRegionId,
                     body: regionHtml,

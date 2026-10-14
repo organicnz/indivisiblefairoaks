@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowRight, PenLine, Plus, Search, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicNewsletterEditorModal } from '@/components/admin/civic/CivicNewsletterEditorModal';
@@ -66,6 +66,27 @@ export function InteractiveNewslettersList({
     useState<CivicNewsletterRecord | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadNewslettersFromApi() {
+      try {
+        const res = await fetch('/api/civic/newsletters');
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data.newsletters) && data.newsletters.length > 0) {
+            setNewslettersList(data.newsletters);
+          }
+        }
+      } catch {
+        // Fall back gracefully
+      }
+    }
+    loadNewslettersFromApi();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Extract all unique topics
   const allTopics = useMemo(() => {
     const set = new Set<string>();
@@ -113,12 +134,20 @@ export function InteractiveNewslettersList({
 
   const handleDeleteNewsletter = async (slug: string, title: string) => {
     try {
-      const res = await deleteCivicNewsletter(slug);
-      if (res.success) {
+      const res = await fetch(`/api/civic/newsletters?slug=${encodeURIComponent(slug)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
         setNewslettersList((prev) => prev.filter((item) => item.slug !== slug));
         toast.success(`Bulletin "${title}" deleted`);
       } else {
-        toast.error(res.error || 'Failed to delete bulletin');
+        const fallbackRes = await deleteCivicNewsletter(slug);
+        if (fallbackRes.success) {
+          setNewslettersList((prev) => prev.filter((item) => item.slug !== slug));
+          toast.success(`Bulletin "${title}" deleted`);
+        } else {
+          toast.error(fallbackRes.error || 'Failed to delete bulletin');
+        }
       }
     } catch {
       toast.error('Failed to delete bulletin');

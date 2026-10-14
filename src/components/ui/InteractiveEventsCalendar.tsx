@@ -12,7 +12,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicEventEditorModal } from '@/components/admin/civic/CivicEventEditorModal';
@@ -121,6 +121,27 @@ export function InteractiveEventsCalendar({
   const [selectedEventForEdit, setSelectedEventForEdit] = useState<CivicEventRecord | null>(null);
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadEventsFromApi() {
+      try {
+        const res = await fetch('/api/civic/events');
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data.events) && data.events.length > 0) {
+            setEventsList(data.events);
+          }
+        }
+      } catch {
+        // Fall back gracefully to existing state
+      }
+    }
+    loadEventsFromApi();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredEvents = eventsList.filter((event) => {
     const matchesCategory = activeCategory === 'All Actions' || event.category === activeCategory;
     const matchesSearch =
@@ -156,12 +177,20 @@ export function InteractiveEventsCalendar({
 
   const handleDeleteEvent = async (eventId: string, eventTitle: string) => {
     try {
-      const res = await deleteCivicEvent(eventId);
-      if (res.success) {
+      const res = await fetch(`/api/civic/events?slug=${encodeURIComponent(eventId)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
         setEventsList((prev) => prev.filter((e) => e.id !== eventId));
         toast.success(`Event "${eventTitle}" deleted`);
       } else {
-        toast.error(res.error || 'Failed to delete event');
+        const fallbackRes = await deleteCivicEvent(eventId);
+        if (fallbackRes.success) {
+          setEventsList((prev) => prev.filter((e) => e.id !== eventId));
+          toast.success(`Event "${eventTitle}" deleted`);
+        } else {
+          toast.error(fallbackRes.error || 'Failed to delete event');
+        }
       }
     } catch {
       toast.error('Failed to delete event');
