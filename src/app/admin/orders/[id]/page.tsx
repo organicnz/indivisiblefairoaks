@@ -109,9 +109,9 @@ export default async function AdminOrderDetailPage({
             </h1>
             <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-1.5">
               {order.created_at
-                ? new Date(order.created_at).toLocaleString('en-NZ', {
-                    day: 'numeric',
+                ? new Date(order.created_at).toLocaleString('en-US', {
                     month: 'short',
+                    day: 'numeric',
                     year: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit',
@@ -195,7 +195,7 @@ export default async function AdminOrderDetailPage({
           )}
           <EmailActions email={customer?.email ?? null} />
           <span
-            className={`inline-block mt-3 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1 ${customer ? 'bg-surface-muted text-muted-foreground' : 'bg-amber-50 text-amber-700'}`}
+            className={`inline-block mt-3 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1 ${customer ? 'bg-surface-muted text-muted-foreground' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'}`}
           >
             {customer ? 'Registered' : 'Guest checkout'}
           </span>
@@ -302,7 +302,7 @@ export default async function AdminOrderDetailPage({
             Fulfilment
           </h2>
           {order.tracking_number && (
-            <span className="ml-2 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1 bg-emerald-100 text-emerald-800">
+            <span className="ml-2 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300">
               Shipped
             </span>
           )}

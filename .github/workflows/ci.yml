@@ -104,14 +104,11 @@ jobs:
   # ── 0. Change scope ──────────────────────────────────────────────────────
   # Docs-only pushes skip the heavy jobs. No third-party filter action: the
   # pattern mirrors RUNTIME_PATTERN in scripts/hooks/e2e-gate.mjs (the local
-  # pre-push gate). Self-hosted like every other job here: GitHub-hosted
-  # minutes are billing-gated and a dead account fails this gate in 3s, which
-  # then skips the entire pipeline. A seconds-long checkout plus bash holds a
-  # fleet slot briefly; a gate that cannot start holds everything forever.
+  # pre-push gate). Strictly on self-hosted runner pursuant to AGENTS.md.
   # Fail-open: if the diff cannot be computed, runtime=true runs everything.
   changes:
     name: Change scope
-    runs-on: [self-hosted, linux, frontend-runner]
+    runs-on: [self-hosted, linux, backend-runner]
     timeout-minutes: 5
     outputs:
       runtime: ${{ steps.scope.outputs.runtime }}
@@ -310,10 +307,10 @@ jobs:
     if: needs.changes.outputs.runtime == 'true'
     timeout-minutes: 60
     env:
-      # Keep V8 heap ceiling at 2048 MB. Setting it higher (e.g. 3584 MB) allows V8 to balloon
-      # its working set across swap on the 887 MB VPS, causing severe page-fault swap thrashing (wa: 91%).
-      # 2048 MB prompts timely young-generation GCs, keeping active pages hot in physical RAM.
-      NODE_OPTIONS: --max-old-space-size=2048
+      # Keep V8 heap ceiling at 1280 MB. Setting it higher (2048-3584 MB) allows V8 to balloon
+      # its working set across swap on the 887 MB VPS, causing severe page-fault swap thrashing (wa: 91%)
+      # and OOM / connection loss. 1280 MB prompts timely young-generation GCs, keeping active pages hot in physical RAM.
+      NODE_OPTIONS: --max-old-space-size=1280
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
@@ -440,11 +437,8 @@ jobs:
   # only shape that works without `vercel link` state (the CLI aborts on CI).
   #
   # Self-hosted like every other job here, on the backend role: this job is a
-  # sleep-poll over HTTPS plus two file writes. Nothing in it needs a warm bun
-  # cache, and GitHub-hosted minutes are billing-gated — a dead account fails
-  # this gate in 3s on every main push. A ~10 minute poll holds a fleet slot,
-  # which is the price of a gate that can start; the backend role keeps it off
-  # the frontend build path.
+  # sleep-poll over HTTPS plus two file writes. Strictly on self-hosted runner pursuant to AGENTS.md.
+  # Push-only, because a pull request has not shipped anything.
   vercel-deploy:
     name: Vercel Deployment
     runs-on: [self-hosted, linux, backend-runner]

@@ -128,11 +128,172 @@ export default function VoterInfoPage() {
 
         {/* Detailed Guides Section — copy region */}
         <div id="guides" className="space-y-8 scroll-mt-28">
-          <h2 className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight">
-            Voter Rights & Educational Guides
-          </h2>
-
           <CopyRegion id="voter-guides">
+            {/* Featured 2026 Voter Guide & Ballot Recommendations */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-950 via-slate-900 to-indigo-950 border border-primary-bright/30 p-6 sm:p-8 shadow-float mb-8">
+              <div className="relative z-10 space-y-6">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/20 border border-accent-gold/30 text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
+                    <Vote size={13} />
+                    <span>Official Chapter Endorsements</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    2026 Voter Guide &amp; Ballot Recommendations
+                  </h2>
+                  <p className="text-sm text-ink-on-dark max-w-2xl leading-relaxed mt-1">
+                    Nonpartisan voting guides, ballot measure analyses, and local candidate
+                    recommendations prepared for Fair Oaks, Carmichael, and Sacramento County
+                    voters.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Card 1: Official Voter Guide */}
+                  <a
+                    href="https://drive.google.com/file/d/10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy/view?ts=6ac7c922"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-4 sm:p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary-on-dark transition-all flex flex-col justify-between group"
+                  >
+                    <div className="space-y-2">
+                      <div className="size-9 rounded-xl bg-primary-bright/20 text-primary-on-dark flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <Vote size={18} />
+                      </div>
+                      <h3 className="font-bold text-sm text-white leading-snug">
+                        Sacramento Voter Guide
+                      </h3>
+                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                        Official guide with recommendations on local candidates and county
+                        initiatives.
+                      </p>
+                    </div>
+                    <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
+                      <span>Open Guide</span>
+                      <ExternalLink size={13} />
+                    </div>
+                  </a>
+
+                  {/* Card 2: Ballot Recommendations */}
+                  <a
+                    href="https://drive.google.com/file/d/1JW2rg5dVBZBqezG3hd9QBu0znt3XsMaN/view?usp=sharing_eil_se_dm&ts=6ac7c902"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-4 sm:p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary-on-dark transition-all flex flex-col justify-between group"
+                  >
+                    <div className="space-y-2">
+                      <div className="size-9 rounded-xl bg-accent-gold/20 text-accent-gold flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <CheckCircle2 size={18} />
+                      </div>
+                      <h3 className="font-bold text-sm text-white leading-snug">
+                        Ballot Recommendations
+                      </h3>
+                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                        In-depth breakdown of state propositions and regional ballot measures.
+                      </p>
+                    </div>
+                    <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
+                      <span>View Analysis</span>
+                      <ExternalLink size={13} />
+                    </div>
+                  </a>
+
+                  {/* Card 3: Measure Analysis */}
+                  <a
+                    href="https://drive.google.com/file/d/11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2/view?usp=sharing_eil_se_dm&ts=6ac7c8d5"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-4 sm:p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary-on-dark transition-all flex flex-col justify-between group"
+                  >
+                    <div className="space-y-2">
+                      <div className="size-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <FileDown size={18} />
+                      </div>
+                      <h3 className="font-bold text-sm text-white leading-snug">
+                        Candidate &amp; Measure Brief
+                      </h3>
+                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                        Background report on judicial races, school boards, and county supervisors.
+                      </p>
+                    </div>
+                    <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
+                      <span>Download Brief</span>
+                      <ExternalLink size={13} />
+                    </div>
+                  </a>
+
+                  {/* Card 4: Voter Information Document */}
+                  <a
+                    href="https://docs.google.com/document/d/1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U/edit?usp=sharing_eil_se_dm&rtpof=true&sd=true&ts=6ac7c8ad"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-4 sm:p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary-on-dark transition-all flex flex-col justify-between group"
+                  >
+                    <div className="space-y-2">
+                      <div className="size-9 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <HelpCircle size={18} />
+                      </div>
+                      <h3 className="font-bold text-sm text-white leading-snug">
+                        Voter Information Doc
+                      </h3>
+                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                        Full reference document on deadlines, polling sites, and voter rights.
+                      </p>
+                    </div>
+                    <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
+                      <span>Read Document</span>
+                      <ExternalLink size={13} />
+                    </div>
+                  </a>
+                </div>
+
+                {/* Save America Act Video Spotlight (Issue #89) */}
+                <div className="mt-8 rounded-2xl bg-secondary border border-white/10 p-5 sm:p-6 shadow-xl">
+                  <div className="flex flex-col lg:flex-row gap-6 items-center">
+                    <div className="w-full lg:w-1/2 aspect-video rounded-xl overflow-hidden bg-black border border-white/10 shrink-0">
+                      <iframe
+                        className="w-full h-full"
+                        src="https://www.youtube.com/embed/0a9zLvWVqgQ"
+                        title="The SAVE America Act Educational Video"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-gold/15 text-accent-gold text-[11px] font-bold uppercase tracking-wider">
+                        Educational Video Spotlight
+                      </div>
+                      <h4 className="text-base sm:text-lg font-bold text-white leading-snug">
+                        Understanding the SAVE America Act (H.R. 8281 / H.R. 7296)
+                      </h4>
+                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                        Watch this concise legal overview explaining the proposed Safeguard American
+                        Voter Eligibility (SAVE) Act. Learn how strict documentary
+                        proof-of-citizenship mandates impact eligible registered voters—including
+                        millions of married women whose legal names differ from their birth
+                        certificates, students, rural citizens, and seniors.
+                      </p>
+                      <div className="pt-1 flex items-center gap-4 text-xs">
+                        <span className="text-ink-muted-on-dark">Analysis by Lawyer Oyer</span>
+                        <a
+                          href="https://www.brennancenter.org/our-work/research-reports/save-act-voter-suppression"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary-on-dark hover:underline inline-flex items-center gap-1 font-semibold"
+                        >
+                          <span>Brennan Center Analysis</span>
+                          <ExternalLink size={11} />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight mb-6">
+              Voter Rights &amp; Educational Guides
+            </h2>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Guide 1: Elected Officials */}
               <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-4">

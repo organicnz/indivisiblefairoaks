@@ -403,9 +403,9 @@ export default async function AdminOrdersPage({
                         </Link>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {order.created_at
-                            ? new Date(order.created_at).toLocaleDateString('en-NZ', {
-                                day: 'numeric',
+                            ? new Date(order.created_at).toLocaleDateString('en-US', {
                                 month: 'short',
+                                day: 'numeric',
                                 year: 'numeric',
                                 hour: '2-digit',
                                 minute: '2-digit',
@@ -413,7 +413,7 @@ export default async function AdminOrdersPage({
                             : 'N/A'}
                         </p>
                         {order.coupon_code && (
-                          <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-black uppercase tracking-widest rounded-full px-2 py-0.5 bg-primary/20 text-secondary">
+                          <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-black uppercase tracking-widest rounded-full px-2 py-0.5 bg-primary/20 text-foreground">
                             <BadgePercent size={9} /> {order.coupon_code}
                           </span>
                         )}

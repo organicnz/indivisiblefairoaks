@@ -19,9 +19,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 const stockBadge: Record<string, string> = {
-  instock: 'bg-emerald-100 text-emerald-800',
-  outofstock: 'bg-rose-100 text-rose-800',
-  onbackorder: 'bg-amber-100 text-amber-800',
+  instock: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300',
+  outofstock: 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300',
+  onbackorder: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300',
 };
 
 const stockLabel: Record<string, string> = {
@@ -137,9 +137,9 @@ export default async function AdminProductDetailPage({
               {product.created_at && (
                 <span className="inline-flex items-center gap-1">
                   <Calendar size={11} />
-                  {new Date(product.created_at).toLocaleDateString('en-NZ', {
-                    day: 'numeric',
+                  {new Date(product.created_at).toLocaleDateString('en-US', {
                     month: 'short',
+                    day: 'numeric',
                     year: 'numeric',
                   })}
                 </span>
@@ -282,9 +282,9 @@ export default async function AdminProductDetailPage({
                 </span>
                 <span className="text-[11px] text-muted-foreground font-bold">
                   {item.orders.created_at
-                    ? new Date(item.orders.created_at).toLocaleDateString('en-NZ', {
-                        day: 'numeric',
+                    ? new Date(item.orders.created_at).toLocaleDateString('en-US', {
                         month: 'short',
+                        day: 'numeric',
                         year: 'numeric',
                       })
                     : 'N/A'}

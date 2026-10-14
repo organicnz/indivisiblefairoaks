@@ -26,6 +26,11 @@ const APP_FILES = [
   'src/components/account/AdminOrdersPanel.tsx',
   'src/app/admin/orders/page.tsx',
   'src/app/admin/orders/[id]/page.tsx',
+  'src/app/admin/customers/page.tsx',
+  'src/app/admin/customers/[id]/page.tsx',
+  'src/app/admin/products/[id]/page.tsx',
+  'src/app/admin/coupons/page.tsx',
+  'src/app/admin/page.tsx',
   'src/components/admin/OrdersExport.tsx',
   'src/components/admin/FulfilmentEditor.tsx',
 ];
@@ -56,6 +61,11 @@ describe('commerce has no NZD residue', () => {
   it.each(APP_FILES)('%s mentions no NZPOST placeholder', (relative) => {
     const source = sourceOf(relative);
     expect(source, `${relative} still names NZPOST`).not.toMatch(/NZPOST/i);
+  });
+
+  it.each(APP_FILES)('%s mentions no en-NZ locale', (relative) => {
+    const source = sourceOf(relative);
+    expect(source, `${relative} still names en-NZ locale`).not.toMatch(/en-NZ/i);
   });
 
   it.each(SCRIPT_FILES)('%s prices or fixtures nothing in NZD', (relative) => {
