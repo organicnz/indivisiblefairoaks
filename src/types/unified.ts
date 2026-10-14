@@ -132,7 +132,13 @@ export interface MediaListResult {
   folders: string[];
 }
 
-export type MediaTarget = 'featured' | 'section' | 'composer' | 'gallery' | 'media';
+export type MediaTarget =
+  | 'featured'
+  | 'section'
+  | 'composer'
+  | 'gallery'
+  | 'media'
+  | 'image-replace';
 
 // ==========================================
 // 4. Supabase Edge Functions — typed contracts
