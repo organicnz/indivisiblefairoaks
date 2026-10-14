@@ -51,7 +51,7 @@ import {
   setCRMTaskStatus,
   updateCRMNote,
 } from '@/lib/actions/crm';
-import { consentLabel } from '@/lib/crm-filters';
+import { consentLabel, filtersFromSegment, splitActiveValues } from '@/lib/crm-filters';
 import type {
   ConsentFilter,
   CRMActivity,
@@ -64,6 +64,23 @@ import type {
 interface CRMPanelProps {
   isOpen: boolean;
   onClose: () => void;
+}
+
+/*
+ * What a segment row will actually apply, in the row itself. The label used to
+ * show only the text query while the apply path set only the text query — both
+ * halves agreed and both were wrong for a segment saved with chips.
+ */
+function segmentSummary(segment: CRMSegment): string {
+  const f = filtersFromSegment(segment);
+  const parts = [
+    ...(f.query ? [`“${f.query.slice(0, 30)}${f.query.length > 30 ? '…' : ''}”`] : []),
+    ...splitActiveValues(f.status),
+    ...splitActiveValues(f.district),
+    ...splitActiveValues(f.tag).map((t) => `#${t}`),
+    ...(f.consent === 'all' ? [] : [f.consent.replace('_', ' ')]),
+  ];
+  return parts.length > 0 ? parts.join(' · ') : 'all constituents';
 }
 
 const CONSENT_COLORS: Record<string, string> = {
@@ -111,6 +128,20 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [selectedTag, setSelectedTag] = useState<string>('');
   const [districtFilter, setDistrictFilter] = useState<string>('');
+  /*
+   * A segment applied as a full replacement, like the admin directory. The
+   * single-value dropdowns cannot hold a multi-valued dimension, so the
+   * segment's lists ride the `*List` action params while applied and the
+   * dropdowns reset to neutral — a dropdown left set would intersect with the
+   * segment and show a set neither control describes.
+   */
+  const [appliedSegment, setAppliedSegment] = useState<{
+    id: string;
+    name: string;
+    statuses: string[];
+    districts: string[];
+    tags: string[];
+  } | null>(null);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState('');
@@ -140,7 +171,8 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
       statusFilter !== 'all' ||
       consentFilter !== 'all' ||
       selectedTag ||
-      districtFilter.trim()
+      districtFilter.trim() ||
+      appliedSegment !== null
   );
 
   const handleResetFilters = () => {
@@ -149,8 +181,34 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     setConsentFilter('all');
     setSelectedTag('');
     setDistrictFilter('');
+    setAppliedSegment(null);
     setPage(1);
   };
+
+  /*
+   * The set on screen, for the directory read and the CSV export alike. The
+   * export used to rebuild its own args from the dropdowns and so dropped the
+   * consent filter — and would now drop an applied segment too. One builder,
+   * two callers.
+   */
+  const contactQueryArgs = useCallback(
+    () => ({
+      query: searchQuery || undefined,
+      consent: consentFilter === 'all' ? undefined : consentFilter,
+      ...(appliedSegment
+        ? {
+            statusList: appliedSegment.statuses,
+            districtList: appliedSegment.districts,
+            tagList: appliedSegment.tags,
+          }
+        : {
+            status: statusFilter === 'all' ? undefined : statusFilter,
+            tag: selectedTag || undefined,
+            district: districtFilter.trim() || undefined,
+          }),
+    }),
+    [searchQuery, consentFilter, appliedSegment, statusFilter, selectedTag, districtFilter]
+  );
 
   const PAGE_SIZE = 25;
 
@@ -158,11 +216,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     setLoading(true);
     try {
       const res = await getCRMContacts({
-        query: searchQuery || undefined,
-        consent: consentFilter === 'all' ? undefined : consentFilter,
-        status: statusFilter === 'all' ? undefined : statusFilter,
-        tag: selectedTag || undefined,
-        district: districtFilter.trim() || undefined,
+        ...contactQueryArgs(),
         page,
         pageSize: PAGE_SIZE,
       });
@@ -173,7 +227,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, page, consentFilter, statusFilter, selectedTag, districtFilter]);
+  }, [contactQueryArgs, page]);
 
   const handleExportCSV = async () => {
     if (totalCount === 0) {
@@ -182,13 +236,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     }
     setIsExporting(true);
     try {
-      const res = await exportCRMContacts({
-        query: searchQuery || undefined,
-        consent: consentFilter === 'all' ? undefined : consentFilter,
-        status: statusFilter === 'all' ? undefined : statusFilter,
-        tag: selectedTag || undefined,
-        district: districtFilter.trim() || undefined,
-      });
+      const res = await exportCRMContacts(contactQueryArgs());
       if (res.error || !res.csv) {
         toast.error(res.error || 'Failed to export CSV');
         return;
@@ -403,7 +451,10 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
   const handleAddTag = async (newTag: string) => {
     if (!selectedContact || !newTag.trim()) return;
     const tag = newTag.trim().toLowerCase();
-    if (selectedContact.tags.includes(tag)) {
+    // Compared lowercased, matching the server schema: pre-normalization rows
+    // still hold mixed case, and the save lowercases the whole array — so a
+    // case-sensitive check would add a duplicate the server merges away.
+    if (selectedContact.tags.some((t) => t.toLowerCase() === tag)) {
       toast.error(`Tag "${tag}" already exists`);
       return;
     }
@@ -449,7 +500,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
 
   const handleRemoveTag = async (tagToRemove: string) => {
     if (!selectedContact) return;
-    const updatedTags = selectedContact.tags.filter((t) => t !== tagToRemove);
+    // Case-insensitive like the bulk-remove path on the server, so a legacy
+    // mixed-case row is removed when its chip is clicked.
+    const updatedTags = selectedContact.tags.filter(
+      (t) => t.toLowerCase() !== tagToRemove.toLowerCase()
+    );
     try {
       const res = await saveCRMContact({
         id: selectedContact.id,
@@ -485,6 +540,45 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove tag');
     }
+  };
+
+  /*
+   * A saved segment as the directory filter — a full replacement, like the
+   * admin directory. The old handler set only the text query, so a segment
+   * saved with status, district, tag or consent chips silently became a text
+   * search: the wrong set of people with no error. The lists ride the `*List`
+   * action params because the single-value dropdowns cannot hold them.
+   */
+  const handleApplySegment = (segment: CRMSegment) => {
+    const next = filtersFromSegment(segment);
+    const statuses = splitActiveValues(next.status);
+    const districts = splitActiveValues(next.district);
+    const tags = splitActiveValues(next.tag);
+    setSearchQuery(next.query);
+    setConsentFilter(next.consent);
+    setStatusFilter('all');
+    setSelectedTag('');
+    setDistrictFilter('');
+    setSelectedContact(null);
+    setSelectedContactIds(new Set());
+    setAppliedSegment({ id: segment.id, name: segment.name, statuses, districts, tags });
+    setPage(1);
+    setShowSegments(false);
+    const multi = [
+      statuses.length > 1 ? `${statuses.length} statuses` : '',
+      districts.length > 1 ? `${districts.length} districts` : '',
+      tags.length > 1 ? `${tags.length} tags` : '',
+    ].filter(Boolean);
+    toast.info(
+      multi.length > 0
+        ? `Segment "${segment.name}" applied — ${multi.join(', ')} combined`
+        : `Segment "${segment.name}" applied`
+    );
+  };
+
+  const handleClearSegment = () => {
+    setAppliedSegment(null);
+    setPage(1);
   };
 
   const handleBulkStatus = async (status: CRMContactStatus) => {
@@ -789,7 +883,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       setSearchQuery(e.target.value);
                       setPage(1);
                     }}
-                    className="w-full pl-10 pr-8 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                    disabled={appliedSegment !== null}
+                    title={
+                      appliedSegment ? 'Clear the applied segment to search manually' : undefined
+                    }
+                    className="w-full pl-10 pr-8 py-2 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   {searchQuery && (
                     <button
@@ -816,7 +914,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       setPage(1);
                     }}
                     aria-label="Filter by email consent"
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate"
+                    disabled={appliedSegment !== null}
+                    title={
+                      appliedSegment ? 'Clear the applied segment to filter manually' : undefined
+                    }
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="all">All consent</option>
                     <option value="opted_in">Opted in</option>
@@ -830,7 +932,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       setPage(1);
                     }}
                     aria-label="Filter by constituent status"
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate"
+                    disabled={appliedSegment !== null}
+                    title={
+                      appliedSegment ? 'Clear the applied segment to filter manually' : undefined
+                    }
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="all">All statuses</option>
                     <option value="active_volunteer">Active volunteer</option>
@@ -849,7 +955,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       setPage(1);
                     }}
                     aria-label="Filter by tag"
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate"
+                    disabled={appliedSegment !== null}
+                    title={
+                      appliedSegment ? 'Clear the applied segment to filter manually' : undefined
+                    }
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary truncate disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">
                       All tags{availableTags.length > 0 ? ` (${availableTags.length})` : ''}
@@ -891,7 +1001,11 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                       }}
                       placeholder="Filter by district (e.g. CA-06)…"
                       aria-label="Filter by district"
-                      className="w-full pl-7 pr-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary focus:outline-none"
+                      disabled={appliedSegment !== null}
+                      title={
+                        appliedSegment ? 'Clear the applied segment to filter manually' : undefined
+                      }
+                      className="w-full pl-7 pr-2.5 py-1.5 rounded-lg border border-border bg-background text-xs focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
                   {districtFilter && (
@@ -912,6 +1026,22 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                 </div>
                 {hasActiveFilters && (
                   <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {appliedSegment && (
+                      <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary text-white text-xs max-w-full">
+                        <span className="font-semibold truncate">
+                          Segment: {appliedSegment.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleClearSegment}
+                          className="hover:text-white/70 p-0.5 rounded shrink-0"
+                          aria-label="Clear applied segment"
+                          title="Clear the applied segment and return to manual filters"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    )}
                     {searchQuery.trim() && (
                       <div className="flex items-center justify-between gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs max-w-full">
                         <span className="flex items-center gap-1 truncate">
@@ -1353,23 +1483,12 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                   ) : (
                     <div className="space-y-2">
                       {segments.map((segment) => {
-                        const isApplied = searchQuery === (segment.query || '');
+                        const isApplied = appliedSegment?.id === segment.id;
                         return (
                           <button
                             key={segment.id}
                             type="button"
-                            onClick={() => {
-                              setSearchQuery(segment.query || '');
-                              setPage(1);
-                              setShowSegments(false);
-                              if (segment.query) {
-                                toast.info(`Filtered by segment "${segment.name}"`);
-                              } else {
-                                toast.info(
-                                  `Viewing all constituents from segment "${segment.name}"`
-                                );
-                              }
-                            }}
+                            onClick={() => handleApplySegment(segment)}
                             className={`w-full text-left p-3 rounded-xl border transition-all ${
                               isApplied
                                 ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
@@ -1386,11 +1505,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
                                 )}
                               </h4>
                               <span className="text-xs text-muted-foreground">
-                                Filter:{' '}
-                                {segment.query
-                                  ? segment.query.slice(0, 30) +
-                                    (segment.query.length > 30 ? '…' : '')
-                                  : 'all'}
+                                Filter: {segmentSummary(segment)}
                               </span>
                             </div>
                           </button>

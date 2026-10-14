@@ -1247,6 +1247,27 @@ export async function bulkUpdateCRMContacts({
     return { success: false, error: 'Invalid consent value' };
   }
 
+  /*
+   * Bulk-added tags go through the same shape rule as a hand-edited contact.
+   * `normalizeTags` lowercases and dedupes but accepts anything — without this
+   * check a bulk add could store a comma (which silently splits into two tags
+   * on the next `?tag=a,b` read), angle brackets, or a 200-character string,
+   * all of which the single-contact schema refuses. `removeTags` is
+   * deliberately unchecked: an entry that matches nothing removes nothing, and
+   * refusing it would strand legacy rows carrying tags this rule predates.
+   */
+  if (addTags?.length) {
+    for (const candidate of addTags) {
+      const parsed = tagSchema.safeParse(candidate);
+      if (!parsed.success) {
+        return {
+          success: false,
+          error: `Invalid tag "${candidate.trim().slice(0, MAX_TAG_LENGTH)}"`,
+        };
+      }
+    }
+  }
+
   const now = new Date().toISOString();
   const consentPatch: Record<string, string | boolean | null> =
     consent === undefined
@@ -1780,6 +1801,9 @@ export async function sendCRMDirectEmail({
       </p>
     `.trim(),
     footer: 'You received this direct civic update from Indivisible Fair Oaks-Carmichael.',
+    // Same origin the text footer and the unsubscribe link use. The shell used
+    // to default to the apex while this message's text pointed at staging.
+    siteUrl: env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, ''),
   });
 
   const sendResult = await sendEmail({
@@ -1880,6 +1904,9 @@ export async function previewCRMBroadcast({
       body,
       unsubscribeUrl: unsubscribeUrl('00000000-0000-0000-0000-000000000000'),
       logoUrl: LOGO_URL,
+      // The preview is the message: same builder, same origin. A hardcoded apex
+      // here would show the author links no recipient ever receives.
+      siteUrl: env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, ''),
     }),
     subject: broadcastSubject(subject),
   };

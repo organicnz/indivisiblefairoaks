@@ -6,7 +6,6 @@ import {
   BROADCAST_FOOTER,
   BROADCAST_ORG,
   BROADCAST_RECIPIENT_CEILING,
-  BROADCAST_SITE_URL,
   broadcastBodyHtml,
   broadcastSubject,
   buildBroadcastEmail,
@@ -45,8 +44,11 @@ const CRM_TYPES_SOURCE = readFileSync(resolve(process.cwd(), 'src/types/crm.ts')
 const FIXTURE = {
   recipientName: 'Jane Doe',
   body: 'Join us Saturday.\n\nBring ten neighbours.',
-  unsubscribeUrl: 'https://indivisiblefairoaks.org/api/crm/unsubscribe?token=abc',
+  // Same origin as `siteUrl`: both derive from the sending origin, so a staging
+  // build never mixes hosts inside one message.
+  unsubscribeUrl: 'https://test.indivisiblefairoaks.org/api/crm/unsubscribe?token=abc',
   logoUrl: LOGO_URL,
+  siteUrl: 'https://test.indivisiblefairoaks.org',
 };
 
 describe('broadcast template parity between the app and the edge function', () => {
@@ -54,7 +56,6 @@ describe('broadcast template parity between the app and the edge function', () =
     for (const [name, value] of [
       ['BROADCAST_EYEBROW', BROADCAST_EYEBROW],
       ['BROADCAST_FOOTER', BROADCAST_FOOTER],
-      ['BROADCAST_SITE_URL', BROADCAST_SITE_URL],
       ['BROADCAST_ORG', BROADCAST_ORG],
       ['BROADCAST_RECIPIENT_CEILING', BROADCAST_RECIPIENT_CEILING],
     ] as const) {
@@ -91,7 +92,12 @@ describe('broadcast template parity between the app and the edge function', () =
         // Biome and the Deno formatter differ on semicolons (including in type
         // members). Punctuation is not behaviour, so it is normalised away rather
         // than forcing one formatter's style onto the other file.
-        .replace(/;/g, '');
+        .replace(/;/g, '')
+        // Biome adds trailing commas when it wraps a long signature across
+        // lines; the edge copy keeps the short form. A trailing comma before a
+        // closer is not behaviour in a binding pattern, a call, or an array
+        // literal, so it is normalised the same way.
+        .replace(/,([}\])])/g, '$1');
 
     /** One function's body, bounded by the next top-level declaration. */
     const sliceFunction = (source: string, name: string): string | null => {
@@ -147,10 +153,36 @@ describe('the delivered email is the previewed email', () => {
         eyebrow: BROADCAST_EYEBROW,
         body: broadcastBodyHtml(FIXTURE),
         footer: BROADCAST_FOOTER,
+        siteUrl: FIXTURE.siteUrl,
       })
     );
     expect(html).toContain(LOGO_URL);
     expect(html).toContain(BROADCAST_FOOTER);
+  });
+
+  it('links the brand to the sending origin, never a hardcoded apex', () => {
+    // The template used to carry BROADCAST_SITE_URL, so a staging build mailed
+    // links to a host that 302s to Google Sites until the cutover. The origin
+    // is now a parameter: what the caller passes is what every link carries.
+    const { html, text } = buildBroadcastEmail(FIXTURE);
+    expect(html).toContain(FIXTURE.siteUrl);
+    expect(text).toContain(FIXTURE.siteUrl);
+    expect(html).not.toContain('https://indivisiblefairoaks.org');
+    expect(text).not.toContain('https://indivisiblefairoaks.org');
+  });
+
+  it('carries no hardcoded site origin in either copy of the template', () => {
+    for (const [label, source] of [
+      ['app', APP_SOURCE_RAW],
+      ['edge', EDGE_SOURCE],
+    ] as const) {
+      expect(source, `${label} copy hardcodes a site origin`).not.toContain(
+        'https://indivisiblefairoaks.org'
+      );
+      expect(source, `${label} copy hardcodes a staging origin`).not.toContain(
+        'https://test.indivisiblefairoaks.org'
+      );
+    }
   });
 });
 

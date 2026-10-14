@@ -436,8 +436,8 @@ jobs:
   # red. Do not re-add it. This job reads the REST API instead, which is the
   # only shape that works without `vercel link` state (the CLI aborts on CI).
   #
-  # Runs on `ubuntu-latest`, not the fleet: this job is a sleep-poll over
-  # HTTPS plus two file writes. Strictly on self-hosted runner pursuant to AGENTS.md.
+  # Self-hosted like every other job here, on the backend role: this job is a
+  # sleep-poll over HTTPS plus two file writes. Strictly on self-hosted runner pursuant to AGENTS.md.
   # Push-only, because a pull request has not shipped anything.
   vercel-deploy:
     name: Vercel Deployment

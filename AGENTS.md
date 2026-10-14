@@ -990,8 +990,12 @@ own docs, because their failure modes are invisible to review and to unit tests.
   and `.limit(20)` with no pager, so a chapter past fifty campaigns could not see
   its fifty-first and a twenty-first draft was unreachable *and* unremovable. The
   composer's tag chips were `slice(0, 40)` with no indication, so a chapter with
-  more than 40 tags had constituents who could not be targeted at all. `BROADCAST_SITE_URL`
-  is still a hardcoded apex in both copies of the template — see above.
+  more than 40 tags had constituents who could not be targeted at all. The
+  broadcast template carried the same class of bug as a hardcoded apex
+  (`BROADCAST_SITE_URL`) in both copies — a staging build mailed links to a
+  host that 302s to Google Sites until the cutover. The origin is now a
+  parameter: the Next app passes `NEXT_PUBLIC_SITE_URL`, the sender passes
+  `APP_URL`, and the parity test asserts neither copy hardcodes an origin.
 
   **Every wait in a send is now bounded, and two of them were not.** The dispatch
   fetch, the Resend call per recipient, and each progress poll had no timeout. A

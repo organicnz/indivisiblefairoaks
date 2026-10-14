@@ -338,6 +338,10 @@ app.post('*', async (c) => {
           body,
           unsubscribeUrl: unsubscribe,
           logoUrl,
+          // The brand link follows the sending origin, like the unsubscribe
+          // URL above it. A hardcoded apex here mailed staging recipients a
+          // link to a host that 302s to Google Sites until the cutover.
+          siteUrl: APP_URL.replace(/\/$/, ''),
         })
 
         const res = await fetch(RESEND_API_URL, {
