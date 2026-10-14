@@ -15,7 +15,7 @@ import { CustomerAdminToggle } from '@/components/admin/CustomerAdminToggle';
 import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 import type { AdminOrder, OrderItem } from '@/types/orders';
-import { statusStyle } from '@/types/orders';
+import { formatDate, statusStyle } from '@/types/orders';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -113,14 +113,7 @@ export default async function AdminCustomerDetailPage({
             </p>
             <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mt-1.5 flex items-center gap-1.5">
               <Calendar size={11} />
-              Customer since{' '}
-              {customer.created_at
-                ? new Date(customer.created_at).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })
-                : 'N/A'}
+              Customer since {formatDate(customer.created_at)}
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -141,13 +134,7 @@ export default async function AdminCustomerDetailPage({
           { label: 'Avg Order Value', value: formatPrice(aov), icon: TrendingUp },
           {
             label: 'Last Order',
-            value: lastOrder?.created_at
-              ? new Date(lastOrder.created_at).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                })
-              : '—',
+            value: lastOrder?.created_at ? formatDate(lastOrder.created_at) : '—',
             icon: Calendar,
           },
         ].map(({ label, value, icon: Icon }) => (
@@ -197,13 +184,7 @@ export default async function AdminCustomerDetailPage({
                       {o.status || 'unknown'}
                     </span>
                     <span className="text-[11px] text-muted-foreground font-bold">
-                      {o.created_at
-                        ? new Date(o.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })
-                        : 'N/A'}
+                      {formatDate(o.created_at)}
                     </span>
                     <span className="ml-auto text-sm font-black text-primary dark:text-primary-on-dark">
                       {formatPrice(o.total)}

@@ -1,7 +1,9 @@
 import { BadgePercent } from 'lucide-react';
 import { CouponCreator, CouponDelete } from '@/components/admin/CouponCreator';
 import { CouponEditor } from '@/components/admin/CouponEditor';
+import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
+import { formatDate } from '@/types/orders';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -107,9 +109,7 @@ export default async function AdminCouponsPage() {
                       Discount
                     </p>
                     <p className="text-lg text-primary dark:text-primary-on-dark font-black">
-                      {c.discount_type === 'percent'
-                        ? `${c.amount}%`
-                        : `$${Number(c.amount).toFixed(2)}`}
+                      {c.discount_type === 'percent' ? `${c.amount}%` : formatPrice(c.amount)}
                     </p>
                   </div>
                   <div>
@@ -121,13 +121,7 @@ export default async function AdminCouponsPage() {
                         expired ? 'text-rose-500' : 'text-foreground'
                       }`}
                     >
-                      {c.expiry_date
-                        ? new Date(c.expiry_date).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })
-                        : 'Never'}
+                      {c.expiry_date ? formatDate(c.expiry_date) : 'Never'}
                     </p>
                   </div>
                   <div>
@@ -151,7 +145,7 @@ export default async function AdminCouponsPage() {
                       Order revenue
                     </p>
                     <p className="text-sm font-black text-foreground">
-                      ${(usageByCode.get(c.code)?.revenue ?? 0).toFixed(2)}
+                      {formatPrice(usageByCode.get(c.code)?.revenue ?? 0)}
                     </p>
                   </div>
                   <div className="flex justify-end">
