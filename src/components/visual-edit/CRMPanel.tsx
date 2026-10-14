@@ -350,9 +350,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({ isOpen, onClose }) => {
         if (selectedContact && selectedContact.id === id) {
           const nextDoNotEmail =
             consent === 'opted_out' ? true : consent === 'opted_in' ? false : null;
-          setSelectedContact((prev) =>
-            prev ? { ...prev, do_not_email: nextDoNotEmail } : null
-          );
+          setSelectedContact((prev) => (prev ? { ...prev, do_not_email: nextDoNotEmail } : null));
           loadActivities(id);
         }
         loadContacts();

@@ -107,9 +107,7 @@ const getCRMContactDetail = vi.hoisted(() =>
   })
 );
 
-const setCRMEmailConsent = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({ success: true })
-);
+const setCRMEmailConsent = vi.hoisted(() => vi.fn().mockResolvedValue({ success: true }));
 
 vi.mock('@/lib/actions/crm', () => ({
   getCRMContacts,
@@ -119,12 +117,10 @@ vi.mock('@/lib/actions/crm', () => ({
   bulkDeleteCRMContacts,
   getCRMExistingTags,
   getCRMContactDetail,
-  getCRMSegments: vi
-    .fn()
-    .mockResolvedValue({
-      segments: [{ id: 's1', name: 'Volunteers', query: 'volunteer' }],
-      truncated: false,
-    }),
+  getCRMSegments: vi.fn().mockResolvedValue({
+    segments: [{ id: 's1', name: 'Volunteers', query: 'volunteer' }],
+    truncated: false,
+  }),
   getCRMTasksForContact: vi.fn().mockResolvedValue([
     { id: 't1', title: 'Call voter', status: 'open', due_at: null },
     { id: 't2', title: 'Sent sticker', status: 'done', due_at: null },
@@ -596,9 +592,7 @@ describe('CRMPanel', () => {
       }
     });
 
-    expect(getCRMContacts).toHaveBeenCalledWith(
-      expect.objectContaining({ district: 'CA-06' })
-    );
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ district: 'CA-06' }));
 
     const clearDistrictBtn = document.body.querySelector<HTMLButtonElement>(
       'button[aria-label="Clear district filter"]'
@@ -608,9 +602,7 @@ describe('CRMPanel', () => {
       clearDistrictBtn?.click();
     });
 
-    expect(getCRMContacts).toHaveBeenCalledWith(
-      expect.objectContaining({ district: undefined })
-    );
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ district: undefined }));
   });
 
   it('updates email consent immediately on constituent 360 card and refreshes timeline', async () => {
@@ -664,9 +656,7 @@ describe('CRMPanel', () => {
       districtFilterBtn?.click();
     });
 
-    expect(getCRMContacts).toHaveBeenCalledWith(
-      expect.objectContaining({ district: 'CA-06' })
-    );
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ district: 'CA-06' }));
     expect(document.body.textContent).toContain('District: CA-06');
   });
 
@@ -789,9 +779,7 @@ describe('CRMPanel', () => {
       removeConsentBtn?.click();
     });
 
-    expect(getCRMContacts).toHaveBeenCalledWith(
-      expect.objectContaining({ consent: undefined })
-    );
+    expect(getCRMContacts).toHaveBeenCalledWith(expect.objectContaining({ consent: undefined }));
     expect(document.body.textContent).not.toContain('Consent: Opted in');
   });
 
@@ -820,9 +808,9 @@ describe('CRMPanel', () => {
   });
 
   it('supports mobile back navigation from segments view', async () => {
-    const segmentsBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
-      (b) => b.textContent?.trim() === 'Segments'
-    );
+    const segmentsBtn = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.trim() === 'Segments');
     expect(segmentsBtn).not.toBeUndefined();
     await act(async () => {
       segmentsBtn?.click();

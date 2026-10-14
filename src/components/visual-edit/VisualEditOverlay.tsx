@@ -3516,7 +3516,8 @@ export function VisualEditOverlay() {
                       {pageTitle.trim() || 'Untitled Page'} | Indivisible Fair Oaks
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                      Official Indivisible Fair Oaks &amp; Carmichael grassroots action, civic events, and community advocacy in Sacramento County.
+                      Official Indivisible Fair Oaks &amp; Carmichael grassroots action, civic
+                      events, and community advocacy in Sacramento County.
                     </p>
                   </div>
                 ) : (

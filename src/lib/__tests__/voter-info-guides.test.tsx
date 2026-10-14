@@ -55,29 +55,21 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
 
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('a'));
 
-    const voterGuideLink = links.find((a) =>
-      a.href.includes('10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy')
-    );
+    const voterGuideLink = links.find((a) => a.href.includes('10XEUyMoyGUI_UktPVwB0RJo-6w3lN0Uy'));
     expect(voterGuideLink).toBeDefined();
     expect(voterGuideLink?.target).toBe('_blank');
     expect(voterGuideLink?.rel).toContain('noopener');
 
-    const ballotRecLink = links.find((a) =>
-      a.href.includes('1JW2rg5dVBZBqezG3hd9QBu0znt3XsMaN')
-    );
+    const ballotRecLink = links.find((a) => a.href.includes('1JW2rg5dVBZBqezG3hd9QBu0znt3XsMaN'));
     expect(ballotRecLink).toBeDefined();
     expect(ballotRecLink?.target).toBe('_blank');
     expect(ballotRecLink?.rel).toContain('noopener');
 
-    const briefLink = links.find((a) =>
-      a.href.includes('11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2')
-    );
+    const briefLink = links.find((a) => a.href.includes('11Cv8yyuI_jtNet_IFSYHDN5xFr1axfg2'));
     expect(briefLink).toBeDefined();
     expect(briefLink?.target).toBe('_blank');
 
-    const docLink = links.find((a) =>
-      a.href.includes('1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U')
-    );
+    const docLink = links.find((a) => a.href.includes('1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U'));
     expect(docLink).toBeDefined();
     expect(docLink?.target).toBe('_blank');
   });
