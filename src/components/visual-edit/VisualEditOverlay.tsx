@@ -723,10 +723,32 @@ export function VisualEditOverlay() {
     try {
       let row = null;
       if (rowId && !Number.isNaN(rowId) && rowId > 0) {
-        row = await getContentForEdit(rowId);
+        try {
+          const res = await fetch(`/api/visual-edit/content?id=${rowId}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.content) row = json.content;
+          }
+        } catch {
+          // Fall through to server action
+        }
+        if (!row) {
+          row = await getContentForEdit(rowId);
+        }
       }
       if (!row && slug) {
-        row = await getContentBySlugForEdit(slug);
+        try {
+          const res = await fetch(`/api/visual-edit/content?slug=${encodeURIComponent(slug)}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.content) row = json.content;
+          }
+        } catch {
+          // Fall through to server action
+        }
+        if (!row) {
+          row = await getContentBySlugForEdit(slug);
+        }
       }
 
       if (row) {
