@@ -103,7 +103,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: BRAND.surfaceDark,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: BRAND.surfaceDark },
+  ],
 };
 
 async function SettingsLoader() {
@@ -117,7 +120,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${outfit.variable} h-full antialiased`}
+    >
       <head>
         {/* The palette must be chosen before the first paint. The theme store
             applies its answer after hydration, which would flash the wrong

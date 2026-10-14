@@ -253,8 +253,8 @@ export default async function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Shield size={24} />
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-2">Stop Authoritarianism</h3>
@@ -264,8 +264,8 @@ export default async function HomePage() {
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary text-accent-gold flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-accent-gold flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Vote size={24} />
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-2">Defend Democratic Norms</h3>
@@ -275,8 +275,8 @@ export default async function HomePage() {
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Megaphone size={24} />
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-2">Elect Bold Leaders</h3>
@@ -286,8 +286,8 @@ export default async function HomePage() {
                 </p>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary text-primary-on-dark flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-primary-on-dark flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Users size={24} />
                 </div>
                 <h3 className="text-lg font-bold text-foreground mb-2">
@@ -416,9 +416,9 @@ export default async function HomePage() {
 
           <CopyRegion id="home-voter-hub">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-secondary text-primary-on-dark-muted flex items-center justify-center mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-primary-on-dark-muted flex items-center justify-center mb-4">
                     <FileText size={20} />
                   </div>
                   <h3 className="text-lg font-bold text-foreground mb-2">
@@ -431,16 +431,16 @@ export default async function HomePage() {
                 </div>
                 <Link
                   href="/voter-info"
-                  className="text-xs font-bold text-primary-ink hover:text-primary-dark flex items-center gap-1.5"
+                  className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted flex items-center gap-1.5"
                 >
                   <span>Access Guide & Directory</span>
                   <ArrowRight size={14} />
                 </Link>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-secondary text-accent-gold flex items-center justify-center mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-accent-gold flex items-center justify-center mb-4">
                     <Vote size={20} />
                   </div>
                   <h3 className="text-lg font-bold text-foreground mb-2">Pre-Registration at 16</h3>
@@ -451,16 +451,16 @@ export default async function HomePage() {
                 </div>
                 <Link
                   href="/voter-info"
-                  className="text-xs font-bold text-primary-ink hover:text-primary-dark flex items-center gap-1.5"
+                  className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted flex items-center gap-1.5"
                 >
                   <span>Youth Voting Guide</span>
                   <ArrowRight size={14} />
                 </Link>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 transition-all flex flex-col justify-between">
+              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-secondary text-emerald-400 flex items-center justify-center mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-emerald-400 flex items-center justify-center mb-4">
                     <Shield size={20} />
                   </div>
                   <h3 className="text-lg font-bold text-foreground mb-2">
@@ -473,7 +473,7 @@ export default async function HomePage() {
                 </div>
                 <Link
                   href="/voter-info"
-                  className="text-xs font-bold text-primary-ink hover:text-primary-dark flex items-center gap-1.5"
+                  className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted flex items-center gap-1.5"
                 >
                   <span>Read Rights Overview</span>
                   <ArrowRight size={14} />
