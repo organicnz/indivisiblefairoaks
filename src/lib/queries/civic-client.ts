@@ -8,6 +8,25 @@ export async function getTickerEvents(): Promise<
   { label: string; detail: string; href: string; badge: string }[]
 > {
   try {
+    const res = await fetch('/api/civic/events');
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.events) && json.events.length > 0) {
+        return json.events.map(
+          (e: { title: string; dateLabel: string; timeLabel: string; category: string }) => ({
+            label: e.title,
+            detail: `${e.dateLabel} • ${e.timeLabel}`,
+            href: '/events',
+            badge: e.category,
+          })
+        );
+      }
+    }
+  } catch {
+    // Fall back to direct query below
+  }
+
+  try {
     const supabase = createClient();
     const now = new Date().toISOString();
     const { data } = await (
