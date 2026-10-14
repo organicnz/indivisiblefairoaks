@@ -671,6 +671,9 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(toolbar?.querySelector('button[aria-label="Insert link"]')).not.toBeNull();
     expect(toolbar?.querySelector('button[aria-label="Remove link"]')).not.toBeNull();
     expect(toolbar?.querySelector('button[aria-label="Clear formatting"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Heading 2"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Heading 3"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Paragraph"]')).not.toBeNull();
 
     // Word and character count badge
     expect(toolbar?.textContent).toMatch(/\d+w · \d+c/);
@@ -693,6 +696,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     const imageToolbar = container.querySelector('[aria-label="Image asset controls"]');
     expect(imageToolbar).not.toBeNull();
     expect(imageToolbar?.textContent).toContain('Replace');
+    expect(imageToolbar?.textContent).toContain('Upload');
     expect(imageToolbar?.textContent).toContain('Alt Text');
   });
 

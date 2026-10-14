@@ -501,6 +501,8 @@ export function VisualEditOverlay() {
   const [imageSession, setImageSession] = useState<ImageEditSession | null>(null);
   const imageSessionRef = useRef<ImageEditSession | null>(null);
   imageSessionRef.current = imageSession;
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
 
   // Responsive Viewport Simulation Mode
   const [viewportMode, setViewportMode] = useState<ViewportMode>('desktop');
@@ -1022,10 +1024,22 @@ export function VisualEditOverlay() {
     };
     window.addEventListener('scroll', onScrollOrResize, { passive: true });
     window.addEventListener('resize', onScrollOrResize, { passive: true });
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(updateOverlays);
+      });
+      const root = document.querySelector(`[${VISUAL_EDIT_ROOT_ATTR}]`) || document.body;
+      if (root) resizeObserver.observe(root);
+    }
+
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('scroll', onScrollOrResize);
       window.removeEventListener('resize', onScrollOrResize);
+      if (resizeObserver) resizeObserver.disconnect();
     };
   }, [enabled, isAdmin, updateOverlays]);
 
@@ -1546,6 +1560,65 @@ export function VisualEditOverlay() {
         toast.error('Failed to save alt text');
       } finally {
         setSavingBackend(false);
+      }
+    },
+    [commitBlocks, handlePersistBlocks, router]
+  );
+
+  const handleDirectImageUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !imageSessionRef.current) return;
+      setIsUploadingImage(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'content');
+        const res = await uploadCRMMedia(formData);
+        if (res.success && res.data?.url) {
+          const newUrl = res.data.url;
+          const session = imageSessionRef.current;
+          session.element.src = newUrl;
+          if (session.copyRegionId) {
+            const regionContainer = document.querySelector<HTMLElement>(
+              `[data-copy-region="${session.copyRegionId}"]`
+            );
+            if (regionContainer) {
+              const regionHtml = regionContainer.innerHTML;
+              const saveRes = await saveContent({
+                slug: copyRegionSlug(session.copyRegionId),
+                title: session.copyRegionId,
+                body: regionHtml,
+                status: 'publish',
+                type: 'page',
+              });
+              if (saveRes.success) {
+                toast.success('Image uploaded and saved to region!');
+                setSavedBody(regionHtml);
+                router.refresh();
+              } else {
+                toast.error(saveRes.error || 'Failed to save copy region');
+              }
+            }
+          } else if (session.blockIndex !== null && blocksRef.current[session.blockIndex]) {
+            const updated = [...blocksRef.current];
+            const target = updated[session.blockIndex];
+            if (target.type === 'image') {
+              updated[session.blockIndex] = { ...target, src: newUrl };
+              commitBlocks(updated);
+              await handlePersistBlocks(updated, 'Image replaced and saved');
+            }
+          }
+          setImageSession(null);
+          imageSessionRef.current = null;
+        } else {
+          toast.error(res.error || 'Failed to upload image file');
+        }
+      } catch {
+        toast.error('Image upload failed');
+      } finally {
+        setIsUploadingImage(false);
+        if (e.target) e.target.value = '';
       }
     },
     [commitBlocks, handlePersistBlocks, router]
@@ -2783,6 +2856,62 @@ export function VisualEditOverlay() {
             <Eraser size={13} />
           </button>
 
+          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
+
+          {/* Heading 2 */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              try {
+                document.execCommand('formatBlock', false, '<h2>');
+              } catch {
+                document.execCommand('formatBlock', false, 'h2');
+              }
+            }}
+            className="rounded px-1.5 py-0.5 text-slate-300 font-bold hover:bg-white/15 hover:text-white transition-colors cursor-pointer text-[10px]"
+            title="Format as Heading 2"
+            aria-label="Heading 2"
+          >
+            H2
+          </button>
+
+          {/* Heading 3 */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              try {
+                document.execCommand('formatBlock', false, '<h3>');
+              } catch {
+                document.execCommand('formatBlock', false, 'h3');
+              }
+            }}
+            className="rounded px-1.5 py-0.5 text-slate-300 font-bold hover:bg-white/15 hover:text-white transition-colors cursor-pointer text-[10px]"
+            title="Format as Heading 3"
+            aria-label="Heading 3"
+          >
+            H3
+          </button>
+
+          {/* Paragraph */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              try {
+                document.execCommand('formatBlock', false, '<p>');
+              } catch {
+                document.execCommand('formatBlock', false, 'p');
+              }
+            }}
+            className="rounded px-1.5 py-0.5 text-slate-300 font-bold hover:bg-white/15 hover:text-white transition-colors cursor-pointer text-[10px]"
+            title="Format as Paragraph"
+            aria-label="Paragraph"
+          >
+            ¶
+          </button>
+
           {/* Word and Char Counter Badge */}
           <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono text-ink-muted-on-dark select-none ml-0.5">
             {inlineCounts.words}w · {inlineCounts.chars}c
@@ -2842,6 +2971,28 @@ export function VisualEditOverlay() {
           >
             <ImagePlus size={13} />
             <span>Replace</span>
+          </button>
+
+          <input
+            ref={imageFileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
+            className="hidden"
+            onChange={handleDirectImageUpload}
+          />
+          <button
+            type="button"
+            disabled={isUploadingImage}
+            onClick={() => imageFileInputRef.current?.click()}
+            className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 font-semibold text-white text-[11px] hover:bg-white/20 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+            title="Directly upload replacement image from your device"
+          >
+            {isUploadingImage ? (
+              <Loader2 size={12} className="animate-spin text-accent-gold" />
+            ) : (
+              <Upload size={12} className="text-primary-on-dark" />
+            )}
+            <span>{isUploadingImage ? 'Uploading…' : 'Upload'}</span>
           </button>
 
           <button
