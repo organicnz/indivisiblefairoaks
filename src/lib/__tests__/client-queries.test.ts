@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getTickerEvents } from '@/lib/queries/civic-client';
+import {
+  getCoalitionLinks,
+  getDataPoints,
+  getFaqs,
+  getPartners,
+  getTickerEvents,
+  saveDataPoint,
+} from '@/lib/queries/civic-client';
 import { getGalleryPhotos } from '@/lib/queries/content-client';
 
 describe('Client queries through Edge API', () => {
@@ -87,6 +94,101 @@ describe('Client queries through Edge API', () => {
       globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
       const events = await getTickerEvents();
       expect(events).toEqual([]);
+    });
+  });
+
+  describe('getFaqs()', () => {
+    it('fetches faqs and categories from /api/faqs', async () => {
+      const mockData = {
+        success: true,
+        faqs: [
+          {
+            id: 1,
+            slug: 'meetings',
+            category: 'General',
+            question: 'When?',
+            answer: 'Tuesdays',
+            sort_order: 10,
+          },
+        ],
+        categories: ['General'],
+      };
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => mockData,
+      } as unknown as Response);
+
+      const res = await getFaqs();
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/faqs');
+      expect(res.faqs).toHaveLength(1);
+      expect(res.categories).toContain('General');
+    });
+  });
+
+  describe('getPartners()', () => {
+    it('fetches partners from /api/partners', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          partners: [{ slug: 'p1', name: 'Partner One' }],
+        }),
+      } as unknown as Response);
+
+      const partners = await getPartners();
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/partners');
+      expect(partners).toHaveLength(1);
+      expect(partners[0].name).toBe('Partner One');
+    });
+  });
+
+  describe('getCoalitionLinks()', () => {
+    it('fetches coalition links from /api/coalition-links', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          links: [{ slug: 'l1', name: 'Link One' }],
+        }),
+      } as unknown as Response);
+
+      const links = await getCoalitionLinks();
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/coalition-links');
+      expect(links).toHaveLength(1);
+      expect(links[0].name).toBe('Link One');
+    });
+  });
+
+  describe('getDataPoints() and saveDataPoint()', () => {
+    it('fetches data points from /api/data-points', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          dataPoints: { 'home.headline': 'Headline Text' },
+          rows: [{ key: 'home.headline', value: 'Headline Text' }],
+        }),
+      } as unknown as Response);
+
+      const res = await getDataPoints('home');
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/data-points?group=home');
+      expect(res.dataPoints['home.headline']).toBe('Headline Text');
+    });
+
+    it('saves data point via POST /api/data-points', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          dataPoint: { key: 'home.hero', value: 'Saved Text' },
+        }),
+      } as unknown as Response);
+
+      const res = await saveDataPoint({ key: 'home.hero', value: 'Saved Text' });
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/data-points', expect.any(Object));
+      expect(res.success).toBe(true);
+      expect(res.dataPoint?.value).toBe('Saved Text');
     });
   });
 });

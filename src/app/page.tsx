@@ -23,7 +23,7 @@ import type { TickerItem } from '@/components/ui/CivicActionTicker';
 import { CivicActionTicker } from '@/components/ui/CivicActionTicker';
 import { VgpuCivicAtmosphere } from '@/components/ui/VgpuCivicAtmosphere';
 import { gatheringCard, selectMeetingEvent } from '@/lib/civic-events';
-import { getEvents, getGalleryPhotos } from '@/lib/queries/civic';
+import { getDataPoints, getEvents, getGalleryPhotos } from '@/lib/queries/civic';
 import { getStorageUrl } from '@/lib/supabase';
 import type { GalleryPhotoView } from '@/types/gallery';
 
@@ -38,9 +38,12 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function HomePage() {
-  // Single server-side fetch, shared across HeroPhotoFrame and HomeGalleryPreview.
-  // Cached via cacheTag('gallery') / cacheLife('hours') in getGalleryPhotos().
-  const [galleryRows, events] = await Promise.all([getGalleryPhotos(), getEvents()]);
+  // Server-side fetches cached via cacheTag and cacheLife('hours') in queries/civic.ts
+  const [galleryRows, events, dataPoints] = await Promise.all([
+    getGalleryPhotos(),
+    getEvents(),
+    getDataPoints('home'),
+  ]);
   const galleryPhotos: GalleryPhotoView[] = galleryRows.map((row) => ({
     id: String(row.id),
     dbId: row.id,
@@ -85,23 +88,38 @@ export default async function HomePage() {
                 the visual editor; the JSX below is the fallback until they do. */}
             <CopyRegion id="home-hero">
               <div className="max-w-full md:max-w-2xl lg:max-w-3xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/15 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-md">
+                <div
+                  data-data-point="home.hero.eyebrow"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/15 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-md"
+                >
                   <Sparkles size={14} className="text-accent-gold" />
-                  <span>Sacramento County Grassroots Action</span>
+                  <span>
+                    {dataPoints['home.hero.eyebrow'] || 'Sacramento County Grassroots Action'}
+                  </span>
                 </div>
 
-                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] mb-6 drop-shadow-sm">
-                  Democracy is not a spectator sport.
+                <h1
+                  data-data-point="home.hero.headline"
+                  className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] mb-6 drop-shadow-sm"
+                >
+                  {dataPoints['home.hero.headline'] || 'Democracy is not a spectator sport.'}
                 </h1>
 
-                <p className="text-lg sm:text-xl text-slate-200 leading-relaxed mb-8 drop-shadow-sm">
-                  The mission of the{' '}
-                  <strong className="text-white font-extrabold">
-                    Fair Oaks-Carmichael chapter of Indivisible
-                  </strong>{' '}
-                  is to cultivate a non-violent grassroots movement to stop the rise of
-                  authoritarianism, to support and defend democratic norms, elect bold leaders, and
-                  secure progressive policies.
+                <p
+                  data-data-point="home.hero.mission"
+                  className="text-lg sm:text-xl text-slate-200 leading-relaxed mb-8 drop-shadow-sm"
+                >
+                  {dataPoints['home.hero.mission'] || (
+                    <>
+                      The mission of the{' '}
+                      <strong className="text-white font-extrabold">
+                        Fair Oaks-Carmichael chapter of Indivisible
+                      </strong>{' '}
+                      is to cultivate a non-violent grassroots movement to stop the rise of
+                      authoritarianism, to support and defend democratic norms, elect bold leaders,
+                      and secure progressive policies.
+                    </>
+                  )}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-4">
@@ -131,35 +149,59 @@ export default async function HomePage() {
                 {/* 10x Pro Chapter Impact Metrics */}
                 <div className="mt-14 pt-8 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-6 backdrop-blur-sm">
                   <div className="p-3 rounded-xl bg-secondary/40 border border-white/5">
-                    <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                      500+
+                    <div
+                      data-data-point="home.impact.neighbors"
+                      className="text-2xl sm:text-3xl font-black text-white tracking-tight"
+                    >
+                      {dataPoints['home.impact.neighbors'] || '500+'}
                     </div>
-                    <div className="text-xs text-ink-muted-on-dark font-medium mt-0.5">
-                      Active Neighbors
-                    </div>
-                  </div>
-                  <div className="p-3 rounded-xl bg-secondary/40 border border-white/5">
-                    <div className="text-2xl sm:text-3xl font-black text-primary-on-dark-muted tracking-tight">
-                      4,200+
-                    </div>
-                    <div className="text-xs text-ink-muted-on-dark font-medium mt-0.5">
-                      Postcards Written
+                    <div
+                      data-data-point="home.impact.neighbors_label"
+                      className="text-xs text-ink-muted-on-dark font-medium mt-0.5"
+                    >
+                      {dataPoints['home.impact.neighbors_label'] || 'Active Neighbors'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-secondary/40 border border-white/5">
-                    <div className="text-2xl sm:text-3xl font-black text-accent-gold tracking-tight">
-                      100%
+                    <div
+                      data-data-point="home.impact.postcards"
+                      className="text-2xl sm:text-3xl font-black text-primary-on-dark-muted tracking-tight"
+                    >
+                      {dataPoints['home.impact.postcards'] || '4,200+'}
                     </div>
-                    <div className="text-xs text-ink-muted-on-dark font-medium mt-0.5">
-                      Grassroots Funded
+                    <div
+                      data-data-point="home.impact.postcards_label"
+                      className="text-xs text-ink-muted-on-dark font-medium mt-0.5"
+                    >
+                      {dataPoints['home.impact.postcards_label'] || 'Postcards Written'}
                     </div>
                   </div>
                   <div className="p-3 rounded-xl bg-secondary/40 border border-white/5">
-                    <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
-                      CA-03 / 06
+                    <div
+                      data-data-point="home.impact.funding"
+                      className="text-2xl sm:text-3xl font-black text-accent-gold tracking-tight"
+                    >
+                      {dataPoints['home.impact.funding'] || '100%'}
                     </div>
-                    <div className="text-xs text-ink-muted-on-dark font-medium mt-0.5">
-                      Sacramento Region
+                    <div
+                      data-data-point="home.impact.funding_label"
+                      className="text-xs text-ink-muted-on-dark font-medium mt-0.5"
+                    >
+                      {dataPoints['home.impact.funding_label'] || 'Grassroots Funded'}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-secondary/40 border border-white/5">
+                    <div
+                      data-data-point="home.impact.districts"
+                      className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight"
+                    >
+                      {dataPoints['home.impact.districts'] || 'CA-03 / 06'}
+                    </div>
+                    <div
+                      data-data-point="home.impact.districts_label"
+                      className="text-xs text-ink-muted-on-dark font-medium mt-0.5"
+                    >
+                      {dataPoints['home.impact.districts_label'] || 'Sacramento Region'}
                     </div>
                   </div>
                 </div>

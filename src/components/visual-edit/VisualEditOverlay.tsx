@@ -101,6 +101,7 @@ import {
   redo as redoHistory,
   undo as undoHistory,
 } from '@/lib/editor-history';
+import { saveDataPoint } from '@/lib/queries/civic-client';
 import { themeModeLabel } from '@/lib/theme';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import { highlightPageSection } from '@/lib/visual-edit-mode';
@@ -148,6 +149,7 @@ export type ViewportMode = 'desktop' | 'tablet' | 'mobile';
 export interface InlineEditSession {
   element: HTMLElement;
   initialHtml: string;
+  dataPointKey: string | null;
   copyRegionId: string | null;
   blockIndex: number | null;
   top: number;
@@ -1507,7 +1509,7 @@ export function VisualEditOverlay() {
 
   const commitInlineEdit = useCallback(
     async (session: InlineEditSession) => {
-      const { element, initialHtml, copyRegionId, blockIndex } = session;
+      const { element, initialHtml, dataPointKey, copyRegionId, blockIndex } = session;
       element.contentEditable = 'false';
       element.classList.remove('visual-inline-active');
       setInlineSession(null);
@@ -1519,7 +1521,23 @@ export function VisualEditOverlay() {
 
       setSavingBackend(true);
       try {
-        if (copyRegionId) {
+        if (dataPointKey) {
+          const textVal = element.textContent?.trim() || '';
+          const groupName = dataPointKey.split('.')[0] || 'general';
+          const res = await saveDataPoint({
+            key: dataPointKey,
+            value: textVal,
+            group_name: groupName,
+            label: dataPointKey,
+          });
+          if (res.success) {
+            toast.success(`Data point "${dataPointKey}" saved to database`);
+            router.refresh();
+          } else {
+            toast.error(res.error || 'Failed to save data point');
+            element.innerHTML = initialHtml;
+          }
+        } else if (copyRegionId) {
           const regionContainer = document.querySelector<HTMLElement>(
             `[data-copy-region="${copyRegionId}"]`
           );
@@ -1853,6 +1871,9 @@ export function VisualEditOverlay() {
       e.preventDefault();
       e.stopPropagation();
 
+      const dataPointContainer = editable.closest<HTMLElement>('[data-data-point]');
+      const dataPointKey = dataPointContainer?.getAttribute('data-data-point') || null;
+
       const copyRegionContainer = editable.closest<HTMLElement>('[data-copy-region]');
       const copyRegionId = copyRegionContainer?.getAttribute('data-copy-region') || null;
 
@@ -1880,6 +1901,7 @@ export function VisualEditOverlay() {
       const session: InlineEditSession = {
         element: editable,
         initialHtml,
+        dataPointKey,
         copyRegionId,
         blockIndex: matchedBlockIdx,
         top: Math.max(12, r.top - 46),

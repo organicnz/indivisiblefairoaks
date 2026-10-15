@@ -93,6 +93,7 @@ export default async function PartnersPage() {
           {partners.map((partner) => (
             <div
               key={partner.name}
+              data-data-point={'slug' in partner ? `partner.${partner.slug}` : undefined}
               className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-primary-bright/40 transition-all flex flex-col justify-between group"
             >
               <div className="space-y-3">

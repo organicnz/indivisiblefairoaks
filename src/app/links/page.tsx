@@ -139,6 +139,9 @@ export default async function LinksPage() {
                 {categoryItems.map((item) => (
                   <a
                     key={item.name}
+                    data-data-point={
+                      'slug' in item ? `link.${(item as { slug: string }).slug}` : undefined
+                    }
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
