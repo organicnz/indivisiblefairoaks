@@ -1532,6 +1532,11 @@ export function VisualEditOverlay() {
           });
           if (res.success) {
             toast.success(`Data point "${dataPointKey}" saved to database`);
+            window.dispatchEvent(
+              new CustomEvent('data-point-saved', {
+                detail: { key: dataPointKey, value: textVal },
+              })
+            );
             router.refresh();
           } else {
             toast.error(res.error || 'Failed to save data point');

@@ -342,6 +342,7 @@ jobs:
       # hashed every push into a cold full build. Old src-hashed keys stay
       # reachable through the second restore prefix.
       - name: Cache Next.js build
+        if: "!contains(runner.labels, 'self-hosted')"
         uses: actions/cache@v4
         with:
           path: .next/cache

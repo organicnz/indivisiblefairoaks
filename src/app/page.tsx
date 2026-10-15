@@ -245,8 +245,11 @@ export default async function HomePage() {
                   </span>
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  🥫 <strong className="text-foreground">Food Bank Drive:</strong> Please bring a
-                  can or box of non-perishable food to support our local community food pantry.
+                  🥫 <strong className="text-foreground">Food Bank Drive:</strong>{' '}
+                  <span data-data-point="home.gathering.food_bank">
+                    {dataPoints['home.gathering.food_bank'] ||
+                      'Please bring a can or box of non-perishable food to support our local community food pantry.'}
+                  </span>
                 </p>
               </div>
             </div>
@@ -281,16 +284,24 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <CopyRegion id="home-pillars">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <span className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2">
-                Our Core Principles
+              <span
+                data-data-point="home.pillars.eyebrow"
+                className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2"
+              >
+                {dataPoints['home.pillars.eyebrow'] || 'Our Core Principles'}
               </span>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight mb-4">
-                What We Stand For & How We Win
+              <h2
+                data-data-point="home.pillars.headline"
+                className="text-3xl sm:text-4xl font-black tracking-tight mb-4"
+              >
+                {dataPoints['home.pillars.headline'] || 'What We Stand For & How We Win'}
               </h2>
-              <p className="text-muted-foreground text-base leading-relaxed">
-                Rooted in the national Indivisible Guide, our local chapter works tirelessly across
-                the Sacramento region to defend our constitutional democracy through grassroots
-                mobilization.
+              <p
+                data-data-point="home.pillars.intro"
+                className="text-muted-foreground text-base leading-relaxed"
+              >
+                {dataPoints['home.pillars.intro'] ||
+                  'Rooted in the national Indivisible Guide, our local chapter works tirelessly across the Sacramento region to defend our constitutional democracy through grassroots mobilization.'}
               </p>
             </div>
 
@@ -299,10 +310,18 @@ export default async function HomePage() {
                 <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Shield size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">Stop Authoritarianism</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Countering anti-democratic overreach, defending executive accountability, and
-                  raising public alarm through visible resistance.
+                <h3
+                  data-data-point="home.pillars.p1_title"
+                  className="text-lg font-bold text-foreground mb-2"
+                >
+                  {dataPoints['home.pillars.p1_title'] || 'Stop Authoritarianism'}
+                </h3>
+                <p
+                  data-data-point="home.pillars.p1_desc"
+                  className="text-sm text-muted-foreground leading-relaxed"
+                >
+                  {dataPoints['home.pillars.p1_desc'] ||
+                    'Countering anti-democratic overreach, defending executive accountability, and raising public alarm through visible resistance.'}
                 </p>
               </div>
 
@@ -310,10 +329,18 @@ export default async function HomePage() {
                 <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-accent-gold flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Vote size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">Defend Democratic Norms</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Safeguarding free and fair elections, expanding voting access, educating youth
-                  voters, and standing up for civil liberties.
+                <h3
+                  data-data-point="home.pillars.p2_title"
+                  className="text-lg font-bold text-foreground mb-2"
+                >
+                  {dataPoints['home.pillars.p2_title'] || 'Defend Democratic Norms'}
+                </h3>
+                <p
+                  data-data-point="home.pillars.p2_desc"
+                  className="text-sm text-muted-foreground leading-relaxed"
+                >
+                  {dataPoints['home.pillars.p2_desc'] ||
+                    'Safeguarding free and fair elections, expanding voting access, educating youth voters, and standing up for civil liberties.'}
                 </p>
               </div>
 
@@ -321,10 +348,18 @@ export default async function HomePage() {
                 <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Megaphone size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">Elect Bold Leaders</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Direct voter canvassing, phone banks, candidate accountability, and mobilizing
-                  high-turnout civic engagement in every cycle.
+                <h3
+                  data-data-point="home.pillars.p3_title"
+                  className="text-lg font-bold text-foreground mb-2"
+                >
+                  {dataPoints['home.pillars.p3_title'] || 'Elect Bold Leaders'}
+                </h3>
+                <p
+                  data-data-point="home.pillars.p3_desc"
+                  className="text-sm text-muted-foreground leading-relaxed"
+                >
+                  {dataPoints['home.pillars.p3_desc'] ||
+                    'Direct voter canvassing, phone banks, candidate accountability, and mobilizing high-turnout civic engagement in every cycle.'}
                 </p>
               </div>
 
@@ -332,12 +367,18 @@ export default async function HomePage() {
                 <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-primary-on-dark flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Users size={24} />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">
-                  Secure Progressive Policy
+                <h3
+                  data-data-point="home.pillars.p4_title"
+                  className="text-lg font-bold text-foreground mb-2"
+                >
+                  {dataPoints['home.pillars.p4_title'] || 'Secure Progressive Policy'}
                 </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Advocating for justice, reproductive autonomy, climate resilience, and economic
-                  equity through community solidarity.
+                <p
+                  data-data-point="home.pillars.p4_desc"
+                  className="text-sm text-muted-foreground leading-relaxed"
+                >
+                  {dataPoints['home.pillars.p4_desc'] ||
+                    'Advocating for justice, reproductive autonomy, climate resilience, and economic equity through community solidarity.'}
                 </p>
               </div>
             </div>

@@ -4,11 +4,22 @@
  */
 import type { CoalitionLinkRow, DataPointRow, FAQRow, PartnerRow } from './civic';
 
+function getFetchUrl(path: string): string {
+  if (
+    typeof window !== 'undefined' &&
+    window.location?.origin &&
+    !window.location.origin.startsWith('null')
+  ) {
+    return `${window.location.origin}${path}`;
+  }
+  return path;
+}
+
 export async function getTickerEvents(): Promise<
   { label: string; detail: string; href: string; badge: string }[]
 > {
   try {
-    const res = await fetch('/api/civic/events');
+    const res = await fetch(getFetchUrl('/api/civic/events'));
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.events)) {
@@ -23,14 +34,16 @@ export async function getTickerEvents(): Promise<
       }
     }
   } catch (err) {
-    console.error('Error fetching ticker events via Edge API:', err);
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error fetching ticker events via Edge API:', err);
+    }
   }
   return [];
 }
 
 export async function getFaqs(): Promise<{ faqs: FAQRow[]; categories: string[] }> {
   try {
-    const res = await fetch('/api/faqs');
+    const res = await fetch(getFetchUrl('/api/faqs'));
     if (res.ok) {
       const json = await res.json();
       return {
@@ -39,14 +52,16 @@ export async function getFaqs(): Promise<{ faqs: FAQRow[]; categories: string[] 
       };
     }
   } catch (err) {
-    console.error('Error fetching FAQs via Edge API:', err);
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error fetching FAQs via Edge API:', err);
+    }
   }
   return { faqs: [], categories: [] };
 }
 
 export async function getPartners(): Promise<PartnerRow[]> {
   try {
-    const res = await fetch('/api/partners');
+    const res = await fetch(getFetchUrl('/api/partners'));
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.partners)) {
@@ -54,14 +69,16 @@ export async function getPartners(): Promise<PartnerRow[]> {
       }
     }
   } catch (err) {
-    console.error('Error fetching partners via Edge API:', err);
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error fetching partners via Edge API:', err);
+    }
   }
   return [];
 }
 
 export async function getCoalitionLinks(): Promise<CoalitionLinkRow[]> {
   try {
-    const res = await fetch('/api/coalition-links');
+    const res = await fetch(getFetchUrl('/api/coalition-links'));
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.links)) {
@@ -69,7 +86,9 @@ export async function getCoalitionLinks(): Promise<CoalitionLinkRow[]> {
       }
     }
   } catch (err) {
-    console.error('Error fetching coalition links via Edge API:', err);
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error fetching coalition links via Edge API:', err);
+    }
   }
   return [];
 }
@@ -78,8 +97,8 @@ export async function getDataPoints(
   group?: string
 ): Promise<{ dataPoints: Record<string, string>; rows: DataPointRow[] }> {
   try {
-    const url = group ? `/api/data-points?group=${encodeURIComponent(group)}` : '/api/data-points';
-    const res = await fetch(url);
+    const path = group ? `/api/data-points?group=${encodeURIComponent(group)}` : '/api/data-points';
+    const res = await fetch(getFetchUrl(path));
     if (res.ok) {
       const json = await res.json();
       return {
@@ -88,7 +107,9 @@ export async function getDataPoints(
       };
     }
   } catch (err) {
-    console.error('Error fetching data points via Edge API:', err);
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error fetching data points via Edge API:', err);
+    }
   }
   return { dataPoints: {}, rows: [] };
 }
@@ -100,7 +121,7 @@ export async function saveDataPoint(payload: {
   label?: string;
 }): Promise<{ success: boolean; dataPoint?: DataPointRow; error?: string }> {
   try {
-    const res = await fetch('/api/data-points', {
+    const res = await fetch(getFetchUrl('/api/data-points'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

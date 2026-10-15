@@ -1,3 +1,4 @@
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createPublicClient, createServerClient } from '@/lib/supabase-server';
@@ -109,6 +110,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    try {
+      revalidateTag('data-points', 'hours');
+      revalidatePath('/');
+    } catch {
+      // Revalidation may throw outside request lifecycle or in tests
+    }
+
     return NextResponse.json({ success: true, dataPoint: data }, { status: 200 });
   } catch (err) {
     return NextResponse.json(
@@ -153,6 +161,13 @@ export async function DELETE(req: NextRequest) {
     const { error } = await authClient.from('data_points').delete().eq('key', key);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    try {
+      revalidateTag('data-points', 'hours');
+      revalidatePath('/');
+    } catch {
+      // Revalidation may throw outside request lifecycle or in tests
     }
 
     return NextResponse.json({ success: true, deleted: key }, { status: 200 });
