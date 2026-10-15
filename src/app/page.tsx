@@ -393,32 +393,57 @@ export default async function HomePage() {
             <div className="lg:col-span-7 space-y-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-bold uppercase tracking-wide">
                 <Music size={14} className="text-accent-gold" />
-                <span>Carmichael Resistance Choir</span>
+                <span data-data-point="home.choir.eyebrow">
+                  {dataPoints['home.choir.eyebrow'] || 'Carmichael Resistance Choir'}
+                </span>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-                Every good protest movement needs music.
+              <h2
+                data-data-point="home.choir.headline"
+                className="text-3xl sm:text-4xl font-black tracking-tight"
+              >
+                {dataPoints['home.choir.headline'] || 'Every good protest movement needs music.'}
               </h2>
-              <p className="text-base sm:text-lg text-ink-on-dark leading-relaxed">
-                Music lifts us up and has sustained justice movements throughout history. We gather
-                to weave our voices together in chants and songs of resistance, building vibrant
-                community while marching forward.
+              <p
+                data-data-point="home.choir.intro"
+                className="text-base sm:text-lg text-ink-on-dark leading-relaxed"
+              >
+                {dataPoints['home.choir.intro'] ||
+                  'Music lifts us up and has sustained justice movements throughout history. We gather to weave our voices together in chants and songs of resistance, building vibrant community while marching forward.'}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
                   <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={18} />
                   <div>
-                    <span className="font-bold text-white text-sm block">All Voices Welcome</span>
-                    <span className="text-xs text-ink-muted-on-dark">
-                      No auditions, no fees. Everyone can sing.
+                    <span
+                      data-data-point="home.choir.all_voices"
+                      className="font-bold text-white text-sm block"
+                    >
+                      {dataPoints['home.choir.all_voices'] || 'All Voices Welcome'}
+                    </span>
+                    <span
+                      data-data-point="home.choir.all_voices_sub"
+                      className="text-xs text-ink-muted-on-dark"
+                    >
+                      {dataPoints['home.choir.all_voices_sub'] ||
+                        'No auditions, no fees. Everyone can sing.'}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
                   <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={18} />
                   <div>
-                    <span className="font-bold text-white text-sm block">Rehearsal Schedule</span>
-                    <span className="text-xs text-ink-muted-on-dark">
-                      Every other Wednesday, 6:30 – 8:00 PM.
+                    <span
+                      data-data-point="home.choir.rehearsal"
+                      className="font-bold text-white text-sm block"
+                    >
+                      {dataPoints['home.choir.rehearsal'] || 'Rehearsal Schedule'}
+                    </span>
+                    <span
+                      data-data-point="home.choir.rehearsal_sub"
+                      className="text-xs text-ink-muted-on-dark"
+                    >
+                      {dataPoints['home.choir.rehearsal_sub'] ||
+                        'Every other Wednesday, 6:30 – 8:00 PM.'}
                     </span>
                   </div>
                 </div>
@@ -461,9 +486,14 @@ export default async function HomePage() {
                     allowFullScreen
                   />
                 </div>
-                <p className="text-xs text-ink-muted-on-dark italic mb-6">
-                  &ldquo;We will sing our protest to the afternoon rush hour and community
-                  businesses. Bring your signs, chairs, and voices!&rdquo;
+                <p
+                  data-data-point="home.choir.quote"
+                  className="text-xs text-ink-muted-on-dark italic mb-6"
+                >
+                  &ldquo;
+                  {dataPoints['home.choir.quote'] ||
+                    'We will sing our protest to the afternoon rush hour and community businesses. Bring your signs, chairs, and voices!'}
+                  &rdquo;
                 </p>
 
                 {/* Interactive Soundboard */}
@@ -481,11 +511,17 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
             <div>
-              <span className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2">
-                Empowering Every Voter
+              <span
+                data-data-point="home.voter.eyebrow"
+                className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2"
+              >
+                {dataPoints['home.voter.eyebrow'] || 'Empowering Every Voter'}
               </span>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-                Voter Education & Rights Hub
+              <h2
+                data-data-point="home.voter.headline"
+                className="text-3xl sm:text-4xl font-black tracking-tight"
+              >
+                {dataPoints['home.voter.headline'] || 'Voter Education & Rights Hub'}
               </h2>
             </div>
             <Link
@@ -504,12 +540,18 @@ export default async function HomePage() {
                   <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-primary-on-dark-muted flex items-center justify-center mb-4">
                     <FileText size={20} />
                   </div>
-                  <h3 className="text-lg font-bold text-foreground mb-2">
-                    Sacramento County Elected Officials
+                  <h3
+                    data-data-point="home.voter.card1_title"
+                    className="text-lg font-bold text-foreground mb-2"
+                  >
+                    {dataPoints['home.voter.card1_title'] || 'Sacramento County Elected Officials'}
                   </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                    Direct contact information, phone numbers, and offices for local, state, and
-                    federal representatives serving our district.
+                  <p
+                    data-data-point="home.voter.card1_desc"
+                    className="text-xs text-muted-foreground leading-relaxed mb-4"
+                  >
+                    {dataPoints['home.voter.card1_desc'] ||
+                      'Direct contact information, phone numbers, and offices for local, state, and federal representatives serving our district.'}
                   </p>
                 </div>
                 <Link
@@ -526,10 +568,18 @@ export default async function HomePage() {
                   <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-accent-gold flex items-center justify-center mb-4">
                     <Vote size={20} />
                   </div>
-                  <h3 className="text-lg font-bold text-foreground mb-2">Pre-Registration at 16</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                    California youth age 16 and 17 can pre-register now so they are automatically
-                    registered to cast their ballot the day they turn 18.
+                  <h3
+                    data-data-point="home.voter.card2_title"
+                    className="text-lg font-bold text-foreground mb-2"
+                  >
+                    {dataPoints['home.voter.card2_title'] || 'Pre-Registration at 16'}
+                  </h3>
+                  <p
+                    data-data-point="home.voter.card2_desc"
+                    className="text-xs text-muted-foreground leading-relaxed mb-4"
+                  >
+                    {dataPoints['home.voter.card2_desc'] ||
+                      'California youth age 16 and 17 can pre-register now so they are automatically registered to cast their ballot the day they turn 18.'}
                   </p>
                 </div>
                 <Link
@@ -546,12 +596,18 @@ export default async function HomePage() {
                   <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-emerald-400 flex items-center justify-center mb-4">
                     <Shield size={20} />
                   </div>
-                  <h3 className="text-lg font-bold text-foreground mb-2">
-                    Rights Restoration & Unhoused Voting
+                  <h3
+                    data-data-point="home.voter.card3_title"
+                    className="text-lg font-bold text-foreground mb-2"
+                  >
+                    {dataPoints['home.voter.card3_title'] || 'Rights Restoration & Unhoused Voting'}
                   </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                    Homeless is not voteless. Learn about voting rights restoration for formerly
-                    incarcerated Californians and unhoused residents.
+                  <p
+                    data-data-point="home.voter.card3_desc"
+                    className="text-xs text-muted-foreground leading-relaxed mb-4"
+                  >
+                    {dataPoints['home.voter.card3_desc'] ||
+                      'Homeless is not voteless. Learn about voting rights restoration for formerly incarcerated Californians and unhoused residents.'}
                   </p>
                 </div>
                 <Link
@@ -577,14 +633,19 @@ export default async function HomePage() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-secondary text-emerald-400 mb-1">
             <Shield size={24} />
           </div>
-          <h2 className="text-2xl font-black text-foreground tracking-tight">
-            Our Core Commitment: Disciplined Non-Violent Action
+          <h2
+            data-data-point="home.nonviolence.headline"
+            className="text-2xl font-black text-foreground tracking-tight"
+          >
+            {dataPoints['home.nonviolence.headline'] ||
+              'Our Core Commitment: Disciplined Non-Violent Action'}
           </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            A core principle behind all Indivisible events is an unwavering commitment to nonviolent
-            action. We expect all participants to act lawfully, avoid civil disobedience unless
-            specifically planned and coordinated, de-escalate any potential confrontation with those
-            who disagree with our values, and maintain peaceful solidarity.
+          <p
+            data-data-point="home.nonviolence.desc"
+            className="text-sm text-muted-foreground leading-relaxed"
+          >
+            {dataPoints['home.nonviolence.desc'] ||
+              'A core principle behind all Indivisible events is an unwavering commitment to nonviolent action. We expect all participants to act lawfully, avoid civil disobedience unless specifically planned and coordinated, de-escalate any potential confrontation with those who disagree with our values, and maintain peaceful solidarity.'}
           </p>
         </div>
       </section>
@@ -592,16 +653,24 @@ export default async function HomePage() {
       {/* Support & Donation CTA */}
       <section className="py-16 md:py-20 bg-gradient-to-tr from-blue-900 via-slate-900 to-indigo-950 text-white">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <span className="text-accent-gold text-xs font-black uppercase tracking-widest block">
-            Grassroots Power Runs On Grassroots Support
+          <span
+            data-data-point="home.cta.eyebrow"
+            className="text-accent-gold text-xs font-black uppercase tracking-widest block"
+          >
+            {dataPoints['home.cta.eyebrow'] || 'Grassroots Power Runs On Grassroots Support'}
           </span>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Fuel Our Local Organizing
+          <h2
+            data-data-point="home.cta.headline"
+            className="text-3xl sm:text-4xl font-black tracking-tight"
+          >
+            {dataPoints['home.cta.headline'] || 'Fuel Our Local Organizing'}
           </h2>
-          <p className="text-ink-on-dark text-base max-w-2xl mx-auto leading-relaxed">
-            Every dollar contributed to our chapter directly supports community meeting spaces,
-            protest banners, sound equipment for the Resistance Choir, voter registration printing,
-            and neighborhood outreach.
+          <p
+            data-data-point="home.cta.desc"
+            className="text-ink-on-dark text-base max-w-2xl mx-auto leading-relaxed"
+          >
+            {dataPoints['home.cta.desc'] ||
+              'Every dollar contributed to our chapter directly supports community meeting spaces, protest banners, sound equipment for the Resistance Choir, voter registration printing, and neighborhood outreach.'}
           </p>
           <div className="pt-2 flex flex-wrap justify-center gap-4">
             <Link

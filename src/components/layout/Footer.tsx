@@ -1,6 +1,7 @@
 import { Heart, Mail, MapPin, Music } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { DataPoint } from '@/components/ui/DataPoint';
 
 async function CopyrightYear() {
   'use cache';
@@ -34,16 +35,20 @@ export function Footer() {
                 </span>
               </div>
             </Link>
-            <p className="mt-4 text-xs sm:text-sm text-ink-muted-on-dark leading-relaxed">
+            <DataPoint
+              name="footer.tagline"
+              as="p"
+              className="mt-4 text-xs sm:text-sm text-ink-muted-on-dark leading-relaxed"
+            >
               A grassroots movement dedicated to defending democracy, resisting authoritarianism,
               electing progressive leaders, and taking direct non-violent action for our community.
-            </p>
+            </DataPoint>
             <div className="mt-5 p-3 rounded-xl bg-secondary border border-white/10 text-xs text-ink-on-dark flex items-start gap-2.5">
               <MapPin className="text-accent-gold shrink-0 mt-0.5" size={16} />
-              <span>
+              <DataPoint name="footer.meeting_notice" as="span">
                 Meetings held monthly in Carmichael, CA. Bring a non-perishable food item for local
                 food banks!
-              </span>
+              </DataPoint>
             </div>
           </div>
 
@@ -138,9 +143,9 @@ export function Footer() {
               Connect With Us
             </h3>
             <div className="space-y-3 text-xs sm:text-sm">
-              <p className="text-ink-muted-on-dark">
+              <DataPoint name="footer.inquiry_intro" as="p" className="text-ink-muted-on-dark">
                 Have a question or want to get involved with our local organizing team?
-              </p>
+              </DataPoint>
               <div>
                 <span className="text-ink-muted-on-dark text-[11px] block uppercase tracking-wider">
                   General Inquiries:
@@ -170,8 +175,10 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-muted-on-dark">
           <p>
-            © <CopyrightYear /> Indivisible Fair Oaks-Carmichael. All rights reserved. Grassroots
-            volunteer organization.
+            © <CopyrightYear /> Indivisible Fair Oaks-Carmichael.{' '}
+            <DataPoint name="footer.copyright_disclaimer" as="span">
+              All rights reserved. Grassroots volunteer organization.
+            </DataPoint>
           </p>
           <div className="flex items-center gap-6">
             <Link href="/about" className="hover:text-slate-200 transition-colors">

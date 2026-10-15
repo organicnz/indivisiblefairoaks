@@ -2,6 +2,7 @@ import { AlertCircle, Calendar, ExternalLink, Music, Users } from 'lucide-react'
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CopyRegion } from '@/components/cms/CopyRegion';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveEventsCalendar } from '@/components/ui/InteractiveEventsCalendar';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
@@ -30,15 +31,23 @@ export default async function EventsPage() {
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Calendar size={14} className="text-accent-gold" />
-            <span>Community Actions & Calendar</span>
+            <DataPoint name="events.hero.eyebrow">Community Actions & Calendar</DataPoint>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4">
+          <DataPoint
+            name="events.hero.headline"
+            as="h1"
+            className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
+          >
             Upcoming Events & Mobilizations
-          </h1>
-          <p className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed">
+          </DataPoint>
+          <DataPoint
+            name="events.hero.intro"
+            as="p"
+            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+          >
             Find out when and where our chapter is gathering. All community members committed to
             peaceful, democratic activism are warmly welcome.
-          </p>
+          </DataPoint>
         </div>
       </div>
 

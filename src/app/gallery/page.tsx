@@ -15,6 +15,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
 
@@ -147,22 +148,32 @@ export default function GalleryPage() {
           {/* Eyebrow Pill */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary-bright/15 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider backdrop-blur-md">
             <Camera size={14} className="text-accent-gold" />
-            <span>Photojournalism In Action • Moments of Peaceful Resistance</span>
+            <DataPoint name="gallery.hero.eyebrow">
+              Photojournalism In Action • Moments of Peaceful Resistance
+            </DataPoint>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-white tracking-tighter leading-[1.08]">
+          <DataPoint
+            name="gallery.hero.headline"
+            as="h1"
+            className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-white tracking-tighter leading-[1.08]"
+          >
             Democracy In Full View
-          </h1>
+          </DataPoint>
 
           <div className="h-1.5 w-24 bg-accent-gold rounded-full" />
 
-          <p className="text-base sm:text-lg text-ink-on-dark leading-relaxed max-w-3xl">
+          <DataPoint
+            name="gallery.hero.intro"
+            as="p"
+            className="text-base sm:text-lg text-ink-on-dark leading-relaxed max-w-3xl"
+          >
             Snapshots of our neighbors gathering, singing, holding signs, and speaking truth to
             power across Sacramento County. Curated from our legacy site archives, Sacramento No
             Kings mobilizations, NorCal Resist community defense, Carmichael Resistance Choir, and
             witty grassroots cardboard art. Strictly 100% grassroots — zero politicians, zero
             corporate branding.
-          </p>
+          </DataPoint>
 
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">

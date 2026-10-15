@@ -9,6 +9,7 @@ interface DataPointProps extends React.HTMLAttributes<HTMLElement> {
   as?: React.ElementType;
   group?: string;
   children?: React.ReactNode;
+  initialData?: Record<string, string>;
 }
 
 /**
@@ -23,10 +24,11 @@ export function DataPoint({
   group,
   children,
   className,
+  initialData,
   ...props
 }: DataPointProps) {
   const computedGroup = group || name.split('.')[0] || 'general';
-  const { dataPoints } = useDataPoints(computedGroup);
+  const { dataPoints } = useDataPoints(computedGroup, initialData);
 
   const content = dataPoints[name] ?? (fallback || children);
 
