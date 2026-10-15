@@ -151,7 +151,7 @@ jobs:
     # fail first, so a real lint error still surfaces immediately. Measured on the
     # runs of 2026-10-04T20:48 and T22:36, both killed by this ceiling, both with
     # oxlint reporting 0 warnings and 0 errors. See docs/ci-runners.md.
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       # tsc's program (~295 files) exceeds Node's default heap cap under this
       # container's MEMORY=1024M and aborts. With 4096M MemorySwap on the host
@@ -205,7 +205,7 @@ jobs:
             ${{ runner.os }}-tsbuildinfo-${{ hashFiles('bun.lock') }}-
 
       - name: TypeScript
-        run: bunx tsc --noEmit
+        run: bun tsc --noEmit
 
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
@@ -213,7 +213,7 @@ jobs:
     runs-on: [self-hosted, linux, frontend-runner]
     needs: [changes]
     if: needs.changes.outputs.runtime == 'true'
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
