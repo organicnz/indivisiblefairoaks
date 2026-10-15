@@ -345,7 +345,7 @@ export default function GalleryPage() {
         <div className="mt-16 rounded-3xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8 border-b border-border dark:border-white/10 pb-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-accent dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
                 <Video size={14} />
                 <span>Featured Video Archive</span>
               </div>
@@ -358,7 +358,7 @@ export default function GalleryPage() {
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs font-mono text-muted-foreground dark:text-ink-muted-on-dark bg-secondary/40 px-3 py-1.5 rounded-lg border border-border dark:border-white/5">
+              <span className="text-xs font-mono text-slate-700 dark:text-ink-muted-on-dark bg-slate-100 dark:bg-secondary/40 px-3 py-1.5 rounded-lg border border-border dark:border-white/5">
                 Archived from Original Platform
               </span>
             </div>
