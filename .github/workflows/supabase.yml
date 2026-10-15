@@ -72,6 +72,11 @@ jobs:
           # `$HOME` is /home/runner and owned by uid 1001, so that is where this
           # goes. It is writable only because the entrypoint gives the runner user
           # a HOME of its own instead of leaving it pointing at /root.
+          case "$(uname -s)" in
+            Linux)  SUPA_OS=linux ;;
+            Darwin) SUPA_OS=darwin ;;
+            *) echo "::error::unsupported OS '$(uname -s)' for the supabase CLI"; exit 1 ;;
+          esac
           case "$(uname -m)" in
             x86_64)        SUPA_ARCH=amd64 ;;
             aarch64|arm64) SUPA_ARCH=arm64 ;;
@@ -82,7 +87,7 @@ jobs:
           export PATH="$BIN:$PATH"
           echo "$BIN" >> "$GITHUB_PATH"
           if ! command -v supabase &>/dev/null; then
-            curl -fsSL "https://github.com/supabase/cli/releases/latest/download/supabase_linux_${SUPA_ARCH}.tar.gz" \
+            curl -fsSL "https://github.com/supabase/cli/releases/latest/download/supabase_${SUPA_OS}_${SUPA_ARCH}.tar.gz" \
               | tar -xz -C "$BIN" supabase
           fi
           supabase --version
@@ -237,6 +242,11 @@ jobs:
           # `$HOME` is /home/runner and owned by uid 1001, so that is where this
           # goes. It is writable only because the entrypoint gives the runner user
           # a HOME of its own instead of leaving it pointing at /root.
+          case "$(uname -s)" in
+            Linux)  SUPA_OS=linux ;;
+            Darwin) SUPA_OS=darwin ;;
+            *) echo "::error::unsupported OS '$(uname -s)' for the supabase CLI"; exit 1 ;;
+          esac
           case "$(uname -m)" in
             x86_64)        SUPA_ARCH=amd64 ;;
             aarch64|arm64) SUPA_ARCH=arm64 ;;
@@ -247,7 +257,7 @@ jobs:
           export PATH="$BIN:$PATH"
           echo "$BIN" >> "$GITHUB_PATH"
           if ! command -v supabase &>/dev/null; then
-            curl -fsSL "https://github.com/supabase/cli/releases/latest/download/supabase_linux_${SUPA_ARCH}.tar.gz" \
+            curl -fsSL "https://github.com/supabase/cli/releases/latest/download/supabase_${SUPA_OS}_${SUPA_ARCH}.tar.gz" \
               | tar -xz -C "$BIN" supabase
           fi
           supabase --version
