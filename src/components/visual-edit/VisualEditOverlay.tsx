@@ -10,6 +10,7 @@ import {
   ClipboardPaste,
   Code,
   Copy,
+  Database,
   Download,
   Eraser,
   ExternalLink,
@@ -2774,6 +2775,16 @@ export function VisualEditOverlay() {
             <span>Cancel</span>
             <kbd className="ml-0.5 text-[9px] font-mono opacity-50">esc</kbd>
           </button>
+
+          {inlineSession.dataPointKey && (
+            <span
+              className="inline-flex items-center gap-1 rounded bg-sky-500/20 border border-sky-400/40 px-2 py-0.5 text-[10px] font-mono font-bold text-sky-300 select-none shadow-xs"
+              title="Connected directly to Supabase DB public.data_points table"
+            >
+              <Database size={11} className="text-sky-400" />
+              <span>{inlineSession.dataPointKey}</span>
+            </span>
+          )}
 
           <div className="mx-0.5 h-3.5 w-px bg-white/20" />
 

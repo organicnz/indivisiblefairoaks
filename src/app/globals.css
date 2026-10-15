@@ -785,6 +785,24 @@ body[data-editorial-mode='active'] [data-copy-region] *:not(.contents):hover {
   border-radius: 4px;
 }
 
+body[data-editorial-mode='active'] [data-data-point]:hover,
+body[data-editorial-mode='active'] [data-data-point] *:not(.contents):hover {
+  cursor: text;
+  outline: 1.5px dashed #38bdf8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.visual-inline-active[data-data-point],
+[data-data-point] .visual-inline-active {
+  outline: 2px solid #38bdf8 !important;
+  outline-offset: 3px !important;
+  background-color: rgba(56, 189, 248, 0.1) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.3) !important;
+  transition: all 0.15s ease-out !important;
+}
+
 /* Reduced-motion safety net. Covers CSS animations and transitions *and* the
    enter/exit layer above, because those animations run through the same
    `animation-duration` property.
