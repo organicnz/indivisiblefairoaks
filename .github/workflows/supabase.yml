@@ -86,7 +86,7 @@ jobs:
           mkdir -p "$BIN"
           export PATH="$BIN:$PATH"
           echo "$BIN" >> "$GITHUB_PATH"
-          if ! command -v supabase &>/dev/null; then
+          if ! command -v supabase &>/dev/null || ! supabase --version &>/dev/null; then
             curl -fsSL "https://github.com/supabase/cli/releases/latest/download/supabase_${SUPA_OS}_${SUPA_ARCH}.tar.gz" \
               | tar -xz -C "$BIN" supabase
           fi
@@ -256,7 +256,7 @@ jobs:
           mkdir -p "$BIN"
           export PATH="$BIN:$PATH"
           echo "$BIN" >> "$GITHUB_PATH"
-          if ! command -v supabase &>/dev/null; then
+          if ! command -v supabase &>/dev/null || ! supabase --version &>/dev/null; then
             curl -fsSL "https://github.com/supabase/cli/releases/latest/download/supabase_${SUPA_OS}_${SUPA_ARCH}.tar.gz" \
               | tar -xz -C "$BIN" supabase
           fi
