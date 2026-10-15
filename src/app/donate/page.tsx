@@ -2,6 +2,7 @@ import { Heart, Megaphone, Music, Shield, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { ActBlueDonationCalculator } from '@/components/ui/ActBlueDonationCalculator';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
@@ -22,26 +23,29 @@ export default async function DonatePage() {
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div
-            data-data-point="donate.hero.eyebrow"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-gold/10 border border-accent-gold/30 text-accent-gold text-xs font-bold uppercase tracking-wider mb-4"
-          >
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-gold/10 border border-accent-gold/30 text-accent-gold text-xs font-bold uppercase tracking-wider mb-4">
             <Heart size={14} className="fill-accent-gold text-accent-gold" />
-            <span>{dataPoints['donate.hero.eyebrow'] || '100% Grassroots Funded'}</span>
+            <DataPoint name="donate.hero.eyebrow" initialData={dataPoints}>
+              100% Grassroots Funded
+            </DataPoint>
           </div>
-          <h1
-            data-data-point="donate.hero.title"
+          <DataPoint
+            name="donate.hero.title"
+            as="h1"
+            initialData={dataPoints}
             className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-white"
           >
-            {dataPoints['donate.hero.title'] || 'Fuel The Fair Oaks - Carmichael Resistance'}
-          </h1>
-          <p
-            data-data-point="donate.hero.intro"
+            Fuel The Fair Oaks - Carmichael Resistance
+          </DataPoint>
+          <DataPoint
+            name="donate.hero.intro"
+            as="p"
+            initialData={dataPoints}
             className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
-            {dataPoints['donate.hero.intro'] ||
-              "We don't take corporate PAC money. Our work is powered entirely by neighbors like you who pitch in to defend democracy right here in Sacramento County."}
-          </p>
+            We don't take corporate PAC money. Our work is powered entirely by neighbors like you
+            who pitch in to defend democracy right here in Sacramento County.
+          </DataPoint>
         </div>
       </div>
 
@@ -51,12 +55,14 @@ export default async function DonatePage() {
 
         {/* How Your Contribution Is Put To Work */}
         <div className="space-y-6">
-          <h2
-            data-data-point="donate.impact.headline"
+          <DataPoint
+            name="donate.impact.headline"
+            as="h2"
+            initialData={dataPoints}
             className="text-2xl font-black text-foreground dark:text-white tracking-tight"
           >
-            {dataPoints['donate.impact.headline'] || 'Where Your Donation Goes'}
-          </h2>
+            Where Your Donation Goes
+          </DataPoint>
 
           <CopyRegion id="donate-impact">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -64,76 +70,92 @@ export default async function DonatePage() {
                 <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary-ink dark:bg-primary-bright/20 dark:text-primary-on-dark-muted flex items-center justify-center">
                   <Users size={20} />
                 </div>
-                <h3
-                  data-data-point="donate.impact.spaces_title"
+                <DataPoint
+                  name="donate.impact.spaces_title"
+                  as="h3"
+                  initialData={dataPoints}
                   className="text-lg font-bold text-foreground dark:text-white"
                 >
-                  {dataPoints['donate.impact.spaces_title'] || 'Community Meeting Spaces'}
-                </h3>
-                <p
-                  data-data-point="donate.impact.spaces_desc"
+                  Community Meeting Spaces
+                </DataPoint>
+                <DataPoint
+                  name="donate.impact.spaces_desc"
+                  as="p"
+                  initialData={dataPoints}
                   className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
                 >
-                  {dataPoints['donate.impact.spaces_desc'] ||
-                    "Rent for our monthly meeting spaces (such as St. Michael's Church hall) to provide safe, welcoming gathering venues for residents and guest speakers."}
-                </p>
+                  Rent for our monthly meeting spaces (such as St. Michael's Church hall) to provide
+                  safe, welcoming gathering venues for residents and guest speakers.
+                </DataPoint>
               </div>
 
               <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-3">
                 <div className="w-10 h-10 rounded-xl bg-accent/10 text-accent dark:bg-accent-gold/20 dark:text-accent-gold flex items-center justify-center">
                   <Music size={20} />
                 </div>
-                <h3
-                  data-data-point="donate.impact.choir_title"
+                <DataPoint
+                  name="donate.impact.choir_title"
+                  as="h3"
+                  initialData={dataPoints}
                   className="text-lg font-bold text-foreground dark:text-white"
                 >
-                  {dataPoints['donate.impact.choir_title'] || 'Resistance Choir Sound Gear'}
-                </h3>
-                <p
-                  data-data-point="donate.impact.choir_desc"
+                  Resistance Choir Sound Gear
+                </DataPoint>
+                <DataPoint
+                  name="donate.impact.choir_desc"
+                  as="p"
+                  initialData={dataPoints}
                   className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
                 >
-                  {dataPoints['donate.impact.choir_desc'] ||
-                    'Battery-powered amplifiers, portable microphones, sheet music printing, and acoustic gear to carry our voices across busy intersections.'}
-                </p>
+                  Battery-powered amplifiers, portable microphones, sheet music printing, and
+                  acoustic gear to carry our voices across busy intersections.
+                </DataPoint>
               </div>
 
               <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-600/20 text-rose-400 flex items-center justify-center">
                   <Megaphone size={20} />
                 </div>
-                <h3
-                  data-data-point="donate.impact.banners_title"
+                <DataPoint
+                  name="donate.impact.banners_title"
+                  as="h3"
+                  initialData={dataPoints}
                   className="text-lg font-bold text-foreground dark:text-white"
                 >
-                  {dataPoints['donate.impact.banners_title'] || 'Protest Banners & Supplies'}
-                </h3>
-                <p
-                  data-data-point="donate.impact.banners_desc"
+                  Protest Banners & Supplies
+                </DataPoint>
+                <DataPoint
+                  name="donate.impact.banners_desc"
+                  as="p"
+                  initialData={dataPoints}
                   className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
                 >
-                  {dataPoints['donate.impact.banners_desc'] ||
-                    'Weatherproof protest signs, high-visibility banners for street demonstrations, art supplies for youth rallies, and flyers.'}
-                </p>
+                  Weatherproof protest signs, high-visibility banners for street demonstrations, art
+                  supplies for youth rallies, and flyers.
+                </DataPoint>
               </div>
 
               <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center">
                   <Shield size={20} />
                 </div>
-                <h3
-                  data-data-point="donate.impact.voter_title"
+                <DataPoint
+                  name="donate.impact.voter_title"
+                  as="h3"
+                  initialData={dataPoints}
                   className="text-lg font-bold text-foreground dark:text-white"
                 >
-                  {dataPoints['donate.impact.voter_title'] || 'Voter Outreach & Registration'}
-                </h3>
-                <p
-                  data-data-point="donate.impact.voter_desc"
+                  Voter Outreach & Registration
+                </DataPoint>
+                <DataPoint
+                  name="donate.impact.voter_desc"
+                  as="p"
+                  initialData={dataPoints}
                   className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
                 >
-                  {dataPoints['donate.impact.voter_desc'] ||
-                    'Printed guides for youth pre-registration, rights restoration flyers for formerly incarcerated community members, and postcard stamps.'}
-                </p>
+                  Printed guides for youth pre-registration, rights restoration flyers for formerly
+                  incarcerated community members, and postcard stamps.
+                </DataPoint>
               </div>
             </div>
           </CopyRegion>

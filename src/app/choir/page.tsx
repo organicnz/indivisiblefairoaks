@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
 import { ChoirSongbookExplorer } from '@/components/ui/ChoirSongbookExplorer';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuChoirHarmonics } from '@/components/ui/VgpuChoirHarmonics';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
@@ -24,26 +25,26 @@ export default async function ChoirPage() {
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-20">
         <VgpuChoirHarmonics />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div
-            data-data-point="choir.hero.eyebrow"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4"
-          >
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Music size={14} className="text-accent-gold" />
-            <span>{dataPoints['choir.hero.eyebrow'] || 'Harmonizing For Justice'}</span>
+            <DataPoint name="choir.hero.eyebrow" initialData={dataPoints}>
+              Harmonizing For Justice
+            </DataPoint>
           </div>
-          <h1
-            data-data-point="choir.hero.title"
+          <DataPoint
+            name="choir.hero.title"
+            as="h1"
+            initialData={dataPoints}
             className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-white"
           >
-            {dataPoints['choir.hero.title'] || 'The Carmichael Resistance Choir'}
-          </h1>
-          <p
-            data-data-point="choir.hero.quote"
-            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed italic"
-          >
+            The Carmichael Resistance Choir
+          </DataPoint>
+          <p className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed italic">
             &ldquo;
-            {dataPoints['choir.hero.quote'] ||
-              'Every good protest movement needs music. Music lifts us up, keeps us motivated, and sustains us through the long haul.'}
+            <DataPoint name="choir.hero.quote" initialData={dataPoints}>
+              Every good protest movement needs music. Music lifts us up, keeps us motivated, and
+              sustains us through the long haul.
+            </DataPoint>
             &rdquo;
           </p>
         </div>
@@ -53,27 +54,26 @@ export default async function ChoirPage() {
         {/* About the Choir */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           <div className="lg:col-span-7 space-y-6">
-            <h2
-              data-data-point="choir.about.title"
+            <DataPoint
+              name="choir.about.title"
+              as="h2"
+              initialData={dataPoints}
               className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight"
             >
-              {dataPoints['choir.about.title'] || 'Lifting Our Voices in Solidarity'}
-            </h2>
+              Lifting Our Voices in Solidarity
+            </DataPoint>
             <div className="text-muted-foreground dark:text-ink-on-dark space-y-4 text-sm sm:text-base leading-relaxed">
-              <p data-data-point="choir.about.p1">
-                {dataPoints['choir.about.p1'] || (
-                  <>
-                    The <strong>Carmichael Resistance Choir</strong> brings people together through
-                    the power of collective song. Rooted in the rich tradition of American civil
-                    rights, labor, and anti-war movements, our choir provides a joyful, defiant, and
-                    creative outlet for community resistance.
-                  </>
-                )}
-              </p>
-              <p data-data-point="choir.about.p2">
-                {dataPoints['choir.about.p2'] ||
-                  'We perform at rallies, street corner singing protests (such as the intersection of Fair Oaks Blvd & Manzanita Ave), marches, and community meetings throughout the greater Sacramento region.'}
-              </p>
+              <DataPoint name="choir.about.p1" as="p" initialData={dataPoints}>
+                The Carmichael Resistance Choir brings people together through the power of
+                collective song. Rooted in the rich tradition of American civil rights, labor, and
+                anti-war movements, our choir provides a joyful, defiant, and creative outlet for
+                community resistance.
+              </DataPoint>
+              <DataPoint name="choir.about.p2" as="p" initialData={dataPoints}>
+                We perform at rallies, street corner singing protests (such as the intersection of
+                Fair Oaks Blvd & Manzanita Ave), marches, and community meetings throughout the
+                greater Sacramento region.
+              </DataPoint>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
@@ -83,19 +83,22 @@ export default async function ChoirPage() {
                   size={18}
                 />
                 <div>
-                  <span
-                    data-data-point="choir.about.no_audition_title"
+                  <DataPoint
+                    name="choir.about.no_audition_title"
+                    as="span"
+                    initialData={dataPoints}
                     className="font-bold text-foreground dark:text-white text-sm block"
                   >
-                    {dataPoints['choir.about.no_audition_title'] || 'No Auditions'}
-                  </span>
-                  <span
-                    data-data-point="choir.about.no_audition_desc"
+                    No Auditions
+                  </DataPoint>
+                  <DataPoint
+                    name="choir.about.no_audition_desc"
+                    as="span"
+                    initialData={dataPoints}
                     className="text-xs text-muted-foreground dark:text-ink-muted-on-dark"
                   >
-                    {dataPoints['choir.about.no_audition_desc'] ||
-                      'All skill levels and vocal ranges welcome.'}
-                  </span>
+                    All skill levels and vocal ranges welcome.
+                  </DataPoint>
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 flex items-start gap-3">
@@ -104,19 +107,22 @@ export default async function ChoirPage() {
                   size={18}
                 />
                 <div>
-                  <span
-                    data-data-point="choir.about.free_title"
+                  <DataPoint
+                    name="choir.about.free_title"
+                    as="span"
+                    initialData={dataPoints}
                     className="font-bold text-foreground dark:text-white text-sm block"
                   >
-                    {dataPoints['choir.about.free_title'] || '100% Free'}
-                  </span>
-                  <span
-                    data-data-point="choir.about.free_desc"
+                    100% Free
+                  </DataPoint>
+                  <DataPoint
+                    name="choir.about.free_desc"
+                    as="span"
+                    initialData={dataPoints}
                     className="text-xs text-muted-foreground dark:text-ink-muted-on-dark"
                   >
-                    {dataPoints['choir.about.free_desc'] ||
-                      'No membership dues or fees ever required.'}
-                  </span>
+                    No membership dues or fees ever required.
+                  </DataPoint>
                 </div>
               </div>
             </div>
@@ -126,12 +132,14 @@ export default async function ChoirPage() {
             <div className="p-6 rounded-2xl bg-surface-muted border border-border dark:bg-gradient-to-tr dark:from-blue-950/60 dark:to-slate-900 dark:border-primary-bright/30 shadow-xl space-y-6">
               <div className="flex items-center gap-3">
                 <Calendar className="text-accent dark:text-accent-gold" size={24} />
-                <h3
-                  data-data-point="choir.schedule.headline"
+                <DataPoint
+                  name="choir.schedule.headline"
+                  as="h3"
+                  initialData={dataPoints}
                   className="text-xl font-bold text-foreground dark:text-white"
                 >
-                  {dataPoints['choir.schedule.headline'] || 'Rehearsal Schedule & Guidelines'}
-                </h3>
+                  Rehearsal Schedule & Guidelines
+                </DataPoint>
               </div>
 
               <div className="space-y-4 text-sm text-muted-foreground dark:text-ink-on-dark">
@@ -142,12 +150,14 @@ export default async function ChoirPage() {
                       size={18}
                     />
                     <div>
-                      <strong
-                        data-data-point="choir.schedule.time"
+                      <DataPoint
+                        name="choir.schedule.time"
+                        as="strong"
+                        initialData={dataPoints}
                         className="text-foreground dark:text-white block"
                       >
-                        {dataPoints['choir.schedule.time'] || 'Every Other Wednesday'}
-                      </strong>
+                        Every Other Wednesday
+                      </DataPoint>
                       <span className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                         6:30 PM – 8:00 PM
                       </span>
@@ -160,12 +170,14 @@ export default async function ChoirPage() {
                       size={18}
                     />
                     <div>
-                      <strong
-                        data-data-point="choir.schedule.location"
+                      <DataPoint
+                        name="choir.schedule.location"
+                        as="strong"
+                        initialData={dataPoints}
                         className="text-foreground dark:text-white block"
                       >
-                        {dataPoints['choir.schedule.location'] || "St. Michael's Episcopal Church"}
-                      </strong>
+                        St. Michael's Episcopal Church
+                      </DataPoint>
                       <span className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                         Exact address and parking instructions provided upon registration.
                       </span>

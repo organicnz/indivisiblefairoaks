@@ -426,7 +426,9 @@ export default function VoterInfoPage() {
         >
           <h2 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
             <Phone className="text-accent dark:text-accent-gold" />
-            <span>Sacramento County Elections & Voter Hotlines</span>
+            <DataPoint as="span" name="voter.hotlines.headline">
+              Sacramento County Elections & Voter Hotlines
+            </DataPoint>
           </h2>
           <CopyRegion id="voter-hotlines">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark">

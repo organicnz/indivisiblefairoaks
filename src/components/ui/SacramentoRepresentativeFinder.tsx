@@ -3,6 +3,7 @@
 import { Check, Copy, ExternalLink, MapPin, Phone, Search } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
 
 interface Official {
   title: string;
@@ -221,13 +222,21 @@ export function SacramentoRepresentativeFinder() {
           <MapPin size={14} className="text-accent-gold" />
           <span>Instant District & Representative Finder</span>
         </div>
-        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3">
+        <DataPoint
+          as="h2"
+          name="voter.repfinder.headline"
+          className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3"
+        >
           Know Your Representatives & Hold Them Accountable
-        </h2>
-        <p className="text-sm sm:text-base text-ink-on-dark leading-relaxed mb-8">
+        </DataPoint>
+        <DataPoint
+          as="p"
+          name="voter.repfinder.subhead"
+          className="text-sm sm:text-base text-ink-on-dark leading-relaxed mb-8"
+        >
           Enter your local ZIP code to instantly find your federal, state, and county elected
           officials, complete with verified direct phone numbers and constituent advocacy scripts.
-        </p>
+        </DataPoint>
 
         {/* ZIP Search Input */}
         <form
