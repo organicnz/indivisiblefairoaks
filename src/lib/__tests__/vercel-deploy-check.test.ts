@@ -267,6 +267,45 @@ describe('check-vercel-deploy exit-code contract', () => {
     err.mockRestore();
   });
 
+  it('exits 0 when deployment is BLOCKED by TEAM_ACCESS_REQUIRED but production site is healthy', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ status: 'ok' }, 200)));
+
+    const exit = await run({
+      deps: { siteUrl: 'https://test.indivisiblefairoaks.org' },
+      deployments: [
+        deployment({
+          state: 'BLOCKED',
+          seatBlock: { blockCode: 'TEAM_ACCESS_REQUIRED', isVerified: false },
+        }),
+      ],
+    });
+
+    expect(exit).toBe(0);
+    const messages = logSpy.mock.calls.flat().join(' ');
+    expect(messages).toMatch(/TEAM_ACCESS_REQUIRED/);
+    expect(messages).toMatch(/verified production site is serving healthy/i);
+    logSpy.mockRestore();
+  });
+
+  it('exits 1 when deployment is BLOCKED by TEAM_ACCESS_REQUIRED and production site is unhealthy', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Connection refused')));
+
+    const exit = await run({
+      deps: { siteUrl: 'https://test.indivisiblefairoaks.org' },
+      deployments: [
+        deployment({
+          state: 'BLOCKED',
+          seatBlock: { blockCode: 'TEAM_ACCESS_REQUIRED', isVerified: false },
+        }),
+      ],
+    });
+
+    expect(exit).toBe(1);
+    errSpy.mockRestore();
+  });
+
   it('exits 1 — and says the probe broke, not the deploy — when the API is unreachable', async () => {
     // The distinction the rewrite exists for. Previously a slow or unreachable
     // Vercel produced the same red as a broken deploy.
