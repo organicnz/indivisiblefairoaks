@@ -602,4 +602,117 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
 
     expect(dialog?.textContent).toContain('Google SERP');
   });
+
+  it('toggles responsive viewport modes (desktop, tablet, mobile) and constrains layout', async () => {
+    await withPage();
+
+    const tabletBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Tablet viewport"]'
+    );
+    const mobileBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Mobile viewport"]'
+    );
+    const desktopBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Desktop viewport"]'
+    );
+
+    expect(tabletBtn).not.toBeNull();
+    expect(mobileBtn).not.toBeNull();
+    expect(desktopBtn).not.toBeNull();
+    expect(desktopBtn?.getAttribute('aria-pressed')).toBe('true');
+
+    const main = document.querySelector('main');
+    expect(main).not.toBeNull();
+
+    await act(async () => {
+      tabletBtn?.click();
+    });
+
+    expect(tabletBtn?.getAttribute('aria-pressed')).toBe('true');
+    expect(main?.style.maxWidth).toBe('768px');
+
+    await act(async () => {
+      mobileBtn?.click();
+    });
+
+    expect(mobileBtn?.getAttribute('aria-pressed')).toBe('true');
+    expect(main?.style.maxWidth).toBe('390px');
+
+    await act(async () => {
+      desktopBtn?.click();
+    });
+
+    expect(desktopBtn?.getAttribute('aria-pressed')).toBe('true');
+    expect(main?.style.maxWidth).toBe('');
+  });
+
+  it('renders rich in-place formatting toolbar on clicking editable text element', async () => {
+    await withPage();
+
+    const heading = document.querySelector('h2');
+    expect(heading).not.toBeNull();
+
+    await act(async () => {
+      heading?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const toolbar = container.querySelector('[data-inline-toolbar="true"]');
+    expect(toolbar).not.toBeNull();
+
+    // Check formatting buttons
+    expect(toolbar?.querySelector('button[aria-label="Bold"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Italic"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Underline"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Strikethrough"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Inline Code"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Highlight"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Bullet list"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Numbered list"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Insert link"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Remove link"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Clear formatting"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Heading 2"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Heading 3"]')).not.toBeNull();
+    expect(toolbar?.querySelector('button[aria-label="Paragraph"]')).not.toBeNull();
+
+    // Word and character count badge
+    expect(toolbar?.textContent).toMatch(/\d+w · \d+c/);
+  });
+
+  it('renders image action pill when clicking an image element instead of making it contentEditable', async () => {
+    await withPage();
+
+    const img = document.createElement('img');
+    img.src = 'https://example.com/photo.jpg';
+    img.alt = 'Protest photo';
+    document.querySelector('main')?.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    expect(img.contentEditable).not.toBe('true');
+
+    const imageToolbar = container.querySelector('[aria-label="Image asset controls"]');
+    expect(imageToolbar).not.toBeNull();
+    expect(imageToolbar?.textContent).toContain('Replace');
+    expect(imageToolbar?.textContent).toContain('Upload');
+    expect(imageToolbar?.textContent).toContain('Alt Text');
+  });
+
+  it('does not hijack interactive controls like tabs, audio players, or civic buttons into contentEditable', async () => {
+    await withPage();
+
+    const tabButton = document.createElement('button');
+    tabButton.setAttribute('role', 'tab');
+    tabButton.textContent = 'Agenda Tab';
+    document.querySelector('main')?.appendChild(tabButton);
+
+    await act(async () => {
+      tabButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    expect(tabButton.contentEditable).not.toBe('true');
+    expect(container.querySelector('[data-inline-toolbar="true"]')).toBeNull();
+  });
 });

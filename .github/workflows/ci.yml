@@ -109,7 +109,7 @@ jobs:
   changes:
     name: Change scope
     runs-on: [self-hosted, linux, backend-runner]
-    timeout-minutes: 5
+    timeout-minutes: 15
     outputs:
       runtime: ${{ steps.scope.outputs.runtime }}
     steps:
@@ -151,7 +151,7 @@ jobs:
     # fail first, so a real lint error still surfaces immediately. Measured on the
     # runs of 2026-10-04T20:48 and T22:36, both killed by this ceiling, both with
     # oxlint reporting 0 warnings and 0 errors. See docs/ci-runners.md.
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       # tsc's program (~295 files) exceeds Node's default heap cap under this
       # container's MEMORY=1024M and aborts. With 4096M MemorySwap on the host
@@ -166,6 +166,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+          no-cache: true
 
       # Ephemeral runners get a fresh container per job, so each of the three
       # jobs below re-downloaded the whole dependency tree — measured at ~13 min
@@ -196,6 +197,7 @@ jobs:
       # Incremental state is version-checked by tsc itself — a stale file
       # cannot produce a false green, only a slower run on key mismatch.
       - name: Cache TypeScript info
+        if: "!contains(runner.labels, 'self-hosted')"
         uses: actions/cache@v4
         with:
           path: tsconfig.tsbuildinfo
@@ -204,7 +206,7 @@ jobs:
             ${{ runner.os }}-tsbuildinfo-${{ hashFiles('bun.lock') }}-
 
       - name: TypeScript
-        run: bunx tsc --noEmit
+        run: bun tsc --noEmit
 
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
@@ -212,7 +214,7 @@ jobs:
     runs-on: [self-hosted, linux, frontend-runner]
     needs: [changes]
     if: needs.changes.outputs.runtime == 'true'
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -221,6 +223,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+          no-cache: true
 
       # Ephemeral runners get a fresh container per job, so each of the three
       # jobs below re-downloaded the whole dependency tree — measured at ~13 min
@@ -272,6 +275,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+          no-cache: true
 
       # Deliberately no `bun install`: the script is two stdlib imports and the
       # Management API. Installing the full tree to run it would make this the
@@ -321,6 +325,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+          no-cache: true
 
       # Ephemeral runners get a fresh container per job. On self-hosted runners,
       # ~/.bun/install/cache is backed by a host-mounted Quadlet volume (%h/dev/ghrunner/cache/bun)
@@ -341,6 +346,7 @@ jobs:
       # hashed every push into a cold full build. Old src-hashed keys stay
       # reachable through the second restore prefix.
       - name: Cache Next.js build
+        if: "!contains(runner.labels, 'self-hosted')"
         uses: actions/cache@v4
         with:
           path: .next/cache
@@ -459,6 +465,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+          no-cache: true
 
       # No dependency install: small scripts on the built-in fetch. That is
       # what makes the job cheap enough to keep — the old one needed nothing

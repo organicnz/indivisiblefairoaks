@@ -1,5 +1,6 @@
 import { Mail, Megaphone, Newspaper, Send } from 'lucide-react';
 import type { Metadata } from 'next';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveNewslettersList } from '@/components/ui/InteractiveNewslettersList';
 import { pageMetadata } from '@/lib/metadata';
 import { getNewsletters, type NewsletterRow } from '@/lib/queries/civic';
@@ -28,15 +29,23 @@ export default async function NewsPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Newspaper size={14} className="text-accent-gold" />
-            <span>Chapter Bulletins & Insights</span>
+            <DataPoint name="news.hero.eyebrow">Chapter Bulletins & Insights</DataPoint>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4">
+          <DataPoint
+            name="news.hero.headline"
+            as="h1"
+            className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
+          >
             Newsletters & Chapter Updates
-          </h1>
-          <p className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed">
+          </DataPoint>
+          <DataPoint
+            name="news.hero.intro"
+            as="p"
+            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+          >
             Stay up to date with our grassroots organizing, local legislative actions, and community
             resistance across Fair Oaks, Carmichael, and Sacramento County.
-          </p>
+          </DataPoint>
         </div>
       </div>
 
@@ -48,13 +57,21 @@ export default async function NewsPage() {
               <Mail size={12} />
               <span>Direct To Your Inbox</span>
             </div>
-            <h2 className="text-2xl font-black text-foreground dark:text-white">
+            <DataPoint
+              name="news.subscribe.headline"
+              as="h2"
+              className="text-2xl font-black text-foreground dark:text-white"
+            >
               Subscribe to Action Alerts
-            </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark max-w-xl leading-relaxed">
+            </DataPoint>
+            <DataPoint
+              name="news.subscribe.intro"
+              as="p"
+              className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark max-w-xl leading-relaxed"
+            >
               Receive notifications for upcoming meetings, emergency rapid response rallies, choir
               rehearsal locations, and legislative call-to-action alerts.
-            </p>
+            </DataPoint>
           </div>
           <div className="shrink-0 w-full md:w-auto">
             <a

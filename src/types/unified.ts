@@ -132,7 +132,13 @@ export interface MediaListResult {
   folders: string[];
 }
 
-export type MediaTarget = 'featured' | 'section' | 'composer' | 'gallery' | 'media';
+export type MediaTarget =
+  | 'featured'
+  | 'section'
+  | 'composer'
+  | 'gallery'
+  | 'media'
+  | 'image-replace';
 
 // ==========================================
 // 4. Supabase Edge Functions — typed contracts
@@ -316,4 +322,30 @@ export interface VisualPageContext {
   segments: CRMSegment[];
   segmentsTruncated: boolean;
   catalog: VisualCatalogCounts;
+}
+
+// ==========================================
+// 8. Civic Data Points Domain
+// ==========================================
+
+export interface DataPointItem {
+  key: string;
+  value: string;
+  group_name: string;
+  label: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DataPointsPayload {
+  key: string;
+  value: string;
+  group_name?: string;
+  label?: string;
+}
+
+export interface DataPointsResponse {
+  success: boolean;
+  dataPoints: Record<string, string>;
+  rows: DataPointItem[];
 }

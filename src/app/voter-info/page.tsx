@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import { CopyRegion } from '@/components/cms/CopyRegion';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { SacramentoRepresentativeFinder } from '@/components/ui/SacramentoRepresentativeFinder';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
@@ -31,15 +32,23 @@ export default function VoterInfoPage() {
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Vote size={14} className="text-accent-gold" />
-            <span>Sacramento County Voter Center</span>
+            <DataPoint name="voter.hero.eyebrow">Sacramento County Voter Center</DataPoint>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4">
+          <DataPoint
+            as="h1"
+            name="voter.hero.title"
+            className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
+          >
             Voter Information & Guides
-          </h1>
-          <p className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed">
+          </DataPoint>
+          <DataPoint
+            as="p"
+            name="voter.hero.intro"
+            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+          >
             Your vote is your voice and your power. Explore official guides, check your registration
             status, and know your rights as a California voter.
-          </p>
+          </DataPoint>
         </div>
       </div>
 
@@ -137,14 +146,22 @@ export default function VoterInfoPage() {
                     <Vote size={13} />
                     <span>Official Chapter Endorsements</span>
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  <DataPoint
+                    as="h2"
+                    name="voter.guides.headline"
+                    className="text-2xl sm:text-3xl font-black text-white tracking-tight"
+                  >
                     2026 Voter Guide &amp; Ballot Recommendations
-                  </h2>
-                  <p className="text-sm text-ink-on-dark max-w-2xl leading-relaxed mt-1">
+                  </DataPoint>
+                  <DataPoint
+                    as="p"
+                    name="voter.guides.subhead"
+                    className="text-sm text-ink-on-dark max-w-2xl leading-relaxed mt-1"
+                  >
                     Nonpartisan voting guides, ballot measure analyses, and local candidate
                     recommendations prepared for Fair Oaks, Carmichael, and Sacramento County
                     voters.
-                  </p>
+                  </DataPoint>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

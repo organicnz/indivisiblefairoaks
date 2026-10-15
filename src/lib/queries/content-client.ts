@@ -2,9 +2,8 @@
 
 /**
  * Content fetchers safe to call from Client Components (useEffect, etc.).
- * Uses the browser Supabase client — no 'use cache', no next/headers.
+ * Fetches directly through Edge API routes without exposing database clients to the browser.
  */
-import { createClient } from '@/lib/supabase';
 import type { Database } from '@/types/supabase';
 
 /** Raw DB row — the canonical `gallery_photos` row (has `id: number` + `slug`). */
@@ -37,64 +36,54 @@ export interface GalleryPhoto {
 }
 
 /**
- * Fetches gallery photos from the `gallery_photos` table.
+ * Fetches gallery photos from the Supabase DB via the `/api/gallery` Edge API route.
  *
- * Uses the generated `Database` row type directly — no casts, no stale
- * "pending types:generate" workaround. `label` is optional on the row and
- * flows through when present.
+ * All data points are stored in Supabase and resolved server-side with CDN caching.
  */
 export async function getGalleryPhotos(): Promise<GalleryPhoto[]> {
   try {
-    const supabase = createClient();
-
-    const { data, error } = await supabase
-      .from('gallery_photos')
-      .select(
-        'id,slug,storage_path,caption,location,category,sign_quote,date_label,photographer,is_hero,is_pair,alt,sort_order'
-      )
-      .order('sort_order', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching gallery photos from Supabase:', error.message);
-      return [];
+    const res = await fetch('/api/gallery');
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.photos)) {
+        return json.photos.map(
+          (p: {
+            id?: string;
+            dbId?: number | null;
+            slug: string;
+            url: string;
+            caption?: string;
+            location?: string;
+            category?: string;
+            signQuote?: string | null;
+            date?: string;
+            photographer?: string;
+            is_hero?: boolean;
+            is_pair?: boolean;
+            alt?: string;
+            sort_order?: number;
+          }): GalleryPhoto => ({
+            id: p.id || p.slug,
+            dbId: p.dbId ?? null,
+            slug: p.slug,
+            storage_path: '',
+            url: p.url,
+            caption: p.caption ?? '',
+            location: p.location ?? '',
+            category: p.category ?? 'Other',
+            signQuote: p.signQuote ?? null,
+            date: p.date ?? '',
+            photographer: p.photographer ?? 'Indivisible Fair Oaks Archive',
+            is_hero: p.is_hero ?? false,
+            is_pair: p.is_pair ?? false,
+            alt: p.alt ?? '',
+            sort_order: p.sort_order,
+          })
+        );
+      }
     }
-
-    if (!data || data.length === 0) return [];
-
-    const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://mojsubkqjdruhpxbzgme.supabase.co';
-
-    return data.map((row): GalleryPhoto => {
-      const storagePath = row.storage_path || '';
-      const url = storagePath ? `${supabaseUrl}/storage/v1/object/public/media/${storagePath}` : '';
-
-      return {
-        id: row.slug,
-        dbId: row.id,
-        slug: row.slug,
-        storage_path: storagePath,
-        url,
-        caption: row.caption ?? '',
-        location: row.location ?? '',
-        category: row.category ?? 'Other',
-        signQuote: row.sign_quote ?? null,
-        date: row.date_label
-          ? (() => {
-              const parsedDate = new Date(row.date_label);
-              return Number.isNaN(parsedDate.getTime())
-                ? row.date_label
-                : parsedDate.toLocaleDateString('en-US');
-            })()
-          : '',
-        photographer: row.photographer ?? 'Indivisible Fair Oaks Archive',
-        is_hero: row.is_hero ?? false,
-        is_pair: row.is_pair ?? false,
-        alt: row.alt ?? '',
-        sort_order: row.sort_order ?? undefined,
-      };
-    });
   } catch (err) {
-    console.error('Unexpected error fetching gallery photos:', err);
-    return [];
+    console.error('Error fetching gallery photos via Edge API:', err);
   }
+  return [];
 }

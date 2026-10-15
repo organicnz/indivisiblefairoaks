@@ -6,6 +6,7 @@ import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
 import { ChoirSongbookExplorer } from '@/components/ui/ChoirSongbookExplorer';
 import { VgpuChoirHarmonics } from '@/components/ui/VgpuChoirHarmonics';
 import { pageMetadata } from '@/lib/metadata';
+import { getDataPoints } from '@/lib/queries/civic';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Carmichael Resistance Choir',
@@ -14,26 +15,36 @@ export const metadata: Metadata = pageMetadata({
   path: '/choir',
 });
 
-export default function ChoirPage() {
+export default async function ChoirPage() {
+  const dataPoints = await getDataPoints('choir');
+
   return (
     <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Harmonic Soundwave Atmosphere — the hero band
-          stays dark in both modes: the atmosphere is drawn for a dark backdrop,
-          so its internals keep the dark-surface tokens unconditionally rather
-          than carrying a light half they can never use. */}
+      {/* Header Banner with VGPU Harmonic Soundwave Atmosphere */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-20">
         <VgpuChoirHarmonics />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <div
+            data-data-point="choir.hero.eyebrow"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4"
+          >
             <Music size={14} className="text-accent-gold" />
-            <span>Harmonizing For Justice</span>
+            <span>{dataPoints['choir.hero.eyebrow'] || 'Harmonizing For Justice'}</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-white">
-            The Carmichael Resistance Choir
+          <h1
+            data-data-point="choir.hero.title"
+            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-white"
+          >
+            {dataPoints['choir.hero.title'] || 'The Carmichael Resistance Choir'}
           </h1>
-          <p className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed italic">
-            &ldquo;Every good protest movement needs music. Music lifts us up, keeps us motivated,
-            and sustains us through the long haul.&rdquo;
+          <p
+            data-data-point="choir.hero.quote"
+            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed italic"
+          >
+            &ldquo;
+            {dataPoints['choir.hero.quote'] ||
+              'Every good protest movement needs music. Music lifts us up, keeps us motivated, and sustains us through the long haul.'}
+            &rdquo;
           </p>
         </div>
       </div>
@@ -42,20 +53,26 @@ export default function ChoirPage() {
         {/* About the Choir */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           <div className="lg:col-span-7 space-y-6">
-            <h2 className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight">
-              Lifting Our Voices in Solidarity
+            <h2
+              data-data-point="choir.about.title"
+              className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight"
+            >
+              {dataPoints['choir.about.title'] || 'Lifting Our Voices in Solidarity'}
             </h2>
             <div className="text-muted-foreground dark:text-ink-on-dark space-y-4 text-sm sm:text-base leading-relaxed">
-              <p>
-                The <strong>Carmichael Resistance Choir</strong> brings people together through the
-                power of collective song. Rooted in the rich tradition of American civil rights,
-                labor, and anti-war movements, our choir provides a joyful, defiant, and creative
-                outlet for community resistance.
+              <p data-data-point="choir.about.p1">
+                {dataPoints['choir.about.p1'] || (
+                  <>
+                    The <strong>Carmichael Resistance Choir</strong> brings people together through
+                    the power of collective song. Rooted in the rich tradition of American civil
+                    rights, labor, and anti-war movements, our choir provides a joyful, defiant, and
+                    creative outlet for community resistance.
+                  </>
+                )}
               </p>
-              <p>
-                We perform at rallies, street corner singing protests (such as the intersection of
-                Fair Oaks Blvd & Manzanita Ave), marches, and community meetings throughout the
-                greater Sacramento region.
+              <p data-data-point="choir.about.p2">
+                {dataPoints['choir.about.p2'] ||
+                  'We perform at rallies, street corner singing protests (such as the intersection of Fair Oaks Blvd & Manzanita Ave), marches, and community meetings throughout the greater Sacramento region.'}
               </p>
             </div>
 
@@ -66,11 +83,18 @@ export default function ChoirPage() {
                   size={18}
                 />
                 <div>
-                  <span className="font-bold text-foreground dark:text-white text-sm block">
-                    No Auditions
+                  <span
+                    data-data-point="choir.about.no_audition_title"
+                    className="font-bold text-foreground dark:text-white text-sm block"
+                  >
+                    {dataPoints['choir.about.no_audition_title'] || 'No Auditions'}
                   </span>
-                  <span className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
-                    All skill levels and vocal ranges welcome.
+                  <span
+                    data-data-point="choir.about.no_audition_desc"
+                    className="text-xs text-muted-foreground dark:text-ink-muted-on-dark"
+                  >
+                    {dataPoints['choir.about.no_audition_desc'] ||
+                      'All skill levels and vocal ranges welcome.'}
                   </span>
                 </div>
               </div>
@@ -80,11 +104,18 @@ export default function ChoirPage() {
                   size={18}
                 />
                 <div>
-                  <span className="font-bold text-foreground dark:text-white text-sm block">
-                    100% Free
+                  <span
+                    data-data-point="choir.about.free_title"
+                    className="font-bold text-foreground dark:text-white text-sm block"
+                  >
+                    {dataPoints['choir.about.free_title'] || '100% Free'}
                   </span>
-                  <span className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
-                    No membership dues or fees ever required.
+                  <span
+                    data-data-point="choir.about.free_desc"
+                    className="text-xs text-muted-foreground dark:text-ink-muted-on-dark"
+                  >
+                    {dataPoints['choir.about.free_desc'] ||
+                      'No membership dues or fees ever required.'}
                   </span>
                 </div>
               </div>
@@ -95,8 +126,11 @@ export default function ChoirPage() {
             <div className="p-6 rounded-2xl bg-surface-muted border border-border dark:bg-gradient-to-tr dark:from-blue-950/60 dark:to-slate-900 dark:border-primary-bright/30 shadow-xl space-y-6">
               <div className="flex items-center gap-3">
                 <Calendar className="text-accent dark:text-accent-gold" size={24} />
-                <h3 className="text-xl font-bold text-foreground dark:text-white">
-                  Rehearsal Schedule
+                <h3
+                  data-data-point="choir.schedule.headline"
+                  className="text-xl font-bold text-foreground dark:text-white"
+                >
+                  {dataPoints['choir.schedule.headline'] || 'Rehearsal Schedule & Guidelines'}
                 </h3>
               </div>
 
@@ -108,8 +142,11 @@ export default function ChoirPage() {
                       size={18}
                     />
                     <div>
-                      <strong className="text-foreground dark:text-white block">
-                        Every Other Wednesday
+                      <strong
+                        data-data-point="choir.schedule.time"
+                        className="text-foreground dark:text-white block"
+                      >
+                        {dataPoints['choir.schedule.time'] || 'Every Other Wednesday'}
                       </strong>
                       <span className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                         6:30 PM – 8:00 PM
@@ -123,8 +160,11 @@ export default function ChoirPage() {
                       size={18}
                     />
                     <div>
-                      <strong className="text-foreground dark:text-white block">
-                        Carmichael Rehearsal Space
+                      <strong
+                        data-data-point="choir.schedule.location"
+                        className="text-foreground dark:text-white block"
+                      >
+                        {dataPoints['choir.schedule.location'] || "St. Michael's Episcopal Church"}
                       </strong>
                       <span className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                         Exact address and parking instructions provided upon registration.

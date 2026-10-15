@@ -96,7 +96,7 @@ export function CivicEventEditorModal({
 
     setSaving(true);
     try {
-      const res = await saveCivicEvent({
+      const payload = {
         slug: slug.trim() || undefined,
         title: title.trim(),
         category,
@@ -110,15 +110,36 @@ export function CivicEventEditorModal({
         rsvp_url: rsvpUrl.trim(),
         highlight,
         sort_order: sortOrder,
-      });
+      };
 
-      if (!res.success) {
-        toast.error(res.error || 'Failed to save event');
-        return;
+      let savedRecord: CivicEventRecord | null = null;
+      try {
+        const apiRes = await fetch('/api/civic/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (apiRes.ok) {
+          const apiJson = await apiRes.json();
+          if (apiJson.success && apiJson.event) {
+            savedRecord = apiJson.event;
+          }
+        }
+      } catch {
+        // Fall back gracefully to direct action
+      }
+
+      if (!savedRecord) {
+        const res = await saveCivicEvent(payload);
+        if (!res.success) {
+          toast.error(res.error || 'Failed to save event');
+          return;
+        }
+        savedRecord = res.data ?? null;
       }
 
       toast.success(event ? 'Event updated successfully' : 'New event created');
-      if (res.data) onSaved(res.data);
+      if (savedRecord) onSaved(savedRecord);
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error saving event');

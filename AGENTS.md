@@ -1064,9 +1064,15 @@ disable real delivery by setting one variable.
 A full-featured in-page visual editor mounted globally in `src/app/layout.tsx`. Admins toggle it via the **Editorial Button** (icon-only `PenLine` in header, `EditorialDrawerRow` in mobile drawer).
 
 **Capabilities:**
+- **Direct in-place editing suite**: Click any text block or copy region to edit inline with floating formatting toolbar (Bold, Italic, Underline, Strikethrough, Inline Code, Highlight mark, Bullet/Numbered lists, Link/Unlink, Clear formatting, Heading 2/3 and Paragraph block format quick switchers, live word/character counters).
+- **Direct S3 image replacement & 1-click device upload**: Click any `<img>` tag to summon the image asset pill, replacing assets via `CRMMediaLibraryModal`, directly uploading replacement files from desktop via `uploadCRMMedia`, or updating accessibility `alt` text with instant backend persistence.
+- **Dynamic ResizeObserver tracking**: Uses a `ResizeObserver` on `[data-visual-edit-root]` debounced with `requestAnimationFrame` to keep section overlays and bounding boxes pixel-perfect during inline text expansion and dynamic DOM mutations.
+- **Interactive controls protection**: Tabs, accordions, audio players, dialog triggers, and civic buttons (`[role="tab"]`, `[data-civic-control]`, `.audio-player`, etc.) are protected from `contentEditable` hijacking.
+- **Responsive viewport simulator**: Interactive Desktop (100%), Tablet (768px), and Mobile (390px) framed preview modes directly in the bottom dock toolbar.
+- **CRM Visual Broadcast Composer enhancements**: Email canvas viewport simulation (100% full width, 600px email standard, 375px mobile phone) and real-time word count & reading time estimation stats in `VisualComposerCanvas.tsx`.
 - **Per-section CRUD**: Every section has a floating action pill (frame on/off, edit, duplicate, move up/down, add below, delete with `ConfirmAction`)
 - **Block editor modal**: Rich editing for all 11 block types (heading, paragraph, bulletList, orderedList, quote, callout, code, image, divider, table, button) with inline toolbar (bold, italic, code, strikethrough, link)
-- **Dock toolbar**: Undo/redo (Cmd+Z/Shift+Z), save, badges/frames toggles, section navigator, add block menu (Radix `DropdownMenu`, never hover-only), media library, revisions, settings, CRM Studio link
+- **Dock toolbar**: Undo/redo (Cmd+Z/Shift+Z), save, badges/frames toggles, viewport simulator (desktop/tablet/mobile), theme toggle, section navigator, add block menu (Radix `DropdownMenu`, never hover-only), media library, revisions, settings, CRM Studio link
 - **Media library**: `CRMMediaLibraryModal` (reused from CRM composer) for Supabase Storage `media` bucket pick/upload
 - **Revisions**: `getContentRevisions` / `restoreContentRevision` with `ConfirmAction`
 - **Settings modal**: Edit title, slug, status (publish/draft), featured image

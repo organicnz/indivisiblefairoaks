@@ -15,6 +15,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
 
@@ -28,9 +29,28 @@ export default function GalleryPage() {
   const [dbPhotos, setDbPhotos] = useState<GalleryPhoto[]>([]);
 
   useEffect(() => {
-    getGalleryPhotos().then((photos) => {
-      setDbPhotos(photos);
-    });
+    let cancelled = false;
+    async function loadGallery() {
+      try {
+        const res = await fetch('/api/gallery');
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data.photos) && data.photos.length > 0) {
+            setDbPhotos(data.photos);
+            return;
+          }
+        }
+      } catch {
+        // Fall back gracefully
+      }
+      getGalleryPhotos().then((photos) => {
+        if (!cancelled) setDbPhotos(photos);
+      });
+    }
+    loadGallery();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Use dynamic photos if available, otherwise fall back to static gallery
@@ -128,22 +148,32 @@ export default function GalleryPage() {
           {/* Eyebrow Pill */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary-bright/15 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider backdrop-blur-md">
             <Camera size={14} className="text-accent-gold" />
-            <span>Photojournalism In Action • Moments of Peaceful Resistance</span>
+            <DataPoint name="gallery.hero.eyebrow">
+              Photojournalism In Action • Moments of Peaceful Resistance
+            </DataPoint>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-white tracking-tighter leading-[1.08]">
+          <DataPoint
+            name="gallery.hero.headline"
+            as="h1"
+            className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-white tracking-tighter leading-[1.08]"
+          >
             Democracy In Full View
-          </h1>
+          </DataPoint>
 
           <div className="h-1.5 w-24 bg-accent-gold rounded-full" />
 
-          <p className="text-base sm:text-lg text-ink-on-dark leading-relaxed max-w-3xl">
+          <DataPoint
+            name="gallery.hero.intro"
+            as="p"
+            className="text-base sm:text-lg text-ink-on-dark leading-relaxed max-w-3xl"
+          >
             Snapshots of our neighbors gathering, singing, holding signs, and speaking truth to
             power across Sacramento County. Curated from our legacy site archives, Sacramento No
             Kings mobilizations, NorCal Resist community defense, Carmichael Resistance Choir, and
             witty grassroots cardboard art. Strictly 100% grassroots — zero politicians, zero
             corporate branding.
-          </p>
+          </DataPoint>
 
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">
@@ -326,7 +356,7 @@ export default function GalleryPage() {
         <div className="mt-16 rounded-3xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8 border-b border-border dark:border-white/10 pb-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-accent dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
                 <Video size={14} />
                 <span>Featured Video Archive</span>
               </div>
@@ -339,7 +369,7 @@ export default function GalleryPage() {
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs font-mono text-muted-foreground dark:text-ink-muted-on-dark bg-secondary/40 px-3 py-1.5 rounded-lg border border-border dark:border-white/5">
+              <span className="text-xs font-mono text-slate-700 dark:text-ink-muted-on-dark bg-slate-100 dark:bg-secondary/40 px-3 py-1.5 rounded-lg border border-border dark:border-white/5">
                 Archived from Original Platform
               </span>
             </div>

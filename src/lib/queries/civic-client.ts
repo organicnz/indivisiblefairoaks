@@ -1,39 +1,129 @@
 /**
  * Civic data fetchers safe to call from Client Components.
- * Uses the browser Supabase client — no 'use cache', no next/headers.
+ * Fetches directly through Edge API routes without exposing database clients to the browser.
  */
-import { createClient } from '@/lib/supabase';
+import type { CoalitionLinkRow, DataPointRow, FAQRow, PartnerRow } from './civic';
 
 export async function getTickerEvents(): Promise<
   { label: string; detail: string; href: string; badge: string }[]
 > {
   try {
-    const supabase = createClient();
-    const now = new Date().toISOString();
-    const { data } = await (
-      supabase as ReturnType<typeof createClient> & {
-        from: (table: string) => ReturnType<ReturnType<typeof createClient>['from']>;
+    const res = await fetch('/api/civic/events');
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.events)) {
+        return json.events.map(
+          (e: { title: string; dateLabel: string; timeLabel: string; category: string }) => ({
+            label: e.title,
+            detail: `${e.dateLabel} • ${e.timeLabel}`,
+            href: '/events',
+            badge: e.category,
+          })
+        );
       }
-    )
-      .from('events')
-      .select('slug, title, category, date_label, time_label, ends_at')
-      .gte('ends_at', now)
-      .order('sort_order', { ascending: true });
-    const rows = (data ?? []) as Array<{
-      slug: string;
-      title: string;
-      category: string;
-      date_label: string;
-      time_label: string;
-      ends_at: string | null;
-    }>;
-    return rows.map((row) => ({
-      label: row.title,
-      detail: `${row.date_label} • ${row.time_label}`,
-      href: '/events',
-      badge: row.category,
-    }));
-  } catch {
-    return [];
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error fetching ticker events via Edge API:', err);
+    }
+  }
+  return [];
+}
+
+export async function getFaqs(): Promise<{ faqs: FAQRow[]; categories: string[] }> {
+  try {
+    const res = await fetch('/api/faqs');
+    if (res.ok) {
+      const json = await res.json();
+      return {
+        faqs: Array.isArray(json.faqs) ? json.faqs : [],
+        categories: Array.isArray(json.categories) ? json.categories : [],
+      };
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error fetching FAQs via Edge API:', err);
+    }
+  }
+  return { faqs: [], categories: [] };
+}
+
+export async function getPartners(): Promise<PartnerRow[]> {
+  try {
+    const res = await fetch('/api/partners');
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.partners)) {
+        return json.partners;
+      }
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error fetching partners via Edge API:', err);
+    }
+  }
+  return [];
+}
+
+export async function getCoalitionLinks(): Promise<CoalitionLinkRow[]> {
+  try {
+    const res = await fetch('/api/coalition-links');
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.links)) {
+        return json.links;
+      }
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error fetching coalition links via Edge API:', err);
+    }
+  }
+  return [];
+}
+
+export async function getDataPoints(
+  group?: string
+): Promise<{ dataPoints: Record<string, string>; rows: DataPointRow[] }> {
+  try {
+    const url = group ? `/api/data-points?group=${encodeURIComponent(group)}` : '/api/data-points';
+    const res = await fetch(url);
+    if (res.ok) {
+      const json = await res.json();
+      return {
+        dataPoints: json.dataPoints || {},
+        rows: Array.isArray(json.rows) ? json.rows : [],
+      };
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('Error fetching data points via Edge API:', err);
+    }
+  }
+  return { dataPoints: {}, rows: [] };
+}
+
+export async function saveDataPoint(payload: {
+  key: string;
+  value: string;
+  group_name?: string;
+  label?: string;
+}): Promise<{ success: boolean; dataPoint?: DataPointRow; error?: string }> {
+  try {
+    const res = await fetch('/api/data-points', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { success: false, error: json.error || 'Failed to save data point' };
+    }
+    return { success: true, dataPoint: json.dataPoint };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Network error saving data point',
+    };
   }
 }

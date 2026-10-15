@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import { describe, expect, it, vi } from 'vitest';
 import { parseBodyToBlocks, serializeBlocksToBody } from '@/components/admin/crm/composer/parser';
 import { CAMPAIGN_TEMPLATES } from '@/components/admin/crm/composer/templates';
+import { VisualComposerCanvas } from '@/components/admin/crm/composer/VisualComposerCanvas';
 import type { ComposerBlock } from '@/types/crm';
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('Visual Composer parser & templates', () => {
   it('serializes and parses blocks with high fidelity across all 12 block types', () => {
@@ -158,5 +163,61 @@ describe('Visual Composer parser & templates', () => {
       expect(parsed[0].linkUrl).toBe('https://indivisiblefairoaks.org/actions');
       expect(parsed[0].caption).toBe('caption here');
     }
+  });
+
+  it('renders reading stats and allows switching email viewport framing in VisualComposerCanvas', async () => {
+    const blocks: ComposerBlock[] = [
+      { id: 'b1', type: 'header', heading: 'Important Civic Gathering', level: 1 },
+      { id: 'b2', type: 'text', content: 'We need all hands on deck for Saturday morning.' },
+    ];
+    const onChange = vi.fn();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(<VisualComposerCanvas blocks={blocks} onChange={onChange} />);
+    });
+
+    // Renders reading stats
+    expect(container.textContent).toMatch(/\d+w · ~\d+m read/);
+
+    // Renders canvas viewport switcher
+    const standardBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Standard email canvas"]'
+    );
+    const mobileBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Mobile phone canvas"]'
+    );
+    const fullBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Full width canvas"]'
+    );
+
+    expect(standardBtn).not.toBeNull();
+    expect(mobileBtn).not.toBeNull();
+    expect(fullBtn).not.toBeNull();
+
+    // Click standard email (600px)
+    await act(async () => {
+      standardBtn?.click();
+    });
+    expect(container.querySelector('.max-w-\\[600px\\]')).not.toBeNull();
+
+    // Click mobile phone (375px)
+    await act(async () => {
+      mobileBtn?.click();
+    });
+    expect(container.querySelector('.max-w-\\[375px\\]')).not.toBeNull();
+
+    // Click full width (100%)
+    await act(async () => {
+      fullBtn?.click();
+    });
+    expect(container.querySelector('.w-full')).not.toBeNull();
+
+    await act(async () => {
+      root.unmount();
+    });
+    container.remove();
   });
 });

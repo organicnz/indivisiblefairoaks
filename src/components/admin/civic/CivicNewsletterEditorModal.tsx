@@ -80,7 +80,7 @@ export function CivicNewsletterEditorModal({
 
     setSaving(true);
     try {
-      const res = await saveCivicNewsletter({
+      const payload = {
         slug: slug.trim() || undefined,
         title: title.trim(),
         date_label: dateLabel.trim(),
@@ -88,15 +88,36 @@ export function CivicNewsletterEditorModal({
         topics,
         sort_order: sortOrder,
         published_at: publishedAt ? new Date(publishedAt).toISOString() : null,
-      });
+      };
 
-      if (!res.success) {
-        toast.error(res.error || 'Failed to save newsletter');
-        return;
+      let savedRecord: CivicNewsletterRecord | null = null;
+      try {
+        const apiRes = await fetch('/api/civic/newsletters', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (apiRes.ok) {
+          const apiJson = await apiRes.json();
+          if (apiJson.success && apiJson.newsletter) {
+            savedRecord = apiJson.newsletter;
+          }
+        }
+      } catch {
+        // Fall back gracefully to direct action
+      }
+
+      if (!savedRecord) {
+        const res = await saveCivicNewsletter(payload);
+        if (!res.success) {
+          toast.error(res.error || 'Failed to save newsletter');
+          return;
+        }
+        savedRecord = res.data ?? null;
       }
 
       toast.success(newsletter ? 'Newsletter updated' : 'New bulletin created');
-      if (res.data) onSaved(res.data);
+      if (savedRecord) onSaved(savedRecord);
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error saving newsletter');

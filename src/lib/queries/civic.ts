@@ -53,6 +53,22 @@ export interface NewsletterRow {
   sort_order: number;
 }
 
+export interface FAQRow {
+  id: number;
+  slug: string;
+  category: string;
+  question: string;
+  answer: string;
+  sort_order: number;
+}
+
+export interface DataPointRow {
+  key: string;
+  value: string;
+  group_name: string;
+  label: string;
+}
+
 /** Basic-format stamp (YYYYMMDDTHHMMSS) for Google Calendar / ICS export. */
 function toBasicFormat(iso: string | null): string {
   if (!iso) return '';
@@ -208,6 +224,61 @@ export async function getGalleryPhotos(): Promise<GalleryPhotoRow[]> {
       )
       .order('sort_order', { ascending: true });
     return (data ?? []) as GalleryPhotoRow[];
+  } catch {
+    return [];
+  }
+}
+
+export async function getFaqs(): Promise<FAQRow[]> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('faqs');
+  try {
+    const supabase = publicClient();
+    const { data } = await supabase
+      .from('faqs')
+      .select('id, slug, category, question, answer, sort_order')
+      .order('sort_order', { ascending: true });
+    return (data ?? []) as FAQRow[];
+  } catch {
+    return [];
+  }
+}
+
+export async function getDataPoints(group?: string): Promise<Record<string, string>> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('data-points');
+  try {
+    const supabase = publicClient();
+    let query = supabase.from('data_points').select('key, value, group_name, label');
+    if (group) {
+      query = query.eq('group_name', group);
+    }
+    const { data } = await query;
+    const rows = (data ?? []) as DataPointRow[];
+    const map: Record<string, string> = {};
+    for (const r of rows) {
+      map[r.key] = r.value;
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+export async function getDataPointRows(group?: string): Promise<DataPointRow[]> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('data-points');
+  try {
+    const supabase = publicClient();
+    let query = supabase.from('data_points').select('key, value, group_name, label');
+    if (group) {
+      query = query.eq('group_name', group);
+    }
+    const { data } = await query;
+    return (data ?? []) as DataPointRow[];
   } catch {
     return [];
   }
