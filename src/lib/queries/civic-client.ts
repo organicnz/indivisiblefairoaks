@@ -4,22 +4,11 @@
  */
 import type { CoalitionLinkRow, DataPointRow, FAQRow, PartnerRow } from './civic';
 
-function getFetchUrl(path: string): string {
-  if (
-    typeof window !== 'undefined' &&
-    window.location?.origin &&
-    !window.location.origin.startsWith('null')
-  ) {
-    return `${window.location.origin}${path}`;
-  }
-  return path;
-}
-
 export async function getTickerEvents(): Promise<
   { label: string; detail: string; href: string; badge: string }[]
 > {
   try {
-    const res = await fetch(getFetchUrl('/api/civic/events'));
+    const res = await fetch('/api/civic/events');
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.events)) {
@@ -43,7 +32,7 @@ export async function getTickerEvents(): Promise<
 
 export async function getFaqs(): Promise<{ faqs: FAQRow[]; categories: string[] }> {
   try {
-    const res = await fetch(getFetchUrl('/api/faqs'));
+    const res = await fetch('/api/faqs');
     if (res.ok) {
       const json = await res.json();
       return {
@@ -61,7 +50,7 @@ export async function getFaqs(): Promise<{ faqs: FAQRow[]; categories: string[] 
 
 export async function getPartners(): Promise<PartnerRow[]> {
   try {
-    const res = await fetch(getFetchUrl('/api/partners'));
+    const res = await fetch('/api/partners');
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.partners)) {
@@ -78,7 +67,7 @@ export async function getPartners(): Promise<PartnerRow[]> {
 
 export async function getCoalitionLinks(): Promise<CoalitionLinkRow[]> {
   try {
-    const res = await fetch(getFetchUrl('/api/coalition-links'));
+    const res = await fetch('/api/coalition-links');
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.links)) {
@@ -97,8 +86,8 @@ export async function getDataPoints(
   group?: string
 ): Promise<{ dataPoints: Record<string, string>; rows: DataPointRow[] }> {
   try {
-    const path = group ? `/api/data-points?group=${encodeURIComponent(group)}` : '/api/data-points';
-    const res = await fetch(getFetchUrl(path));
+    const url = group ? `/api/data-points?group=${encodeURIComponent(group)}` : '/api/data-points';
+    const res = await fetch(url);
     if (res.ok) {
       const json = await res.json();
       return {
@@ -121,7 +110,7 @@ export async function saveDataPoint(payload: {
   label?: string;
 }): Promise<{ success: boolean; dataPoint?: DataPointRow; error?: string }> {
   try {
-    const res = await fetch(getFetchUrl('/api/data-points'), {
+    const res = await fetch('/api/data-points', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
