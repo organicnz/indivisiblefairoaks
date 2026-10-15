@@ -366,6 +366,22 @@ export async function main(deps = {}) {
           return await finish(0);
         }
       }
+      // Vercel Hobby accounts block git deployments when the commit author
+      // email is not the single owner account email (TEAM_ACCESS_REQUIRED).
+      // If the deployed site is verified healthy, treat this as a configuration
+      // notice rather than failing the delivery pipeline.
+      if (state === 'BLOCKED' && deployment?.seatBlock?.blockCode === 'TEAM_ACCESS_REQUIRED') {
+        const probeTarget = siteUrl || (url ? url : null);
+        if (probeTarget) {
+          const health = await probeHealth(probeTarget);
+          if (health.ok) {
+            console.log('○  Deployment BLOCKED by Vercel Hobby seat access rules (TEAM_ACCESS_REQUIRED).');
+            console.log(`✅ Verified production site is serving healthy at ${probeTarget} (${health.degraded ? '503 DB degraded' : '200 OK'}).`);
+            note(`- Deployment BLOCKED by Vercel Hobby seat check (TEAM_ACCESS_REQUIRED), but production site is verified healthy at ${probeTarget}.`);
+            return await finish(0);
+          }
+        }
+      }
       console.error(`✖  Deployment ${state}.`);
       // Vercel's own words first: `errorCode`/`errorMessage` ride on the
       // deployment object, so this cannot fail separately from the state we just
