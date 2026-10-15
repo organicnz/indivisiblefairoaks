@@ -196,6 +196,7 @@ jobs:
       # Incremental state is version-checked by tsc itself — a stale file
       # cannot produce a false green, only a slower run on key mismatch.
       - name: Cache TypeScript info
+        if: "!contains(runner.labels, 'self-hosted')"
         uses: actions/cache@v4
         with:
           path: tsconfig.tsbuildinfo
