@@ -141,13 +141,14 @@ export const FUNCTION_SECRETS = {
     },
   },
   health: {},
+  'data-points': {},
 }
 
 /** Secrets shared by more than one function, listed for the docs table. */
 export const SHARED = {
   RESEND_API_KEY: ['notify-contact', 'webhook'],
   STRIPE_SECRET_KEY: ['checkout', 'webhook'],
-  SUPABASE_SERVICE_ROLE_KEY: ['notify-contact', 'checkout', 'search', 'webhook', 'walle-refresh', 'wall-e-chat'],
+  SUPABASE_SERVICE_ROLE_KEY: ['notify-contact', 'checkout', 'search', 'webhook', 'walle-refresh', 'wall-e-chat', 'data-points'],
 }
 
 /** Flat set of every operator-managed secret, for `supabase secrets list`. */

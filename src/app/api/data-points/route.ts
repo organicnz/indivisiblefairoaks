@@ -1,6 +1,7 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { env } from '@/lib/env';
 import { createPublicClient, createServerClient } from '@/lib/supabase-server';
 
 const dataPointSchema = z.object({
@@ -19,6 +20,44 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const group = searchParams.get('group');
     const key = searchParams.get('key');
+
+    // 1. In non-test environments, attempt to fetch from the deployed Supabase Edge Function
+    const edgeBase = env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
+    const edgeKey = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+    if (process.env.NODE_ENV !== 'test' && edgeBase && edgeKey) {
+      try {
+        const edgeUrl = new URL(`${edgeBase}/functions/v1/data-points`);
+        if (key) edgeUrl.searchParams.set('key', key);
+        else if (group) edgeUrl.searchParams.set('group', group);
+
+        const edgeRes = await fetch(edgeUrl.toString(), {
+          headers: {
+            apikey: edgeKey,
+            Authorization: `Bearer ${edgeKey}`,
+          },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(6_000),
+        });
+
+        if (edgeRes.ok) {
+          const json = await edgeRes.json();
+          if (json?.dataPoints) {
+            return NextResponse.json(
+              { success: true, dataPoints: json.dataPoints, rows: json.rows || [] },
+              {
+                status: 200,
+                headers: {
+                  'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+                },
+              }
+            );
+          }
+        }
+      } catch {
+        // Fall back to direct database query below
+      }
+    }
 
     const supabase = createPublicClient();
     let query = supabase.from('data_points').select('key, value, group_name, label, updated_at');
@@ -99,6 +138,41 @@ export async function POST(req: NextRequest) {
       label: payload.label || payload.key,
       updated_at: new Date().toISOString(),
     };
+
+    // Attempt to update via Supabase Edge Function if available
+    const edgeBase = env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
+    const serviceRoleKey = env.SUPABASE_SECRET_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+    if (process.env.NODE_ENV !== 'test' && edgeBase && serviceRoleKey) {
+      try {
+        const edgeRes = await fetch(`${edgeBase}/functions/v1/data-points`, {
+          method: 'POST',
+          headers: {
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(upsertRow),
+          signal: AbortSignal.timeout(8_000),
+        });
+
+        if (edgeRes.ok) {
+          const edgeJson = await edgeRes.json();
+          try {
+            revalidateTag('data-points', 'hours');
+            revalidatePath('/');
+          } catch {
+            // Revalidation outside request lifecycle
+          }
+          return NextResponse.json(
+            { success: true, dataPoint: edgeJson.record || upsertRow },
+            { status: 200 }
+          );
+        }
+      } catch {
+        // Fall back to direct database upsert below
+      }
+    }
 
     const { data, error } = await authClient
       .from('data_points')
