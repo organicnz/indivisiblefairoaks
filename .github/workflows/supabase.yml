@@ -168,6 +168,14 @@ jobs:
           supabase functions deploy crm-broadcast-send \
             --project-ref "$SUPABASE_PROJECT_REF"
 
+      - name: Deploy Edge Function — data-points
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy data-points \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --no-verify-jwt
+
       - name: Assert required edge secrets are set in the hosted project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -435,4 +443,15 @@ jobs:
 
           check_get wall-e-chat
           check_get walle-refresh
+
+          echo "Probing $EDGE_BASE/data-points ..."
+          DP_STATUS=$(curl -s -o /tmp/dp.json -w '%{http_code}' \
+            -H "$AUTH_HEADER" -H "$APIKEY_HEADER" \
+            "$EDGE_BASE/data-points?group=home" || echo 000)
+          echo "data-points → HTTP $DP_STATUS"
+          if [ "$DP_STATUS" != "200" ]; then
+            echo "::error::data-points edge function is not ready (HTTP $DP_STATUS)"
+            exit 1
+          fi
+
           echo "✅ All edge functions answering (project $SUPABASE_PROJECT_REF)"

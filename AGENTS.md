@@ -60,18 +60,18 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
 - PostgreSQL with RLS on every user-facing table. Anon key = read-only + insert on allowlisted tables only.
 - Auth includes MFA support. Middleware enforces session checks on `/account`, `/admin`, `/login` **only** — do not expand middleware scope without checking Fluid CPU budget.
 - Edge Functions: `notify-contact`, `checkout`, `search`, `webhook`, `health`,
-  `wall-e-chat`, `walle-refresh`, `crm-broadcast-send`. All are deployed by
+  `wall-e-chat`, `walle-refresh`, `crm-broadcast-send`, `data-points`. All are deployed by
   `.github/workflows/supabase.yml`; `crm-broadcast-send` joined that list only
   recently, and until it did, `CRM_BROADCAST_FUNCTION_URL` pointed production at
   a route no pipeline shipped. Invoked directly from Server Actions; never call
   Edge Functions from Client Components.
-  **JWT verification is on unless a step says `--no-verify-jwt`.** Four functions
-  are deliberately public (`notify-contact`, `search`, `webhook`, `health`);
+  **JWT verification is on unless a step says `--no-verify-jwt`.** Five functions
+  are deliberately public (`notify-contact`, `search`, `webhook`, `health`, `data-points`);
   `checkout`, `wall-e-chat`, `walle-refresh` and `crm-broadcast-send` require a
   key. A step that silently loses the flag turns a credentialed endpoint into a
   public one; one that silently gains it makes an internal endpoint unreachable.
   The `verify` job probes each function and asserts the specific expected code —
-  400, 400|401, 405, or 401 for `crm-broadcast-send` — so neither direction passes
+  400, 400|401, 405, 401 for `crm-broadcast-send`, or 200 for `health` and `data-points` — so neither direction passes
   silently. **A config var and a deploy step have to land together.**
 - `supabase/config.toml` governs the **local** CLI stack only. The hosted
   project's `site_url` / `additional_redirect_urls` live in the dashboard —
