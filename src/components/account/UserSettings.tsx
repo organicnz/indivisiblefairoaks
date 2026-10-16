@@ -162,10 +162,14 @@ export function UserSettings() {
             </div>
             <div>
               <h3 className="text-lg font-black text-secondary uppercase tracking-tighterer">
-                Store Region
+                <DataPoint as="span" name="account.settings.region_title" initialData={dataPoints}>
+                  Store Region
+                </DataPoint>
               </h3>
               <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.2em]">
-                Where we ship and what we charge
+                <DataPoint as="span" name="account.settings.region_sub" initialData={dataPoints}>
+                  Where we ship and what we charge
+                </DataPoint>
               </p>
             </div>
           </div>
@@ -179,15 +183,27 @@ export function UserSettings() {
           <dl className="space-y-4">
             <div className="p-4 bg-surface-muted rounded-2xl flex items-center justify-between gap-4">
               <dt className="text-xs font-black text-secondary uppercase tracking-wider">
-                Currency
+                <DataPoint
+                  as="span"
+                  name="account.settings.currency_label"
+                  initialData={dataPoints}
+                >
+                  Currency
+                </DataPoint>
               </dt>
               <dd className="text-sm font-bold text-primary-ink">{CURRENCY_CODE}</dd>
             </div>
             <div className="p-4 bg-surface-muted rounded-2xl flex items-center justify-between gap-4">
               <dt className="text-xs font-black text-secondary uppercase tracking-wider">
-                Ships from
+                <DataPoint as="span" name="account.settings.ships_label" initialData={dataPoints}>
+                  Ships from
+                </DataPoint>
               </dt>
-              <dd className="text-sm font-bold text-primary-ink text-right">Carmichael, CA</dd>
+              <dd className="text-sm font-bold text-primary-ink text-right">
+                <DataPoint as="span" name="account.settings.ships_val" initialData={dataPoints}>
+                  Carmichael, CA
+                </DataPoint>
+              </dd>
             </div>
           </dl>
         </div>
@@ -231,7 +247,9 @@ export function UserSettings() {
           className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-xs font-bold uppercase tracking-wider text-center flex items-center justify-center gap-2"
         >
           <CheckCircle2 size={14} aria-hidden="true" />
-          Settings are synced with the cloud
+          <DataPoint as="span" name="account.settings.synced_msg" initialData={dataPoints}>
+            Settings are synced with the cloud
+          </DataPoint>
         </div>
       )}
     </div>
