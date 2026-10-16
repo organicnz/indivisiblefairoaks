@@ -1869,19 +1869,21 @@ export function VisualEditOverlay() {
         return;
       }
 
+      const dataPointContainer = target.closest<HTMLElement>('[data-data-point]');
+      const dataPointKey = dataPointContainer?.getAttribute('data-data-point') || null;
+
+      const copyRegionContainer = target.closest<HTMLElement>('[data-copy-region]');
+      const copyRegionId = copyRegionContainer?.getAttribute('data-copy-region') || null;
+
       const editable =
+        dataPointContainer ||
         target.closest<HTMLElement>(
-          'h1, h2, h3, h4, h5, h6, p, blockquote, li, dt, dd, [data-copy-region] span, a, button'
-        ) || target;
+          'h1, h2, h3, h4, h5, h6, p, blockquote, li, dt, dd, [data-copy-region] span, a, button, [data-data-point]'
+        ) ||
+        target;
 
       e.preventDefault();
       e.stopPropagation();
-
-      const dataPointContainer = editable.closest<HTMLElement>('[data-data-point]');
-      const dataPointKey = dataPointContainer?.getAttribute('data-data-point') || null;
-
-      const copyRegionContainer = editable.closest<HTMLElement>('[data-copy-region]');
-      const copyRegionId = copyRegionContainer?.getAttribute('data-copy-region') || null;
 
       let matchedBlockIdx: number | null = null;
       for (const sec of sectionsRef.current) {
