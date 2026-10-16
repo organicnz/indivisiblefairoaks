@@ -74,6 +74,6 @@ test('products listing links navigate to detail pages', async ({ page }) => {
   await page.waitForLoadState('load');
 
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
-  const addBtn = page.getByRole('button', { name: /add to bag|out of stock/i });
+  const addBtn = page.getByRole('button', { name: /add to (?:bag|cart)|out of stock/i });
   await expect(addBtn).toBeVisible({ timeout: 10_000 });
 });

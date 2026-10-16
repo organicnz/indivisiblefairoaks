@@ -135,9 +135,25 @@ export default async function AccountPage(props: {
   const processing = allOrders.filter((o) => o.status === 'processing').length;
 
   const tabs = [
-    ...(isAdmin ? [{ id: 'admin', label: 'All Orders', badge: processing }] : []),
-    { id: 'orders', label: isAdmin ? 'My Orders' : 'Orders' },
-    { id: 'settings', label: 'Settings' },
+    ...(isAdmin
+      ? [
+          {
+            id: 'admin',
+            label: dataPoints['account.tabs.all_orders'] || 'All Orders',
+            badge: processing,
+          },
+        ]
+      : []),
+    {
+      id: 'orders',
+      label: isAdmin
+        ? dataPoints['account.tabs.my_orders'] || 'My Orders'
+        : dataPoints['account.tabs.orders'] || 'Orders',
+    },
+    {
+      id: 'settings',
+      label: dataPoints['account.tabs.settings'] || 'Settings',
+    },
   ];
 
   let panel: React.ReactNode;
@@ -155,7 +171,10 @@ export default async function AccountPage(props: {
             </DataPoint>
           </h3>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6">
-            Signed in as <span className="text-secondary">{user.email}</span>
+            <DataPoint name="account.session.signed_in_as" as="span" initialData={dataPoints}>
+              Signed in as
+            </DataPoint>{' '}
+            <span className="text-secondary">{user.email}</span>
           </p>
           <LogoutButton />
         </div>
@@ -174,13 +193,20 @@ export default async function AccountPage(props: {
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
               <h3 className="text-xs font-black uppercase tracking-wider text-amber-900 mb-1">
-                Administrator Privileges Required
+                <DataPoint name="account.admin_required.title" initialData={dataPoints}>
+                  Administrator Privileges Required
+                </DataPoint>
               </h3>
-              <p className="text-xs text-amber-800">
+              <DataPoint
+                name="account.admin_required.desc"
+                as="p"
+                initialData={dataPoints}
+                className="text-xs text-amber-800"
+              >
                 The administrative panel is strictly restricted to verified chapter organizers. If
                 you are a chapter lead, please ensure you are signed in with your authorized
                 administrator email.
-              </p>
+              </DataPoint>
             </div>
           </div>
         )}

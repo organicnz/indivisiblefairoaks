@@ -11,6 +11,8 @@ import { ArrowUpRight, ChevronDown, LogOut, Shield, User, UserRound } from 'luci
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { createClient } from '@/lib/supabase';
 
 interface AccountButtonProps {
@@ -31,6 +33,7 @@ interface AccountButtonProps {
  * A fixed-size skeleton renders while resolving to avoid layout shift.
  */
 export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonProps) {
+  const { dataPoints } = useDataPoints('account');
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -90,10 +93,19 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
         >
           {placeholder}
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold uppercase tracking-wider">Sign In</span>
-            <span className="mt-0.5 block text-[11px] font-medium normal-case tracking-normal text-ink-muted-on-dark">
-              Access your account
+            <span className="block text-sm font-bold uppercase tracking-wider">
+              <DataPoint as="span" name="account.btn.sign_in" initialData={dataPoints}>
+                Sign In
+              </DataPoint>
             </span>
+            <DataPoint
+              as="span"
+              name="account.btn.access_account"
+              initialData={dataPoints}
+              className="mt-0.5 block text-[11px] font-medium normal-case tracking-normal text-ink-muted-on-dark"
+            >
+              Access your account
+            </DataPoint>
           </span>
           <ArrowUpRight
             size={16}
@@ -111,7 +123,9 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
       >
         {placeholder}
         <span className="whitespace-nowrap text-xs font-bold uppercase tracking-wider text-white">
-          Sign In
+          <DataPoint as="span" name="account.btn.sign_in" initialData={dataPoints}>
+            Sign In
+          </DataPoint>
         </span>
       </Link>
     );
@@ -160,7 +174,9 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
         <span aria-hidden="true" className="flex-shrink-0 w-3.5 h-3.5">
           <User size={14} />
         </span>
-        My Account
+        <DataPoint as="span" name="account.btn.my_account" initialData={dataPoints}>
+          My Account
+        </DataPoint>
       </DropdownMenuItem>
 
       {user.email?.endsWith('@indivisiblefairoaks.org') ? (
@@ -174,7 +190,9 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
           <span aria-hidden="true" className="flex-shrink-0 w-3.5 h-3.5">
             <Shield size={14} />
           </span>
-          Settings
+          <DataPoint as="span" name="account.btn.settings" initialData={dataPoints}>
+            Settings
+          </DataPoint>
         </DropdownMenuItem>
       ) : null}
 
@@ -191,7 +209,9 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
         <span aria-hidden="true" className="flex-shrink-0 w-3.5 h-3.5">
           <LogOut size={14} />
         </span>
-        Sign Out
+        <DataPoint as="span" name="account.btn.sign_out" initialData={dataPoints}>
+          Sign Out
+        </DataPoint>
       </DropdownMenuItem>
     </DropdownMenuContent>
   );

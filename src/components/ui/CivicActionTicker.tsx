@@ -3,6 +3,8 @@
 import { Calendar, Heart, Music, PhoneCall, Sparkles, Vote } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { getTickerEvents } from '@/lib/queries/civic-client';
 
 export interface TickerItem {
@@ -52,6 +54,7 @@ const DEFAULT_TICKER_ITEMS: TickerItem[] = [
 ];
 
 export function CivicActionTicker({ items: initialItems }: { items?: TickerItem[] } = {}) {
+  const { dataPoints } = useDataPoints('home');
   const [items, setItems] = useState<TickerItem[]>(initialItems ?? []);
 
   useEffect(() => {
@@ -73,7 +76,9 @@ export function CivicActionTicker({ items: initialItems }: { items?: TickerItem[
         {/* Fixed Title Tag */}
         <div className="shrink-0 flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary-bright/20 border border-primary-on-dark-muted/30 text-primary-on-dark text-[11px] font-black uppercase tracking-wider">
           <Sparkles size={12} className="text-accent-gold animate-pulse" />
-          <span>Community Pulse</span>
+          <DataPoint as="span" name="home.ticker.pulse" initialData={dataPoints}>
+            Community Pulse
+          </DataPoint>
         </div>
 
         {/* Scrolling / Flex Items */}

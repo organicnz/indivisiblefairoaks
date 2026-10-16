@@ -3,6 +3,7 @@
 import { Check, CreditCard, ExternalLink, Heart, ShieldCheck, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 interface ImpactTier {
   amount: number;
@@ -70,6 +71,7 @@ const TIERS: Record<number, ImpactTier> = {
 };
 
 export function ActBlueDonationCalculator() {
+  const { dataPoints } = useDataPoints('donate');
   const [selectedAmount, setSelectedAmount] = useState<number>(50);
   const [isMonthly, setIsMonthly] = useState<boolean>(false);
   const [customAmount, setCustomAmount] = useState<string>('');
@@ -78,12 +80,33 @@ export function ActBlueDonationCalculator() {
 
   // Derive closest impact tier or construct dynamic
   const getImpact = () => {
-    if (TIERS[currentAmount]) return TIERS[currentAmount];
-    if (currentAmount < 25) return TIERS[10];
-    if (currentAmount < 50) return TIERS[25];
-    if (currentAmount < 100) return TIERS[50];
-    if (currentAmount < 250) return TIERS[100];
-    return TIERS[250];
+    const rawTier =
+      TIERS[currentAmount] ||
+      (currentAmount < 25
+        ? TIERS[10]
+        : currentAmount < 50
+          ? TIERS[25]
+          : currentAmount < 100
+            ? TIERS[50]
+            : currentAmount < 250
+              ? TIERS[100]
+              : TIERS[250]);
+
+    const amt = rawTier.amount;
+    const badge = dataPoints[`donate.calc.tier.${amt}.badge`] || rawTier.badge;
+    const impactTitle = dataPoints[`donate.calc.tier.${amt}.title`] || rawTier.impactTitle;
+    const impactDescription =
+      dataPoints[`donate.calc.tier.${amt}.desc`] || rawTier.impactDescription;
+    let tangibleMetrics = rawTier.tangibleMetrics;
+    const metricsJson = dataPoints[`donate.calc.tier.${amt}.metrics`];
+    if (metricsJson) {
+      try {
+        tangibleMetrics = JSON.parse(metricsJson);
+      } catch {
+        // Fall back to raw tier metrics
+      }
+    }
+    return { ...rawTier, badge, impactTitle, impactDescription, tangibleMetrics };
   };
 
   const impact = getImpact();
@@ -104,13 +127,14 @@ export function ActBlueDonationCalculator() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/20 text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
             <Heart size={14} className="fill-amber-300 text-accent-gold" />
-            <DataPoint as="span" name="donate.calc.eyebrow">
+            <DataPoint as="span" name="donate.calc.eyebrow" initialData={dataPoints}>
               Interactive Grassroots Calculator
             </DataPoint>
           </div>
           <DataPoint
             as="h2"
             name="donate.calc.title"
+            initialData={dataPoints}
             className="text-2xl sm:text-3xl font-black text-white"
           >
             Choose Your Contribution
@@ -118,6 +142,7 @@ export function ActBlueDonationCalculator() {
           <DataPoint
             as="p"
             name="donate.calc.subhead"
+            initialData={dataPoints}
             className="text-xs sm:text-sm text-ink-on-dark mt-1"
           >
             See the concrete civic impact of your grassroots investment before you give.
@@ -129,36 +154,33 @@ export function ActBlueDonationCalculator() {
           <button
             type="button"
             onClick={() => setIsMonthly(false)}
-            className={`px-4 py-2 rounded-xl transition-all ${
+            className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
               !isMonthly
                 ? 'bg-accent-gold text-slate-950 font-bold shadow-md'
                 : 'text-ink-muted-on-dark hover:text-white'
             }`}
           >
-            One-Time
+            <DataPoint as="span" name="donate.calc.frequency.one_time" initialData={dataPoints}>
+              One-Time
+            </DataPoint>
           </button>
           <button
             type="button"
             onClick={() => setIsMonthly(true)}
-            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
               isMonthly
                 ? 'bg-accent-gold text-slate-950 font-bold shadow-md'
                 : 'text-ink-muted-on-dark hover:text-white'
             }`}
           >
             <Sparkles size={13} />
-            <span>Monthly Sustainer</span>
+            <DataPoint as="span" name="donate.calc.frequency.monthly" initialData={dataPoints}>
+              Monthly Sustainer
+            </DataPoint>
           </button>
         </div>
       </div>
 
-      {/*
-        A group of mutually-exclusive amount choices. `<fieldset>`/`<legend>` plus
-        `aria-pressed` is what makes it legible as a group with a known selection;
-        five bare buttons with an amber background conveyed "which one" by colour
-        alone. The glow is a token now — it was an arbitrary rgba shadow, which is
-        the one thing coding rule 1 exists to prevent.
-      */}
       <fieldset>
         <legend className="sr-only">Choose a donation amount</legend>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
@@ -187,7 +209,19 @@ export function ActBlueDonationCalculator() {
                   ${amt}
                 </span>
                 <span className="text-[10px] font-mono uppercase tracking-wider text-ink-muted-on-dark mt-1 block">
-                  {isMonthly ? 'Per Month' : 'One-Time'}
+                  {isMonthly ? (
+                    <DataPoint as="span" name="donate.calc.per_month" initialData={dataPoints}>
+                      Per Month
+                    </DataPoint>
+                  ) : (
+                    <DataPoint
+                      as="span"
+                      name="donate.calc.one_time_suffix"
+                      initialData={dataPoints}
+                    >
+                      One-Time
+                    </DataPoint>
+                  )}
                 </span>
               </button>
             );
@@ -201,7 +235,9 @@ export function ActBlueDonationCalculator() {
           htmlFor="custom-amount"
           className="text-xs font-mono text-ink-on-dark whitespace-nowrap"
         >
-          Or Enter Custom Amount:
+          <DataPoint as="span" name="donate.calc.custom_amount_label" initialData={dataPoints}>
+            Or Enter Custom Amount:
+          </DataPoint>
         </label>
         <div className="relative flex-1">
           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark font-bold">
@@ -212,7 +248,7 @@ export function ActBlueDonationCalculator() {
             type="number"
             min={5}
             step={1}
-            placeholder="e.g. 75"
+            placeholder={dataPoints['donate.calc.custom_amount_placeholder'] || 'e.g. 75'}
             value={customAmount}
             onChange={(e) => setCustomAmount(e.target.value)}
             className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-500 text-sm font-bold focus:outline-none focus:border-amber-400 transition-colors"
@@ -225,7 +261,9 @@ export function ActBlueDonationCalculator() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="inline-flex items-center gap-2 text-xs font-mono text-accent-gold uppercase tracking-wide">
             <Sparkles size={14} />
-            <span>Grassroots Impact Breakdown</span>
+            <DataPoint as="span" name="donate.calc.impact_badge" initialData={dataPoints}>
+              Grassroots Impact Breakdown
+            </DataPoint>
           </div>
           <span className="px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-semibold">
             {impact.badge}
@@ -263,8 +301,23 @@ export function ActBlueDonationCalculator() {
           className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-accent-gold hover:to-amber-300 text-slate-950 font-black text-base uppercase tracking-wider shadow-xl hover:shadow-amber-500/25 transition-all flex items-center justify-center gap-3 group hover:scale-[1.01]"
         >
           <CreditCard size={20} className="group-hover:rotate-6 transition-transform" />
-          <span>
-            Give ${currentAmount} {isMonthly ? 'Monthly' : 'Now'} via ActBlue
+          <span className="flex items-center gap-1.5">
+            <DataPoint as="span" name="donate.calc.give_btn_prefix" initialData={dataPoints}>
+              Give
+            </DataPoint>{' '}
+            <span>${currentAmount}</span>{' '}
+            {isMonthly ? (
+              <DataPoint as="span" name="donate.calc.give_btn_monthly" initialData={dataPoints}>
+                Monthly
+              </DataPoint>
+            ) : (
+              <DataPoint as="span" name="donate.calc.give_btn_now" initialData={dataPoints}>
+                Now
+              </DataPoint>
+            )}{' '}
+            <DataPoint as="span" name="donate.calc.give_btn_suffix" initialData={dataPoints}>
+              via ActBlue
+            </DataPoint>
           </span>
           <ExternalLink size={18} />
         </a>
@@ -272,12 +325,18 @@ export function ActBlueDonationCalculator() {
         <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-ink-muted-on-dark text-center">
           <span className="flex items-center gap-1">
             <ShieldCheck size={14} className="text-emerald-400" />
-            <span>Encrypted 256-bit Secure ActBlue Processing</span>
+            <DataPoint as="span" name="donate.calc.security.encrypted" initialData={dataPoints}>
+              Encrypted 256-bit Secure ActBlue Processing
+            </DataPoint>
           </span>
           <span>•</span>
-          <span>No Corporate PAC Money Accepted</span>
+          <DataPoint as="span" name="donate.calc.security.no_pac" initialData={dataPoints}>
+            No Corporate PAC Money Accepted
+          </DataPoint>
           <span>•</span>
-          <span>All Grassroots Volunteer Managed</span>
+          <DataPoint as="span" name="donate.calc.security.volunteer" initialData={dataPoints}>
+            All Grassroots Volunteer Managed
+          </DataPoint>
         </div>
       </div>
     </div>

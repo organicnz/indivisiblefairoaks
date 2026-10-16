@@ -235,4 +235,60 @@ describe('useDataPoints and Edge API Integration', () => {
       'No matching civic actions or pages found.'
     );
   });
+
+  it('renders interactive widget and layout DataPoint tags correctly', async () => {
+    vi.spyOn(civicClient, 'getDataPoints').mockResolvedValue({
+      dataPoints: {
+        'donate.calc.frequency.monthly': 'Monthly Sustainer',
+        'donate.calc.custom_amount_label': 'Or Enter Custom Amount:',
+        'choir.songbook.headline': 'Interactive Songbook & Repertoire',
+        'voter.repfinder.btn_lookup': 'Lookup District',
+        'home.ticker.pulse': 'Community Pulse',
+        'account.btn.sign_in': 'Sign In',
+        'header.theme.appearance': 'Appearance',
+        'products.wishlist.in': 'In Wishlist',
+      },
+      rows: [],
+    });
+
+    await act(async () => {
+      root.render(
+        <div>
+          <DataPoint name="donate.calc.frequency.monthly">Monthly</DataPoint>
+          <DataPoint name="donate.calc.custom_amount_label">Custom</DataPoint>
+          <DataPoint name="choir.songbook.headline">Songbook</DataPoint>
+          <DataPoint name="voter.repfinder.btn_lookup">Lookup</DataPoint>
+          <DataPoint name="home.ticker.pulse">Pulse</DataPoint>
+          <DataPoint name="account.btn.sign_in">Login</DataPoint>
+          <DataPoint name="header.theme.appearance">Theme</DataPoint>
+          <DataPoint name="products.wishlist.in">Wishlist</DataPoint>
+        </div>
+      );
+    });
+
+    expect(
+      container.querySelector('[data-data-point="donate.calc.frequency.monthly"]')?.textContent
+    ).toBe('Monthly Sustainer');
+    expect(
+      container.querySelector('[data-data-point="donate.calc.custom_amount_label"]')?.textContent
+    ).toBe('Or Enter Custom Amount:');
+    expect(
+      container.querySelector('[data-data-point="choir.songbook.headline"]')?.textContent
+    ).toBe('Interactive Songbook & Repertoire');
+    expect(
+      container.querySelector('[data-data-point="voter.repfinder.btn_lookup"]')?.textContent
+    ).toBe('Lookup District');
+    expect(container.querySelector('[data-data-point="home.ticker.pulse"]')?.textContent).toBe(
+      'Community Pulse'
+    );
+    expect(container.querySelector('[data-data-point="account.btn.sign_in"]')?.textContent).toBe(
+      'Sign In'
+    );
+    expect(
+      container.querySelector('[data-data-point="header.theme.appearance"]')?.textContent
+    ).toBe('Appearance');
+    expect(container.querySelector('[data-data-point="products.wishlist.in"]')?.textContent).toBe(
+      'In Wishlist'
+    );
+  });
 });

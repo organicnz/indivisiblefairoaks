@@ -3,66 +3,117 @@
 import {
   ChevronLeft,
   ChevronRight,
+  Globe,
   Music,
   Pause,
   Play,
   Radio,
   Volume2,
   VolumeX,
+  Wifi,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
+import { getStorageUrl } from '@/lib/supabase';
 
 interface SongTrack {
   id: string;
-  title: string;
-  artist: string;
+  titleKey: string;
+  artistKey: string;
+  notesKey: string;
+  defaultTitle: string;
+  defaultArtist: string;
+  defaultNotes: string;
   duration: string;
-  notes: string;
+  audioUrl?: string;
+  isSynth?: boolean;
 }
 
-const TRACKS: SongTrack[] = [
+const DEFAULT_TRACKS: SongTrack[] = [
   {
     id: 'anthem-1',
-    title: 'Singing for Our Lives',
-    artist: 'Carmichael Resistance Choir',
-    duration: '2:15',
-    notes: 'Holly Near anthem arranged for community 4-part harmony',
+    titleKey: 'choir.player.track1_title',
+    artistKey: 'choir.player.track1_artist',
+    notesKey: 'choir.player.track1_notes',
+    defaultTitle: 'America the Beautiful',
+    defaultArtist: 'U.S. Singing Sergeants Choral',
+    defaultNotes: 'Official public domain choral arrangement of Katherine Lee Bates anthem',
+    duration: '2:45',
+    audioUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/22/America_the_Beautiful.ogg',
   },
   {
     id: 'anthem-2',
-    title: 'Ain’t Gonna Let Nobody Turn Me Around',
-    artist: 'Carmichael Resistance Choir',
-    duration: '1:48',
-    notes: 'Traditional civil rights march anthem',
+    titleKey: 'choir.player.track2_title',
+    artistKey: 'choir.player.track2_artist',
+    notesKey: 'choir.player.track2_notes',
+    defaultTitle: 'Shenandoah (A Cappella)',
+    defaultArtist: 'U.S. Singing Sergeants Choral',
+    defaultNotes: 'Traditional American folk hymn arranged for rich multi-part vocal choir',
+    duration: '3:40',
+    audioUrl: 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Shenandoah.ogg',
   },
   {
     id: 'anthem-3',
-    title: 'We Shall Not Be Moved',
-    artist: 'Carmichael Resistance Choir',
-    duration: '2:30',
-    notes: 'Union and freedom struggle rallying song',
+    titleKey: 'choir.player.track3_title',
+    artistKey: 'choir.player.track3_artist',
+    notesKey: 'choir.player.track3_notes',
+    defaultTitle: 'Battle Hymn of Peace & Freedom',
+    defaultArtist: 'Grassroots Community Chorus',
+    defaultNotes: 'Historical choral rallying anthem for collective resilience and civil rights',
+    duration: '2:45',
+    audioUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/4b/Battle_Hymn_of_the_Republic.ogg',
+  },
+  {
+    id: 'anthem-4',
+    titleKey: 'choir.player.track4_title',
+    artistKey: 'choir.player.track4_artist',
+    notesKey: 'choir.player.track4_notes',
+    defaultTitle: 'Ode to Joy (Song of Peace)',
+    defaultArtist: 'Beethoven Choral Symphony No. 9',
+    defaultNotes: 'Universal anthem of brotherhood, democracy, human dignity, and solidarity',
+    duration: '3:15',
+    audioUrl: 'https://upload.wikimedia.org/wikipedia/commons/d/d4/Ode_to_Joy.ogg',
+  },
+  {
+    id: 'anthem-5',
+    titleKey: 'choir.player.track5_title',
+    artistKey: 'choir.player.track5_artist',
+    notesKey: 'choir.player.track5_notes',
+    defaultTitle: 'Ave Maria (Sacred Choral)',
+    defaultArtist: 'Sea Chanters Choral Ensemble',
+    defaultNotes: 'U.S. Navy Band Sea Chanters choral presentation for community harmony',
+    duration: '3:28',
+    audioUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e5/Ave_Maria_%28USNB%29.ogg',
   },
 ];
 
 export function ChoirAudioPlayer() {
-  const [activeTrack, setActiveTrack] = useState<SongTrack>(TRACKS[0]);
+  const { dataPoints } = useDataPoints('choir');
+  const [tracks, setTracks] = useState<SongTrack[]>(DEFAULT_TRACKS);
+  const [activeTrack, setActiveTrack] = useState<SongTrack>(DEFAULT_TRACKS[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
-  const [volume, setVolume] = useState(0.12);
+  const [volume, setVolume] = useState(0.15);
+  const [previousVolume, setPreviousVolume] = useState(0.15);
+  const [customUrlInput, setCustomUrlInput] = useState('');
+  const [customTitleInput, setCustomTitleInput] = useState('');
+  const [showCustomBar, setShowCustomBar] = useState(false);
+  const [streamError, setStreamError] = useState<string | null>(null);
+
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const oscNodesRef = useRef<OscillatorNode[]>([]);
   const animFrameRef = useRef<number | null>(null);
   const [visualizerBars, setVisualizerBars] = useState<{ id: string; height: number }[]>(() =>
-    Array.from({ length: 12 }, (_, i) => ({ id: `bar-${i}`, height: 25 + (i % 4) * 15 }))
+    Array.from({ length: 14 }, (_, i) => ({ id: `bar-${i}`, height: 25 + (i % 4) * 15 }))
   );
 
-  // The drone loops for this long before the clock restarts. Named so the
-  // progress meter and the clock readout cannot disagree.
   const BROADCAST_LENGTH_SECONDS = 150;
 
   // Synthetic choral harmonizer using Web Audio API
-  const startChoralSynth = () => {
+  const startChoralSynth = useCallback(() => {
     try {
       const AudioContextClass =
         window.AudioContext ||
@@ -104,9 +155,9 @@ export function ChoirAudioPlayer() {
 
       oscNodesRef.current = oscs;
     } catch {
-      // AudioContext might be restricted until user gesture; silently ignore
+      // AudioContext might be restricted until user gesture; ignore
     }
-  };
+  }, [volume]);
 
   const stopChoralSynth = useCallback(() => {
     try {
@@ -133,13 +184,52 @@ export function ChoirAudioPlayer() {
     }
   }, []);
 
+  const playActiveTrack = useCallback(
+    (track: SongTrack) => {
+      setStreamError(null);
+      const configuredUrl = track.titleKey ? dataPoints[`${track.titleKey}_url`] : undefined;
+      const effectiveAudioUrl = configuredUrl || track.audioUrl;
+
+      if (effectiveAudioUrl) {
+        stopChoralSynth();
+        if (audioElRef.current) {
+          const resolvedSrc = getStorageUrl(effectiveAudioUrl, 'media');
+          audioElRef.current.src = resolvedSrc;
+          audioElRef.current.volume = volume;
+          audioElRef.current
+            .play()
+            .then(() => {
+              setIsPlaying(true);
+            })
+            .catch(() => {
+              setStreamError(
+                dataPoints['choir.player.stream_err_msg'] ||
+                  'Stream unavailable — switching to live choral harmonizer.'
+              );
+              startChoralSynth();
+              setIsPlaying(true);
+            });
+        }
+      } else {
+        if (audioElRef.current) {
+          audioElRef.current.pause();
+        }
+        startChoralSynth();
+        setIsPlaying(true);
+      }
+    },
+    [dataPoints, volume, startChoralSynth, stopChoralSynth]
+  );
+
   const togglePlay = () => {
     if (isPlaying) {
+      if (audioElRef.current && !activeTrack.isSynth) {
+        audioElRef.current.pause();
+      }
       stopChoralSynth();
       setIsPlaying(false);
     } else {
-      startChoralSynth();
-      setIsPlaying(true);
+      playActiveTrack(activeTrack);
     }
   };
 
@@ -147,21 +237,76 @@ export function ChoirAudioPlayer() {
     setActiveTrack(track);
     setPlaybackTime(0);
     if (isPlaying) {
-      stopChoralSynth();
-      window.setTimeout(() => startChoralSynth(), 100);
+      playActiveTrack(track);
     }
   };
 
   const selectRelativeTrack = (offset: number) => {
-    const index = TRACKS.findIndex((track) => track.id === activeTrack.id);
-    selectTrack(TRACKS[(index + offset + TRACKS.length) % TRACKS.length]);
+    const index = tracks.findIndex((track) => track.id === activeTrack.id);
+    const nextIndex = (index + offset + tracks.length) % tracks.length;
+    selectTrack(tracks[nextIndex]);
+  };
+
+  const handleCustomStreamSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const rawUrl = customUrlInput.trim();
+    if (!rawUrl) return;
+
+    let resolvedUrl = rawUrl;
+    const isS3 =
+      rawUrl.startsWith('s3://') ||
+      (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://'));
+
+    if (rawUrl.startsWith('s3://')) {
+      const cleanS3Path = rawUrl.replace(/^s3:\/\/(media\/)?/, '');
+      resolvedUrl = getStorageUrl(cleanS3Path, 'media');
+    } else if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+      resolvedUrl = getStorageUrl(rawUrl, 'media');
+    }
+
+    const customTrack: SongTrack = {
+      id: `custom-${Date.now()}`,
+      titleKey: '',
+      artistKey: '',
+      notesKey: '',
+      defaultTitle: customTitleInput.trim() || 'Custom Stream Broadcast',
+      defaultArtist: isS3 ? 'Supabase S3 Audio' : 'External Audio Stream',
+      defaultNotes: rawUrl,
+      duration: 'LIVE',
+      audioUrl: resolvedUrl,
+      isSynth: false,
+    };
+
+    setTracks((prev) => [customTrack, ...prev]);
+    setActiveTrack(customTrack);
+    setCustomUrlInput('');
+    setCustomTitleInput('');
+    playActiveTrack(customTrack);
+  };
+
+  const toggleMute = () => {
+    if (volume > 0) {
+      setPreviousVolume(volume);
+      setVolume(0);
+      if (audioElRef.current) audioElRef.current.volume = 0;
+      if (gainNodeRef.current && audioCtxRef.current) {
+        gainNodeRef.current.gain.setTargetAtTime(0, audioCtxRef.current.currentTime, 0.03);
+      }
+    } else {
+      const restored = previousVolume || 0.15;
+      setVolume(restored);
+      if (audioElRef.current) audioElRef.current.volume = restored;
+      if (gainNodeRef.current && audioCtxRef.current) {
+        gainNodeRef.current.gain.setTargetAtTime(restored, audioCtxRef.current.currentTime, 0.03);
+      }
+    }
   };
 
   // Animate visualizer bars when playing
   useEffect(() => {
     if (!isPlaying) {
       setVisualizerBars(
-        Array.from({ length: 12 }, (_, i) => ({ id: `bar-${i}`, height: 20 + (i % 3) * 15 }))
+        Array.from({ length: 14 }, (_, i) => ({ id: `bar-${i}`, height: 20 + (i % 3) * 15 }))
       );
       return;
     }
@@ -169,9 +314,9 @@ export function ChoirAudioPlayer() {
     const interval = setInterval(() => {
       setPlaybackTime((prev) => (prev + 1) % BROADCAST_LENGTH_SECONDS);
       setVisualizerBars(() =>
-        Array.from({ length: 12 }, (_, i) => ({
+        Array.from({ length: 14 }, (_, i) => ({
           id: `bar-${i}`,
-          height: Math.floor(Math.random() * 75) + 25,
+          height: Math.floor(Math.random() * 80) + 20,
         }))
       );
     }, 1000);
@@ -186,25 +331,64 @@ export function ChoirAudioPlayer() {
     };
   }, [stopChoralSynth]);
 
+  const activeTitle = activeTrack.titleKey
+    ? dataPoints[activeTrack.titleKey] || activeTrack.defaultTitle
+    : activeTrack.defaultTitle;
+  const activeArtist = activeTrack.artistKey
+    ? dataPoints[activeTrack.artistKey] || activeTrack.defaultArtist
+    : activeTrack.defaultArtist;
+  const activeNotes = activeTrack.notesKey
+    ? dataPoints[activeTrack.notesKey] || activeTrack.defaultNotes
+    : activeTrack.defaultNotes;
+
   return (
-    <div className="rounded-2xl bg-secondary border border-white/10 p-5 md:p-6 backdrop-blur-xl shadow-2xl">
-      <div className="flex items-center justify-between gap-4 mb-4 pb-4 border-b border-white/10/80">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary-bright/20 border border-primary-bright/30 flex items-center justify-center text-primary-on-dark-muted">
-            <Music size={20} />
+    <div className="relative overflow-hidden rounded-3xl bg-slate-900/95 dark:bg-slate-900/95 border border-white/10 p-5 sm:p-7 md:p-8 backdrop-blur-2xl shadow-float text-white">
+      {/* Background ambient lighting */}
+      <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-primary-bright/15 blur-3xl" />
+      <div className="pointer-events-none absolute -left-20 -bottom-20 size-64 rounded-full bg-indigo-600/10 blur-3xl" />
+
+      <audio
+        ref={audioElRef}
+        preload="none"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => selectRelativeTrack(1)}
+        onError={() => {
+          setStreamError(
+            dataPoints['choir.player.stream_err_msg'] ||
+              'Stream unavailable or blocked by CORS — falling back to live choral harmonizer.'
+          );
+          startChoralSynth();
+          setIsPlaying(true);
+        }}
+      >
+        <track kind="captions" />
+      </audio>
+
+      {/* Header bar */}
+      <div className="relative flex items-center justify-between gap-4 mb-5 pb-5 border-b border-white/10">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className="size-11 sm:size-12 rounded-2xl bg-primary-bright/20 border border-primary-bright/30 flex items-center justify-center text-primary-on-dark shrink-0 shadow-raised">
+            <Music size={22} />
           </div>
-          <div>
-            <div className="text-xs font-mono font-bold uppercase tracking-wider text-primary-on-dark-muted flex items-center gap-1.5">
+          <div className="min-w-0">
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-primary-on-dark flex items-center gap-2">
               <span className="flex items-center gap-1.5">
-                <Radio size={12} /> Resistance Radio
+                <Radio size={13} className="text-accent-gold" />
+                <DataPoint as="span" name="choir.player.radio_title" initialData={dataPoints}>
+                  Resistance Radio
+                </DataPoint>
               </span>
-              <span
-                aria-hidden="true"
-                className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping motion-reduce:animate-none"
-              />
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-300 font-semibold">
+                <span
+                  aria-hidden="true"
+                  className="size-1.5 rounded-full bg-emerald-400 animate-ping motion-reduce:animate-none"
+                />
+                {activeTrack.audioUrl ? 'Live Web Broadcast' : 'Harmonic Generator'}
+              </span>
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-white leading-snug">
-              {activeTrack.title}
+            <h3 className="text-base sm:text-xl font-black text-white tracking-tight truncate leading-snug mt-0.5">
+              {activeTitle}
             </h3>
           </div>
         </div>
@@ -213,53 +397,67 @@ export function ChoirAudioPlayer() {
         <button
           type="button"
           onClick={togglePlay}
-          className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/25 hover:scale-105 active:scale-95 transition-all"
-          aria-label={isPlaying ? 'Pause harmonic audio' : 'Play harmonic audio'}
+          className="size-13 rounded-full bg-gradient-to-tr from-primary-bright to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white flex items-center justify-center shadow-float shadow-primary/30 hover:scale-105 active:scale-95 transition-all duration-300 ease-out shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+          aria-label={
+            isPlaying
+              ? dataPoints['choir.player.pause_label'] || 'Pause audio broadcast'
+              : dataPoints['choir.player.play_label'] || 'Play audio broadcast'
+          }
         >
           {isPlaying ? (
-            <Pause size={20} className="fill-white" />
+            <Pause size={22} className="fill-white" />
           ) : (
-            <Play size={20} className="fill-white ml-0.5" />
+            <Play size={22} className="fill-white ml-0.5" />
           )}
         </button>
       </div>
 
-      <p className="mb-4 max-w-xl text-xs leading-relaxed text-ink-muted-on-dark">
-        A browser-based harmonic broadcast for peaceful organizing. Select a station, press play,
-        and lend your voice to the movement.
-      </p>
+      <DataPoint
+        as="p"
+        name="choir.player.radio_subtitle"
+        initialData={dataPoints}
+        className="mb-5 max-w-2xl text-xs sm:text-sm leading-relaxed text-ink-on-dark"
+      >
+        A browser-based harmonic broadcast and community protest songs for peaceful organizing. Tune
+        into any stream from anywhere.
+      </DataPoint>
+
+      {/* Stream Notice / Fallback Message */}
+      {streamError && (
+        <div className="mb-4 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-center gap-2">
+          <Wifi size={14} className="shrink-0 text-amber-400" />
+          <span>{streamError}</span>
+        </div>
+      )}
 
       {/* Visualizer & Progress */}
-      <div className="mb-5">
-        <div className="flex items-end justify-between gap-1.5 h-12 px-2 py-1 bg-secondary/60 rounded-xl border border-white/10/80">
+      <div className="mb-6 rounded-2xl border border-white/10 bg-secondary/70 p-4 sm:p-5 backdrop-blur-md">
+        <div className="flex items-end justify-between gap-1.5 h-14 px-2 py-1 bg-black/30 rounded-xl border border-white/5">
           {visualizerBars.map((bar) => (
             <div
               key={bar.id}
               className={`flex-1 origin-bottom rounded-full transition-transform duration-300 ease-out motion-reduce:transition-none ${
                 isPlaying
-                  ? 'bg-gradient-to-t from-primary-bright to-primary-on-dark-muted'
-                  : 'bg-white/5'
+                  ? 'bg-gradient-to-t from-primary-bright via-primary-on-dark-muted to-accent-gold shadow-xs'
+                  : 'bg-white/10'
               }`}
               style={{ transform: `scaleY(${bar.height / 100})` }}
             />
           ))}
         </div>
-        <div className="flex items-center justify-between text-[11px] font-mono text-ink-muted-on-dark mt-2 px-1">
+
+        <div className="flex items-center justify-between text-[11px] font-mono text-ink-muted-on-dark mt-3 px-1">
           <span aria-hidden="true">0:{playbackTime.toString().padStart(2, '0')}</span>
-          <span className="text-ink-muted-on-dark flex items-center gap-1">
-            <Volume2 size={12} className="text-primary-on-dark-muted" />
-            Live Choral Harmonics
+          <span className="flex items-center gap-1.5 font-sans font-semibold text-primary-on-dark">
+            <Volume2 size={13} />
+            {activeTrack.audioUrl
+              ? dataPoints['choir.player.status_stream'] || 'Direct Audio Broadcast'
+              : dataPoints['choir.player.status_live'] || 'Live Harmonic Stream'}
           </span>
           <span>{activeTrack.duration}</span>
         </div>
-        {/*
-          This is a live generative drone (a Web Audio oscillator stack), not a
-          recording — there is no media element and therefore nothing to seek. The
-          range input that used to sit here moved local state only, so a control
-          labelled "seek" silently did nothing. It is now an honest, read-only
-          progress meter: a real `progressbar` with real values, which is what the
-          thing actually is.
-        */}
+
+        {/* Read-only WAI-ARIA compliant broadcast progress meter */}
         <div
           role="progressbar"
           aria-label="Elapsed broadcast time"
@@ -267,93 +465,191 @@ export function ChoirAudioPlayer() {
           aria-valuemax={BROADCAST_LENGTH_SECONDS}
           aria-valuenow={playbackTime}
           aria-valuetext={`${playbackTime} seconds of ${BROADCAST_LENGTH_SECONDS}`}
-          className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+          className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10"
         >
           <div
-            className="h-full rounded-full bg-primary-on-dark-muted transition-[width] duration-300 ease-out motion-reduce:transition-none"
+            className="h-full rounded-full bg-gradient-to-r from-primary-bright to-accent-gold transition-[width] duration-300 ease-out motion-reduce:transition-none"
             style={{
               width: `${Math.min(100, (playbackTime / BROADCAST_LENGTH_SECONDS) * 100)}%`,
             }}
           />
         </div>
-        <div className="mt-3 flex items-center gap-2">
-          {volume === 0 ? (
-            <VolumeX size={14} className="text-ink-muted-on-dark" />
-          ) : (
-            <Volume2 size={14} className="text-primary-on-dark-muted" />
-          )}
-          <input
-            type="range"
-            min="0"
-            max="0.3"
-            step="0.01"
-            value={volume}
-            onChange={(event) => {
-              const nextVolume = Number(event.target.value);
-              setVolume(nextVolume);
-              if (gainNodeRef.current && audioCtxRef.current) {
-                gainNodeRef.current.gain.setTargetAtTime(
-                  nextVolume,
-                  audioCtxRef.current.currentTime,
-                  0.03
-                );
-              }
-            }}
-            className="w-28 h-11 accent-primary-on-dark-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary cursor-pointer"
-            aria-label="Broadcast volume"
-          />
-          <span className="text-[10px] uppercase tracking-wider text-ink-muted-on-dark">
-            Broadcast volume
-          </span>
+
+        {/* Volume & Quick Controls */}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-white/10">
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={toggleMute}
+              className="text-primary-on-dark hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold rounded p-1"
+              aria-label={volume === 0 ? 'Unmute volume' : 'Mute volume'}
+            >
+              {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="0.5"
+              step="0.01"
+              value={volume}
+              onChange={(event) => {
+                const nextVolume = Number(event.target.value);
+                setVolume(nextVolume);
+                if (audioElRef.current) audioElRef.current.volume = nextVolume;
+                if (gainNodeRef.current && audioCtxRef.current) {
+                  gainNodeRef.current.gain.setTargetAtTime(
+                    nextVolume,
+                    audioCtxRef.current.currentTime,
+                    0.03
+                  );
+                }
+              }}
+              className="w-28 sm:w-36 h-2 accent-primary-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold rounded-full cursor-pointer"
+              aria-label={dataPoints['choir.player.volume_label'] || 'Broadcast volume'}
+            />
+            <span className="text-[11px] font-mono text-ink-muted-on-dark">
+              {Math.round((volume / 0.5) * 100)}%
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowCustomBar((prev) => !prev)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-primary-on-dark hover:text-white transition-colors"
+          >
+            <Globe size={13} className="text-accent-gold" />
+            <span>Tune from Anywhere</span>
+          </button>
         </div>
       </div>
 
-      {/* Track Selection */}
-      <div className="mb-3 flex items-center justify-between rounded-xl border border-white/10 bg-secondary/40 px-3 py-2">
+      {/* Custom Stream Input Accordion */}
+      {showCustomBar && (
+        <form
+          onSubmit={handleCustomStreamSubmit}
+          className="mb-6 p-4 rounded-2xl bg-secondary/80 border border-primary-bright/30 space-y-3 animate-in fade-in-0 duration-200"
+        >
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary-on-dark">
+            <Globe size={14} className="text-accent-gold" />
+            <DataPoint as="span" name="choir.player.custom_stream_label" initialData={dataPoints}>
+              Custom Audio Stream / Song URL from Anywhere
+            </DataPoint>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <input
+              type="text"
+              value={customTitleInput}
+              onChange={(e) => setCustomTitleInput(e.target.value)}
+              placeholder="Stream Title (optional)"
+              className="px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/15 text-white placeholder-white/40 text-xs focus:outline-none focus:border-primary-bright"
+            />
+            <input
+              type="text"
+              required
+              value={customUrlInput}
+              onChange={(e) => setCustomUrlInput(e.target.value)}
+              placeholder={
+                dataPoints['choir.player.custom_stream_placeholder'] ||
+                'Stream URL (https://...), Supabase S3 path (audio/song.mp3), or s3://...'
+              }
+              className="sm:col-span-2 px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/15 text-white placeholder-white/40 text-xs focus:outline-none focus:border-primary-bright"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-xl bg-primary-bright hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-wider shadow-raised transition-colors flex items-center gap-1.5"
+            >
+              <Radio size={13} />
+              <DataPoint as="span" name="choir.player.custom_stream_btn" initialData={dataPoints}>
+                Tune In
+              </DataPoint>
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Station Navigation Header */}
+      <div className="mb-3.5 flex items-center justify-between rounded-2xl border border-white/10 bg-secondary/50 px-4 py-2.5">
         <button
           type="button"
           onClick={() => selectRelativeTrack(-1)}
-          className="inline-flex size-11 items-center justify-center rounded-lg text-ink-muted-on-dark hover:bg-white/5 hover:text-white transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
-          aria-label="Previous station"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-ink-on-dark hover:bg-white/10 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+          aria-label={dataPoints['choir.player.prev_btn_label'] || 'Previous station'}
         >
-          <ChevronLeft size={16} aria-hidden="true" />
+          <ChevronLeft size={18} aria-hidden="true" />
         </button>
-        <span className="text-center text-[10px] uppercase tracking-widest text-ink-muted-on-dark">
-          Now broadcasting · {activeTrack.artist}
-        </span>
+        <div className="text-center">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-primary-on-dark block">
+            <DataPoint as="span" name="choir.player.now_broadcasting" initialData={dataPoints}>
+              Now broadcasting
+            </DataPoint>
+          </span>
+          <span className="text-xs font-semibold text-white/90">{activeArtist}</span>
+        </div>
         <button
           type="button"
           onClick={() => selectRelativeTrack(1)}
-          className="inline-flex size-11 items-center justify-center rounded-lg text-ink-muted-on-dark hover:bg-white/5 hover:text-white transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
-          aria-label="Next station"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-ink-on-dark hover:bg-white/10 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+          aria-label={dataPoints['choir.player.next_btn_label'] || 'Next station'}
         >
-          <ChevronRight size={16} aria-hidden="true" />
+          <ChevronRight size={18} aria-hidden="true" />
         </button>
       </div>
-      <p className="mb-3 text-xs italic text-ink-muted-on-dark">{activeTrack.notes}</p>
-      <div className="space-y-1.5">
-        {TRACKS.map((track) => {
+
+      <p className="mb-4 text-xs italic text-ink-muted-on-dark px-1 leading-relaxed">
+        {activeNotes}
+      </p>
+
+      {/* Preset Stations List */}
+      <div className="space-y-2">
+        <div className="text-xs font-bold uppercase tracking-wider text-ink-on-dark px-1">
+          <DataPoint as="span" name="choir.player.stations_heading" initialData={dataPoints}>
+            Community Stations & Anthems
+          </DataPoint>
+        </div>
+        {tracks.map((track, idx) => {
           const isSelected = track.id === activeTrack.id;
+          const trackTitle = track.titleKey
+            ? dataPoints[track.titleKey] || track.defaultTitle
+            : track.defaultTitle;
           return (
             <button
               key={track.id}
               type="button"
               onClick={() => selectTrack(track)}
               aria-pressed={isSelected}
-              className={`w-full min-h-11 text-left px-3.5 py-2.5 rounded-xl transition-colors duration-300 ease-out flex items-center justify-between text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
+              className={`w-full min-h-12 text-left px-4 py-3 rounded-2xl transition-all duration-300 ease-out flex items-center justify-between text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
                 isSelected
-                  ? 'bg-primary-bright/15 border border-primary-bright/40 text-white font-semibold'
-                  : // `hover:bg-white/5/50` was a malformed class that never applied.
-                    'bg-secondary/40 border border-transparent text-ink-muted-on-dark hover:text-ink-on-dark hover:bg-white/5'
+                  ? 'bg-primary-bright/20 border border-primary-bright/50 text-white font-bold shadow-raised'
+                  : 'bg-secondary/40 border border-transparent text-ink-on-dark hover:text-white hover:bg-white/5'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                <span className="font-mono text-ink-muted-on-dark text-[10px]">
-                  {track.id.split('-')[1]}
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="font-mono text-primary-on-dark text-xs font-bold shrink-0">
+                  {String(idx + 1).padStart(2, '0')}
                 </span>
-                <span>{track.title}</span>
+                <span className="truncate">{trackTitle}</span>
+                {isSelected && isPlaying && (
+                  <span className="inline-flex size-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                )}
               </div>
-              <span className="font-mono text-[10px] text-ink-muted-on-dark">{track.duration}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-mono text-[10px] text-ink-muted-on-dark">
+                  {track.duration}
+                </span>
+                <span
+                  className={`size-6 rounded-full flex items-center justify-center ${
+                    isSelected ? 'bg-primary-bright text-white' : 'bg-white/10 text-ink-on-dark'
+                  }`}
+                >
+                  {isSelected && isPlaying ? (
+                    <Pause size={10} className="fill-white" />
+                  ) : (
+                    <Play size={10} className="fill-white ml-0.5" />
+                  )}
+                </span>
+              </div>
             </button>
           );
         })}

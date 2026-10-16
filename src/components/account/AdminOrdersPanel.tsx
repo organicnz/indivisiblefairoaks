@@ -1,5 +1,6 @@
 import { ExternalLink, MapPin, Package, ShoppingBag, TrendingUp, User } from 'lucide-react';
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { CURRENCY_CODE, formatPrice } from '@/config/commerce';
 import { type AdminOrder, formatAddress, formatDate } from '@/types/orders';
 
@@ -11,7 +12,7 @@ function StatCard({
   value,
   icon: Icon,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string | number;
   icon: React.ElementType;
 }) {
@@ -51,7 +52,9 @@ function OrderCard({ order }: { order: AdminOrder }) {
         {/* Order # */}
         <div>
           <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-            Order
+            <DataPoint as="span" name="account.admin.orders_title">
+              Order
+            </DataPoint>
           </p>
           <p className="text-sm text-secondary font-black">#{order.id}</p>
           <time
@@ -71,7 +74,9 @@ function OrderCard({ order }: { order: AdminOrder }) {
         {/* Customer */}
         <div>
           <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-            Customer
+            <DataPoint as="span" name="account.admin.customer">
+              Customer
+            </DataPoint>
           </p>
           <div className="flex items-center gap-1.5">
             <User size={11} className="text-muted-foreground shrink-0" aria-hidden="true" />
@@ -83,7 +88,9 @@ function OrderCard({ order }: { order: AdminOrder }) {
         {/* Ship to */}
         <div>
           <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-            Ship To
+            <DataPoint as="span" name="account.admin.ship_to">
+              Ship To
+            </DataPoint>
           </p>
           <div className="flex items-start gap-1.5">
             <MapPin
@@ -100,7 +107,9 @@ function OrderCard({ order }: { order: AdminOrder }) {
         {/* Total */}
         <div>
           <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-            Total
+            <DataPoint as="span" name="account.admin.total">
+              Total
+            </DataPoint>
           </p>
           <p className="text-lg text-primary dark:text-primary-on-dark font-black">
             {formatPrice(order.total)}
@@ -170,17 +179,57 @@ export function AdminOrdersPanel({ orders }: { orders: AdminOrder[] }) {
     <section aria-label="All orders">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-        <StatCard label="Total Orders" value={orders.length} icon={ShoppingBag} />
-        <StatCard label="Processing" value={processing} icon={Package} />
-        <StatCard label="Completed" value={completed} icon={TrendingUp} />
-        <StatCard label="Revenue" value={formatPrice(totalRevenue)} icon={TrendingUp} />
+        <StatCard
+          label={
+            <DataPoint as="span" name="account.admin.stat_total">
+              Total Orders
+            </DataPoint>
+          }
+          value={orders.length}
+          icon={ShoppingBag}
+        />
+        <StatCard
+          label={
+            <DataPoint as="span" name="account.admin.stat_processing">
+              Processing
+            </DataPoint>
+          }
+          value={processing}
+          icon={Package}
+        />
+        <StatCard
+          label={
+            <DataPoint as="span" name="account.admin.stat_completed">
+              Completed
+            </DataPoint>
+          }
+          value={completed}
+          icon={TrendingUp}
+        />
+        <StatCard
+          label={
+            <DataPoint as="span" name="account.admin.stat_revenue">
+              Revenue
+            </DataPoint>
+          }
+          value={formatPrice(totalRevenue)}
+          icon={TrendingUp}
+        />
       </div>
 
       {/* Orders */}
       {orders.length === 0 ? (
         <EmptyState
-          message="No orders yet."
-          hint="Orders will appear here once a store is connected."
+          message={
+            <DataPoint as="span" name="account.admin.empty_msg">
+              No orders yet.
+            </DataPoint>
+          }
+          hint={
+            <DataPoint as="span" name="account.admin.empty_hint">
+              Orders will appear here once a store is connected.
+            </DataPoint>
+          }
         />
       ) : (
         <ul className="space-y-6">
@@ -195,7 +244,7 @@ export function AdminOrdersPanel({ orders }: { orders: AdminOrder[] }) {
   );
 }
 
-function EmptyState({ message, hint }: { message: string; hint?: string }) {
+function EmptyState({ message, hint }: { message: React.ReactNode; hint?: React.ReactNode }) {
   return (
     <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
       <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">

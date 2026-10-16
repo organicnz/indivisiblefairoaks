@@ -273,15 +273,20 @@ export function SacramentoRepresentativeFinder() {
               maxLength={5}
               value={zipInput}
               onChange={(e) => setZipInput(e.target.value)}
-              placeholder="Enter ZIP (e.g. 95628, 95608, 95662)"
+              placeholder={
+                dataPoints['voter.repfinder.input_placeholder'] ||
+                'Enter ZIP (e.g. 95628, 95608, 95662)'
+              }
               className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-500 text-sm font-mono focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
           <button
             type="submit"
-            className="px-6 py-3.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all shrink-0 hover:scale-[1.02]"
+            className="px-6 py-3.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all shrink-0 hover:scale-[1.02] cursor-pointer"
           >
-            Find Officials
+            <DataPoint as="span" name="voter.repfinder.btn_lookup" initialData={dataPoints}>
+              Find Officials
+            </DataPoint>
           </button>
         </form>
 
@@ -357,7 +362,13 @@ export function SacramentoRepresentativeFinder() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
             <div>
               <div className="text-xs font-mono text-accent-gold uppercase tracking-wider font-bold mb-1">
-                Civic Action Phone Script
+                <DataPoint
+                  as="span"
+                  name="voter.repfinder.call_script_heading"
+                  initialData={dataPoints}
+                >
+                  Civic Action Phone Script
+                </DataPoint>
               </div>
               <h4 className="text-base font-bold text-white">What To Say When You Call</h4>
             </div>
@@ -367,35 +378,41 @@ export function SacramentoRepresentativeFinder() {
               <button
                 type="button"
                 onClick={() => setSelectedIssue('voting')}
-                className={`px-3 py-1 rounded-lg transition-colors ${
+                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
                   selectedIssue === 'voting'
                     ? 'bg-primary-bright text-white'
                     : 'text-ink-muted-on-dark hover:text-white'
                 }`}
               >
-                Voting Rights
+                <DataPoint as="span" name="voter.repfinder.tab_voting" initialData={dataPoints}>
+                  Voting Rights
+                </DataPoint>
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedIssue('democracy')}
-                className={`px-3 py-1 rounded-lg transition-colors ${
+                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
                   selectedIssue === 'democracy'
                     ? 'bg-primary-bright text-white'
                     : 'text-ink-muted-on-dark hover:text-white'
                 }`}
               >
-                Democracy
+                <DataPoint as="span" name="voter.repfinder.tab_democracy" initialData={dataPoints}>
+                  Democracy
+                </DataPoint>
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedIssue('environment')}
-                className={`px-3 py-1 rounded-lg transition-colors ${
+                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
                   selectedIssue === 'environment'
                     ? 'bg-primary-bright text-white'
                     : 'text-ink-muted-on-dark hover:text-white'
                 }`}
               >
-                Climate
+                <DataPoint as="span" name="voter.repfinder.tab_climate" initialData={dataPoints}>
+                  Climate
+                </DataPoint>
               </button>
             </div>
           </div>
@@ -411,17 +428,21 @@ export function SacramentoRepresentativeFinder() {
             <button
               type="button"
               onClick={copyScript}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-semibold transition-all shrink-0"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-semibold transition-all shrink-0 cursor-pointer"
             >
               {copiedScript ? (
                 <>
                   <Check size={14} className="text-emerald-400" />
-                  <span>Copied!</span>
+                  <DataPoint as="span" name="voter.repfinder.copied_btn" initialData={dataPoints}>
+                    Copied!
+                  </DataPoint>
                 </>
               ) : (
                 <>
                   <Copy size={14} />
-                  <span>Copy Script</span>
+                  <DataPoint as="span" name="voter.repfinder.copy_btn" initialData={dataPoints}>
+                    Copy Script
+                  </DataPoint>
                 </>
               )}
             </button>
