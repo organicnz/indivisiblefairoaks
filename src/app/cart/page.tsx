@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { StripeExpressCheckout } from '@/components/checkout/StripeExpressCheckout';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { SHIPPING_RATES } from '@/config/commerce';
 import { buildCheckoutItems } from '@/lib/checkout-validation';
 import { MAX_ITEM_QUANTITY, useCartStore } from '@/lib/store/cart';
@@ -82,17 +83,27 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="bg-background min-h-[70vh] flex flex-col items-center justify-center px-4 py-24 text-center">
-        <h1 className="text-4xl font-black text-foreground uppercase tracking-tight mb-6">
+        <DataPoint
+          name="cart.empty.title"
+          as="h1"
+          className="text-4xl font-black text-foreground uppercase tracking-tight mb-6"
+        >
           Your Cart is Empty
-        </h1>
-        <p className="text-muted-foreground font-medium mb-10 max-w-sm">
+        </DataPoint>
+        <DataPoint
+          name="cart.empty.desc"
+          as="p"
+          className="text-muted-foreground font-medium mb-10 max-w-sm"
+        >
           Looks like you haven&apos;t added any gear yet. Let&apos;s get you equipped.
-        </p>
+        </DataPoint>
         <Link
           href="/products"
           className="inline-block bg-primary hover:bg-primary-dark text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm shadow-xl shadow-primary/20"
         >
-          Start Shopping
+          <DataPoint name="cart.empty.btn" as="span">
+            Start Shopping
+          </DataPoint>
         </Link>
       </div>
     );
@@ -102,9 +113,13 @@ export default function CartPage() {
     <div className="bg-background min-h-screen pt-(--header-h) pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col mb-10">
-          <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase">
+          <DataPoint
+            name="cart.header.title"
+            as="h1"
+            className="text-4xl font-black tracking-tighter text-foreground uppercase"
+          >
             Your Cart
-          </h1>
+          </DataPoint>
           <div className="h-1.5 w-24 bg-primary mt-3" />
         </div>
 
@@ -268,8 +283,16 @@ export default function CartPage() {
                 disabled={isLoading}
                 className="w-full bg-secondary text-white rounded-full py-5 px-6 text-sm font-black uppercase tracking-[0.2em] hover:bg-primary active:bg-primary-dark transition-colors duration-300 ease-out shadow-float flex justify-center items-center disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
-                {isLoading ? 'Processing...' : 'Proceed to Checkout'}
-                {!isLoading && <ArrowRight className="ml-3" size={20} strokeWidth={3} />}
+                {isLoading ? (
+                  'Processing...'
+                ) : (
+                  <>
+                    <DataPoint name="cart.btn.checkout" as="span">
+                      Proceed to Checkout
+                    </DataPoint>
+                    <ArrowRight className="ml-3" size={20} strokeWidth={3} />
+                  </>
+                )}
               </button>
             </div>
 
@@ -291,9 +314,13 @@ export default function CartPage() {
                   Secure Checkout Guaranteed
                 </span>
               </div>
-              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight text-center leading-relaxed">
-                2.5% of this purchase goes to NZ Sea Cleaners Charity Trust
-              </p>
+              <DataPoint
+                name="cart.notice.cause"
+                as="p"
+                className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight text-center leading-relaxed"
+              >
+                100% of proceeds fund local civic actions &amp; grassroots organizing
+              </DataPoint>
             </div>
           </section>
         </div>

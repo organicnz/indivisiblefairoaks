@@ -155,4 +155,45 @@ describe('useDataPoints and Edge API Integration', () => {
     const el = container.querySelector('[data-data-point="news.hero.headline"]');
     expect(el?.textContent).toBe('Breaking Grassroots Bulletin');
   });
+
+  it('renders store, search, wishlist, and login DataPoint tags correctly', async () => {
+    vi.spyOn(civicClient, 'getDataPoints').mockResolvedValue({
+      dataPoints: {
+        'wishlist.hero.title': 'My Wishlist',
+        'search.header.title': 'Search Results',
+        'products.sidebar.categories': 'Categories',
+        'login.gateway.secure': 'Secure Gateway',
+        'account.session.title': 'Session Control',
+      },
+      rows: [],
+    });
+
+    await act(async () => {
+      root.render(
+        <div>
+          <DataPoint name="wishlist.hero.title">Fallback</DataPoint>
+          <DataPoint name="search.header.title">Fallback</DataPoint>
+          <DataPoint name="products.sidebar.categories">Fallback</DataPoint>
+          <DataPoint name="login.gateway.secure">Fallback</DataPoint>
+          <DataPoint name="account.session.title">Fallback</DataPoint>
+        </div>
+      );
+    });
+
+    expect(container.querySelector('[data-data-point="wishlist.hero.title"]')?.textContent).toBe(
+      'My Wishlist'
+    );
+    expect(container.querySelector('[data-data-point="search.header.title"]')?.textContent).toBe(
+      'Search Results'
+    );
+    expect(
+      container.querySelector('[data-data-point="products.sidebar.categories"]')?.textContent
+    ).toBe('Categories');
+    expect(container.querySelector('[data-data-point="login.gateway.secure"]')?.textContent).toBe(
+      'Secure Gateway'
+    );
+    expect(container.querySelector('[data-data-point="account.session.title"]')?.textContent).toBe(
+      'Session Control'
+    );
+  });
 });

@@ -7,6 +7,8 @@ import { LogoutButton } from '@/components/account/LogoutButton';
 import { MfaSettings } from '@/components/account/MfaSettings';
 import { MyOrdersPanel } from '@/components/account/MyOrdersPanel';
 import { UserSettings } from '@/components/account/UserSettings';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { getDataPoints } from '@/lib/queries/civic';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 import type { AdminOrder, MyOrder } from '@/types/orders';
 
@@ -105,7 +107,7 @@ export default async function AccountPage(props: {
   const activeTab = sp.tab ?? (isAdmin ? 'admin' : 'orders');
 
   // Fetch data
-  const [allOrdersResult, myOrdersResult] = await Promise.all([
+  const [allOrdersResult, myOrdersResult, dataPoints] = await Promise.all([
     isAdmin
       ? createAdminClient().then((ac) =>
           ac
@@ -125,6 +127,7 @@ export default async function AccountPage(props: {
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [] as MyOrder[] }),
+    getDataPoints('account'),
   ]);
 
   const allOrders = (allOrdersResult.data ?? []) as AdminOrder[];
@@ -147,7 +150,9 @@ export default async function AccountPage(props: {
         <MfaSettings />
         <div className="pt-8 border-t border-slate-100">
           <h3 className="text-sm font-black text-secondary uppercase tracking-widest mb-1">
-            Session Control
+            <DataPoint name="account.session.title" initialData={dataPoints}>
+              Session Control
+            </DataPoint>
           </h3>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6">
             Signed in as <span className="text-secondary">{user.email}</span>
@@ -190,16 +195,22 @@ export default async function AccountPage(props: {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-400">
-                    Chapter Leadership
+                    <DataPoint name="account.admin_bridge.badge" initialData={dataPoints}>
+                      Chapter Leadership
+                    </DataPoint>
                   </span>
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 </div>
                 <h2 className="text-lg font-black uppercase tracking-tight text-white">
-                  Admin Control & Civic CRM
+                  <DataPoint name="account.admin_bridge.title" initialData={dataPoints}>
+                    Admin Control & Civic CRM
+                  </DataPoint>
                 </h2>
                 <p className="text-xs text-slate-400 font-medium">
-                  Manage chapter constituents, target volunteer rings, and dispatch Resend
-                  broadcasts.
+                  <DataPoint name="account.admin_bridge.desc" initialData={dataPoints}>
+                    Manage chapter constituents, target volunteer rings, and dispatch Resend
+                    broadcasts.
+                  </DataPoint>
                 </p>
               </div>
             </div>
@@ -210,14 +221,22 @@ export default async function AccountPage(props: {
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-blue-500/25 transition-all"
               >
                 <Users className="w-4 h-4" />
-                <span>Open CRM</span>
+                <span>
+                  <DataPoint name="account.admin_bridge.crm_btn" initialData={dataPoints}>
+                    Open CRM
+                  </DataPoint>
+                </span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
               <Link
                 href="/admin"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs uppercase tracking-wider border border-slate-700 transition-all"
               >
-                <span>Control Center</span>
+                <span>
+                  <DataPoint name="account.admin_bridge.control_btn" initialData={dataPoints}>
+                    Control Center
+                  </DataPoint>
+                </span>
               </Link>
             </div>
           </div>
@@ -225,7 +244,12 @@ export default async function AccountPage(props: {
 
         <div className="flex flex-col mb-10">
           <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">
-            {isAdmin ? 'Dashboard' : 'My Account'}
+            <DataPoint
+              name={isAdmin ? 'account.title.dashboard' : 'account.title.my_account'}
+              initialData={dataPoints}
+            >
+              {isAdmin ? 'Dashboard' : 'My Account'}
+            </DataPoint>
           </h1>
           <div className="h-1.5 w-24 bg-primary mt-3" />
         </div>

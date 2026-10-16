@@ -7,9 +7,11 @@ import { Suspense } from 'react';
 import { AddToCartButton } from '@/components/checkout/AddToCartButton';
 import { ProductSlider } from '@/components/products/ProductSlider';
 import { WishlistButton } from '@/components/products/WishlistButton';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { CURRENCY_CODE, SHIPPING_RATES } from '@/config/commerce';
 import { ROBOTS, SITE_NAME, siteUrl } from '@/config/site';
 import { pageMetadata } from '@/lib/metadata';
+import { getDataPoints } from '@/lib/queries/civic';
 import {
   getAllProductSlugs,
   getProductDetail,
@@ -88,7 +90,10 @@ function ProductSkeleton() {
 
 async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }> }) {
   const slug = (await params).slug;
-  const product = await getProductDetail(slug);
+  const [product, dataPoints] = await Promise.all([
+    getProductDetail(slug),
+    getDataPoints('products'),
+  ]);
 
   if (!product) {
     return notFound();
@@ -222,7 +227,9 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
               ) : (
                 <div className="bg-slate-100 flex items-center justify-center h-full rounded-3xl">
                   <span className="text-slate-300 font-black uppercase text-xs tracking-widest">
-                    No Image
+                    <DataPoint name="wishlist.item.no_image" initialData={dataPoints}>
+                      No Image
+                    </DataPoint>
                   </span>
                 </div>
               )}
@@ -260,7 +267,9 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
                       href="/products"
                       className="hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
                     >
-                      Gear
+                      <DataPoint name="product.nav.gear" initialData={dataPoints}>
+                        Gear
+                      </DataPoint>
                     </Link>
                   </li>
                   <li>
@@ -289,11 +298,15 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
                 </div>
                 {product.stock_status === 'instock' ? (
                   <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter border border-emerald-100">
-                    In Stock
+                    <DataPoint name="product.stock.in_stock" initialData={dataPoints}>
+                      In Stock
+                    </DataPoint>
                   </span>
                 ) : (
                   <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter border border-rose-100">
-                    Out of Stock
+                    <DataPoint name="product.stock.out_of_stock" initialData={dataPoints}>
+                      Out of Stock
+                    </DataPoint>
                   </span>
                 )}
               </div>
@@ -301,7 +314,9 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
 
             <div className="prose prose-slate max-w-none">
               <h3 className="text-sm font-black text-secondary uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">
-                Description
+                <DataPoint name="product.details.description_heading" initialData={dataPoints}>
+                  Description
+                </DataPoint>
               </h3>
               <div
                 className="text-base text-slate-600 dark:text-foreground leading-relaxed space-y-4"
@@ -339,18 +354,26 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
             <div className="mt-8 grid grid-cols-2 gap-4">
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center text-center">
                 <span className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">
-                  Shipping
+                  <DataPoint name="product.shipping.title" initialData={dataPoints}>
+                    Shipping &amp; Pickup
+                  </DataPoint>
                 </span>
                 <span className="text-xs text-slate-500 font-bold uppercase tracking-tight">
-                  NZ Wide Delivery
+                  <DataPoint name="product.shipping.desc" initialData={dataPoints}>
+                    Local Pickup &amp; Fast Shipping
+                  </DataPoint>
                 </span>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center text-center">
                 <span className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">
-                  Charity
+                  <DataPoint name="product.impact.title" initialData={dataPoints}>
+                    Grassroots Impact
+                  </DataPoint>
                 </span>
                 <span className="text-xs text-slate-500 font-bold uppercase tracking-tight">
-                  2.5% to Sea Cleaners
+                  <DataPoint name="product.impact.desc" initialData={dataPoints}>
+                    100% Funds Community Actions
+                  </DataPoint>
                 </span>
               </div>
             </div>
@@ -362,7 +385,9 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
           <div className="mt-32 pb-16 border-t border-slate-100 pt-24">
             <div className="flex flex-col items-center mb-16">
               <h2 className="text-4xl font-black tracking-tighter text-secondary uppercase">
-                You might also like
+                <DataPoint name="product.related.headline" initialData={dataPoints}>
+                  You might also like
+                </DataPoint>
               </h2>
               <div className="h-2 w-24 bg-primary mt-4 rounded-full" />
             </div>
