@@ -38,7 +38,7 @@ export default function SuccessPage() {
         </DataPoint>
         <Link
           href="/"
-          className="w-full inline-block py-5 px-8 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-full transition-all uppercase tracking-[0.2em] text-sm shadow-xl"
+          className="w-full inline-block py-5 px-8 bg-primary hover:bg-primary-light text-white font-black rounded-full transition-all uppercase tracking-[0.2em] text-sm shadow-xl"
         >
           <DataPoint name="success.btn.home" as="span">
             Return to Home
