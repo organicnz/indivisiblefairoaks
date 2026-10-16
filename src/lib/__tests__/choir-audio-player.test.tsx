@@ -35,8 +35,8 @@ describe('ChoirAudioPlayer (Resistance Radio)', () => {
     });
 
     expect(container.textContent).toContain('Resistance Radio');
-    expect(container.textContent).toContain('Harmonic Generator');
-    expect(container.textContent).toContain('Singing for Our Lives');
+    expect(container.textContent).toContain('Live Web Broadcast');
+    expect(container.textContent).toContain('America the Beautiful');
     expect(container.textContent).toContain('Tune from Anywhere');
   });
 
