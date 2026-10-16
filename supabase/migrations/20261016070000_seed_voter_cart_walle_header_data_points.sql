@@ -1,0 +1,42 @@
+-- Seed additional data points for voter guide cards, video spotlight, cart fallbacks, walle tooltips, and header branding
+INSERT INTO public.data_points (key, group_name, label, value, content_type)
+VALUES
+  ('cart.item.no_image', 'cart', 'Cart Item Fallback No Image', 'No Image', 'text'),
+  ('cart.shipping.view_rates', 'cart', 'Cart Shipping Rates Link', 'View Rates (From $8.00 or Free Pickup)', 'text'),
+  ('walle.tooltip.close', 'walle', 'WALL-E Close Tooltip', 'Close', 'text'),
+  ('walle.btn.close_label', 'walle', 'WALL-E Close Accessible Label', 'Close WALL-E assistant', 'text'),
+  ('voter.guides.badge', 'voter', 'Voter Guides Section Badge', 'Official Chapter Endorsements', 'text'),
+  ('voter.guide.sac_voter_guide.title', 'voter', 'Voter Guide Sacramento Card Title', 'Sacramento Voter Guide', 'text'),
+  ('voter.guide.sac_voter_guide.desc', 'voter', 'Voter Guide Sacramento Card Description', 'Official guide with recommendations on local candidates and county initiatives.', 'text'),
+  ('voter.guide.sac_voter_guide.btn', 'voter', 'Voter Guide Sacramento Card Button', 'Open Guide', 'text'),
+  ('voter.guide.ballot_recs.title', 'voter', 'Voter Guide Ballot Recs Title', 'Ballot Recommendations', 'text'),
+  ('voter.guide.ballot_recs.desc', 'voter', 'Voter Guide Ballot Recs Description', 'In-depth breakdown of state propositions and regional ballot measures.', 'text'),
+  ('voter.guide.ballot_recs.btn', 'voter', 'Voter Guide Ballot Recs Button', 'View Analysis', 'text'),
+  ('voter.guide.candidate_brief.title', 'voter', 'Voter Guide Candidate Brief Title', 'Candidate & Measure Brief', 'text'),
+  ('voter.guide.candidate_brief.desc', 'voter', 'Voter Guide Candidate Brief Description', 'Background report on judicial races, school boards, and county supervisors.', 'text'),
+  ('voter.guide.candidate_brief.btn', 'voter', 'Voter Guide Candidate Brief Button', 'Download Brief', 'text'),
+  ('voter.guide.voter_doc.title', 'voter', 'Voter Guide Document Title', 'Voter Information Doc', 'text'),
+  ('voter.guide.voter_doc.desc', 'voter', 'Voter Guide Document Description', 'Full reference document on deadlines, polling sites, and voter rights.', 'text'),
+  ('voter.guide.voter_doc.btn', 'voter', 'Voter Guide Document Button', 'Read Document', 'text'),
+  ('voter.spotlight.badge', 'voter', 'Voter Video Spotlight Badge', 'Educational Video Spotlight', 'text'),
+  ('voter.spotlight.title', 'voter', 'Voter Video Spotlight Title', 'Understanding the SAVE America Act (H.R. 8281 / H.R. 7296)', 'text'),
+  ('voter.spotlight.desc', 'voter', 'Voter Video Spotlight Description', 'Watch this concise legal overview explaining the proposed Safeguard American Voter Eligibility (SAVE) Act. Learn how strict documentary proof-of-citizenship mandates impact eligible registered voters—including millions of married women whose legal names differ from their birth certificates, students, rural citizens, and seniors.', 'text'),
+  ('voter.spotlight.author', 'voter', 'Voter Video Spotlight Author', 'Analysis by Lawyer Oyer', 'text'),
+  ('voter.spotlight.link', 'voter', 'Voter Video Spotlight Link Text', 'Brennan Center Analysis', 'text'),
+  ('voter.guide1.btn', 'voter', 'Voter Guide 1 Button', 'Download Directory PDF', 'text'),
+  ('voter.guide2.btn', 'voter', 'Voter Guide 2 Button', 'Pre-Register Online', 'text'),
+  ('voter.guide3.btn', 'voter', 'Voter Guide 3 Button', 'CA Secretary of State Guide', 'text'),
+  ('voter.guide4.btn', 'voter', 'Voter Guide 4 Button', 'Unhoused Voter Procedures', 'text'),
+  ('voter.repfinder.selected_community', 'voter', 'Rep Finder Selected Community Label', 'Selected Community:', 'text'),
+  ('voter.repfinder.what_to_say', 'voter', 'Rep Finder Script Title', 'What To Say When You Call', 'text'),
+  ('voter.repfinder.tip_text', 'voter', 'Rep Finder Staffer Tip', '💡 Staffers tally calls by topic daily. 2 minutes makes a measurable difference!', 'text'),
+  ('header.logo.title', 'header', 'Header Logo Primary Title', 'Indivisible', 'text'),
+  ('header.logo.subtitle', 'header', 'Header Logo Subtitle', 'Fair Oaks & Carmichael', 'text'),
+  ('header.drawer.inquiries_label', 'header', 'Header Drawer Inquiries Label', 'Inquiries:', 'text')
+ON CONFLICT (key) DO UPDATE
+SET
+  value = EXCLUDED.value,
+  label = EXCLUDED.label,
+  group_name = EXCLUDED.group_name,
+  content_type = EXCLUDED.content_type,
+  updated_at = NOW();
