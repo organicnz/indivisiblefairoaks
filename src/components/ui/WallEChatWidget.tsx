@@ -246,7 +246,11 @@ export function WallEChatWidget() {
         <Dialog.Trigger asChild>
           <button
             type="button"
-            aria-label={open ? 'Close WALL-E assistant' : 'Open WALL-E assistant'}
+            aria-label={
+              open
+                ? dataPoints['walle.btn.close_label'] || 'Close WALL-E assistant'
+                : dataPoints['walle.launcher_label'] || 'Open WALL-E assistant'
+            }
             className="group relative ml-auto flex size-16 items-center justify-center rounded-full bg-primary dark:bg-primary-bright shadow-float shadow-primary/30 ring-4 ring-white/90 dark:ring-white/20 transition-all duration-300 ease-out hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             {open ? (
@@ -264,9 +268,15 @@ export function WallEChatWidget() {
             )}
             {/* Tooltip is now also driven by focus, not hover only. */}
             <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full bg-secondary dark:bg-slate-800 border border-white/10 px-3 py-1.5 text-xs font-bold text-white dark:text-slate-100 opacity-0 shadow-lg transition-opacity duration-300 ease-out group-hover:opacity-100 group-focus-visible:opacity-100">
-              <DataPoint as="span" name="walle.tooltip" initialData={dataPoints}>
-                {open ? 'Close' : 'Ask WALL-E'}
-              </DataPoint>
+              {open ? (
+                <DataPoint as="span" name="walle.tooltip.close" initialData={dataPoints}>
+                  Close
+                </DataPoint>
+              ) : (
+                <DataPoint as="span" name="walle.tooltip" initialData={dataPoints}>
+                  Ask WALL-E
+                </DataPoint>
+              )}
             </span>
           </button>
         </Dialog.Trigger>

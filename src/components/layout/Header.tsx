@@ -139,10 +139,14 @@ function HeaderInner() {
               </div>
               <div>
                 <span className="text-white font-black text-base sm:text-lg tracking-tight uppercase group-hover:text-white transition-colors duration-300 ease-out block leading-tight">
-                  Indivisible
+                  <DataPoint name="header.logo.title" initialData={dataPoints}>
+                    Indivisible
+                  </DataPoint>
                 </span>
                 <span className="text-ink-muted-on-dark text-[11px] sm:text-xs font-semibold tracking-wider uppercase block leading-tight">
-                  Fair Oaks &amp; Carmichael
+                  <DataPoint name="header.logo.subtitle" initialData={dataPoints}>
+                    Fair Oaks &amp; Carmichael
+                  </DataPoint>
                 </span>
               </div>
             </Link>
@@ -284,10 +288,14 @@ function HeaderInner() {
                 </div>
                 <div>
                   <span className="text-white font-black text-base uppercase block leading-tight">
-                    Indivisible
+                    <DataPoint name="header.logo.title" initialData={dataPoints}>
+                      Indivisible
+                    </DataPoint>
                   </span>
                   <span className="text-ink-muted-on-dark text-xs font-semibold uppercase block leading-tight">
-                    Fair Oaks &amp; Carmichael
+                    <DataPoint name="header.logo.subtitle" initialData={dataPoints}>
+                      Fair Oaks &amp; Carmichael
+                    </DataPoint>
                   </span>
                 </div>
               </Link>
@@ -397,7 +405,13 @@ function HeaderInner() {
               </Link>
               <div className="text-xs text-ink-muted-on-dark text-center space-y-1">
                 <p>
-                  Inquiries:{' '}
+                  <DataPoint
+                    name="header.drawer.inquiries_label"
+                    as="span"
+                    initialData={dataPoints}
+                  >
+                    Inquiries:
+                  </DataPoint>{' '}
                   <a
                     href={`mailto:${SITE_CONTACT.email}`}
                     className={`text-ink-on-dark hover:text-white hover:underline rounded-sm ${FOCUS_RING}`}

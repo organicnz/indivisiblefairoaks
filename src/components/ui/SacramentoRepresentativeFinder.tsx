@@ -293,9 +293,14 @@ export function SacramentoRepresentativeFinder() {
         {/* Current District Header */}
         <div className="p-4 rounded-2xl bg-secondary border border-white/10 mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <div className="text-xs font-mono text-accent-gold uppercase tracking-wide">
+            <DataPoint
+              name="voter.repfinder.selected_community"
+              as="div"
+              initialData={dataPoints}
+              className="text-xs font-mono text-accent-gold uppercase tracking-wide"
+            >
               Selected Community:
-            </div>
+            </DataPoint>
             <div className="text-lg font-bold text-white">
               {activeDistrict.city}, CA ({activeDistrict.zip})
             </div>
@@ -370,7 +375,14 @@ export function SacramentoRepresentativeFinder() {
                   Civic Action Phone Script
                 </DataPoint>
               </div>
-              <h4 className="text-base font-bold text-white">What To Say When You Call</h4>
+              <DataPoint
+                name="voter.repfinder.what_to_say"
+                as="h4"
+                initialData={dataPoints}
+                className="text-base font-bold text-white"
+              >
+                What To Say When You Call
+              </DataPoint>
             </div>
 
             {/* Issue Selector Tabs */}
@@ -422,9 +434,14 @@ export function SacramentoRepresentativeFinder() {
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-muted-on-dark">
+            <DataPoint
+              name="voter.repfinder.tip_text"
+              as="span"
+              initialData={dataPoints}
+              className="text-xs text-ink-muted-on-dark"
+            >
               💡 Staffers tally calls by topic daily. 2 minutes makes a measurable difference!
-            </span>
+            </DataPoint>
             <button
               type="button"
               onClick={copyScript}

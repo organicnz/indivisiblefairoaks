@@ -168,7 +168,9 @@ export default function VoterInfoPage() {
                 <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/20 border border-accent-gold/30 text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
                     <Vote size={13} />
-                    <span>Official Chapter Endorsements</span>
+                    <DataPoint name="voter.guides.badge" as="span">
+                      Official Chapter Endorsements
+                    </DataPoint>
                   </div>
                   <DataPoint
                     as="h2"
@@ -200,16 +202,26 @@ export default function VoterInfoPage() {
                       <div className="size-9 rounded-xl bg-primary-bright/20 text-primary-on-dark flex items-center justify-center group-hover:scale-105 transition-transform">
                         <Vote size={18} />
                       </div>
-                      <h3 className="font-bold text-sm text-white leading-snug">
+                      <DataPoint
+                        name="voter.guide.sac_voter_guide.title"
+                        as="h3"
+                        className="font-bold text-sm text-white leading-snug"
+                      >
                         Sacramento Voter Guide
-                      </h3>
-                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                      </DataPoint>
+                      <DataPoint
+                        name="voter.guide.sac_voter_guide.desc"
+                        as="p"
+                        className="text-xs text-ink-muted-on-dark leading-relaxed"
+                      >
                         Official guide with recommendations on local candidates and county
                         initiatives.
-                      </p>
+                      </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
-                      <span>Open Guide</span>
+                      <DataPoint name="voter.guide.sac_voter_guide.btn" as="span">
+                        Open Guide
+                      </DataPoint>
                       <ExternalLink size={13} />
                     </div>
                   </a>
@@ -225,15 +237,25 @@ export default function VoterInfoPage() {
                       <div className="size-9 rounded-xl bg-accent-gold/20 text-accent-gold flex items-center justify-center group-hover:scale-105 transition-transform">
                         <CheckCircle2 size={18} />
                       </div>
-                      <h3 className="font-bold text-sm text-white leading-snug">
+                      <DataPoint
+                        name="voter.guide.ballot_recs.title"
+                        as="h3"
+                        className="font-bold text-sm text-white leading-snug"
+                      >
                         Ballot Recommendations
-                      </h3>
-                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                      </DataPoint>
+                      <DataPoint
+                        name="voter.guide.ballot_recs.desc"
+                        as="p"
+                        className="text-xs text-ink-muted-on-dark leading-relaxed"
+                      >
                         In-depth breakdown of state propositions and regional ballot measures.
-                      </p>
+                      </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
-                      <span>View Analysis</span>
+                      <DataPoint name="voter.guide.ballot_recs.btn" as="span">
+                        View Analysis
+                      </DataPoint>
                       <ExternalLink size={13} />
                     </div>
                   </a>
@@ -249,15 +271,25 @@ export default function VoterInfoPage() {
                       <div className="size-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
                         <FileDown size={18} />
                       </div>
-                      <h3 className="font-bold text-sm text-white leading-snug">
+                      <DataPoint
+                        name="voter.guide.candidate_brief.title"
+                        as="h3"
+                        className="font-bold text-sm text-white leading-snug"
+                      >
                         Candidate &amp; Measure Brief
-                      </h3>
-                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                      </DataPoint>
+                      <DataPoint
+                        name="voter.guide.candidate_brief.desc"
+                        as="p"
+                        className="text-xs text-ink-muted-on-dark leading-relaxed"
+                      >
                         Background report on judicial races, school boards, and county supervisors.
-                      </p>
+                      </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
-                      <span>Download Brief</span>
+                      <DataPoint name="voter.guide.candidate_brief.btn" as="span">
+                        Download Brief
+                      </DataPoint>
                       <ExternalLink size={13} />
                     </div>
                   </a>
@@ -273,15 +305,25 @@ export default function VoterInfoPage() {
                       <div className="size-9 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center group-hover:scale-105 transition-transform">
                         <HelpCircle size={18} />
                       </div>
-                      <h3 className="font-bold text-sm text-white leading-snug">
+                      <DataPoint
+                        name="voter.guide.voter_doc.title"
+                        as="h3"
+                        className="font-bold text-sm text-white leading-snug"
+                      >
                         Voter Information Doc
-                      </h3>
-                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                      </DataPoint>
+                      <DataPoint
+                        name="voter.guide.voter_doc.desc"
+                        as="p"
+                        className="text-xs text-ink-muted-on-dark leading-relaxed"
+                      >
                         Full reference document on deadlines, polling sites, and voter rights.
-                      </p>
+                      </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
-                      <span>Read Document</span>
+                      <DataPoint name="voter.guide.voter_doc.btn" as="span">
+                        Read Document
+                      </DataPoint>
                       <ExternalLink size={13} />
                     </div>
                   </a>
@@ -301,27 +343,45 @@ export default function VoterInfoPage() {
                     </div>
                     <div className="space-y-3">
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-gold/15 text-accent-gold text-[11px] font-bold uppercase tracking-wider">
-                        Educational Video Spotlight
+                        <DataPoint name="voter.spotlight.badge" as="span">
+                          Educational Video Spotlight
+                        </DataPoint>
                       </div>
-                      <h4 className="text-base sm:text-lg font-bold text-white leading-snug">
+                      <DataPoint
+                        name="voter.spotlight.title"
+                        as="h4"
+                        className="text-base sm:text-lg font-bold text-white leading-snug"
+                      >
                         Understanding the SAVE America Act (H.R. 8281 / H.R. 7296)
-                      </h4>
-                      <p className="text-xs text-ink-muted-on-dark leading-relaxed">
+                      </DataPoint>
+                      <DataPoint
+                        name="voter.spotlight.desc"
+                        as="p"
+                        className="text-xs text-ink-muted-on-dark leading-relaxed"
+                      >
                         Watch this concise legal overview explaining the proposed Safeguard American
                         Voter Eligibility (SAVE) Act. Learn how strict documentary
                         proof-of-citizenship mandates impact eligible registered voters—including
                         millions of married women whose legal names differ from their birth
                         certificates, students, rural citizens, and seniors.
-                      </p>
+                      </DataPoint>
                       <div className="pt-1 flex items-center gap-4 text-xs">
-                        <span className="text-ink-muted-on-dark">Analysis by Lawyer Oyer</span>
+                        <DataPoint
+                          name="voter.spotlight.author"
+                          as="span"
+                          className="text-ink-muted-on-dark"
+                        >
+                          Analysis by Lawyer Oyer
+                        </DataPoint>
                         <a
                           href="https://www.brennancenter.org/our-work/research-reports/save-act-voter-suppression"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-primary-on-dark hover:underline inline-flex items-center gap-1 font-semibold"
                         >
-                          <span>Brennan Center Analysis</span>
+                          <DataPoint name="voter.spotlight.link" as="span">
+                            Brennan Center Analysis
+                          </DataPoint>
                           <ExternalLink size={11} />
                         </a>
                       </div>
@@ -369,7 +429,9 @@ export default function VoterInfoPage() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <FileDown size={14} />
-                    <span>Download Directory PDF</span>
+                    <DataPoint name="voter.guide1.btn" as="span">
+                      Download Directory PDF
+                    </DataPoint>
                   </a>
                 </div>
               </div>
@@ -403,7 +465,9 @@ export default function VoterInfoPage() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <ExternalLink size={14} />
-                    <span>Pre-Register Online</span>
+                    <DataPoint name="voter.guide2.btn" as="span">
+                      Pre-Register Online
+                    </DataPoint>
                   </a>
                 </div>
               </div>
@@ -437,7 +501,9 @@ export default function VoterInfoPage() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <ExternalLink size={14} />
-                    <span>CA Secretary of State Guide</span>
+                    <DataPoint name="voter.guide3.btn" as="span">
+                      CA Secretary of State Guide
+                    </DataPoint>
                   </a>
                 </div>
               </div>
@@ -471,7 +537,9 @@ export default function VoterInfoPage() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <ExternalLink size={14} />
-                    <span>Unhoused Voter Procedures</span>
+                    <DataPoint name="voter.guide4.btn" as="span">
+                      Unhoused Voter Procedures
+                    </DataPoint>
                   </a>
                 </div>
               </div>

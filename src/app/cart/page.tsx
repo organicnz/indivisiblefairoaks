@@ -140,7 +140,7 @@ export default function CartPage() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground font-black uppercase tracking-widest text-[10px]">
-                          No Image
+                          <DataPoint name="cart.item.no_image">No Image</DataPoint>
                         </div>
                       )}
                     </div>
@@ -260,9 +260,11 @@ export default function CartPage() {
                     href="/shipping-returns"
                     className="text-[10px] text-muted-foreground font-medium underline hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors mt-1 inline-block"
                   >
-                    View Rates (From{' '}
-                    {SHIPPING_RATES.find((r) => r.id === 'standard')?.displayPrice || '$8.00'} or
-                    Free Pickup)
+                    <DataPoint name="cart.shipping.view_rates" as="span">
+                      View Rates (From{' '}
+                      {SHIPPING_RATES.find((r) => r.id === 'standard')?.displayPrice || '$8.00'} or
+                      Free Pickup)
+                    </DataPoint>
                   </Link>
                 </dd>
               </div>
