@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { DataPoint } from '@/components/ui/DataPoint';
 import { getGalleryPhotos } from '@/lib/queries/content-client';
 import type { GalleryPhotoView } from '@/types/gallery';
 
@@ -26,8 +27,10 @@ interface PreviewPhoto {
 
 export function HomeGalleryPreview({
   photos: initialPhotos,
+  dataPoints,
 }: {
   photos?: GalleryPhotoView[];
+  dataPoints?: Record<string, string>;
 } = {}) {
   const [selectedFilter, setSelectedFilter] = useState<string>('All');
   const [previewPhotos, setPreviewPhotos] = useState<PreviewPhoto[]>(() => {
@@ -85,23 +88,37 @@ export function HomeGalleryPreview({
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-3">
               <Camera size={14} className="text-accent-gold" />
-              <span>Photojournalism In Action</span>
+              <DataPoint name="home.gallery.eyebrow" initialData={dataPoints}>
+                Photojournalism In Action
+              </DataPoint>
             </div>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight">
+            <DataPoint
+              name="home.gallery.headline"
+              as="h2"
+              initialData={dataPoints}
+              className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight"
+            >
               Moments of Peaceful Resistance
-            </h2>
-            <p className="text-sm sm:text-base text-ink-on-dark mt-2 max-w-2xl leading-relaxed">
+            </DataPoint>
+            <DataPoint
+              name="home.gallery.intro"
+              as="p"
+              initialData={dataPoints}
+              className="text-sm sm:text-base text-ink-on-dark mt-2 max-w-2xl leading-relaxed"
+            >
               Snapshots of our neighbors gathering, singing, holding signs, and speaking truth to
               power across Sacramento County. Strictly 100% grassroots — zero politicians, zero
               corporate branding.
-            </p>
+            </DataPoint>
           </div>
 
           <Link
             href="/gallery"
             className="inline-flex items-center gap-2 text-sm font-bold text-accent-gold hover:text-accent-gold transition-colors uppercase tracking-wider group shrink-0"
           >
-            <span>Explore Full Gallery</span>
+            <DataPoint name="home.gallery.btn_view_all" as="span" initialData={dataPoints}>
+              Explore Full Gallery
+            </DataPoint>
             <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>

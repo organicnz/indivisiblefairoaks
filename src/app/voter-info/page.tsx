@@ -65,13 +65,21 @@ export default function VoterInfoPage() {
               <div className="w-12 h-12 rounded-xl bg-primary-bright flex items-center justify-center text-white mb-4 group-hover:scale-105 transition-transform">
                 <Vote size={24} />
               </div>
-              <h2 className="text-xl font-bold text-foreground dark:text-white mb-2">
+              <DataPoint
+                name="voter.action.register_title"
+                as="h2"
+                className="text-xl font-bold text-foreground dark:text-white mb-2"
+              >
                 Register to Vote Online
-              </h2>
-              <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+              </DataPoint>
+              <DataPoint
+                name="voter.action.register_desc"
+                as="p"
+                className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+              >
                 Register or update your address and party affiliation through the California
                 Secretary of State portal.
-              </p>
+              </DataPoint>
             </div>
             <div className="pt-6 flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-accent-gold">
               <span>registertovote.ca.gov</span>
@@ -89,13 +97,21 @@ export default function VoterInfoPage() {
               <div className="w-12 h-12 rounded-xl bg-accent-gold/20 text-accent dark:text-accent-gold flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
                 <Search size={24} />
               </div>
-              <h2 className="text-xl font-bold text-foreground dark:text-white mb-2">
+              <DataPoint
+                name="voter.action.track_title"
+                as="h2"
+                className="text-xl font-bold text-foreground dark:text-white mb-2"
+              >
                 Track Your Ballot
-              </h2>
-              <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+              </DataPoint>
+              <DataPoint
+                name="voter.action.track_desc"
+                as="p"
+                className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+              >
                 Sign up for &ldquo;Where&apos;s My Ballot?&rdquo; to receive automatic text and
                 email updates when your mail-in ballot is received and counted.
-              </p>
+              </DataPoint>
             </div>
             <div className="pt-6 flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-accent-gold">
               <span>wheresmyballot.sos.ca.gov</span>
@@ -113,13 +129,21 @@ export default function VoterInfoPage() {
               <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
                 <CheckCircle2 size={24} />
               </div>
-              <h2 className="text-xl font-bold text-foreground dark:text-white mb-2">
+              <DataPoint
+                name="voter.action.elections_title"
+                as="h2"
+                className="text-xl font-bold text-foreground dark:text-white mb-2"
+              >
                 Sacramento Elections
-              </h2>
-              <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+              </DataPoint>
+              <DataPoint
+                name="voter.action.elections_desc"
+                as="p"
+                className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+              >
                 Official Sacramento County Voter Registration & Elections Division: find Vote Center
                 locations and drop boxes.
-              </p>
+              </DataPoint>
             </div>
             <div className="pt-6 flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
               <span>elections.saccounty.gov</span>
@@ -307,9 +331,13 @@ export default function VoterInfoPage() {
               </div>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight mb-6">
+            <DataPoint
+              name="voter.guides_section.title"
+              as="h2"
+              className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight mb-6"
+            >
               Voter Rights &amp; Educational Guides
-            </h2>
+            </DataPoint>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Guide 1: Elected Officials */}
@@ -317,14 +345,22 @@ export default function VoterInfoPage() {
                 <div className="w-10 h-10 rounded-lg bg-primary-bright/20 text-primary-ink dark:text-primary-on-dark-muted flex items-center justify-center">
                   <UserCheck size={20} />
                 </div>
-                <h3 className="text-xl font-bold text-foreground dark:text-white">
+                <DataPoint
+                  name="voter.guide1.title"
+                  as="h3"
+                  className="text-xl font-bold text-foreground dark:text-white"
+                >
                   Who Represents You?
-                </h3>
-                <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                </DataPoint>
+                <DataPoint
+                  name="voter.guide1.desc"
+                  as="p"
+                  className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+                >
                   A complete directory of elected officials serving Fair Oaks, Carmichael, and
                   Sacramento County at the local, county, state, and federal levels, including
                   contact telephone numbers and district offices.
-                </p>
+                </DataPoint>
                 <div className="pt-2">
                   <a
                     href="https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L"
@@ -343,14 +379,22 @@ export default function VoterInfoPage() {
                 <div className="w-10 h-10 rounded-lg bg-accent-gold/20 text-accent dark:text-accent-gold flex items-center justify-center">
                   <Vote size={20} />
                 </div>
-                <h3 className="text-xl font-bold text-foreground dark:text-white">
+                <DataPoint
+                  name="voter.guide2.title"
+                  as="h3"
+                  className="text-xl font-bold text-foreground dark:text-white"
+                >
                   Pre-Register at 16, Vote at 18
-                </h3>
-                <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                </DataPoint>
+                <DataPoint
+                  name="voter.guide2.desc"
+                  as="p"
+                  className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+                >
                   California youth age 16 and 17 can pre-register online now. When you turn 18, you
                   will automatically be registered to cast your ballot in all elections. Spread the
                   word in local high schools and community colleges!
-                </p>
+                </DataPoint>
                 <div className="pt-2">
                   <a
                     href="https://registertovote.ca.gov"
@@ -369,14 +413,22 @@ export default function VoterInfoPage() {
                 <div className="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                   <Shield size={20} />
                 </div>
-                <h3 className="text-xl font-bold text-foreground dark:text-white">
+                <DataPoint
+                  name="voter.guide3.title"
+                  as="h3"
+                  className="text-xl font-bold text-foreground dark:text-white"
+                >
                   Voting Rights Restoration
-                </h3>
-                <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                </DataPoint>
+                <DataPoint
+                  name="voter.guide3.desc"
+                  as="p"
+                  className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+                >
                   In California, under Proposition 17, your right to vote is automatically restored
                   immediately upon release from prison. If you are on parole, probation, or in
                   county jail, you have the right to register and vote!
-                </p>
+                </DataPoint>
                 <div className="pt-2">
                   <a
                     href="https://www.sos.ca.gov/elections/voting-resources/voting-california/who-can-vote-california/voting-rights-californians-criminal-history"
@@ -395,14 +447,22 @@ export default function VoterInfoPage() {
                 <div className="w-10 h-10 rounded-lg bg-primary-bright/20 text-primary-ink dark:text-primary-on-dark-muted flex items-center justify-center">
                   <HelpCircle size={20} />
                 </div>
-                <h3 className="text-xl font-bold text-foreground dark:text-white">
+                <DataPoint
+                  name="voter.guide4.title"
+                  as="h3"
+                  className="text-xl font-bold text-foreground dark:text-white"
+                >
                   Homeless is NOT Voteless
-                </h3>
-                <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+                </DataPoint>
+                <DataPoint
+                  name="voter.guide4.desc"
+                  as="p"
+                  className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+                >
                   You do not need a permanent home to vote. California law allows unhoused
                   individuals to list cross-streets, a park, or a shelter as their residential
                   description, and receive mail at a P.O. box or shelter address.
-                </p>
+                </DataPoint>
                 <div className="pt-2">
                   <a
                     href="https://www.sos.ca.gov/elections/voting-resources/voting-california/homeless"
@@ -426,20 +486,34 @@ export default function VoterInfoPage() {
         >
           <h2 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
             <Phone className="text-accent dark:text-accent-gold" />
-            <span>Sacramento County Elections & Voter Hotlines</span>
+            <DataPoint as="span" name="voter.hotlines.headline">
+              Sacramento County Elections & Voter Hotlines
+            </DataPoint>
           </h2>
           <CopyRegion id="voter-hotlines">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark">
               <div className="space-y-2">
-                <strong className="text-foreground dark:text-white block text-base">
+                <DataPoint
+                  name="voter.hotlines.office_title"
+                  as="strong"
+                  className="text-foreground dark:text-white block text-base"
+                >
                   Sacramento County Elections Office
-                </strong>
-                <p>7000 65th Street, Suite A, Sacramento, CA 95823</p>
+                </DataPoint>
+                <DataPoint name="voter.hotlines.office_address" as="p">
+                  7000 65th Street, Suite A, Sacramento, CA 95823
+                </DataPoint>
                 <p>
-                  <strong>Phone:</strong> (916) 875-6451
+                  <strong>Phone:</strong>{' '}
+                  <DataPoint name="voter.hotlines.office_phone" as="span">
+                    (916) 875-6451
+                  </DataPoint>
                 </p>
                 <p>
-                  <strong>Toll-Free:</strong> 1-800-762-8019
+                  <strong>Toll-Free:</strong>{' '}
+                  <DataPoint name="voter.hotlines.office_tollfree" as="span">
+                    1-800-762-8019
+                  </DataPoint>
                 </p>
                 <p>
                   <strong>Email:</strong>{' '}
@@ -447,24 +521,41 @@ export default function VoterInfoPage() {
                     href="mailto:voterinfo@saccounty.gov"
                     className="text-primary-ink dark:text-primary-on-dark-muted hover:underline"
                   >
-                    voterinfo@saccounty.gov
+                    <DataPoint name="voter.hotlines.office_email" as="span">
+                      voterinfo@saccounty.gov
+                    </DataPoint>
                   </a>
                 </p>
               </div>
 
               <div className="space-y-2">
-                <strong className="text-foreground dark:text-white block text-base">
+                <DataPoint
+                  name="voter.hotlines.national_title"
+                  as="strong"
+                  className="text-foreground dark:text-white block text-base"
+                >
                   Nonpartisan Election Protection Hotlines
-                </strong>
-                <p>If you encounter issues voting, call the national nonpartisan hotlines:</p>
+                </DataPoint>
+                <DataPoint name="voter.hotlines.national_desc" as="p">
+                  If you encounter issues voting, call the national nonpartisan hotlines:
+                </DataPoint>
                 <p>
-                  <strong>English:</strong> 1-866-OUR-VOTE (1-866-687-8683)
+                  <strong>English:</strong>{' '}
+                  <DataPoint name="voter.hotlines.english" as="span">
+                    1-866-OUR-VOTE (1-866-687-8683)
+                  </DataPoint>
                 </p>
                 <p>
-                  <strong>Spanish:</strong> 1-888-VE-Y-VOTA (1-888-839-8682)
+                  <strong>Spanish:</strong>{' '}
+                  <DataPoint name="voter.hotlines.spanish" as="span">
+                    1-888-VE-Y-VOTA (1-888-839-8682)
+                  </DataPoint>
                 </p>
                 <p>
-                  <strong>Asian Languages:</strong> 1-888-API-VOTE (1-888-274-8683)
+                  <strong>Asian Languages:</strong>{' '}
+                  <DataPoint name="voter.hotlines.asian_languages" as="span">
+                    1-888-API-VOTE (1-888-274-8683)
+                  </DataPoint>
                 </p>
               </div>
             </div>

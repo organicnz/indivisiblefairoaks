@@ -1,77 +1,112 @@
-export default function PrivacyPage() {
+import { DataPoint } from '@/components/ui/DataPoint';
+import { getDataPoints } from '@/lib/queries/civic';
+
+export default async function PrivacyPage() {
+  const dataPoints = await getDataPoints('privacy');
+
   return (
     <div className="bg-white min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-black text-secondary uppercase tracking-tight mb-8">
+        <DataPoint
+          name="privacy.hero.title"
+          as="h1"
+          initialData={dataPoints}
+          className="text-4xl font-black text-secondary uppercase tracking-tight mb-8"
+        >
           Privacy Policy
-        </h1>
+        </DataPoint>
         <div className="h-1.5 w-24 bg-primary mb-12" />
 
         <div className="prose prose-slate max-w-none space-y-8 text-slate-600 font-medium leading-relaxed">
-          <p>
+          <DataPoint name="privacy.body.intro" as="p" initialData={dataPoints}>
             At Indivisible Fair Oaks-Carmichael, we recognise your right to confidentiality and are
             committed to protecting your privacy. Our website address is:
             https://indivisiblefairoaks.org.
-          </p>
+          </DataPoint>
 
           <section>
-            <h2 className="text-xl font-black text-secondary uppercase tracking-wider mb-4">
+            <DataPoint
+              name="privacy.collect.title"
+              as="h2"
+              initialData={dataPoints}
+              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+            >
               What data we collect
-            </h2>
-            <p>
+            </DataPoint>
+            <DataPoint name="privacy.collect.body" as="p" initialData={dataPoints}>
               When visitors leave comments or place orders, we collect the data provided in the
               forms, and also the visitor&apos;s IP address and browser user agent string to help
               spam detection.
-            </p>
+            </DataPoint>
           </section>
 
           <section>
-            <h2 className="text-xl font-black text-secondary uppercase tracking-wider mb-4">
+            <DataPoint
+              name="privacy.cookies.title"
+              as="h2"
+              initialData={dataPoints}
+              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+            >
               Cookies
-            </h2>
-            <p>
+            </DataPoint>
+            <DataPoint name="privacy.cookies.body1" as="p" initialData={dataPoints}>
               If you leave a comment on our site you may opt-in to saving your name, email address
               and website in cookies. These are for your convenience so that you do not have to fill
               in your details again.
-            </p>
-            <p>
+            </DataPoint>
+            <DataPoint name="privacy.cookies.body2" as="p" initialData={dataPoints}>
               When you log in, we will also set up several cookies to save your login information
               and your screen display choices. Login cookies last for two days, and screen options
               cookies last for a year.
-            </p>
+            </DataPoint>
           </section>
 
           <section>
-            <h2 className="text-xl font-black text-secondary uppercase tracking-wider mb-4">
+            <DataPoint
+              name="privacy.embedded.title"
+              as="h2"
+              initialData={dataPoints}
+              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+            >
               Embedded content
-            </h2>
-            <p>
+            </DataPoint>
+            <DataPoint name="privacy.embedded.body" as="p" initialData={dataPoints}>
               Articles on this site may include embedded content (e.g. videos, images, articles,
               etc.). Embedded content from other websites behaves in the exact same way as if the
               visitor has visited the other website.
-            </p>
+            </DataPoint>
           </section>
 
           <section>
-            <h2 className="text-xl font-black text-secondary uppercase tracking-wider mb-4">
+            <DataPoint
+              name="privacy.retain.title"
+              as="h2"
+              initialData={dataPoints}
+              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+            >
               How long we retain your data
-            </h2>
-            <p>
+            </DataPoint>
+            <DataPoint name="privacy.retain.body" as="p" initialData={dataPoints}>
               If you leave a comment, the comment and its metadata are retained indefinitely. For
               users that register on our website, we also store the personal information they
               provide in their user profile.
-            </p>
+            </DataPoint>
           </section>
 
           <section>
-            <h2 className="text-xl font-black text-secondary uppercase tracking-wider mb-4">
+            <DataPoint
+              name="privacy.security.title"
+              as="h2"
+              initialData={dataPoints}
+              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+            >
               Security
-            </h2>
-            <p>
-              We use a secure server for credit card transactions to ensure absolute
-              confidentiality. Under no circumstances is your credit card information used for
-              anything other than orders.
-            </p>
+            </DataPoint>
+            <DataPoint name="privacy.security.body" as="p" initialData={dataPoints}>
+              We use a secure server for transactions to ensure absolute confidentiality. Under no
+              circumstances is your information used for anything other than our grassroots
+              organizing and communications.
+            </DataPoint>
           </section>
         </div>
       </div>

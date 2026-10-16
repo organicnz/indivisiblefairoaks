@@ -21,6 +21,7 @@ import { HomeGalleryPreview } from '@/components/home/HomeGalleryPreview';
 import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
 import type { TickerItem } from '@/components/ui/CivicActionTicker';
 import { CivicActionTicker } from '@/components/ui/CivicActionTicker';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicAtmosphere } from '@/components/ui/VgpuCivicAtmosphere';
 import { gatheringCard, selectMeetingEvent } from '@/lib/civic-events';
 import { getDataPoints, getEvents, getGalleryPhotos } from '@/lib/queries/civic';
@@ -88,46 +89,41 @@ export default async function HomePage() {
                 the visual editor; the JSX below is the fallback until they do. */}
             <CopyRegion id="home-hero">
               <div className="max-w-full md:max-w-2xl lg:max-w-3xl">
-                <div
-                  data-data-point="home.hero.eyebrow"
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/15 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-md"
-                >
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/15 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-md">
                   <Sparkles size={14} className="text-accent-gold" />
-                  <span>
-                    {dataPoints['home.hero.eyebrow'] || 'Sacramento County Grassroots Action'}
-                  </span>
+                  <DataPoint name="home.hero.eyebrow" initialData={dataPoints}>
+                    Sacramento County Grassroots Action
+                  </DataPoint>
                 </div>
 
-                <h1
-                  data-data-point="home.hero.headline"
+                <DataPoint
+                  name="home.hero.headline"
+                  as="h1"
+                  initialData={dataPoints}
                   className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] mb-6 drop-shadow-sm"
                 >
-                  {dataPoints['home.hero.headline'] || 'Democracy is not a spectator sport.'}
-                </h1>
+                  Democracy is not a spectator sport.
+                </DataPoint>
 
-                <p
-                  data-data-point="home.hero.mission"
+                <DataPoint
+                  name="home.hero.mission"
+                  as="p"
+                  initialData={dataPoints}
                   className="text-lg sm:text-xl text-slate-200 leading-relaxed mb-8 drop-shadow-sm"
                 >
-                  {dataPoints['home.hero.mission'] || (
-                    <>
-                      The mission of the{' '}
-                      <strong className="text-white font-extrabold">
-                        Fair Oaks-Carmichael chapter of Indivisible
-                      </strong>{' '}
-                      is to cultivate a non-violent grassroots movement to stop the rise of
-                      authoritarianism, to support and defend democratic norms, elect bold leaders,
-                      and secure progressive policies.
-                    </>
-                  )}
-                </p>
+                  The mission of the Fair Oaks-Carmichael chapter of Indivisible is to cultivate a
+                  non-violent grassroots movement to stop the rise of authoritarianism, to support
+                  and defend democratic norms, elect bold leaders, and secure progressive policies.
+                </DataPoint>
 
                 <div className="flex flex-wrap items-center gap-4">
                   <Link
                     href="/events"
                     className="px-6 py-3.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-blue-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <span>Upcoming Actions</span>
+                    <DataPoint as="span" name="home.hero.btn_actions" initialData={dataPoints}>
+                      Upcoming Actions
+                    </DataPoint>
                     <ArrowRight size={16} />
                   </Link>
                   <Link
@@ -135,74 +131,94 @@ export default async function HomePage() {
                     className="px-6 py-3.5 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-amber-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Heart size={16} className="fill-slate-950" />
-                    <span>Support Our Chapter</span>
+                    <DataPoint as="span" name="home.hero.btn_support" initialData={dataPoints}>
+                      Support Our Chapter
+                    </DataPoint>
                   </Link>
                   <Link
                     href="/choir"
                     className="px-6 py-3.5 rounded-xl bg-secondary/80 hover:bg-white/5 text-slate-200 border border-slate-700/80 backdrop-blur-md font-semibold text-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Music size={16} className="text-primary-on-dark-muted" />
-                    <span>Resistance Choir</span>
+                    <DataPoint as="span" name="home.hero.btn_choir" initialData={dataPoints}>
+                      Resistance Choir
+                    </DataPoint>
                   </Link>
                 </div>
 
                 {/* 10x Pro Chapter Impact Metrics */}
                 <div className="mt-14 pt-8 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-6 backdrop-blur-sm">
                   <div className="p-3 rounded-xl bg-secondary/40 border border-white/5">
-                    <div
-                      data-data-point="home.impact.neighbors"
+                    <DataPoint
+                      name="home.impact.neighbors"
+                      as="div"
+                      initialData={dataPoints}
                       className="text-2xl sm:text-3xl font-black text-white tracking-tight"
                     >
-                      {dataPoints['home.impact.neighbors'] || '500+'}
-                    </div>
-                    <div
-                      data-data-point="home.impact.neighbors_label"
+                      500+
+                    </DataPoint>
+                    <DataPoint
+                      name="home.impact.neighbors_label"
+                      as="div"
+                      initialData={dataPoints}
                       className="text-xs text-ink-muted-on-dark font-medium mt-0.5"
                     >
-                      {dataPoints['home.impact.neighbors_label'] || 'Active Neighbors'}
-                    </div>
+                      Active Neighbors
+                    </DataPoint>
                   </div>
                   <div className="p-3 rounded-xl bg-secondary/40 border border-white/5">
-                    <div
-                      data-data-point="home.impact.postcards"
+                    <DataPoint
+                      name="home.impact.postcards"
+                      as="div"
+                      initialData={dataPoints}
                       className="text-2xl sm:text-3xl font-black text-primary-on-dark-muted tracking-tight"
                     >
-                      {dataPoints['home.impact.postcards'] || '4,200+'}
-                    </div>
-                    <div
-                      data-data-point="home.impact.postcards_label"
+                      4,200+
+                    </DataPoint>
+                    <DataPoint
+                      name="home.impact.postcards_label"
+                      as="div"
+                      initialData={dataPoints}
                       className="text-xs text-ink-muted-on-dark font-medium mt-0.5"
                     >
-                      {dataPoints['home.impact.postcards_label'] || 'Postcards Written'}
-                    </div>
+                      Postcards Written
+                    </DataPoint>
                   </div>
                   <div className="p-3 rounded-xl bg-secondary/40 border border-white/5">
-                    <div
-                      data-data-point="home.impact.funding"
+                    <DataPoint
+                      name="home.impact.funding"
+                      as="div"
+                      initialData={dataPoints}
                       className="text-2xl sm:text-3xl font-black text-accent-gold tracking-tight"
                     >
-                      {dataPoints['home.impact.funding'] || '100%'}
-                    </div>
-                    <div
-                      data-data-point="home.impact.funding_label"
+                      100%
+                    </DataPoint>
+                    <DataPoint
+                      name="home.impact.funding_label"
+                      as="div"
+                      initialData={dataPoints}
                       className="text-xs text-ink-muted-on-dark font-medium mt-0.5"
                     >
-                      {dataPoints['home.impact.funding_label'] || 'Grassroots Funded'}
-                    </div>
+                      Grassroots Funded
+                    </DataPoint>
                   </div>
                   <div className="p-3 rounded-xl bg-secondary/40 border border-white/5">
-                    <div
-                      data-data-point="home.impact.districts"
+                    <DataPoint
+                      name="home.impact.districts"
+                      as="div"
+                      initialData={dataPoints}
                       className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight"
                     >
-                      {dataPoints['home.impact.districts'] || 'CA-03 / 06'}
-                    </div>
-                    <div
-                      data-data-point="home.impact.districts_label"
+                      CA-03 / 06
+                    </DataPoint>
+                    <DataPoint
+                      name="home.impact.districts_label"
+                      as="div"
+                      initialData={dataPoints}
                       className="text-xs text-ink-muted-on-dark font-medium mt-0.5"
                     >
-                      {dataPoints['home.impact.districts_label'] || 'Sacramento Region'}
-                    </div>
+                      Sacramento Region
+                    </DataPoint>
                   </div>
                 </div>
               </div>
@@ -234,7 +250,9 @@ export default async function HomePage() {
               </div>
               <div>
                 <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-[11px] font-bold uppercase tracking-wide mb-1">
-                  Next Community Gathering
+                  <DataPoint as="span" name="home.gathering.badge" initialData={dataPoints}>
+                    Next Community Gathering
+                  </DataPoint>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-black text-foreground">{card.title}</h2>
                 <p className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-y-1 gap-x-4">
@@ -246,10 +264,10 @@ export default async function HomePage() {
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
                   🥫 <strong className="text-foreground">Food Bank Drive:</strong>{' '}
-                  <span data-data-point="home.gathering.food_bank">
-                    {dataPoints['home.gathering.food_bank'] ||
-                      'Please bring a can or box of non-perishable food to support our local community food pantry.'}
-                  </span>
+                  <DataPoint name="home.gathering.food_bank" initialData={dataPoints}>
+                    Please bring a can or box of non-perishable food to support our local community
+                    food pantry.
+                  </DataPoint>
                 </p>
               </div>
             </div>
@@ -261,7 +279,9 @@ export default async function HomePage() {
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto text-center px-4 py-3 rounded-xl border-2 border-secondary text-foreground hover:bg-secondary hover:text-white dark:border-border font-semibold text-xs uppercase tracking-wider transition-all"
               >
-                + Add to Calendar
+                <DataPoint as="span" name="home.gathering.btn_cal" initialData={dataPoints}>
+                  + Add to Calendar
+                </DataPoint>
               </a>
               <a
                 href={card.rsvpUrl}
@@ -269,7 +289,9 @@ export default async function HomePage() {
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto text-center px-6 py-3 rounded-xl bg-accent-gold hover:bg-accent-gold text-secondary font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:scale-105"
               >
-                RSVP via Mobilize
+                <DataPoint as="span" name="home.gathering.btn_rsvp" initialData={dataPoints}>
+                  RSVP via Mobilize
+                </DataPoint>
               </a>
             </div>
           </div>
@@ -284,25 +306,32 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <CopyRegion id="home-pillars">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <span
-                data-data-point="home.pillars.eyebrow"
+              <DataPoint
+                name="home.pillars.eyebrow"
+                as="span"
+                initialData={dataPoints}
                 className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2"
               >
-                {dataPoints['home.pillars.eyebrow'] || 'Our Core Principles'}
-              </span>
-              <h2
-                data-data-point="home.pillars.headline"
+                Our Core Principles
+              </DataPoint>
+              <DataPoint
+                name="home.pillars.headline"
+                as="h2"
+                initialData={dataPoints}
                 className="text-3xl sm:text-4xl font-black tracking-tight mb-4"
               >
-                {dataPoints['home.pillars.headline'] || 'What We Stand For & How We Win'}
-              </h2>
-              <p
-                data-data-point="home.pillars.intro"
+                What We Stand For & How We Win
+              </DataPoint>
+              <DataPoint
+                name="home.pillars.intro"
+                as="p"
+                initialData={dataPoints}
                 className="text-muted-foreground text-base leading-relaxed"
               >
-                {dataPoints['home.pillars.intro'] ||
-                  'Rooted in the national Indivisible Guide, our local chapter works tirelessly across the Sacramento region to defend our constitutional democracy through grassroots mobilization.'}
-              </p>
+                Rooted in the national Indivisible Guide, our local chapter works tirelessly across
+                the Sacramento region to defend our constitutional democracy through grassroots
+                mobilization.
+              </DataPoint>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -310,76 +339,92 @@ export default async function HomePage() {
                 <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Shield size={24} />
                 </div>
-                <h3
-                  data-data-point="home.pillars.p1_title"
+                <DataPoint
+                  name="home.pillars.p1_title"
+                  as="h3"
+                  initialData={dataPoints}
                   className="text-lg font-bold text-foreground mb-2"
                 >
-                  {dataPoints['home.pillars.p1_title'] || 'Stop Authoritarianism'}
-                </h3>
-                <p
-                  data-data-point="home.pillars.p1_desc"
+                  Stop Authoritarianism
+                </DataPoint>
+                <DataPoint
+                  name="home.pillars.p1_desc"
+                  as="p"
+                  initialData={dataPoints}
                   className="text-sm text-muted-foreground leading-relaxed"
                 >
-                  {dataPoints['home.pillars.p1_desc'] ||
-                    'Countering anti-democratic overreach, defending executive accountability, and raising public alarm through visible resistance.'}
-                </p>
+                  Countering anti-democratic overreach, defending executive accountability, and
+                  raising public alarm through visible resistance.
+                </DataPoint>
               </div>
 
               <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
                 <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-accent-gold flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Vote size={24} />
                 </div>
-                <h3
-                  data-data-point="home.pillars.p2_title"
+                <DataPoint
+                  name="home.pillars.p2_title"
+                  as="h3"
+                  initialData={dataPoints}
                   className="text-lg font-bold text-foreground mb-2"
                 >
-                  {dataPoints['home.pillars.p2_title'] || 'Defend Democratic Norms'}
-                </h3>
-                <p
-                  data-data-point="home.pillars.p2_desc"
+                  Defend Democratic Norms
+                </DataPoint>
+                <DataPoint
+                  name="home.pillars.p2_desc"
+                  as="p"
+                  initialData={dataPoints}
                   className="text-sm text-muted-foreground leading-relaxed"
                 >
-                  {dataPoints['home.pillars.p2_desc'] ||
-                    'Safeguarding free and fair elections, expanding voting access, educating youth voters, and standing up for civil liberties.'}
-                </p>
+                  Safeguarding free and fair elections, expanding voting access, educating youth
+                  voters, and standing up for civil liberties.
+                </DataPoint>
               </div>
 
               <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
                 <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Megaphone size={24} />
                 </div>
-                <h3
-                  data-data-point="home.pillars.p3_title"
+                <DataPoint
+                  name="home.pillars.p3_title"
+                  as="h3"
+                  initialData={dataPoints}
                   className="text-lg font-bold text-foreground mb-2"
                 >
-                  {dataPoints['home.pillars.p3_title'] || 'Elect Bold Leaders'}
-                </h3>
-                <p
-                  data-data-point="home.pillars.p3_desc"
+                  Elect Bold Leaders
+                </DataPoint>
+                <DataPoint
+                  name="home.pillars.p3_desc"
+                  as="p"
+                  initialData={dataPoints}
                   className="text-sm text-muted-foreground leading-relaxed"
                 >
-                  {dataPoints['home.pillars.p3_desc'] ||
-                    'Direct voter canvassing, phone banks, candidate accountability, and mobilizing high-turnout civic engagement in every cycle.'}
-                </p>
+                  Direct voter canvassing, phone banks, candidate accountability, and mobilizing
+                  high-turnout civic engagement in every cycle.
+                </DataPoint>
               </div>
 
               <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
                 <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-primary-on-dark flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Users size={24} />
                 </div>
-                <h3
-                  data-data-point="home.pillars.p4_title"
+                <DataPoint
+                  name="home.pillars.p4_title"
+                  as="h3"
+                  initialData={dataPoints}
                   className="text-lg font-bold text-foreground mb-2"
                 >
-                  {dataPoints['home.pillars.p4_title'] || 'Secure Progressive Policy'}
-                </h3>
-                <p
-                  data-data-point="home.pillars.p4_desc"
+                  Secure Progressive Policy
+                </DataPoint>
+                <DataPoint
+                  name="home.pillars.p4_desc"
+                  as="p"
+                  initialData={dataPoints}
                   className="text-sm text-muted-foreground leading-relaxed"
                 >
-                  {dataPoints['home.pillars.p4_desc'] ||
-                    'Advocating for justice, reproductive autonomy, climate resilience, and economic equity through community solidarity.'}
-                </p>
+                  Advocating for justice, reproductive autonomy, climate resilience, and economic
+                  equity through community solidarity.
+                </DataPoint>
               </div>
             </div>
           </CopyRegion>
@@ -393,58 +438,69 @@ export default async function HomePage() {
             <div className="lg:col-span-7 space-y-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-bold uppercase tracking-wide">
                 <Music size={14} className="text-accent-gold" />
-                <span data-data-point="home.choir.eyebrow">
-                  {dataPoints['home.choir.eyebrow'] || 'Carmichael Resistance Choir'}
-                </span>
+                <DataPoint name="home.choir.eyebrow" initialData={dataPoints}>
+                  Carmichael Resistance Choir
+                </DataPoint>
               </div>
-              <h2
-                data-data-point="home.choir.headline"
+              <DataPoint
+                name="home.choir.headline"
+                as="h2"
+                initialData={dataPoints}
                 className="text-3xl sm:text-4xl font-black tracking-tight"
               >
-                {dataPoints['home.choir.headline'] || 'Every good protest movement needs music.'}
-              </h2>
-              <p
-                data-data-point="home.choir.intro"
+                Every good protest movement needs music.
+              </DataPoint>
+              <DataPoint
+                name="home.choir.intro"
+                as="p"
+                initialData={dataPoints}
                 className="text-base sm:text-lg text-ink-on-dark leading-relaxed"
               >
-                {dataPoints['home.choir.intro'] ||
-                  'Music lifts us up and has sustained justice movements throughout history. We gather to weave our voices together in chants and songs of resistance, building vibrant community while marching forward.'}
-              </p>
+                Music lifts us up and has sustained justice movements throughout history. We gather
+                to weave our voices together in chants and songs of resistance, building vibrant
+                community while marching forward.
+              </DataPoint>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
                   <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={18} />
                   <div>
-                    <span
-                      data-data-point="home.choir.all_voices"
+                    <DataPoint
+                      name="home.choir.all_voices"
+                      as="span"
+                      initialData={dataPoints}
                       className="font-bold text-white text-sm block"
                     >
-                      {dataPoints['home.choir.all_voices'] || 'All Voices Welcome'}
-                    </span>
-                    <span
-                      data-data-point="home.choir.all_voices_sub"
+                      All Voices Welcome
+                    </DataPoint>
+                    <DataPoint
+                      name="home.choir.all_voices_sub"
+                      as="span"
+                      initialData={dataPoints}
                       className="text-xs text-ink-muted-on-dark"
                     >
-                      {dataPoints['home.choir.all_voices_sub'] ||
-                        'No auditions, no fees. Everyone can sing.'}
-                    </span>
+                      No auditions, no fees. Everyone can sing.
+                    </DataPoint>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
                   <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={18} />
                   <div>
-                    <span
-                      data-data-point="home.choir.rehearsal"
+                    <DataPoint
+                      name="home.choir.rehearsal"
+                      as="span"
+                      initialData={dataPoints}
                       className="font-bold text-white text-sm block"
                     >
-                      {dataPoints['home.choir.rehearsal'] || 'Rehearsal Schedule'}
-                    </span>
-                    <span
-                      data-data-point="home.choir.rehearsal_sub"
+                      Rehearsal Schedule
+                    </DataPoint>
+                    <DataPoint
+                      name="home.choir.rehearsal_sub"
+                      as="span"
+                      initialData={dataPoints}
                       className="text-xs text-ink-muted-on-dark"
                     >
-                      {dataPoints['home.choir.rehearsal_sub'] ||
-                        'Every other Wednesday, 6:30 – 8:00 PM.'}
-                    </span>
+                      Every other Wednesday, 6:30 – 8:00 PM.
+                    </DataPoint>
                   </div>
                 </div>
               </div>
@@ -486,13 +542,12 @@ export default async function HomePage() {
                     allowFullScreen
                   />
                 </div>
-                <p
-                  data-data-point="home.choir.quote"
-                  className="text-xs text-ink-muted-on-dark italic mb-6"
-                >
+                <p className="text-xs text-ink-muted-on-dark italic mb-6">
                   &ldquo;
-                  {dataPoints['home.choir.quote'] ||
-                    'We will sing our protest to the afternoon rush hour and community businesses. Bring your signs, chairs, and voices!'}
+                  <DataPoint name="home.choir.quote" initialData={dataPoints}>
+                    We will sing our protest to the afternoon rush hour and community businesses.
+                    Bring your signs, chairs, and voices!
+                  </DataPoint>
                   &rdquo;
                 </p>
 
@@ -511,24 +566,30 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
             <div>
-              <span
-                data-data-point="home.voter.eyebrow"
+              <DataPoint
+                name="home.voter.eyebrow"
+                as="span"
+                initialData={dataPoints}
                 className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2"
               >
-                {dataPoints['home.voter.eyebrow'] || 'Empowering Every Voter'}
-              </span>
-              <h2
-                data-data-point="home.voter.headline"
+                Empowering Every Voter
+              </DataPoint>
+              <DataPoint
+                name="home.voter.headline"
+                as="h2"
+                initialData={dataPoints}
                 className="text-3xl sm:text-4xl font-black tracking-tight"
               >
-                {dataPoints['home.voter.headline'] || 'Voter Education & Rights Hub'}
-              </h2>
+                Voter Education & Rights Hub
+              </DataPoint>
             </div>
             <Link
               href="/voter-info"
               className="inline-flex items-center gap-2 text-sm font-bold text-primary-ink hover:text-primary-dark transition-colors uppercase tracking-wider"
             >
-              <span>View All 7 Voter Guides</span>
+              <DataPoint as="span" name="home.voter.view_all" initialData={dataPoints}>
+                View All 7 Voter Guides
+              </DataPoint>
               <ArrowRight size={16} />
             </Link>
           </div>
@@ -540,25 +601,31 @@ export default async function HomePage() {
                   <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-primary-on-dark-muted flex items-center justify-center mb-4">
                     <FileText size={20} />
                   </div>
-                  <h3
-                    data-data-point="home.voter.card1_title"
+                  <DataPoint
+                    name="home.voter.card1_title"
+                    as="h3"
+                    initialData={dataPoints}
                     className="text-lg font-bold text-foreground mb-2"
                   >
-                    {dataPoints['home.voter.card1_title'] || 'Sacramento County Elected Officials'}
-                  </h3>
-                  <p
-                    data-data-point="home.voter.card1_desc"
+                    Sacramento County Elected Officials
+                  </DataPoint>
+                  <DataPoint
+                    name="home.voter.card1_desc"
+                    as="p"
+                    initialData={dataPoints}
                     className="text-xs text-muted-foreground leading-relaxed mb-4"
                   >
-                    {dataPoints['home.voter.card1_desc'] ||
-                      'Direct contact information, phone numbers, and offices for local, state, and federal representatives serving our district.'}
-                  </p>
+                    Direct contact information, phone numbers, and offices for local, state, and
+                    federal representatives serving our district.
+                  </DataPoint>
                 </div>
                 <Link
                   href="/voter-info"
                   className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted flex items-center gap-1.5"
                 >
-                  <span>Access Guide & Directory</span>
+                  <DataPoint as="span" name="home.voter.card1_btn" initialData={dataPoints}>
+                    Access Guide &amp; Directory
+                  </DataPoint>
                   <ArrowRight size={14} />
                 </Link>
               </div>
@@ -568,25 +635,31 @@ export default async function HomePage() {
                   <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-accent-gold flex items-center justify-center mb-4">
                     <Vote size={20} />
                   </div>
-                  <h3
-                    data-data-point="home.voter.card2_title"
+                  <DataPoint
+                    name="home.voter.card2_title"
+                    as="h3"
+                    initialData={dataPoints}
                     className="text-lg font-bold text-foreground mb-2"
                   >
-                    {dataPoints['home.voter.card2_title'] || 'Pre-Registration at 16'}
-                  </h3>
-                  <p
-                    data-data-point="home.voter.card2_desc"
+                    Pre-Registration at 16
+                  </DataPoint>
+                  <DataPoint
+                    name="home.voter.card2_desc"
+                    as="p"
+                    initialData={dataPoints}
                     className="text-xs text-muted-foreground leading-relaxed mb-4"
                   >
-                    {dataPoints['home.voter.card2_desc'] ||
-                      'California youth age 16 and 17 can pre-register now so they are automatically registered to cast their ballot the day they turn 18.'}
-                  </p>
+                    California youth age 16 and 17 can pre-register now so they are automatically
+                    registered to cast their ballot the day they turn 18.
+                  </DataPoint>
                 </div>
                 <Link
                   href="/voter-info"
                   className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted flex items-center gap-1.5"
                 >
-                  <span>Youth Voting Guide</span>
+                  <DataPoint as="span" name="home.voter.card2_btn" initialData={dataPoints}>
+                    Youth Voting Guide
+                  </DataPoint>
                   <ArrowRight size={14} />
                 </Link>
               </div>
@@ -596,25 +669,31 @@ export default async function HomePage() {
                   <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-emerald-400 flex items-center justify-center mb-4">
                     <Shield size={20} />
                   </div>
-                  <h3
-                    data-data-point="home.voter.card3_title"
+                  <DataPoint
+                    name="home.voter.card3_title"
+                    as="h3"
+                    initialData={dataPoints}
                     className="text-lg font-bold text-foreground mb-2"
                   >
-                    {dataPoints['home.voter.card3_title'] || 'Rights Restoration & Unhoused Voting'}
-                  </h3>
-                  <p
-                    data-data-point="home.voter.card3_desc"
+                    Rights Restoration &amp; Unhoused Voting
+                  </DataPoint>
+                  <DataPoint
+                    name="home.voter.card3_desc"
+                    as="p"
+                    initialData={dataPoints}
                     className="text-xs text-muted-foreground leading-relaxed mb-4"
                   >
-                    {dataPoints['home.voter.card3_desc'] ||
-                      'Homeless is not voteless. Learn about voting rights restoration for formerly incarcerated Californians and unhoused residents.'}
-                  </p>
+                    Homeless is not voteless. Learn about voting rights restoration for formerly
+                    incarcerated Californians and unhoused residents.
+                  </DataPoint>
                 </div>
                 <Link
                   href="/voter-info"
                   className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted flex items-center gap-1.5"
                 >
-                  <span>Read Rights Overview</span>
+                  <DataPoint as="span" name="home.voter.card3_btn" initialData={dataPoints}>
+                    Read Rights Overview
+                  </DataPoint>
                   <ArrowRight size={14} />
                 </Link>
               </div>
@@ -624,7 +703,7 @@ export default async function HomePage() {
       </section>
 
       {/* Community Photojournalism / Moments of Resistance Preview */}
-      <HomeGalleryPreview photos={galleryPhotos} />
+      <HomeGalleryPreview photos={galleryPhotos} dataPoints={dataPoints} />
 
       {/* Non-violent Action Commitment Banner */}
       {/* Light section: the dark tile keeps the emerald icon at full contrast. */}
@@ -633,59 +712,75 @@ export default async function HomePage() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-secondary text-emerald-400 mb-1">
             <Shield size={24} />
           </div>
-          <h2
-            data-data-point="home.nonviolence.headline"
+          <DataPoint
+            name="home.nonviolence.headline"
+            as="h2"
+            initialData={dataPoints}
             className="text-2xl font-black text-foreground tracking-tight"
           >
-            {dataPoints['home.nonviolence.headline'] ||
-              'Our Core Commitment: Disciplined Non-Violent Action'}
-          </h2>
-          <p
-            data-data-point="home.nonviolence.desc"
+            Our Core Commitment: Disciplined Non-Violent Action
+          </DataPoint>
+          <DataPoint
+            name="home.nonviolence.desc"
+            as="p"
+            initialData={dataPoints}
             className="text-sm text-muted-foreground leading-relaxed"
           >
-            {dataPoints['home.nonviolence.desc'] ||
-              'A core principle behind all Indivisible events is an unwavering commitment to nonviolent action. We expect all participants to act lawfully, avoid civil disobedience unless specifically planned and coordinated, de-escalate any potential confrontation with those who disagree with our values, and maintain peaceful solidarity.'}
-          </p>
+            A core principle behind all Indivisible events is an unwavering commitment to nonviolent
+            action. We expect all participants to act lawfully, avoid civil disobedience unless
+            specifically planned and coordinated, de-escalate any potential confrontation with those
+            who disagree with our values, and maintain peaceful solidarity.
+          </DataPoint>
         </div>
       </section>
 
       {/* Support & Donation CTA */}
       <section className="py-16 md:py-20 bg-gradient-to-tr from-blue-900 via-slate-900 to-indigo-950 text-white">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <span
-            data-data-point="home.cta.eyebrow"
+          <DataPoint
+            name="home.cta.eyebrow"
+            as="span"
+            initialData={dataPoints}
             className="text-accent-gold text-xs font-black uppercase tracking-widest block"
           >
-            {dataPoints['home.cta.eyebrow'] || 'Grassroots Power Runs On Grassroots Support'}
-          </span>
-          <h2
-            data-data-point="home.cta.headline"
+            Grassroots Power Runs On Grassroots Support
+          </DataPoint>
+          <DataPoint
+            name="home.cta.headline"
+            as="h2"
+            initialData={dataPoints}
             className="text-3xl sm:text-4xl font-black tracking-tight"
           >
-            {dataPoints['home.cta.headline'] || 'Fuel Our Local Organizing'}
-          </h2>
-          <p
-            data-data-point="home.cta.desc"
+            Fuel Our Local Organizing
+          </DataPoint>
+          <DataPoint
+            name="home.cta.desc"
+            as="p"
+            initialData={dataPoints}
             className="text-ink-on-dark text-base max-w-2xl mx-auto leading-relaxed"
           >
-            {dataPoints['home.cta.desc'] ||
-              'Every dollar contributed to our chapter directly supports community meeting spaces, protest banners, sound equipment for the Resistance Choir, voter registration printing, and neighborhood outreach.'}
-          </p>
+            Every dollar contributed to our chapter directly supports community meeting spaces,
+            protest banners, sound equipment for the Resistance Choir, voter registration printing,
+            and neighborhood outreach.
+          </DataPoint>
           <div className="pt-2 flex flex-wrap justify-center gap-4">
             <Link
               href="/donate"
               className="px-8 py-4 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-black text-sm uppercase tracking-wider shadow-xl hover:scale-105 transition-all flex items-center gap-2"
             >
               <Heart size={18} className="fill-slate-950" />
-              <span>Donate via ActBlue</span>
+              <DataPoint as="span" name="home.cta.btn_donate" initialData={dataPoints}>
+                Donate via ActBlue
+              </DataPoint>
             </Link>
             <a
               href="mailto:subscribe@indivisiblefairoaks.org"
               className="px-8 py-4 rounded-xl bg-white/5 hover:bg-slate-700 text-white border border-slate-700 font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-2"
             >
               <Mail size={18} className="text-primary-on-dark-muted" />
-              <span>Join Mailing List</span>
+              <DataPoint as="span" name="home.cta.btn_subscribe" initialData={dataPoints}>
+                Join Mailing List
+              </DataPoint>
             </a>
           </div>
         </div>

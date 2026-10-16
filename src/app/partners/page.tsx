@@ -124,7 +124,9 @@ export default async function PartnersPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark transition-colors"
                 >
-                  <span>Visit Partner Website</span>
+                  <DataPoint as="span" name="partners.card.visit_link">
+                    Visit Partner Website
+                  </DataPoint>
                   <ExternalLink size={13} />
                 </a>
               </div>
@@ -152,7 +154,9 @@ export default async function PartnersPage() {
             href="/contact"
             className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
           >
-            Connect With Our Coalition Team
+            <DataPoint as="span" name="partners.cta.button">
+              Connect With Our Coalition Team
+            </DataPoint>
           </Link>
         </div>
       </div>
