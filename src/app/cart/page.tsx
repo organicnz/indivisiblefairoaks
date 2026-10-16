@@ -238,23 +238,23 @@ export default function CartPage() {
           {/* Order summary */}
           <section className="mt-16 bg-surface-muted rounded-3xl px-6 py-8 sm:p-8 lg:mt-0 lg:col-span-5 border border-border shadow-sm sticky top-24">
             <h2 className="text-xl font-black text-foreground uppercase tracking-widest mb-8 border-b-2 border-primary pb-2 inline-block">
-              Order Summary
+              <DataPoint name="cart.summary.heading">Order Summary</DataPoint>
             </h2>
 
             <dl className="mt-6 space-y-6">
               <div className="flex items-center justify-between">
                 <dt className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                  Subtotal
+                  <DataPoint name="cart.summary.subtotal">Subtotal</DataPoint>
                 </dt>
                 <dd className="text-lg font-black text-foreground">${totalPrice().toFixed(2)}</dd>
               </div>
               <div className="flex items-start justify-between">
                 <dt className="text-xs font-black text-muted-foreground uppercase tracking-widest mt-0.5">
-                  Shipping
+                  <DataPoint name="cart.summary.shipping_label">Shipping</DataPoint>
                 </dt>
                 <dd className="text-right">
                   <span className="text-xs font-black text-emerald-600 uppercase tracking-widest block">
-                    Calculated at Checkout
+                    <DataPoint name="cart.summary.shipping_note">Calculated at Checkout</DataPoint>
                   </span>
                   <Link
                     href="/shipping-returns"
@@ -268,7 +268,7 @@ export default function CartPage() {
               </div>
               <div className="border-t border-border pt-6 flex items-center justify-between">
                 <dt className="text-xl font-black text-foreground uppercase tracking-tighter">
-                  Order total
+                  <DataPoint name="cart.summary.total_label">Order total</DataPoint>
                 </dt>
                 <dd className="text-3xl font-black text-primary dark:text-primary-on-dark tracking-tighter">
                   ${totalPrice().toFixed(2)}
@@ -300,7 +300,7 @@ export default function CartPage() {
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="h-px bg-surface-muted flex-1" />
                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                  Express Checkout
+                  <DataPoint name="cart.summary.express_label">Express Checkout</DataPoint>
                 </span>
                 <div className="h-px bg-surface-muted flex-1" />
               </div>
@@ -311,7 +311,7 @@ export default function CartPage() {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full" />
                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                  Secure Checkout Guaranteed
+                  <DataPoint name="cart.summary.secure_label">Secure Checkout Guaranteed</DataPoint>
                 </span>
               </div>
               <DataPoint
