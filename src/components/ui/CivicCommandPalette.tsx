@@ -16,6 +16,8 @@ import {
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 interface PaletteItem {
   id: string;
@@ -130,6 +132,7 @@ export function CivicCommandPalette({
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
 } = {}) {
+  const { dataPoints } = useDataPoints('palette');
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = controlledOpen ?? internalOpen;
   const setIsOpen: (open: boolean) => void = setControlledOpen ?? setInternalOpen;
@@ -258,7 +261,9 @@ export function CivicCommandPalette({
                 aria-autocomplete="list"
                 aria-label="Search pages and actions"
                 autoFocus
-                placeholder="Type a page, action, or civic topic…"
+                placeholder={
+                  dataPoints['palette.placeholder'] || 'Type a page, action, or civic topic…'
+                }
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value);
@@ -291,7 +296,9 @@ export function CivicCommandPalette({
             >
               {filteredItems.length === 0 ? (
                 <li className="py-8 text-center text-ink-muted-on-dark text-xs">
-                  No matching civic actions or pages found.
+                  <DataPoint as="span" name="palette.empty.title" initialData={dataPoints}>
+                    No matching civic actions or pages found.
+                  </DataPoint>
                 </li>
               ) : (
                 filteredItems.map((item, index) => {

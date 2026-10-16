@@ -3,6 +3,8 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import Image from 'next/image';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 type Citation = { title: string; url: string };
 type Message = { id: string; role: 'user' | 'assistant'; content: string; citations?: Citation[] };
@@ -28,16 +30,19 @@ function WallEAvatar({ small = false }: { small?: boolean }) {
   );
 }
 
-const starter: Message = {
-  id: 'starter',
-  role: 'assistant',
-  content: "Hi! I'm WALL-E. Ask me about our chapter, events, voter resources, or products.",
-};
-
 export function WallEChatWidget() {
+  const { dataPoints } = useDataPoints('walle');
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([starter]);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: 'starter',
+      role: 'assistant',
+      content:
+        dataPoints['walle.starter_msg'] ||
+        "Hi! I'm WALL-E. Ask me about our chapter, events, voter resources, or products.",
+    },
+  ]);
   const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -118,12 +123,19 @@ export function WallEChatWidget() {
                   <div className="flex items-center gap-2">
                     <p className="font-outfit text-lg font-black">WALL-E</p>
                     <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-emerald-200">
-                      Online
+                      <DataPoint as="span" name="walle.badge" initialData={dataPoints}>
+                        Online
+                      </DataPoint>
                     </span>
                   </div>
-                  <p className="text-xs text-white/65">
+                  <DataPoint
+                    as="p"
+                    name="walle.subtitle"
+                    initialData={dataPoints}
+                    className="text-xs text-white/65"
+                  >
                     Your Fair Oaks guide · grounded in our site
-                  </p>
+                  </DataPoint>
                 </div>
                 <Dialog.Close
                   className="ml-auto inline-flex size-9 items-center justify-center rounded-full text-2xl leading-none text-white/70 transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
@@ -132,9 +144,14 @@ export function WallEChatWidget() {
                   <span aria-hidden="true">×</span>
                 </Dialog.Close>
               </div>
-              <div className="relative mt-4 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/75">
+              <DataPoint
+                as="div"
+                name="walle.prompt_tip"
+                initialData={dataPoints}
+                className="relative mt-4 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/75"
+              >
                 Ask about events, voter resources, partners, or gear.
-              </div>
+              </DataPoint>
             </header>
             <div
               className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-white p-4"
@@ -152,9 +169,14 @@ export function WallEChatWidget() {
                     <p className="whitespace-pre-wrap">{message.content}</p>
                     {message.citations?.length ? (
                       <div className="mt-3 space-y-1.5 border-t border-slate-200 pt-2.5 text-xs">
-                        <p className="font-bold uppercase tracking-wider text-slate-400">
+                        <DataPoint
+                          as="p"
+                          name="walle.source_heading"
+                          initialData={dataPoints}
+                          className="font-bold uppercase tracking-wider text-slate-400"
+                        >
                           Explore the source
-                        </p>
+                        </DataPoint>
                         {message.citations.map((citation) => (
                           <a
                             key={citation.url}
@@ -174,7 +196,9 @@ export function WallEChatWidget() {
                 <div className="flex items-center gap-2 text-xs text-slate-500">
                   <WallEAvatar small />
                   <span className="rounded-full bg-white px-3 py-2 shadow-sm">
-                    WALL-E is checking the site…
+                    <DataPoint as="span" name="walle.checking" initialData={dataPoints}>
+                      WALL-E is checking the site…
+                    </DataPoint>
                   </span>
                 </div>
               )}
@@ -185,7 +209,7 @@ export function WallEChatWidget() {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 maxLength={600}
-                placeholder="Ask WALL-E…"
+                placeholder={dataPoints['walle.input_placeholder'] || 'Ask WALL-E…'}
                 aria-label="Message WALL-E"
                 className="min-w-0 flex-1 rounded-full border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm outline-none transition-colors duration-300 ease-out focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/15"
               />
@@ -194,7 +218,9 @@ export function WallEChatWidget() {
                 disabled={loading || !input.trim()}
                 className="rounded-full bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-raised transition-colors duration-300 ease-out hover:bg-primary-dark disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
-                Send
+                <DataPoint as="span" name="walle.btn.send" initialData={dataPoints}>
+                  Send
+                </DataPoint>
               </button>
             </form>
           </Dialog.Content>

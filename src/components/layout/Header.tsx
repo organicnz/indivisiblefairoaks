@@ -11,8 +11,10 @@ import { EditorialButton, EditorialDrawerRow } from '@/components/layout/Editori
 import { NavDropdown } from '@/components/layout/NavDropdown';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { CivicCommandPalette } from '@/components/ui/CivicCommandPalette';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { isActiveRoute, ROUTES } from '@/config/routes';
 import { SITE_CONTACT } from '@/config/site';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 const DRAWER_ID = 'primary-navigation-drawer';
 
@@ -80,6 +82,7 @@ function HeaderFallback() {
 }
 
 function HeaderInner() {
+  const { dataPoints } = useDataPoints('header');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -196,7 +199,9 @@ function HeaderInner() {
                 className={`hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent hover:bg-accent-gold text-secondary font-bold text-xs uppercase tracking-wider shadow-raised hover:shadow-float active:scale-95 transition-all duration-300 ease-out motion-reduce:hover:scale-100 ${FOCUS_RING}`}
               >
                 <Heart size={14} className="fill-secondary" aria-hidden="true" />
-                <span>Donate</span>
+                <DataPoint as="span" name="header.donate_btn" initialData={dataPoints}>
+                  Donate
+                </DataPoint>
               </Link>
 
               <div className="hidden xl:block">
@@ -304,7 +309,9 @@ function HeaderInner() {
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-colors duration-300 ease-out text-sm font-medium ${FOCUS_RING}`}
               >
                 <Search size={18} className="text-ink-on-dark" aria-hidden="true" />
-                <span>Quick Search…</span>
+                <DataPoint as="span" name="header.drawer.search" initialData={dataPoints}>
+                  Quick Search…
+                </DataPoint>
                 <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-secondary border border-white/20 text-[10px] font-mono text-ink-muted-on-dark">
                   ⌘K
                 </kbd>
@@ -384,7 +391,9 @@ function HeaderInner() {
                 className={`w-full py-3 rounded-xl bg-accent hover:bg-accent-gold text-secondary font-bold text-center text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-2 shadow-float transition-colors duration-300 ease-out ${FOCUS_RING}`}
               >
                 <Heart size={16} className="fill-secondary" aria-hidden="true" />
-                Support via ActBlue
+                <DataPoint as="span" name="header.drawer.donate_cta" initialData={dataPoints}>
+                  Support via ActBlue
+                </DataPoint>
               </Link>
               <div className="text-xs text-ink-muted-on-dark text-center space-y-1">
                 <p>
@@ -396,7 +405,14 @@ function HeaderInner() {
                     {SITE_CONTACT.email}
                   </a>
                 </p>
-                <p className="text-[11px]">Grassroots community organizing for democracy.</p>
+                <DataPoint
+                  as="p"
+                  name="header.drawer.tagline"
+                  initialData={dataPoints}
+                  className="text-[11px]"
+                >
+                  Grassroots community organizing for democracy.
+                </DataPoint>
               </div>
             </div>
           </Dialog.Content>

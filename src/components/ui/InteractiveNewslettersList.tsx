@@ -7,6 +7,8 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicNewsletterEditorModal } from '@/components/admin/civic/CivicNewsletterEditorModal';
 import { useEditContext } from '@/components/layout/useEditContext';
 import { useVisualEditMode } from '@/components/layout/visual-edit-store';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicNewsletterRecord, deleteCivicNewsletter } from '@/lib/actions/civic';
 import type { NewsletterRow } from '@/lib/queries/civic';
 
@@ -54,6 +56,7 @@ export function InteractiveNewslettersList({
 }: {
   initialNewsletters?: NewsletterRow[];
 } = {}) {
+  const { dataPoints } = useDataPoints('news');
   const { enabled } = useVisualEditMode('/news');
   const { isAdmin } = useEditContext('/news');
 
@@ -189,7 +192,9 @@ export function InteractiveNewslettersList({
           />
           <input
             type="text"
-            placeholder="Search bulletins, topics, or insights..."
+            placeholder={
+              dataPoints['news.search.placeholder'] || 'Search bulletins, topics, or insights...'
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-500 transition-colors"
@@ -231,8 +236,10 @@ export function InteractiveNewslettersList({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filteredNewsletters.length === 0 ? (
           <div className="col-span-full p-12 text-center rounded-2xl bg-secondary border border-white/10 text-ink-muted-on-dark">
-            No chapter bulletins match your criteria. Try choosing &ldquo;All Topics&rdquo; or
-            clearing the search bar.
+            <DataPoint as="span" name="news.empty.desc" initialData={dataPoints}>
+              No chapter bulletins match your criteria. Try choosing &ldquo;All Topics&rdquo; or
+              clearing the search bar.
+            </DataPoint>
           </div>
         ) : (
           filteredNewsletters.map((newsletter) => (

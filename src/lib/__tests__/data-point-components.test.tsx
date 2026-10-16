@@ -196,4 +196,43 @@ describe('useDataPoints and Edge API Integration', () => {
       'Session Control'
     );
   });
+
+  it('renders utility, navigation, error, and Wall-E DataPoint tags correctly', async () => {
+    vi.spyOn(civicClient, 'getDataPoints').mockResolvedValue({
+      dataPoints: {
+        'notfound.badge': 'Error 404',
+        'error.title': 'Something Snapped',
+        'header.donate_btn': 'Donate',
+        'walle.badge': 'Online',
+        'palette.empty.title': 'No matching civic actions or pages found.',
+      },
+      rows: [],
+    });
+
+    await act(async () => {
+      root.render(
+        <div>
+          <DataPoint name="notfound.badge">404</DataPoint>
+          <DataPoint name="error.title">Error</DataPoint>
+          <DataPoint name="header.donate_btn">Give</DataPoint>
+          <DataPoint name="walle.badge">Status</DataPoint>
+          <DataPoint name="palette.empty.title">None</DataPoint>
+        </div>
+      );
+    });
+
+    expect(container.querySelector('[data-data-point="notfound.badge"]')?.textContent).toBe(
+      'Error 404'
+    );
+    expect(container.querySelector('[data-data-point="error.title"]')?.textContent).toBe(
+      'Something Snapped'
+    );
+    expect(container.querySelector('[data-data-point="header.donate_btn"]')?.textContent).toBe(
+      'Donate'
+    );
+    expect(container.querySelector('[data-data-point="walle.badge"]')?.textContent).toBe('Online');
+    expect(container.querySelector('[data-data-point="palette.empty.title"]')?.textContent).toBe(
+      'No matching civic actions or pages found.'
+    );
+  });
 });
