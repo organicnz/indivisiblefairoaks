@@ -416,7 +416,7 @@ export function ChoirAudioPlayer() {
         as="p"
         name="choir.player.radio_subtitle"
         initialData={dataPoints}
-        className="mb-5 max-w-2xl text-xs sm:text-sm leading-relaxed text-ink-on-dark/80"
+        className="mb-5 max-w-2xl text-xs sm:text-sm leading-relaxed text-ink-on-dark"
       >
         A browser-based harmonic broadcast and community protest songs for peaceful organizing. Tune
         into any stream from anywhere.
@@ -446,7 +446,7 @@ export function ChoirAudioPlayer() {
           ))}
         </div>
 
-        <div className="flex items-center justify-between text-[11px] font-mono text-ink-on-dark/75 mt-3 px-1">
+        <div className="flex items-center justify-between text-[11px] font-mono text-ink-muted-on-dark mt-3 px-1">
           <span aria-hidden="true">0:{playbackTime.toString().padStart(2, '0')}</span>
           <span className="flex items-center gap-1.5 font-sans font-semibold text-primary-on-dark">
             <Volume2 size={13} />
@@ -507,7 +507,7 @@ export function ChoirAudioPlayer() {
               className="w-28 sm:w-36 h-2 accent-primary-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold rounded-full cursor-pointer"
               aria-label={dataPoints['choir.player.volume_label'] || 'Broadcast volume'}
             />
-            <span className="text-[11px] font-mono text-ink-on-dark/70">
+            <span className="text-[11px] font-mono text-ink-muted-on-dark">
               {Math.round((volume / 0.5) * 100)}%
             </span>
           </div>
@@ -597,11 +597,13 @@ export function ChoirAudioPlayer() {
         </button>
       </div>
 
-      <p className="mb-4 text-xs italic text-ink-on-dark/70 px-1 leading-relaxed">{activeNotes}</p>
+      <p className="mb-4 text-xs italic text-ink-muted-on-dark px-1 leading-relaxed">
+        {activeNotes}
+      </p>
 
       {/* Preset Stations List */}
       <div className="space-y-2">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-ink-on-dark/50 px-1">
+        <div className="text-xs font-bold uppercase tracking-wider text-ink-on-dark px-1">
           <DataPoint as="span" name="choir.player.stations_heading" initialData={dataPoints}>
             Community Stations & Anthems
           </DataPoint>
@@ -620,7 +622,7 @@ export function ChoirAudioPlayer() {
               className={`w-full min-h-12 text-left px-4 py-3 rounded-2xl transition-all duration-300 ease-out flex items-center justify-between text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
                 isSelected
                   ? 'bg-primary-bright/20 border border-primary-bright/50 text-white font-bold shadow-raised'
-                  : 'bg-secondary/40 border border-transparent text-ink-on-dark/75 hover:text-white hover:bg-white/5'
+                  : 'bg-secondary/40 border border-transparent text-ink-on-dark hover:text-white hover:bg-white/5'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -633,10 +635,12 @@ export function ChoirAudioPlayer() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="font-mono text-[10px] text-ink-on-dark/60">{track.duration}</span>
+                <span className="font-mono text-[10px] text-ink-muted-on-dark">
+                  {track.duration}
+                </span>
                 <span
                   className={`size-6 rounded-full flex items-center justify-center ${
-                    isSelected ? 'bg-primary-bright text-white' : 'bg-white/10 text-white/50'
+                    isSelected ? 'bg-primary-bright text-white' : 'bg-white/10 text-ink-on-dark'
                   }`}
                 >
                   {isSelected && isPlaying ? (
