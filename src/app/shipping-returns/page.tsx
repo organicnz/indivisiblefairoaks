@@ -77,10 +77,34 @@ export default async function ShippingReturnsPage() {
               </div>
 
               <ul className="space-y-2 list-disc list-inside text-sm">
-                <li>Direct community pickup &amp; delivery for local actions</li>
-                <li>Dispatched from Indivisible Fair Oaks Distribution Hub</li>
-                <li>Indicative delivery times provided at order</li>
-                <li>Civic materials packaged securely</li>
+                <li>
+                  <DataPoint name="shipping.bullet.pickup" as="span" initialData={dataPoints}>
+                    Direct community pickup &amp; delivery for local actions
+                  </DataPoint>
+                </li>
+                <li>
+                  <DataPoint name="shipping.bullet.hub" as="span" initialData={dataPoints}>
+                    Dispatched from Indivisible Fair Oaks Distribution Hub
+                  </DataPoint>
+                </li>
+                <li>
+                  <DataPoint
+                    name="shipping.bullet.delivery_times"
+                    as="span"
+                    initialData={dataPoints}
+                  >
+                    Indicative delivery times provided at order
+                  </DataPoint>
+                </li>
+                <li>
+                  <DataPoint
+                    name="shipping.bullet.secure_packaging"
+                    as="span"
+                    initialData={dataPoints}
+                  >
+                    Civic materials packaged securely
+                  </DataPoint>
+                </li>
               </ul>
             </div>
           </div>
@@ -103,10 +127,42 @@ export default async function ShippingReturnsPage() {
                 arrives damaged or incomplete, contact our volunteer logistics team immediately.
               </DataPoint>
               <ul className="space-y-2 list-disc list-inside text-sm">
-                <li>Replacement requests within 30 days of receipt</li>
-                <li>Direct support for broken or damaged signposts</li>
-                <li>Contact us before returning any campaign items</li>
-                <li>100% committed to community mobilization support</li>
+                <li>
+                  <DataPoint
+                    name="shipping.returns.bullet_30days"
+                    as="span"
+                    initialData={dataPoints}
+                  >
+                    Replacement requests within 30 days of receipt
+                  </DataPoint>
+                </li>
+                <li>
+                  <DataPoint
+                    name="shipping.returns.bullet_posts"
+                    as="span"
+                    initialData={dataPoints}
+                  >
+                    Direct support for broken or damaged signposts
+                  </DataPoint>
+                </li>
+                <li>
+                  <DataPoint
+                    name="shipping.returns.bullet_contact"
+                    as="span"
+                    initialData={dataPoints}
+                  >
+                    Contact us before returning any campaign items
+                  </DataPoint>
+                </li>
+                <li>
+                  <DataPoint
+                    name="shipping.returns.bullet_support"
+                    as="span"
+                    initialData={dataPoints}
+                  >
+                    100% committed to community mobilization support
+                  </DataPoint>
+                </li>
               </ul>
             </div>
           </div>

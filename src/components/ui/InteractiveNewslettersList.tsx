@@ -227,7 +227,9 @@ export function InteractiveNewslettersList({
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
           >
             <Plus size={15} />
-            <span>Add Bulletin</span>
+            <DataPoint name="news.admin.add_bulletin" as="span" initialData={dataPoints}>
+              Add Bulletin
+            </DataPoint>
           </button>
         )}
       </div>
@@ -311,7 +313,9 @@ export function InteractiveNewslettersList({
                   href="mailto:contact@indivisiblefairoaks.org?subject=Archive%20Request%20-%20Bulletin"
                   className="text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark flex items-center gap-1"
                 >
-                  <span>Request Full Issue</span>
+                  <DataPoint name="news.read_bulletin" as="span" initialData={dataPoints}>
+                    Request Full Issue
+                  </DataPoint>
                   <ArrowRight size={14} />
                 </a>
                 <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
