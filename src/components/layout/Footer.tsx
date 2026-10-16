@@ -60,32 +60,44 @@ export function Footer() {
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium">
               <li>
                 <Link href="/about" className="hover:text-white transition-colors">
-                  About Us & Mission
+                  <DataPoint name="footer.nav.about" as="span">
+                    About Us & Mission
+                  </DataPoint>
                 </Link>
               </li>
               <li>
                 <Link href="/events" className="hover:text-white transition-colors">
-                  Upcoming Events & Actions
+                  <DataPoint name="footer.nav.events" as="span">
+                    Upcoming Events & Actions
+                  </DataPoint>
                 </Link>
               </li>
               <li>
                 <Link href="/choir" className="hover:text-white transition-colors">
-                  Carmichael Resistance Choir
+                  <DataPoint name="footer.nav.choir" as="span">
+                    Carmichael Resistance Choir
+                  </DataPoint>
                 </Link>
               </li>
               <li>
                 <Link href="/voter-info" className="hover:text-white transition-colors">
-                  Voter Information & Guides
+                  <DataPoint name="footer.nav.voter" as="span">
+                    Voter Information & Guides
+                  </DataPoint>
                 </Link>
               </li>
               <li>
                 <Link href="/news" className="hover:text-white transition-colors">
-                  Newsletters & Bulletins
+                  <DataPoint name="footer.nav.news" as="span">
+                    Newsletters & Bulletins
+                  </DataPoint>
                 </Link>
               </li>
               <li>
                 <Link href="/links" className="hover:text-white transition-colors">
-                  Coalition & Action Links
+                  <DataPoint name="footer.nav.links" as="span">
+                    Coalition & Action Links
+                  </DataPoint>
                 </Link>
               </li>
             </ul>
@@ -104,7 +116,9 @@ export function Footer() {
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors flex items-center gap-1.5"
                 >
-                  Mobilize.us Events
+                  <DataPoint name="footer.nav.mobilize" as="span">
+                    Mobilize.us Events
+                  </DataPoint>
                 </a>
               </li>
               <li>
@@ -113,7 +127,9 @@ export function Footer() {
                   className="hover:text-white transition-colors flex items-center gap-1.5"
                 >
                   <Music size={14} className="text-primary-on-dark-muted" />
-                  Sing in the Choir
+                  <DataPoint name="footer.nav.sing" as="span">
+                    Sing in the Choir
+                  </DataPoint>
                 </Link>
               </li>
               <li>
@@ -122,7 +138,9 @@ export function Footer() {
                   className="hover:text-white transition-colors flex items-center gap-1.5"
                 >
                   <Mail size={14} className="text-primary-on-dark-muted" />
-                  Subscribe to Newsletter
+                  <DataPoint name="footer.nav.subscribe" as="span">
+                    Subscribe to Newsletter
+                  </DataPoint>
                 </a>
               </li>
               <li>
@@ -131,7 +149,9 @@ export function Footer() {
                   className="inline-flex items-center gap-1.5 text-accent-gold hover:text-accent-gold font-bold transition-colors"
                 >
                   <Heart size={14} className="fill-accent-gold" />
-                  Donate via ActBlue
+                  <DataPoint name="footer.nav.donate" as="span">
+                    Donate via ActBlue
+                  </DataPoint>
                 </Link>
               </li>
             </ul>

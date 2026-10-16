@@ -4,10 +4,12 @@ import { CheckCircle, Eye, EyeOff, Loader2, Lock, ShieldCheck } from 'lucide-rea
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { createClient } from '@/lib/supabase';
 import { updatePasswordAction } from './actions';
 
 export default function UpdatePasswordPage() {
+  const { dataPoints } = useDataPoints('account');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -226,7 +228,9 @@ export default function UpdatePasswordPage() {
                 htmlFor="new-password"
                 className="block text-[10px] font-black text-secondary/40 uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
               >
-                New Password
+                <DataPoint name="account.password.new_label" as="span" initialData={dataPoints}>
+                  New Password
+                </DataPoint>
               </label>
               <div className="relative">
                 <Lock
@@ -240,7 +244,9 @@ export default function UpdatePasswordPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
-                  placeholder="Min. 8 characters"
+                  placeholder={
+                    dataPoints['account.password.new_placeholder'] || 'Min. 8 characters'
+                  }
                   className="w-full pl-12 pr-12 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-white focus:border-primary outline-none transition-all font-bold text-secondary text-sm placeholder:text-slate-300"
                 />
                 <button
@@ -260,7 +266,9 @@ export default function UpdatePasswordPage() {
                 htmlFor="confirm-password"
                 className="block text-[10px] font-black text-secondary/40 uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
               >
-                Confirm Password
+                <DataPoint name="account.password.confirm_label" as="span" initialData={dataPoints}>
+                  Confirm Password
+                </DataPoint>
               </label>
               <div className="relative">
                 <Lock
@@ -273,7 +281,9 @@ export default function UpdatePasswordPage() {
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   required
-                  placeholder="Repeat your password"
+                  placeholder={
+                    dataPoints['account.password.confirm_placeholder'] || 'Repeat your password'
+                  }
                   className="w-full pl-12 pr-12 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-white focus:border-primary outline-none transition-all font-bold text-secondary text-sm placeholder:text-slate-300"
                 />
                 <button
@@ -292,7 +302,23 @@ export default function UpdatePasswordPage() {
                 <p
                   className={`mt-2 ml-1 text-[10px] font-black uppercase tracking-widest ${password === confirm ? 'text-emerald-500' : 'text-rose-500'}`}
                 >
-                  {password === confirm ? '✓ Passwords match' : '✗ Passwords do not match'}
+                  {password === confirm ? (
+                    <DataPoint
+                      name="account.password.match_success"
+                      as="span"
+                      initialData={dataPoints}
+                    >
+                      ✓ Passwords match
+                    </DataPoint>
+                  ) : (
+                    <DataPoint
+                      name="account.password.match_error"
+                      as="span"
+                      initialData={dataPoints}
+                    >
+                      ✗ Passwords do not match
+                    </DataPoint>
+                  )}
                 </p>
               )}
             </div>

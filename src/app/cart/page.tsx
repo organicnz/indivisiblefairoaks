@@ -284,7 +284,9 @@ export default function CartPage() {
                 className="w-full bg-secondary text-white rounded-full py-5 px-6 text-sm font-black uppercase tracking-[0.2em] hover:bg-primary active:bg-primary-dark transition-colors duration-300 ease-out shadow-float flex justify-center items-center disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 {isLoading ? (
-                  'Processing...'
+                  <DataPoint name="cart.btn.processing" as="span">
+                    Processing...
+                  </DataPoint>
                 ) : (
                   <>
                     <DataPoint name="cart.btn.checkout" as="span">
