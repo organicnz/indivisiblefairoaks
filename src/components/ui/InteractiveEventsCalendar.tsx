@@ -18,6 +18,8 @@ import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicEventEditorModal } from '@/components/admin/civic/CivicEventEditorModal';
 import { useEditContext } from '@/components/layout/useEditContext';
 import { useVisualEditMode } from '@/components/layout/visual-edit-store';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicEventRecord, deleteCivicEvent } from '@/lib/actions/civic';
 import { buildGoogleCalendarUrl } from '@/lib/civic-events';
 
@@ -111,6 +113,7 @@ export function InteractiveEventsCalendar({
 }: {
   initialEvents?: CivicEvent[];
 } = {}) {
+  const { dataPoints } = useDataPoints('events');
   const { enabled } = useVisualEditMode('/events');
   const { isAdmin } = useEditContext('/events');
   const [activeCategory, setActiveCategory] = useState<string>('All Actions');
@@ -271,7 +274,9 @@ export function InteractiveEventsCalendar({
           />
           <input
             type="text"
-            placeholder="Search actions, meetings, or locations..."
+            placeholder={
+              dataPoints['events.search.placeholder'] || 'Search actions, meetings, or locations...'
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-500 transition-colors"
@@ -313,8 +318,10 @@ export function InteractiveEventsCalendar({
       <div className="grid grid-cols-1 gap-6">
         {filteredEvents.length === 0 ? (
           <div className="p-12 text-center rounded-2xl bg-secondary border border-white/10 text-ink-muted-on-dark">
-            No events found matching your criteria. Try selecting &ldquo;All Actions&rdquo; or
-            clearing the search query.
+            <DataPoint as="span" name="events.empty.desc" initialData={dataPoints}>
+              No events found matching your criteria. Try selecting &ldquo;All Actions&rdquo; or
+              clearing the search query.
+            </DataPoint>
           </div>
         ) : (
           // A live region on the *list container*, not on each result: a
