@@ -47,7 +47,7 @@ function themeToggleLabel(mode: ThemeMode): string {
  */
 export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' | 'segmented' }) {
   const { dataPoints } = useDataPoints('header');
-  const { mode, setMode, cycle } = useThemeMode();
+  const { mode, effective, setMode, cycle } = useThemeMode();
   const Icon = MODE_ICON[mode];
   const label = themeToggleLabel(mode);
 
@@ -87,11 +87,20 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
         type="button"
         onClick={cycle}
         data-theme-mode={mode}
+        data-theme-effective={effective}
         aria-label={label}
         title={label}
-        className={`inline-flex items-center justify-center size-11 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
+        className={`relative inline-flex items-center justify-center size-11 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
       >
         <Icon size={18} aria-hidden="true" />
+        {mode === 'system' && (
+          <span
+            aria-hidden="true"
+            className={`absolute bottom-2 right-2 size-1.5 rounded-full ring-1 ring-secondary ${
+              effective === 'dark' ? 'bg-sky-400' : 'bg-amber-400'
+            }`}
+          />
+        )}
       </button>
     );
   }
@@ -125,6 +134,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               type="button"
               aria-pressed={isSelected}
               onClick={() => setMode(m)}
+              data-theme-mode={m}
               className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
                 isSelected
                   ? 'bg-amber-400 text-secondary shadow-xs font-black'

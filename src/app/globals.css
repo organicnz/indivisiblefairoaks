@@ -218,14 +218,18 @@
 
   .floating-safe-position-panel {
     inset-inline-end: calc(1rem + var(--safe-area-right));
-    inset-block-end: calc(1rem + var(--safe-area-bottom));
+    inset-block-end: calc(5.25rem + var(--safe-area-bottom));
   }
 
   @media (min-width: 40rem) {
-    .floating-safe-position,
-    .floating-safe-position-panel {
+    .floating-safe-position {
       inset-inline-end: calc(1.5rem + var(--safe-area-right));
       inset-block-end: calc(1.5rem + var(--safe-area-bottom));
+    }
+
+    .floating-safe-position-panel {
+      inset-inline-end: calc(1.5rem + var(--safe-area-right));
+      inset-block-end: calc(5.75rem + var(--safe-area-bottom));
     }
   }
 }
