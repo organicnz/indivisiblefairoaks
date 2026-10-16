@@ -2,6 +2,8 @@
 
 import { Heart } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { useWishlistStore } from '@/lib/store/wishlist';
 
 interface WishlistButtonProps {
@@ -16,6 +18,7 @@ interface WishlistButtonProps {
 }
 
 export function WishlistButton({ product, showText = false }: WishlistButtonProps) {
+  const { dataPoints } = useDataPoints('products');
   const { addItem, removeItem, isInWishlist } = useWishlistStore();
   const [isMounted, setIsMounted] = useState(false);
   const active = isMounted && isInWishlist(product.id);
@@ -66,7 +69,16 @@ export function WishlistButton({ product, showText = false }: WishlistButtonProp
         strokeWidth={active ? 0 : 2.5}
         aria-hidden="true"
       />
-      {showText && (active ? 'In Wishlist' : 'Add to Wishlist')}
+      {showText &&
+        (active ? (
+          <DataPoint as="span" name="products.wishlist.in" initialData={dataPoints}>
+            In Wishlist
+          </DataPoint>
+        ) : (
+          <DataPoint as="span" name="products.wishlist.add" initialData={dataPoints}>
+            Add to Wishlist
+          </DataPoint>
+        ))}
     </button>
   );
 }

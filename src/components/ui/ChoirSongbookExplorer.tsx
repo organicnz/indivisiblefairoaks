@@ -2,6 +2,8 @@
 
 import { ChevronDown, ChevronUp, Heart, Music, Search, Sparkles } from 'lucide-react';
 import { useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 interface Song {
   id: string;
@@ -113,12 +115,22 @@ That side was made for you and me.`,
 ];
 
 export function ChoirSongbookExplorer() {
+  const { dataPoints } = useDataPoints('choir');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [expandedSongId, setExpandedSongId] = useState<string | null>('singing-for-our-lives');
   const [showChords, setShowChords] = useState(false);
 
-  const categories = ['All', 'Civil Rights', 'Labor & Freedom', 'Chants & Street Anthems'];
+  const categories = [
+    { id: 'All', key: 'choir.songbook.all_categories', defaultLabel: 'All Repertoire' },
+    { id: 'Civil Rights', key: 'choir.songbook.cat.civil_rights', defaultLabel: 'Civil Rights' },
+    { id: 'Labor & Freedom', key: 'choir.songbook.cat.labor', defaultLabel: 'Labor & Freedom' },
+    {
+      id: 'Chants & Street Anthems',
+      key: 'choir.songbook.cat.chants',
+      defaultLabel: 'Chants & Street Anthems',
+    },
+  ];
 
   const filteredSongs = SONGBOOK.filter((song) => {
     const matchesCat = selectedCategory === 'All' || song.category === selectedCategory;
@@ -134,15 +146,27 @@ export function ChoirSongbookExplorer() {
       <div>
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-3">
           <Music size={14} className="text-accent-gold" />
-          <span>Carmichael Resistance Choir Songbook</span>
+          <DataPoint as="span" name="choir.songbook.eyebrow" initialData={dataPoints}>
+            Carmichael Resistance Choir Songbook
+          </DataPoint>
         </div>
-        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-2">
+        <DataPoint
+          as="h2"
+          name="choir.songbook.headline"
+          initialData={dataPoints}
+          className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-2"
+        >
           Anthems, Chants & Freedom Songs
-        </h2>
-        <p className="text-sm sm:text-base text-ink-on-dark max-w-2xl leading-relaxed">
+        </DataPoint>
+        <DataPoint
+          as="p"
+          name="choir.songbook.subhead"
+          initialData={dataPoints}
+          className="text-sm sm:text-base text-ink-on-dark max-w-2xl leading-relaxed"
+        >
           Browse our repertoire of four-part harmony arrangements and call-and-response rally
           chants. Click any song to view lyrics, chord charts, and historical background.
-        </p>
+        </DataPoint>
       </div>
 
       {/* Filter and Search Controls */}
@@ -154,7 +178,10 @@ export function ChoirSongbookExplorer() {
           />
           <input
             type="text"
-            placeholder="Search lyrics, song titles, or composers..."
+            placeholder={
+              dataPoints['choir.songbook.search_placeholder'] ||
+              'Search songs by title, lyrics, or historical era…'
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-500 transition-colors"
@@ -164,23 +191,25 @@ export function ChoirSongbookExplorer() {
         <div className="flex items-center gap-2 flex-wrap">
           {categories.map((cat) => (
             <button
-              key={cat}
+              key={cat.id}
               type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                selectedCategory === cat
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                selectedCategory === cat.id
                   ? 'bg-primary-bright text-white shadow-md'
                   : 'bg-secondary text-ink-muted-on-dark hover:text-slate-200'
               }`}
             >
-              {cat}
+              <DataPoint as="span" name={cat.key} initialData={dataPoints}>
+                {cat.defaultLabel}
+              </DataPoint>
             </button>
           ))}
 
           <button
             type="button"
             onClick={() => setShowChords((prev) => !prev)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all border ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all border cursor-pointer ${
               showChords
                 ? 'bg-accent-gold/20 text-accent-gold border-accent-gold/40'
                 : 'bg-secondary text-ink-muted-on-dark border-white/10 hover:text-slate-200'
@@ -194,8 +223,23 @@ export function ChoirSongbookExplorer() {
       {/* Song List */}
       <div className="space-y-4">
         {filteredSongs.length === 0 ? (
-          <div className="p-8 text-center text-ink-muted-on-dark text-xs">
-            No songs found matching your search.
+          <div className="p-8 text-center space-y-1">
+            <DataPoint
+              as="h3"
+              name="choir.songbook.empty_title"
+              initialData={dataPoints}
+              className="font-bold text-white text-sm"
+            >
+              No songs matched your search.
+            </DataPoint>
+            <DataPoint
+              as="p"
+              name="choir.songbook.empty_desc"
+              initialData={dataPoints}
+              className="text-xs text-ink-muted-on-dark"
+            >
+              Try searching for a different keyword, artist, or historical era.
+            </DataPoint>
           </div>
         ) : (
           <>

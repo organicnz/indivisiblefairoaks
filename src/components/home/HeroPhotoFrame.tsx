@@ -4,6 +4,8 @@ import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 import { getGalleryPhotos } from '@/lib/queries/content-client';
 import type { GalleryPhotoView } from '@/types/gallery';
@@ -104,6 +106,7 @@ const rowVariants: Variants = {
 };
 
 export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhotoView[] } = {}) {
+  const { dataPoints } = useDataPoints('home');
   const reduced = useReducedMotion();
   const heroPhotos = useHeroPhotos(initialPhotos);
   const pairPhotos = usePairPhotos(initialPhotos);
@@ -152,7 +155,9 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
           {heroPhotos.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 px-6 text-center">
               <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
-                Community moments
+                <DataPoint as="span" name="home.hero.community_moments" initialData={dataPoints}>
+                  Community moments
+                </DataPoint>
               </span>
             </div>
           )}
@@ -223,13 +228,17 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
       {/* Caption strip — outside aria-hidden so the link is keyboard-reachable */}
       <div className="flex items-center justify-between px-1">
         <span className="text-[10px] text-slate-500 font-medium" aria-hidden="true">
-          Community moments
+          <DataPoint as="span" name="home.hero.community_moments" initialData={dataPoints}>
+            Community moments
+          </DataPoint>
         </span>
         <Link
           href="/gallery"
           className="text-[10px] text-blue-400 hover:text-blue-300 font-bold uppercase tracking-wider transition-colors"
         >
-          View Gallery →
+          <DataPoint as="span" name="home.hero.view_gallery" initialData={dataPoints}>
+            View Gallery →
+          </DataPoint>
         </Link>
       </div>
     </div>

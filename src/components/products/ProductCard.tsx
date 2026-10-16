@@ -3,6 +3,8 @@
 import { motion, useReducedMotion } from 'motion/react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { getStorageUrl } from '@/lib/supabase';
 import { WishlistButton } from './WishlistButton';
 
@@ -22,6 +24,7 @@ const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2';
 
 export function ProductCard({ product }: ProductCardProps) {
+  const { dataPoints } = useDataPoints('products');
   const isOnSale = product.regular_price && product.regular_price > product.price;
   const href = `/products/${product.slug}`;
   // `whileHover` is a JS transform, so the global prefers-reduced-motion CSS
@@ -38,7 +41,9 @@ export function ProductCard({ product }: ProductCardProps) {
     >
       {isOnSale && (
         <div className="absolute top-6 left-6 z-30 bg-primary text-white text-xs font-black px-4 py-2 rounded-full uppercase tracking-[0.2em] shadow-float">
-          On Sale
+          <DataPoint as="span" name="products.card.on_sale" initialData={dataPoints}>
+            On Sale
+          </DataPoint>
         </div>
       )}
 
@@ -63,7 +68,9 @@ export function ProductCard({ product }: ProductCardProps) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground font-black uppercase tracking-[0.2em] text-xs">
-            No Image
+            <DataPoint as="span" name="products.card.no_image" initialData={dataPoints}>
+              No Image
+            </DataPoint>
           </div>
         )}
 
@@ -93,7 +100,9 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6 sm:mt-8">
           <div className="flex flex-col">
             <span className="text-xs font-black text-muted-foreground uppercase tracking-wider mb-0.5">
-              Price
+              <DataPoint as="span" name="products.card.price_label" initialData={dataPoints}>
+                Price
+              </DataPoint>
             </span>
             <div className="flex flex-col">
               {isOnSale && (
@@ -111,7 +120,9 @@ export function ProductCard({ product }: ProductCardProps) {
             aria-hidden="true"
             className="bg-secondary text-white text-xs font-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-full transition-colors duration-300 ease-out uppercase tracking-[0.2em] shadow-lg shadow-secondary/10 group-hover:bg-primary text-center"
           >
-            View Gear
+            <DataPoint as="span" name="products.card.details" initialData={dataPoints}>
+              View Gear
+            </DataPoint>
           </span>
         </div>
       </div>

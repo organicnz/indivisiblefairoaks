@@ -92,7 +92,9 @@ export function WallEChatWidget() {
         {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: "I couldn't reach my notes just now. Please try again in a moment.",
+          content:
+            dataPoints['walle.error_msg'] ||
+            "I couldn't reach my notes just now. Please try again in a moment.",
         },
       ]);
     } finally {
@@ -239,7 +241,9 @@ export function WallEChatWidget() {
             />
             {/* Tooltip is now also driven by focus, not hover only. */}
             <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full bg-secondary px-3 py-1.5 text-xs font-bold text-white opacity-0 shadow-lg transition-opacity duration-300 ease-out group-hover:opacity-100 group-focus-visible:opacity-100">
-              Ask WALL-E
+              <DataPoint as="span" name="walle.tooltip" initialData={dataPoints}>
+                Ask WALL-E
+              </DataPoint>
             </span>
           </button>
         </Dialog.Trigger>

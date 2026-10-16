@@ -1,6 +1,8 @@
 'use client';
 
 import { Monitor, Moon, Sun } from 'lucide-react';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { nextThemeMode, THEME_ORDER, type ThemeMode, themeModeLabel } from '@/lib/theme';
 import { useThemeMode } from './theme-store';
 
@@ -44,6 +46,7 @@ function themeToggleLabel(mode: ThemeMode): string {
  * is worse than one with no glyph.
  */
 export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' | 'segmented' }) {
+  const { dataPoints } = useDataPoints('header');
   const { mode, setMode, cycle } = useThemeMode();
   const Icon = MODE_ICON[mode];
   const label = themeToggleLabel(mode);
@@ -104,7 +107,9 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
         className={`flex w-full items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-colors duration-300 ease-out text-sm font-medium ${FOCUS_RING}`}
       >
         <Icon size={18} aria-hidden="true" />
-        <span>Appearance</span>
+        <DataPoint as="span" name="header.theme.appearance" initialData={dataPoints}>
+          Appearance
+        </DataPoint>
         <span className="ml-auto text-xs font-semibold uppercase tracking-wider text-ink-muted-on-dark">
           {themeModeLabel(mode)}
         </span>

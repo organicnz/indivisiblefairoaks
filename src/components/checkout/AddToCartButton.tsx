@@ -2,6 +2,8 @@
 
 import { ChevronDown, ShoppingCart } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { useCartStore } from '@/lib/store/cart';
 
 interface Variation {
@@ -24,6 +26,7 @@ interface AddToCartButtonProps {
 }
 
 export function AddToCartButton({ product, variations = [] }: AddToCartButtonProps) {
+  const { dataPoints } = useDataPoints('cart');
   const addItem = useCartStore((state) => state.addItem);
   const [isAdded, setIsAdded] = useState(false);
   const [selectedVariation, setSelectedVariation] = useState<Variation | null>(
@@ -74,7 +77,9 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
             htmlFor="variation"
             className="block text-xs font-black text-foreground uppercase tracking-widest mb-2"
           >
-            Select Option
+            <DataPoint as="span" name="cart.btn.select_option" initialData={dataPoints}>
+              Select Option
+            </DataPoint>
           </label>
           <div className="relative">
             <select
@@ -120,7 +125,19 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
         }`}
       >
         <ShoppingCart className="mr-3" size={20} strokeWidth={3} aria-hidden="true" />
-        {isOutOfStock ? 'Out of stock' : isAdded ? 'Added to Cart!' : 'Add to bag'}
+        {isOutOfStock ? (
+          <DataPoint as="span" name="cart.btn.out_of_stock" initialData={dataPoints}>
+            Out of stock
+          </DataPoint>
+        ) : isAdded ? (
+          <DataPoint as="span" name="cart.btn.added" initialData={dataPoints}>
+            Added to Cart!
+          </DataPoint>
+        ) : (
+          <DataPoint as="span" name="cart.btn.add" initialData={dataPoints}>
+            Add to bag
+          </DataPoint>
+        )}
       </button>
 
       {/*

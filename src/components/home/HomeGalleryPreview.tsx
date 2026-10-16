@@ -66,13 +66,21 @@ export function HomeGalleryPreview({
   }, [initialPhotos]);
 
   const filterOptions = [
-    'All',
-    'No Kings Sacramento',
-    'NorCal Resist',
-    'Sacramento Unity',
-    'Witty Signs',
-    'Resistance Choir',
-    'Legacy Archives',
+    { id: 'All', key: 'home.gallery.filter.all', defaultLabel: 'All' },
+    {
+      id: 'No Kings Sacramento',
+      key: 'home.gallery.filter.no_kings',
+      defaultLabel: 'No Kings Sacramento',
+    },
+    {
+      id: 'NorCal Resist',
+      key: 'home.gallery.filter.norcal_resist',
+      defaultLabel: 'NorCal Resist',
+    },
+    { id: 'Sacramento Unity', key: 'home.gallery.filter.unity', defaultLabel: 'Sacramento Unity' },
+    { id: 'Witty Signs', key: 'home.gallery.filter.witty', defaultLabel: 'Witty Signs' },
+    { id: 'Resistance Choir', key: 'home.gallery.filter.choir', defaultLabel: 'Resistance Choir' },
+    { id: 'Legacy Archives', key: 'home.gallery.filter.legacy', defaultLabel: 'Legacy Archives' },
   ];
 
   const displayedPhotos =
@@ -128,16 +136,18 @@ export function HomeGalleryPreview({
           <Filter size={14} className="text-ink-muted-on-dark mr-1 hidden sm:inline-block" />
           {filterOptions.map((option) => (
             <button
-              key={option}
+              key={option.id}
               type="button"
-              onClick={() => setSelectedFilter(option)}
+              onClick={() => setSelectedFilter(option.id)}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                selectedFilter === option
+                selectedFilter === option.id
                   ? 'bg-primary-bright text-white shadow-md shadow-blue-500/25 scale-105'
                   : 'bg-secondary text-ink-muted-on-dark hover:text-white hover:bg-white/5 border border-white/10'
               }`}
             >
-              {option}
+              <DataPoint as="span" name={option.key} initialData={dataPoints}>
+                {option.defaultLabel}
+              </DataPoint>
             </button>
           ))}
         </div>

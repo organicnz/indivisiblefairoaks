@@ -1,3 +1,4 @@
+import { DataPoint } from '@/components/ui/DataPoint';
 import { formatPrice } from '@/config/commerce';
 import { formatDate, type MyOrder, statusStyle } from '@/types/orders';
 
@@ -6,7 +7,9 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
     return (
       <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
         <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
-          No past orders found.
+          <DataPoint as="span" name="account.orders.empty">
+            No past orders found.
+          </DataPoint>
         </p>
       </div>
     );
@@ -25,7 +28,9 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
             <div className="bg-surface-muted px-6 py-5 border-b border-border grid grid-cols-2 md:grid-cols-4 gap-6 items-start">
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                  Order Placed
+                  <DataPoint as="span" name="account.orders.placed">
+                    Order Placed
+                  </DataPoint>
                 </p>
                 <time
                   dateTime={order.created_at ?? ''}
@@ -36,7 +41,9 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                  Total
+                  <DataPoint as="span" name="account.orders.total">
+                    Total
+                  </DataPoint>
                 </p>
                 <p className="text-sm text-primary dark:text-primary-on-dark font-black tabular-nums">
                   {formatPrice(order.total)}
@@ -44,7 +51,9 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
               </div>
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                  Status
+                  <DataPoint as="span" name="account.orders.status">
+                    Status
+                  </DataPoint>
                 </p>
                 <span
                   className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${statusStyle(order.status)}`}
@@ -76,7 +85,10 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
                         {item.product_name}
                       </p>
                       <p className="text-[10px] text-muted-foreground font-bold uppercase">
-                        Qty: {item.quantity}
+                        <DataPoint as="span" name="account.orders.qty">
+                          Qty:
+                        </DataPoint>{' '}
+                        {item.quantity}
                       </p>
                     </div>
                   </div>

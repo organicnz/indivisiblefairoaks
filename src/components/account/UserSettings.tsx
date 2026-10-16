@@ -2,10 +2,13 @@
 
 import { Bell, CheckCircle2, Loader2, Mail, MapPin, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { CURRENCY_CODE } from '@/config/commerce';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { useSettingsStore } from '@/lib/store/settings';
 
 export function UserSettings() {
+  const { dataPoints } = useDataPoints('account');
   const { settings, isLoading, error, errorReason, updateSettings } = useSettingsStore();
 
   const handleToggle = async (key: keyof typeof settings) => {
@@ -28,7 +31,9 @@ export function UserSettings() {
     <div className="space-y-12 mt-16 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 motion-safe:ease-out">
       <div className="flex flex-col mb-8">
         <h2 className="text-2xl font-black text-secondary uppercase tracking-tighterer mb-2 inline-block">
-          Preferences
+          <DataPoint as="span" name="account.settings.preferences_title" initialData={dataPoints}>
+            Preferences
+          </DataPoint>
         </h2>
         <div className="h-1 w-12 bg-primary" />
       </div>
@@ -42,10 +47,22 @@ export function UserSettings() {
             </div>
             <div>
               <h3 className="text-lg font-black text-secondary uppercase tracking-tighter">
-                Notifications
+                <DataPoint
+                  as="span"
+                  name="account.settings.notifications_title"
+                  initialData={dataPoints}
+                >
+                  Notifications
+                </DataPoint>
               </h3>
               <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-                Manage how we reach you
+                <DataPoint
+                  as="span"
+                  name="account.settings.notifications_sub"
+                  initialData={dataPoints}
+                >
+                  Manage how we reach you
+                </DataPoint>
               </p>
             </div>
           </div>
@@ -56,10 +73,22 @@ export function UserSettings() {
                 <Mail size={18} className="text-muted-foreground" />
                 <div>
                   <p className="text-xs font-black text-secondary uppercase tracking-wider">
-                    Marketing Emails
+                    <DataPoint
+                      as="span"
+                      name="account.settings.marketing_title"
+                      initialData={dataPoints}
+                    >
+                      Marketing Emails
+                    </DataPoint>
                   </p>
                   <p className="text-[10px] text-muted-foreground font-medium">
-                    New gear & exclusive offers
+                    <DataPoint
+                      as="span"
+                      name="account.settings.marketing_sub"
+                      initialData={dataPoints}
+                    >
+                      New gear & exclusive offers
+                    </DataPoint>
                   </p>
                 </div>
               </div>
@@ -86,10 +115,22 @@ export function UserSettings() {
                 <CheckCircle2 size={18} className="text-muted-foreground" />
                 <div>
                   <p className="text-xs font-black text-secondary uppercase tracking-wider">
-                    Order Updates
+                    <DataPoint
+                      as="span"
+                      name="account.settings.order_updates_title"
+                      initialData={dataPoints}
+                    >
+                      Order Updates
+                    </DataPoint>
                   </p>
                   <p className="text-[10px] text-muted-foreground font-medium">
-                    Tracking & delivery status
+                    <DataPoint
+                      as="span"
+                      name="account.settings.order_updates_sub"
+                      initialData={dataPoints}
+                    >
+                      Tracking & delivery status
+                    </DataPoint>
                   </p>
                 </div>
               </div>
