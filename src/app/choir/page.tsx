@@ -158,9 +158,14 @@ export default async function ChoirPage() {
                       >
                         Every Other Wednesday
                       </DataPoint>
-                      <span className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
+                      <DataPoint
+                        name="choir.schedule.time_sub"
+                        as="span"
+                        initialData={dataPoints}
+                        className="text-xs text-muted-foreground dark:text-ink-muted-on-dark block"
+                      >
                         6:30 PM – 8:00 PM
-                      </span>
+                      </DataPoint>
                     </div>
                   </div>
 
@@ -178,9 +183,14 @@ export default async function ChoirPage() {
                       >
                         St. Michael's Episcopal Church
                       </DataPoint>
-                      <span className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
+                      <DataPoint
+                        name="choir.schedule.location_sub"
+                        as="span"
+                        initialData={dataPoints}
+                        className="text-xs text-muted-foreground dark:text-ink-muted-on-dark block"
+                      >
                         Exact address and parking instructions provided upon registration.
-                      </span>
+                      </DataPoint>
                     </div>
                   </div>
                 </CopyRegion>
@@ -204,15 +214,30 @@ export default async function ChoirPage() {
         {/* Video Demonstrations */}
         <div className="space-y-6">
           <div className="text-center max-w-2xl mx-auto">
-            <span className="text-primary-ink dark:text-accent-gold text-xs font-black uppercase tracking-widest block mb-2">
+            <DataPoint
+              name="choir.videos.eyebrow"
+              as="span"
+              initialData={dataPoints}
+              className="text-primary-ink dark:text-accent-gold text-xs font-black uppercase tracking-widest block mb-2"
+            >
               Watch Us In Action
-            </span>
-            <h2 className="text-3xl font-black text-foreground dark:text-white tracking-tight">
+            </DataPoint>
+            <DataPoint
+              name="choir.videos.title"
+              as="h2"
+              initialData={dataPoints}
+              className="text-3xl font-black text-foreground dark:text-white tracking-tight"
+            >
               Singing Out On The Streets
-            </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-muted-on-dark mt-2">
+            </DataPoint>
+            <DataPoint
+              name="choir.videos.desc"
+              as="p"
+              initialData={dataPoints}
+              className="text-xs sm:text-sm text-muted-foreground dark:text-ink-muted-on-dark mt-2"
+            >
               Demonstrations at Fair Oaks Blvd & Manzanita Ave in Carmichael, CA.
-            </p>
+            </DataPoint>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -226,12 +251,22 @@ export default async function ChoirPage() {
                   allowFullScreen
                 />
               </div>
-              <h3 className="font-bold text-foreground dark:text-white text-sm">
+              <DataPoint
+                name="choir.videos.v1_title"
+                as="h3"
+                initialData={dataPoints}
+                className="font-bold text-foreground dark:text-white text-sm"
+              >
                 Rush Hour Singing Demonstration
-              </h3>
-              <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
+              </DataPoint>
+              <DataPoint
+                name="choir.videos.v1_desc"
+                as="p"
+                initialData={dataPoints}
+                className="text-xs text-muted-foreground dark:text-ink-muted-on-dark"
+              >
                 Carrying songs of peace, civil rights, and democratic defense to community drivers.
-              </p>
+              </DataPoint>
             </div>
 
             <div className="rounded-2xl overflow-hidden bg-surface-card border border-border dark:bg-secondary dark:border-white/10 p-4 shadow-xl space-y-3">
@@ -244,12 +279,22 @@ export default async function ChoirPage() {
                   allowFullScreen
                 />
               </div>
-              <h3 className="font-bold text-foreground dark:text-white text-sm">
+              <DataPoint
+                name="choir.videos.v2_title"
+                as="h3"
+                initialData={dataPoints}
+                className="font-bold text-foreground dark:text-white text-sm"
+              >
                 Community Voices in Harmony
-              </h3>
-              <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
-                Singing protest anthems together to foster camaraderie and courage.
-              </p>
+              </DataPoint>
+              <DataPoint
+                name="choir.videos.v2_desc"
+                as="p"
+                initialData={dataPoints}
+                className="text-xs text-muted-foreground dark:text-ink-muted-on-dark"
+              >
+                Rehearsing chants and classic civil rights hymns for upcoming demonstrations.
+              </DataPoint>
             </div>
           </div>
         </div>
@@ -262,13 +307,23 @@ export default async function ChoirPage() {
 
         {/* Join CTA */}
         <div className="p-8 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-center space-y-4">
-          <h3 className="text-2xl font-black text-foreground dark:text-white">
+          <DataPoint
+            name="choir.join.title"
+            as="h3"
+            initialData={dataPoints}
+            className="text-2xl font-black text-foreground dark:text-white"
+          >
             Ready to Sing With Us?
-          </h3>
-          <p className="text-muted-foreground dark:text-ink-on-dark text-sm max-w-lg mx-auto">
+          </DataPoint>
+          <DataPoint
+            name="choir.join.desc"
+            as="p"
+            initialData={dataPoints}
+            className="text-muted-foreground dark:text-ink-on-dark text-sm max-w-lg mx-auto"
+          >
             You don&apos;t need to be a trained musician. If you have a heart for justice and a
             voice to lend, you belong in our choir.
-          </p>
+          </DataPoint>
           <div className="pt-2 flex flex-wrap justify-center gap-4">
             <a
               href="mailto:contact@indivisiblefairoaks.org?subject=Joining%20the%20Resistance%20Choir"

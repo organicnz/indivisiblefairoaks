@@ -121,7 +121,9 @@ export default async function HomePage() {
                     href="/events"
                     className="px-6 py-3.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-blue-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <span>Upcoming Actions</span>
+                    <DataPoint as="span" name="home.hero.btn_actions" initialData={dataPoints}>
+                      Upcoming Actions
+                    </DataPoint>
                     <ArrowRight size={16} />
                   </Link>
                   <Link
@@ -129,14 +131,18 @@ export default async function HomePage() {
                     className="px-6 py-3.5 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-amber-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Heart size={16} className="fill-slate-950" />
-                    <span>Support Our Chapter</span>
+                    <DataPoint as="span" name="home.hero.btn_support" initialData={dataPoints}>
+                      Support Our Chapter
+                    </DataPoint>
                   </Link>
                   <Link
                     href="/choir"
                     className="px-6 py-3.5 rounded-xl bg-secondary/80 hover:bg-white/5 text-slate-200 border border-slate-700/80 backdrop-blur-md font-semibold text-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Music size={16} className="text-primary-on-dark-muted" />
-                    <span>Resistance Choir</span>
+                    <DataPoint as="span" name="home.hero.btn_choir" initialData={dataPoints}>
+                      Resistance Choir
+                    </DataPoint>
                   </Link>
                 </div>
 
@@ -244,7 +250,9 @@ export default async function HomePage() {
               </div>
               <div>
                 <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-[11px] font-bold uppercase tracking-wide mb-1">
-                  Next Community Gathering
+                  <DataPoint as="span" name="home.gathering.badge" initialData={dataPoints}>
+                    Next Community Gathering
+                  </DataPoint>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-black text-foreground">{card.title}</h2>
                 <p className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-y-1 gap-x-4">
@@ -271,7 +279,9 @@ export default async function HomePage() {
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto text-center px-4 py-3 rounded-xl border-2 border-secondary text-foreground hover:bg-secondary hover:text-white dark:border-border font-semibold text-xs uppercase tracking-wider transition-all"
               >
-                + Add to Calendar
+                <DataPoint as="span" name="home.gathering.btn_cal" initialData={dataPoints}>
+                  + Add to Calendar
+                </DataPoint>
               </a>
               <a
                 href={card.rsvpUrl}
@@ -279,7 +289,9 @@ export default async function HomePage() {
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto text-center px-6 py-3 rounded-xl bg-accent-gold hover:bg-accent-gold text-secondary font-bold text-xs uppercase tracking-wider transition-all shadow-md hover:scale-105"
               >
-                RSVP via Mobilize
+                <DataPoint as="span" name="home.gathering.btn_rsvp" initialData={dataPoints}>
+                  RSVP via Mobilize
+                </DataPoint>
               </a>
             </div>
           </div>
@@ -575,7 +587,9 @@ export default async function HomePage() {
               href="/voter-info"
               className="inline-flex items-center gap-2 text-sm font-bold text-primary-ink hover:text-primary-dark transition-colors uppercase tracking-wider"
             >
-              <span>View All 7 Voter Guides</span>
+              <DataPoint as="span" name="home.voter.view_all" initialData={dataPoints}>
+                View All 7 Voter Guides
+              </DataPoint>
               <ArrowRight size={16} />
             </Link>
           </div>
@@ -609,7 +623,9 @@ export default async function HomePage() {
                   href="/voter-info"
                   className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted flex items-center gap-1.5"
                 >
-                  <span>Access Guide & Directory</span>
+                  <DataPoint as="span" name="home.voter.card1_btn" initialData={dataPoints}>
+                    Access Guide &amp; Directory
+                  </DataPoint>
                   <ArrowRight size={14} />
                 </Link>
               </div>
@@ -641,7 +657,9 @@ export default async function HomePage() {
                   href="/voter-info"
                   className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted flex items-center gap-1.5"
                 >
-                  <span>Youth Voting Guide</span>
+                  <DataPoint as="span" name="home.voter.card2_btn" initialData={dataPoints}>
+                    Youth Voting Guide
+                  </DataPoint>
                   <ArrowRight size={14} />
                 </Link>
               </div>
@@ -657,7 +675,7 @@ export default async function HomePage() {
                     initialData={dataPoints}
                     className="text-lg font-bold text-foreground mb-2"
                   >
-                    Rights Restoration & Unhoused Voting
+                    Rights Restoration &amp; Unhoused Voting
                   </DataPoint>
                   <DataPoint
                     name="home.voter.card3_desc"
@@ -673,7 +691,9 @@ export default async function HomePage() {
                   href="/voter-info"
                   className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted flex items-center gap-1.5"
                 >
-                  <span>Read Rights Overview</span>
+                  <DataPoint as="span" name="home.voter.card3_btn" initialData={dataPoints}>
+                    Read Rights Overview
+                  </DataPoint>
                   <ArrowRight size={14} />
                 </Link>
               </div>
@@ -683,7 +703,7 @@ export default async function HomePage() {
       </section>
 
       {/* Community Photojournalism / Moments of Resistance Preview */}
-      <HomeGalleryPreview photos={galleryPhotos} />
+      <HomeGalleryPreview photos={galleryPhotos} dataPoints={dataPoints} />
 
       {/* Non-violent Action Commitment Banner */}
       {/* Light section: the dark tile keeps the emerald icon at full contrast. */}
@@ -749,14 +769,18 @@ export default async function HomePage() {
               className="px-8 py-4 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-black text-sm uppercase tracking-wider shadow-xl hover:scale-105 transition-all flex items-center gap-2"
             >
               <Heart size={18} className="fill-slate-950" />
-              <span>Donate via ActBlue</span>
+              <DataPoint as="span" name="home.cta.btn_donate" initialData={dataPoints}>
+                Donate via ActBlue
+              </DataPoint>
             </Link>
             <a
               href="mailto:subscribe@indivisiblefairoaks.org"
               className="px-8 py-4 rounded-xl bg-white/5 hover:bg-slate-700 text-white border border-slate-700 font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-2"
             >
               <Mail size={18} className="text-primary-on-dark-muted" />
-              <span>Join Mailing List</span>
+              <DataPoint as="span" name="home.cta.btn_subscribe" initialData={dataPoints}>
+                Join Mailing List
+              </DataPoint>
             </a>
           </div>
         </div>

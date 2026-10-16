@@ -4,6 +4,7 @@ import { Check, Copy, ExternalLink, MapPin, Phone, Search } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 interface Official {
   title: string;
@@ -181,6 +182,7 @@ export function SacramentoRepresentativeFinder() {
   const [selectedIssue, setSelectedIssue] = useState<'voting' | 'democracy' | 'environment'>(
     'voting'
   );
+  const { dataPoints } = useDataPoints('voter');
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,12 +203,27 @@ export function SacramentoRepresentativeFinder() {
 
   const getCallScript = () => {
     if (selectedIssue === 'voting') {
-      return `Hello, my name is [Your Name], and I am a constituent living in ${activeDistrict.city} at ZIP code ${activeDistrict.zip}. I am calling today to urge you to protect the freedom to vote by supporting federal protections against voter suppression, safeguarding election workers, and opposing any efforts to restrict mail-in voting. Thank you for your service and for representing our community.`;
+      const template =
+        dataPoints['voter.repfinder.script_voting'] ||
+        'Hello, my name is [Your Name], and I am a constituent living in {city} at ZIP code {zip}. I am calling today to urge you to protect the freedom to vote by supporting federal protections against voter suppression, safeguarding election workers, and opposing any efforts to restrict mail-in voting. Thank you for your service and for representing our community.';
+      return template
+        .replaceAll('{city}', activeDistrict.city)
+        .replaceAll('{zip}', activeDistrict.zip);
     }
     if (selectedIssue === 'democracy') {
-      return `Hello, my name is [Your Name], and I am a constituent living in ${activeDistrict.city} (ZIP ${activeDistrict.zip}). I am calling to urge you to uphold democratic norms, protect judicial ethics and constitutional checks and balances, and ensure accountability under the rule of law. Our community depends on your leadership. Thank you.`;
+      const template =
+        dataPoints['voter.repfinder.script_democracy'] ||
+        'Hello, my name is [Your Name], and I am a constituent living in {city} (ZIP {zip}). I am calling to urge you to uphold democratic norms, protect judicial ethics and constitutional checks and balances, and ensure accountability under the rule of law. Our community depends on your leadership. Thank you.';
+      return template
+        .replaceAll('{city}', activeDistrict.city)
+        .replaceAll('{zip}', activeDistrict.zip);
     }
-    return `Hello, my name is [Your Name], a constituent in ${activeDistrict.city} (ZIP ${activeDistrict.zip}). I am calling to urge robust funding and support for local clean energy initiatives, water conservation, and climate resilience for Sacramento County and Northern California. Thank you.`;
+    const template =
+      dataPoints['voter.repfinder.script_environment'] ||
+      'Hello, my name is [Your Name], a constituent in {city} (ZIP {zip}). I am calling to urge robust funding and support for local clean energy initiatives, water conservation, and climate resilience for Sacramento County and Northern California. Thank you.';
+    return template
+      .replaceAll('{city}', activeDistrict.city)
+      .replaceAll('{zip}', activeDistrict.zip);
   };
 
   const copyScript = () => {
@@ -220,7 +237,9 @@ export function SacramentoRepresentativeFinder() {
       <div className="max-w-3xl">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
           <MapPin size={14} className="text-accent-gold" />
-          <span>Instant District & Representative Finder</span>
+          <DataPoint as="span" name="voter.repfinder.eyebrow">
+            Instant District & Representative Finder
+          </DataPoint>
         </div>
         <DataPoint
           as="h2"

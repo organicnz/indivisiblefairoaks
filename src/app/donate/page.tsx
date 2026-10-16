@@ -163,15 +163,20 @@ export default async function DonatePage() {
 
         {/* Legal Disclaimer */}
         <div className="p-6 rounded-2xl bg-surface-muted border border-border dark:bg-secondary/50 dark:border-white/10 text-xs text-muted-foreground dark:text-ink-muted-on-dark space-y-2">
-          <p className="font-bold text-muted-foreground dark:text-ink-on-dark">
+          <DataPoint
+            name="donate.disclaimer.title"
+            as="p"
+            initialData={dataPoints}
+            className="font-bold text-muted-foreground dark:text-ink-on-dark"
+          >
             Contribution Disclaimers:
-          </p>
-          <p>
+          </DataPoint>
+          <DataPoint name="donate.disclaimer.desc" as="p" initialData={dataPoints}>
             Contributions or gifts to Indivisible Fair Oaks-Carmichael via ActBlue are not
             tax-deductible as charitable contributions for federal income tax purposes. All funds
             are dedicated to grassroots organizing, rally equipment, voter turnout drives, and
             community meeting venue rentals.
-          </p>
+          </DataPoint>
         </div>
       </div>
     </div>

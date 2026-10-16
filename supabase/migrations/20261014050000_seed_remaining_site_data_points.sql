@@ -1,0 +1,52 @@
+-- Migration: 20261014050000_seed_remaining_site_data_points.sql
+-- Seeds all remaining data points across Donate, Choir, Voter Info, and Representative Finder
+-- so that zero copy is hardcoded and all content is managed via Supabase.
+
+INSERT INTO public.data_points (key, group_name, label, value, content_type)
+VALUES
+  ('donate.disclaimer.title', 'donate', 'Donate Disclaimer Title', 'Contribution Disclaimers:', 'text'),
+  ('donate.disclaimer.desc', 'donate', 'Donate Disclaimer Description', 'Contributions or gifts to Indivisible Fair Oaks-Carmichael via ActBlue are not tax-deductible as charitable contributions for federal income tax purposes. All funds are dedicated to grassroots organizing, rally equipment, voter turnout drives, and community meeting venue rentals.', 'text'),
+  ('choir.schedule.time_sub', 'choir', 'Choir Schedule Time Detail', '6:30 PM – 8:00 PM', 'text'),
+  ('choir.schedule.location_sub', 'choir', 'Choir Schedule Location Detail', 'Exact address and parking instructions provided upon registration.', 'text'),
+  ('choir.videos.eyebrow', 'choir', 'Choir Videos Eyebrow', 'Watch Us In Action', 'text'),
+  ('choir.videos.title', 'choir', 'Choir Videos Title', 'Singing Out On The Streets', 'text'),
+  ('choir.videos.desc', 'choir', 'Choir Videos Description', 'Demonstrations at Fair Oaks Blvd & Manzanita Ave in Carmichael, CA.', 'text'),
+  ('choir.videos.v1_title', 'choir', 'Choir Video 1 Title', 'Rush Hour Singing Demonstration', 'text'),
+  ('choir.videos.v1_desc', 'choir', 'Choir Video 1 Description', 'Carrying songs of peace, civil rights, and democratic defense to community drivers.', 'text'),
+  ('choir.videos.v2_title', 'choir', 'Choir Video 2 Title', 'Community Voices in Harmony', 'text'),
+  ('choir.videos.v2_desc', 'choir', 'Choir Video 2 Description', 'Rehearsing chants and classic civil rights hymns for upcoming demonstrations.', 'text'),
+  ('voter.action.register_title', 'voter', 'Voter Action Register Title', 'Register to Vote Online', 'text'),
+  ('voter.action.register_desc', 'voter', 'Voter Action Register Description', 'Register or update your address and party affiliation through the California Secretary of State portal.', 'text'),
+  ('voter.action.track_title', 'voter', 'Voter Action Track Title', 'Track Your Ballot', 'text'),
+  ('voter.action.track_desc', 'voter', 'Voter Action Track Description', 'Sign up for “Where''s My Ballot?” to receive automatic text and email updates when your mail-in ballot is received and counted.', 'text'),
+  ('voter.action.elections_title', 'voter', 'Voter Action Elections Title', 'Sacramento Elections', 'text'),
+  ('voter.action.elections_desc', 'voter', 'Voter Action Elections Description', 'Official Sacramento County Voter Registration & Elections Division: find Vote Center locations and drop boxes.', 'text'),
+  ('voter.guides_section.title', 'voter', 'Voter Guides Section Title', 'Voter Rights & Educational Guides', 'text'),
+  ('voter.guide1.title', 'voter', 'Voter Guide 1 Title', 'Who Represents You?', 'text'),
+  ('voter.guide1.desc', 'voter', 'Voter Guide 1 Description', 'A complete directory of elected officials serving Fair Oaks, Carmichael, and Sacramento County at the local, county, state, and federal levels, including contact telephone numbers and district offices.', 'text'),
+  ('voter.guide2.title', 'voter', 'Voter Guide 2 Title', 'Pre-Register at 16, Vote at 18', 'text'),
+  ('voter.guide2.desc', 'voter', 'Voter Guide 2 Description', 'California youth age 16 and 17 can pre-register online now. When you turn 18, you are automatically registered to vote.', 'text'),
+  ('voter.guide3.title', 'voter', 'Voter Guide 3 Title', 'Voting Rights Restoration', 'text'),
+  ('voter.guide3.desc', 'voter', 'Voter Guide 3 Description', 'In California, you do not lose your right to vote unless you are currently serving a state or federal prison term for a felony conviction.', 'text'),
+  ('voter.guide4.title', 'voter', 'Voter Guide 4 Title', 'Homeless is NOT Voteless', 'text'),
+  ('voter.guide4.desc', 'voter', 'Voter Guide 4 Description', 'You do not need a permanent home to vote. California law allows unhoused individuals to list cross-streets, a park, or a shelter as their residential description, and receive mail at a P.O. box or shelter address.', 'text'),
+  ('voter.hotlines.office_title', 'voter', 'Voter Hotlines Office Title', 'Sacramento County Elections Office', 'text'),
+  ('voter.hotlines.office_address', 'voter', 'Voter Hotlines Office Address', '7000 65th Street, Suite A, Sacramento, CA 95823', 'text'),
+  ('voter.hotlines.office_phone', 'voter', 'Voter Hotlines Office Phone', '(916) 875-6451', 'text'),
+  ('voter.hotlines.office_tollfree', 'voter', 'Voter Hotlines Office Toll-Free', '1-800-762-8019', 'text'),
+  ('voter.hotlines.office_email', 'voter', 'Voter Hotlines Office Email', 'voterinfo@saccounty.gov', 'text'),
+  ('voter.hotlines.national_title', 'voter', 'Voter Hotlines National Title', 'Nonpartisan Election Protection Hotlines', 'text'),
+  ('voter.hotlines.national_desc', 'voter', 'Voter Hotlines National Description', 'If you encounter issues voting, call the national nonpartisan hotlines:', 'text'),
+  ('voter.hotlines.english', 'voter', 'Voter Hotlines English Number', '1-866-OUR-VOTE (1-866-687-8683)', 'text'),
+  ('voter.hotlines.spanish', 'voter', 'Voter Hotlines Spanish Number', '1-888-VE-Y-VOTA (1-888-839-8682)', 'text'),
+  ('voter.hotlines.asian_languages', 'voter', 'Voter Hotlines Asian Languages Number', '1-888-API-VOTE (1-888-274-8683)', 'text'),
+  ('voter.repfinder.eyebrow', 'voter', 'Voter Rep Finder Eyebrow', 'Instant District & Representative Finder', 'text'),
+  ('voter.repfinder.script_voting', 'voter', 'Voter Script Voting Protection', 'Hello, my name is [Your Name], and I am a constituent living in {city} at ZIP code {zip}. I am calling today to urge you to protect the freedom to vote by supporting federal protections against voter suppression, safeguarding election workers, and opposing any efforts to restrict mail-in voting. Thank you for your service and for representing our community.', 'text'),
+  ('voter.repfinder.script_democracy', 'voter', 'Voter Script Democracy Norms', 'Hello, my name is [Your Name], and I am a constituent living in {city} (ZIP {zip}). I am calling to urge you to uphold democratic norms, protect judicial ethics and constitutional checks and balances, and ensure accountability under the rule of law. Our community depends on your leadership. Thank you.', 'text'),
+  ('voter.repfinder.script_environment', 'voter', 'Voter Script Climate Resilience', 'Hello, my name is [Your Name], a constituent in {city} (ZIP {zip}). I am calling to urge robust funding and support for local clean energy initiatives, water conservation, and climate resilience for Sacramento County and Northern California. Thank you.', 'text')
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value,
+  label = EXCLUDED.label,
+  group_name = EXCLUDED.group_name,
+  content_type = EXCLUDED.content_type,
+  updated_at = now();

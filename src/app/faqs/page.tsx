@@ -191,7 +191,9 @@ export default async function FAQPage() {
             href="/contact"
             className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
           >
-            Contact Us Directly
+            <DataPoint as="span" name="faqs.contact_button">
+              Contact Us Directly
+            </DataPoint>
           </Link>
         </div>
       </div>

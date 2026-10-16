@@ -261,13 +261,17 @@ export default async function AboutPage() {
               href="/events"
               className="px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold text-xs uppercase tracking-wider transition-all"
             >
-              See Upcoming Events
+              <DataPoint name="about.join.btn_events" as="span" initialData={dataPoints}>
+                See Upcoming Events
+              </DataPoint>
             </Link>
             <Link
               href="/contact"
               className="px-6 py-3 rounded-xl border-2 border-secondary text-foreground hover:bg-secondary hover:text-white dark:border-border font-bold text-xs uppercase tracking-wider transition-all"
             >
-              Contact Us
+              <DataPoint name="about.join.btn_contact" as="span" initialData={dataPoints}>
+                Contact Us
+              </DataPoint>
             </Link>
           </div>
         </section>

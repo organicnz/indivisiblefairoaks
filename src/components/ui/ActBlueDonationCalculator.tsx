@@ -2,6 +2,7 @@
 
 import { Check, CreditCard, ExternalLink, Heart, ShieldCheck, Sparkles } from 'lucide-react';
 import { useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
 
 interface ImpactTier {
   amount: number;
@@ -103,12 +104,24 @@ export function ActBlueDonationCalculator() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/20 text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
             <Heart size={14} className="fill-amber-300 text-accent-gold" />
-            <span>Interactive Grassroots Calculator</span>
+            <DataPoint as="span" name="donate.calc.eyebrow">
+              Interactive Grassroots Calculator
+            </DataPoint>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white">Choose Your Contribution</h2>
-          <p className="text-xs sm:text-sm text-ink-on-dark mt-1">
+          <DataPoint
+            as="h2"
+            name="donate.calc.title"
+            className="text-2xl sm:text-3xl font-black text-white"
+          >
+            Choose Your Contribution
+          </DataPoint>
+          <DataPoint
+            as="p"
+            name="donate.calc.subhead"
+            className="text-xs sm:text-sm text-ink-on-dark mt-1"
+          >
             See the concrete civic impact of your grassroots investment before you give.
-          </p>
+          </DataPoint>
         </div>
 
         {/* Recurring / One-time Frequency Toggle */}

@@ -55,7 +55,7 @@ export function Footer() {
           {/* Site Navigation */}
           <div className="col-span-1">
             <h3 className="text-accent-gold text-xs font-black uppercase tracking-widest mb-4">
-              Explore
+              <DataPoint name="footer.col_explore">Explore</DataPoint>
             </h3>
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium">
               <li>
@@ -94,7 +94,7 @@ export function Footer() {
           {/* Action & Engagement */}
           <div className="col-span-1">
             <h3 className="text-accent-gold text-xs font-black uppercase tracking-widest mb-4">
-              Get Involved
+              <DataPoint name="footer.col_involved">Get Involved</DataPoint>
             </h3>
             <ul className="space-y-2.5 text-xs sm:text-sm font-medium">
               <li>
@@ -140,7 +140,7 @@ export function Footer() {
           {/* Contact & Transparency */}
           <div className="col-span-1">
             <h3 className="text-accent-gold text-xs font-black uppercase tracking-widest mb-4">
-              Connect With Us
+              <DataPoint name="footer.col_connect">Connect With Us</DataPoint>
             </h3>
             <div className="space-y-3 text-xs sm:text-sm">
               <DataPoint name="footer.inquiry_intro" as="p" className="text-ink-muted-on-dark">
@@ -148,7 +148,7 @@ export function Footer() {
               </DataPoint>
               <div>
                 <span className="text-ink-muted-on-dark text-[11px] block uppercase tracking-wider">
-                  General Inquiries:
+                  <DataPoint name="footer.label_inquiries">General Inquiries:</DataPoint>
                 </span>
                 <a
                   href="mailto:contact@indivisiblefairoaks.org"
@@ -159,7 +159,7 @@ export function Footer() {
               </div>
               <div>
                 <span className="text-ink-muted-on-dark text-[11px] block uppercase tracking-wider">
-                  Mailing List:
+                  <DataPoint name="footer.label_mailing">Mailing List:</DataPoint>
                 </span>
                 <a
                   href="mailto:subscribe@indivisiblefairoaks.org"

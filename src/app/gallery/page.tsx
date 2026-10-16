@@ -178,34 +178,68 @@ export default function GalleryPage() {
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">
             <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
-              <span className="text-2xl font-black text-accent-gold block font-mono">No Kings</span>
-              <span className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold">
+              <DataPoint
+                as="span"
+                name="gallery.metrics.m1_stat"
+                className="text-2xl font-black text-accent-gold block font-mono"
+              >
+                No Kings
+              </DataPoint>
+              <DataPoint
+                as="span"
+                name="gallery.metrics.m1_label"
+                className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
+              >
                 Sacramento Actions
-              </span>
+              </DataPoint>
             </div>
             <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
-              <span className="text-2xl font-black text-emerald-400 block font-mono">
+              <DataPoint
+                as="span"
+                name="gallery.metrics.m2_stat"
+                className="text-2xl font-black text-emerald-400 block font-mono"
+              >
                 NorCal Resist
-              </span>
-              <span className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold">
+              </DataPoint>
+              <DataPoint
+                as="span"
+                name="gallery.metrics.m2_label"
+                className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
+              >
                 Direct Solidarity
-              </span>
+              </DataPoint>
             </div>
             <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
-              <span className="text-2xl font-black text-primary-on-dark-muted block font-mono">
+              <DataPoint
+                as="span"
+                name="gallery.metrics.m3_stat"
+                className="text-2xl font-black text-primary-on-dark-muted block font-mono"
+              >
                 Witty Signs
-              </span>
-              <span className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold">
+              </DataPoint>
+              <DataPoint
+                as="span"
+                name="gallery.metrics.m3_label"
+                className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
+              >
                 Grassroots Humor
-              </span>
+              </DataPoint>
             </div>
             <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
-              <span className="text-2xl font-black text-purple-400 block font-mono">
+              <DataPoint
+                as="span"
+                name="gallery.metrics.m4_stat"
+                className="text-2xl font-black text-purple-400 block font-mono"
+              >
                 0 Politicians
-              </span>
-              <span className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold">
+              </DataPoint>
+              <DataPoint
+                as="span"
+                name="gallery.metrics.m4_label"
+                className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
+              >
                 100% People Power
-              </span>
+              </DataPoint>
             </div>
           </div>
 
@@ -358,20 +392,34 @@ export default function GalleryPage() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
                 <Video size={14} />
-                <span>Featured Video Archive</span>
+                <DataPoint as="span" name="gallery.video.badge_top">
+                  Featured Video Archive
+                </DataPoint>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight">
+              <DataPoint
+                as="h2"
+                name="gallery.video.title"
+                className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight"
+              >
                 No Kings in America: The Movement in Motion
-              </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1 max-w-2xl">
+              </DataPoint>
+              <DataPoint
+                as="p"
+                name="gallery.video.desc"
+                className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1 max-w-2xl"
+              >
                 Watch official grassroots mobilization footage and documentary highlights from our
                 Sacramento County actions defending constitutional democracy.
-              </p>
+              </DataPoint>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs font-mono text-slate-700 dark:text-ink-muted-on-dark bg-slate-100 dark:bg-secondary/40 px-3 py-1.5 rounded-lg border border-border dark:border-white/5">
+              <DataPoint
+                as="span"
+                name="gallery.video.platform_tag"
+                className="text-xs font-mono text-slate-700 dark:text-ink-muted-on-dark bg-slate-100 dark:bg-secondary/40 px-3 py-1.5 rounded-lg border border-border dark:border-white/5"
+              >
                 Archived from Original Platform
-              </span>
+              </DataPoint>
             </div>
           </div>
 
@@ -388,29 +436,45 @@ export default function GalleryPage() {
               </div>
             </div>
             <div className="lg:col-span-5 space-y-4">
-              <div className="inline-block px-3 py-1 rounded-lg bg-primary-bright/20 border border-primary-on-dark-muted/30 text-primary-ink dark:text-primary-on-dark text-xs font-mono font-bold">
+              <DataPoint
+                as="div"
+                name="gallery.video.coalition_badge"
+                className="inline-block px-3 py-1 rounded-lg bg-primary-bright/20 border border-primary-on-dark-muted/30 text-primary-ink dark:text-primary-on-dark text-xs font-mono font-bold"
+              >
                 Indivisible National &amp; Local Coalition
-              </div>
-              <h3 className="text-xl font-bold text-foreground dark:text-white">
+              </DataPoint>
+              <DataPoint
+                as="h3"
+                name="gallery.video.subheading"
+                className="text-xl font-bold text-foreground dark:text-white"
+              >
                 No Kings 3 Nationwide Action
-              </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
+              </DataPoint>
+              <DataPoint
+                as="p"
+                name="gallery.video.action_desc"
+                className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed"
+              >
                 Highlights from the nationwide peaceful rallies rejecting authoritarian impunity and
                 defending the rule of law. From Sacramento to communities across the country,
                 thousands gathered with signs, chants, and peaceful resolve.
-              </p>
+              </DataPoint>
               <div className="pt-2 flex flex-wrap gap-3">
                 <Link
                   href="/events"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md"
                 >
-                  <span>Upcoming Rallies</span>
+                  <DataPoint as="span" name="gallery.video.btn_rallies">
+                    Upcoming Rallies
+                  </DataPoint>
                 </Link>
                 <Link
                   href="/choir"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border dark:border-slate-700 hover:bg-white/5 text-foreground dark:text-slate-200 font-semibold text-xs uppercase tracking-wider transition-all"
                 >
-                  <span>Choir Anthems</span>
+                  <DataPoint as="span" name="gallery.video.btn_choir">
+                    Choir Anthems
+                  </DataPoint>
                 </Link>
               </div>
             </div>
@@ -419,20 +483,30 @@ export default function GalleryPage() {
 
         {/* Submit Photo CTA */}
         <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-white/10 text-center space-y-4 max-w-3xl mx-auto">
-          <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
+          <DataPoint
+            as="h2"
+            name="gallery.cta.title"
+            className="text-2xl font-black text-white uppercase tracking-tighter"
+          >
             Have Sacramento Resistance Pics, Unity Shots, or Funny Signs?
-          </h2>
-          <p className="text-sm text-ink-on-dark max-w-xl mx-auto leading-relaxed">
+          </DataPoint>
+          <DataPoint
+            as="p"
+            name="gallery.cta.desc"
+            className="text-sm text-ink-on-dark max-w-xl mx-auto leading-relaxed"
+          >
             Did you snap a brilliant, witty cardboard sign, an uplifting choir moment, or neighbors
             standing in solidarity? Strictly grassroots (zero politicians, zero corporate imagery) —
             send your photos to our media circle to be included!
-          </p>
+          </DataPoint>
           <div className="pt-2">
             <a
               href="mailto:contact@indivisiblefairoaks.org?subject=Community%20Photo%20Submission"
               className="inline-block px-8 py-3.5 rounded-2xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25"
             >
-              Submit Grassroots Photos
+              <DataPoint as="span" name="gallery.cta.button">
+                Submit Grassroots Photos
+              </DataPoint>
             </a>
           </div>
         </div>
