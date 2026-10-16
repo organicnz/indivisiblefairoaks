@@ -2,7 +2,7 @@ import { Compass, ExternalLink, Layers } from 'lucide-react';
 import type { Metadata } from 'next';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { pageMetadata } from '@/lib/metadata';
-import { getCoalitionLinks } from '@/lib/queries/civic';
+import { getCoalitionLinks, getDataPoints } from '@/lib/queries/civic';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Coalition & Action Links',
@@ -90,6 +90,8 @@ const LINKS_DATA: LinkItem[] = [
 ];
 
 export default async function LinksPage() {
+  const dataPoints = await getDataPoints('links');
+
   // Supabase is the source of truth; the inline directory above is a fallback
   // for pre-migration deploys and DB outages.
   let items = LINKS_DATA;
@@ -116,11 +118,14 @@ export default async function LinksPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Compass size={14} className="text-accent-gold" />
-            <DataPoint name="links.hero.eyebrow">Civic Directory</DataPoint>
+            <DataPoint name="links.hero.eyebrow" initialData={dataPoints}>
+              Civic Directory
+            </DataPoint>
           </div>
           <DataPoint
             name="links.hero.headline"
             as="h1"
+            initialData={dataPoints}
             className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
           >
             Coalition & Action Links
@@ -128,6 +133,7 @@ export default async function LinksPage() {
           <DataPoint
             name="links.hero.intro"
             as="p"
+            initialData={dataPoints}
             className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
             Essential websites, nonpartisan voter tools, grassroots allies, and democracy defense

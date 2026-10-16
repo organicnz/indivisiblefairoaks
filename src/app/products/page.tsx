@@ -41,6 +41,8 @@ export async function generateMetadata({
 }
 
 import { ProductCard } from '@/components/products/ProductCard';
+import { DataPoint } from '@/components/ui/DataPoint';
+import { getDataPoints } from '@/lib/queries/civic';
 
 // Deliberate Cache Components opt-out (Block): per-category SEO titles require
 // awaiting searchParams in generateMetadata, which forces full dynamic rendering.
@@ -62,7 +64,7 @@ export default async function ProductsPage({
   // Sidebar categories, cached and tagged in the query layer. This used to be an
   // inline uncached fetch, which logged a prerender warning on every build and
   // re-queried on every request. See `getCategories` in `@/lib/queries/civic`.
-  const categories = await getCategories();
+  const [categories, dataPoints] = await Promise.all([getCategories(), getDataPoints('products')]);
 
   // Fetch Products (with optional category filtering)
   const { data: products, error } = await (categorySlug
@@ -100,7 +102,9 @@ export default async function ProductsPage({
           {/* Sidebar / Categories */}
           <div className="w-full md:w-64 shrink-0">
             <h2 className="text-xl font-black text-foreground uppercase tracking-widest mb-6 border-b-2 border-primary pb-2 inline-block">
-              Categories
+              <DataPoint name="products.sidebar.categories" initialData={dataPoints}>
+                Categories
+              </DataPoint>
             </h2>
             <ul className="space-y-1">
               <li>
@@ -108,7 +112,9 @@ export default async function ProductsPage({
                   href="/products"
                   className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${!categorySlug ? 'bg-primary text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark'}`}
                 >
-                  All Gear
+                  <DataPoint name="products.sidebar.all" initialData={dataPoints}>
+                    All Gear
+                  </DataPoint>
                 </Link>
               </li>
               {categories.map((category) => (
@@ -125,16 +131,22 @@ export default async function ProductsPage({
 
             <div className="mt-12 bg-surface-muted p-6 rounded-2xl border border-border hidden md:block">
               <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-4">
-                Need Help?
+                <DataPoint name="products.sidebar.help_title" initialData={dataPoints}>
+                  Need Help?
+                </DataPoint>
               </h3>
               <p className="text-xs text-muted-foreground leading-relaxed mb-4 font-medium">
-                Can&apos;t find what you&apos;re looking for? Contact our gear experts for advice.
+                <DataPoint name="products.sidebar.help_desc" initialData={dataPoints}>
+                  Can&apos;t find what you&apos;re looking for? Contact our gear experts for advice.
+                </DataPoint>
               </p>
               <Link
                 href="/contact"
                 className="text-xs font-black text-primary-ink uppercase hover:underline"
               >
-                Contact Us &rarr;
+                <DataPoint name="products.sidebar.contact_cta" initialData={dataPoints}>
+                  Contact Us &rarr;
+                </DataPoint>
               </Link>
             </div>
           </div>
@@ -153,13 +165,17 @@ export default async function ProductsPage({
             {products?.length === 0 ? (
               <div className="text-center py-24 bg-surface-muted rounded-3xl border border-dashed border-border">
                 <p className="text-muted-foreground font-bold uppercase tracking-widest">
-                  No gear found in this category.
+                  <DataPoint name="products.empty.desc" initialData={dataPoints}>
+                    No gear found in this category.
+                  </DataPoint>
                 </p>
                 <Link
                   href="/products"
                   className="inline-block mt-4 text-primary-ink font-black uppercase text-sm hover:underline"
                 >
-                  View all products
+                  <DataPoint name="products.empty.btn" initialData={dataPoints}>
+                    View all products
+                  </DataPoint>
                 </Link>
               </div>
             ) : (

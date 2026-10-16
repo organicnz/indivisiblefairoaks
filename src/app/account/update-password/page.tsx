@@ -3,6 +3,7 @@
 import { CheckCircle, Eye, EyeOff, Loader2, Lock, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { createClient } from '@/lib/supabase';
 import { updatePasswordAction } from './actions';
 
@@ -146,18 +147,20 @@ export default function UpdatePasswordPage() {
             <ShieldCheck size={28} aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-black text-secondary uppercase tracking-tight mb-3">
-            Confirm it&apos;s you
+            <DataPoint name="account.security.confirm_title">Confirm it&apos;s you</DataPoint>
           </h1>
           <p className="text-slate-500 font-medium mb-8 leading-relaxed">
-            This account has two-factor authentication, so changing the password needs a
-            verification code first. It is the same check that protects your account settings.
+            <DataPoint name="account.security.confirm_desc">
+              This account has two-factor authentication, so changing the password needs a
+              verification code first. It is the same check that protects your account settings.
+            </DataPoint>
           </p>
           <button
             type="button"
             onClick={() => router.push('/auth/mfa?next=/account/update-password')}
             className="w-full bg-secondary text-white font-black rounded-full py-5 hover:bg-primary transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-secondary/10"
           >
-            Enter verification code
+            <DataPoint name="account.security.confirm_btn">Enter verification code</DataPoint>
           </button>
         </div>
       </div>
@@ -172,18 +175,20 @@ export default function UpdatePasswordPage() {
             <CheckCircle className="w-10 h-10 text-emerald-600" strokeWidth={2.5} />
           </div>
           <h1 className="text-2xl font-black text-secondary uppercase tracking-tight mb-3">
-            Password Updated
+            <DataPoint name="account.password.updated_title">Password Updated</DataPoint>
           </h1>
           <p className="text-slate-500 font-medium mb-8 leading-relaxed">
-            Your password has been changed successfully. You can now sign in with your new
-            credentials.
+            <DataPoint name="account.password.updated_desc">
+              Your password has been changed successfully. You can now sign in with your new
+              credentials.
+            </DataPoint>
           </p>
           <button
             type="button"
             onClick={() => router.push('/account')}
             className="w-full bg-secondary text-white font-black rounded-full py-5 hover:bg-primary transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-secondary/10"
           >
-            Go to Account
+            <DataPoint name="account.password.btn_go_account">Go to Account</DataPoint>
           </button>
         </div>
       </div>
@@ -198,14 +203,18 @@ export default function UpdatePasswordPage() {
           <div className="inline-flex items-center gap-3 px-5 py-2 bg-secondary/5 rounded-full mb-6 border border-secondary/5">
             <ShieldCheck className="w-3.5 h-3.5 text-secondary" />
             <span className="text-secondary font-black uppercase tracking-[0.4em] text-[10px]">
-              Secure Reset
+              <DataPoint name="account.password.reset_badge">Secure Reset</DataPoint>
             </span>
           </div>
           <h1 className="text-4xl font-black text-secondary uppercase tracking-tighter leading-none mb-3">
-            New <span className="text-primary dark:text-primary-on-dark italic">Password</span>
+            <DataPoint name="account.password.new_title">
+              New <span className="text-primary dark:text-primary-on-dark italic">Password</span>
+            </DataPoint>
           </h1>
           <p className="text-slate-400 font-bold uppercase tracking-[0.15em] text-[10px]">
-            Choose a strong password for your account
+            <DataPoint name="account.password.new_desc">
+              Choose a strong password for your account
+            </DataPoint>
           </p>
         </div>
 
@@ -308,7 +317,7 @@ export default function UpdatePasswordPage() {
               {status === 'loading' ? (
                 <Loader2 className="animate-spin" size={18} />
               ) : (
-                'Set New Password'
+                <DataPoint name="account.password.btn_update">Set New Password</DataPoint>
               )}
             </button>
           </form>

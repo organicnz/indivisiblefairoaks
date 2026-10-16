@@ -4,6 +4,7 @@ import { Heart, ShoppingCart, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { useCartStore } from '@/lib/store/cart';
 import { useWishlistStore } from '@/lib/store/wishlist';
 import { getStorageUrl } from '@/lib/supabase';
@@ -48,7 +49,7 @@ export default function WishlistPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col items-center text-center mb-16">
           <h1 className="text-4xl font-black text-foreground uppercase tracking-tight mb-4">
-            My Wishlist
+            <DataPoint name="wishlist.hero.title">My Wishlist</DataPoint>
           </h1>
           <div className="h-2 w-24 bg-primary" />
         </div>
@@ -57,13 +58,13 @@ export default function WishlistPage() {
           <div className="text-center py-32 bg-surface-muted rounded-[3rem] border border-dashed border-border">
             <Heart className="w-16 h-16 text-muted-foreground mx-auto mb-6" />
             <p className="text-muted-foreground font-bold uppercase tracking-widest mb-8">
-              Your wishlist is empty.
+              <DataPoint name="wishlist.empty.title">Your wishlist is empty.</DataPoint>
             </p>
             <Link
               href="/products"
               className="inline-block bg-secondary text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm hover:bg-primary shadow-xl shadow-secondary/10"
             >
-              Explore Gear
+              <DataPoint name="wishlist.empty.btn">Explore Gear</DataPoint>
             </Link>
           </div>
         ) : (
@@ -74,7 +75,7 @@ export default function WishlistPage() {
                 onClick={clearWishlist}
                 className="text-xs font-black text-rose-500 uppercase tracking-widest hover:text-rose-700 transition-colors"
               >
-                Clear Wishlist
+                <DataPoint name="wishlist.btn.clear">Clear Wishlist</DataPoint>
               </button>
             </div>
 
@@ -98,7 +99,7 @@ export default function WishlistPage() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground font-black uppercase tracking-widest text-[10px]">
-                        No Image
+                        <DataPoint name="wishlist.item.no_image">No Image</DataPoint>
                       </div>
                     )}
                   </Link>
@@ -116,14 +117,16 @@ export default function WishlistPage() {
                         onClick={() => handleMoveToCart(item)}
                         className="flex items-center justify-center gap-2 bg-secondary text-white font-black py-4 rounded-full transition-all uppercase tracking-widest text-xs hover:bg-primary"
                       >
-                        <ShoppingCart size={16} /> Add to Cart
+                        <ShoppingCart size={16} />{' '}
+                        <DataPoint name="wishlist.btn.add_to_cart">Add to Cart</DataPoint>
                       </button>
                       <button
                         type="button"
                         onClick={() => removeItem(item.id)}
                         className="flex items-center justify-center gap-2 text-muted-foreground font-black py-2 rounded-full transition-all uppercase tracking-widest text-[10px] hover:text-rose-500"
                       >
-                        <Trash2 size={14} /> Remove
+                        <Trash2 size={14} />{' '}
+                        <DataPoint name="wishlist.btn.remove">Remove</DataPoint>
                       </button>
                     </div>
                   </div>

@@ -1,14 +1,32 @@
 import { Clock, RotateCcw, ShieldCheck, Truck } from 'lucide-react';
+import type { Metadata } from 'next';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { SHIPPING_RATES } from '@/config/commerce';
+import { pageMetadata } from '@/lib/metadata';
+import { getDataPoints } from '@/lib/queries/civic';
 
-export default function ShippingReturnsPage() {
+export const metadata: Metadata = pageMetadata({
+  title: 'Shipping & Returns',
+  description:
+    'Shipping policies, civic material delivery schedules, and return guidelines for Indivisible Fair Oaks-Carmichael.',
+  path: '/shipping-returns',
+});
+
+export default async function ShippingReturnsPage() {
+  const dataPoints = await getDataPoints('shipping');
+
   return (
     <div className="bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-16">
-          <h1 className="text-4xl font-black text-foreground uppercase tracking-tight mb-4">
-            Shipping & Returns
-          </h1>
+          <DataPoint
+            name="shipping.hero.title"
+            as="h1"
+            initialData={dataPoints}
+            className="text-4xl font-black text-foreground uppercase tracking-tight mb-4"
+          >
+            Shipping &amp; Returns
+          </DataPoint>
           <div className="h-2 w-24 bg-primary mx-auto" />
         </div>
 
@@ -17,17 +35,30 @@ export default function ShippingReturnsPage() {
             <div className="bg-surface-card w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
               <Truck className="text-primary-ink" size={28} />
             </div>
-            <h2 className="text-xl font-black text-foreground uppercase mb-4">Shipping Policy</h2>
+            <DataPoint
+              name="shipping.policy.title"
+              as="h2"
+              initialData={dataPoints}
+              className="text-xl font-black text-foreground uppercase mb-4"
+            >
+              Shipping &amp; Distribution
+            </DataPoint>
             <div className="space-y-4 text-muted-foreground font-medium leading-relaxed">
-              <p>
-                We take every care in packing and dispatching your purchase. Title is retained by us
-                until payment is received in full.
-              </p>
+              <DataPoint name="shipping.policy.body" as="p" initialData={dataPoints}>
+                We take every care in packing and dispatching your grassroots materials and advocacy
+                supplies. Advocacy items are dispatched from our local Indivisible Fair Oaks
+                distribution hub.
+              </DataPoint>
 
               <div className="bg-surface-card p-5 rounded-2xl border border-border shadow-sm my-4 text-sm">
-                <h3 className="font-black text-foreground uppercase tracking-wide mb-3">
-                  Shipping Rates
-                </h3>
+                <DataPoint
+                  name="shipping.rates.title"
+                  as="h3"
+                  initialData={dataPoints}
+                  className="font-black text-foreground uppercase tracking-wide mb-3"
+                >
+                  Shipping &amp; Distribution Options
+                </DataPoint>
                 <ul className="space-y-3">
                   {SHIPPING_RATES.map((rate, i) => (
                     <li
@@ -46,7 +77,7 @@ export default function ShippingReturnsPage() {
               </div>
 
               <ul className="space-y-2 list-disc list-inside text-sm">
-                <li>Direct community pickup & delivery for local actions</li>
+                <li>Direct community pickup &amp; delivery for local actions</li>
                 <li>Dispatched from Indivisible Fair Oaks Distribution Hub</li>
                 <li>Indicative delivery times provided at order</li>
                 <li>Civic materials packaged securely</li>
@@ -58,19 +89,24 @@ export default function ShippingReturnsPage() {
             <div className="bg-surface-card w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
               <RotateCcw className="text-primary-ink" size={28} />
             </div>
-            <h2 className="text-xl font-black text-foreground uppercase mb-4">
-              Returns & Exchanges
-            </h2>
+            <DataPoint
+              name="shipping.returns.title"
+              as="h2"
+              initialData={dataPoints}
+              className="text-xl font-black text-foreground uppercase mb-4"
+            >
+              Returns &amp; Exchanges
+            </DataPoint>
             <div className="space-y-4 text-muted-foreground font-medium leading-relaxed">
-              <p>
-                We comply with the Consumer Guarantees Act 1993 (CGA). Your satisfaction is our
-                priority.
-              </p>
+              <DataPoint name="shipping.returns.body" as="p" initialData={dataPoints}>
+                Your satisfaction and grassroots participation are our highest priority. If an item
+                arrives damaged or incomplete, contact our volunteer logistics team immediately.
+              </DataPoint>
               <ul className="space-y-2 list-disc list-inside text-sm">
-                <li>Refund/Exchange requests within 5 days of receipt</li>
-                <li>Original condition and packaging required</li>
-                <li>Contact us before returning any items</li>
-                <li>Full refund less shipping costs for change of mind</li>
+                <li>Replacement requests within 30 days of receipt</li>
+                <li>Direct support for broken or damaged signposts</li>
+                <li>Contact us before returning any campaign items</li>
+                <li>100% committed to community mobilization support</li>
               </ul>
             </div>
           </div>
@@ -81,41 +117,75 @@ export default function ShippingReturnsPage() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <Clock className="text-slate-400" size={20} />
-                <h3 className="text-lg font-black text-secondary uppercase m-0">Delivery Times</h3>
+                <DataPoint
+                  name="shipping.delivery.title"
+                  as="h3"
+                  initialData={dataPoints}
+                  className="text-lg font-black text-secondary uppercase m-0"
+                >
+                  Delivery Times
+                </DataPoint>
               </div>
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                Delivery times are indicative only. We will attempt to contact you by phone or email
-                if any late deliveries are anticipated. We are not liable for failures to observe
-                delivery times but work hard to ensure prompt arrival.
-              </p>
+              <DataPoint
+                name="shipping.delivery.body"
+                as="p"
+                initialData={dataPoints}
+                className="text-muted-foreground text-sm leading-relaxed"
+              >
+                Delivery times are indicative. We work hard to ensure prompt arrival for upcoming
+                rallies, canvassing events, and community actions.
+              </DataPoint>
             </div>
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <ShieldCheck className="text-muted-foreground" size={20} />
-                <h3 className="text-lg font-black text-foreground uppercase m-0">Damaged Goods</h3>
+                <DataPoint
+                  name="shipping.damaged.title"
+                  as="h3"
+                  initialData={dataPoints}
+                  className="text-lg font-black text-foreground uppercase m-0"
+                >
+                  Damaged Goods
+                </DataPoint>
               </div>
-              <p className="text-muted-foreground text-sm leading-relaxed">
+              <DataPoint
+                name="shipping.damaged.body"
+                as="p"
+                initialData={dataPoints}
+                className="text-muted-foreground text-sm leading-relaxed"
+              >
                 Indivisible Fair Oaks is dedicated to ensuring you receive all advocacy materials in
-                good order. If you receive damaged items, please contact our volunteer logistics
-                team immediately.
-              </p>
+                good order. Please reach out to our volunteer logistics team if anything is damaged.
+              </DataPoint>
             </div>
           </div>
         </div>
 
         <div className="mt-20 text-center bg-secondary p-12 rounded-[3rem] text-white">
-          <h3 className="text-2xl font-black uppercase mb-4">
+          <DataPoint
+            name="shipping.help.title"
+            as="h3"
+            initialData={dataPoints}
+            className="text-2xl font-black uppercase mb-4"
+          >
             Need help with materials or an order?
-          </h3>
-          <p className="text-white/70 mb-8 max-w-md mx-auto">
+          </DataPoint>
+          <DataPoint
+            name="shipping.help.body"
+            as="p"
+            initialData={dataPoints}
+            className="text-white/70 mb-8 max-w-md mx-auto"
+          >
             Our volunteer organizing team is ready to assist with any questions regarding
             deliveries, rally materials, or community inquiries.
-          </p>
+          </DataPoint>
           <a
             href="mailto:contact@indivisiblefairoaks.org"
             className="inline-block bg-primary hover:bg-primary-light text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm"
           >
-            Contact Organizing Team
+            <DataPoint name="shipping.help.cta" as="span" initialData={dataPoints}>
+              Contact Organizing Team
+            </DataPoint>
           </a>
         </div>
       </div>
