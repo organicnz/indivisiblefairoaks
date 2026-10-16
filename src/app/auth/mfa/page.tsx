@@ -3,6 +3,7 @@
 import { Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase';
 
@@ -277,13 +278,19 @@ export function MfaChallengePage() {
   if (outcome.kind === 'unreadable') {
     return (
       <Shell
-        heading="We could not check your security status"
+        heading={
+          <DataPoint as="span" name="auth.mfa.unreadable_heading">
+            We could not check your security status
+          </DataPoint>
+        }
         tone="error"
         icon={<ShieldAlert size={32} aria-hidden="true" />}
       >
         <p className="text-slate-600 mb-8 font-medium leading-relaxed">
-          Your sign-in worked, but we could not read your authenticator setup. Nothing has been
-          changed and nothing is locked.
+          <DataPoint as="span" name="auth.mfa.unreadable_desc">
+            Your sign-in worked, but we could not read your authenticator setup. Nothing has been
+            changed and nothing is locked.
+          </DataPoint>
         </p>
         <p className="text-xs text-slate-400 font-medium mb-10 break-words">{outcome.detail}</p>
         <button
@@ -291,15 +298,21 @@ export function MfaChallengePage() {
           onClick={() => window.location.reload()}
           className="w-full bg-secondary text-white font-black rounded-full py-5 uppercase tracking-[0.2em] text-sm transition-all hover:bg-primary disabled:opacity-50"
         >
-          Try again
+          <DataPoint as="span" name="auth.mfa.unreadable_btn_retry">
+            Try again
+          </DataPoint>
         </button>
         <p className="mt-6 text-xs text-slate-500 font-medium">
-          Still failing? Sign out and back in.{' '}
+          <DataPoint as="span" name="auth.mfa.unreadable_help">
+            Still failing? Sign out and back in.
+          </DataPoint>{' '}
           <a
             href="/account?tab=settings"
             className="text-primary dark:text-primary-on-dark font-bold underline"
           >
-            Account settings
+            <DataPoint as="span" name="auth.mfa.unreadable_link_settings">
+              Account settings
+            </DataPoint>
           </a>
         </p>
       </Shell>
@@ -309,12 +322,18 @@ export function MfaChallengePage() {
   if (outcome.kind === 'no-factor') {
     return (
       <Shell
-        heading="No authenticator app is set up"
+        heading={
+          <DataPoint as="span" name="auth.mfa.no_factor_heading">
+            No authenticator app is set up
+          </DataPoint>
+        }
         tone="error"
         icon={<ShieldAlert size={32} aria-hidden="true" />}
       >
         <p className="text-slate-600 mb-8 font-medium leading-relaxed">
-          This account cannot ask for a verification code, so there is nothing to enter here.
+          <DataPoint as="span" name="auth.mfa.no_factor_desc">
+            This account cannot ask for a verification code, so there is nothing to enter here.
+          </DataPoint>
         </p>
         <p className="text-sm text-slate-500 font-medium mb-10">
           {outcome.factorTypes.length > 0 ? (
@@ -340,7 +359,9 @@ export function MfaChallengePage() {
           href="/account?tab=settings"
           className="inline-flex w-full items-center justify-center bg-primary text-white font-black rounded-full py-5 uppercase tracking-[0.2em] text-sm transition-all hover:bg-primary-dark"
         >
-          Go to account settings
+          <DataPoint as="span" name="auth.mfa.no_factor_btn_settings">
+            Go to account settings
+          </DataPoint>
         </a>
       </Shell>
     );
@@ -348,12 +369,18 @@ export function MfaChallengePage() {
 
   return (
     <Shell
-      heading="Security Check"
+      heading={
+        <DataPoint as="span" name="auth.mfa.challenge_heading">
+          Security Check
+        </DataPoint>
+      }
       tone="normal"
       icon={<ShieldCheck size={32} aria-hidden="true" />}
     >
       <p className="text-slate-600 mb-10 font-medium leading-relaxed">
-        Please enter the verification code from your authenticator app to continue.
+        <DataPoint as="span" name="auth.mfa.challenge_desc">
+          Please enter the verification code from your authenticator app to continue.
+        </DataPoint>
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -362,7 +389,9 @@ export function MfaChallengePage() {
             htmlFor="code"
             className="block text-[10px] font-black text-secondary uppercase tracking-widest mb-2 ml-1"
           >
-            6-Digit Code
+            <DataPoint as="span" name="auth.mfa.challenge_code_label">
+              6-Digit Code
+            </DataPoint>
           </label>
           <input
             type="text"
@@ -397,7 +426,15 @@ export function MfaChallengePage() {
           aria-busy={loading}
           className="w-full bg-secondary text-white font-black rounded-full py-5 hover:bg-primary transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-secondary/10 disabled:opacity-50"
         >
-          {loading ? 'Verifying...' : 'Verify & Continue'}
+          {loading ? (
+            <DataPoint as="span" name="auth.mfa.challenge_btn_verifying">
+              Verifying...
+            </DataPoint>
+          ) : (
+            <DataPoint as="span" name="auth.mfa.challenge_btn_verify">
+              Verify & Continue
+            </DataPoint>
+          )}
         </button>
         {/*
           Static, not a countdown. A live timer needs an interval that survives
@@ -408,7 +445,9 @@ export function MfaChallengePage() {
           user never typed.
         */}
         <p className="text-xs text-slate-400 font-medium">
-          Codes change every 30 seconds — type the one showing now.
+          <DataPoint as="span" name="auth.mfa.challenge_code_hint">
+            Codes change every 30 seconds — type the one showing now.
+          </DataPoint>
         </p>
       </form>
 
@@ -437,7 +476,7 @@ function Shell({
   tone,
   children,
 }: {
-  heading: string;
+  heading: React.ReactNode;
   icon: React.ReactNode;
   tone: 'normal' | 'error';
   children: React.ReactNode;

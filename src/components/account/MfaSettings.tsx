@@ -16,6 +16,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useState } from 'react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { Button } from '@/components/ui/Button';
+import { DataPoint } from '@/components/ui/DataPoint';
 import {
   Dialog,
   DialogContent,
@@ -242,10 +243,14 @@ export function MfaSettings() {
         </div>
         <div>
           <h3 className="text-lg font-black text-secondary uppercase tracking-tight">
-            Two-Factor Authentication
+            <DataPoint as="span" name="account.mfa.title">
+              Two-Factor Authentication
+            </DataPoint>
           </h3>
           <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">
-            Secure your account with TOTP
+            <DataPoint as="span" name="account.mfa.subtitle">
+              Secure your account with TOTP
+            </DataPoint>
           </p>
         </div>
       </div>
@@ -265,9 +270,13 @@ export function MfaSettings() {
             <div className="flex items-center gap-3 mb-4">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
               <p className="text-xs font-black text-emerald-800 uppercase tracking-widest">
-                {verified.length === 1
-                  ? '2FA is currently active'
-                  : `2FA is active on ${verified.length} authenticators`}
+                {verified.length === 1 ? (
+                  <DataPoint as="span" name="account.mfa.active_single">
+                    2FA is currently active
+                  </DataPoint>
+                ) : (
+                  `2FA is active on ${verified.length} authenticators`
+                )}
               </p>
             </div>
 
@@ -329,16 +338,22 @@ export function MfaSettings() {
         {activeFactor ? (
           <Button onClick={startEnrollment} variant="secondary">
             <Plus size={16} className="mr-2" aria-hidden="true" />
-            Add another authenticator
+            <DataPoint as="span" name="account.mfa.btn_add_another">
+              Add another authenticator
+            </DataPoint>
           </Button>
         ) : (
           <>
             <p className="text-sm text-muted-foreground font-medium leading-relaxed">
-              Add an extra layer of security to your account. When enabled, you will be asked for a
-              verification code from your mobile device when signing in.
+              <DataPoint as="span" name="account.mfa.desc_disabled">
+                Add an extra layer of security to your account. When enabled, you will be asked for
+                a verification code from your mobile device when signing in.
+              </DataPoint>
             </p>
             <Button onClick={startEnrollment} variant="secondary">
-              Enable 2FA
+              <DataPoint as="span" name="account.mfa.btn_enable">
+                Enable 2FA
+              </DataPoint>
             </Button>
           </>
         )}
@@ -347,8 +362,16 @@ export function MfaSettings() {
       <Dialog open={enrolling} onOpenChange={(open) => (open ? setEnrolling(true) : closeDialog())}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enable 2FA</DialogTitle>
-            <DialogDescription>Secure your account with an authenticator app</DialogDescription>
+            <DialogTitle>
+              <DataPoint as="span" name="account.mfa.dialog_title">
+                Enable 2FA
+              </DataPoint>
+            </DialogTitle>
+            <DialogDescription>
+              <DataPoint as="span" name="account.mfa.dialog_desc">
+                Secure your account with an authenticator app
+              </DataPoint>
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-8 py-4">
@@ -361,7 +384,9 @@ export function MfaSettings() {
                 )}
               </div>
               <p className="text-[10px] text-muted-foreground text-center font-black uppercase tracking-widest max-w-xs leading-relaxed">
-                Scan this QR code with your authenticator app
+                <DataPoint as="span" name="account.mfa.qr_instruction">
+                  Scan this QR code with your authenticator app
+                </DataPoint>
               </p>
 
               {/*
@@ -428,7 +453,9 @@ export function MfaSettings() {
                 htmlFor="mfa-code"
                 className="block text-[10px] font-black text-secondary uppercase tracking-widest ml-1"
               >
-                Verification Code
+                <DataPoint as="span" name="account.mfa.code_label">
+                  Verification Code
+                </DataPoint>
               </label>
               <div className="flex flex-col gap-4">
                 <input
@@ -465,7 +492,9 @@ export function MfaSettings() {
                       Verifying
                     </>
                   ) : (
-                    'Verify & Activate'
+                    <DataPoint as="span" name="account.mfa.btn_verify_activate">
+                      Verify & Activate
+                    </DataPoint>
                   )}
                 </Button>
               </div>
