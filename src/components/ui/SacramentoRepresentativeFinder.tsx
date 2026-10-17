@@ -237,13 +237,14 @@ export function SacramentoRepresentativeFinder() {
       <div className="max-w-3xl">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
           <MapPin size={14} className="text-accent-gold" />
-          <DataPoint as="span" name="voter.repfinder.eyebrow">
+          <DataPoint as="span" name="voter.repfinder.eyebrow" initialData={dataPoints}>
             Instant District & Representative Finder
           </DataPoint>
         </div>
         <DataPoint
           as="h2"
           name="voter.repfinder.headline"
+          initialData={dataPoints}
           className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3"
         >
           Know Your Representatives & Hold Them Accountable
@@ -251,6 +252,7 @@ export function SacramentoRepresentativeFinder() {
         <DataPoint
           as="p"
           name="voter.repfinder.subhead"
+          initialData={dataPoints}
           className="text-sm sm:text-base text-ink-on-dark leading-relaxed mb-8"
         >
           Enter your local ZIP code to instantly find your federal, state, and county elected

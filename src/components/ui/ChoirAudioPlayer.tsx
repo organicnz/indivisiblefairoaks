@@ -294,7 +294,9 @@ export function ChoirAudioPlayer() {
                   aria-hidden="true"
                   className="size-1.5 rounded-full bg-emerald-400 animate-ping motion-reduce:animate-none"
                 />
-                Live Web Broadcast
+                <DataPoint as="span" name="choir.player.live_broadcast" initialData={dataPoints}>
+                  Live Web Broadcast
+                </DataPoint>
               </span>
             </div>
             <h3 className="text-base sm:text-xl font-black text-white tracking-tight truncate leading-snug mt-0.5">
@@ -345,14 +347,18 @@ export function ChoirAudioPlayer() {
               onClick={() => playActiveTrack(activeTrack)}
               className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-semibold text-[11px] transition-colors"
             >
-              Retry
+              <DataPoint as="span" name="choir.player.retry_btn" initialData={dataPoints}>
+                Retry
+              </DataPoint>
             </button>
             <button
               type="button"
               onClick={() => selectRelativeTrack(1)}
               className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[11px] transition-colors"
             >
-              Next Station
+              <DataPoint as="span" name="choir.player.next_station_btn" initialData={dataPoints}>
+                Next Station
+              </DataPoint>
             </button>
           </div>
         </div>
@@ -439,7 +445,9 @@ export function ChoirAudioPlayer() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-primary-on-dark hover:text-white transition-colors"
           >
             <Globe size={13} className="text-accent-gold" />
-            <span>Tune from Anywhere</span>
+            <DataPoint as="span" name="choir.player.tune_anywhere_btn" initialData={dataPoints}>
+              Tune from Anywhere
+            </DataPoint>
           </button>
         </div>
       </div>
@@ -461,7 +469,9 @@ export function ChoirAudioPlayer() {
               type="text"
               value={customTitleInput}
               onChange={(e) => setCustomTitleInput(e.target.value)}
-              placeholder="Stream Title (optional)"
+              placeholder={
+                dataPoints['choir.player.custom_title_placeholder'] || 'Stream Title (optional)'
+              }
               className="px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/15 text-white placeholder-white/40 text-xs focus:outline-none focus:border-primary-bright"
             />
             <input

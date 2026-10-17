@@ -56,6 +56,17 @@ export function WallEChatWidget() {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (dataPoints['walle.starter_msg']) {
+      setMessages((prev) => {
+        if (prev.length === 1 && prev[0].id === 'starter') {
+          return [{ ...prev[0], content: dataPoints['walle.starter_msg'] }];
+        }
+        return prev;
+      });
+    }
+  }, [dataPoints]);
+
+  useEffect(() => {
     if (!messages.length && !loading) return;
     // `scrollIntoView` is JS-driven, so the global prefers-reduced-motion CSS
     // guard cannot intercept it — the behaviour has to be chosen here.
