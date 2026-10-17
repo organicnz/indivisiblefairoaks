@@ -11,41 +11,21 @@ type Citation = { title: string; url: string };
 type Message = { id: string; role: 'user' | 'assistant'; content: string; citations?: Citation[] };
 
 function WallEAvatar({ small = false, inButton = false }: { small?: boolean; inButton?: boolean }) {
-  if (inButton) {
-    return (
-      <span
-        aria-hidden="true"
-        data-testid="walle-avatar"
-        className="relative block size-full rounded-full overflow-hidden"
-      >
-        <Image
-          src="/walle-avatar.png"
-          alt=""
-          fill
-          sizes="64px"
-          className="object-cover scale-105"
-          priority
-        />
-      </span>
-    );
-  }
-
+  const sizeClasses = inButton ? 'size-full' : small ? 'size-8' : 'size-11';
   return (
     <span
       aria-hidden="true"
       data-testid="walle-avatar"
-      className={`inline-flex shrink-0 items-center justify-center rounded-2xl bg-primary dark:bg-primary-bright p-1 shadow-lg ring-2 ring-white/80 dark:ring-white/20 ${small ? 'size-9' : 'size-12'}`}
+      className={`relative inline-flex shrink-0 items-center justify-center rounded-full overflow-hidden shadow-xs ring-1 ring-white/25 bg-slate-900 ${sizeClasses}`}
     >
-      <span className="relative block aspect-[271/237] size-full rounded-xl bg-white p-0.5 overflow-hidden">
-        <Image
-          src="/walle-avatar.png"
-          alt=""
-          fill
-          sizes={small ? '28px' : '40px'}
-          className="object-cover"
-          priority={!small}
-        />
-      </span>
+      <Image
+        src="/walle-avatar.png"
+        alt=""
+        fill
+        sizes={small ? '32px' : inButton ? '64px' : '44px'}
+        className="object-cover scale-105"
+        priority={!small}
+      />
     </span>
   );
 }
@@ -54,6 +34,7 @@ export function WallEChatWidget() {
   const { dataPoints } = useDataPoints('walle');
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'starter',
@@ -148,6 +129,10 @@ export function WallEChatWidget() {
         <Dialog.Portal>
           <Dialog.Content
             aria-describedby={undefined}
+            onOpenAutoFocus={(e) => {
+              e.preventDefault();
+              inputRef.current?.focus();
+            }}
             className="fixed z-[70] floating-safe-position-panel flex h-[min(36rem,calc(100dvh-12rem-var(--safe-area-top)-var(--safe-area-bottom)))] w-[min(25rem,calc(100vw-2rem-var(--safe-area-left)-var(--safe-area-right)))] flex-col overflow-hidden rounded-2xl border border-primary/20 dark:border-white/10 bg-white dark:bg-slate-900 shadow-float data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-4 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom-4 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200"
           >
             <Dialog.Title className="sr-only">WALL-E site assistant</Dialog.Title>
@@ -249,6 +234,7 @@ export function WallEChatWidget() {
               className="flex gap-2 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3"
             >
               <input
+                ref={inputRef}
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 maxLength={600}
