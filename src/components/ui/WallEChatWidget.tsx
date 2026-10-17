@@ -1,14 +1,38 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
+import { Check, Copy, RotateCcw, X } from 'lucide-react';
 import Image from 'next/image';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
+import { formatWallEMessage } from '@/lib/walle-format';
 
 type Citation = { title: string; url: string };
 type Message = { id: string; role: 'user' | 'assistant'; content: string; citations?: Citation[] };
+
+const SUGGESTIONS = [
+  {
+    key: 'walle.chip.events',
+    defaultLabel: '📅 Upcoming Events',
+    prompt: 'What upcoming events does our chapter have scheduled?',
+  },
+  {
+    key: 'walle.chip.voter',
+    defaultLabel: '🗳️ Voter Resources',
+    prompt: 'Where can I find voter registration and election info?',
+  },
+  {
+    key: 'walle.chip.signs',
+    defaultLabel: '🪧 Yard Signs & Gear',
+    prompt: 'Where can I get Defend Democracy yard signs and chapter gear?',
+  },
+  {
+    key: 'walle.chip.partners',
+    defaultLabel: '🤝 Coalition Partners',
+    prompt: 'Who are our local coalition and civic partners?',
+  },
+];
 
 function WallEAvatar({ small = false, inButton = false }: { small?: boolean; inButton?: boolean }) {
   const sizeClasses = inButton ? 'size-full' : small ? 'size-8' : 'size-11';
@@ -34,6 +58,7 @@ export function WallEChatWidget() {
   const { dataPoints } = useDataPoints('walle');
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -69,9 +94,8 @@ export function WallEChatWidget() {
     endRef.current?.scrollIntoView?.({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
   }, [messages.length, loading]);
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const question = input.trim();
+  async function sendQuery(questionText: string) {
+    const question = questionText.trim();
     if (!question || loading) return;
     const next = [
       ...messages,
@@ -117,6 +141,34 @@ export function WallEChatWidget() {
     }
   }
 
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    await sendQuery(input);
+  }
+
+  function resetChat() {
+    setMessages([
+      {
+        id: 'starter',
+        role: 'assistant',
+        content:
+          dataPoints['walle.starter_msg'] ||
+          "Hi! I'm WALL-E. Ask me about our chapter, events, voter resources, or products.",
+      },
+    ]);
+    setInput('');
+  }
+
+  async function copyMessage(content: string, id: string) {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Clipboard write failed or restricted
+    }
+  }
+
   /*
     The panel was a `<section aria-label>` that behaved like a modal but carried
     none of the semantics: no `aria-modal`, no focus trap (tab walked into the page
@@ -158,12 +210,25 @@ export function WallEChatWidget() {
                     Your Fair Oaks guide · grounded in our site
                   </DataPoint>
                 </div>
-                <Dialog.Close
-                  className="ml-auto inline-flex size-9 items-center justify-center rounded-full text-white/70 transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
-                  aria-label="Close WALL-E"
-                >
-                  <X size={18} strokeWidth={2.5} aria-hidden="true" />
-                </Dialog.Close>
+                <div className="ml-auto flex items-center gap-1">
+                  {messages.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={resetChat}
+                      title="Reset conversation"
+                      aria-label="Reset conversation"
+                      className="inline-flex size-9 items-center justify-center rounded-full text-white/70 transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold cursor-pointer"
+                    >
+                      <RotateCcw size={16} aria-hidden="true" />
+                    </button>
+                  )}
+                  <Dialog.Close
+                    className="inline-flex size-9 items-center justify-center rounded-full text-white/70 transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold cursor-pointer"
+                    aria-label="Close WALL-E"
+                  >
+                    <X size={18} strokeWidth={2.5} aria-hidden="true" />
+                  </Dialog.Close>
+                </div>
               </div>
               <DataPoint
                 as="div"
@@ -191,7 +256,11 @@ export function WallEChatWidget() {
                         : 'rounded-bl-md border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800 text-secondary dark:text-slate-100 shadow-sm'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    {message.role === 'assistant' ? (
+                      formatWallEMessage(message.content)
+                    ) : (
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    )}
                     {message.citations?.length ? (
                       <div className="mt-3 space-y-1.5 border-t border-slate-200 dark:border-slate-700/60 pt-2.5 text-xs">
                         <DataPoint
@@ -214,9 +283,61 @@ export function WallEChatWidget() {
                         ))}
                       </div>
                     ) : null}
+                    {message.role === 'assistant' && message.id !== 'starter' && (
+                      <div className="mt-2.5 flex items-center justify-end border-t border-slate-100 dark:border-slate-700/40 pt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => copyMessage(message.content, message.id)}
+                          title="Copy response"
+                          aria-label="Copy response"
+                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-slate-400 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                        >
+                          {copiedId === message.id ? (
+                            <>
+                              <Check size={12} className="text-emerald-500" />
+                              <span className="text-emerald-500 font-semibold">Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={12} />
+                              <DataPoint
+                                as="span"
+                                name="walle.action.copy"
+                                initialData={dataPoints}
+                              >
+                                Copy
+                              </DataPoint>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
+
+              {/* Suggestion Chips shown when conversation has only starter greeting */}
+              {messages.length === 1 && !loading && (
+                <div className="pt-1 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 mb-2 pl-1">
+                    Suggested topics
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SUGGESTIONS.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => sendQuery(item.prompt)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 dark:border-slate-700/80 bg-white/90 dark:bg-slate-800/90 px-3 py-1.5 text-xs font-semibold text-primary dark:text-primary-on-dark shadow-xs hover:border-primary/40 dark:hover:border-primary-bright/40 hover:bg-primary/5 dark:hover:bg-primary/15 transition-all duration-200 active:scale-95 cursor-pointer"
+                      >
+                        <DataPoint as="span" name={item.key} initialData={dataPoints}>
+                          {item.defaultLabel}
+                        </DataPoint>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {loading && (
                 <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <WallEAvatar small />
