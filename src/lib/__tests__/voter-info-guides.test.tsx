@@ -4,6 +4,13 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import VoterInfoPage, { metadata } from '@/app/voter-info/page';
 
+vi.mock('next/cache', () => ({
+  cacheLife: vi.fn(),
+  cacheTag: vi.fn(),
+  revalidateTag: vi.fn(),
+  revalidatePath: vi.fn(),
+}));
+
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock('@/components/cms/CopyRegion', () => ({
@@ -43,8 +50,9 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
   });
 
   it('renders official 2026 voter guide and ballot recommendation links', async () => {
+    const page = await VoterInfoPage();
     await act(async () => {
-      root.render(<VoterInfoPage />);
+      root.render(page);
     });
 
     expect(container.textContent).toContain('2026 Voter Guide & Ballot Recommendations');
@@ -75,8 +83,9 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
   });
 
   it('renders the SAVE America Act educational video spotlight with valid iframe attributes', async () => {
+    const page = await VoterInfoPage();
     await act(async () => {
-      root.render(<VoterInfoPage />);
+      root.render(page);
     });
 
     expect(container.textContent).toContain('Understanding the SAVE America Act');

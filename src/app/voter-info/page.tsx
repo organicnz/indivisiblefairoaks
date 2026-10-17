@@ -15,6 +15,7 @@ import { DataPoint } from '@/components/ui/DataPoint';
 import { SacramentoRepresentativeFinder } from '@/components/ui/SacramentoRepresentativeFinder';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
+import { getDataPoints } from '@/lib/queries/civic';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Voter Information & Guides',
@@ -23,7 +24,9 @@ export const metadata: Metadata = pageMetadata({
   path: '/voter-info',
 });
 
-export default function VoterInfoPage() {
+export default async function VoterInfoPage() {
+  const dataPoints = await getDataPoints('voter');
+
   return (
     <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
@@ -32,9 +35,12 @@ export default function VoterInfoPage() {
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Vote size={14} className="text-accent-gold" />
-            <DataPoint name="voter.hero.eyebrow">Sacramento County Voter Center</DataPoint>
+            <DataPoint initialData={dataPoints} name="voter.hero.eyebrow">
+              Sacramento County Voter Center
+            </DataPoint>
           </div>
           <DataPoint
+            initialData={dataPoints}
             as="h1"
             name="voter.hero.title"
             className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
@@ -42,6 +48,7 @@ export default function VoterInfoPage() {
             Voter Information & Guides
           </DataPoint>
           <DataPoint
+            initialData={dataPoints}
             as="p"
             name="voter.hero.intro"
             className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
@@ -66,6 +73,7 @@ export default function VoterInfoPage() {
                 <Vote size={24} />
               </div>
               <DataPoint
+                initialData={dataPoints}
                 name="voter.action.register_title"
                 as="h2"
                 className="text-xl font-bold text-foreground dark:text-white mb-2"
@@ -73,6 +81,7 @@ export default function VoterInfoPage() {
                 Register to Vote Online
               </DataPoint>
               <DataPoint
+                initialData={dataPoints}
                 name="voter.action.register_desc"
                 as="p"
                 className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
@@ -98,6 +107,7 @@ export default function VoterInfoPage() {
                 <Search size={24} />
               </div>
               <DataPoint
+                initialData={dataPoints}
                 name="voter.action.track_title"
                 as="h2"
                 className="text-xl font-bold text-foreground dark:text-white mb-2"
@@ -105,6 +115,7 @@ export default function VoterInfoPage() {
                 Track Your Ballot
               </DataPoint>
               <DataPoint
+                initialData={dataPoints}
                 name="voter.action.track_desc"
                 as="p"
                 className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
@@ -130,6 +141,7 @@ export default function VoterInfoPage() {
                 <CheckCircle2 size={24} />
               </div>
               <DataPoint
+                initialData={dataPoints}
                 name="voter.action.elections_title"
                 as="h2"
                 className="text-xl font-bold text-foreground dark:text-white mb-2"
@@ -137,6 +149,7 @@ export default function VoterInfoPage() {
                 Sacramento Elections
               </DataPoint>
               <DataPoint
+                initialData={dataPoints}
                 name="voter.action.elections_desc"
                 as="p"
                 className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
@@ -168,11 +181,12 @@ export default function VoterInfoPage() {
                 <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/20 border border-accent-gold/30 text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
                     <Vote size={13} />
-                    <DataPoint name="voter.guides.badge" as="span">
+                    <DataPoint initialData={dataPoints} name="voter.guides.badge" as="span">
                       Official Chapter Endorsements
                     </DataPoint>
                   </div>
                   <DataPoint
+                    initialData={dataPoints}
                     as="h2"
                     name="voter.guides.headline"
                     className="text-2xl sm:text-3xl font-black text-white tracking-tight"
@@ -180,6 +194,7 @@ export default function VoterInfoPage() {
                     2026 Voter Guide &amp; Ballot Recommendations
                   </DataPoint>
                   <DataPoint
+                    initialData={dataPoints}
                     as="p"
                     name="voter.guides.subhead"
                     className="text-sm text-ink-on-dark max-w-2xl leading-relaxed mt-1"
@@ -203,6 +218,7 @@ export default function VoterInfoPage() {
                         <Vote size={18} />
                       </div>
                       <DataPoint
+                        initialData={dataPoints}
                         name="voter.guide.sac_voter_guide.title"
                         as="h3"
                         className="font-bold text-sm text-white leading-snug"
@@ -210,6 +226,7 @@ export default function VoterInfoPage() {
                         Sacramento Voter Guide
                       </DataPoint>
                       <DataPoint
+                        initialData={dataPoints}
                         name="voter.guide.sac_voter_guide.desc"
                         as="p"
                         className="text-xs text-ink-muted-on-dark leading-relaxed"
@@ -219,7 +236,11 @@ export default function VoterInfoPage() {
                       </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
-                      <DataPoint name="voter.guide.sac_voter_guide.btn" as="span">
+                      <DataPoint
+                        initialData={dataPoints}
+                        name="voter.guide.sac_voter_guide.btn"
+                        as="span"
+                      >
                         Open Guide
                       </DataPoint>
                       <ExternalLink size={13} />
@@ -238,6 +259,7 @@ export default function VoterInfoPage() {
                         <CheckCircle2 size={18} />
                       </div>
                       <DataPoint
+                        initialData={dataPoints}
                         name="voter.guide.ballot_recs.title"
                         as="h3"
                         className="font-bold text-sm text-white leading-snug"
@@ -245,6 +267,7 @@ export default function VoterInfoPage() {
                         Ballot Recommendations
                       </DataPoint>
                       <DataPoint
+                        initialData={dataPoints}
                         name="voter.guide.ballot_recs.desc"
                         as="p"
                         className="text-xs text-ink-muted-on-dark leading-relaxed"
@@ -253,7 +276,11 @@ export default function VoterInfoPage() {
                       </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
-                      <DataPoint name="voter.guide.ballot_recs.btn" as="span">
+                      <DataPoint
+                        initialData={dataPoints}
+                        name="voter.guide.ballot_recs.btn"
+                        as="span"
+                      >
                         View Analysis
                       </DataPoint>
                       <ExternalLink size={13} />
@@ -272,6 +299,7 @@ export default function VoterInfoPage() {
                         <FileDown size={18} />
                       </div>
                       <DataPoint
+                        initialData={dataPoints}
                         name="voter.guide.candidate_brief.title"
                         as="h3"
                         className="font-bold text-sm text-white leading-snug"
@@ -279,6 +307,7 @@ export default function VoterInfoPage() {
                         Candidate &amp; Measure Brief
                       </DataPoint>
                       <DataPoint
+                        initialData={dataPoints}
                         name="voter.guide.candidate_brief.desc"
                         as="p"
                         className="text-xs text-ink-muted-on-dark leading-relaxed"
@@ -287,7 +316,11 @@ export default function VoterInfoPage() {
                       </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
-                      <DataPoint name="voter.guide.candidate_brief.btn" as="span">
+                      <DataPoint
+                        initialData={dataPoints}
+                        name="voter.guide.candidate_brief.btn"
+                        as="span"
+                      >
                         Download Brief
                       </DataPoint>
                       <ExternalLink size={13} />
@@ -306,6 +339,7 @@ export default function VoterInfoPage() {
                         <HelpCircle size={18} />
                       </div>
                       <DataPoint
+                        initialData={dataPoints}
                         name="voter.guide.voter_doc.title"
                         as="h3"
                         className="font-bold text-sm text-white leading-snug"
@@ -313,6 +347,7 @@ export default function VoterInfoPage() {
                         Voter Information Doc
                       </DataPoint>
                       <DataPoint
+                        initialData={dataPoints}
                         name="voter.guide.voter_doc.desc"
                         as="p"
                         className="text-xs text-ink-muted-on-dark leading-relaxed"
@@ -321,7 +356,11 @@ export default function VoterInfoPage() {
                       </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-accent-gold group-hover:text-accent-gold/80 transition-colors">
-                      <DataPoint name="voter.guide.voter_doc.btn" as="span">
+                      <DataPoint
+                        initialData={dataPoints}
+                        name="voter.guide.voter_doc.btn"
+                        as="span"
+                      >
                         Read Document
                       </DataPoint>
                       <ExternalLink size={13} />
@@ -343,11 +382,12 @@ export default function VoterInfoPage() {
                     </div>
                     <div className="space-y-3">
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-gold/15 text-accent-gold text-[11px] font-bold uppercase tracking-wider">
-                        <DataPoint name="voter.spotlight.badge" as="span">
+                        <DataPoint initialData={dataPoints} name="voter.spotlight.badge" as="span">
                           Educational Video Spotlight
                         </DataPoint>
                       </div>
                       <DataPoint
+                        initialData={dataPoints}
                         name="voter.spotlight.title"
                         as="h4"
                         className="text-base sm:text-lg font-bold text-white leading-snug"
@@ -355,6 +395,7 @@ export default function VoterInfoPage() {
                         Understanding the SAVE America Act (H.R. 8281 / H.R. 7296)
                       </DataPoint>
                       <DataPoint
+                        initialData={dataPoints}
                         name="voter.spotlight.desc"
                         as="p"
                         className="text-xs text-ink-muted-on-dark leading-relaxed"
@@ -367,6 +408,7 @@ export default function VoterInfoPage() {
                       </DataPoint>
                       <div className="pt-1 flex items-center gap-4 text-xs">
                         <DataPoint
+                          initialData={dataPoints}
                           name="voter.spotlight.author"
                           as="span"
                           className="text-ink-muted-on-dark"
@@ -379,7 +421,7 @@ export default function VoterInfoPage() {
                           rel="noopener noreferrer"
                           className="text-primary-on-dark hover:underline inline-flex items-center gap-1 font-semibold"
                         >
-                          <DataPoint name="voter.spotlight.link" as="span">
+                          <DataPoint initialData={dataPoints} name="voter.spotlight.link" as="span">
                             Brennan Center Analysis
                           </DataPoint>
                           <ExternalLink size={11} />
@@ -392,6 +434,7 @@ export default function VoterInfoPage() {
             </div>
 
             <DataPoint
+              initialData={dataPoints}
               name="voter.guides_section.title"
               as="h2"
               className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight mb-6"
@@ -406,6 +449,7 @@ export default function VoterInfoPage() {
                   <UserCheck size={20} />
                 </div>
                 <DataPoint
+                  initialData={dataPoints}
                   name="voter.guide1.title"
                   as="h3"
                   className="text-xl font-bold text-foreground dark:text-white"
@@ -413,6 +457,7 @@ export default function VoterInfoPage() {
                   Who Represents You?
                 </DataPoint>
                 <DataPoint
+                  initialData={dataPoints}
                   name="voter.guide1.desc"
                   as="p"
                   className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
@@ -429,7 +474,7 @@ export default function VoterInfoPage() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <FileDown size={14} />
-                    <DataPoint name="voter.guide1.btn" as="span">
+                    <DataPoint initialData={dataPoints} name="voter.guide1.btn" as="span">
                       Download Directory PDF
                     </DataPoint>
                   </a>
@@ -442,6 +487,7 @@ export default function VoterInfoPage() {
                   <Vote size={20} />
                 </div>
                 <DataPoint
+                  initialData={dataPoints}
                   name="voter.guide2.title"
                   as="h3"
                   className="text-xl font-bold text-foreground dark:text-white"
@@ -449,6 +495,7 @@ export default function VoterInfoPage() {
                   Pre-Register at 16, Vote at 18
                 </DataPoint>
                 <DataPoint
+                  initialData={dataPoints}
                   name="voter.guide2.desc"
                   as="p"
                   className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
@@ -465,7 +512,7 @@ export default function VoterInfoPage() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <ExternalLink size={14} />
-                    <DataPoint name="voter.guide2.btn" as="span">
+                    <DataPoint initialData={dataPoints} name="voter.guide2.btn" as="span">
                       Pre-Register Online
                     </DataPoint>
                   </a>
@@ -478,6 +525,7 @@ export default function VoterInfoPage() {
                   <Shield size={20} />
                 </div>
                 <DataPoint
+                  initialData={dataPoints}
                   name="voter.guide3.title"
                   as="h3"
                   className="text-xl font-bold text-foreground dark:text-white"
@@ -485,6 +533,7 @@ export default function VoterInfoPage() {
                   Voting Rights Restoration
                 </DataPoint>
                 <DataPoint
+                  initialData={dataPoints}
                   name="voter.guide3.desc"
                   as="p"
                   className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
@@ -501,7 +550,7 @@ export default function VoterInfoPage() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <ExternalLink size={14} />
-                    <DataPoint name="voter.guide3.btn" as="span">
+                    <DataPoint initialData={dataPoints} name="voter.guide3.btn" as="span">
                       CA Secretary of State Guide
                     </DataPoint>
                   </a>
@@ -514,6 +563,7 @@ export default function VoterInfoPage() {
                   <HelpCircle size={20} />
                 </div>
                 <DataPoint
+                  initialData={dataPoints}
                   name="voter.guide4.title"
                   as="h3"
                   className="text-xl font-bold text-foreground dark:text-white"
@@ -521,6 +571,7 @@ export default function VoterInfoPage() {
                   Homeless is NOT Voteless
                 </DataPoint>
                 <DataPoint
+                  initialData={dataPoints}
                   name="voter.guide4.desc"
                   as="p"
                   className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed"
@@ -537,7 +588,7 @@ export default function VoterInfoPage() {
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <ExternalLink size={14} />
-                    <DataPoint name="voter.guide4.btn" as="span">
+                    <DataPoint initialData={dataPoints} name="voter.guide4.btn" as="span">
                       Unhoused Voter Procedures
                     </DataPoint>
                   </a>
@@ -554,7 +605,7 @@ export default function VoterInfoPage() {
         >
           <h2 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
             <Phone className="text-accent dark:text-accent-gold" />
-            <DataPoint as="span" name="voter.hotlines.headline">
+            <DataPoint initialData={dataPoints} as="span" name="voter.hotlines.headline">
               Sacramento County Elections & Voter Hotlines
             </DataPoint>
           </h2>
@@ -562,24 +613,29 @@ export default function VoterInfoPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark">
               <div className="space-y-2">
                 <DataPoint
+                  initialData={dataPoints}
                   name="voter.hotlines.office_title"
                   as="strong"
                   className="text-foreground dark:text-white block text-base"
                 >
                   Sacramento County Elections Office
                 </DataPoint>
-                <DataPoint name="voter.hotlines.office_address" as="p">
+                <DataPoint initialData={dataPoints} name="voter.hotlines.office_address" as="p">
                   7000 65th Street, Suite A, Sacramento, CA 95823
                 </DataPoint>
                 <p>
                   <strong>Phone:</strong>{' '}
-                  <DataPoint name="voter.hotlines.office_phone" as="span">
+                  <DataPoint initialData={dataPoints} name="voter.hotlines.office_phone" as="span">
                     (916) 875-6451
                   </DataPoint>
                 </p>
                 <p>
                   <strong>Toll-Free:</strong>{' '}
-                  <DataPoint name="voter.hotlines.office_tollfree" as="span">
+                  <DataPoint
+                    initialData={dataPoints}
+                    name="voter.hotlines.office_tollfree"
+                    as="span"
+                  >
                     1-800-762-8019
                   </DataPoint>
                 </p>
@@ -589,7 +645,11 @@ export default function VoterInfoPage() {
                     href="mailto:voterinfo@saccounty.gov"
                     className="text-primary-ink dark:text-primary-on-dark-muted hover:underline"
                   >
-                    <DataPoint name="voter.hotlines.office_email" as="span">
+                    <DataPoint
+                      initialData={dataPoints}
+                      name="voter.hotlines.office_email"
+                      as="span"
+                    >
                       voterinfo@saccounty.gov
                     </DataPoint>
                   </a>
@@ -598,30 +658,35 @@ export default function VoterInfoPage() {
 
               <div className="space-y-2">
                 <DataPoint
+                  initialData={dataPoints}
                   name="voter.hotlines.national_title"
                   as="strong"
                   className="text-foreground dark:text-white block text-base"
                 >
                   Nonpartisan Election Protection Hotlines
                 </DataPoint>
-                <DataPoint name="voter.hotlines.national_desc" as="p">
+                <DataPoint initialData={dataPoints} name="voter.hotlines.national_desc" as="p">
                   If you encounter issues voting, call the national nonpartisan hotlines:
                 </DataPoint>
                 <p>
                   <strong>English:</strong>{' '}
-                  <DataPoint name="voter.hotlines.english" as="span">
+                  <DataPoint initialData={dataPoints} name="voter.hotlines.english" as="span">
                     1-866-OUR-VOTE (1-866-687-8683)
                   </DataPoint>
                 </p>
                 <p>
                   <strong>Spanish:</strong>{' '}
-                  <DataPoint name="voter.hotlines.spanish" as="span">
+                  <DataPoint initialData={dataPoints} name="voter.hotlines.spanish" as="span">
                     1-888-VE-Y-VOTA (1-888-839-8682)
                   </DataPoint>
                 </p>
                 <p>
                   <strong>Asian Languages:</strong>{' '}
-                  <DataPoint name="voter.hotlines.asian_languages" as="span">
+                  <DataPoint
+                    initialData={dataPoints}
+                    name="voter.hotlines.asian_languages"
+                    as="span"
+                  >
                     1-888-API-VOTE (1-888-274-8683)
                   </DataPoint>
                 </p>

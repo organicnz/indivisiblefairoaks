@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
-import { getPartners } from '@/lib/queries/civic';
+import { getDataPoints, getPartners } from '@/lib/queries/civic';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Coalition Partners & Allies',
@@ -60,11 +60,16 @@ export default async function PartnersPage() {
       url: 'https://www.aclunc.org',
     },
   ];
+  let dataPoints: Record<string, string> = {};
   try {
-    const rows = await getPartners();
+    const [rows, dp] = await Promise.all([
+      getPartners().catch(() => []),
+      getDataPoints('partners'),
+    ]);
     if (rows.length > 0) partners = rows;
+    dataPoints = dp;
   } catch {
-    // fall through to inline rows
+    // fall through
   }
 
   return (
@@ -75,9 +80,12 @@ export default async function PartnersPage() {
         <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Handshake size={14} className="text-accent-gold" />
-            <DataPoint name="partners.hero.eyebrow">Grassroots Coalition Network</DataPoint>
+            <DataPoint initialData={dataPoints} name="partners.hero.eyebrow">
+              Grassroots Coalition Network
+            </DataPoint>
           </div>
           <DataPoint
+            initialData={dataPoints}
             name="partners.hero.headline"
             as="h1"
             className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
@@ -86,6 +94,7 @@ export default async function PartnersPage() {
           </DataPoint>
           <div className="h-1.5 w-24 bg-accent-gold rounded-full mb-4" />
           <DataPoint
+            initialData={dataPoints}
             name="partners.hero.intro"
             as="p"
             className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-2xl leading-relaxed"
@@ -124,7 +133,7 @@ export default async function PartnersPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark transition-colors"
                 >
-                  <DataPoint as="span" name="partners.card.visit_link">
+                  <DataPoint initialData={dataPoints} as="span" name="partners.card.visit_link">
                     Visit Partner Website
                   </DataPoint>
                   <ExternalLink size={13} />
@@ -136,6 +145,7 @@ export default async function PartnersPage() {
 
         <div className="p-8 rounded-3xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-center space-y-4">
           <DataPoint
+            initialData={dataPoints}
             name="partners.cta.headline"
             as="h3"
             className="text-xl font-bold text-foreground dark:text-white"
@@ -143,6 +153,7 @@ export default async function PartnersPage() {
             Looking to Partner with Our Chapter?
           </DataPoint>
           <DataPoint
+            initialData={dataPoints}
             name="partners.cta.intro"
             as="p"
             className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark max-w-xl mx-auto"
@@ -154,7 +165,7 @@ export default async function PartnersPage() {
             href="/contact"
             className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
           >
-            <DataPoint as="span" name="partners.cta.button">
+            <DataPoint initialData={dataPoints} as="span" name="partners.cta.button">
               Connect With Our Coalition Team
             </DataPoint>
           </Link>
