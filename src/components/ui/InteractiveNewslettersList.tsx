@@ -257,7 +257,9 @@ export function InteractiveNewslettersList({
 
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark font-semibold uppercase">
-                      Chapter Bulletin
+                      <DataPoint name="news.bulletin_tag" as="span" initialData={dataPoints}>
+                        Chapter Bulletin
+                      </DataPoint>
                     </span>
 
                     {/* Admin in-page action bar */}
@@ -270,7 +272,9 @@ export function InteractiveNewslettersList({
                           title="Edit this bulletin"
                         >
                           <PenLine size={11} />
-                          <span>Edit</span>
+                          <DataPoint name="news.admin.btn_edit" as="span" initialData={dataPoints}>
+                            Edit
+                          </DataPoint>
                         </button>
                         <span className="text-white/20">|</span>
                         <ConfirmAction
@@ -283,7 +287,13 @@ export function InteractiveNewslettersList({
                           idleClassName="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
                         >
                           <Trash2 size={11} />
-                          <span>Delete</span>
+                          <DataPoint
+                            name="news.admin.btn_delete"
+                            as="span"
+                            initialData={dataPoints}
+                          >
+                            Delete
+                          </DataPoint>
                         </ConfirmAction>
                       </div>
                     )}
@@ -311,7 +321,7 @@ export function InteractiveNewslettersList({
               <div className="pt-6 border-t border-border dark:border-white/10/80 mt-6 flex items-center justify-between">
                 <a
                   href="mailto:contact@indivisiblefairoaks.org?subject=Archive%20Request%20-%20Bulletin"
-                  className="text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark flex items-center gap-1"
+                  className="text-xs font-bold text-primary-ink hover:underline flex items-center gap-1"
                 >
                   <DataPoint name="news.read_bulletin" as="span" initialData={dataPoints}>
                     Request Full Issue

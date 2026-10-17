@@ -149,10 +149,12 @@ export default function UpdatePasswordPage() {
             <ShieldCheck size={28} aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-black text-secondary dark:text-white uppercase tracking-tight mb-3">
-            <DataPoint name="account.security.confirm_title">Confirm it&apos;s you</DataPoint>
+            <DataPoint name="account.security.confirm_title" initialData={dataPoints}>
+              Confirm it&apos;s you
+            </DataPoint>
           </h1>
           <p className="text-muted-foreground dark:text-ink-on-dark font-medium mb-8 leading-relaxed">
-            <DataPoint name="account.security.confirm_desc">
+            <DataPoint name="account.security.confirm_desc" initialData={dataPoints}>
               This account has two-factor authentication, so changing the password needs a
               verification code first. It is the same check that protects your account settings.
             </DataPoint>
@@ -162,7 +164,9 @@ export default function UpdatePasswordPage() {
             onClick={() => router.push('/auth/mfa?next=/account/update-password')}
             className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20"
           >
-            <DataPoint name="account.security.confirm_btn">Enter verification code</DataPoint>
+            <DataPoint name="account.security.confirm_btn" as="span" initialData={dataPoints}>
+              Enter verification code
+            </DataPoint>
           </button>
         </div>
       </div>
@@ -180,10 +184,12 @@ export default function UpdatePasswordPage() {
             />
           </div>
           <h1 className="text-2xl font-black text-secondary dark:text-white uppercase tracking-tight mb-3">
-            <DataPoint name="account.password.updated_title">Password Updated</DataPoint>
+            <DataPoint name="account.password.updated_title" initialData={dataPoints}>
+              Password Updated
+            </DataPoint>
           </h1>
           <p className="text-muted-foreground dark:text-ink-on-dark font-medium mb-8 leading-relaxed">
-            <DataPoint name="account.password.updated_desc">
+            <DataPoint name="account.password.updated_desc" initialData={dataPoints}>
               Your password has been changed successfully. You can now sign in with your new
               credentials.
             </DataPoint>
@@ -193,7 +199,9 @@ export default function UpdatePasswordPage() {
             onClick={() => router.push('/account')}
             className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20"
           >
-            <DataPoint name="account.password.btn_go_account">Go to Account</DataPoint>
+            <DataPoint name="account.password.btn_go_account" as="span" initialData={dataPoints}>
+              Go to Account
+            </DataPoint>
           </button>
         </div>
       </div>
@@ -208,16 +216,18 @@ export default function UpdatePasswordPage() {
           <div className="inline-flex items-center gap-3 px-5 py-2 bg-primary/10 dark:bg-white/5 rounded-full mb-6 border border-primary/20 dark:border-white/10">
             <ShieldCheck className="w-3.5 h-3.5 text-primary dark:text-accent-gold" />
             <span className="text-primary dark:text-accent-gold font-black uppercase tracking-[0.4em] text-[10px]">
-              <DataPoint name="account.password.reset_badge">Secure Reset</DataPoint>
+              <DataPoint name="account.password.reset_badge" as="span" initialData={dataPoints}>
+                Secure Reset
+              </DataPoint>
             </span>
           </div>
           <h1 className="text-4xl font-black text-secondary dark:text-white uppercase tracking-tighter leading-none mb-3">
-            <DataPoint name="account.password.new_title">
+            <DataPoint name="account.password.new_title" initialData={dataPoints}>
               New <span className="text-primary dark:text-primary-on-dark italic">Password</span>
             </DataPoint>
           </h1>
           <p className="text-slate-400 font-bold uppercase tracking-[0.15em] text-[10px]">
-            <DataPoint name="account.password.new_desc">
+            <DataPoint name="account.password.new_desc" initialData={dataPoints}>
               Choose a strong password for your account
             </DataPoint>
           </p>
@@ -344,7 +354,9 @@ export default function UpdatePasswordPage() {
               {status === 'loading' ? (
                 <Loader2 className="animate-spin" size={18} />
               ) : (
-                <DataPoint name="account.password.btn_update">Set New Password</DataPoint>
+                <DataPoint name="account.password.btn_update" as="span" initialData={dataPoints}>
+                  Set New Password
+                </DataPoint>
               )}
             </button>
           </form>
