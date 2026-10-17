@@ -5,19 +5,19 @@ export default async function PrivacyPage() {
   const dataPoints = await getDataPoints('privacy');
 
   return (
-    <div className="bg-white min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8 text-foreground transition-colors duration-300">
       <div className="max-w-3xl mx-auto">
         <DataPoint
           name="privacy.hero.title"
           as="h1"
           initialData={dataPoints}
-          className="text-4xl font-black text-secondary uppercase tracking-tight mb-8"
+          className="text-4xl font-black text-secondary dark:text-white uppercase tracking-tight mb-8"
         >
           Privacy Policy
         </DataPoint>
-        <div className="h-1.5 w-24 bg-primary mb-12" />
+        <div className="h-1.5 w-24 bg-primary dark:bg-primary-bright mb-12" />
 
-        <div className="prose prose-slate max-w-none space-y-8 text-slate-600 font-medium leading-relaxed">
+        <div className="prose prose-slate dark:prose-invert max-w-none space-y-8 text-muted-foreground dark:text-ink-on-dark font-medium leading-relaxed">
           <DataPoint name="privacy.body.intro" as="p" initialData={dataPoints}>
             At Indivisible Fair Oaks-Carmichael, we recognise your right to confidentiality and are
             committed to protecting your privacy. Our website address is:
@@ -29,7 +29,7 @@ export default async function PrivacyPage() {
               name="privacy.collect.title"
               as="h2"
               initialData={dataPoints}
-              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+              className="text-xl font-black text-secondary dark:text-white uppercase tracking-wider mb-4"
             >
               What data we collect
             </DataPoint>
@@ -45,7 +45,7 @@ export default async function PrivacyPage() {
               name="privacy.cookies.title"
               as="h2"
               initialData={dataPoints}
-              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+              className="text-xl font-black text-secondary dark:text-white uppercase tracking-wider mb-4"
             >
               Cookies
             </DataPoint>
@@ -66,7 +66,7 @@ export default async function PrivacyPage() {
               name="privacy.embedded.title"
               as="h2"
               initialData={dataPoints}
-              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+              className="text-xl font-black text-secondary dark:text-white uppercase tracking-wider mb-4"
             >
               Embedded content
             </DataPoint>
@@ -82,7 +82,7 @@ export default async function PrivacyPage() {
               name="privacy.retain.title"
               as="h2"
               initialData={dataPoints}
-              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+              className="text-xl font-black text-secondary dark:text-white uppercase tracking-wider mb-4"
             >
               How long we retain your data
             </DataPoint>
@@ -98,7 +98,7 @@ export default async function PrivacyPage() {
               name="privacy.security.title"
               as="h2"
               initialData={dataPoints}
-              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+              className="text-xl font-black text-secondary dark:text-white uppercase tracking-wider mb-4"
             >
               Security
             </DataPoint>

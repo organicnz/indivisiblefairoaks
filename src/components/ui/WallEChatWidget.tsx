@@ -15,18 +15,22 @@ function WallEAvatar({ small = false, inButton = false }: { small?: boolean; inB
     <span
       aria-hidden="true"
       data-testid="walle-avatar"
-      className={`inline-flex shrink-0 items-center justify-center rounded-2xl ${
+      className={`inline-flex shrink-0 items-center justify-center ${
         inButton
-          ? 'bg-transparent p-0'
-          : 'bg-primary dark:bg-primary-bright p-1 shadow-lg ring-2 ring-white/80 dark:ring-white/20'
-      } ${small ? 'size-9' : 'size-12'}`}
+          ? 'size-11 rounded-full bg-white p-0.5 overflow-hidden shadow-inner'
+          : `rounded-2xl bg-primary dark:bg-primary-bright p-1 shadow-lg ring-2 ring-white/80 dark:ring-white/20 ${small ? 'size-9' : 'size-12'}`
+      }`}
     >
-      <span className="relative block aspect-[271/237] w-full overflow-hidden rounded-xl bg-white p-0.5">
+      <span
+        className={`relative block w-full overflow-hidden ${
+          inButton ? 'size-full rounded-full' : 'aspect-[271/237] rounded-xl bg-white p-0.5'
+        }`}
+      >
         <Image
           src="/walle-avatar.png"
           alt=""
           fill
-          sizes={small ? '28px' : '40px'}
+          sizes={small ? '28px' : inButton ? '44px' : '40px'}
           className="object-cover"
           priority={!small}
         />
