@@ -65,7 +65,25 @@ export async function GET(req: NextRequest) {
     if (key) {
       query = query.eq('key', key);
     } else if (group) {
-      query = query.eq('group_name', group);
+      const lower = group.toLowerCase();
+      const aliases: Record<string, string[]> = {
+        product: ['products', 'product'],
+        products: ['products', 'product'],
+        link: ['links', 'link'],
+        links: ['links', 'link'],
+        faq: ['faqs', 'faq'],
+        faqs: ['faqs', 'faq'],
+        partner: ['partners', 'partner'],
+        partners: ['partners', 'partner'],
+        term: ['terms', 'term'],
+        terms: ['terms', 'term'],
+      };
+      const groups = aliases[lower] || [group];
+      if (groups.length === 1) {
+        query = query.eq('group_name', groups[0]);
+      } else {
+        query = query.in('group_name', groups);
+      }
     }
 
     const { data, error } = await query;

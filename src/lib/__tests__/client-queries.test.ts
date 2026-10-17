@@ -161,7 +161,7 @@ describe('Client queries through Edge API', () => {
   });
 
   describe('getDataPoints() and saveDataPoint()', () => {
-    it('fetches data points from /api/data-points', async () => {
+    it('fetches data points via Supabase Edge Function or API fallback', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -172,8 +172,36 @@ describe('Client queries through Edge API', () => {
       } as unknown as Response);
 
       const res = await getDataPoints('home');
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/data-points?group=home');
+      const [calledUrl] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(calledUrl).toMatch(/(functions\/v1\/data-points|\/api\/data-points)\?group=home/);
       expect(res.dataPoints['home.headline']).toBe('Headline Text');
+    });
+
+    it('falls back to /api/data-points when Edge Function throws', async () => {
+      const prevUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const prevKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+      process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key';
+
+      try {
+        globalThis.fetch = vi
+          .fn()
+          .mockRejectedValueOnce(new Error('Edge network timeout'))
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              success: true,
+              dataPoints: { 'home.headline': 'Fallback Text' },
+              rows: [{ key: 'home.headline', value: 'Fallback Text' }],
+            }),
+          } as unknown as Response);
+
+        const res = await getDataPoints('home');
+        expect(res.dataPoints['home.headline']).toBe('Fallback Text');
+      } finally {
+        process.env.NEXT_PUBLIC_SUPABASE_URL = prevUrl;
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = prevKey;
+      }
     });
 
     it('saves data point via POST /api/data-points', async () => {

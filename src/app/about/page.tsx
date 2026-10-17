@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 
@@ -19,9 +20,10 @@ export default async function AboutPage() {
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* Header Banner with VGPU Constellation Network */}
+      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
+        <VgpuCivicConstellation />
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="flex justify-center mb-6">
             <Image
               src="/images/logo/indivisible-fairoaks-logo-dark.png"
@@ -57,7 +59,7 @@ export default async function AboutPage() {
             power.
           </DataPoint>
         </div>
-      </div>
+      </section>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* Our Mission */}

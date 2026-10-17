@@ -2,6 +2,7 @@ import { Mail, Megaphone, Newspaper, Send } from 'lucide-react';
 import type { Metadata } from 'next';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveNewslettersList } from '@/components/ui/InteractiveNewslettersList';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getNewsletters } from '@/lib/queries/civic';
 
@@ -20,9 +21,10 @@ export default async function NewsPage() {
   const initialNewsletters = newslettersRows.length > 0 ? newslettersRows : undefined;
   return (
     <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* Header Banner with VGPU Constellation Network */}
+      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
+        <VgpuCivicConstellation />
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Newspaper size={14} className="text-accent-gold" />
             <DataPoint initialData={dataPoints} name="news.hero.eyebrow">
@@ -47,13 +49,13 @@ export default async function NewsPage() {
             resistance across Fair Oaks, Carmichael, and Sacramento County.
           </DataPoint>
         </div>
-      </div>
+      </section>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* Newsletter Subscription Card */}
-        <div className="p-8 rounded-2xl bg-gradient-to-tr from-blue-900/60 via-slate-900 to-indigo-950/60 border border-primary-bright/30 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="p-8 rounded-2xl bg-surface-card border border-border dark:bg-gradient-to-tr dark:from-blue-900/60 dark:via-slate-900 dark:to-indigo-950/60 dark:border-primary-bright/30 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-primary-ink dark:text-accent-gold text-[11px] font-bold uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-secondary dark:text-accent-gold text-[11px] font-bold uppercase tracking-wider">
               <Mail size={12} />
               <DataPoint initialData={dataPoints} as="span" name="news.subscribe.badge">
                 Direct To Your Inbox

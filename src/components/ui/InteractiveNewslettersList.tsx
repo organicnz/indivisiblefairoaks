@@ -183,11 +183,11 @@ export function InteractiveNewslettersList({
   return (
     <div className="space-y-8">
       {/* Controls: Search and Filter Chips */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary border border-white/10 backdrop-blur-md">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 shadow-xs backdrop-blur-md">
         {/* Search Bar */}
         <div className="relative flex-1">
           <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
             size={16}
           />
           <input
@@ -197,7 +197,7 @@ export function InteractiveNewslettersList({
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-500 transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted dark:bg-secondary border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
 
@@ -211,7 +211,7 @@ export function InteractiveNewslettersList({
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTopic === topic
                   ? 'bg-primary-bright text-white shadow-md'
-                  : 'bg-secondary/60 text-ink-muted-on-dark hover:text-slate-200 hover:bg-white/5'
+                  : 'bg-surface-muted dark:bg-secondary/60 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:hover:text-slate-200 hover:bg-surface-card dark:hover:bg-white/5 border border-border dark:border-transparent'
               }`}
             >
               {topic}
@@ -257,7 +257,9 @@ export function InteractiveNewslettersList({
 
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark font-semibold uppercase">
-                      Chapter Bulletin
+                      <DataPoint name="news.bulletin_tag" as="span" initialData={dataPoints}>
+                        Chapter Bulletin
+                      </DataPoint>
                     </span>
 
                     {/* Admin in-page action bar */}
@@ -270,7 +272,9 @@ export function InteractiveNewslettersList({
                           title="Edit this bulletin"
                         >
                           <PenLine size={11} />
-                          <span>Edit</span>
+                          <DataPoint name="news.admin.btn_edit" as="span" initialData={dataPoints}>
+                            Edit
+                          </DataPoint>
                         </button>
                         <span className="text-white/20">|</span>
                         <ConfirmAction
@@ -283,7 +287,13 @@ export function InteractiveNewslettersList({
                           idleClassName="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
                         >
                           <Trash2 size={11} />
-                          <span>Delete</span>
+                          <DataPoint
+                            name="news.admin.btn_delete"
+                            as="span"
+                            initialData={dataPoints}
+                          >
+                            Delete
+                          </DataPoint>
                         </ConfirmAction>
                       </div>
                     )}
@@ -311,7 +321,7 @@ export function InteractiveNewslettersList({
               <div className="pt-6 border-t border-border dark:border-white/10/80 mt-6 flex items-center justify-between">
                 <a
                   href="mailto:contact@indivisiblefairoaks.org?subject=Archive%20Request%20-%20Bulletin"
-                  className="text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark flex items-center gap-1"
+                  className="text-xs font-bold text-primary-ink hover:underline flex items-center gap-1"
                 >
                   <DataPoint name="news.read_bulletin" as="span" initialData={dataPoints}>
                     Request Full Issue
