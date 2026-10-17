@@ -177,7 +177,7 @@ export default async function ShippingReturnsPage() {
                   name="shipping.delivery.title"
                   as="h3"
                   initialData={dataPoints}
-                  className="text-lg font-black text-secondary uppercase m-0"
+                  className="text-lg font-black text-secondary dark:text-white uppercase m-0"
                 >
                   Delivery Times
                 </DataPoint>
@@ -217,7 +217,7 @@ export default async function ShippingReturnsPage() {
           </div>
         </div>
 
-        <div className="mt-20 text-center bg-secondary p-12 rounded-[3rem] text-white">
+        <div className="mt-20 text-center bg-secondary dark:bg-surface-card border border-border p-12 rounded-[3rem] text-white shadow-float">
           <DataPoint
             name="shipping.help.title"
             as="h3"

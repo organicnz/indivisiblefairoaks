@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { StripeExpressCheckout } from '@/components/checkout/StripeExpressCheckout';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { SHIPPING_RATES } from '@/config/commerce';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { buildCheckoutItems } from '@/lib/checkout-validation';
 import { MAX_ITEM_QUANTITY, useCartStore } from '@/lib/store/cart';
 import { getStorageUrl } from '@/lib/supabase';
@@ -16,6 +17,7 @@ import { getStorageUrl } from '@/lib/supabase';
 const emptySubscribe = () => () => {};
 
 export default function CartPage() {
+  const { dataPoints } = useDataPoints('cart');
   const { items, removeItem, updateQuantity, totalPrice } = useCartStore();
   const [isLoading, setIsLoading] = useState(false);
   // Persisted cart rehydrates client-side only; render the skeleton on the
@@ -46,7 +48,11 @@ export default function CartPage() {
       // Out-of-stock (409): drop the dead line from the cart so retry works.
       if (response.status === 409 && data.productId) {
         removeItem(data.productId, data.variationId ?? null);
-        toast.error(data.error || 'An item sold out and was removed from your cart.');
+        toast.error(
+          data.error ||
+            dataPoints['cart.toast.sold_out'] ||
+            'An item sold out and was removed from your cart.'
+        );
         return;
       }
 
@@ -57,9 +63,16 @@ export default function CartPage() {
         return;
       }
 
-      toast.error(data.error || 'Something went wrong starting checkout.');
+      toast.error(
+        data.error ||
+          dataPoints['cart.toast.checkout_error'] ||
+          'Something went wrong starting checkout.'
+      );
     } catch {
-      toast.error('Checkout failed — check your connection and try again.');
+      toast.error(
+        dataPoints['cart.toast.connection_error'] ||
+          'Checkout failed — check your connection and try again.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -86,6 +99,7 @@ export default function CartPage() {
         <DataPoint
           name="cart.empty.title"
           as="h1"
+          initialData={dataPoints}
           className="text-4xl font-black text-foreground uppercase tracking-tight mb-6"
         >
           Your Cart is Empty
@@ -93,6 +107,7 @@ export default function CartPage() {
         <DataPoint
           name="cart.empty.desc"
           as="p"
+          initialData={dataPoints}
           className="text-muted-foreground font-medium mb-10 max-w-sm"
         >
           Looks like you haven&apos;t added any gear yet. Let&apos;s get you equipped.
@@ -101,7 +116,7 @@ export default function CartPage() {
           href="/products"
           className="inline-block bg-primary hover:bg-primary-dark text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm shadow-xl shadow-primary/20"
         >
-          <DataPoint name="cart.empty.btn" as="span">
+          <DataPoint name="cart.empty.btn" as="span" initialData={dataPoints}>
             Start Shopping
           </DataPoint>
         </Link>
@@ -116,6 +131,7 @@ export default function CartPage() {
           <DataPoint
             name="cart.header.title"
             as="h1"
+            initialData={dataPoints}
             className="text-4xl font-black tracking-tighter text-foreground uppercase"
           >
             Your Cart
@@ -140,7 +156,9 @@ export default function CartPage() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground font-black uppercase tracking-widest text-[10px]">
-                          <DataPoint name="cart.item.no_image">No Image</DataPoint>
+                          <DataPoint name="cart.item.no_image" initialData={dataPoints}>
+                            No Image
+                          </DataPoint>
                         </div>
                       )}
                     </div>
@@ -238,29 +256,37 @@ export default function CartPage() {
           {/* Order summary */}
           <section className="mt-16 bg-surface-muted rounded-3xl px-6 py-8 sm:p-8 lg:mt-0 lg:col-span-5 border border-border shadow-sm sticky top-24">
             <h2 className="text-xl font-black text-foreground uppercase tracking-widest mb-8 border-b-2 border-primary pb-2 inline-block">
-              <DataPoint name="cart.summary.heading">Order Summary</DataPoint>
+              <DataPoint name="cart.summary.heading" initialData={dataPoints}>
+                Order Summary
+              </DataPoint>
             </h2>
 
             <dl className="mt-6 space-y-6">
               <div className="flex items-center justify-between">
                 <dt className="text-xs font-black text-muted-foreground uppercase tracking-widest">
-                  <DataPoint name="cart.summary.subtotal">Subtotal</DataPoint>
+                  <DataPoint name="cart.summary.subtotal" initialData={dataPoints}>
+                    Subtotal
+                  </DataPoint>
                 </dt>
                 <dd className="text-lg font-black text-foreground">${totalPrice().toFixed(2)}</dd>
               </div>
               <div className="flex items-start justify-between">
                 <dt className="text-xs font-black text-muted-foreground uppercase tracking-widest mt-0.5">
-                  <DataPoint name="cart.summary.shipping_label">Shipping</DataPoint>
+                  <DataPoint name="cart.summary.shipping_label" initialData={dataPoints}>
+                    Shipping
+                  </DataPoint>
                 </dt>
                 <dd className="text-right">
                   <span className="text-xs font-black text-emerald-600 uppercase tracking-widest block">
-                    <DataPoint name="cart.summary.shipping_note">Calculated at Checkout</DataPoint>
+                    <DataPoint name="cart.summary.shipping_note" initialData={dataPoints}>
+                      Calculated at Checkout
+                    </DataPoint>
                   </span>
                   <Link
                     href="/shipping-returns"
                     className="text-[10px] text-muted-foreground font-medium underline hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors mt-1 inline-block"
                   >
-                    <DataPoint name="cart.shipping.view_rates" as="span">
+                    <DataPoint name="cart.shipping.view_rates" as="span" initialData={dataPoints}>
                       View Rates (From{' '}
                       {SHIPPING_RATES.find((r) => r.id === 'standard')?.displayPrice || '$8.00'} or
                       Free Pickup)
@@ -270,7 +296,9 @@ export default function CartPage() {
               </div>
               <div className="border-t border-border pt-6 flex items-center justify-between">
                 <dt className="text-xl font-black text-foreground uppercase tracking-tighter">
-                  <DataPoint name="cart.summary.total_label">Order total</DataPoint>
+                  <DataPoint name="cart.summary.total_label" initialData={dataPoints}>
+                    Order total
+                  </DataPoint>
                 </dt>
                 <dd className="text-3xl font-black text-primary dark:text-primary-on-dark tracking-tighter">
                   ${totalPrice().toFixed(2)}
@@ -283,15 +311,15 @@ export default function CartPage() {
                 type="button"
                 onClick={handleCheckout}
                 disabled={isLoading}
-                className="w-full bg-secondary text-white rounded-full py-5 px-6 text-sm font-black uppercase tracking-[0.2em] hover:bg-primary active:bg-primary-dark transition-colors duration-300 ease-out shadow-float flex justify-center items-center disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="w-full bg-primary hover:bg-primary-dark dark:bg-primary-bright text-white rounded-full py-5 px-6 text-sm font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out shadow-raised hover:shadow-float flex justify-center items-center disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 {isLoading ? (
-                  <DataPoint name="cart.btn.processing" as="span">
+                  <DataPoint name="cart.btn.processing" as="span" initialData={dataPoints}>
                     Processing...
                   </DataPoint>
                 ) : (
                   <>
-                    <DataPoint name="cart.btn.checkout" as="span">
+                    <DataPoint name="cart.btn.checkout" as="span" initialData={dataPoints}>
                       Proceed to Checkout
                     </DataPoint>
                     <ArrowRight className="ml-3" size={20} strokeWidth={3} />
@@ -304,7 +332,9 @@ export default function CartPage() {
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="h-px bg-surface-muted flex-1" />
                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                  <DataPoint name="cart.summary.express_label">Express Checkout</DataPoint>
+                  <DataPoint name="cart.summary.express_label" initialData={dataPoints}>
+                    Express Checkout
+                  </DataPoint>
                 </span>
                 <div className="h-px bg-surface-muted flex-1" />
               </div>
@@ -315,12 +345,15 @@ export default function CartPage() {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full" />
                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                  <DataPoint name="cart.summary.secure_label">Secure Checkout Guaranteed</DataPoint>
+                  <DataPoint name="cart.summary.secure_label" initialData={dataPoints}>
+                    Secure Checkout Guaranteed
+                  </DataPoint>
                 </span>
               </div>
               <DataPoint
                 name="cart.notice.cause"
                 as="p"
+                initialData={dataPoints}
                 className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight text-center leading-relaxed"
               >
                 100% of proceeds fund local civic actions &amp; grassroots organizing

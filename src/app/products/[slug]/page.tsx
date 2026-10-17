@@ -210,7 +210,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
         <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
           {/* Image gallery */}
           <div className="flex flex-col">
-            <div className="aspect-square rounded-3xl overflow-hidden bg-slate-50 relative border border-slate-100 shadow-inner">
+            <div className="aspect-square rounded-3xl overflow-hidden bg-surface-muted relative border border-border shadow-inner">
               {product.image_url ? (
                 <Image
                   src={getStorageUrl(product.image_url)}
@@ -225,8 +225,8 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
                   priority
                 />
               ) : (
-                <div className="bg-slate-100 flex items-center justify-center h-full rounded-3xl">
-                  <span className="text-slate-300 font-black uppercase text-xs tracking-widest">
+                <div className="bg-surface-muted flex items-center justify-center h-full rounded-3xl">
+                  <span className="text-muted-foreground font-black uppercase text-xs tracking-widest">
                     <DataPoint name="wishlist.item.no_image" initialData={dataPoints}>
                       No Image
                     </DataPoint>
@@ -243,7 +243,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
                   {(product.gallery_urls as string[]).slice(0, 4).map((url: string) => (
                     <div
                       key={url}
-                      className="aspect-square relative rounded-xl overflow-hidden bg-slate-50 border border-slate-100"
+                      className="aspect-square relative rounded-xl overflow-hidden bg-surface-muted border border-border"
                     >
                       <Image
                         src={getStorageUrl(url)}
@@ -280,7 +280,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
                   </li>
                 </ol>
               </nav>
-              <h1 className="text-4xl font-black tracking-tight text-secondary uppercase leading-tight mb-4">
+              <h1 className="text-4xl font-black tracking-tight text-foreground uppercase leading-tight mb-4">
                 {product.name}
               </h1>
               <div className="flex items-center gap-4">
@@ -313,20 +313,20 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
             </div>
 
             <div className="prose prose-slate max-w-none">
-              <h3 className="text-sm font-black text-secondary uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">
+              <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-4 border-b border-border pb-2">
                 <DataPoint name="product.details.description_heading" initialData={dataPoints}>
                   Description
                 </DataPoint>
               </h3>
               <div
-                className="text-base text-slate-600 dark:text-foreground leading-relaxed space-y-4"
+                className="text-base text-slate-600 dark:text-ink-on-dark leading-relaxed space-y-4"
                 dangerouslySetInnerHTML={{
                   __html: sanitizeWPContent(product.description || product.short_description || ''),
                 }}
               />
             </div>
 
-            <div className="mt-10 pt-10 border-t border-slate-100 flex flex-col gap-4">
+            <div className="mt-10 pt-10 border-t border-border flex flex-col gap-4">
               <AddToCartButton
                 product={{
                   ...product,
@@ -352,25 +352,25 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
             </div>
 
             <div className="mt-8 grid grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center text-center">
-                <span className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">
+              <div className="p-4 bg-surface-muted rounded-2xl border border-border flex flex-col items-center text-center">
+                <span className="text-[10px] font-black text-foreground uppercase tracking-widest mb-1">
                   <DataPoint name="product.shipping.title" initialData={dataPoints}>
                     Shipping &amp; Pickup
                   </DataPoint>
                 </span>
-                <span className="text-xs text-slate-500 font-bold uppercase tracking-tight">
+                <span className="text-xs text-muted-foreground dark:text-ink-muted-on-dark font-bold uppercase tracking-tight">
                   <DataPoint name="product.shipping.desc" initialData={dataPoints}>
                     Local Pickup &amp; Fast Shipping
                   </DataPoint>
                 </span>
               </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center text-center">
-                <span className="text-[10px] font-black text-secondary uppercase tracking-widest mb-1">
+              <div className="p-4 bg-surface-muted rounded-2xl border border-border flex flex-col items-center text-center">
+                <span className="text-[10px] font-black text-foreground uppercase tracking-widest mb-1">
                   <DataPoint name="product.impact.title" initialData={dataPoints}>
                     Grassroots Impact
                   </DataPoint>
                 </span>
-                <span className="text-xs text-slate-500 font-bold uppercase tracking-tight">
+                <span className="text-xs text-muted-foreground dark:text-ink-muted-on-dark font-bold uppercase tracking-tight">
                   <DataPoint name="product.impact.desc" initialData={dataPoints}>
                     100% Funds Community Actions
                   </DataPoint>
@@ -382,9 +382,9 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
 
         {/* Related Products Section */}
         {relatedProducts.length > 0 && (
-          <div className="mt-32 pb-16 border-t border-slate-100 pt-24">
+          <div className="mt-32 pb-16 border-t border-border pt-24">
             <div className="flex flex-col items-center mb-16">
-              <h2 className="text-4xl font-black tracking-tighter text-secondary uppercase">
+              <h2 className="text-4xl font-black tracking-tighter text-foreground uppercase">
                 <DataPoint name="product.related.headline" initialData={dataPoints}>
                   You might also like
                 </DataPoint>

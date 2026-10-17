@@ -90,7 +90,7 @@ export default async function AdminProductsPage({
           </p>
           <Link
             href="/admin/products/new"
-            className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest bg-primary text-secondary rounded-full px-4 py-2 hover:opacity-90 transition-opacity"
+            className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest bg-primary hover:bg-primary-dark text-white rounded-full px-4 py-2 hover:opacity-90 transition-opacity"
           >
             <Plus size={12} /> Add product
           </Link>
@@ -106,7 +106,7 @@ export default async function AdminProductsPage({
               href={s === 'all' ? '/admin/products' : `/admin/products?stock=${s}`}
               className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-colors ${
                 stockFilter === s
-                  ? 'bg-primary text-secondary'
+                  ? 'bg-primary text-white'
                   : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
               }`}
             >
@@ -172,7 +172,7 @@ export default async function AdminProductsPage({
                           {stockLabel[p.stock_status || ''] || p.stock_status || 'unknown'}
                         </span>
                         {onSale && (
-                          <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary text-secondary">
+                          <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary text-white">
                             On sale
                           </span>
                         )}

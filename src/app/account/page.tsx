@@ -164,17 +164,17 @@ export default async function AccountPage(props: {
       <div className="max-w-2xl space-y-12">
         <UserSettings />
         <MfaSettings />
-        <div className="pt-8 border-t border-slate-100">
-          <h3 className="text-sm font-black text-secondary uppercase tracking-widest mb-1">
+        <div className="pt-8 border-t border-border">
+          <h3 className="text-sm font-black text-secondary dark:text-white uppercase tracking-widest mb-1">
             <DataPoint name="account.session.title" initialData={dataPoints}>
               Session Control
             </DataPoint>
           </h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6">
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-6">
             <DataPoint name="account.session.signed_in_as" as="span" initialData={dataPoints}>
               Signed in as
             </DataPoint>{' '}
-            <span className="text-secondary">{user.email}</span>
+            <span className="text-secondary dark:text-white font-medium">{user.email}</span>
           </p>
           <LogoutButton />
         </div>
@@ -269,7 +269,7 @@ export default async function AccountPage(props: {
         )}
 
         <div className="flex flex-col mb-10">
-          <h1 className="text-4xl font-black tracking-tight text-secondary uppercase">
+          <h1 className="text-4xl font-black tracking-tight text-secondary dark:text-white uppercase">
             <DataPoint
               name={isAdmin ? 'account.title.dashboard' : 'account.title.my_account'}
               initialData={dataPoints}

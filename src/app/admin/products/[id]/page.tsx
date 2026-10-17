@@ -166,7 +166,7 @@ export default async function AdminProductDetailPage({
               )}
             </p>
             {onSale && (
-              <span className="text-[9px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary text-secondary">
+              <span className="text-[9px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary text-white">
                 On sale
               </span>
             )}

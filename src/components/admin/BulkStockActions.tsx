@@ -134,7 +134,7 @@ export function BulkStockBar({ productIds }: { productIds: number[] }) {
             type="button"
             onClick={apply}
             disabled={isPending}
-            className="inline-flex items-center text-[10px] font-black uppercase tracking-widest bg-primary text-secondary rounded-full px-4 py-1.5 hover:opacity-90 transition-opacity disabled:opacity-40"
+            className="inline-flex items-center text-[10px] font-black uppercase tracking-widest bg-primary hover:bg-primary-dark text-white rounded-full px-4 py-1.5 hover:opacity-90 transition-opacity disabled:opacity-40"
           >
             Apply
           </button>

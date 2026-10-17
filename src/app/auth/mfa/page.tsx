@@ -339,7 +339,7 @@ export function MfaChallengePage() {
           {outcome.factorTypes.length > 0 ? (
             <>
               This account has a{' '}
-              <strong className="text-secondary">
+              <strong className="text-secondary dark:text-white">
                 {outcome.factorTypes.join(', ').toUpperCase()}
               </strong>{' '}
               factor enrolled. This site can only complete the check with an authenticator app (a
@@ -348,7 +348,7 @@ export function MfaChallengePage() {
           ) : (
             <>
               Set one up in{' '}
-              <strong className="text-secondary">
+              <strong className="text-secondary dark:text-white">
                 Account → Settings → Two-Factor Authentication
               </strong>
               .
@@ -377,7 +377,7 @@ export function MfaChallengePage() {
       tone="normal"
       icon={<ShieldCheck size={32} aria-hidden="true" />}
     >
-      <p className="text-slate-600 mb-10 font-medium leading-relaxed">
+      <p className="text-slate-600 dark:text-ink-on-dark mb-10 font-medium leading-relaxed">
         <DataPoint as="span" name="auth.mfa.challenge_desc">
           Please enter the verification code from your authenticator app to continue.
         </DataPoint>
@@ -387,7 +387,7 @@ export function MfaChallengePage() {
         <div className="text-left">
           <label
             htmlFor="code"
-            className="block text-[10px] font-black text-secondary uppercase tracking-widest mb-2 ml-1"
+            className="block text-[10px] font-black text-secondary dark:text-white uppercase tracking-widest mb-2 ml-1"
           >
             <DataPoint as="span" name="auth.mfa.challenge_code_label">
               6-Digit Code

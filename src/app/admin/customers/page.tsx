@@ -105,7 +105,7 @@ export default async function AdminCustomersPage({
                         {[c.first_name, c.last_name].filter(Boolean).join(' ') || 'Guest'}
                       </Link>
                       {c.is_admin && (
-                        <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary text-secondary">
+                        <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary text-white">
                           Admin
                         </span>
                       )}

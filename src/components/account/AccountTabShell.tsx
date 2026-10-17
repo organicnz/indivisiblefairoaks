@@ -64,14 +64,14 @@ export function AccountTabShell({ tabs, activeTab, children }: Props) {
                 'transition-colors duration-150 outline-none',
                 'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset',
                 isActive
-                  ? 'text-secondary after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-0.5 after:bg-primary'
-                  : 'text-slate-400 hover:text-slate-700',
+                  ? 'text-secondary dark:text-white after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-0.5 after:bg-primary'
+                  : 'text-muted-foreground hover:text-foreground',
               ].join(' ')}
             >
               <Icon size={13} aria-hidden="true" />
               {tab.label}
               {(tab.badge ?? 0) > 0 && (
-                <span className="ml-1 bg-primary text-secondary text-[9px] font-black rounded-full min-w-[1rem] h-4 px-1 flex items-center justify-center leading-none">
+                <span className="ml-1 bg-primary text-white text-[9px] font-black rounded-full min-w-[1rem] h-4 px-1 flex items-center justify-center leading-none">
                   {tab.badge}
                   <span className="sr-only">pending</span>
                 </span>
