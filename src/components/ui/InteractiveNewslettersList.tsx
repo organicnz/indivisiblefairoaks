@@ -183,11 +183,11 @@ export function InteractiveNewslettersList({
   return (
     <div className="space-y-8">
       {/* Controls: Search and Filter Chips */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary border border-white/10 backdrop-blur-md">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 shadow-xs backdrop-blur-md">
         {/* Search Bar */}
         <div className="relative flex-1">
           <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
             size={16}
           />
           <input
@@ -197,7 +197,7 @@ export function InteractiveNewslettersList({
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-500 transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted dark:bg-secondary border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
 
@@ -211,7 +211,7 @@ export function InteractiveNewslettersList({
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTopic === topic
                   ? 'bg-primary-bright text-white shadow-md'
-                  : 'bg-secondary/60 text-ink-muted-on-dark hover:text-slate-200 hover:bg-white/5'
+                  : 'bg-surface-muted dark:bg-secondary/60 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:hover:text-slate-200 hover:bg-surface-card dark:hover:bg-white/5 border border-border dark:border-transparent'
               }`}
             >
               {topic}

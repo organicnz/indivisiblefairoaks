@@ -17,7 +17,7 @@ function WallEAvatar({ small = false, inButton = false }: { small?: boolean; inB
       data-testid="walle-avatar"
       className={`inline-flex shrink-0 items-center justify-center ${
         inButton
-          ? 'size-12 rounded-full bg-white/95 dark:bg-white p-1 overflow-hidden shadow-inner ring-1 ring-black/10'
+          ? 'size-12 rounded-full bg-white dark:bg-white p-0.5 overflow-hidden shadow-inner ring-2 ring-white/60 dark:ring-white/20'
           : `rounded-2xl bg-primary dark:bg-primary-bright p-1 shadow-lg ring-2 ring-white/80 dark:ring-white/20 ${small ? 'size-9' : 'size-12'}`
       }`}
     >
@@ -31,7 +31,7 @@ function WallEAvatar({ small = false, inButton = false }: { small?: boolean; inB
           alt=""
           fill
           sizes={small ? '28px' : inButton ? '48px' : '40px'}
-          className={inButton ? 'object-contain' : 'object-cover'}
+          className={inButton ? 'object-cover scale-110' : 'object-cover'}
           priority={!small}
         />
       </span>
@@ -266,6 +266,12 @@ export function WallEChatWidget() {
                 ? dataPoints['walle.btn.close_label'] || 'Close WALL-E assistant'
                 : dataPoints['walle.launcher_label'] || 'Open WALL-E assistant'
             }
+            onClick={(e) => {
+              if (open) {
+                e.preventDefault();
+                setOpen(false);
+              }
+            }}
             className="group relative ml-auto flex size-16 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-primary-bright dark:from-blue-950 dark:via-blue-900 dark:to-primary-bright shadow-float shadow-primary/35 ring-4 ring-white/90 dark:ring-white/20 transition-all duration-300 ease-out hover:scale-105 hover:shadow-2xl active:scale-95 cursor-pointer motion-reduce:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
           >
             {/* Ambient hover glow */}
@@ -275,13 +281,13 @@ export function WallEChatWidget() {
             />
             {open ? (
               <span
-                className="relative flex items-center justify-center text-white transition-transform duration-300 group-hover:rotate-90"
+                className="relative flex items-center justify-center text-white transition-transform duration-300 group-hover:rotate-90 animate-in fade-in zoom-in-75 duration-200"
                 aria-hidden="true"
               >
                 <X size={26} strokeWidth={2.5} />
               </span>
             ) : (
-              <>
+              <span className="relative flex items-center justify-center animate-in fade-in zoom-in-75 duration-200">
                 <WallEAvatar inButton />
                 {/* Pulsing online status indicator */}
                 <span
@@ -291,7 +297,7 @@ export function WallEChatWidget() {
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden" />
                   <span className="relative inline-flex size-3.5 rounded-full border-2 border-white dark:border-slate-900 bg-emerald-500 shadow-xs" />
                 </span>
-              </>
+              </span>
             )}
             {/* Tooltip */}
             <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full bg-secondary/95 dark:bg-slate-800/95 backdrop-blur-md border border-white/10 px-3 py-1.5 text-xs font-bold text-white dark:text-slate-100 opacity-0 shadow-lg transition-opacity duration-300 ease-out hover-capable:group-hover:opacity-100 group-focus-visible:opacity-100">

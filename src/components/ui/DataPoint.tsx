@@ -17,6 +17,14 @@ interface DataPointProps extends React.HTMLAttributes<HTMLElement> {
  * Emits data-data-point attribute so the Visual Editor can edit the text directly
  * without altering JSX classes, layout or visual styling.
  */
+const GROUP_ALIASES: Record<string, string> = {
+  product: 'products',
+  link: 'links',
+  faq: 'faqs',
+  partner: 'partners',
+  term: 'terms',
+};
+
 export function DataPoint({
   name,
   fallback,
@@ -27,7 +35,8 @@ export function DataPoint({
   initialData,
   ...props
 }: DataPointProps) {
-  const computedGroup = group || name.split('.')[0] || 'general';
+  const rawGroup = group || name.split('.')[0] || 'general';
+  const computedGroup = GROUP_ALIASES[rawGroup.toLowerCase()] || rawGroup;
   const { dataPoints } = useDataPoints(computedGroup, initialData);
 
   const content = dataPoints[name] ?? (fallback || children);

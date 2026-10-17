@@ -87,12 +87,12 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="w-full bg-slate-950 text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20 transition-colors duration-300">
       {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800 py-16">
+      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
-            <Mail size={14} className="text-amber-400" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+            <Mail size={14} className="text-accent-gold" />
             <DataPoint as="span" name="contact.hero.eyebrow" initialData={dataPoints}>
               Connect With Organizers
             </DataPoint>
@@ -101,7 +101,7 @@ export default function ContactPage() {
             name="contact.hero.title"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4"
+            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-white"
           >
             Contact Indivisible Fair Oaks-Carmichael
           </DataPoint>
@@ -109,7 +109,7 @@ export default function ContactPage() {
             name="contact.hero.intro"
             as="p"
             initialData={dataPoints}
-            className="text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed"
+            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
             Have a question, want to volunteer, or suggest an action in our community? We’d love to
             hear from you.
@@ -118,7 +118,7 @@ export default function ContactPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="bg-slate-900/90 p-8 sm:p-12 rounded-3xl border border-slate-800 shadow-2xl">
+        <div className="bg-surface-card dark:bg-slate-900/90 p-8 sm:p-12 rounded-3xl border border-border dark:border-slate-800 shadow-2xl">
           {status === 'success' && (
             <output
               id="form-success-message"
@@ -205,7 +205,7 @@ export default function ContactPage() {
             <div>
               <label
                 htmlFor="name"
-                className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 ml-1"
+                className="block text-xs font-bold text-foreground/80 dark:text-slate-300 uppercase tracking-wider mb-2 ml-1"
               >
                 <DataPoint name="contact.form.name_label" as="span" initialData={dataPoints}>
                   Full Name
@@ -217,14 +217,14 @@ export default function ContactPage() {
                 id="name"
                 required
                 placeholder={dataPoints['contact.form.name_placeholder'] || 'First and last name'}
-                className="w-full px-5 py-3.5 bg-slate-950 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium text-white placeholder:text-slate-600"
+                className="w-full px-5 py-3.5 bg-surface-muted dark:bg-slate-950 border border-border dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all font-medium text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-slate-600"
               />
             </div>
 
             <div>
               <label
                 htmlFor="email"
-                className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 ml-1"
+                className="block text-xs font-bold text-foreground/80 dark:text-slate-300 uppercase tracking-wider mb-2 ml-1"
               >
                 <DataPoint name="contact.form.email_label" as="span" initialData={dataPoints}>
                   Email Address
@@ -239,14 +239,14 @@ export default function ContactPage() {
                 inputMode="email"
                 spellCheck={false}
                 placeholder={dataPoints['contact.form.email_placeholder'] || 'you@domain.org'}
-                className="w-full px-5 py-3.5 bg-slate-950 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium text-white placeholder:text-slate-600"
+                className="w-full px-5 py-3.5 bg-surface-muted dark:bg-slate-950 border border-border dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all font-medium text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-slate-600"
               />
             </div>
 
             <div>
               <label
                 htmlFor="message"
-                className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 ml-1"
+                className="block text-xs font-bold text-foreground/80 dark:text-slate-300 uppercase tracking-wider mb-2 ml-1"
               >
                 <DataPoint name="contact.form.message_label" as="span" initialData={dataPoints}>
                   Message
@@ -261,12 +261,12 @@ export default function ContactPage() {
                   dataPoints['contact.form.message_placeholder'] ||
                   'Tell us how you would like to get involved, ask a question about our chapter, or join the Resistance Choir...'
                 }
-                className="w-full px-5 py-3.5 bg-slate-950 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium text-white placeholder:text-slate-600 resize-none"
+                className="w-full px-5 py-3.5 bg-surface-muted dark:bg-slate-950 border border-border dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all font-medium text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-slate-600 resize-none"
               />
             </div>
 
-            <fieldset className="space-y-3 rounded-xl border border-slate-800 p-4">
-              <legend className="px-2 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+            <fieldset className="space-y-3 rounded-xl border border-border dark:border-slate-800 p-4 bg-surface-muted/50 dark:bg-transparent">
+              <legend className="px-2 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground dark:text-slate-400">
                 <DataPoint name="contact.form.prefs_legend" as="span" initialData={dataPoints}>
                   Email preferences
                 </DataPoint>
@@ -277,11 +277,11 @@ export default function ContactPage() {
                   type="checkbox"
                   name="sendCopy"
                   id="sendCopy"
-                  className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-950 accent-amber-500"
+                  className="mt-1 h-4 w-4 rounded border-border dark:border-slate-700 bg-surface-card dark:bg-slate-950 accent-amber-500"
                 />
                 <label
                   htmlFor="sendCopy"
-                  className="text-xs font-semibold text-slate-400 tracking-wide cursor-pointer select-none"
+                  className="text-xs font-semibold text-foreground/80 dark:text-slate-400 tracking-wide cursor-pointer select-none"
                 >
                   <DataPoint name="contact.form.send_copy_label" as="span" initialData={dataPoints}>
                     Send me a copy of this message for my records
@@ -294,11 +294,11 @@ export default function ContactPage() {
                   type="checkbox"
                   name="consentToEmail"
                   id="consentToEmail"
-                  className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-950 accent-amber-500"
+                  className="mt-1 h-4 w-4 rounded border-border dark:border-slate-700 bg-surface-card dark:bg-slate-950 accent-amber-500"
                 />
                 <label
                   htmlFor="consentToEmail"
-                  className="text-xs font-semibold text-slate-300 tracking-wide cursor-pointer select-none"
+                  className="text-xs font-semibold text-foreground dark:text-slate-300 tracking-wide cursor-pointer select-none"
                 >
                   <DataPoint name="contact.form.consent_label" as="span" initialData={dataPoints}>
                     Yes, add me to chapter email about actions, meetings and volunteer
@@ -311,7 +311,7 @@ export default function ContactPage() {
                 name="contact.form.privacy_notice"
                 as="p"
                 initialData={dataPoints}
-                className="text-[11px] leading-relaxed text-ink-muted-on-dark"
+                className="text-[11px] leading-relaxed text-muted-foreground dark:text-ink-muted-on-dark"
               >
                 We never sell or share your address. Leaving the box unticked keeps you out of
                 campaign emails — we will still reply to this message.
@@ -322,7 +322,7 @@ export default function ContactPage() {
               type="submit"
               disabled={status === 'loading'}
               aria-busy={status === 'loading'}
-              className="w-full bg-blue-600 text-white font-bold rounded-xl py-4 hover:bg-blue-500 transition-all uppercase tracking-wider text-sm shadow-xl hover:shadow-blue-500/20 disabled:opacity-50"
+              className="w-full bg-primary-bright text-white font-bold rounded-xl py-4 hover:bg-primary transition-all uppercase tracking-wider text-sm shadow-xl hover:shadow-primary/20 disabled:opacity-50"
             >
               {status === 'loading' ? (
                 <DataPoint name="contact.form.submitting_btn" as="span" initialData={dataPoints}>
@@ -337,13 +337,13 @@ export default function ContactPage() {
           </form>
 
           {/* Chapter Contacts Footer */}
-          <div className="mt-12 pt-8 border-t border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-400">
+          <div className="mt-12 pt-8 border-t border-border dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-muted-foreground dark:text-slate-400">
             <div className="space-y-2">
               <DataPoint
                 name="contact.footer.channels_title"
                 as="span"
                 initialData={dataPoints}
-                className="text-amber-400 font-bold uppercase tracking-wider block"
+                className="text-primary dark:text-amber-400 font-bold uppercase tracking-wider block"
               >
                 Direct Email Channels
               </DataPoint>
@@ -359,7 +359,7 @@ export default function ContactPage() {
                 </strong>{' '}
                 <a
                   href="mailto:contact@indivisiblefairoaks.org"
-                  className="text-blue-400 hover:underline"
+                  className="text-primary-bright dark:text-primary-on-dark hover:underline font-semibold"
                 >
                   contact@indivisiblefairoaks.org
                 </a>
@@ -376,7 +376,7 @@ export default function ContactPage() {
                 </strong>{' '}
                 <a
                   href="mailto:subscribe@indivisiblefairoaks.org"
-                  className="text-blue-400 hover:underline"
+                  className="text-primary-bright dark:text-primary-on-dark hover:underline font-semibold"
                 >
                   subscribe@indivisiblefairoaks.org
                 </a>
@@ -388,7 +388,7 @@ export default function ContactPage() {
                 name="contact.footer.gatherings_title"
                 as="span"
                 initialData={dataPoints}
-                className="text-amber-400 font-bold uppercase tracking-wider block"
+                className="text-primary dark:text-amber-400 font-bold uppercase tracking-wider block"
               >
                 Monthly Gatherings
               </DataPoint>
@@ -399,7 +399,7 @@ export default function ContactPage() {
                 name="contact.footer.gatherings_location"
                 as="p"
                 initialData={dataPoints}
-                className="text-slate-400"
+                className="text-muted-foreground dark:text-slate-400"
               >
                 St. Michael&apos;s Episcopal Church, Carmichael, CA
               </DataPoint>

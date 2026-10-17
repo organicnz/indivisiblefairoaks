@@ -36,7 +36,26 @@ export function useDataPoints(group?: string, initialData: Record<string, string
       const customEvent = e as CustomEvent<{ key: string; value: string }>;
       if (customEvent.detail?.key) {
         const { key, value } = customEvent.detail;
-        if (!group || key.startsWith(`${group}.`)) {
+        const aliases: Record<string, string> = {
+          product: 'products',
+          products: 'products',
+          link: 'links',
+          links: 'links',
+          faq: 'faqs',
+          faqs: 'faqs',
+          partner: 'partners',
+          partners: 'partners',
+          term: 'terms',
+          terms: 'terms',
+        };
+        const keyGroup = key.split('.')[0] || '';
+        const normKeyGroup = aliases[keyGroup] || keyGroup;
+        const normHookGroup = group ? aliases[group] || group : '';
+        if (
+          !group ||
+          key.startsWith(`${group}.`) ||
+          (normHookGroup && normKeyGroup === normHookGroup)
+        ) {
           setDataPoints((prev) => ({
             ...prev,
             [key]: value,

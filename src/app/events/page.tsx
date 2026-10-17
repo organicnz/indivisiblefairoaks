@@ -57,13 +57,13 @@ export default async function EventsPage() {
         <InteractiveEventsCalendar initialEvents={initialEvents} />
 
         {/* Ongoing Street Corner Singing Protest Spotlight (Issue #87) */}
-        <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-border dark:border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
+        <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/80 border border-border dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 dark:border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-accent-gold shrink-0 mt-1 border border-white/10">
+            <div className="w-12 h-12 rounded-xl bg-surface-card dark:bg-secondary flex items-center justify-center text-accent dark:text-accent-gold shrink-0 mt-1 border border-border dark:border-white/10 shadow-xs">
               <Music size={24} />
             </div>
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-accent-gold text-[11px] font-bold uppercase tracking-wide mb-1.5">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-accent dark:text-accent-gold text-[11px] font-bold uppercase tracking-wide mb-1.5">
                 <DataPoint initialData={dataPoints} as="span" name="events.spotlight.eyebrow">
                   Ongoing Community Action
                 </DataPoint>
@@ -80,7 +80,7 @@ export default async function EventsPage() {
                 initialData={dataPoints}
                 as="p"
                 name="events.spotlight.schedule"
-                className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1"
+                className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1 font-medium"
               >
                 Every Saturday Afternoon • 3:00 PM – 4:30 PM • Corner of Fair Oaks Blvd &amp;
                 Manzanita Ave, Carmichael, CA
@@ -100,7 +100,7 @@ export default async function EventsPage() {
           <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full md:w-auto">
             <Link
               href="/choir"
-              className="w-full sm:w-auto text-center px-4 py-2.5 rounded-xl border border-slate-700 hover:bg-white/5 text-slate-200 text-xs font-semibold uppercase tracking-wider transition-all"
+              className="w-full sm:w-auto text-center px-4 py-2.5 rounded-xl border border-border dark:border-slate-700 bg-surface-card hover:bg-surface-muted text-foreground dark:bg-transparent dark:hover:bg-white/5 dark:text-slate-200 text-xs font-semibold uppercase tracking-wider transition-all"
             >
               <DataPoint initialData={dataPoints} as="span" name="events.spotlight.btn_songbook">
                 Explore Songbook
@@ -181,7 +181,7 @@ export default async function EventsPage() {
                   href="https://www.aclu.org/know-your-rights"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark inline-flex items-center gap-1"
+                  className="text-xs font-bold text-primary dark:text-primary-on-dark-muted hover:underline dark:hover:text-primary-on-dark inline-flex items-center gap-1"
                 >
                   <DataPoint initialData={dataPoints} as="span" name="events.trainings.t2_link">
                     ACLU Know Your Rights Guide

@@ -79,7 +79,25 @@ Deno.serve(async (req: Request) => {
         .order('key')
 
       if (groupParam) {
-        query = query.eq('group_name', groupParam)
+        const lower = groupParam.toLowerCase();
+        const aliases: Record<string, string[]> = {
+          product: ['products', 'product'],
+          products: ['products', 'product'],
+          link: ['links', 'link'],
+          links: ['links', 'link'],
+          faq: ['faqs', 'faq'],
+          faqs: ['faqs', 'faq'],
+          partner: ['partners', 'partner'],
+          partners: ['partners', 'partner'],
+          term: ['terms', 'term'],
+          terms: ['terms', 'term'],
+        };
+        const groups = aliases[lower] || [groupParam];
+        if (groups.length === 1) {
+          query = query.eq('group_name', groups[0]);
+        } else {
+          query = query.in('group_name', groups);
+        }
       }
       if (keyParam) {
         query = query.eq('key', keyParam)

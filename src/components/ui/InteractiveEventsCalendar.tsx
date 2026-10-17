@@ -265,11 +265,11 @@ export function InteractiveEventsCalendar({
   return (
     <div className="space-y-8">
       {/* Controls: Search and Filter Chips */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary border border-white/10 backdrop-blur-md">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 backdrop-blur-md shadow-xs">
         {/* Search Bar */}
         <div className="relative flex-1">
           <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
             size={16}
           />
           <input
@@ -279,7 +279,7 @@ export function InteractiveEventsCalendar({
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-500 transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted border border-border dark:bg-secondary dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
 
@@ -293,7 +293,7 @@ export function InteractiveEventsCalendar({
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeCategory === cat
                   ? 'bg-primary-bright text-white shadow-md'
-                  : 'bg-secondary/60 text-ink-muted-on-dark hover:text-slate-200 hover:bg-white/5'
+                  : 'bg-surface-muted text-muted-foreground hover:text-foreground border border-border dark:bg-secondary/60 dark:border-transparent dark:text-ink-muted-on-dark dark:hover:text-slate-200 dark:hover:bg-white/5'
               }`}
             >
               {cat}
@@ -317,7 +317,7 @@ export function InteractiveEventsCalendar({
       {/* Events Grid */}
       <div className="grid grid-cols-1 gap-6">
         {filteredEvents.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-secondary border border-white/10 text-ink-muted-on-dark">
+          <div className="p-12 text-center rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-muted-foreground dark:text-ink-muted-on-dark">
             <DataPoint as="span" name="events.empty.desc" initialData={dataPoints}>
               No events found matching your criteria. Try selecting &ldquo;All Actions&rdquo; or
               clearing the search query.
@@ -335,21 +335,21 @@ export function InteractiveEventsCalendar({
             {filteredEvents.map((event) => (
               <div
                 key={event.id}
-                className={`rounded-2xl p-6 sm:p-8 transition-all relative overflow-hidden flex flex-col justify-between ${
+                className={`rounded-2xl p-6 sm:p-8 transition-all relative overflow-hidden flex flex-col justify-between shadow-xs ${
                   event.highlight
-                    ? 'bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-primary-bright/40 shadow-xl'
-                    : 'bg-secondary border border-white/10 hover:border-slate-700'
+                    ? 'bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/80 border border-primary/30 dark:from-blue-950/60 dark:via-slate-900 dark:to-indigo-950/60 dark:border-primary-bright/40 shadow-xl'
+                    : 'bg-surface-card border border-border hover:border-primary/40 dark:bg-secondary dark:border-white/10 dark:hover:border-slate-700'
                 }`}
               >
                 <div>
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-primary-on-dark text-xs font-mono font-semibold">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary-dark dark:bg-white/5 dark:text-primary-on-dark text-xs font-mono font-semibold">
                         {event.category === 'Resistance Choir' && <Music size={12} />}
                         {event.category}
                       </span>
                       {event.highlight && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-accent-gold text-[11px] font-bold uppercase tracking-wider">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-accent dark:text-accent-gold text-[11px] font-bold uppercase tracking-wider">
                           Featured Gathering
                         </span>
                       )}
@@ -382,44 +382,61 @@ export function InteractiveEventsCalendar({
                     )}
                   </div>
 
-                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-4">
+                  <h3 className="text-xl sm:text-2xl font-black text-foreground dark:text-white tracking-tight mb-4">
                     {event.title}
                   </h3>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm text-ink-on-dark mb-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm text-foreground/80 dark:text-ink-on-dark mb-5">
                     <div className="flex items-center gap-2.5">
-                      <Clock size={16} className="text-primary-on-dark-muted shrink-0" />
+                      <Clock
+                        size={16}
+                        className="text-primary dark:text-primary-on-dark-muted shrink-0"
+                      />
                       <div>
-                        <span className="font-semibold text-white block">{event.dateLabel}</span>
-                        <span className="text-ink-muted-on-dark text-xs">{event.timeLabel}</span>
+                        <span className="font-semibold text-foreground dark:text-white block">
+                          {event.dateLabel}
+                        </span>
+                        <span className="text-muted-foreground dark:text-ink-muted-on-dark text-xs">
+                          {event.timeLabel}
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-start gap-2.5">
-                      <MapPin size={16} className="text-accent-gold shrink-0 mt-0.5" />
+                      <MapPin
+                        size={16}
+                        className="text-accent dark:text-accent-gold shrink-0 mt-0.5"
+                      />
                       <div>
-                        <span className="font-semibold text-white block">{event.locationName}</span>
-                        <span className="text-ink-muted-on-dark text-xs">{event.address}</span>
+                        <span className="font-semibold text-foreground dark:text-white block">
+                          {event.locationName}
+                        </span>
+                        <span className="text-muted-foreground dark:text-ink-muted-on-dark text-xs">
+                          {event.address}
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-xs sm:text-sm text-ink-on-dark leading-relaxed mb-6">
+                  <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed mb-6">
                     {event.description}
                   </p>
                 </div>
 
                 {/* Action Buttons */}
-                <div className="pt-4 border-t border-white/10/80 flex flex-wrap items-center justify-between gap-3">
+                <div className="pt-4 border-t border-border dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     {/* Google Calendar Link */}
                     <a
                       href={generateGoogleCalendarUrl(event)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground border border-border dark:bg-white/5 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 text-xs font-semibold transition-colors"
                       title="Add event to Google Calendar"
                     >
-                      <CalendarPlus size={14} className="text-primary-on-dark-muted" />
+                      <CalendarPlus
+                        size={14}
+                        className="text-primary dark:text-primary-on-dark-muted"
+                      />
                       <span>Google Cal</span>
                     </a>
 
@@ -427,10 +444,10 @@ export function InteractiveEventsCalendar({
                     <button
                       type="button"
                       onClick={() => downloadIcsFile(event)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground border border-border dark:bg-white/5 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 text-xs font-semibold transition-colors"
                       title="Download iCal .ics for Apple Calendar & Outlook"
                     >
-                      <Download size={14} className="text-accent-gold" />
+                      <Download size={14} className="text-accent dark:text-accent-gold" />
                       <span>.ics Export</span>
                     </button>
                   </div>

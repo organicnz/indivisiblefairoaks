@@ -233,10 +233,10 @@ export function SacramentoRepresentativeFinder() {
   };
 
   return (
-    <div className="rounded-3xl bg-secondary border border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl">
+    <div className="rounded-3xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl transition-colors">
       <div className="max-w-3xl">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-          <MapPin size={14} className="text-accent-gold" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary dark:bg-primary-bright/20 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <MapPin size={14} className="text-accent dark:text-accent-gold" />
           <DataPoint as="span" name="voter.repfinder.eyebrow" initialData={dataPoints}>
             Instant District & Representative Finder
           </DataPoint>
@@ -245,7 +245,7 @@ export function SacramentoRepresentativeFinder() {
           as="h2"
           name="voter.repfinder.headline"
           initialData={dataPoints}
-          className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3"
+          className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight mb-3"
         >
           Know Your Representatives & Hold Them Accountable
         </DataPoint>
@@ -253,7 +253,7 @@ export function SacramentoRepresentativeFinder() {
           as="p"
           name="voter.repfinder.subhead"
           initialData={dataPoints}
-          className="text-sm sm:text-base text-ink-on-dark leading-relaxed mb-8"
+          className="text-sm sm:text-base text-muted-foreground dark:text-ink-on-dark leading-relaxed mb-8"
         >
           Enter your local ZIP code to instantly find your federal, state, and county elected
           officials, complete with verified direct phone numbers and constituent advocacy scripts.
@@ -266,7 +266,7 @@ export function SacramentoRepresentativeFinder() {
         >
           <div className="relative flex-1">
             <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted-on-dark"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
               size={18}
             />
             <input
@@ -279,12 +279,12 @@ export function SacramentoRepresentativeFinder() {
                 dataPoints['voter.repfinder.input_placeholder'] ||
                 'Enter ZIP (e.g. 95628, 95608, 95662)'
               }
-              className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-500 text-sm font-mono focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full pl-11 pr-4 py-3.5 rounded-xl bg-surface-muted border border-border dark:bg-secondary dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder-slate-500 text-sm font-mono focus:outline-none focus:border-primary transition-colors"
             />
           </div>
           <button
             type="submit"
-            className="px-6 py-3.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all shrink-0 hover:scale-[1.02] cursor-pointer"
+            className="px-6 py-3.5 rounded-xl bg-primary-bright hover:bg-primary text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all shrink-0 hover:scale-[1.02] cursor-pointer"
           >
             <DataPoint as="span" name="voter.repfinder.btn_lookup" initialData={dataPoints}>
               Find Officials
@@ -293,21 +293,21 @@ export function SacramentoRepresentativeFinder() {
         </form>
 
         {/* Current District Header */}
-        <div className="p-4 rounded-2xl bg-secondary border border-white/10 mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="p-4 rounded-2xl bg-surface-muted border border-border dark:bg-secondary dark:border-white/10 mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <DataPoint
               name="voter.repfinder.selected_community"
               as="div"
               initialData={dataPoints}
-              className="text-xs font-mono text-accent-gold uppercase tracking-wide"
+              className="text-xs font-mono text-primary font-bold dark:text-accent-gold uppercase tracking-wide"
             >
               Selected Community:
             </DataPoint>
-            <div className="text-lg font-bold text-white">
+            <div className="text-lg font-bold text-foreground dark:text-white">
               {activeDistrict.city}, CA ({activeDistrict.zip})
             </div>
           </div>
-          <div className="text-xs text-ink-muted-on-dark font-mono">
+          <div className="text-xs text-muted-foreground dark:text-ink-muted-on-dark font-mono">
             {activeDistrict.congressionalDistrict}
           </div>
         </div>
@@ -317,35 +317,39 @@ export function SacramentoRepresentativeFinder() {
           {activeDistrict.officials.map((official) => (
             <div
               key={official.name}
-              className="p-5 rounded-2xl bg-secondary border border-white/10/80 hover:border-slate-700 transition-all flex flex-col justify-between"
+              className="p-5 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 hover:border-primary/50 dark:hover:border-slate-700 transition-all flex flex-col justify-between shadow-xs"
             >
               <div>
                 <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="font-mono text-ink-muted-on-dark text-[11px]">
+                  <span className="font-mono text-muted-foreground dark:text-ink-muted-on-dark text-[11px]">
                     {official.title}
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       official.party === 'Democrat'
-                        ? 'bg-primary-bright/20 text-primary-on-dark'
+                        ? 'bg-primary-bright/20 text-primary-dark dark:text-primary-on-dark'
                         : official.party === 'Republican'
-                          ? 'bg-red-500/20 text-red-300'
-                          : 'bg-slate-700 text-ink-on-dark'
+                          ? 'bg-red-500/20 text-red-700 dark:text-red-300'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-ink-on-dark'
                     }`}
                   >
                     {official.party}
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-white mb-1">{official.name}</h3>
+                <h3 className="text-base font-bold text-foreground dark:text-white mb-1">
+                  {official.name}
+                </h3>
                 {official.notes && (
-                  <p className="text-xs text-ink-muted-on-dark mb-3">{official.notes}</p>
+                  <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark mb-3">
+                    {official.notes}
+                  </p>
                 )}
               </div>
 
-              <div className="pt-4 border-t border-white/10/60 flex items-center justify-between gap-2">
+              <div className="pt-4 border-t border-border dark:border-white/10 flex items-center justify-between gap-2">
                 <a
                   href={`tel:${official.phone.replace(/[^0-9]/g, '')}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-mono font-semibold transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/20 dark:bg-emerald-600/20 dark:text-emerald-300 dark:hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-mono font-semibold transition-colors"
                 >
                   <Phone size={12} />
                   <span>{official.phone.split('•')[0].trim()}</span>
@@ -354,7 +358,7 @@ export function SacramentoRepresentativeFinder() {
                   href={official.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-1.5 rounded-lg text-ink-muted-on-dark hover:text-white hover:bg-white/5 transition-colors"
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
                   aria-label={`Official website for ${official.name}`}
                 >
                   <ExternalLink size={15} />
@@ -365,10 +369,10 @@ export function SacramentoRepresentativeFinder() {
         </div>
 
         {/* 5 Calls Constituent Phone Script Generator */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-primary-bright/30">
+        <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-50/70 via-slate-50 to-indigo-50/70 dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 border border-primary/20 dark:border-primary-bright/30">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
             <div>
-              <div className="text-xs font-mono text-accent-gold uppercase tracking-wider font-bold mb-1">
+              <div className="text-xs font-mono text-primary dark:text-accent-gold uppercase tracking-wider font-bold mb-1">
                 <DataPoint
                   as="span"
                   name="voter.repfinder.call_script_heading"
@@ -381,21 +385,21 @@ export function SacramentoRepresentativeFinder() {
                 name="voter.repfinder.what_to_say"
                 as="h4"
                 initialData={dataPoints}
-                className="text-base font-bold text-white"
+                className="text-base font-bold text-foreground dark:text-white"
               >
                 What To Say When You Call
               </DataPoint>
             </div>
 
             {/* Issue Selector Tabs */}
-            <div className="flex items-center gap-1 p-1 bg-secondary rounded-xl border border-white/10 text-xs font-medium">
+            <div className="flex items-center gap-1 p-1 bg-surface-card dark:bg-secondary rounded-xl border border-border dark:border-white/10 text-xs font-medium">
               <button
                 type="button"
                 onClick={() => setSelectedIssue('voting')}
                 className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
                   selectedIssue === 'voting'
                     ? 'bg-primary-bright text-white'
-                    : 'text-ink-muted-on-dark hover:text-white'
+                    : 'text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white'
                 }`}
               >
                 <DataPoint as="span" name="voter.repfinder.tab_voting" initialData={dataPoints}>
@@ -408,7 +412,7 @@ export function SacramentoRepresentativeFinder() {
                 className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
                   selectedIssue === 'democracy'
                     ? 'bg-primary-bright text-white'
-                    : 'text-ink-muted-on-dark hover:text-white'
+                    : 'text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white'
                 }`}
               >
                 <DataPoint as="span" name="voter.repfinder.tab_democracy" initialData={dataPoints}>
@@ -421,7 +425,7 @@ export function SacramentoRepresentativeFinder() {
                 className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
                   selectedIssue === 'environment'
                     ? 'bg-primary-bright text-white'
-                    : 'text-ink-muted-on-dark hover:text-white'
+                    : 'text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white'
                 }`}
               >
                 <DataPoint as="span" name="voter.repfinder.tab_climate" initialData={dataPoints}>
@@ -431,7 +435,7 @@ export function SacramentoRepresentativeFinder() {
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-secondary border border-white/10 font-sans text-xs sm:text-sm text-slate-200 leading-relaxed mb-4 relative">
+          <div className="p-4 rounded-xl bg-surface-card dark:bg-secondary border border-border dark:border-white/10 font-sans text-xs sm:text-sm text-foreground/90 dark:text-slate-200 leading-relaxed mb-4 relative">
             &ldquo;{getCallScript()}&rdquo;
           </div>
 
@@ -440,18 +444,18 @@ export function SacramentoRepresentativeFinder() {
               name="voter.repfinder.tip_text"
               as="span"
               initialData={dataPoints}
-              className="text-xs text-ink-muted-on-dark"
+              className="text-xs text-muted-foreground dark:text-ink-muted-on-dark"
             >
               💡 Staffers tally calls by topic daily. 2 minutes makes a measurable difference!
             </DataPoint>
             <button
               type="button"
               onClick={copyScript}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-semibold transition-all shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground dark:bg-white/5 dark:hover:bg-slate-700 dark:text-slate-200 dark:hover:text-white border border-border dark:border-slate-700 text-xs font-semibold transition-all shrink-0 cursor-pointer"
             >
               {copiedScript ? (
                 <>
-                  <Check size={14} className="text-emerald-400" />
+                  <Check size={14} className="text-emerald-500" />
                   <DataPoint as="span" name="voter.repfinder.copied_btn" initialData={dataPoints}>
                     Copied!
                   </DataPoint>

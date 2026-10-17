@@ -109,8 +109,6 @@ describe('WallEChatWidget', () => {
       closeBtn?.click();
     });
 
-    expect(document.body.textContent).not.toContain(
-      'Hi! I’m WALL-E, your Fair Oaks & Carmichael guide'
-    );
+    expect(document.body.textContent).not.toContain("Hi! I'm WALL-E");
   });
 });

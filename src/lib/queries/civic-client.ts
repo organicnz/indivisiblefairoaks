@@ -86,6 +86,37 @@ export async function getDataPoints(
   group?: string
 ): Promise<{ dataPoints: Record<string, string>; rows: DataPointRow[] }> {
   try {
+    // In client browser, query the Supabase Edge Function directly if available
+    const edgeBase = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
+    const edgeKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+    if (typeof window !== 'undefined' && edgeBase && edgeKey) {
+      try {
+        const edgeUrl = new URL(`${edgeBase}/functions/v1/data-points`);
+        if (group) edgeUrl.searchParams.set('group', group);
+
+        const edgeRes = await fetch(edgeUrl.toString(), {
+          headers: {
+            apikey: edgeKey,
+            Authorization: `Bearer ${edgeKey}`,
+          },
+          signal: AbortSignal.timeout(5_000),
+        });
+
+        if (edgeRes.ok) {
+          const json = await edgeRes.json();
+          if (json?.dataPoints) {
+            return {
+              dataPoints: json.dataPoints || {},
+              rows: Array.isArray(json.rows) ? json.rows : [],
+            };
+          }
+        }
+      } catch {
+        // Fall back to Next.js API route
+      }
+    }
+
     const url = group ? `/api/data-points?group=${encodeURIComponent(group)}` : '/api/data-points';
     const res = await fetch(url);
     if (res.ok) {
