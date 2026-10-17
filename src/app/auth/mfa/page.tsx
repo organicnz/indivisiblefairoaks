@@ -417,14 +417,14 @@ export function MfaChallengePage() {
             maxLength={6}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? 'mfa-error' : undefined}
-            className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-primary outline-none text-center font-black text-secondary tracking-[0.5em] text-lg"
+            className="w-full px-5 py-4 bg-surface-muted dark:bg-slate-800/80 border border-border rounded-2xl focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright outline-none text-center font-black text-foreground tracking-[0.5em] text-lg"
           />
         </div>
         <button
           type="submit"
           disabled={loading || code.length < 6}
           aria-busy={loading}
-          className="w-full bg-secondary text-white font-black rounded-full py-5 hover:bg-primary transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-secondary/10 disabled:opacity-50"
+          className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20 disabled:opacity-50"
         >
           {loading ? (
             <DataPoint as="span" name="auth.mfa.challenge_btn_verifying">
@@ -444,7 +444,7 @@ export function MfaChallengePage() {
           sends a consumed code, and GoTrue answers with "invalid" for a code the
           user never typed.
         */}
-        <p className="text-xs text-slate-400 font-medium">
+        <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark font-medium">
           <DataPoint as="span" name="auth.mfa.challenge_code_hint">
             Codes change every 30 seconds — type the one showing now.
           </DataPoint>
@@ -460,7 +460,7 @@ export function MfaChallengePage() {
         <div
           id="mfa-error"
           role="alert"
-          className="mt-8 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600 text-left"
+          className="mt-8 p-4 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 rounded-2xl flex items-center gap-3 text-rose-600 dark:text-rose-400 text-left"
         >
           <ShieldAlert size={18} aria-hidden="true" className="shrink-0" />
           <p className="text-xs font-black uppercase tracking-widest break-words">{error}</p>
@@ -482,18 +482,20 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-[80vh] bg-white flex items-center justify-center px-4 pt-(--header-h) pb-16">
-      <div className="max-w-md w-full bg-slate-50 p-10 rounded-3xl shadow-sm text-center border border-slate-100">
+    <div className="min-h-[80vh] bg-background flex items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
+      <div className="max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-raised text-center border border-border">
         <div className="flex flex-col items-center mb-8">
           <div
-            className={`p-4 rounded-2xl mb-4 ${tone === 'error' ? 'bg-rose-50 text-accent-red' : 'bg-primary/10 text-primary dark:text-primary-on-dark'}`}
+            className={`p-4 rounded-2xl mb-4 ${tone === 'error' ? 'bg-rose-50 dark:bg-rose-950/50 text-accent-red' : 'bg-primary/10 text-primary dark:text-primary-on-dark'}`}
           >
             {icon}
           </div>
-          <h1 className="text-3xl font-black text-secondary uppercase tracking-tight mb-2">
+          <h1 className="text-3xl font-black text-secondary dark:text-white uppercase tracking-tight mb-2">
             {heading}
           </h1>
-          <div className={`h-1.5 w-16 ${tone === 'error' ? 'bg-accent-red' : 'bg-primary'}`} />
+          <div
+            className={`h-1.5 w-16 ${tone === 'error' ? 'bg-accent-red' : 'bg-primary dark:bg-primary-bright'}`}
+          />
         </div>
         {children}
       </div>

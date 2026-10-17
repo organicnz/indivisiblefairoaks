@@ -135,7 +135,7 @@ export default function UpdatePasswordPage() {
 
   if (!sessionReady || needsStepUp === null) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center text-foreground transition-colors duration-300">
         <Loader2 className="w-8 h-8 text-primary dark:text-primary-on-dark animate-spin" />
       </div>
     );
@@ -143,15 +143,15 @@ export default function UpdatePasswordPage() {
 
   if (needsStepUp) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16">
-        <div className="max-w-md w-full bg-slate-50 p-10 rounded-3xl shadow-sm text-center border border-slate-100">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
+        <div className="max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-raised text-center border border-border">
           <div className="p-4 bg-primary/10 text-primary dark:text-primary-on-dark rounded-2xl mb-6 inline-flex">
             <ShieldCheck size={28} aria-hidden="true" />
           </div>
-          <h1 className="text-2xl font-black text-secondary uppercase tracking-tight mb-3">
+          <h1 className="text-2xl font-black text-secondary dark:text-white uppercase tracking-tight mb-3">
             <DataPoint name="account.security.confirm_title">Confirm it&apos;s you</DataPoint>
           </h1>
-          <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+          <p className="text-muted-foreground dark:text-ink-on-dark font-medium mb-8 leading-relaxed">
             <DataPoint name="account.security.confirm_desc">
               This account has two-factor authentication, so changing the password needs a
               verification code first. It is the same check that protects your account settings.
@@ -160,7 +160,7 @@ export default function UpdatePasswordPage() {
           <button
             type="button"
             onClick={() => router.push('/auth/mfa?next=/account/update-password')}
-            className="w-full bg-secondary text-white font-black rounded-full py-5 hover:bg-primary transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-secondary/10"
+            className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20"
           >
             <DataPoint name="account.security.confirm_btn">Enter verification code</DataPoint>
           </button>
@@ -171,15 +171,18 @@ export default function UpdatePasswordPage() {
 
   if (status === 'success') {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16">
-        <div className="max-w-md w-full bg-slate-50 p-10 rounded-3xl shadow-sm text-center border border-slate-100">
-          <div className="bg-emerald-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-            <CheckCircle className="w-10 h-10 text-emerald-600" strokeWidth={2.5} />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
+        <div className="max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-raised text-center border border-border">
+          <div className="bg-emerald-100 dark:bg-emerald-950/60 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <CheckCircle
+              className="w-10 h-10 text-emerald-600 dark:text-emerald-400"
+              strokeWidth={2.5}
+            />
           </div>
-          <h1 className="text-2xl font-black text-secondary uppercase tracking-tight mb-3">
+          <h1 className="text-2xl font-black text-secondary dark:text-white uppercase tracking-tight mb-3">
             <DataPoint name="account.password.updated_title">Password Updated</DataPoint>
           </h1>
-          <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+          <p className="text-muted-foreground dark:text-ink-on-dark font-medium mb-8 leading-relaxed">
             <DataPoint name="account.password.updated_desc">
               Your password has been changed successfully. You can now sign in with your new
               credentials.
@@ -188,7 +191,7 @@ export default function UpdatePasswordPage() {
           <button
             type="button"
             onClick={() => router.push('/account')}
-            className="w-full bg-secondary text-white font-black rounded-full py-5 hover:bg-primary transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-secondary/10"
+            className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20"
           >
             <DataPoint name="account.password.btn_go_account">Go to Account</DataPoint>
           </button>
@@ -198,17 +201,17 @@ export default function UpdatePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-3 px-5 py-2 bg-secondary/5 rounded-full mb-6 border border-secondary/5">
-            <ShieldCheck className="w-3.5 h-3.5 text-secondary" />
-            <span className="text-secondary font-black uppercase tracking-[0.4em] text-[10px]">
+          <div className="inline-flex items-center gap-3 px-5 py-2 bg-primary/10 dark:bg-white/5 rounded-full mb-6 border border-primary/20 dark:border-white/10">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary dark:text-accent-gold" />
+            <span className="text-primary dark:text-accent-gold font-black uppercase tracking-[0.4em] text-[10px]">
               <DataPoint name="account.password.reset_badge">Secure Reset</DataPoint>
             </span>
           </div>
-          <h1 className="text-4xl font-black text-secondary uppercase tracking-tighter leading-none mb-3">
+          <h1 className="text-4xl font-black text-secondary dark:text-white uppercase tracking-tighter leading-none mb-3">
             <DataPoint name="account.password.new_title">
               New <span className="text-primary dark:text-primary-on-dark italic">Password</span>
             </DataPoint>
@@ -220,13 +223,13 @@ export default function UpdatePasswordPage() {
           </p>
         </div>
 
-        <div className="bg-white border border-slate-100 rounded-[3rem] shadow-[0_20px_60px_-10px_rgba(15,23,42,0.08)] overflow-hidden">
+        <div className="bg-surface-card border border-border rounded-[3rem] shadow-float overflow-hidden">
           <form onSubmit={handleSubmit} className="p-10 space-y-6">
             {/* New Password */}
             <div className="group">
               <label
                 htmlFor="new-password"
-                className="block text-[10px] font-black text-secondary/40 uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
+                className="block text-[10px] font-black text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:group-focus-within:text-primary-on-dark transition-colors"
               >
                 <DataPoint name="account.password.new_label" as="span" initialData={dataPoints}>
                   New Password
@@ -234,7 +237,7 @@ export default function UpdatePasswordPage() {
               </label>
               <div className="relative">
                 <Lock
-                  className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary dark:text-primary-on-dark transition-colors pointer-events-none"
+                  className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary dark:group-focus-within:text-primary-on-dark transition-colors pointer-events-none"
                   size={16}
                 />
                 <input
@@ -247,13 +250,13 @@ export default function UpdatePasswordPage() {
                   placeholder={
                     dataPoints['account.password.new_placeholder'] || 'Min. 8 characters'
                   }
-                  className="w-full pl-12 pr-12 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-white focus:border-primary outline-none transition-all font-bold text-secondary text-sm placeholder:text-slate-300"
+                  className="w-full pl-12 pr-12 py-5 bg-surface-muted dark:bg-slate-800/80 border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary dark:focus:border-primary-bright outline-none transition-all font-bold text-foreground text-sm placeholder:text-muted-foreground"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-secondary transition-colors"
+                  className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -264,7 +267,7 @@ export default function UpdatePasswordPage() {
             <div className="group">
               <label
                 htmlFor="confirm-password"
-                className="block text-[10px] font-black text-secondary/40 uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
+                className="block text-[10px] font-black text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:group-focus-within:text-primary-on-dark transition-colors"
               >
                 <DataPoint name="account.password.confirm_label" as="span" initialData={dataPoints}>
                   Confirm Password
@@ -272,7 +275,7 @@ export default function UpdatePasswordPage() {
               </label>
               <div className="relative">
                 <Lock
-                  className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary dark:text-primary-on-dark transition-colors pointer-events-none"
+                  className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary dark:group-focus-within:text-primary-on-dark transition-colors pointer-events-none"
                   size={16}
                 />
                 <input
@@ -284,7 +287,7 @@ export default function UpdatePasswordPage() {
                   placeholder={
                     dataPoints['account.password.confirm_placeholder'] || 'Repeat your password'
                   }
-                  className="w-full pl-12 pr-12 py-5 bg-slate-50 border border-slate-100 rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-white focus:border-primary outline-none transition-all font-bold text-secondary text-sm placeholder:text-slate-300"
+                  className="w-full pl-12 pr-12 py-5 bg-surface-muted dark:bg-slate-800/80 border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary dark:focus:border-primary-bright outline-none transition-all font-bold text-foreground text-sm placeholder:text-muted-foreground"
                 />
                 <button
                   type="button"
@@ -292,7 +295,7 @@ export default function UpdatePasswordPage() {
                   aria-label={
                     showConfirm ? 'Hide password confirmation' : 'Show password confirmation'
                   }
-                  className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-secondary transition-colors"
+                  className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -323,13 +326,11 @@ export default function UpdatePasswordPage() {
               )}
             </div>
 
-            {/* Error message. `role="alert"` because a rejected password change
-                was rendered as a red box with no announcement, and it is the one
-                thing on this page a screen-reader user must not miss. */}
+            {/* Error message */}
             {status === 'error' && (
               <div
                 role="alert"
-                className="p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center"
+                className="p-4 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center"
               >
                 ❌ {message}
               </div>
@@ -338,7 +339,7 @@ export default function UpdatePasswordPage() {
             <button
               type="submit"
               disabled={status === 'loading'}
-              className="w-full bg-secondary text-white font-black rounded-full py-5 hover:bg-primary transition-all uppercase tracking-[0.3em] text-xs shadow-xl shadow-secondary/10 flex items-center justify-center gap-3 disabled:opacity-50 active:scale-[0.98]"
+              className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-light transition-all uppercase tracking-[0.3em] text-xs shadow-xl shadow-primary/20 flex items-center justify-center gap-3 disabled:opacity-50 active:scale-[0.98]"
             >
               {status === 'loading' ? (
                 <Loader2 className="animate-spin" size={18} />

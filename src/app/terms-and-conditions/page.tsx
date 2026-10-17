@@ -5,24 +5,24 @@ export default async function TermsPage() {
   const dataPoints = await getDataPoints('terms');
 
   return (
-    <div className="bg-white min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8 text-foreground transition-colors duration-300">
       <div className="max-w-3xl mx-auto">
         <DataPoint
           name="terms.hero.title"
           as="h1"
           initialData={dataPoints}
-          className="text-4xl font-black text-secondary uppercase tracking-tight mb-8"
+          className="text-4xl font-black text-secondary dark:text-white uppercase tracking-tight mb-8"
         >
           Terms and Conditions
         </DataPoint>
-        <div className="h-1.5 w-24 bg-primary mb-12" />
+        <div className="h-1.5 w-24 bg-primary dark:bg-primary-bright mb-12" />
 
-        <div className="prose prose-slate max-w-none space-y-8 text-slate-600 font-medium leading-relaxed">
+        <div className="prose prose-slate dark:prose-invert max-w-none space-y-8 text-muted-foreground dark:text-ink-on-dark font-medium leading-relaxed">
           <DataPoint
             name="terms.last_updated"
             as="p"
             initialData={dataPoints}
-            className="text-xs font-black uppercase tracking-widest text-slate-400"
+            className="text-xs font-black uppercase tracking-widest text-muted-foreground dark:text-ink-muted-on-dark"
           >
             Last updated: October 2026
           </DataPoint>
@@ -39,7 +39,7 @@ export default async function TermsPage() {
               name="terms.mission.title"
               as="h2"
               initialData={dataPoints}
-              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+              className="text-xl font-black text-secondary dark:text-white uppercase tracking-wider mb-4"
             >
               Grassroots Mission &amp; Non-Violence
             </DataPoint>
@@ -55,7 +55,7 @@ export default async function TermsPage() {
               name="terms.disclaimer.title"
               as="h2"
               initialData={dataPoints}
-              className="text-xl font-black text-secondary uppercase tracking-wider mb-4"
+              className="text-xl font-black text-secondary dark:text-white uppercase tracking-wider mb-4"
             >
               Contribution &amp; Content Disclaimer
             </DataPoint>

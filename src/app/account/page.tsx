@@ -185,7 +185,7 @@ export default async function AccountPage(props: {
   }
 
   return (
-    <div className="bg-white min-h-screen pt-(--header-h) pb-16">
+    <div className="bg-background min-h-screen pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Admin Restricted Notice */}
         {sp.error === 'admin_required' && (

@@ -27,7 +27,6 @@ interface SongTrack {
   defaultNotes: string;
   duration: string;
   audioUrl?: string;
-  isSynth?: boolean;
 }
 
 const DEFAULT_TRACKS: SongTrack[] = [
@@ -37,43 +36,44 @@ const DEFAULT_TRACKS: SongTrack[] = [
     artistKey: 'choir.player.track1_artist',
     notesKey: 'choir.player.track1_notes',
     defaultTitle: 'America the Beautiful',
-    defaultArtist: 'U.S. Singing Sergeants Choral',
+    defaultArtist: 'U.S. Navy Band Sea Chanters Choral',
     defaultNotes: 'Official public domain choral arrangement of Katherine Lee Bates anthem',
-    duration: '2:45',
-    audioUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/22/America_the_Beautiful.ogg',
+    duration: '2:21',
+    audioUrl: 'audio/america-the-beautiful.ogg',
   },
   {
     id: 'anthem-2',
     titleKey: 'choir.player.track2_title',
     artistKey: 'choir.player.track2_artist',
     notesKey: 'choir.player.track2_notes',
-    defaultTitle: 'Shenandoah (A Cappella)',
-    defaultArtist: 'U.S. Singing Sergeants Choral',
-    defaultNotes: 'Traditional American folk hymn arranged for rich multi-part vocal choir',
-    duration: '3:40',
-    audioUrl: 'https://upload.wikimedia.org/wikipedia/commons/c/c5/Shenandoah.ogg',
+    defaultTitle: 'The Star-Spangled Banner',
+    defaultArtist: "U.S. Army Field Band & Soldiers' Chorus",
+    defaultNotes: "Choral anthem with band accompaniment by the Soldiers' Chorus",
+    duration: '1:29',
+    audioUrl: 'audio/star-spangled-banner.ogg',
   },
   {
     id: 'anthem-3',
     titleKey: 'choir.player.track3_title',
     artistKey: 'choir.player.track3_artist',
     notesKey: 'choir.player.track3_notes',
-    defaultTitle: 'Battle Hymn of Peace & Freedom',
-    defaultArtist: 'Grassroots Community Chorus',
-    defaultNotes: 'Historical choral rallying anthem for collective resilience and civil rights',
-    duration: '2:45',
-    audioUrl: 'https://upload.wikimedia.org/wikipedia/commons/4/4b/Battle_Hymn_of_the_Republic.ogg',
+    defaultTitle: 'Battle Hymn of the Republic',
+    defaultArtist: 'U.S. Air Force Band & Singing Sergeants Choral',
+    defaultNotes:
+      'Historical choral rallying anthem for collective resilience, justice, and solidarity',
+    duration: '5:27',
+    audioUrl: 'audio/battle-hymn-of-the-republic.ogg',
   },
   {
     id: 'anthem-4',
     titleKey: 'choir.player.track4_title',
     artistKey: 'choir.player.track4_artist',
     notesKey: 'choir.player.track4_notes',
-    defaultTitle: 'Ode to Joy (Song of Peace)',
-    defaultArtist: 'Beethoven Choral Symphony No. 9',
-    defaultNotes: 'Universal anthem of brotherhood, democracy, human dignity, and solidarity',
-    duration: '3:15',
-    audioUrl: 'https://upload.wikimedia.org/wikipedia/commons/d/d4/Ode_to_Joy.ogg',
+    defaultTitle: 'Ode to Joy (Anthem of Peace & Europe)',
+    defaultArtist: 'U.S. Navy Band Choral & Concert Orchestra',
+    defaultNotes: 'Universal anthem of brotherhood, human dignity, democracy, and solidarity',
+    duration: '1:56',
+    audioUrl: 'audio/ode-to-joy.ogg',
   },
   {
     id: 'anthem-5',
@@ -82,9 +82,9 @@ const DEFAULT_TRACKS: SongTrack[] = [
     notesKey: 'choir.player.track5_notes',
     defaultTitle: 'Ave Maria (Sacred Choral)',
     defaultArtist: 'Sea Chanters Choral Ensemble',
-    defaultNotes: 'U.S. Navy Band Sea Chanters choral presentation for community harmony',
-    duration: '3:28',
-    audioUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e5/Ave_Maria_%28USNB%29.ogg',
+    defaultNotes: 'Anton Bruckner choral presentation performed by U.S. Navy Band Sea Chanters',
+    duration: '3:14',
+    audioUrl: 'audio/ave-maria.ogg',
   },
 ];
 
@@ -102,87 +102,11 @@ export function ChoirAudioPlayer() {
   const [streamError, setStreamError] = useState<string | null>(null);
 
   const audioElRef = useRef<HTMLAudioElement | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
-  const oscNodesRef = useRef<OscillatorNode[]>([]);
-  const animFrameRef = useRef<number | null>(null);
   const [visualizerBars, setVisualizerBars] = useState<{ id: string; height: number }[]>(() =>
     Array.from({ length: 14 }, (_, i) => ({ id: `bar-${i}`, height: 25 + (i % 4) * 15 }))
   );
 
   const BROADCAST_LENGTH_SECONDS = 150;
-
-  // Synthetic choral harmonizer using Web Audio API
-  const startChoralSynth = useCallback(() => {
-    try {
-      const AudioContextClass =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioContextClass();
-      audioCtxRef.current = ctx;
-
-      const masterGain = ctx.createGain();
-      masterGain.gain.setValueAtTime(volume, ctx.currentTime);
-      masterGain.connect(ctx.destination);
-      gainNodeRef.current = masterGain;
-
-      // Choral triad frequencies (F major / C major chord with harmonic overtone)
-      const freqs = [174.61, 220.0, 261.63, 349.23, 440.0, 523.25];
-
-      const oscs = freqs.map((freq) => {
-        const osc = ctx.createOscillator();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(800, ctx.currentTime);
-
-        // Gentle vibrato LFO
-        const lfo = ctx.createOscillator();
-        lfo.frequency.value = 4.8;
-        const lfoGain = ctx.createGain();
-        lfoGain.gain.value = 2.5;
-        lfo.connect(lfoGain);
-        lfoGain.connect(osc.frequency);
-        lfo.start();
-
-        osc.connect(filter);
-        filter.connect(masterGain);
-        osc.start();
-        return osc;
-      });
-
-      oscNodesRef.current = oscs;
-    } catch {
-      // AudioContext might be restricted until user gesture; ignore
-    }
-  }, [volume]);
-
-  const stopChoralSynth = useCallback(() => {
-    try {
-      if (gainNodeRef.current && audioCtxRef.current) {
-        gainNodeRef.current.gain.setTargetAtTime(0, audioCtxRef.current.currentTime, 0.05);
-      }
-      setTimeout(() => {
-        for (const osc of oscNodesRef.current) {
-          try {
-            osc.stop();
-            osc.disconnect();
-          } catch {
-            // Already stopped
-          }
-        }
-        oscNodesRef.current = [];
-        if (audioCtxRef.current) {
-          audioCtxRef.current.close();
-          audioCtxRef.current = null;
-        }
-      }, 80);
-    } catch {
-      // Ignore cleanup error
-    }
-  }, []);
 
   const playActiveTrack = useCallback(
     (track: SongTrack) => {
@@ -190,43 +114,40 @@ export function ChoirAudioPlayer() {
       const configuredUrl = track.titleKey ? dataPoints[`${track.titleKey}_url`] : undefined;
       const effectiveAudioUrl = configuredUrl || track.audioUrl;
 
-      if (effectiveAudioUrl) {
-        stopChoralSynth();
-        if (audioElRef.current) {
-          const resolvedSrc = getStorageUrl(effectiveAudioUrl, 'media');
+      if (effectiveAudioUrl && audioElRef.current) {
+        const resolvedSrc = getStorageUrl(effectiveAudioUrl, 'media');
+        if (audioElRef.current.src !== resolvedSrc) {
           audioElRef.current.src = resolvedSrc;
-          audioElRef.current.volume = volume;
-          audioElRef.current
-            .play()
-            .then(() => {
-              setIsPlaying(true);
-            })
-            .catch(() => {
-              setStreamError(
-                dataPoints['choir.player.stream_err_msg'] ||
-                  'Stream unavailable — switching to live choral harmonizer.'
-              );
-              startChoralSynth();
-              setIsPlaying(true);
-            });
         }
+        audioElRef.current.volume = volume;
+        audioElRef.current
+          .play()
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch((err: unknown) => {
+            if (err instanceof Error && err.name === 'AbortError') {
+              return;
+            }
+            setStreamError(
+              dataPoints['choir.player.stream_err_msg'] ||
+                'Audio stream temporarily unreachable. Tap Retry or select another station.'
+            );
+            setIsPlaying(false);
+          });
       } else {
-        if (audioElRef.current) {
-          audioElRef.current.pause();
-        }
-        startChoralSynth();
-        setIsPlaying(true);
+        setStreamError('No audio source configured for this station.');
+        setIsPlaying(false);
       }
     },
-    [dataPoints, volume, startChoralSynth, stopChoralSynth]
+    [dataPoints, volume]
   );
 
   const togglePlay = () => {
     if (isPlaying) {
-      if (audioElRef.current && !activeTrack.isSynth) {
+      if (audioElRef.current) {
         audioElRef.current.pause();
       }
-      stopChoralSynth();
       setIsPlaying(false);
     } else {
       playActiveTrack(activeTrack);
@@ -274,7 +195,6 @@ export function ChoirAudioPlayer() {
       defaultNotes: rawUrl,
       duration: 'LIVE',
       audioUrl: resolvedUrl,
-      isSynth: false,
     };
 
     setTracks((prev) => [customTrack, ...prev]);
@@ -289,16 +209,10 @@ export function ChoirAudioPlayer() {
       setPreviousVolume(volume);
       setVolume(0);
       if (audioElRef.current) audioElRef.current.volume = 0;
-      if (gainNodeRef.current && audioCtxRef.current) {
-        gainNodeRef.current.gain.setTargetAtTime(0, audioCtxRef.current.currentTime, 0.03);
-      }
     } else {
       const restored = previousVolume || 0.15;
       setVolume(restored);
       if (audioElRef.current) audioElRef.current.volume = restored;
-      if (gainNodeRef.current && audioCtxRef.current) {
-        gainNodeRef.current.gain.setTargetAtTime(restored, audioCtxRef.current.currentTime, 0.03);
-      }
     }
   };
 
@@ -312,24 +226,16 @@ export function ChoirAudioPlayer() {
     }
 
     const interval = setInterval(() => {
-      setPlaybackTime((prev) => (prev + 1) % BROADCAST_LENGTH_SECONDS);
       setVisualizerBars(() =>
         Array.from({ length: 14 }, (_, i) => ({
           id: `bar-${i}`,
           height: Math.floor(Math.random() * 80) + 20,
         }))
       );
-    }, 1000);
+    }, 200);
 
     return () => clearInterval(interval);
   }, [isPlaying]);
-
-  useEffect(() => {
-    return () => {
-      stopChoralSynth();
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [stopChoralSynth]);
 
   const activeTitle = activeTrack.titleKey
     ? dataPoints[activeTrack.titleKey] || activeTrack.defaultTitle
@@ -353,13 +259,17 @@ export function ChoirAudioPlayer() {
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => selectRelativeTrack(1)}
+        onTimeUpdate={() => {
+          if (audioElRef.current && !Number.isNaN(audioElRef.current.currentTime)) {
+            setPlaybackTime(Math.floor(audioElRef.current.currentTime));
+          }
+        }}
         onError={() => {
           setStreamError(
             dataPoints['choir.player.stream_err_msg'] ||
-              'Stream unavailable or blocked by CORS — falling back to live choral harmonizer.'
+              'Audio stream temporarily unreachable. Tap Retry or select another station.'
           );
-          startChoralSynth();
-          setIsPlaying(true);
+          setIsPlaying(false);
         }}
       >
         <track kind="captions" />
@@ -384,7 +294,7 @@ export function ChoirAudioPlayer() {
                   aria-hidden="true"
                   className="size-1.5 rounded-full bg-emerald-400 animate-ping motion-reduce:animate-none"
                 />
-                {activeTrack.audioUrl ? 'Live Web Broadcast' : 'Harmonic Generator'}
+                Live Web Broadcast
               </span>
             </div>
             <h3 className="text-base sm:text-xl font-black text-white tracking-tight truncate leading-snug mt-0.5">
@@ -422,11 +332,29 @@ export function ChoirAudioPlayer() {
         into any stream from anywhere.
       </DataPoint>
 
-      {/* Stream Notice / Fallback Message */}
+      {/* Stream Notice / Error with Retry Action */}
       {streamError && (
-        <div className="mb-4 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-center gap-2">
-          <Wifi size={14} className="shrink-0 text-amber-400" />
-          <span>{streamError}</span>
+        <div className="mb-4 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-200 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Wifi size={14} className="shrink-0 text-amber-400" />
+            <span className="truncate">{streamError}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => playActiveTrack(activeTrack)}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-semibold text-[11px] transition-colors"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={() => selectRelativeTrack(1)}
+              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold text-[11px] transition-colors"
+            >
+              Next Station
+            </button>
+          </div>
         </div>
       )}
 
@@ -447,12 +375,12 @@ export function ChoirAudioPlayer() {
         </div>
 
         <div className="flex items-center justify-between text-[11px] font-mono text-ink-muted-on-dark mt-3 px-1">
-          <span aria-hidden="true">0:{playbackTime.toString().padStart(2, '0')}</span>
+          <span aria-hidden="true">
+            {Math.floor(playbackTime / 60)}:{(playbackTime % 60).toString().padStart(2, '0')}
+          </span>
           <span className="flex items-center gap-1.5 font-sans font-semibold text-primary-on-dark">
             <Volume2 size={13} />
-            {activeTrack.audioUrl
-              ? dataPoints['choir.player.status_stream'] || 'Direct Audio Broadcast'
-              : dataPoints['choir.player.status_live'] || 'Live Harmonic Stream'}
+            {dataPoints['choir.player.status_stream'] || 'Direct Audio Broadcast'}
           </span>
           <span>{activeTrack.duration}</span>
         </div>
@@ -496,13 +424,6 @@ export function ChoirAudioPlayer() {
                 const nextVolume = Number(event.target.value);
                 setVolume(nextVolume);
                 if (audioElRef.current) audioElRef.current.volume = nextVolume;
-                if (gainNodeRef.current && audioCtxRef.current) {
-                  gainNodeRef.current.gain.setTargetAtTime(
-                    nextVolume,
-                    audioCtxRef.current.currentTime,
-                    0.03
-                  );
-                }
               }}
               className="w-28 sm:w-36 h-2 accent-primary-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold rounded-full cursor-pointer"
               aria-label={dataPoints['choir.player.volume_label'] || 'Broadcast volume'}
