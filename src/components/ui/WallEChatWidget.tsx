@@ -11,27 +11,38 @@ type Citation = { title: string; url: string };
 type Message = { id: string; role: 'user' | 'assistant'; content: string; citations?: Citation[] };
 
 function WallEAvatar({ small = false, inButton = false }: { small?: boolean; inButton?: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      data-testid="walle-avatar"
-      className={`inline-flex shrink-0 items-center justify-center ${
-        inButton
-          ? 'size-12 rounded-full bg-white dark:bg-white p-0.5 overflow-hidden shadow-inner ring-2 ring-white/60 dark:ring-white/20'
-          : `rounded-2xl bg-primary dark:bg-primary-bright p-1 shadow-lg ring-2 ring-white/80 dark:ring-white/20 ${small ? 'size-9' : 'size-12'}`
-      }`}
-    >
+  if (inButton) {
+    return (
       <span
-        className={`relative block w-full h-full overflow-hidden ${
-          inButton ? 'size-full rounded-full' : 'aspect-[271/237] rounded-xl bg-white p-0.5'
-        }`}
+        aria-hidden="true"
+        data-testid="walle-avatar"
+        className="relative block size-full rounded-full overflow-hidden"
       >
         <Image
           src="/walle-avatar.png"
           alt=""
           fill
-          sizes={small ? '28px' : inButton ? '48px' : '40px'}
-          className={inButton ? 'object-cover scale-110' : 'object-cover'}
+          sizes="64px"
+          className="object-cover scale-105"
+          priority
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      data-testid="walle-avatar"
+      className={`inline-flex shrink-0 items-center justify-center rounded-2xl bg-primary dark:bg-primary-bright p-1 shadow-lg ring-2 ring-white/80 dark:ring-white/20 ${small ? 'size-9' : 'size-12'}`}
+    >
+      <span className="relative block aspect-[271/237] size-full rounded-xl bg-white p-0.5 overflow-hidden">
+        <Image
+          src="/walle-avatar.png"
+          alt=""
+          fill
+          sizes={small ? '28px' : '40px'}
+          className="object-cover"
           priority={!small}
         />
       </span>
@@ -272,7 +283,11 @@ export function WallEChatWidget() {
                 setOpen(false);
               }
             }}
-            className="group relative ml-auto flex size-16 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-primary-bright dark:from-blue-950 dark:via-blue-900 dark:to-primary-bright shadow-float shadow-primary/35 ring-4 ring-white/90 dark:ring-white/20 transition-all duration-300 ease-out hover:scale-105 hover:shadow-2xl active:scale-95 cursor-pointer motion-reduce:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
+            className={`group relative ml-auto flex size-14 items-center justify-center rounded-full ${
+              open
+                ? 'bg-gradient-to-tr from-primary to-primary-bright dark:from-blue-950 dark:via-blue-900 dark:to-primary-bright'
+                : 'bg-slate-950'
+            } shadow-float shadow-primary/35 ring-2 ring-white/90 dark:ring-white/30 transition-all duration-300 ease-out hover:scale-105 hover:shadow-2xl active:scale-95 cursor-pointer motion-reduce:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2`}
           >
             {/* Ambient hover glow */}
             <span
@@ -284,18 +299,18 @@ export function WallEChatWidget() {
                 className="relative flex items-center justify-center text-white transition-transform duration-300 group-hover:rotate-90 animate-in fade-in zoom-in-75 duration-200"
                 aria-hidden="true"
               >
-                <X size={26} strokeWidth={2.5} />
+                <X size={24} strokeWidth={2.5} />
               </span>
             ) : (
-              <span className="relative flex items-center justify-center animate-in fade-in zoom-in-75 duration-200">
+              <span className="relative flex size-full items-center justify-center animate-in fade-in zoom-in-75 duration-200">
                 <WallEAvatar inButton />
                 {/* Pulsing online status indicator */}
                 <span
                   aria-hidden="true"
-                  className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center"
+                  className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center"
                 >
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden" />
-                  <span className="relative inline-flex size-3.5 rounded-full border-2 border-white dark:border-slate-900 bg-emerald-500 shadow-xs" />
+                  <span className="relative inline-flex size-3 rounded-full border-2 border-white dark:border-slate-900 bg-emerald-500 shadow-xs" />
                 </span>
               </span>
             )}
