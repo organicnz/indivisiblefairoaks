@@ -96,7 +96,7 @@ export function CouponCreator() {
           type="button"
           onClick={submit}
           disabled={isPending || code.trim().length < 3 || amount === ''}
-          className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-primary text-secondary rounded-full px-4 py-2.5 hover:opacity-90 transition-opacity disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-primary hover:bg-primary-dark text-white rounded-full px-4 py-2.5 hover:opacity-90 transition-opacity disabled:opacity-40"
         >
           <Plus size={12} /> Create
         </button>

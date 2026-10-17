@@ -249,7 +249,7 @@ export default async function AdminOrdersPage({
               href={buildHref({ status: s })}
               className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest whitespace-nowrap transition-colors ${
                 filters.status === s
-                  ? 'bg-primary text-secondary'
+                  ? 'bg-primary text-white'
                   : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
               }`}
             >

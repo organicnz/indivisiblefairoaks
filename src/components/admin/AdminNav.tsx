@@ -40,7 +40,7 @@ export function AdminNav() {
             href={href}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-colors ${
               active
-                ? 'bg-primary text-secondary'
+                ? 'bg-primary text-white'
                 : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
             }`}
           >

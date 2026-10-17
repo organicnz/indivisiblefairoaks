@@ -35,7 +35,7 @@ export function CustomerAdminToggle({
         disabled={isPending}
         className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 transition-colors disabled:opacity-50 ${
           admin
-            ? 'bg-primary text-secondary'
+            ? 'bg-primary text-white'
             : 'bg-surface-muted text-muted-foreground hover:bg-border hover:text-foreground'
         }`}
       >

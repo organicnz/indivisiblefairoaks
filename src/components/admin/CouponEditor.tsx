@@ -87,7 +87,7 @@ export function CouponEditor({
           type="button"
           onClick={save}
           disabled={isPending}
-          className="inline-flex items-center text-[10px] font-black uppercase tracking-widest bg-primary text-secondary rounded-full px-3 py-2 hover:opacity-90 transition-opacity disabled:opacity-40"
+          className="inline-flex items-center text-[10px] font-black uppercase tracking-widest bg-primary hover:bg-primary-dark text-white rounded-full px-3 py-2 hover:opacity-90 transition-opacity disabled:opacity-40"
         >
           Save
         </button>

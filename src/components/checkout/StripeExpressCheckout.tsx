@@ -51,7 +51,7 @@ export function StripeExpressCheckout() {
   return (
     <div className="mt-4">
       {errorMessage && (
-        <div className="mb-4 p-3 bg-rose-50 text-rose-700 rounded-md text-sm border border-rose-100">
+        <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 rounded-md text-sm border border-rose-100 dark:border-rose-900/50">
           {errorMessage}
         </div>
       )}
