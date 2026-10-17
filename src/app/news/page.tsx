@@ -2,6 +2,7 @@ import { Mail, Megaphone, Newspaper, Send } from 'lucide-react';
 import type { Metadata } from 'next';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveNewslettersList } from '@/components/ui/InteractiveNewslettersList';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getNewsletters } from '@/lib/queries/civic';
 
@@ -20,9 +21,10 @@ export default async function NewsPage() {
   const initialNewsletters = newslettersRows.length > 0 ? newslettersRows : undefined;
   return (
     <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* Header Banner with VGPU Constellation Network */}
+      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
+        <VgpuCivicConstellation />
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Newspaper size={14} className="text-accent-gold" />
             <DataPoint initialData={dataPoints} name="news.hero.eyebrow">
@@ -47,7 +49,7 @@ export default async function NewsPage() {
             resistance across Fair Oaks, Carmichael, and Sacramento County.
           </DataPoint>
         </div>
-      </div>
+      </section>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* Newsletter Subscription Card */}

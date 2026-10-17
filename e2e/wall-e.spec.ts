@@ -42,5 +42,11 @@ test.describe('WALL-E assistant', () => {
       'href',
       '/voter-info'
     );
+
+    // Closing the dialog via Dialog.Close in the dialog header
+    const closeButton = panel.getByRole('button', { name: 'Close WALL-E' });
+    await expect(closeButton).toBeVisible();
+    await closeButton.click();
+    await expect(panel).not.toBeVisible();
   });
 });

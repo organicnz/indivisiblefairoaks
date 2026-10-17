@@ -235,8 +235,8 @@ export function SacramentoRepresentativeFinder() {
   return (
     <div className="rounded-3xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl transition-colors">
       <div className="max-w-3xl">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary dark:bg-primary-bright/20 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-          <MapPin size={14} className="text-accent dark:text-accent-gold" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 dark:bg-white/10 text-primary-ink text-xs font-bold uppercase tracking-wider mb-4">
+          <MapPin size={14} className="text-accent dark:text-primary-on-dark" />
           <DataPoint as="span" name="voter.repfinder.eyebrow" initialData={dataPoints}>
             Instant District & Representative Finder
           </DataPoint>
@@ -299,7 +299,7 @@ export function SacramentoRepresentativeFinder() {
               name="voter.repfinder.selected_community"
               as="div"
               initialData={dataPoints}
-              className="text-xs font-mono text-primary font-bold dark:text-accent-gold uppercase tracking-wide"
+              className="text-xs font-mono text-primary-ink font-bold uppercase tracking-wide"
             >
               Selected Community:
             </DataPoint>
@@ -372,7 +372,7 @@ export function SacramentoRepresentativeFinder() {
         <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-50/70 via-slate-50 to-indigo-50/70 dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 border border-primary/20 dark:border-primary-bright/30">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
             <div>
-              <div className="text-xs font-mono text-primary dark:text-accent-gold uppercase tracking-wider font-bold mb-1">
+              <div className="text-xs font-mono text-primary-ink font-bold uppercase tracking-wider mb-1">
                 <DataPoint
                   as="span"
                   name="voter.repfinder.call_script_heading"

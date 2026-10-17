@@ -3,6 +3,7 @@
 import { Mail } from 'lucide-react';
 import { useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type ContactResult, type EmailStatus, submitContact } from './actions';
 
@@ -88,9 +89,10 @@ export default function ContactPage() {
 
   return (
     <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20 transition-colors duration-300">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* Header Banner with VGPU Constellation Network */}
+      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
+        <VgpuCivicConstellation />
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Mail size={14} className="text-accent-gold" />
             <DataPoint as="span" name="contact.hero.eyebrow" initialData={dataPoints}>
@@ -115,7 +117,7 @@ export default function ContactPage() {
             hear from you.
           </DataPoint>
         </div>
-      </div>
+      </section>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="bg-surface-card dark:bg-slate-900/90 p-8 sm:p-12 rounded-3xl border border-border dark:border-slate-800 shadow-2xl">
@@ -343,7 +345,7 @@ export default function ContactPage() {
                 name="contact.footer.channels_title"
                 as="span"
                 initialData={dataPoints}
-                className="text-primary dark:text-amber-400 font-bold uppercase tracking-wider block"
+                className="text-primary-ink font-bold uppercase tracking-wider block"
               >
                 Direct Email Channels
               </DataPoint>
@@ -359,7 +361,7 @@ export default function ContactPage() {
                 </strong>{' '}
                 <a
                   href="mailto:contact@indivisiblefairoaks.org"
-                  className="text-primary-bright dark:text-primary-on-dark hover:underline font-semibold"
+                  className="text-primary-ink hover:underline font-semibold"
                 >
                   contact@indivisiblefairoaks.org
                 </a>
@@ -376,7 +378,7 @@ export default function ContactPage() {
                 </strong>{' '}
                 <a
                   href="mailto:subscribe@indivisiblefairoaks.org"
-                  className="text-primary-bright dark:text-primary-on-dark hover:underline font-semibold"
+                  className="text-primary-ink hover:underline font-semibold"
                 >
                   subscribe@indivisiblefairoaks.org
                 </a>
@@ -388,7 +390,7 @@ export default function ContactPage() {
                 name="contact.footer.gatherings_title"
                 as="span"
                 initialData={dataPoints}
-                className="text-primary dark:text-amber-400 font-bold uppercase tracking-wider block"
+                className="text-primary-ink font-bold uppercase tracking-wider block"
               >
                 Monthly Gatherings
               </DataPoint>
