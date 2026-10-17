@@ -111,7 +111,10 @@ export function ChoirAudioPlayer() {
   const playActiveTrack = useCallback(
     (track: SongTrack) => {
       setStreamError(null);
-      const configuredUrl = track.titleKey ? dataPoints[`${track.titleKey}_url`] : undefined;
+      const baseKey = track.titleKey ? track.titleKey.replace(/_title$/, '') : '';
+      const configuredUrl =
+        (baseKey ? dataPoints[`${baseKey}_url`] : undefined) ||
+        (track.titleKey ? dataPoints[`${track.titleKey}_url`] : undefined);
       const effectiveAudioUrl = configuredUrl || track.audioUrl;
 
       if (effectiveAudioUrl && audioElRef.current) {

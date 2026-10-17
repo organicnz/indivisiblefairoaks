@@ -17,12 +17,12 @@ function WallEAvatar({ small = false, inButton = false }: { small?: boolean; inB
       data-testid="walle-avatar"
       className={`inline-flex shrink-0 items-center justify-center ${
         inButton
-          ? 'size-11 rounded-full bg-white p-0.5 overflow-hidden shadow-inner'
+          ? 'size-12 rounded-full bg-white/95 dark:bg-white p-1 overflow-hidden shadow-inner ring-1 ring-black/10'
           : `rounded-2xl bg-primary dark:bg-primary-bright p-1 shadow-lg ring-2 ring-white/80 dark:ring-white/20 ${small ? 'size-9' : 'size-12'}`
       }`}
     >
       <span
-        className={`relative block w-full overflow-hidden ${
+        className={`relative block w-full h-full overflow-hidden ${
           inButton ? 'size-full rounded-full' : 'aspect-[271/237] rounded-xl bg-white p-0.5'
         }`}
       >
@@ -30,8 +30,8 @@ function WallEAvatar({ small = false, inButton = false }: { small?: boolean; inB
           src="/walle-avatar.png"
           alt=""
           fill
-          sizes={small ? '28px' : inButton ? '44px' : '40px'}
-          className="object-cover"
+          sizes={small ? '28px' : inButton ? '48px' : '40px'}
+          className={inButton ? 'object-contain' : 'object-cover'}
           priority={!small}
         />
       </span>
@@ -266,23 +266,35 @@ export function WallEChatWidget() {
                 ? dataPoints['walle.btn.close_label'] || 'Close WALL-E assistant'
                 : dataPoints['walle.launcher_label'] || 'Open WALL-E assistant'
             }
-            className="group relative ml-auto flex size-16 items-center justify-center rounded-full bg-primary dark:bg-primary-bright shadow-float shadow-primary/30 ring-4 ring-white/90 dark:ring-white/20 transition-all duration-300 ease-out hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="group relative ml-auto flex size-16 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-primary-bright dark:from-blue-950 dark:via-blue-900 dark:to-primary-bright shadow-float shadow-primary/35 ring-4 ring-white/90 dark:ring-white/20 transition-all duration-300 ease-out hover:scale-105 hover:shadow-2xl active:scale-95 cursor-pointer motion-reduce:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
           >
+            {/* Ambient hover glow */}
+            <span
+              aria-hidden="true"
+              className="absolute -inset-1 rounded-full bg-primary-bright/25 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+            />
             {open ? (
-              <span className="flex items-center justify-center text-white" aria-hidden="true">
+              <span
+                className="relative flex items-center justify-center text-white transition-transform duration-300 group-hover:rotate-90"
+                aria-hidden="true"
+              >
                 <X size={26} strokeWidth={2.5} />
               </span>
             ) : (
               <>
                 <WallEAvatar inButton />
+                {/* Pulsing online status indicator */}
                 <span
                   aria-hidden="true"
-                  className="absolute -right-0.5 -top-0.5 size-4 rounded-full border-2 border-white dark:border-slate-900 bg-emerald-500 shadow-xs"
-                />
+                  className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center"
+                >
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden" />
+                  <span className="relative inline-flex size-3.5 rounded-full border-2 border-white dark:border-slate-900 bg-emerald-500 shadow-xs" />
+                </span>
               </>
             )}
-            {/* Tooltip is now also driven by focus, not hover only. */}
-            <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full bg-secondary dark:bg-slate-800 border border-white/10 px-3 py-1.5 text-xs font-bold text-white dark:text-slate-100 opacity-0 shadow-lg transition-opacity duration-300 ease-out group-hover:opacity-100 group-focus-visible:opacity-100">
+            {/* Tooltip */}
+            <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full bg-secondary/95 dark:bg-slate-800/95 backdrop-blur-md border border-white/10 px-3 py-1.5 text-xs font-bold text-white dark:text-slate-100 opacity-0 shadow-lg transition-opacity duration-300 ease-out hover-capable:group-hover:opacity-100 group-focus-visible:opacity-100">
               {open ? (
                 <DataPoint as="span" name="walle.tooltip.close" initialData={dataPoints}>
                   Close

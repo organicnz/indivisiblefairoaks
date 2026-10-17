@@ -13,7 +13,16 @@ export const createClient = () => {
  */
 export function getStorageUrl(path: string | null, bucket = 'media'): string {
   if (!path) return '';
-  if (path.startsWith('http')) return path;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (path.startsWith('s3://')) {
+    const withoutScheme = path.slice(5);
+    const slashIndex = withoutScheme.indexOf('/');
+    if (slashIndex !== -1) {
+      const s3Bucket = withoutScheme.slice(0, slashIndex);
+      const key = withoutScheme.slice(slashIndex + 1);
+      return `https://${s3Bucket}.s3.amazonaws.com/${key}`;
+    }
+  }
 
   const cleanPath = path.startsWith('/') ? path.slice(1) : path;
   const baseUrl =
