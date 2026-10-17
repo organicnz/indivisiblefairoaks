@@ -9,6 +9,8 @@ import { SettingsHydrator } from '@/components/account/SettingsHydrator';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { ThemeAwareToaster } from '@/components/layout/ThemeAwareToaster';
+import { ThemeHud } from '@/components/layout/ThemeHud';
+import { VgpuThemeCanvas } from '@/components/layout/VgpuThemeCanvas';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
 import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
 import { BRAND } from '@/config/brand';
@@ -175,6 +177,8 @@ export default function RootLayout({
           <VisualEditOverlay />
         </Providers>
         <ThemeAwareToaster />
+        <ThemeHud />
+        <VgpuThemeCanvas />
         {env.NEXT_E2E_BUILD !== 'true' && (
           <>
             <Analytics />

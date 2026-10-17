@@ -190,3 +190,70 @@ export function themeBootstrapScript(): string {
     '}})();',
   ].join('');
 }
+
+/**
+ * Tactile micro-haptic synthesized via pure Web Audio API.
+ *
+ * Produces a soft, physical click feel tailored to the destination mode:
+ * - light: ascending bright micro-click (850Hz -> 1200Hz)
+ * - dark: descending soft micro-click (950Hz -> 650Hz)
+ * - system: dual micro-pulse (800Hz + 1050Hz)
+ *
+ * Completely silent if:
+ * - running on server
+ * - `prefers-reduced-motion` is active
+ * - AudioContext is not supported or suspended by browser policy
+ */
+export function playThemeHaptic(mode: ThemeMode, _effective?: EffectiveTheme): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return;
+    }
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+
+    if (mode === 'light') {
+      // Ascending bright click
+      osc.frequency.setValueAtTime(850, now);
+      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.035);
+    } else if (mode === 'dark') {
+      // Descending warm click
+      osc.frequency.setValueAtTime(950, now);
+      osc.frequency.exponentialRampToValueAtTime(650, now + 0.035);
+    } else {
+      // System double-tap feel
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.exponentialRampToValueAtTime(1050, now + 0.04);
+    }
+
+    // Whisper-quiet gain envelope (0.025 max) with smooth decay to zero
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.025, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.045);
+
+    osc.onended = () => {
+      ctx.close().catch(() => {});
+    };
+  } catch {
+    // Graceful degradation when audio is restricted or unsupported
+  }
+}

@@ -26,12 +26,11 @@ for (const file of files) {
     const end = Math.min(lines.length, i + 3);
     const context = lines.slice(start, end).join('\n');
 
-    // JSON-LD is not CMS content: it is a structure we build and escape
-    // ourselves via serializeJsonLd, so it must not be wrapped in
-    // sanitizeWPContent (which would mangle the markup). Allow it only
-    // when the same block declares the ld+json script type — so a CMS
-    // body injected into a real <div> is still caught.
+    // JSON-LD and inline theme bootstrap are not CMS content: JSON-LD is
+    // escaped via serializeJsonLd, and theme bootstrap is emitted from the
+    // pure themeBootstrapScript() with no user interpolation.
     if (context.includes('application/ld+json')) continue;
+    if (context.includes('themeBootstrapScript') || context.includes('theme-bootstrap')) continue;
 
     if (!context.includes('sanitizeWPContent')) {
       violations.push(`  ${file}:${i + 1}`);

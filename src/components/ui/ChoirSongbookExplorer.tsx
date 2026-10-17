@@ -255,7 +255,7 @@ export function ChoirSongbookExplorer() {
                   className={`rounded-2xl border transition-all overflow-hidden ${
                     isExpanded
                       ? 'bg-secondary/80 border-primary-bright/50 shadow-xl'
-                      : 'bg-secondary/40 border-white/10/80 hover:border-slate-700'
+                      : 'bg-secondary/40 border-white/10 hover:border-slate-700'
                   }`}
                 >
                   {/* Header Row / Toggle */}
@@ -307,7 +307,7 @@ export function ChoirSongbookExplorer() {
                   {isExpanded && (
                     <div
                       id={`song-body-${song.id}`}
-                      className="px-5 sm:px-6 pb-6 pt-2 border-t border-white/10/80 space-y-6"
+                      className="px-5 sm:px-6 pb-6 pt-2 border-t border-white/10 space-y-6"
                     >
                       {/* Historical Context */}
                       <div className="p-4 rounded-xl bg-blue-950/30 border border-primary-bright/20 text-xs sm:text-sm text-primary-on-dark/90 leading-relaxed flex items-start gap-3">

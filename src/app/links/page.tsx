@@ -196,13 +196,14 @@ export default async function LinksPage() {
                       </p>
                     </div>
 
-                    <div className="pt-4 mt-4 border-t border-border dark:border-white/10/80 flex items-center justify-between text-xs text-slate-500">
+                    <div className="pt-4 mt-4 border-t border-border dark:border-white/10 flex items-center justify-between text-xs text-slate-500">
                       <span className="text-[11px] text-primary-ink dark:text-primary-on-dark-muted/90 font-mono truncate max-w-[240px]">
                         {item.url.replace(/^https?:\/\//, '')}
                       </span>
                       <ExternalLink
                         size={14}
-                        className="text-muted-foreground dark:text-ink-muted-on-dark group-hover:text-accent dark:text-accent-gold transition-colors shrink-0"
+                        aria-hidden="true"
+                        className="text-muted-foreground dark:text-ink-muted-on-dark group-hover:text-accent dark:group-hover:text-accent-gold transition-colors shrink-0"
                       />
                     </div>
                   </a>

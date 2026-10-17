@@ -33,7 +33,11 @@ export default async function ShippingReturnsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-20">
           <div className="bg-surface-muted p-8 rounded-[2rem] border border-border">
             <div className="bg-surface-card w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
-              <Truck className="text-primary-ink" size={28} />
+              <Truck
+                className="text-primary-ink dark:text-primary-on-dark-muted"
+                size={28}
+                aria-hidden="true"
+              />
             </div>
             <DataPoint
               name="shipping.policy.title"
@@ -67,7 +71,7 @@ export default async function ShippingReturnsPage() {
                     >
                       <span>{rate.name}</span>
                       <span
-                        className={`font-black ${rate.amount === 0 ? 'text-primary-ink' : 'text-foreground'}`}
+                        className={`font-black ${rate.amount === 0 ? 'text-primary-ink dark:text-accent-gold' : 'text-foreground'}`}
                       >
                         {rate.displayPrice}
                       </span>
@@ -111,7 +115,11 @@ export default async function ShippingReturnsPage() {
 
           <div className="bg-surface-muted p-8 rounded-[2rem] border border-border">
             <div className="bg-surface-card w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
-              <RotateCcw className="text-primary-ink" size={28} />
+              <RotateCcw
+                className="text-primary-ink dark:text-primary-on-dark-muted"
+                size={28}
+                aria-hidden="true"
+              />
             </div>
             <DataPoint
               name="shipping.returns.title"

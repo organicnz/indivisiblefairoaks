@@ -181,12 +181,12 @@ export default async function EventsPage() {
                   href="https://www.aclu.org/know-your-rights"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-bold text-primary-ink hover:underline inline-flex items-center gap-1"
+                  className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:underline inline-flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xs"
                 >
                   <DataPoint initialData={dataPoints} as="span" name="events.trainings.t2_link">
                     ACLU Know Your Rights Guide
                   </DataPoint>
-                  <ExternalLink size={12} />
+                  <ExternalLink size={12} aria-hidden="true" />
                 </a>
               </div>
             </div>

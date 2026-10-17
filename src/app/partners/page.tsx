@@ -97,7 +97,7 @@ export default async function PartnersPage() {
             initialData={dataPoints}
             name="partners.hero.intro"
             as="p"
-            className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-2xl leading-relaxed"
+            className="text-ink-on-dark text-sm sm:text-base max-w-2xl leading-relaxed"
           >
             We believe democracy is a team sport. Indivisible Fair Oaks-Carmichael works in close
             partnership with national organizations, California coalitions, and Sacramento community
@@ -126,17 +126,17 @@ export default async function PartnersPage() {
                 </p>
               </div>
 
-              <div className="pt-6 border-t border-border dark:border-white/10/80">
+              <div className="pt-6 border-t border-border dark:border-white/10">
                 <a
                   href={partner.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark transition-colors"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xs"
                 >
                   <DataPoint initialData={dataPoints} as="span" name="partners.card.visit_link">
                     Visit Partner Website
                   </DataPoint>
-                  <ExternalLink size={13} />
+                  <ExternalLink size={13} aria-hidden="true" />
                 </a>
               </div>
             </div>
@@ -163,7 +163,7 @@ export default async function PartnersPage() {
           </DataPoint>
           <Link
             href="/contact"
-            className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
+            className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <DataPoint initialData={dataPoints} as="span" name="partners.cta.button">
               Connect With Our Coalition Team

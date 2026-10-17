@@ -182,7 +182,7 @@ export function UserSettings() {
           */}
           <dl className="space-y-4">
             <div className="p-4 bg-surface-muted rounded-2xl flex items-center justify-between gap-4">
-              <dt className="text-xs font-black text-secondary uppercase tracking-wider">
+              <dt className="text-xs font-black text-secondary dark:text-ink-on-dark uppercase tracking-wider">
                 <DataPoint
                   as="span"
                   name="account.settings.currency_label"
@@ -191,15 +191,17 @@ export function UserSettings() {
                   Currency
                 </DataPoint>
               </dt>
-              <dd className="text-sm font-bold text-primary-ink">{CURRENCY_CODE}</dd>
+              <dd className="text-sm font-bold text-primary-ink dark:text-primary-on-dark">
+                {CURRENCY_CODE}
+              </dd>
             </div>
             <div className="p-4 bg-surface-muted rounded-2xl flex items-center justify-between gap-4">
-              <dt className="text-xs font-black text-secondary uppercase tracking-wider">
+              <dt className="text-xs font-black text-secondary dark:text-ink-on-dark uppercase tracking-wider">
                 <DataPoint as="span" name="account.settings.ships_label" initialData={dataPoints}>
                   Ships from
                 </DataPoint>
               </dt>
-              <dd className="text-sm font-bold text-primary-ink text-right">
+              <dd className="text-sm font-bold text-primary-ink dark:text-primary-on-dark text-right">
                 <DataPoint as="span" name="account.settings.ships_val" initialData={dataPoints}>
                   Carmichael, CA
                 </DataPoint>

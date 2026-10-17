@@ -88,7 +88,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
         <Link
           href="/login"
           onClick={onNavigate}
-          className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5/60 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
+          className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
           aria-label="Sign in to your account"
         >
           {placeholder}
@@ -220,7 +220,7 @@ export function AccountButton({ variant = 'pill', onNavigate }: AccountButtonPro
     return (
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5/60 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
+          className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-left text-slate-200 shadow-lg shadow-slate-950/20 transition-all duration-300 ease-out hover:border-primary-light/50 hover:bg-slate-700/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold/70"
           aria-label="User menu"
         >
           {renderAvatar('h-9 w-9 shrink-0', 'text-[11px]')}
