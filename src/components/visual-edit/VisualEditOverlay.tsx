@@ -379,7 +379,7 @@ export function VisualEditOverlay() {
   const pathname = rawPathname ?? '/';
   const { enabled, toggle } = useVisualEditMode(pathname);
   const { isAdmin, target } = useEditContext(pathname);
-  const { mode: themeMode, cycle: cycleTheme } = useThemeMode();
+  const { mode: themeMode, effective: effectiveTheme, cycle: cycleTheme } = useThemeMode();
 
   // ── The document being edited ──────────────────────────────────────────────
   //
@@ -3350,18 +3350,42 @@ export function VisualEditOverlay() {
             <button
               type="button"
               onClick={cycleTheme}
-              title={`Preview theme: ${themeModeLabel(themeMode)} (click to switch)`}
+              title={`Preview theme: ${themeModeLabel(themeMode)}${themeMode === 'system' ? ` (${effectiveTheme})` : ''} (click to cycle)`}
               aria-label="Cycle theme mode preview"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/10"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-all duration-300 hover:bg-white/10 hover:text-white active:scale-95 cursor-pointer"
             >
               {themeMode === 'light' ? (
-                <Sun size={13} className="text-amber-300" />
+                <Sun
+                  size={13}
+                  className="text-amber-300 animate-in fade-in zoom-in-75 duration-200"
+                />
               ) : themeMode === 'dark' ? (
-                <Moon size={13} className="text-blue-300" />
+                <Moon
+                  size={13}
+                  className="text-blue-300 animate-in fade-in zoom-in-75 duration-200"
+                />
               ) : (
-                <Monitor size={13} className="text-emerald-300" />
+                <span className="relative flex items-center justify-center">
+                  <Monitor
+                    size={13}
+                    className="text-emerald-300 animate-in fade-in zoom-in-75 duration-200"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className={`absolute -top-0.5 -right-0.5 size-1.5 rounded-full ring-1 ring-secondary ${
+                      effectiveTheme === 'dark' ? 'bg-sky-400' : 'bg-amber-400'
+                    }`}
+                  />
+                </span>
               )}
-              <span className="hidden lg:inline capitalize">{themeModeLabel(themeMode)}</span>
+              <span className="hidden lg:inline capitalize">
+                {themeModeLabel(themeMode)}
+                {themeMode === 'system' ? (
+                  <span className="ml-1 text-[10px] text-ink-muted-on-dark font-medium lowercase">
+                    ({effectiveTheme})
+                  </span>
+                ) : null}
+              </span>
             </button>
 
             {/* Responsive Viewport Mode Simulator */}
