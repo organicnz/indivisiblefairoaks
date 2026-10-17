@@ -4,10 +4,12 @@ import { ArrowRight, Eye, EyeOff, Fingerprint, Loader2, Lock, Shield } from 'luc
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase';
 
 function LoginForm() {
+  const { dataPoints } = useDataPoints('login');
   const searchParams = useSearchParams();
   const targetNext = getSafeNextPath(searchParams.get('next'));
   const isAdminTarget = Boolean(targetNext?.startsWith('/admin'));
@@ -153,24 +155,34 @@ function LoginForm() {
           <div className="inline-flex items-center gap-3 px-6 py-2.5 bg-secondary/5 rounded-full mb-8 border border-secondary/5">
             <Shield className="w-3.5 h-3.5 text-foreground" />
             <span className="text-foreground font-black uppercase tracking-[0.4em] text-[10px]">
-              <DataPoint name={isAdminTarget ? 'login.gateway.admin' : 'login.gateway.secure'}>
+              <DataPoint
+                initialData={dataPoints}
+                name={isAdminTarget ? 'login.gateway.admin' : 'login.gateway.secure'}
+              >
                 {isAdminTarget ? 'Administrative Gateway' : 'Secure Gateway'}
               </DataPoint>
             </span>
           </div>
           <h1 className="text-6xl md:text-8xl font-black text-foreground uppercase tracking-tighter leading-none mb-6">
-            <DataPoint name={isSignUp ? 'login.title.join' : 'login.title.welcome'}>
+            <DataPoint
+              initialData={dataPoints}
+              name={isSignUp ? 'login.title.join' : 'login.title.welcome'}
+            >
               {isSignUp ? 'Join' : 'Welcome'}
             </DataPoint>{' '}
             <br />
             <span className="text-primary dark:text-primary-on-dark italic">
-              <DataPoint name={isSignUp ? 'login.title.sub_join' : 'login.title.sub_back'}>
+              <DataPoint
+                initialData={dataPoints}
+                name={isSignUp ? 'login.title.sub_join' : 'login.title.sub_back'}
+              >
                 {isSignUp ? 'The Crew' : 'Back'}
               </DataPoint>
             </span>
           </h1>
           <p className="text-muted-foreground font-bold uppercase tracking-[0.15em] text-[10px] max-w-sm mx-auto">
             <DataPoint
+              initialData={dataPoints}
               name={
                 isAdminTarget
                   ? 'login.desc.admin'
@@ -193,10 +205,12 @@ function LoginForm() {
           <div className="mb-8 p-4 rounded-2xl bg-blue-50 border border-blue-200/80 text-blue-950 text-center animate-in fade-in slide-in-from-top-4 duration-300 ease-out shadow-sm">
             <div className="flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider text-blue-900 mb-1">
               <Shield className="w-4 h-4 text-blue-600" />
-              <DataPoint name="login.notice.admin_title">Chapter Administration</DataPoint>
+              <DataPoint initialData={dataPoints} name="login.notice.admin_title">
+                Chapter Administration
+              </DataPoint>
             </div>
             <p className="text-xs text-blue-800 font-medium">
-              <DataPoint name="login.notice.admin_body">
+              <DataPoint initialData={dataPoints} name="login.notice.admin_body">
                 You are accessing an administrative section ({targetNext}). Please authenticate with
                 your authorized chapter credentials.
               </DataPoint>
@@ -230,7 +244,9 @@ function LoginForm() {
               }`}
             >
               <Fingerprint size={16} aria-hidden="true" />{' '}
-              <DataPoint name="login.tab.otp">Magic Link</DataPoint>
+              <DataPoint initialData={dataPoints} name="login.tab.otp">
+                Magic Link
+              </DataPoint>
             </button>
             <button
               type="button"
@@ -247,7 +263,9 @@ function LoginForm() {
               }`}
             >
               <Lock size={16} aria-hidden="true" />{' '}
-              <DataPoint name="login.tab.password">Password</DataPoint>
+              <DataPoint initialData={dataPoints} name="login.tab.password">
+                Password
+              </DataPoint>
             </button>
           </div>
 
@@ -264,7 +282,9 @@ function LoginForm() {
                     htmlFor="login-email"
                     className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
                   >
-                    <DataPoint name="login.form.email_label">Credential Email</DataPoint>
+                    <DataPoint initialData={dataPoints} name="login.form.email_label">
+                      Credential Email
+                    </DataPoint>
                   </label>
                   <input
                     id="login-email"
@@ -284,7 +304,9 @@ function LoginForm() {
                         htmlFor="login-password"
                         className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
                       >
-                        <DataPoint name="login.form.password_label">Access Key</DataPoint>
+                        <DataPoint initialData={dataPoints} name="login.form.password_label">
+                          Access Key
+                        </DataPoint>
                       </label>
                       {!isSignUp && (
                         <button
@@ -292,7 +314,9 @@ function LoginForm() {
                           onClick={handleResetPassword}
                           className="text-[9px] font-black text-primary dark:text-primary-on-dark uppercase tracking-widest hover:text-foreground transition-colors"
                         >
-                          <DataPoint name="login.form.forgot_btn">Forgot?</DataPoint>
+                          <DataPoint initialData={dataPoints} name="login.form.forgot_btn">
+                            Forgot?
+                          </DataPoint>
                         </button>
                       )}
                     </div>
@@ -330,6 +354,7 @@ function LoginForm() {
                   <>
                     <span>
                       <DataPoint
+                        initialData={dataPoints}
                         name={
                           authMethod === 'otp'
                             ? 'login.btn.otp'
@@ -382,6 +407,7 @@ function LoginForm() {
               className="group text-[10px] font-black text-muted-foreground uppercase tracking-[0.4em] hover:text-foreground transition-all flex items-center justify-center gap-3 mx-auto"
             >
               <DataPoint
+                initialData={dataPoints}
                 name={isSignUp ? 'login.footer.switch_login' : 'login.footer.switch_signup'}
               >
                 {isSignUp ? 'Existing Personnel? Sign In' : 'New Recruit? Join The Crew'}
@@ -398,13 +424,17 @@ function LoginForm() {
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
             <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
-              <DataPoint name="login.badge.encryption">Encryption Active</DataPoint>
+              <DataPoint initialData={dataPoints} name="login.badge.encryption">
+                Encryption Active
+              </DataPoint>
             </span>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
             <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
-              <DataPoint name="login.badge.vault">Supabase v2 Vault</DataPoint>
+              <DataPoint initialData={dataPoints} name="login.badge.vault">
+                Supabase v2 Vault
+              </DataPoint>
             </span>
           </div>
         </div>

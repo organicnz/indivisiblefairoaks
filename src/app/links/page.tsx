@@ -165,16 +165,34 @@ export default async function LinksPage() {
                     <div>
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <h3 className="font-bold text-foreground dark:text-white text-base group-hover:text-primary-ink dark:text-primary-on-dark-muted transition-colors">
-                          {item.name}
+                          <DataPoint
+                            as="span"
+                            name={`link.${item.slug ?? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.name`}
+                            initialData={dataPoints}
+                          >
+                            {item.name}
+                          </DataPoint>
                         </h3>
                         {item.badge && (
                           <span className="px-2 py-0.5 rounded-full bg-accent-gold/20 text-primary-ink dark:text-accent-gold text-[10px] font-bold uppercase shrink-0">
-                            {item.badge}
+                            <DataPoint
+                              as="span"
+                              name={`link.${item.slug ?? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.badge`}
+                              initialData={dataPoints}
+                            >
+                              {item.badge}
+                            </DataPoint>
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark leading-relaxed">
-                        {item.description}
+                        <DataPoint
+                          as="span"
+                          name={`link.${item.slug ?? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.desc`}
+                          initialData={dataPoints}
+                        >
+                          {item.description}
+                        </DataPoint>
                       </p>
                     </div>
 

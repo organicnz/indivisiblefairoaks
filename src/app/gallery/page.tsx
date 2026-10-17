@@ -17,9 +17,11 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { type GalleryPhoto, getGalleryPhotos } from '@/lib/queries/content-client';
 
 export default function GalleryPage() {
+  const { dataPoints } = useDataPoints('gallery');
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -148,12 +150,13 @@ export default function GalleryPage() {
           {/* Eyebrow Pill */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary-bright/15 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider backdrop-blur-md">
             <Camera size={14} className="text-accent-gold" />
-            <DataPoint name="gallery.hero.eyebrow">
+            <DataPoint initialData={dataPoints} name="gallery.hero.eyebrow">
               Photojournalism In Action • Moments of Peaceful Resistance
             </DataPoint>
           </div>
 
           <DataPoint
+            initialData={dataPoints}
             name="gallery.hero.headline"
             as="h1"
             className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-white tracking-tighter leading-[1.08]"
@@ -164,6 +167,7 @@ export default function GalleryPage() {
           <div className="h-1.5 w-24 bg-accent-gold rounded-full" />
 
           <DataPoint
+            initialData={dataPoints}
             name="gallery.hero.intro"
             as="p"
             className="text-base sm:text-lg text-ink-on-dark leading-relaxed max-w-3xl"
@@ -179,6 +183,7 @@ export default function GalleryPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">
             <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
               <DataPoint
+                initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m1_stat"
                 className="text-2xl font-black text-accent-gold block font-mono"
@@ -186,6 +191,7 @@ export default function GalleryPage() {
                 No Kings
               </DataPoint>
               <DataPoint
+                initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m1_label"
                 className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
@@ -195,6 +201,7 @@ export default function GalleryPage() {
             </div>
             <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
               <DataPoint
+                initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m2_stat"
                 className="text-2xl font-black text-emerald-400 block font-mono"
@@ -202,6 +209,7 @@ export default function GalleryPage() {
                 NorCal Resist
               </DataPoint>
               <DataPoint
+                initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m2_label"
                 className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
@@ -211,6 +219,7 @@ export default function GalleryPage() {
             </div>
             <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
               <DataPoint
+                initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m3_stat"
                 className="text-2xl font-black text-primary-on-dark-muted block font-mono"
@@ -218,6 +227,7 @@ export default function GalleryPage() {
                 Witty Signs
               </DataPoint>
               <DataPoint
+                initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m3_label"
                 className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
@@ -227,6 +237,7 @@ export default function GalleryPage() {
             </div>
             <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
               <DataPoint
+                initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m4_stat"
                 className="text-2xl font-black text-purple-400 block font-mono"
@@ -234,6 +245,7 @@ export default function GalleryPage() {
                 0 Politicians
               </DataPoint>
               <DataPoint
+                initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m4_label"
                 className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
@@ -392,11 +404,12 @@ export default function GalleryPage() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
                 <Video size={14} />
-                <DataPoint as="span" name="gallery.video.badge_top">
+                <DataPoint initialData={dataPoints} as="span" name="gallery.video.badge_top">
                   Featured Video Archive
                 </DataPoint>
               </div>
               <DataPoint
+                initialData={dataPoints}
                 as="h2"
                 name="gallery.video.title"
                 className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight"
@@ -404,6 +417,7 @@ export default function GalleryPage() {
                 No Kings in America: The Movement in Motion
               </DataPoint>
               <DataPoint
+                initialData={dataPoints}
                 as="p"
                 name="gallery.video.desc"
                 className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1 max-w-2xl"
@@ -414,6 +428,7 @@ export default function GalleryPage() {
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <DataPoint
+                initialData={dataPoints}
                 as="span"
                 name="gallery.video.platform_tag"
                 className="text-xs font-mono text-slate-700 dark:text-ink-muted-on-dark bg-slate-100 dark:bg-secondary/40 px-3 py-1.5 rounded-lg border border-border dark:border-white/5"
@@ -437,6 +452,7 @@ export default function GalleryPage() {
             </div>
             <div className="lg:col-span-5 space-y-4">
               <DataPoint
+                initialData={dataPoints}
                 as="div"
                 name="gallery.video.coalition_badge"
                 className="inline-block px-3 py-1 rounded-lg bg-primary-bright/20 border border-primary-on-dark-muted/30 text-primary-ink dark:text-primary-on-dark text-xs font-mono font-bold"
@@ -444,6 +460,7 @@ export default function GalleryPage() {
                 Indivisible National &amp; Local Coalition
               </DataPoint>
               <DataPoint
+                initialData={dataPoints}
                 as="h3"
                 name="gallery.video.subheading"
                 className="text-xl font-bold text-foreground dark:text-white"
@@ -451,6 +468,7 @@ export default function GalleryPage() {
                 No Kings 3 Nationwide Action
               </DataPoint>
               <DataPoint
+                initialData={dataPoints}
                 as="p"
                 name="gallery.video.action_desc"
                 className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed"
@@ -464,7 +482,7 @@ export default function GalleryPage() {
                   href="/events"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md"
                 >
-                  <DataPoint as="span" name="gallery.video.btn_rallies">
+                  <DataPoint initialData={dataPoints} as="span" name="gallery.video.btn_rallies">
                     Upcoming Rallies
                   </DataPoint>
                 </Link>
@@ -472,7 +490,7 @@ export default function GalleryPage() {
                   href="/choir"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border dark:border-slate-700 hover:bg-white/5 text-foreground dark:text-slate-200 font-semibold text-xs uppercase tracking-wider transition-all"
                 >
-                  <DataPoint as="span" name="gallery.video.btn_choir">
+                  <DataPoint initialData={dataPoints} as="span" name="gallery.video.btn_choir">
                     Choir Anthems
                   </DataPoint>
                 </Link>
@@ -484,6 +502,7 @@ export default function GalleryPage() {
         {/* Submit Photo CTA */}
         <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-white/10 text-center space-y-4 max-w-3xl mx-auto">
           <DataPoint
+            initialData={dataPoints}
             as="h2"
             name="gallery.cta.title"
             className="text-2xl font-black text-white uppercase tracking-tighter"
@@ -491,6 +510,7 @@ export default function GalleryPage() {
             Have Sacramento Resistance Pics, Unity Shots, or Funny Signs?
           </DataPoint>
           <DataPoint
+            initialData={dataPoints}
             as="p"
             name="gallery.cta.desc"
             className="text-sm text-ink-on-dark max-w-xl mx-auto leading-relaxed"
@@ -504,7 +524,7 @@ export default function GalleryPage() {
               href="mailto:contact@indivisiblefairoaks.org?subject=Community%20Photo%20Submission"
               className="inline-block px-8 py-3.5 rounded-2xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-blue-500/25"
             >
-              <DataPoint as="span" name="gallery.cta.button">
+              <DataPoint initialData={dataPoints} as="span" name="gallery.cta.button">
                 Submit Grassroots Photos
               </DataPoint>
             </a>

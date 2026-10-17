@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { siteUrl } from '@/config/site';
 import { pageMetadata } from '@/lib/metadata';
-import { type FAQRow, getFaqs } from '@/lib/queries/civic';
+import { type FAQRow, getDataPoints, getFaqs } from '@/lib/queries/civic';
 import { serializeJsonLd } from '@/lib/utils';
 
 export const metadata: Metadata = pageMetadata({
@@ -85,7 +85,10 @@ function groupFaqRows(rows: FAQRow[]): FAQGroup[] {
 }
 
 export default async function FAQPage() {
-  const dbRows = await getFaqs();
+  const [dbRows, dataPoints] = await Promise.all([
+    getFaqs().catch(() => []),
+    getDataPoints('faqs'),
+  ]);
   const faqs: FAQGroup[] = dbRows.length > 0 ? groupFaqRows(dbRows) : FALLBACK_FAQS;
 
   /*
@@ -117,9 +120,12 @@ export default async function FAQPage() {
       <div className="max-w-3xl mx-auto">
         <div className="flex flex-col items-center text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
-            <DataPoint name="faqs.hero.eyebrow">Frequently Asked Questions</DataPoint>
+            <DataPoint initialData={dataPoints} name="faqs.hero.eyebrow">
+              Frequently Asked Questions
+            </DataPoint>
           </div>
           <DataPoint
+            initialData={dataPoints}
             name="faqs.hero.headline"
             as="h1"
             className="text-4xl sm:text-5xl font-black tracking-tight mb-4"
@@ -128,6 +134,7 @@ export default async function FAQPage() {
           </DataPoint>
           <div className="h-1.5 w-24 bg-accent-gold rounded-full mb-4" />
           <DataPoint
+            initialData={dataPoints}
             name="faqs.hero.intro"
             as="p"
             className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-xl"
@@ -174,6 +181,7 @@ export default async function FAQPage() {
 
         <div className="mt-16 text-center p-8 rounded-3xl bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-primary-bright/30 space-y-4">
           <DataPoint
+            initialData={dataPoints}
             name="faqs.still_have_questions"
             as="h3"
             className="text-xl font-black text-foreground dark:text-white"
@@ -181,6 +189,7 @@ export default async function FAQPage() {
             Still have a question?
           </DataPoint>
           <DataPoint
+            initialData={dataPoints}
             name="faqs.still_have_questions_sub"
             as="p"
             className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark max-w-md mx-auto"
@@ -191,7 +200,7 @@ export default async function FAQPage() {
             href="/contact"
             className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
           >
-            <DataPoint as="span" name="faqs.contact_button">
+            <DataPoint initialData={dataPoints} as="span" name="faqs.contact_button">
               Contact Us Directly
             </DataPoint>
           </Link>
