@@ -176,7 +176,7 @@ jobs:
       # cache cannot produce a wrong tree, and it cannot go stale the way a
       # cached node_modules does.
       - name: Cache bun dependencies
-        if: "!contains(runner.labels, 'self-hosted')"
+        if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
@@ -197,7 +197,7 @@ jobs:
       # Incremental state is version-checked by tsc itself — a stale file
       # cannot produce a false green, only a slower run on key mismatch.
       - name: Cache TypeScript info
-        if: "!contains(runner.labels, 'self-hosted')"
+        if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
         uses: actions/cache@v4
         with:
           path: tsconfig.tsbuildinfo
@@ -233,7 +233,7 @@ jobs:
       # cache cannot produce a wrong tree, and it cannot go stale the way a
       # cached node_modules does.
       - name: Cache bun dependencies
-        if: "!contains(runner.labels, 'self-hosted')"
+        if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
@@ -331,7 +331,7 @@ jobs:
       # ~/.bun/install/cache is backed by a host-mounted Quadlet volume (%h/dev/ghrunner/cache/bun)
       # on NVMe SSD, so downloading and re-uploading across WAN is redundant overhead.
       - name: Cache bun dependencies
-        if: "!contains(runner.labels, 'self-hosted')"
+        if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
@@ -346,7 +346,7 @@ jobs:
       # hashed every push into a cold full build. Old src-hashed keys stay
       # reachable through the second restore prefix.
       - name: Cache Next.js build
-        if: "!contains(runner.labels, 'self-hosted')"
+        if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
         uses: actions/cache@v4
         with:
           path: .next/cache
@@ -369,7 +369,7 @@ jobs:
       # Browsers are cached like bun's package cache: keyed on the lockfile
       # that pins the Playwright version, so a version bump re-downloads once.
       - name: Cache Playwright browsers
-        if: "!contains(runner.labels, 'self-hosted')"
+        if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
