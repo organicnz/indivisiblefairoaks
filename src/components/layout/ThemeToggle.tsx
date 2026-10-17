@@ -53,7 +53,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
 
   if (variant === 'segmented') {
     return (
-      <fieldset className="inline-flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
+      <fieldset className="inline-flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
         <legend className="sr-only">Color theme</legend>
         {THEME_ORDER.map((m) => {
           const ItemIcon = MODE_ICON[m];
@@ -65,14 +65,18 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               aria-pressed={isActive}
               onClick={() => setMode(m)}
               data-theme-mode={m}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ease-out active:scale-95 cursor-pointer ${
                 isActive
-                  ? 'bg-amber-400 text-secondary shadow-xs font-extrabold'
+                  ? 'bg-amber-400 text-secondary shadow-raised font-extrabold ring-1 ring-amber-300/50'
                   : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'
               }`}
               title={`Switch to ${themeModeLabel(m)} theme`}
             >
-              <ItemIcon size={14} aria-hidden="true" />
+              <ItemIcon
+                size={14}
+                aria-hidden="true"
+                className="transition-transform duration-300 group-hover:scale-110"
+              />
               <DataPoint
                 as="span"
                 name={`header.theme.mode_${m}`}
@@ -97,17 +101,31 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
         data-theme-effective={effective}
         aria-label={label}
         title={label}
-        className={`relative inline-flex items-center justify-center size-11 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
+        className={`group relative inline-flex items-center justify-center size-11 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-all duration-300 ease-out active:scale-95 cursor-pointer ${FOCUS_RING}`}
       >
-        <Icon size={18} aria-hidden="true" />
+        <span className="relative flex items-center justify-center transition-transform duration-300 ease-out group-hover:rotate-12 group-active:scale-90">
+          <Icon size={18} aria-hidden="true" className="transition-all duration-300 ease-out" />
+        </span>
         {mode === 'system' && (
           <span
             aria-hidden="true"
-            className={`absolute bottom-2 right-2 size-1.5 rounded-full ring-1 ring-secondary ${
-              effective === 'dark' ? 'bg-sky-400' : 'bg-amber-400'
-            }`}
-          />
+            className="absolute bottom-2 right-2 flex size-2 items-center justify-center pointer-events-none"
+          >
+            <span
+              className={`relative inline-flex size-1.5 rounded-full ring-1 ring-secondary shadow-xs transition-colors duration-300 ${
+                effective === 'dark' ? 'bg-sky-400' : 'bg-amber-400'
+              }`}
+            />
+          </span>
         )}
+        {/* Sensory luxury micro-tooltip on pointer devices */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-secondary/95 dark:bg-slate-800/95 backdrop-blur-md border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-white dark:text-slate-100 opacity-0 shadow-float transition-opacity duration-300 ease-out z-50 hover-capable:group-hover:opacity-100"
+        >
+          {themeModeLabel(mode)}
+          {mode === 'system' ? ` (${effective === 'dark' ? 'Dark' : 'Light'})` : ''}
+        </span>
       </button>
     );
   }
@@ -120,19 +138,29 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
         data-theme-mode={mode}
         aria-label={label}
         title={label}
-        className={`flex w-full items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-colors duration-300 ease-out text-sm font-medium ${FOCUS_RING}`}
+        className={`group flex w-full items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-all duration-300 ease-out text-sm font-medium active:scale-[0.99] cursor-pointer ${FOCUS_RING}`}
       >
-        <Icon size={18} aria-hidden="true" />
+        <span className="relative flex items-center justify-center transition-transform duration-300 ease-out group-hover:rotate-12">
+          <Icon size={18} aria-hidden="true" />
+        </span>
         <DataPoint as="span" name="header.theme.appearance" initialData={dataPoints}>
           Appearance
         </DataPoint>
-        <span className="ml-auto text-xs font-semibold uppercase tracking-wider text-ink-muted-on-dark">
+        <span className="ml-auto flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-ink-muted-on-dark">
           <DataPoint as="span" name={`header.theme.mode_${mode}`} initialData={dataPoints}>
             {themeModeLabel(mode)}
           </DataPoint>
+          {mode === 'system' && (
+            <span
+              aria-hidden="true"
+              className={`size-1.5 rounded-full ring-1 ring-secondary ${
+                effective === 'dark' ? 'bg-sky-400' : 'bg-amber-400'
+              }`}
+            />
+          )}
         </span>
       </button>
-      <fieldset className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
+      <fieldset className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
         <legend className="sr-only">Color theme modes</legend>
         {THEME_ORDER.map((m) => {
           const ItemIcon = MODE_ICON[m];
@@ -144,9 +172,9 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               aria-pressed={isSelected}
               onClick={() => setMode(m)}
               data-theme-mode={m}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all duration-300 ease-out active:scale-95 cursor-pointer ${
                 isSelected
-                  ? 'bg-amber-400 text-secondary shadow-xs font-black'
+                  ? 'bg-amber-400 text-secondary shadow-raised font-black ring-1 ring-amber-300/50'
                   : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'
               }`}
             >

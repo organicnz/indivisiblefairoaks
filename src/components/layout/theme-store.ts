@@ -96,7 +96,12 @@ export function syncTheme(): ThemeState {
   return next;
 }
 
-export function setThemeMode(next: ThemeMode): ThemeState {
+export interface ThemeCoords {
+  x?: number;
+  y?: number;
+}
+
+export function setThemeMode(next: ThemeMode, coords?: ThemeCoords): ThemeState {
   writeThemeMode(storage(), next);
   const resolved: ThemeState = {
     mode: next,
@@ -110,17 +115,92 @@ export function setThemeMode(next: ThemeMode): ThemeState {
     replaceState(resolved);
   };
 
-  if (
-    typeof document !== 'undefined' &&
-    'startViewTransition' in document &&
-    typeof document.startViewTransition === 'function' &&
+  const isReducedMotion =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
-    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  ) {
-    document.startViewTransition(() => {
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const hasViewTransition =
+    typeof document !== 'undefined' &&
+    'startViewTransition' in document &&
+    typeof document.startViewTransition === 'function';
+
+  if (hasViewTransition && !isReducedMotion) {
+    let resolvedCoords = coords;
+    if (!resolvedCoords && typeof window !== 'undefined' && 'event' in window) {
+      const ev = (window as unknown as { event?: MouseEvent }).event;
+      if (ev && typeof ev.clientX === 'number' && typeof ev.clientY === 'number') {
+        resolvedCoords = { x: ev.clientX, y: ev.clientY };
+      }
+    }
+
+    const hasCoords =
+      resolvedCoords?.x !== undefined &&
+      resolvedCoords?.y !== undefined &&
+      typeof window !== 'undefined';
+
+    if (hasCoords) {
+      document.documentElement.setAttribute('data-theme-animating', 'circle');
+    }
+
+    try {
+      const transition = (
+        document as unknown as {
+          startViewTransition: (callback: () => void) => {
+            ready?: Promise<void>;
+          };
+        }
+      ).startViewTransition(() => {
+        apply();
+      });
+
+      if (
+        hasCoords &&
+        transition &&
+        'ready' in transition &&
+        transition.ready &&
+        resolvedCoords?.x !== undefined &&
+        resolvedCoords?.y !== undefined
+      ) {
+        const startX = resolvedCoords.x;
+        const startY = resolvedCoords.y;
+        transition.ready
+          .then(() => {
+            const endRadius = Math.hypot(
+              Math.max(startX, window.innerWidth - startX),
+              Math.max(startY, window.innerHeight - startY)
+            );
+
+            const anim = document.documentElement.animate(
+              {
+                clipPath: [
+                  `circle(0px at ${startX}px ${startY}px)`,
+                  `circle(${endRadius}px at ${startX}px ${startY}px)`,
+                ],
+              },
+              {
+                duration: 400,
+                easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+                pseudoElement: '::view-transition-new(root)',
+              }
+            );
+
+            const cleanup = () => {
+              document.documentElement.removeAttribute('data-theme-animating');
+            };
+            anim.onfinish = cleanup;
+            anim.oncancel = cleanup;
+          })
+          .catch(() => {
+            document.documentElement.removeAttribute('data-theme-animating');
+          });
+      } else if (hasCoords) {
+        document.documentElement.removeAttribute('data-theme-animating');
+      }
+    } catch {
+      document.documentElement.removeAttribute('data-theme-animating');
       apply();
-    });
+    }
   } else {
     apply();
   }
@@ -128,8 +208,8 @@ export function setThemeMode(next: ThemeMode): ThemeState {
   return resolved;
 }
 
-export function cycleThemeMode(): ThemeMode {
-  return setThemeMode(nextThemeMode(state.mode)).mode;
+export function cycleThemeMode(coords?: ThemeCoords): ThemeMode {
+  return setThemeMode(nextThemeMode(state.mode), coords).mode;
 }
 
 function subscribe(listener: () => void): () => void {
@@ -158,18 +238,62 @@ function getServerSnapshot(): ThemeState {
 export function useThemeMode(): {
   mode: ThemeMode;
   effective: EffectiveTheme;
-  setMode: (mode: ThemeMode) => void;
-  cycle: () => void;
+  setMode: (
+    mode: ThemeMode,
+    eventOrCoords?:
+      | React.MouseEvent
+      | MouseEvent
+      | { clientX?: number; clientY?: number; x?: number; y?: number }
+  ) => void;
+  cycle: (
+    eventOrCoords?:
+      | React.MouseEvent
+      | MouseEvent
+      | { clientX?: number; clientY?: number; x?: number; y?: number }
+  ) => void;
 } {
   const value = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  const setMode = useCallback((mode: ThemeMode) => {
-    setThemeMode(mode);
-  }, []);
+  const setMode = useCallback(
+    (
+      mode: ThemeMode,
+      eventOrCoords?:
+        | React.MouseEvent
+        | MouseEvent
+        | { clientX?: number; clientY?: number; x?: number; y?: number }
+    ) => {
+      let coords: ThemeCoords | undefined;
+      if (eventOrCoords) {
+        if ('clientX' in eventOrCoords && typeof eventOrCoords.clientX === 'number') {
+          coords = { x: eventOrCoords.clientX, y: eventOrCoords.clientY };
+        } else if ('x' in eventOrCoords && typeof eventOrCoords.x === 'number') {
+          coords = { x: eventOrCoords.x, y: eventOrCoords.y };
+        }
+      }
+      setThemeMode(mode, coords);
+    },
+    []
+  );
 
-  const cycle = useCallback(() => {
-    cycleThemeMode();
-  }, []);
+  const cycle = useCallback(
+    (
+      eventOrCoords?:
+        | React.MouseEvent
+        | MouseEvent
+        | { clientX?: number; clientY?: number; x?: number; y?: number }
+    ) => {
+      let coords: ThemeCoords | undefined;
+      if (eventOrCoords) {
+        if ('clientX' in eventOrCoords && typeof eventOrCoords.clientX === 'number') {
+          coords = { x: eventOrCoords.clientX, y: eventOrCoords.clientY };
+        } else if ('x' in eventOrCoords && typeof eventOrCoords.x === 'number') {
+          coords = { x: eventOrCoords.x, y: eventOrCoords.y };
+        }
+      }
+      cycleThemeMode(coords);
+    },
+    []
+  );
 
   useEffect(() => {
     // Registered per mount and removed on unmount: the store is read from

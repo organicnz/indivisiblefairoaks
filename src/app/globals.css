@@ -250,13 +250,29 @@
    no call site changes.
 /* ─────────────────────────────────────────────────────────────────────────────
    View transitions for theme switching
-   Smooth, fluid cross-fade transition when switching color modes.
+   Smooth, fluid cross-fade and circular reveal transitions when switching color modes.
    Disabled when reduced motion is preferred.
    ───────────────────────────────────────────────────────────────────────────── */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 250ms;
+  animation-duration: 350ms;
   animation-timing-function: var(--ease-sensory, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+[data-theme-animating='circle']::view-transition-old(root) {
+  animation: none !important;
+}
+
+[data-theme-animating='circle']::view-transition-new(root) {
+  animation: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

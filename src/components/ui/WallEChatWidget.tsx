@@ -187,8 +187,8 @@ export function WallEChatWidget() {
                   <div
                     className={`max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                       message.role === 'user'
-                        ? 'rounded-br-md bg-primary dark:bg-primary-bright text-white shadow-md shadow-primary/15'
-                        : 'rounded-bl-md border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 text-secondary dark:text-slate-100 shadow-sm'
+                        ? 'rounded-br-md bg-primary dark:bg-primary-bright text-white shadow-raised shadow-primary/20'
+                        : 'rounded-bl-md border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800 text-secondary dark:text-slate-100 shadow-sm'
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{message.content}</p>
@@ -198,7 +198,7 @@ export function WallEChatWidget() {
                           as="p"
                           name="walle.source_heading"
                           initialData={dataPoints}
-                          className="font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400"
+                          className="font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
                         >
                           Explore the source
                         </DataPoint>
@@ -206,7 +206,7 @@ export function WallEChatWidget() {
                           <a
                             key={citation.url}
                             href={citation.url}
-                            className="block rounded-lg bg-slate-50 dark:bg-slate-700/60 px-2 py-1.5 font-semibold text-primary dark:text-primary-on-dark transition hover:bg-primary/10 dark:hover:bg-primary/20"
+                            className="block rounded-lg bg-slate-100/70 dark:bg-slate-700/60 border border-slate-200/60 dark:border-slate-600/40 px-2.5 py-1.5 font-semibold text-primary-ink dark:text-primary-on-dark transition-colors duration-200 hover:bg-primary/10 dark:hover:bg-primary/20"
                           >
                             <span className="mr-1">↗</span>
                             {citation.title}
@@ -220,7 +220,7 @@ export function WallEChatWidget() {
               {loading && (
                 <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <WallEAvatar small />
-                  <span className="rounded-full bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-3 py-2 shadow-sm text-slate-700 dark:text-slate-200">
+                  <span className="rounded-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 px-3 py-2 shadow-sm text-slate-700 dark:text-slate-200">
                     <DataPoint as="span" name="walle.checking" initialData={dataPoints}>
                       WALL-E is checking the site…
                     </DataPoint>
@@ -231,7 +231,7 @@ export function WallEChatWidget() {
             </div>
             <form
               onSubmit={submit}
-              className="flex gap-2 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3"
+              className="flex gap-2 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs p-3"
             >
               <input
                 ref={inputRef}
@@ -245,7 +245,7 @@ export function WallEChatWidget() {
               <button
                 type="submit"
                 disabled={loading || !input.trim()}
-                className="rounded-full bg-primary dark:bg-primary-bright px-4 py-2.5 text-sm font-bold text-white shadow-raised transition-colors duration-300 ease-out hover:bg-primary-dark dark:hover:bg-primary disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="rounded-full bg-primary dark:bg-primary-bright px-4 py-2.5 text-sm font-bold text-white shadow-raised transition-all duration-300 ease-out hover:bg-primary-dark dark:hover:bg-primary hover:shadow-float active:scale-95 disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <DataPoint as="span" name="walle.btn.send" initialData={dataPoints}>
                   Send
