@@ -73,7 +73,14 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               title={`Switch to ${themeModeLabel(m)} theme`}
             >
               <ItemIcon size={14} aria-hidden="true" />
-              <span className="capitalize">{themeModeLabel(m)}</span>
+              <DataPoint
+                as="span"
+                name={`header.theme.mode_${m}`}
+                initialData={dataPoints}
+                className="capitalize"
+              >
+                {themeModeLabel(m)}
+              </DataPoint>
             </button>
           );
         })}
@@ -120,7 +127,9 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
           Appearance
         </DataPoint>
         <span className="ml-auto text-xs font-semibold uppercase tracking-wider text-ink-muted-on-dark">
-          {themeModeLabel(mode)}
+          <DataPoint as="span" name={`header.theme.mode_${mode}`} initialData={dataPoints}>
+            {themeModeLabel(mode)}
+          </DataPoint>
         </span>
       </button>
       <fieldset className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
@@ -142,7 +151,14 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               }`}
             >
               <ItemIcon size={13} aria-hidden="true" />
-              <span className="capitalize">{themeModeLabel(m)}</span>
+              <DataPoint
+                as="span"
+                name={`header.theme.mode_${m}`}
+                initialData={dataPoints}
+                className="capitalize"
+              >
+                {themeModeLabel(m)}
+              </DataPoint>
             </button>
           );
         })}
