@@ -491,7 +491,7 @@ pre-push:
     # Vitest enforces the configured statement, branch, function, and line gates.
     coverage:
       priority: 35
-      run: rm -rf coverage && bun run test:coverage
+      run: bun run test:coverage
 
     # ── 8. Build smoke-test ───────────────────────────────────────────────────
     build-check:
