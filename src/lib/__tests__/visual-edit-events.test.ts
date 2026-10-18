@@ -184,7 +184,7 @@ describe('emitters', () => {
     win.restore();
   });
 
-  it('the panel openers dispatch no payload', () => {
+  it('the panel openers dispatch no payload by default', () => {
     const win = recordingWindow();
     openMediaLibraryVisual();
     openRevisionsVisual();
@@ -199,6 +199,15 @@ describe('emitters', () => {
       VISUAL_EDIT_EVENTS.openDiagnostics,
     ]);
     expect(win.seen.every((s) => s.detail === null)).toBe(true);
+    win.restore();
+  });
+
+  it('openCRMVisual passes the target tab through if provided', () => {
+    const win = recordingWindow();
+    openCRMVisual({ tab: 'events' });
+    expect(win.seen).toHaveLength(1);
+    expect(win.seen[0].type).toBe(VISUAL_EDIT_EVENTS.openCRM);
+    expect(win.seen[0].detail).toEqual({ tab: 'events' });
     win.restore();
   });
 });

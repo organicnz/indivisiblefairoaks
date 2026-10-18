@@ -122,8 +122,10 @@ export function openSettingsVisual(): void {
   window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.openSettings));
 }
 
-export function openCRMVisual(): void {
-  window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.openCRM));
+export function openCRMVisual(detail?: {
+  tab?: 'constituents' | 'events' | 'news' | 'links';
+}): void {
+  window.dispatchEvent(new CustomEvent(VISUAL_EDIT_EVENTS.openCRM, { detail }));
 }
 
 export function openDiagnosticsVisual(): void {
