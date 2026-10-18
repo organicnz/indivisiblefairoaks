@@ -215,8 +215,8 @@ export function WallEChatWidget() {
                     <button
                       type="button"
                       onClick={resetChat}
-                      title={dataPoints['walle.action.clear'] || 'Clear conversation'}
-                      aria-label={dataPoints['walle.action.clear'] || 'Clear conversation'}
+                      title={dataPoints['walle.action.clear'] || 'Reset conversation'}
+                      aria-label={dataPoints['walle.action.clear'] || 'Reset conversation'}
                       className="inline-flex size-9 items-center justify-center rounded-full text-white/70 transition-colors duration-300 ease-out hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold cursor-pointer"
                     >
                       <RotateCcw size={16} aria-hidden="true" />
