@@ -36,7 +36,7 @@ struct GlobalThemeParams {
   resolution: vec2f,
   mouse: vec2f,
   pointerActive: f32,
-  _pad: f32,
+  pointerSpeed: f32,
   wave1: WaveParams,
   wave2: WaveParams,
   wave3: WaveParams,
@@ -59,7 +59,7 @@ fn tonemap(color: vec3f) -> vec3f {
   return (color * (1.0 + color * 0.28)) / (1.0 + color);
 }
 
-fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f, pointerActive: f32) -> vec4f {
+fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f, pointerActive: f32, pointerSpeed: f32) -> vec4f {
   if (wave.enabled < 0.5 || wave.progress <= 0.0 || wave.progress >= 1.0) {
     return vec4f(0.0);
   }
@@ -67,12 +67,13 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
   let p = vec2f((uv.x - wave.origin.x) * aspect, uv.y - wave.origin.y);
   var dist = length(p);
 
-  // 10x Pro Hydrodynamic Pointer Wake Perturbation
+  // 10x Pro Hydrodynamic Pointer Wake & Bow Shock
   if (pointerActive > 0.5) {
     let p_mouse = vec2f((uv.x - mouse.x) * aspect, uv.y - mouse.y);
     let mouse_dist = length(p_mouse);
-    let wake_envelope = exp(-28.0 * mouse_dist * mouse_dist);
-    let wake_ripple = sin(mouse_dist * 48.0 - time * 14.0) * 0.05 * wake_envelope;
+    let wake_scale = 1.0 + min(2.0, pointerSpeed * 0.8);
+    let wake_envelope = exp(-24.0 * mouse_dist * mouse_dist);
+    let wake_ripple = sin(mouse_dist * 48.0 - time * 14.0) * (0.045 * wake_scale) * wake_envelope;
     dist += wake_ripple;
   }
 
@@ -167,17 +168,20 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
 
     wave_color = vec3f(spectral_r, spectral_g, spectral_b);
   } else {
-    // ⚛️ System Mode: Quantum Superposition Dual-State Probability Field
+    // ⚛️ System Mode: Quantum Superposition on Bloch Sphere
     let is_dark = wave.effective > 0.5;
     let primary_tone = select(vec3f(0.08, 0.86, 0.52), vec3f(0.06, 0.68, 0.72), is_dark);
     let secondary_tone = select(vec3f(0.96, 0.76, 0.16), vec3f(0.18, 0.88, 1.0), is_dark);
 
-    // Quantum wave packet probability interference with orbital nodal harmonic lines
+    // Bloch sphere geodesic parameterization
+    let bloch_theta = wave.progress * 3.14159265;
+    let bloch_phi = time * 4.5 + angle * 4.0 + wave.phase;
+    let quantum_interference = sin(bloch_theta) * cos(bloch_phi);
+
     let orbital_angle = angle + 2.5 * (1.0 - wave.progress);
     let wave_packet = sin(orbital_angle * 8.0 + dist * 44.0 - time * 7.5 + wave.phase) * cos(orbital_angle * 12.0 - dist * 26.0 + time * 6.0 + wave.phase);
-    // Young double slit diffraction along wavefront
     let slit_interference = pow(cos(angle * 16.0 + wave.phase), 2.0) * 0.06 * (1.0 - wave.progress);
-    let quantum_mix = mix(primary_tone, secondary_tone, wave_packet * 0.5 + 0.5);
+    let quantum_mix = mix(primary_tone, secondary_tone, clamp(wave_packet * 0.35 + quantum_interference * 0.35 + 0.5, 0.0, 1.0));
 
     ripple = (sin(dist * 66.0 - time * 10.0) * 0.06 + slit_interference) * (1.0 - wave.progress);
 
@@ -196,12 +200,12 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
 
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
-  let c1 = sampleWave(uv, globals.wave1, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
-  let c2 = sampleWave(uv, globals.wave2, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
-  let c3 = sampleWave(uv, globals.wave3, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
-  let c4 = sampleWave(uv, globals.wave4, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
-  let c5 = sampleWave(uv, globals.wave5, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
-  let c6 = sampleWave(uv, globals.wave6, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
+  let c1 = sampleWave(uv, globals.wave1, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
+  let c2 = sampleWave(uv, globals.wave2, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
+  let c3 = sampleWave(uv, globals.wave3, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
+  let c4 = sampleWave(uv, globals.wave4, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
+  let c5 = sampleWave(uv, globals.wave5, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
+  let c6 = sampleWave(uv, globals.wave6, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
 
   // Cross-wave physical interference across overlapping waves
   var cross_interference = 0.0;
@@ -301,6 +305,9 @@ export function VgpuThemeCanvas() {
   const resolutionRef = useRef<[number, number]>([1920, 1080]);
   const pointerRef = useRef<[number, number]>([0.5, 0.5]);
   const pointerActiveRef = useRef(0.0);
+  const pointerSpeedRef = useRef(0.0);
+  const lastPointerPosRef = useRef<[number, number]>([0.5, 0.5]);
+  const lastPointerTimeRef = useRef(performance.now());
 
   useEffect(() => {
     // WebGPU and browser environment checks
@@ -331,14 +338,24 @@ export function VgpuThemeCanvas() {
     resolutionRef.current = [window.innerWidth, window.innerHeight];
 
     const onPointerMove = (e: MouseEvent | PointerEvent) => {
-      pointerRef.current = [
-        e.clientX / Math.max(1, window.innerWidth),
-        e.clientY / Math.max(1, window.innerHeight),
-      ];
+      const now = performance.now();
+      const dt = Math.max(1, now - lastPointerTimeRef.current);
+      const newX = e.clientX / Math.max(1, window.innerWidth);
+      const newY = e.clientY / Math.max(1, window.innerHeight);
+      const dx = (newX - lastPointerPosRef.current[0]) * aspectRef.current;
+      const dy = newY - lastPointerPosRef.current[1];
+      const dist = Math.hypot(dx, dy);
+      const speed = Math.min(3.0, (dist / dt) * 1000);
+
+      lastPointerPosRef.current = [newX, newY];
+      lastPointerTimeRef.current = now;
+      pointerRef.current = [newX, newY];
       pointerActiveRef.current = 1.0;
+      pointerSpeedRef.current = speed;
     };
     const onPointerLeave = () => {
       pointerActiveRef.current = 0.0;
+      pointerSpeedRef.current = 0.0;
     };
     window.addEventListener('pointermove', onPointerMove, { passive: true });
     window.addEventListener('pointerleave', onPointerLeave, { passive: true });
@@ -403,7 +420,7 @@ export function VgpuThemeCanvas() {
           resolution: resolutionRef.current,
           mouse: pointerRef.current,
           pointerActive: 0.0,
-          _pad: 0.0,
+          pointerSpeed: 0.0,
           wave1: { ...zeroWave },
           wave2: { ...zeroWave },
           wave3: { ...zeroWave },
@@ -451,7 +468,7 @@ export function VgpuThemeCanvas() {
         resolution: resolutionRef.current,
         mouse: pointerRef.current,
         pointerActive: pointerActiveRef.current,
-        _pad: 0.0,
+        pointerSpeed: pointerSpeedRef.current,
         wave1: {
           origin: wave1Ref.current.origin,
           progress: w1.progress,

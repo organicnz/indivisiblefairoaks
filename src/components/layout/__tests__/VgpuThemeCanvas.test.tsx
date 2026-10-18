@@ -73,4 +73,53 @@ describe('VgpuThemeCanvas component', () => {
       window.matchMedia = originalMatchMedia;
     }
   });
+
+  it('registers and cleans up pointermove and pointerleave listeners with hardware velocity tracking', async () => {
+    const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
+    const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+
+    const originalGpu = (navigator as unknown as { gpu?: unknown }).gpu;
+    Object.defineProperty(navigator, 'gpu', {
+      value: {},
+      configurable: true,
+      writable: true,
+    });
+
+    try {
+      await act(async () => {
+        root.render(<VgpuThemeCanvas />);
+      });
+
+      expect(addEventListenerSpy).toHaveBeenCalledWith('pointermove', expect.any(Function), {
+        passive: true,
+      });
+      expect(addEventListenerSpy).toHaveBeenCalledWith('pointerleave', expect.any(Function), {
+        passive: true,
+      });
+
+      const moveEvent = new MouseEvent('pointermove', {
+        clientX: 400,
+        clientY: 300,
+      });
+      window.dispatchEvent(moveEvent);
+
+      const leaveEvent = new MouseEvent('pointerleave');
+      window.dispatchEvent(leaveEvent);
+
+      act(() => {
+        root.unmount();
+      });
+
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('pointermove', expect.any(Function));
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('pointerleave', expect.any(Function));
+    } finally {
+      Object.defineProperty(navigator, 'gpu', {
+        value: originalGpu,
+        configurable: true,
+        writable: true,
+      });
+      addEventListenerSpy.mockRestore();
+      removeEventListenerSpy.mockRestore();
+    }
+  });
 });
