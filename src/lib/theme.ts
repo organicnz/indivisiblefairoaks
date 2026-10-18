@@ -250,17 +250,17 @@ export function playThemeHaptic(
     osc.type = 'sine';
 
     if (mode === 'light') {
-      // Ascending bright click
+      // Ascending crystal glass chime (850Hz -> 1320Hz)
       osc.frequency.setValueAtTime(850, now);
-      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.035);
+      osc.frequency.exponentialRampToValueAtTime(1320, now + 0.035);
     } else if (mode === 'dark') {
-      // Descending warm click
+      // Descending obsidian switch detent (950Hz -> 650Hz)
       osc.frequency.setValueAtTime(950, now);
-      osc.frequency.exponentialRampToValueAtTime(650, now + 0.035);
+      osc.frequency.exponentialRampToValueAtTime(650, now + 0.038);
     } else {
-      // System double-tap feel
+      // System quantum harmonic duality chord (800Hz -> 1100Hz)
       osc.frequency.setValueAtTime(800, now);
-      osc.frequency.exponentialRampToValueAtTime(1050, now + 0.04);
+      osc.frequency.exponentialRampToValueAtTime(1100, now + 0.042);
     }
 
     // Whisper-quiet gain envelope (0.025 max) with smooth decay to zero

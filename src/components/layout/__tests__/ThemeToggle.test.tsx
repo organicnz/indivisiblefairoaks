@@ -93,4 +93,33 @@ describe('ThemeToggle component', () => {
     });
     expect(mockSetMode).toHaveBeenCalledWith('dark');
   });
+
+  it('navigates through segmented theme options with arrow keys', async () => {
+    await act(async () => {
+      root.render(<ThemeToggle variant="segmented" />);
+    });
+
+    const systemButton = container.querySelector<HTMLButtonElement>(
+      'button[data-theme-mode="system"]'
+    );
+    expect(systemButton).not.toBeNull();
+
+    // Press ArrowRight from 'system' (index 0) -> should target 'light' (index 1)
+    await act(async () => {
+      systemButton?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(mockSetMode).toHaveBeenCalledWith('light', expect.any(Object));
+
+    // Press ArrowLeft from 'system' (index 0) -> should wrap to 'dark' (index 2)
+    await act(async () => {
+      systemButton?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(mockSetMode).toHaveBeenCalledWith('dark', expect.any(Object));
+  });
 });

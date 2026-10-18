@@ -116,7 +116,13 @@ export function ThemeHud() {
         type="button"
         onClick={() => setIsVisible(false)}
         aria-label="Dismiss theme notification"
-        className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-secondary/95 dark:bg-slate-900/95 text-white backdrop-blur-xl border border-white/15 dark:border-white/10 shadow-float text-xs font-semibold tracking-wide cursor-pointer active:scale-95 transition-transform duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-bright"
+        className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-secondary/95 dark:bg-slate-900/95 text-white backdrop-blur-xl border border-white/15 dark:border-white/10 text-xs font-semibold tracking-wide cursor-pointer active:scale-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-bright ${
+          hudEvent.mode === 'dark'
+            ? 'shadow-[0_12px_36px_-8px_rgba(21,93,252,0.45)] ring-1 ring-sky-400/30'
+            : hudEvent.mode === 'light'
+              ? 'shadow-[0_12px_36px_-8px_rgba(245,158,11,0.45)] ring-1 ring-amber-400/30'
+              : 'shadow-[0_12px_36px_-8px_rgba(16,185,129,0.45)] ring-1 ring-emerald-400/30'
+        }`}
       >
         <span
           aria-hidden="true"
@@ -125,7 +131,7 @@ export function ThemeHud() {
               ? 'bg-sky-500/20 text-sky-400 ring-1 ring-sky-400/30'
               : hudEvent.mode === 'light'
                 ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-400/30'
-                : 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-400/30'
+                : 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-400/30'
           }`}
         >
           <Icon size={12} />
