@@ -34,24 +34,29 @@ struct GlobalThemeParams {
   aspect: f32,
   time: f32,
   resolution: vec2f,
+  mouse: vec2f,
+  pointerActive: f32,
+  _pad: f32,
   wave1: WaveParams,
   wave2: WaveParams,
   wave3: WaveParams,
   wave4: WaveParams,
+  wave5: WaveParams,
+  wave6: WaveParams,
 }
 
 @group(0) @binding(0) var<uniform> globals: GlobalThemeParams;
 
-// High-frequency pseudo-random hash for anti-banding triangular dithering
-fn hash21(p: vec2f) -> f32 {
+// High-frequency golden ratio temporal pseudo-random hash for anti-banding dithering
+fn hash21(p: vec2f, t: f32) -> f32 {
   var p3 = fract(vec3f(p.xyx) * 0.1031);
-  p3 += dot(p3, p3.yzx + 33.33);
+  p3 += dot(p3, p3.yzx + 33.33 + t * 1.6180339887);
   return fract((p3.x + p3.y) * p3.z);
 }
 
 // ACES-inspired filmic tone-mapping to compress HDR highlights smoothly
 fn tonemap(color: vec3f) -> vec3f {
-  return (color * (1.0 + color * 0.25)) / (1.0 + color);
+  return (color * (1.0 + color * 0.28)) / (1.0 + color);
 }
 
 fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
@@ -77,19 +82,23 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
   let normal_z = max(0.05, 1.0 - abs(d) / wave_width);
   let fresnel = pow(1.0 - normal_z, 3.5) * 0.45;
 
-  // Multi-band chromatic dispersion based on Cauchy optical refraction
+  // 7-Band physical chromatic dispersion based on Cauchy optical refraction
   let disp = 0.048 * (1.0 - wave.progress * 0.75);
-  let d_red = dist - (wave_pos + disp * 1.35);
-  let d_amber = dist - (wave_pos + disp * 0.68);
-  let d_green = dist - wave_pos;
-  let d_cyan = dist - (wave_pos - disp * 0.68);
-  let d_blue = dist - (wave_pos - disp * 1.35);
+  let d_red     = dist - (wave_pos + disp * 1.50);
+  let d_amber   = dist - (wave_pos + disp * 1.00);
+  let d_yellow  = dist - (wave_pos + disp * 0.50);
+  let d_green   = dist - wave_pos;
+  let d_cyan    = dist - (wave_pos - disp * 0.50);
+  let d_blue    = dist - (wave_pos - disp * 1.00);
+  let d_violet  = dist - (wave_pos - disp * 1.50);
 
-  let w_red = smoothstep(wave_width, 0.0, abs(d_red));
-  let w_amber = smoothstep(wave_width, 0.0, abs(d_amber));
-  let w_green = smoothstep(wave_width, 0.0, abs(d_green));
-  let w_cyan = smoothstep(wave_width, 0.0, abs(d_cyan));
-  let w_blue = smoothstep(wave_width, 0.0, abs(d_blue));
+  let w_red    = smoothstep(wave_width, 0.0, abs(d_red));
+  let w_amber  = smoothstep(wave_width, 0.0, abs(d_amber));
+  let w_yellow = smoothstep(wave_width, 0.0, abs(d_yellow));
+  let w_green  = smoothstep(wave_width, 0.0, abs(d_green));
+  let w_cyan   = smoothstep(wave_width, 0.0, abs(d_cyan));
+  let w_blue   = smoothstep(wave_width, 0.0, abs(d_blue));
+  let w_violet = smoothstep(wave_width, 0.0, abs(d_violet));
 
   var wave_color = vec3f(0.0);
   var ripple = 0.0;
@@ -97,11 +106,12 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
 
   if (wave.theme > 1.5) {
     // 🌌 Dark Mode: Obsidian Gravitational Singularity & Relativistic Lensing
-    let sapphire = vec3f(0.06, 0.22, 0.88);
-    let cobalt = vec3f(0.12, 0.46, 0.98);
-    let celestial = vec3f(0.24, 0.80, 1.0);
+    let sapphire = vec3f(0.05, 0.20, 0.88);
+    let cobalt   = vec3f(0.12, 0.46, 0.98);
+    let celestial = vec3f(0.24, 0.82, 1.0);
+    let hawking  = vec3f(0.38, 0.72, 1.0);
 
-    // Accretion disk Doppler beaming and relativistic vortex
+    // Accretion disk Doppler beaming and relativistic Kerr vortex
     let doppler = cos(angle * 3.0 - time * 5.0 + wave.phase) * 0.5 + 0.5;
     let vortex = sin(angle * 6.0 + dist * 40.0 - time * 7.0 + wave.phase) * 0.08 * (1.0 - wave.progress);
     ripple = (sin(dist * 56.0 - time * 8.0) * 0.08 + vortex) * (1.0 - wave.progress);
@@ -109,35 +119,39 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
 
     // Relativistic photon ring glow around the singularity
     let photon_ring = exp(-32.0 * abs(dist - wave_pos * 0.38)) * pow(1.0 - wave.progress, 2.0) * 0.4;
+    // Hawking radiation diffuse aura
+    let hawking_aura = exp(-6.0 * dist) * pow(1.0 - wave.progress, 2.0) * 0.25;
 
     wave_color = vec3f(
-      cobalt.r * w_red * 0.85 + photon_ring * 0.1,
-      mix(tone.g, celestial.g, w_cyan) * (w_green + ripple + fresnel),
-      celestial.b * w_blue * 1.22 + photon_ring * 0.3
+      cobalt.r * w_red * 0.82 + photon_ring * 0.12 + hawking_aura * hawking.r,
+      mix(tone.g, celestial.g, w_cyan) * (w_green + ripple + fresnel) + hawking_aura * hawking.g,
+      celestial.b * (w_blue * 1.15 + w_violet * 0.6) + photon_ring * 0.35 + hawking_aura * hawking.b
     );
   } else if (wave.theme > 0.5) {
     // ☀️ Light Mode: Solar Prismatic Caustic Diamond Burst
     let solar_white = vec3f(1.0, 0.98, 0.95);
-    let amber_gold = vec3f(0.96, 0.64, 0.06);
-    let warm_topaz = vec3f(1.0, 0.78, 0.18);
+    let amber_gold  = vec3f(0.96, 0.64, 0.06);
+    let warm_topaz  = vec3f(1.0, 0.78, 0.18);
+    let solar_ruby  = vec3f(1.0, 0.42, 0.12);
 
-    // 3-Plane wave interference simulating crystal water caustics
+    // 4-Plane wave interference simulating high-order crystal water caustics
     let k1 = (p.x) * 36.0 + time * 3.2;
     let k2 = (-0.5 * p.x + 0.866 * p.y) * 36.0 - time * 2.8;
     let k3 = (-0.5 * p.x - 0.866 * p.y) * 36.0 + time * 3.6;
-    let caustic = (cos(k1) + cos(k2) + cos(k3)) * 0.035 * (1.0 - wave.progress);
+    let k4 = (0.707 * p.x + 0.707 * p.y) * 44.0 - time * 2.2;
+    let caustic = (cos(k1) + cos(k2) + cos(k3) + cos(k4)) * 0.03 * (1.0 - wave.progress);
 
     // Specular diamond glint sparkles at wave crest
-    let glint = pow(max(0.0, sin(p.x * 65.0 + time * 4.0) * cos(p.y * 65.0 - time * 4.0)), 12.0) * 0.5 * (1.0 - wave.progress);
+    let glint = pow(max(0.0, sin(p.x * 65.0 + time * 4.0) * cos(p.y * 65.0 - time * 4.0)), 12.0) * 0.55 * (1.0 - wave.progress);
 
     // Solar flare corona at interaction epicenter
-    let solar_corona = exp(-10.0 * dist) * pow(1.0 - wave.progress, 2.0) * 0.35;
+    let solar_corona = exp(-10.0 * dist) * pow(1.0 - wave.progress, 2.0) * 0.38;
 
     ripple = (cos(dist * 48.0 - wave_pos * 20.0 + wave.phase) * 0.06 + caustic + glint) * (1.0 - wave.progress);
 
-    let spectral_r = mix(amber_gold.r, solar_white.r, 0.35) * w_red + solar_corona * 0.9;
-    let spectral_g = mix(amber_gold.g, warm_topaz.g, 0.5) * (w_amber + ripple + fresnel) + solar_corona * 0.65;
-    let spectral_b = mix(warm_topaz.b, solar_white.b, 0.6) * w_blue + solar_corona * 0.2;
+    let spectral_r = mix(amber_gold.r, solar_white.r, 0.35) * (w_red + w_amber * 0.5) + solar_corona * solar_ruby.r;
+    let spectral_g = mix(amber_gold.g, warm_topaz.g, 0.5) * (w_yellow + w_green + ripple + fresnel) + solar_corona * warm_topaz.g;
+    let spectral_b = mix(warm_topaz.b, solar_white.b, 0.6) * (w_cyan + w_blue + w_violet * 0.4) + solar_corona * 0.2;
 
     wave_color = vec3f(spectral_r, spectral_g, spectral_b);
   } else {
@@ -146,18 +160,19 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
     let primary_tone = select(vec3f(0.08, 0.86, 0.52), vec3f(0.06, 0.68, 0.72), is_dark);
     let secondary_tone = select(vec3f(0.96, 0.76, 0.16), vec3f(0.18, 0.88, 1.0), is_dark);
 
-    // Quantum wave packet probability interference
-    let wave_packet = sin(angle * 8.0 + dist * 44.0 - time * 7.5 + wave.phase) * cos(angle * 12.0 - dist * 26.0 + time * 6.0 + wave.phase);
+    // Quantum wave packet probability interference with orbital nodal harmonic lines
+    let orbital_angle = angle + 2.5 * (1.0 - wave.progress);
+    let wave_packet = sin(orbital_angle * 8.0 + dist * 44.0 - time * 7.5 + wave.phase) * cos(orbital_angle * 12.0 - dist * 26.0 + time * 6.0 + wave.phase);
     let quantum_mix = mix(primary_tone, secondary_tone, wave_packet * 0.5 + 0.5);
 
     // Young double slit diffraction along wavefront
-    let slit_interference = pow(cos(angle * 16.0 + wave.phase), 2.0) * 0.05 * (1.0 - wave.progress);
+    let slit_interference = pow(cos(angle * 16.0 + wave.phase), 2.0) * 0.06 * (1.0 - wave.progress);
     ripple = (sin(dist * 66.0 - time * 10.0) * 0.06 + slit_interference) * (1.0 - wave.progress);
 
     wave_color = vec3f(
-      quantum_mix.r * w_red,
-      quantum_mix.g * (w_green + ripple + fresnel),
-      quantum_mix.b * w_cyan * 1.18
+      quantum_mix.r * (w_red + w_amber * 0.4),
+      quantum_mix.g * (w_green + w_yellow * 0.5 + ripple + fresnel),
+      quantum_mix.b * (w_cyan * 1.15 + w_blue * 0.85)
     );
   }
 
@@ -173,8 +188,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let c2 = sampleWave(uv, globals.wave2, globals.aspect, globals.time);
   let c3 = sampleWave(uv, globals.wave3, globals.aspect, globals.time);
   let c4 = sampleWave(uv, globals.wave4, globals.aspect, globals.time);
+  let c5 = sampleWave(uv, globals.wave5, globals.aspect, globals.time);
+  let c6 = sampleWave(uv, globals.wave6, globals.aspect, globals.time);
 
-  // Cross-wave physical interference between concurrent wavefronts
+  // Cross-wave physical interference across overlapping waves
   var cross_interference = 0.0;
   if (globals.wave1.enabled > 0.5 && globals.wave2.enabled > 0.5) {
     let p1 = length(uv - globals.wave1.origin);
@@ -184,11 +201,16 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   if (globals.wave2.enabled > 0.5 && globals.wave3.enabled > 0.5) {
     let p2 = length(uv - globals.wave2.origin);
     let p3 = length(uv - globals.wave3.origin);
-    cross_interference += cos(28.0 * (p2 - p3) + (globals.wave2.phase - globals.wave3.phase)) * c2.a * c3.a * 0.2;
+    cross_interference += cos(28.0 * (p2 - p3) + (globals.wave2.phase - globals.wave3.phase)) * c2.a * c3.a * 0.20;
+  }
+  if (globals.wave3.enabled > 0.5 && globals.wave4.enabled > 0.5) {
+    let p3 = length(uv - globals.wave3.origin);
+    let p4 = length(uv - globals.wave4.origin);
+    cross_interference += cos(28.0 * (p3 - p4) + (globals.wave3.phase - globals.wave4.phase)) * c3.a * c4.a * 0.15;
   }
 
-  let combined_rgb = c1.rgb + c2.rgb + c3.rgb + c4.rgb + vec3f(cross_interference);
-  let combined_alpha = min(1.0, c1.a + c2.a + c3.a + c4.a);
+  let combined_rgb = c1.rgb + c2.rgb + c3.rgb + c4.rgb + c5.rgb + c6.rgb + vec3f(cross_interference);
+  let combined_alpha = min(1.0, c1.a + c2.a + c3.a + c4.a + c5.a + c6.a);
 
   if (combined_alpha <= 0.0001) {
     return vec4f(0.0);
@@ -197,25 +219,55 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // Filmic tonemapping for HDR highlight preservation
   let tonemapped_rgb = tonemap(combined_rgb);
 
-  // Anti-banding triangular blue-noise dither for OLED HDR & Retina displays
-  let dither = (hash21(uv * 1200.0 + globals.time) - 0.5) / 255.0;
+  // Anti-banding golden-ratio temporal blue-noise dither for OLED HDR & Retina displays
+  let dither = (hash21(uv * globals.resolution, globals.time) - 0.5) / 255.0;
   let final_rgb = max(vec3f(0.0), tonemapped_rgb + vec3f(dither));
 
   return vec4f(final_rgb, combined_alpha);
 }
 `;
 
+function createInitialWave(): WaveSlot {
+  return {
+    origin: [0.5, 0.5],
+    startTime: 0,
+    duration: 640,
+    theme: 0,
+    effective: 0,
+    enabled: false,
+    phase: 0,
+  };
+}
+
+function evaluateWave(slot: WaveSlot, currentTime: number, duration: number) {
+  if (!slot.enabled) return { progress: 0.0, intensity: 0.0, active: false };
+  const elapsed = currentTime - slot.startTime;
+  const rawProgress = Math.min(1.0, elapsed / duration);
+  if (rawProgress < 1.0) {
+    // Quintic sensory easing: 1 - (1 - t)^5
+    const progress = 1.0 - (1.0 - rawProgress) ** 5;
+    // Fast attack, graceful decay intensity envelope
+    const intensity = rawProgress < 0.18 ? rawProgress / 0.18 : 1.0 - (rawProgress - 0.18) / 0.82;
+    return { progress, intensity, active: true };
+  }
+  slot.enabled = false;
+  return { progress: 0.0, intensity: 0.0, active: false };
+}
+
 /**
  * 10x Pro Hardware-Accelerated WebGPU Theme Wavefront Canvas via vgpu.
  *
- * Renders an atomic, 4-wave optical wavefront across the viewport during
+ * Renders an atomic, 6-wave optical wavefront across the viewport during
  * palette transitions (Dark, Light, System).
  *
  * Pro Engineering Highlights:
  * - Direct Metal/Vulkan WebGPU acceleration via vgpu.
- * - Atomic 4-Wave optical superposition: rapid mode toggling gracefully overlays
+ * - Atomic 6-Wave optical superposition: rapid mode toggling gracefully overlays
  *   concurrent wavefronts instead of abrupt resets.
+ * - 7-Band Cauchy chromatic dispersion (red to violet).
+ * - Relativistic Kerr vortex & photon rings (dark), 4-plane caustics (light), quantum nodal lines (system).
  * - Reactive viewport calibration via vgpu surface resize hooks.
+ * - Golden-ratio temporal blue-noise dither for Retina & OLED HDR panels.
  * - 0% CPU / GPU consumption when idle (render loop completely halts after transitions).
  * - Full cancellation & device loss recovery.
  * - Graceful degradation: If WebGPU is unavailable or reduced-motion is requested,
@@ -226,48 +278,17 @@ export function VgpuThemeCanvas() {
   const [isActive, setIsActive] = useState(false);
   const animFrameRef = useRef<number | null>(null);
 
-  const wave1Ref = useRef<WaveSlot>({
-    origin: [0.5, 0.5],
-    startTime: 0,
-    duration: 640,
-    theme: 0,
-    effective: 0,
-    enabled: false,
-    phase: 0,
-  });
-
-  const wave2Ref = useRef<WaveSlot>({
-    origin: [0.5, 0.5],
-    startTime: 0,
-    duration: 640,
-    theme: 0,
-    effective: 0,
-    enabled: false,
-    phase: 0,
-  });
-
-  const wave3Ref = useRef<WaveSlot>({
-    origin: [0.5, 0.5],
-    startTime: 0,
-    duration: 640,
-    theme: 0,
-    effective: 0,
-    enabled: false,
-    phase: 0,
-  });
-
-  const wave4Ref = useRef<WaveSlot>({
-    origin: [0.5, 0.5],
-    startTime: 0,
-    duration: 640,
-    theme: 0,
-    effective: 0,
-    enabled: false,
-    phase: 0,
-  });
+  const wave1Ref = useRef<WaveSlot>(createInitialWave());
+  const wave2Ref = useRef<WaveSlot>(createInitialWave());
+  const wave3Ref = useRef<WaveSlot>(createInitialWave());
+  const wave4Ref = useRef<WaveSlot>(createInitialWave());
+  const wave5Ref = useRef<WaveSlot>(createInitialWave());
+  const wave6Ref = useRef<WaveSlot>(createInitialWave());
 
   const aspectRef = useRef(1.0);
   const resolutionRef = useRef<[number, number]>([1920, 1080]);
+  const pointerRef = useRef<[number, number]>([0.5, 0.5]);
+  const pointerActiveRef = useRef(0.0);
 
   useEffect(() => {
     // WebGPU and browser environment checks
@@ -296,6 +317,15 @@ export function VgpuThemeCanvas() {
 
     aspectRef.current = window.innerWidth / Math.max(1, window.innerHeight);
     resolutionRef.current = [window.innerWidth, window.innerHeight];
+
+    const onPointerMove = (e: MouseEvent | PointerEvent) => {
+      pointerRef.current = [
+        e.clientX / Math.max(1, window.innerWidth),
+        e.clientY / Math.max(1, window.innerHeight),
+      ];
+      pointerActiveRef.current = 1.0;
+    };
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
 
     // Asynchronously initialize WebGPU via vgpu
     void (async () => {
@@ -341,46 +371,29 @@ export function VgpuThemeCanvas() {
           });
         }
 
+        const zeroWave = {
+          origin: [0.5, 0.5],
+          progress: 0.0,
+          theme: 0.0,
+          intensity: 0.0,
+          effective: 0.0,
+          enabled: 0.0,
+          phase: 0.0,
+        };
+
         const initialGlobals = {
           aspect: aspectRef.current,
           time: 0.0,
           resolution: resolutionRef.current,
-          wave1: {
-            origin: [0.5, 0.5],
-            progress: 0.0,
-            theme: 0.0,
-            intensity: 0.0,
-            effective: 0.0,
-            enabled: 0.0,
-            phase: 0.0,
-          },
-          wave2: {
-            origin: [0.5, 0.5],
-            progress: 0.0,
-            theme: 0.0,
-            intensity: 0.0,
-            effective: 0.0,
-            enabled: 0.0,
-            phase: 0.0,
-          },
-          wave3: {
-            origin: [0.5, 0.5],
-            progress: 0.0,
-            theme: 0.0,
-            intensity: 0.0,
-            effective: 0.0,
-            enabled: 0.0,
-            phase: 0.0,
-          },
-          wave4: {
-            origin: [0.5, 0.5],
-            progress: 0.0,
-            theme: 0.0,
-            intensity: 0.0,
-            effective: 0.0,
-            enabled: 0.0,
-            phase: 0.0,
-          },
+          mouse: pointerRef.current,
+          pointerActive: 0.0,
+          _pad: 0.0,
+          wave1: { ...zeroWave },
+          wave2: { ...zeroWave },
+          wave3: { ...zeroWave },
+          wave4: { ...zeroWave },
+          wave5: { ...zeroWave },
+          wave6: { ...zeroWave },
         };
 
         sharedGlobals = uniformsFn(gpuInstance, initialGlobals);
@@ -407,109 +420,75 @@ export function VgpuThemeCanvas() {
       if (disposed || !themeEffect || !currentSurface) return;
 
       const DURATION = 640; // ms: sensory luxury ease duration
-      let anyActive = false;
+      const w1 = evaluateWave(wave1Ref.current, currentTime, DURATION);
+      const w2 = evaluateWave(wave2Ref.current, currentTime, DURATION);
+      const w3 = evaluateWave(wave3Ref.current, currentTime, DURATION);
+      const w4 = evaluateWave(wave4Ref.current, currentTime, DURATION);
+      const w5 = evaluateWave(wave5Ref.current, currentTime, DURATION);
+      const w6 = evaluateWave(wave6Ref.current, currentTime, DURATION);
 
-      // Process Wave 1
-      let w1Progress = 0.0;
-      let w1Intensity = 0.0;
-      if (wave1Ref.current.enabled) {
-        const elapsed = currentTime - wave1Ref.current.startTime;
-        const rawProgress = Math.min(1.0, elapsed / DURATION);
-        if (rawProgress < 1.0) {
-          anyActive = true;
-          // Quintic sensory easing: 1 - (1 - t)^5
-          w1Progress = 1.0 - (1.0 - rawProgress) ** 5;
-          // Smooth intensity envelope: fast attack, graceful decay
-          w1Intensity = rawProgress < 0.18 ? rawProgress / 0.18 : 1.0 - (rawProgress - 0.18) / 0.82;
-        } else {
-          wave1Ref.current.enabled = false;
-        }
-      }
-
-      // Process Wave 2 (prior wave interference)
-      let w2Progress = 0.0;
-      let w2Intensity = 0.0;
-      if (wave2Ref.current.enabled) {
-        const elapsed = currentTime - wave2Ref.current.startTime;
-        const rawProgress = Math.min(1.0, elapsed / DURATION);
-        if (rawProgress < 1.0) {
-          anyActive = true;
-          w2Progress = 1.0 - (1.0 - rawProgress) ** 5;
-          w2Intensity = rawProgress < 0.18 ? rawProgress / 0.18 : 1.0 - (rawProgress - 0.18) / 0.82;
-        } else {
-          wave2Ref.current.enabled = false;
-        }
-      }
-
-      // Process Wave 3 (echo wave interference)
-      let w3Progress = 0.0;
-      let w3Intensity = 0.0;
-      if (wave3Ref.current.enabled) {
-        const elapsed = currentTime - wave3Ref.current.startTime;
-        const rawProgress = Math.min(1.0, elapsed / DURATION);
-        if (rawProgress < 1.0) {
-          anyActive = true;
-          w3Progress = 1.0 - (1.0 - rawProgress) ** 5;
-          w3Intensity = rawProgress < 0.18 ? rawProgress / 0.18 : 1.0 - (rawProgress - 0.18) / 0.82;
-        } else {
-          wave3Ref.current.enabled = false;
-        }
-      }
-
-      // Process Wave 4 (tertiary echo wave interference)
-      let w4Progress = 0.0;
-      let w4Intensity = 0.0;
-      if (wave4Ref.current.enabled) {
-        const elapsed = currentTime - wave4Ref.current.startTime;
-        const rawProgress = Math.min(1.0, elapsed / DURATION);
-        if (rawProgress < 1.0) {
-          anyActive = true;
-          w4Progress = 1.0 - (1.0 - rawProgress) ** 5;
-          w4Intensity = rawProgress < 0.18 ? rawProgress / 0.18 : 1.0 - (rawProgress - 0.18) / 0.82;
-        } else {
-          wave4Ref.current.enabled = false;
-        }
-      }
+      const anyActive = w1.active || w2.active || w3.active || w4.active || w5.active || w6.active;
 
       const updateData = {
         aspect: aspectRef.current,
         time: currentTime * 0.001,
         resolution: resolutionRef.current,
+        mouse: pointerRef.current,
+        pointerActive: pointerActiveRef.current,
+        _pad: 0.0,
         wave1: {
           origin: wave1Ref.current.origin,
-          progress: w1Progress,
+          progress: w1.progress,
           theme: wave1Ref.current.theme,
-          intensity: w1Intensity,
+          intensity: w1.intensity,
           effective: wave1Ref.current.effective,
           enabled: wave1Ref.current.enabled ? 1.0 : 0.0,
           phase: wave1Ref.current.phase,
         },
         wave2: {
           origin: wave2Ref.current.origin,
-          progress: w2Progress,
+          progress: w2.progress,
           theme: wave2Ref.current.theme,
-          intensity: w2Intensity,
+          intensity: w2.intensity,
           effective: wave2Ref.current.effective,
           enabled: wave2Ref.current.enabled ? 1.0 : 0.0,
           phase: wave2Ref.current.phase,
         },
         wave3: {
           origin: wave3Ref.current.origin,
-          progress: w3Progress,
+          progress: w3.progress,
           theme: wave3Ref.current.theme,
-          intensity: w3Intensity,
+          intensity: w3.intensity,
           effective: wave3Ref.current.effective,
           enabled: wave3Ref.current.enabled ? 1.0 : 0.0,
           phase: wave3Ref.current.phase,
         },
         wave4: {
           origin: wave4Ref.current.origin,
-          progress: w4Progress,
+          progress: w4.progress,
           theme: wave4Ref.current.theme,
-          intensity: w4Intensity,
+          intensity: w4.intensity,
           effective: wave4Ref.current.effective,
           enabled: wave4Ref.current.enabled ? 1.0 : 0.0,
           phase: wave4Ref.current.phase,
+        },
+        wave5: {
+          origin: wave5Ref.current.origin,
+          progress: w5.progress,
+          theme: wave5Ref.current.theme,
+          intensity: w5.intensity,
+          effective: wave5Ref.current.effective,
+          enabled: wave5Ref.current.enabled ? 1.0 : 0.0,
+          phase: wave5Ref.current.phase,
+        },
+        wave6: {
+          origin: wave6Ref.current.origin,
+          progress: w6.progress,
+          theme: wave6Ref.current.theme,
+          intensity: w6.intensity,
+          effective: wave6Ref.current.effective,
+          enabled: wave6Ref.current.enabled ? 1.0 : 0.0,
+          phase: wave6Ref.current.phase,
         },
       };
 
@@ -556,7 +535,13 @@ export function VgpuThemeCanvas() {
       const now = performance.now();
       const phase = (now * 0.005) % (Math.PI * 2);
 
-      // Quad-wave atomic FIFO queue: shift older waves to secondary echoes
+      // 6-wave atomic FIFO queue: shift older waves to secondary echoes
+      if (wave5Ref.current.enabled) {
+        wave6Ref.current = { ...wave5Ref.current };
+      }
+      if (wave4Ref.current.enabled) {
+        wave5Ref.current = { ...wave4Ref.current };
+      }
       if (wave3Ref.current.enabled) {
         wave4Ref.current = { ...wave3Ref.current };
       }
@@ -586,6 +571,7 @@ export function VgpuThemeCanvas() {
 
     return () => {
       disposed = true;
+      window.removeEventListener('pointermove', onPointerMove);
       unsubscribe();
       unsubResize?.();
       if (animFrameRef.current) {
