@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowUp,
   Bold,
+  Calendar,
   Check,
   ClipboardPaste,
   Code,
@@ -16,6 +17,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  FilePlus2,
   FolderOpen,
   Globe,
   Highlighter,
@@ -31,6 +33,7 @@ import {
   Loader2,
   Monitor,
   Moon,
+  Newspaper,
   PenLine,
   Plus,
   Redo2,
@@ -484,9 +487,30 @@ export function VisualEditOverlay() {
   // Revisions history modal state
   const [isRevisionsOpen, setIsRevisionsOpen] = useState(false);
   const [isCRMPanelOpen, setIsCRMPanelOpen] = useState(false);
+  const [crmTab, setCrmTab] = useState<'constituents' | 'events' | 'news' | 'links'>(
+    'constituents'
+  );
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [revisions, setRevisions] = useState<ContentRevision[]>([]);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
+
+  const openCrmWithTab = useCallback(
+    (tab?: 'constituents' | 'events' | 'news' | 'links') => {
+      if (tab) {
+        setCrmTab(tab);
+      } else if (pathname === '/events') {
+        setCrmTab('events');
+      } else if (pathname === '/news') {
+        setCrmTab('news');
+      } else if (pathname === '/links') {
+        setCrmTab('links');
+      } else {
+        setCrmTab('constituents');
+      }
+      setIsCRMPanelOpen(true);
+    },
+    [pathname]
+  );
 
   // Backend health details popover state
   const [showHealthDetails, setShowHealthDetails] = useState(false);
@@ -2285,8 +2309,10 @@ export function VisualEditOverlay() {
       setIsSettingsOpen(true);
     };
 
-    const handleOpenCRM = () => {
-      setIsCRMPanelOpen(true);
+    const handleOpenCRM = (e?: Event) => {
+      const detail = (e as CustomEvent<{ tab?: 'constituents' | 'events' | 'news' | 'links' }>)
+        ?.detail;
+      openCrmWithTab(detail?.tab);
     };
 
     const handleOpenDiagnostics = () => {
@@ -2345,6 +2371,7 @@ export function VisualEditOverlay() {
     handleOpenEditSection,
     handleOpenRevisions,
     jumpTo,
+    openCrmWithTab,
     sections,
   ]);
 
@@ -3547,15 +3574,66 @@ export function VisualEditOverlay() {
               </button>
             )}
 
+            {/* Quick Civic Publish & Creation Dropdown */}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  type="button"
+                  title="Create or manage: Posts, Events, Bulletins, or Links"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary-bright/40 bg-primary/20 px-2.5 py-1.5 text-xs font-bold text-primary-on-dark transition-colors hover:bg-primary/30 focus-visible:ring-2 focus-visible:ring-accent-gold"
+                >
+                  <Plus size={14} className="text-accent-gold" />
+                  <span className="hidden sm:inline">Publish</span>
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  side="top"
+                  align="start"
+                  sideOffset={8}
+                  className="z-50 min-w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                >
+                  <DropdownMenu.Item
+                    onSelect={() => router.push('/admin/content/new?type=post')}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                  >
+                    <FilePlus2 size={14} className="text-primary-on-dark" />
+                    <span>New Post</span>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onSelect={() => openCrmWithTab('events')}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                  >
+                    <Calendar size={14} className="text-purple-400" />
+                    <span>Manage Events</span>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onSelect={() => openCrmWithTab('news')}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                  >
+                    <Newspaper size={14} className="text-accent-gold" />
+                    <span>Manage Bulletins</span>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onSelect={() => openCrmWithTab('links')}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                  >
+                    <LinkIcon size={14} className="text-emerald-400" />
+                    <span>Manage Action Links</span>
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+
             {/* CRM Panel */}
             <button
               type="button"
-              onClick={() => setIsCRMPanelOpen(true)}
-              title="Open CRM Panel (Constituents, Tasks, Consent)"
+              onClick={() => openCrmWithTab()}
+              title="Open Civic CRM (Constituents, Events, News, Links)"
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
             >
               <UsersRound size={14} className="text-emerald-400" />
-              <span className="hidden sm:inline">Constituents</span>
+              <span className="hidden sm:inline">Civic CRM</span>
             </button>
 
             {/* Quick CRM Studio Link */}
@@ -5258,7 +5336,11 @@ export function VisualEditOverlay() {
       )}
 
       {/* ── CRM Panel ─────────────────────────────────────────────────────── */}
-      <CRMPanel isOpen={isCRMPanelOpen} onClose={() => setIsCRMPanelOpen(false)} />
+      <CRMPanel
+        isOpen={isCRMPanelOpen}
+        onClose={() => setIsCRMPanelOpen(false)}
+        initialTab={crmTab}
+      />
     </>
   );
 }

@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicEventManager } from '@/components/admin/civic/CivicEventManager';
+import { CivicLinkManager } from '@/components/admin/civic/CivicLinkManager';
 import { CivicNewsletterManager } from '@/components/admin/civic/CivicNewsletterManager';
 import { CRMContactEditorModal } from '@/components/admin/crm/CRMContactEditorModal';
 import { CRMTaskForm } from '@/components/admin/crm/CRMTaskForm';
@@ -66,7 +67,7 @@ import type {
 interface CRMPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'constituents' | 'events' | 'news';
+  initialTab?: 'constituents' | 'events' | 'news' | 'links';
 }
 
 /*
@@ -121,7 +122,9 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
   onClose,
   initialTab = 'constituents',
 }) => {
-  const [activeTab, setActiveTab] = useState<'constituents' | 'events' | 'news'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'constituents' | 'events' | 'news' | 'links'>(
+    initialTab
+  );
 
   useEffect(() => {
     if (isOpen && initialTab) {
@@ -853,6 +856,17 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                   >
                     Newsletters
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('links')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      activeTab === 'links'
+                        ? 'bg-primary text-white shadow-xs font-black'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Links
+                  </button>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -915,6 +929,10 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
           ) : activeTab === 'news' ? (
             <div className="p-5 h-[calc(85vh-80px)] overflow-hidden">
               <CivicNewsletterManager />
+            </div>
+          ) : activeTab === 'links' ? (
+            <div className="p-5 h-[calc(85vh-80px)] overflow-hidden">
+              <CivicLinkManager />
             </div>
           ) : (
             <div className="flex h-[calc(85vh-80px)] overflow-hidden">

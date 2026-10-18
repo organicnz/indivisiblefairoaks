@@ -176,6 +176,34 @@ vi.mock('@/lib/crm-filters', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/actions/civic', () => ({
+  getCivicEventsAdmin: vi.fn().mockResolvedValue({ success: true, data: [] }),
+  getCivicNewslettersAdmin: vi.fn().mockResolvedValue({ success: true, data: [] }),
+  getCoalitionLinksAdmin: vi.fn().mockResolvedValue({
+    success: true,
+    data: [
+      {
+        id: 'link-1',
+        slug: 'indivisible-national',
+        name: 'Indivisible National',
+        url: 'https://indivisible.org',
+        category: 'Coalition',
+        description: 'National Indivisible guide and resources.',
+        is_published: true,
+        sort_order: 1,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ],
+  }),
+  deleteCivicEvent: vi.fn().mockResolvedValue({ success: true }),
+  deleteCivicNewsletter: vi.fn().mockResolvedValue({ success: true }),
+  deleteCoalitionLink: vi.fn().mockResolvedValue({ success: true }),
+  saveCivicEvent: vi.fn().mockResolvedValue({ success: true }),
+  saveCivicNewsletter: vi.fn().mockResolvedValue({ success: true }),
+  saveCoalitionLink: vi.fn().mockResolvedValue({ success: true }),
+}));
+
 vi.mock('@/components/admin/ConfirmAction', () => ({
   ConfirmAction: ({ label, onConfirm, children }: any) => (
     <button
@@ -1121,5 +1149,44 @@ describe('CRMPanel', () => {
       'input[placeholder="Note title (e.g. Call summary)…"]'
     );
     expect(noteTitleInput).not.toBeNull();
+  });
+
+  it('switches between Constituents, Events, Newsletters, and Links tabs', async () => {
+    // Check initial tab is Constituents
+    expect(document.body.textContent).toContain('Constituents');
+
+    // Switch to Events tab
+    const eventsTabBtn = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.trim() === 'Events');
+    expect(eventsTabBtn).not.toBeUndefined();
+    await act(async () => {
+      eventsTabBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(document.body.textContent).toContain('New Event');
+
+    // Switch to Newsletters tab
+    const newsTabBtn = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === 'Newsletters'
+    );
+    expect(newsTabBtn).not.toBeUndefined();
+    await act(async () => {
+      newsTabBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(document.body.textContent).toContain('New Bulletin');
+
+    // Switch to Links tab
+    const linksTabBtn = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.textContent?.trim() === 'Links');
+    expect(linksTabBtn).not.toBeUndefined();
+    await act(async () => {
+      linksTabBtn?.click();
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(document.body.textContent).toContain('New Coalition Link');
+    expect(document.body.textContent).toContain('Indivisible National');
   });
 });

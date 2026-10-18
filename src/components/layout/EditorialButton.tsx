@@ -7,6 +7,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  FilePlus2,
   FolderOpen,
   History,
   PenLine,
@@ -16,6 +17,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { getPageCopyRegions } from '@/lib/copy-regions';
@@ -400,8 +402,16 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/10 transition-all bg-gradient-to-r from-emerald-500/5 to-transparent"
             >
               <UsersRound size={14} aria-hidden="true" />
-              Constituents & CRM
+              Civic CRM & Content
             </button>
+            <Link
+              href="/admin/content/new?type=post"
+              onClick={() => onNavigate()}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-sky-300 hover:text-sky-200 hover:bg-sky-500/10 transition-all bg-gradient-to-r from-sky-500/5 to-transparent"
+            >
+              <FilePlus2 size={14} aria-hidden="true" />
+              Write new post
+            </Link>
             <button
               type="button"
               onClick={() => {
