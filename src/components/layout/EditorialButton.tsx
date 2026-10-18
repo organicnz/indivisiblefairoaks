@@ -402,7 +402,7 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/10 transition-all bg-gradient-to-r from-emerald-500/5 to-transparent"
             >
               <UsersRound size={14} aria-hidden="true" />
-              Civic CRM & Content
+              Constituents & CRM
             </button>
             <Link
               href="/admin/content/new?type=post"
