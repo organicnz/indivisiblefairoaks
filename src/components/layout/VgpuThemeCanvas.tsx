@@ -49,6 +49,11 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+// ACES-inspired filmic tone-mapping to compress HDR highlights smoothly
+fn tonemap(color: vec3f) -> vec3f {
+  return (color * (1.0 + color * 0.25)) / (1.0 + color);
+}
+
 fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
   if (wave.enabled < 0.5 || wave.progress <= 0.0 || wave.progress >= 1.0) {
     return vec4f(0.0);
@@ -67,6 +72,10 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
   if (wave_crest <= 0.0005) {
     return vec4f(0.0);
   }
+
+  // 3D Volumetric Normal & Glass Rim Fresnel Sheen
+  let normal_z = max(0.05, 1.0 - abs(d) / wave_width);
+  let fresnel = pow(1.0 - normal_z, 3.5) * 0.45;
 
   // Multi-band chromatic dispersion based on Cauchy optical refraction
   let disp = 0.048 * (1.0 - wave.progress * 0.75);
@@ -98,10 +107,13 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
     ripple = (sin(dist * 56.0 - time * 8.0) * 0.08 + vortex) * (1.0 - wave.progress);
     let tone = mix(sapphire, celestial, doppler);
 
+    // Relativistic photon ring glow around the singularity
+    let photon_ring = exp(-32.0 * abs(dist - wave_pos * 0.38)) * pow(1.0 - wave.progress, 2.0) * 0.4;
+
     wave_color = vec3f(
-      cobalt.r * w_red * 0.85,
-      mix(tone.g, celestial.g, w_cyan) * (w_green + ripple),
-      celestial.b * w_blue * 1.22
+      cobalt.r * w_red * 0.85 + photon_ring * 0.1,
+      mix(tone.g, celestial.g, w_cyan) * (w_green + ripple + fresnel),
+      celestial.b * w_blue * 1.22 + photon_ring * 0.3
     );
   } else if (wave.theme > 0.5) {
     // ☀️ Light Mode: Solar Prismatic Caustic Diamond Burst
@@ -117,11 +129,16 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
 
     // Specular diamond glint sparkles at wave crest
     let glint = pow(max(0.0, sin(p.x * 65.0 + time * 4.0) * cos(p.y * 65.0 - time * 4.0)), 12.0) * 0.5 * (1.0 - wave.progress);
+
+    // Solar flare corona at interaction epicenter
+    let solar_corona = exp(-10.0 * dist) * pow(1.0 - wave.progress, 2.0) * 0.35;
+
     ripple = (cos(dist * 48.0 - wave_pos * 20.0 + wave.phase) * 0.06 + caustic + glint) * (1.0 - wave.progress);
 
-    let spectral_r = mix(amber_gold.r, solar_white.r, 0.35) * w_red;
-    let spectral_g = mix(amber_gold.g, warm_topaz.g, 0.5) * (w_amber + ripple);
-    let spectral_b = mix(warm_topaz.b, solar_white.b, 0.6) * w_blue;
+    let spectral_r = mix(amber_gold.r, solar_white.r, 0.35) * w_red + solar_corona * 0.9;
+    let spectral_g = mix(amber_gold.g, warm_topaz.g, 0.5) * (w_amber + ripple + fresnel) + solar_corona * 0.65;
+    let spectral_b = mix(warm_topaz.b, solar_white.b, 0.6) * w_blue + solar_corona * 0.2;
+
     wave_color = vec3f(spectral_r, spectral_g, spectral_b);
   } else {
     // ⚛️ System Mode: Quantum Superposition Dual-State Aurora
@@ -139,14 +156,14 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
 
     wave_color = vec3f(
       quantum_mix.r * w_red,
-      quantum_mix.g * (w_green + ripple),
+      quantum_mix.g * (w_green + ripple + fresnel),
       quantum_mix.b * w_cyan * 1.18
     );
   }
 
   // Smooth cinematic falloff towards screen perimeter
   let edge_fade = 1.0 - pow(clamp(dist / max_dist, 0.0, 1.0), 4.0);
-  let alpha = (wave_crest + ripple * 0.5) * wave.intensity * 0.45 * edge_fade;
+  let alpha = (wave_crest + ripple * 0.5 + fresnel * 0.3) * wave.intensity * 0.45 * edge_fade;
   return vec4f(wave_color * alpha, alpha);
 }
 
@@ -157,16 +174,32 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let c3 = sampleWave(uv, globals.wave3, globals.aspect, globals.time);
   let c4 = sampleWave(uv, globals.wave4, globals.aspect, globals.time);
 
-  let combined_rgb = c1.rgb + c2.rgb + c3.rgb + c4.rgb;
+  // Cross-wave physical interference between concurrent wavefronts
+  var cross_interference = 0.0;
+  if (globals.wave1.enabled > 0.5 && globals.wave2.enabled > 0.5) {
+    let p1 = length(uv - globals.wave1.origin);
+    let p2 = length(uv - globals.wave2.origin);
+    cross_interference += cos(28.0 * (p1 - p2) + (globals.wave1.phase - globals.wave2.phase)) * c1.a * c2.a * 0.25;
+  }
+  if (globals.wave2.enabled > 0.5 && globals.wave3.enabled > 0.5) {
+    let p2 = length(uv - globals.wave2.origin);
+    let p3 = length(uv - globals.wave3.origin);
+    cross_interference += cos(28.0 * (p2 - p3) + (globals.wave2.phase - globals.wave3.phase)) * c2.a * c3.a * 0.2;
+  }
+
+  let combined_rgb = c1.rgb + c2.rgb + c3.rgb + c4.rgb + vec3f(cross_interference);
   let combined_alpha = min(1.0, c1.a + c2.a + c3.a + c4.a);
 
   if (combined_alpha <= 0.0001) {
     return vec4f(0.0);
   }
 
+  // Filmic tonemapping for HDR highlight preservation
+  let tonemapped_rgb = tonemap(combined_rgb);
+
   // Anti-banding triangular blue-noise dither for OLED HDR & Retina displays
   let dither = (hash21(uv * 1200.0 + globals.time) - 0.5) / 255.0;
-  let final_rgb = max(vec3f(0.0), combined_rgb + vec3f(dither));
+  let final_rgb = max(vec3f(0.0), tonemapped_rgb + vec3f(dither));
 
   return vec4f(final_rgb, combined_alpha);
 }
