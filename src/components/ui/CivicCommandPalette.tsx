@@ -7,8 +7,11 @@ import {
   FileText,
   Heart,
   Mail,
+  Monitor,
+  Moon,
   Music,
   Search,
+  Sun,
   Users,
   Vote,
   X,
@@ -16,6 +19,7 @@ import {
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useThemeMode } from '@/components/layout/theme-store';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
@@ -23,10 +27,12 @@ interface PaletteItem {
   id: string;
   title: string;
   description: string;
-  category: 'Pages' | 'Direct Actions' | 'Civic Resources';
-  href: string;
+  category: 'Pages' | 'Direct Actions' | 'Civic Resources' | 'Preferences';
+  href?: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   isExternal?: boolean;
+  action?: 'theme-light' | 'theme-dark' | 'theme-system';
+  keywords?: string[];
 }
 
 const PALETTE_ITEMS: PaletteItem[] = [
@@ -120,6 +126,33 @@ const PALETTE_ITEMS: PaletteItem[] = [
     icon: Heart,
     isExternal: true,
   },
+  {
+    id: 'theme-light',
+    title: 'Switch to Light Theme',
+    description: 'Daytime crisp high-contrast presentation',
+    category: 'Preferences',
+    icon: Sun,
+    action: 'theme-light',
+    keywords: ['light', 'white', 'day', 'theme', 'appearance', 'mode', 'palette'],
+  },
+  {
+    id: 'theme-dark',
+    title: 'Switch to Dark Theme',
+    description: 'Nighttime sensory luxury obsidian & slate palette',
+    category: 'Preferences',
+    icon: Moon,
+    action: 'theme-dark',
+    keywords: ['dark', 'black', 'night', 'theme', 'appearance', 'mode', 'palette'],
+  },
+  {
+    id: 'theme-system',
+    title: 'System Theme (Follow OS)',
+    description: 'Sync palette automatically with device appearance setting',
+    category: 'Preferences',
+    icon: Monitor,
+    action: 'theme-system',
+    keywords: ['system', 'device', 'auto', 'automatic', 'theme', 'appearance', 'mode', 'os'],
+  },
 ];
 
 const FOCUS_RING =
@@ -133,6 +166,7 @@ export function CivicCommandPalette({
   setIsOpen?: (open: boolean) => void;
 } = {}) {
   const { dataPoints } = useDataPoints('palette');
+  const { setMode } = useThemeMode();
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = controlledOpen ?? internalOpen;
   const setIsOpen: (open: boolean) => void = setControlledOpen ?? setInternalOpen;
@@ -160,7 +194,8 @@ export function CivicCommandPalette({
       (item) =>
         item.title.toLowerCase().includes(needle) ||
         item.description.toLowerCase().includes(needle) ||
-        item.category.toLowerCase().includes(needle)
+        item.category.toLowerCase().includes(needle) ||
+        Boolean(item.keywords?.some((kw) => kw.toLowerCase().includes(needle)))
     );
   }, [query]);
 
@@ -176,13 +211,19 @@ export function CivicCommandPalette({
       setIsOpen(false);
       setQuery('');
       setSelectedIndex(0);
-      if (item.isExternal) {
+      if (item.action === 'theme-light') {
+        setMode('light');
+      } else if (item.action === 'theme-dark') {
+        setMode('dark');
+      } else if (item.action === 'theme-system') {
+        setMode('system');
+      } else if (item.isExternal && item.href) {
         window.open(item.href, '_blank', 'noopener,noreferrer');
-      } else {
+      } else if (item.href) {
         router.push(item.href);
       }
     },
-    [router, setIsOpen]
+    [router, setIsOpen, setMode]
   );
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

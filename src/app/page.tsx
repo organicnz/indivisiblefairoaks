@@ -310,7 +310,7 @@ export default async function HomePage() {
                 name="home.pillars.eyebrow"
                 as="span"
                 initialData={dataPoints}
-                className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2"
+                className="text-primary-ink dark:text-accent-gold text-xs font-black uppercase tracking-widest block mb-2"
               >
                 Our Core Principles
               </DataPoint>
@@ -570,7 +570,7 @@ export default async function HomePage() {
                 name="home.voter.eyebrow"
                 as="span"
                 initialData={dataPoints}
-                className="text-primary-ink text-xs font-black uppercase tracking-widest block mb-2"
+                className="text-primary-ink dark:text-accent-gold text-xs font-black uppercase tracking-widest block mb-2"
               >
                 Empowering Every Voter
               </DataPoint>
@@ -585,12 +585,12 @@ export default async function HomePage() {
             </div>
             <Link
               href="/voter-info"
-              className="inline-flex items-center gap-2 text-sm font-bold text-primary-ink hover:text-primary-dark transition-colors uppercase tracking-wider"
+              className="inline-flex items-center gap-2 text-sm font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted transition-colors uppercase tracking-wider"
             >
               <DataPoint as="span" name="home.voter.view_all" initialData={dataPoints}>
                 View All 7 Voter Guides
               </DataPoint>
-              <ArrowRight size={16} />
+              <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
 

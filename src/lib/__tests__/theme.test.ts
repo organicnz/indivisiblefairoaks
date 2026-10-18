@@ -3,6 +3,7 @@ import {
   applyThemeAttribute,
   isThemeMode,
   nextThemeMode,
+  playThemeHaptic,
   readThemeMode,
   resolveEffectiveTheme,
   THEME_ATTR,
@@ -207,5 +208,86 @@ describe('themeBootstrapScript', () => {
     expect(script).not.toContain('await');
     expect(script.startsWith('(function(){try{')).toBe(true);
     expect(script.endsWith('}})();')).toBe(true);
+  });
+});
+
+describe('playThemeHaptic', () => {
+  it('executes safely in environments without AudioContext', () => {
+    expect(() => playThemeHaptic('light', 'light')).not.toThrow();
+    expect(() => playThemeHaptic('dark', 'dark')).not.toThrow();
+    expect(() => playThemeHaptic('system', 'light')).not.toThrow();
+  });
+
+  it('triggers synthesized audio nodes when AudioContext is supported', () => {
+    const mockOsc = {
+      type: '',
+      frequency: {
+        setValueAtTime: vi.fn(),
+        exponentialRampToValueAtTime: vi.fn(),
+      },
+      connect: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+      onended: null,
+    };
+    const mockGain = {
+      gain: {
+        setValueAtTime: vi.fn(),
+        linearRampToValueAtTime: vi.fn(),
+        exponentialRampToValueAtTime: vi.fn(),
+      },
+      connect: vi.fn(),
+    };
+    const mockCtx = {
+      currentTime: 0,
+      destination: {},
+      createOscillator: vi.fn(() => mockOsc),
+      createGain: vi.fn(() => mockGain),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    class MockAudioContext {
+      currentTime = mockCtx.currentTime;
+      destination = mockCtx.destination;
+      createOscillator = mockCtx.createOscillator;
+      createGain = mockCtx.createGain;
+      close = mockCtx.close;
+    }
+
+    vi.stubGlobal('AudioContext', MockAudioContext);
+
+    try {
+      playThemeHaptic('light', 'light');
+      expect(mockCtx.createOscillator).toHaveBeenCalledTimes(1);
+      expect(mockCtx.createGain).toHaveBeenCalledTimes(1);
+      expect(mockOsc.start).toHaveBeenCalledTimes(1);
+      expect(mockOsc.stop).toHaveBeenCalledTimes(1);
+
+      // Light mode starts at 850Hz
+      expect(mockOsc.frequency.setValueAtTime).toHaveBeenCalledWith(850, 0);
+
+      // Dark mode starts at 950Hz
+      playThemeHaptic('dark', 'dark');
+      expect(mockOsc.frequency.setValueAtTime).toHaveBeenCalledWith(950, 0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('remains completely silent when prefers-reduced-motion is active', () => {
+    const MockAudioContext = vi.fn();
+    vi.stubGlobal('AudioContext', MockAudioContext);
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('prefers-reduced-motion: reduce'),
+      }))
+    );
+
+    try {
+      playThemeHaptic('dark', 'dark');
+      expect(MockAudioContext).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

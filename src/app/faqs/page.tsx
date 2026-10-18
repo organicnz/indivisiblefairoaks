@@ -184,7 +184,7 @@ export default async function FAQPage() {
             initialData={dataPoints}
             name="faqs.still_have_questions"
             as="h3"
-            className="text-xl font-black text-foreground dark:text-white"
+            className="text-xl font-black text-white"
           >
             Still have a question?
           </DataPoint>
@@ -192,13 +192,13 @@ export default async function FAQPage() {
             initialData={dataPoints}
             name="faqs.still_have_questions_sub"
             as="p"
-            className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark max-w-md mx-auto"
+            className="text-xs sm:text-sm text-ink-on-dark max-w-md mx-auto"
           >
             Our volunteer organizing committee is always here to help you get connected.
           </DataPoint>
           <Link
             href="/contact"
-            className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all"
+            className="inline-block px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
           >
             <DataPoint initialData={dataPoints} as="span" name="faqs.contact_button">
               Contact Us Directly

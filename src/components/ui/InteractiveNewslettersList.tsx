@@ -318,15 +318,15 @@ export function InteractiveNewslettersList({
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-border dark:border-white/10/80 mt-6 flex items-center justify-between">
+              <div className="pt-6 border-t border-border dark:border-white/10 mt-6 flex items-center justify-between">
                 <a
                   href="mailto:contact@indivisiblefairoaks.org?subject=Archive%20Request%20-%20Bulletin"
-                  className="text-xs font-bold text-primary-ink hover:underline flex items-center gap-1"
+                  className="text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:underline flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xs"
                 >
                   <DataPoint name="news.read_bulletin" as="span" initialData={dataPoints}>
                     Request Full Issue
                   </DataPoint>
-                  <ArrowRight size={14} />
+                  <ArrowRight size={14} aria-hidden="true" />
                 </a>
                 <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
                   PDF &amp; Email Archive

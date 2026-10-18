@@ -353,7 +353,7 @@ export default function GalleryPage() {
                 type="button"
                 data-gallery-photo={photo.id}
                 onClick={() => setSelectedPhotoId(photo.id)}
-                className="group relative h-88 rounded-3xl overflow-hidden border border-border dark:border-white/10/80 bg-surface-card dark:bg-secondary cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-primary dark:hover:border-slate-700 transition-all shadow-xl"
+                className="group relative h-88 rounded-3xl overflow-hidden border border-border dark:border-white/10 bg-surface-card dark:bg-secondary cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-bright hover:border-primary dark:hover:border-slate-700 transition-all shadow-xl"
               >
                 <Image
                   src={photo.url}

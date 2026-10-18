@@ -110,7 +110,7 @@ export function ProductCard({ product }: ProductCardProps) {
                   ${product.regular_price?.toFixed(2)}
                 </span>
               )}
-              <p className="text-lg sm:text-2xl font-black text-primary-ink leading-none tabular-nums">
+              <p className="text-lg sm:text-2xl font-black text-primary-ink dark:text-primary-on-dark leading-none tabular-nums">
                 ${product.price.toFixed(2)}
               </p>
             </div>

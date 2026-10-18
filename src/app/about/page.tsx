@@ -166,7 +166,10 @@ export default async function AboutPage() {
             initialData={dataPoints}
             className="text-2xl sm:text-3xl font-black text-foreground tracking-tight flex items-center gap-3"
           >
-            <Users className="text-primary-ink" />
+            <Users
+              className="text-primary-ink dark:text-primary-on-dark-muted"
+              aria-hidden="true"
+            />
             <span>Who We Are</span>
           </DataPoint>
           <CopyRegion id="about-who">

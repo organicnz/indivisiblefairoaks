@@ -5,6 +5,7 @@ import {
   applyThemeAttribute,
   type EffectiveTheme,
   nextThemeMode,
+  playThemeHaptic,
   readThemeMode,
   resolveEffectiveTheme,
   THEME_STORAGE_KEY,
@@ -101,18 +102,66 @@ export interface ThemeCoords {
   y?: number;
 }
 
-export function setThemeMode(next: ThemeMode, coords?: ThemeCoords): ThemeState {
+export interface ThemeHudEvent {
+  mode: ThemeMode;
+  effective: EffectiveTheme;
+  timestamp: number;
+  coords?: ThemeCoords;
+}
+
+const hudListeners = new Set<(event: ThemeHudEvent) => void>();
+
+export function subscribeThemeHud(listener: (event: ThemeHudEvent) => void): () => void {
+  hudListeners.add(listener);
+  return () => {
+    hudListeners.delete(listener);
+  };
+}
+
+export function emitThemeHud(
+  mode: ThemeMode,
+  effective: EffectiveTheme,
+  coords?: ThemeCoords
+): void {
+  const event: ThemeHudEvent = { mode, effective, timestamp: Date.now(), coords };
+  for (const listener of hudListeners) {
+    listener(event);
+  }
+}
+
+export function setThemeMode(
+  next: ThemeMode,
+  coords?: ThemeCoords,
+  options?: { silent?: boolean; noHud?: boolean }
+): ThemeState {
   writeThemeMode(storage(), next);
   const resolved: ThemeState = {
     mode: next,
     effective: resolveEffectiveTheme(next, prefersDark()),
   };
 
+  let resolvedCoords = coords;
+  if (!resolvedCoords && typeof window !== 'undefined' && 'event' in window) {
+    const ev = (window as unknown as { event?: MouseEvent }).event;
+    if (ev && typeof ev.clientX === 'number' && typeof ev.clientY === 'number') {
+      resolvedCoords = { x: ev.clientX, y: ev.clientY };
+    }
+  }
+  if (!resolvedCoords && typeof window !== 'undefined') {
+    resolvedCoords = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  }
+
   const apply = () => {
     if (typeof window !== 'undefined') {
       applyThemeAttribute(document.documentElement, resolved.effective);
     }
     replaceState(resolved);
+    if (!options?.silent) {
+      playThemeHaptic(next, resolved.effective);
+    }
+    if (!options?.noHud) {
+      emitThemeHud(next, resolved.effective, resolvedCoords);
+    }
   };
 
   const isReducedMotion =
@@ -126,14 +175,6 @@ export function setThemeMode(next: ThemeMode, coords?: ThemeCoords): ThemeState 
     typeof document.startViewTransition === 'function';
 
   if (hasViewTransition && !isReducedMotion) {
-    let resolvedCoords = coords;
-    if (!resolvedCoords && typeof window !== 'undefined' && 'event' in window) {
-      const ev = (window as unknown as { event?: MouseEvent }).event;
-      if (ev && typeof ev.clientX === 'number' && typeof ev.clientY === 'number') {
-        resolvedCoords = { x: ev.clientX, y: ev.clientY };
-      }
-    }
-
     const hasCoords =
       resolvedCoords?.x !== undefined &&
       resolvedCoords?.y !== undefined &&
