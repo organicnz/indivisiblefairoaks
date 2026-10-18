@@ -8,6 +8,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
   }),
+  usePathname: () => '/',
 }));
 
 const mockSetMode = vi.fn();
@@ -19,6 +20,21 @@ vi.mock('@/components/layout/theme-store', () => ({
     setMode: mockSetMode,
     cycle: mockCycle,
   })),
+}));
+
+const mockToggleVisualEdit = vi.fn();
+vi.mock('@/components/layout/visual-edit-store', () => ({
+  useVisualEditMode: vi.fn(() => ({
+    enabled: false,
+    toggle: mockToggleVisualEdit,
+  })),
+}));
+
+const mockUseEditContext = vi.hoisted(() =>
+  vi.fn(() => ({ loading: false, isAdmin: false, target: null }))
+);
+vi.mock('@/components/layout/useEditContext', () => ({
+  useEditContext: mockUseEditContext,
 }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -34,6 +50,8 @@ describe('CivicCommandPalette component', () => {
     mockPush.mockClear();
     mockSetMode.mockClear();
     mockCycle.mockClear();
+    mockToggleVisualEdit.mockClear();
+    mockUseEditContext.mockReturnValue({ loading: false, isAdmin: false, target: null });
   });
 
   afterEach(() => {
@@ -122,5 +140,40 @@ describe('CivicCommandPalette component', () => {
     });
 
     expect(mockCycle).toHaveBeenCalledWith('next');
+  });
+
+  it('shows admin publishing and management options when logged in as admin', async () => {
+    mockUseEditContext.mockReturnValue({ loading: false, isAdmin: true, target: null });
+    await act(async () => {
+      root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
+    });
+
+    const options = Array.from(document.querySelectorAll('li[role="option"]'));
+    const newPostOption = options.find((opt) => opt.textContent?.includes('Write New Post'));
+    expect(newPostOption).toBeDefined();
+
+    const eventsOption = options.find((opt) => opt.textContent?.includes('Manage Chapter Events'));
+    expect(eventsOption).toBeDefined();
+
+    const newsOption = options.find((opt) =>
+      opt.textContent?.includes('Manage Bulletins & Newsletters')
+    );
+    expect(newsOption).toBeDefined();
+
+    const linksOption = options.find((opt) =>
+      opt.textContent?.includes('Manage Coalition & Action Links')
+    );
+    expect(linksOption).toBeDefined();
+
+    const visualEditOption = options.find((opt) =>
+      opt.textContent?.includes('Toggle Visual Editor')
+    );
+    expect(visualEditOption).toBeDefined();
+
+    await act(async () => {
+      newPostOption?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+
+    expect(mockPush).toHaveBeenCalledWith('/admin/content/new?type=post');
   });
 });

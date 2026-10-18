@@ -4,23 +4,29 @@ import * as Dialog from '@radix-ui/react-dialog';
 import {
   Calendar,
   ExternalLink,
+  FilePlus2,
   FileText,
   Heart,
   Mail,
   Monitor,
   Moon,
   Music,
+  Newspaper,
+  PenLine,
   Search,
   Sparkles,
   Sun,
   Users,
+  UsersRound,
   Vote,
   X,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type React from 'react';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { useThemeMode } from '@/components/layout/theme-store';
+import { useEditContext } from '@/components/layout/useEditContext';
+import { useVisualEditMode } from '@/components/layout/visual-edit-store';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
@@ -28,11 +34,11 @@ interface PaletteItem {
   id: string;
   title: string;
   description: string;
-  category: 'Pages' | 'Direct Actions' | 'Civic Resources' | 'Preferences';
+  category: 'Pages' | 'Direct Actions' | 'Civic Resources' | 'Preferences' | 'Admin & Publishing';
   href?: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   isExternal?: boolean;
-  action?: 'theme-light' | 'theme-dark' | 'theme-system' | 'theme-cycle';
+  action?: 'theme-light' | 'theme-dark' | 'theme-system' | 'theme-cycle' | 'visual-edit-toggle';
   keywords?: string[];
 }
 
@@ -165,6 +171,63 @@ const PALETTE_ITEMS: PaletteItem[] = [
   },
 ];
 
+const ADMIN_PALETTE_ITEMS: PaletteItem[] = [
+  {
+    id: 'admin-new-post',
+    title: 'Write New Post',
+    description: 'Draft or publish a chapter article or dispatch in the block editor',
+    category: 'Admin & Publishing',
+    href: '/admin/content/new?type=post',
+    icon: FilePlus2,
+    keywords: ['post', 'write', 'article', 'dispatch', 'blog', 'publish', 'new', 'cms'],
+  },
+  {
+    id: 'admin-events',
+    title: 'Manage Chapter Events',
+    description: 'Add, edit, or publish meetings, rallies, and actions',
+    category: 'Admin & Publishing',
+    href: '/admin/events',
+    icon: Calendar,
+    keywords: ['event', 'meeting', 'action', 'rally', 'gathering', 'calendar', 'manage', 'edit'],
+  },
+  {
+    id: 'admin-news',
+    title: 'Manage Bulletins & Newsletters',
+    description: 'Publish chapter newsletters and legislative bulletins',
+    category: 'Admin & Publishing',
+    href: '/admin/news',
+    icon: Newspaper,
+    keywords: ['news', 'newsletter', 'bulletin', 'pdf', 'dispatch', 'alert', 'manage', 'edit'],
+  },
+  {
+    id: 'admin-links',
+    title: 'Manage Coalition & Action Links',
+    description: 'Curate partner, coalition, and voter action links',
+    category: 'Admin & Publishing',
+    href: '/admin/links',
+    icon: ExternalLink,
+    keywords: ['link', 'coalition', 'allies', 'partner', 'action', 'resource', 'manage', 'edit'],
+  },
+  {
+    id: 'admin-crm',
+    title: 'Civic CRM & Constituents',
+    description: 'Voter database, constituent tags, tasks, and consent',
+    category: 'Admin & Publishing',
+    href: '/admin/crm',
+    icon: UsersRound,
+    keywords: ['crm', 'constituent', 'supporter', 'volunteer', 'donor', 'tag', 'task', 'consent'],
+  },
+  {
+    id: 'admin-visual-edit',
+    title: 'Toggle Visual Editor (⌘E)',
+    description: 'Activate in-place visual section and content editing',
+    category: 'Admin & Publishing',
+    action: 'visual-edit-toggle',
+    icon: PenLine,
+    keywords: ['visual', 'editor', 'edit', 'inline', 'cms', 'block', 'overlay'],
+  },
+];
+
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary';
 
@@ -175,6 +238,9 @@ export function CivicCommandPalette({
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
 } = {}) {
+  const pathname = usePathname();
+  const { isAdmin } = useEditContext(pathname ?? '/');
+  const { toggle: toggleVisualEdit } = useVisualEditMode(pathname ?? '/');
   const { dataPoints } = useDataPoints('palette');
   const { setMode, cycle } = useThemeMode();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -198,16 +264,17 @@ export function CivicCommandPalette({
   }, [isOpen, setIsOpen]);
 
   const filteredItems = useMemo(() => {
+    const pool = isAdmin ? [...ADMIN_PALETTE_ITEMS, ...PALETTE_ITEMS] : PALETTE_ITEMS;
     const needle = query.trim().toLowerCase();
-    if (!needle) return PALETTE_ITEMS;
-    return PALETTE_ITEMS.filter(
+    if (!needle) return pool;
+    return pool.filter(
       (item) =>
         item.title.toLowerCase().includes(needle) ||
         item.description.toLowerCase().includes(needle) ||
         item.category.toLowerCase().includes(needle) ||
         Boolean(item.keywords?.some((kw) => kw.toLowerCase().includes(needle)))
     );
-  }, [query]);
+  }, [isAdmin, query]);
 
   // The highlight must stay inside the result set: shrinking the list while the
   // last index was selected left the palette with no active option and Enter did
@@ -232,7 +299,9 @@ export function CivicCommandPalette({
       setQuery('');
       setSelectedIndex(0);
 
-      if (item.action === 'theme-cycle') {
+      if (item.action === 'visual-edit-toggle') {
+        toggleVisualEdit();
+      } else if (item.action === 'theme-cycle') {
         if (coords) cycle('next', coords);
         else cycle('next');
       } else if (item.action === 'theme-light') {
@@ -250,7 +319,7 @@ export function CivicCommandPalette({
         router.push(item.href);
       }
     },
-    [router, setIsOpen, setMode, cycle]
+    [router, setIsOpen, setMode, cycle, toggleVisualEdit]
   );
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
