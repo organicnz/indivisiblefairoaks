@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { effect, init, surface } from 'vgpu';
+import type { effect, frame, init, surface, uniforms } from 'vgpu';
 import { subscribeThemeHud, type ThemeHudEvent } from './theme-store';
 
 type GpuContext = Awaited<ReturnType<typeof init>>;
 type GpuSurface = ReturnType<typeof surface>;
 type GpuEffect = ReturnType<typeof effect>;
+type GpuUniforms = ReturnType<typeof uniforms>;
 
 interface WaveSlot {
   origin: [number, number];
@@ -15,6 +16,7 @@ interface WaveSlot {
   theme: number; // 2.0 = dark, 1.0 = light, 0.0 = system
   effective: number; // 1.0 = dark, 0.0 = light
   enabled: boolean;
+  phase: number;
 }
 
 const THEME_WGSL = `
@@ -25,7 +27,7 @@ struct WaveParams {
   intensity: f32,
   effective: f32,
   enabled: f32,
-  _pad: f32,
+  phase: f32,
 }
 
 struct GlobalThemeParams {
@@ -34,6 +36,7 @@ struct GlobalThemeParams {
   resolution: vec2f,
   wave1: WaveParams,
   wave2: WaveParams,
+  wave3: WaveParams,
 }
 
 @group(0) @binding(0) var<uniform> globals: GlobalThemeParams;
@@ -65,7 +68,7 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
   }
 
   // Multi-band chromatic dispersion based on Cauchy optical refraction
-  let disp = 0.04 * (1.0 - wave.progress * 0.72);
+  let disp = 0.045 * (1.0 - wave.progress * 0.75);
   let d_red = dist - (wave_pos + disp * 1.3);
   let d_amber = dist - (wave_pos + disp * 0.65);
   let d_green = dist - wave_pos;
@@ -81,29 +84,32 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
   var wave_color = vec3f(0.0);
   var ripple = 0.0;
 
+  let angle = atan2(p.y, p.x);
+
   if (wave.theme > 1.5) {
-    // 🌌 Dark Mode: Obsidian Cosmic Void & Gravitational Lensing
+    // 🌌 Dark Mode: Obsidian Gravitational Singularity & Cosmic Lensing
     let sapphire = vec3f(0.06, 0.22, 0.88);
     let cobalt = vec3f(0.12, 0.46, 0.98);
     let celestial = vec3f(0.24, 0.80, 1.0);
 
-    let angle = atan2(p.y, p.x);
-    let vortex = sin(angle * 6.0 + dist * 36.0 - time * 6.0) * 0.07 * (1.0 - wave.progress);
-    ripple = (sin(dist * 52.0 - time * 8.0) * 0.08 + vortex) * (1.0 - wave.progress);
+    // Relativistic space-time deflection and gravitational vortex
+    let vortex = sin(angle * 6.0 + dist * 38.0 - time * 6.0 + wave.phase) * 0.08 * (1.0 - wave.progress);
+    ripple = (sin(dist * 54.0 - time * 8.0) * 0.08 + vortex) * (1.0 - wave.progress);
 
     wave_color = vec3f(
       cobalt.r * w_red * 0.85,
       mix(sapphire.g, celestial.g, w_cyan) * (w_green + ripple),
-      celestial.b * w_blue * 1.18
+      celestial.b * w_blue * 1.2
     );
   } else if (wave.theme > 0.5) {
-    // ☀️ Light Mode: Solar Prismatic Caustic Diamond Ray
-    let solar_white = vec3f(1.0, 0.98, 0.93);
+    // ☀️ Light Mode: Solar Prismatic Caustic Diamond Burst
+    let solar_white = vec3f(1.0, 0.98, 0.94);
     let amber_gold = vec3f(0.96, 0.64, 0.06);
     let warm_topaz = vec3f(1.0, 0.78, 0.18);
 
-    let caustic = (sin(p.x * 32.0 + time * 3.5) * cos(p.y * 32.0 - time * 2.5) + sin((p.x + p.y) * 22.0 + time * 4.0)) * 0.05 * (1.0 - wave.progress);
-    ripple = (cos(dist * 44.0 - wave_pos * 20.0) * 0.06 + caustic) * (1.0 - wave.progress);
+    // Faceted crystalline caustics and Airy diffraction rings
+    let caustic = (sin(p.x * 32.0 + time * 3.5) * cos(p.y * 32.0 - time * 2.5) + sin((p.x + p.y) * 24.0 + time * 4.0)) * 0.055 * (1.0 - wave.progress);
+    ripple = (cos(dist * 46.0 - wave_pos * 20.0 + wave.phase) * 0.065 + caustic) * (1.0 - wave.progress);
 
     let spectral_r = mix(amber_gold.r, solar_white.r, 0.35) * w_red;
     let spectral_g = mix(amber_gold.g, warm_topaz.g, 0.5) * (w_amber + ripple);
@@ -112,19 +118,20 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
     wave_color = vec3f(spectral_r, spectral_g, spectral_b);
   } else {
     // ⚛️ System Mode: Quantum Superposition Dual-State Aurora
-    let emerald = vec3f(0.06, 0.78, 0.54);
-    let cyan = vec3f(0.03, 0.74, 0.88);
+    let is_dark = wave.effective > 0.5;
+    let primary_tone = select(vec3f(0.06, 0.78, 0.54), vec3f(0.08, 0.55, 0.95), is_dark);
+    let secondary_tone = select(vec3f(0.03, 0.74, 0.88), vec3f(0.25, 0.85, 0.82), is_dark);
 
-    let angle = atan2(p.y, p.x);
-    let double_helix = sin(angle * 8.0 + dist * 40.0 - time * 7.0) * 0.5 + 0.5;
-    let quantum_mix = mix(emerald, cyan, double_helix);
+    // Quantum wave function interference with double-helix phase modulation
+    let double_helix = sin(angle * 8.0 + dist * 42.0 - time * 7.0 + wave.phase) * 0.5 + 0.5;
+    let quantum_mix = mix(primary_tone, secondary_tone, double_helix);
 
-    ripple = sin(dist * 62.0 - time * 10.0) * 0.055 * (1.0 - wave.progress);
+    ripple = sin(dist * 64.0 - time * 10.0) * 0.06 * (1.0 - wave.progress);
 
     wave_color = vec3f(
       quantum_mix.r * w_red,
       quantum_mix.g * (w_green + ripple),
-      quantum_mix.b * w_cyan * 1.12
+      quantum_mix.b * w_cyan * 1.15
     );
   }
 
@@ -136,9 +143,10 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let c1 = sampleWave(uv, globals.wave1, globals.aspect, globals.time);
   let c2 = sampleWave(uv, globals.wave2, globals.aspect, globals.time);
+  let c3 = sampleWave(uv, globals.wave3, globals.aspect, globals.time);
 
-  let combined_rgb = c1.rgb + c2.rgb;
-  let combined_alpha = min(1.0, c1.a + c2.a);
+  let combined_rgb = c1.rgb + c2.rgb + c3.rgb;
+  let combined_alpha = min(1.0, c1.a + c2.a + c3.a);
 
   if (combined_alpha <= 0.0001) {
     return vec4f(0.0);
@@ -160,7 +168,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
  *
  * Pro Engineering Highlights:
  * - Direct Metal/Vulkan WebGPU acceleration via vgpu.
- * - Atomic Dual-Wave optical interference: rapid mode toggling gracefully overlays
+ * - Atomic Triple-Wave optical superposition: rapid mode toggling gracefully overlays
  *   concurrent wavefronts instead of abrupt resets.
  * - Reactive viewport calibration via vgpu surface resize hooks.
  * - 0% CPU / GPU consumption when idle (render loop completely halts after transitions).
@@ -176,19 +184,31 @@ export function VgpuThemeCanvas() {
   const wave1Ref = useRef<WaveSlot>({
     origin: [0.5, 0.5],
     startTime: 0,
-    duration: 580,
+    duration: 620,
     theme: 0,
     effective: 0,
     enabled: false,
+    phase: 0,
   });
 
   const wave2Ref = useRef<WaveSlot>({
     origin: [0.5, 0.5],
     startTime: 0,
-    duration: 580,
+    duration: 620,
     theme: 0,
     effective: 0,
     enabled: false,
+    phase: 0,
+  });
+
+  const wave3Ref = useRef<WaveSlot>({
+    origin: [0.5, 0.5],
+    startTime: 0,
+    duration: 620,
+    theme: 0,
+    effective: 0,
+    enabled: false,
+    phase: 0,
   });
 
   const aspectRef = useRef(1.0);
@@ -215,6 +235,8 @@ export function VgpuThemeCanvas() {
     let gpuInstance: GpuContext | null = null;
     let currentSurface: GpuSurface | null = null;
     let themeEffect: GpuEffect | null = null;
+    let sharedGlobals: GpuUniforms | null = null;
+    let vgpuFrame: typeof frame | null = null;
     let unsubResize: (() => void) | null = null;
 
     aspectRef.current = window.innerWidth / Math.max(1, window.innerHeight);
@@ -223,8 +245,11 @@ export function VgpuThemeCanvas() {
     // Asynchronously initialize WebGPU via vgpu
     void (async () => {
       try {
-        const { init, effect, surface } = await import('vgpu');
+        const vgpuModule = await import('vgpu');
         if (disposed) return;
+
+        const { init, effect, surface, frame: frameFn, uniforms: uniformsFn } = vgpuModule;
+        vgpuFrame = frameFn;
 
         gpuInstance = await init();
         if (disposed) {
@@ -240,10 +265,14 @@ export function VgpuThemeCanvas() {
             gpuInstance = null;
             currentSurface = null;
             themeEffect = null;
+            sharedGlobals = null;
           }
         });
 
-        currentSurface = surface(gpuInstance, canvas, { dpr: [1, 2] });
+        currentSurface = surface(gpuInstance, canvas, {
+          dpr: [1, 2],
+          clearColor: [0, 0, 0, 0],
+        });
 
         // Bind reactive resize hook
         if (typeof (currentSurface as { onResize?: unknown }).onResize === 'function') {
@@ -257,33 +286,46 @@ export function VgpuThemeCanvas() {
           });
         }
 
+        const initialGlobals = {
+          aspect: aspectRef.current,
+          time: 0.0,
+          resolution: resolutionRef.current,
+          wave1: {
+            origin: [0.5, 0.5],
+            progress: 0.0,
+            theme: 0.0,
+            intensity: 0.0,
+            effective: 0.0,
+            enabled: 0.0,
+            phase: 0.0,
+          },
+          wave2: {
+            origin: [0.5, 0.5],
+            progress: 0.0,
+            theme: 0.0,
+            intensity: 0.0,
+            effective: 0.0,
+            enabled: 0.0,
+            phase: 0.0,
+          },
+          wave3: {
+            origin: [0.5, 0.5],
+            progress: 0.0,
+            theme: 0.0,
+            intensity: 0.0,
+            effective: 0.0,
+            enabled: 0.0,
+            phase: 0.0,
+          },
+        };
+
+        sharedGlobals = uniformsFn(gpuInstance, initialGlobals);
+
         themeEffect = effect(gpuInstance, THEME_WGSL, {
           label: 'atomic-theme-wavefront-10x-pro',
           blend: 'alpha',
           set: {
-            globals: {
-              aspect: aspectRef.current,
-              time: 0.0,
-              resolution: resolutionRef.current,
-              wave1: {
-                origin: [0.5, 0.5],
-                progress: 0.0,
-                theme: 0.0,
-                intensity: 0.0,
-                effective: 0.0,
-                enabled: 0.0,
-                _pad: 0.0,
-              },
-              wave2: {
-                origin: [0.5, 0.5],
-                progress: 0.0,
-                theme: 0.0,
-                intensity: 0.0,
-                effective: 0.0,
-                enabled: 0.0,
-                _pad: 0.0,
-              },
-            },
+            globals: sharedGlobals,
           },
         });
 
@@ -300,7 +342,7 @@ export function VgpuThemeCanvas() {
     const step = (currentTime: number) => {
       if (disposed || !themeEffect || !currentSurface) return;
 
-      const DURATION = 580; // ms: sensory luxury ease duration
+      const DURATION = 620; // ms: sensory luxury ease duration
       let anyActive = false;
 
       // Process Wave 1
@@ -314,7 +356,7 @@ export function VgpuThemeCanvas() {
           // Quintic sensory easing: 1 - (1 - t)^5
           w1Progress = 1.0 - (1.0 - rawProgress) ** 5;
           // Smooth intensity envelope: fast attack, graceful decay
-          w1Intensity = rawProgress < 0.22 ? rawProgress / 0.22 : 1.0 - (rawProgress - 0.22) / 0.78;
+          w1Intensity = rawProgress < 0.2 ? rawProgress / 0.2 : 1.0 - (rawProgress - 0.2) / 0.8;
         } else {
           wave1Ref.current.enabled = false;
         }
@@ -329,40 +371,76 @@ export function VgpuThemeCanvas() {
         if (rawProgress < 1.0) {
           anyActive = true;
           w2Progress = 1.0 - (1.0 - rawProgress) ** 5;
-          w2Intensity = rawProgress < 0.22 ? rawProgress / 0.22 : 1.0 - (rawProgress - 0.22) / 0.78;
+          w2Intensity = rawProgress < 0.2 ? rawProgress / 0.2 : 1.0 - (rawProgress - 0.2) / 0.8;
         } else {
           wave2Ref.current.enabled = false;
         }
       }
 
-      themeEffect.set({
-        globals: {
-          aspect: aspectRef.current,
-          time: currentTime * 0.001,
-          resolution: resolutionRef.current,
-          wave1: {
-            origin: wave1Ref.current.origin,
-            progress: w1Progress,
-            theme: wave1Ref.current.theme,
-            intensity: w1Intensity,
-            effective: wave1Ref.current.effective,
-            enabled: wave1Ref.current.enabled ? 1.0 : 0.0,
-            _pad: 0.0,
-          },
-          wave2: {
-            origin: wave2Ref.current.origin,
-            progress: w2Progress,
-            theme: wave2Ref.current.theme,
-            intensity: w2Intensity,
-            effective: wave2Ref.current.effective,
-            enabled: wave2Ref.current.enabled ? 1.0 : 0.0,
-            _pad: 0.0,
-          },
+      // Process Wave 3 (echo wave interference)
+      let w3Progress = 0.0;
+      let w3Intensity = 0.0;
+      if (wave3Ref.current.enabled) {
+        const elapsed = currentTime - wave3Ref.current.startTime;
+        const rawProgress = Math.min(1.0, elapsed / DURATION);
+        if (rawProgress < 1.0) {
+          anyActive = true;
+          w3Progress = 1.0 - (1.0 - rawProgress) ** 5;
+          w3Intensity = rawProgress < 0.2 ? rawProgress / 0.2 : 1.0 - (rawProgress - 0.2) / 0.8;
+        } else {
+          wave3Ref.current.enabled = false;
+        }
+      }
+
+      const updateData = {
+        aspect: aspectRef.current,
+        time: currentTime * 0.001,
+        resolution: resolutionRef.current,
+        wave1: {
+          origin: wave1Ref.current.origin,
+          progress: w1Progress,
+          theme: wave1Ref.current.theme,
+          intensity: w1Intensity,
+          effective: wave1Ref.current.effective,
+          enabled: wave1Ref.current.enabled ? 1.0 : 0.0,
+          phase: wave1Ref.current.phase,
         },
-      });
+        wave2: {
+          origin: wave2Ref.current.origin,
+          progress: w2Progress,
+          theme: wave2Ref.current.theme,
+          intensity: w2Intensity,
+          effective: wave2Ref.current.effective,
+          enabled: wave2Ref.current.enabled ? 1.0 : 0.0,
+          phase: wave2Ref.current.phase,
+        },
+        wave3: {
+          origin: wave3Ref.current.origin,
+          progress: w3Progress,
+          theme: wave3Ref.current.theme,
+          intensity: w3Intensity,
+          effective: wave3Ref.current.effective,
+          enabled: wave3Ref.current.enabled ? 1.0 : 0.0,
+          phase: wave3Ref.current.phase,
+        },
+      };
+
+      if (sharedGlobals) {
+        sharedGlobals.set(updateData);
+      } else {
+        themeEffect.set({ globals: updateData });
+      }
 
       try {
-        themeEffect.draw(currentSurface);
+        if (vgpuFrame && currentSurface && gpuInstance) {
+          vgpuFrame(gpuInstance, (f) => {
+            f.pass({ target: currentSurface as GpuSurface, clear: [0, 0, 0, 0] }, (p) => {
+              p.draw(themeEffect as GpuEffect);
+            });
+          });
+        } else {
+          themeEffect.draw(currentSurface);
+        }
       } catch {
         // Suppress draw interruption
       }
@@ -388,8 +466,12 @@ export function VgpuThemeCanvas() {
       const effectiveValue = event.effective === 'dark' ? 1.0 : 0.0;
 
       const now = performance.now();
+      const phase = (now * 0.005) % (Math.PI * 2);
 
-      // Dual-wave atomic queue: if Wave 1 is active, hand it off to Wave 2 for optical interference
+      // Triple-wave atomic queue: hand off wave 2 to wave 3, wave 1 to wave 2
+      if (wave2Ref.current.enabled) {
+        wave3Ref.current = { ...wave2Ref.current };
+      }
       if (wave1Ref.current.enabled) {
         wave2Ref.current = { ...wave1Ref.current };
       }
@@ -397,10 +479,11 @@ export function VgpuThemeCanvas() {
       wave1Ref.current = {
         origin: [originX, originY],
         startTime: now,
-        duration: 580,
+        duration: 620,
         theme: themeValue,
         effective: effectiveValue,
         enabled: true,
+        phase,
       };
 
       setIsActive(true);

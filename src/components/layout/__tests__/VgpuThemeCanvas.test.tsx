@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VgpuThemeCanvas } from '@/components/layout/VgpuThemeCanvas';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -46,5 +46,31 @@ describe('VgpuThemeCanvas component', () => {
         root.unmount();
       });
     }).not.toThrow();
+  });
+
+  it('respects prefers-reduced-motion without throwing or mounting WebGPU pipelines', async () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    try {
+      await act(async () => {
+        root.render(<VgpuThemeCanvas />);
+      });
+
+      const canvas = container.querySelector('canvas');
+      expect(canvas).not.toBeNull();
+      expect(canvas?.className).toContain('opacity-0');
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
   });
 });

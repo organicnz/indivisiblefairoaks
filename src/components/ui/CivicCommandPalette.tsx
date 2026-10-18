@@ -208,15 +208,29 @@ export function CivicCommandPalette({
 
   const handleSelect = useCallback(
     (item: PaletteItem) => {
+      const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+      const rect = activeEl?.getBoundingClientRect();
+      const coords =
+        rect && (rect.width > 0 || rect.height > 0)
+          ? {
+              x: Math.round(rect.left + rect.width / 2),
+              y: Math.round(rect.top + rect.height / 2),
+            }
+          : undefined;
+
       setIsOpen(false);
       setQuery('');
       setSelectedIndex(0);
+
       if (item.action === 'theme-light') {
-        setMode('light');
+        if (coords) setMode('light', coords);
+        else setMode('light');
       } else if (item.action === 'theme-dark') {
-        setMode('dark');
+        if (coords) setMode('dark', coords);
+        else setMode('dark');
       } else if (item.action === 'theme-system') {
-        setMode('system');
+        if (coords) setMode('system', coords);
+        else setMode('system');
       } else if (item.isExternal && item.href) {
         window.open(item.href, '_blank', 'noopener,noreferrer');
       } else if (item.href) {

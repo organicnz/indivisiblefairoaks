@@ -60,6 +60,11 @@ export function ThemeHud() {
         return;
       }
 
+      if (e.key === 'Escape') {
+        setIsVisible(false);
+        return;
+      }
+
       // Shift + T (without Cmd/Ctrl/Alt)
       if (e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === 't') {
         e.preventDefault();

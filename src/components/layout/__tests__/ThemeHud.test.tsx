@@ -202,4 +202,29 @@ describe('ThemeHud component', () => {
     // Now hidden
     expect(hud?.className).toContain('opacity-0');
   });
+
+  it('dismisses immediately when the user presses Escape', async () => {
+    await act(async () => {
+      root.render(<ThemeHud />);
+    });
+
+    await act(async () => {
+      emitThemeHud('dark', 'dark');
+    });
+
+    const hud = container.querySelector('[role="status"]');
+    expect(hud?.className).toContain('opacity-100');
+
+    // Press Escape
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(async () => {
+      window.dispatchEvent(event);
+    });
+
+    expect(hud?.className).toContain('opacity-0');
+  });
 });
