@@ -34,6 +34,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://${supabaseHost} https://images.unsplash.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`,
   "font-src 'self' data:",
+  `media-src 'self' data: blob: https://${supabaseHost} https://*.supabase.co https://*.s3.amazonaws.com https:`,
   // Same-origin `/_vercel/*` covers the RUM beacons, so no extra origins needed.
   // Sentry ingest is the exception: the client SDK POSTs events there, and the
   // exact per-project host (not a wildcard) so a misconfigured DSN fails closed
