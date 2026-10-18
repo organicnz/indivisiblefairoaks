@@ -274,3 +274,109 @@ export async function deleteCivicNewsletter(slug: string): Promise<CivicActionRe
     return fail(err instanceof Error ? err.message : 'Failed to delete newsletter');
   }
 }
+
+export interface CoalitionLinkRecord {
+  slug: string;
+  name: string;
+  category: string;
+  url: string;
+  description: string;
+  badge: string | null;
+  sort_order: number;
+  created_at?: string;
+}
+
+const linkSchema = z.object({
+  slug: z.string().trim().min(1).max(120).optional(),
+  name: z.string().trim().min(1, 'Link name is required').max(200),
+  category: z.string().trim().default('Movement Partners'),
+  url: z.string().trim().url('Valid URL is required (http/https)').max(500),
+  description: z.string().trim().default(''),
+  badge: z.string().trim().max(100).nullable().optional(),
+  sort_order: z.number().int().default(0),
+});
+
+/**
+ * Fetch all coalition and civic action links for admin management.
+ */
+export async function getCoalitionLinksAdmin(): Promise<CivicActionResult<CoalitionLinkRecord[]>> {
+  try {
+    const { adminClient } = await requireAdmin();
+    const { data, error } = await adminClient
+      .from('coalition_links')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (error) return fail(error.message);
+    return { success: true, data: (data ?? []) as CoalitionLinkRecord[] };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : 'Failed to load coalition links');
+  }
+}
+
+/**
+ * Create or update a coalition link.
+ */
+export async function saveCoalitionLink(
+  rawInput: z.input<typeof linkSchema>
+): Promise<CivicActionResult<CoalitionLinkRecord>> {
+  try {
+    const { adminClient } = await requireAdmin();
+    const parsed = linkSchema.safeParse(rawInput);
+    if (!parsed.success) {
+      return fail(parsed.error.issues[0]?.message || 'Invalid link data');
+    }
+
+    const payload = parsed.data;
+    const finalSlug = payload.slug
+      ? slugify(payload.slug)
+      : slugify(payload.name) || `link-${Date.now()}`;
+
+    const upsertRow = {
+      slug: finalSlug,
+      name: payload.name,
+      category: payload.category,
+      url: payload.url,
+      description: payload.description,
+      badge: payload.badge || null,
+      sort_order: payload.sort_order,
+    };
+
+    const { data, error } = await adminClient
+      .from('coalition_links')
+      .upsert(upsertRow, { onConflict: 'slug' })
+      .select('*')
+      .single();
+
+    if (error) return fail(error.message);
+
+    revalidateTag('coalition-links', 'hours');
+    revalidatePath('/links');
+
+    return { success: true, data: data as CoalitionLinkRecord };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : 'Failed to save coalition link');
+  }
+}
+
+/**
+ * Delete a coalition link by slug.
+ */
+export async function deleteCoalitionLink(slug: string): Promise<CivicActionResult> {
+  try {
+    const { adminClient } = await requireAdmin();
+    const cleanSlug = slugify(slug);
+    if (!cleanSlug) return fail('Link slug is required');
+
+    const { error } = await adminClient.from('coalition_links').delete().eq('slug', cleanSlug);
+    if (error) return fail(error.message);
+
+    revalidateTag('coalition-links', 'hours');
+    revalidatePath('/links');
+
+    return { success: true };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : 'Failed to delete coalition link');
+  }
+}

@@ -94,13 +94,22 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
         <h1 className="font-heading text-2xl font-black uppercase tracking-tight text-foreground">
           {dataPoints['admin.content.title'] || 'Pages & posts'}
         </h1>
-        <Link
-          href="/admin/content/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-dark focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-        >
-          <FilePlus2 size={16} aria-hidden="true" />
-          New page
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/content/new?type=post"
+            className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <FilePlus2 size={16} aria-hidden="true" />
+            New post
+          </Link>
+          <Link
+            href="/admin/content/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-dark focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <FilePlus2 size={16} aria-hidden="true" />
+            New page
+          </Link>
+        </div>
       </div>
 
       <form

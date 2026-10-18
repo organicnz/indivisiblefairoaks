@@ -2,8 +2,11 @@
 
 import {
   BadgePercent,
+  Calendar,
   FileText,
   LayoutDashboard,
+  Link2,
+  Newspaper,
   Package,
   ShoppingBag,
   Users,
@@ -13,14 +16,24 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
-const ITEMS = [
+interface AdminNavItem {
+  href: string;
+  labelKey?: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}
+
+const ITEMS: AdminNavItem[] = [
   {
     href: '/admin',
     labelKey: 'admin.nav.dashboard',
     label: 'Dashboard',
     icon: LayoutDashboard,
   },
-  { href: '/admin/content', labelKey: 'admin.nav.content', label: 'Pages', icon: FileText },
+  { href: '/admin/content', labelKey: 'admin.nav.content', label: 'Pages & Posts', icon: FileText },
+  { href: '/admin/events', label: 'Events', icon: Calendar },
+  { href: '/admin/news', label: 'News', icon: Newspaper },
+  { href: '/admin/links', label: 'Links', icon: Link2 },
   { href: '/admin/crm', labelKey: 'admin.nav.crm', label: 'Civic CRM', icon: UsersRound },
   { href: '/admin/orders', labelKey: 'admin.nav.orders', label: 'Orders', icon: ShoppingBag },
   { href: '/admin/products', labelKey: 'admin.nav.products', label: 'Products', icon: Package },
@@ -57,7 +70,7 @@ export function AdminNav() {
             }`}
           >
             <Icon size={13} />
-            {dataPoints[labelKey] || label}
+            {(labelKey && dataPoints[labelKey]) || label}
           </Link>
         );
       })}

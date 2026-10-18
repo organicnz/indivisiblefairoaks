@@ -2,9 +2,11 @@ import { Mail, Megaphone, Newspaper, Send } from 'lucide-react';
 import type { Metadata } from 'next';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveNewslettersList } from '@/components/ui/InteractiveNewslettersList';
+import { InteractivePostsList } from '@/components/ui/InteractivePostsList';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getNewsletters } from '@/lib/queries/civic';
+import { getPublishedPosts } from '@/lib/queries/content';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Newsletters & Bulletins',
@@ -14,8 +16,9 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function NewsPage() {
-  const [newslettersRows, dataPoints] = await Promise.all([
+  const [newslettersRows, postsRows, dataPoints] = await Promise.all([
     getNewsletters().catch(() => []),
+    getPublishedPosts(12).catch(() => []),
     getDataPoints('news'),
   ]);
   const initialNewsletters = newslettersRows.length > 0 ? newslettersRows : undefined;
@@ -91,6 +94,9 @@ export default async function NewsPage() {
             </a>
           </div>
         </div>
+
+        {/* Chapter Articles & Dispatches */}
+        <InteractivePostsList initialPosts={postsRows} />
 
         {/* Bulletins Archive with In-Page Visual CRUD */}
         <div className="space-y-6">

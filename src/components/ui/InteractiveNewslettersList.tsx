@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicNewsletterEditorModal } from '@/components/admin/civic/CivicNewsletterEditorModal';
 import { useEditContext } from '@/components/layout/useEditContext';
-import { useVisualEditMode } from '@/components/layout/visual-edit-store';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicNewsletterRecord, deleteCivicNewsletter } from '@/lib/actions/civic';
@@ -57,7 +56,6 @@ export function InteractiveNewslettersList({
   initialNewsletters?: NewsletterRow[];
 } = {}) {
   const { dataPoints } = useDataPoints('news');
-  const { enabled } = useVisualEditMode('/news');
   const { isAdmin } = useEditContext('/news');
 
   const [newslettersList, setNewslettersList] = useState<NewsletterRow[]>(
@@ -220,7 +218,7 @@ export function InteractiveNewslettersList({
         </div>
 
         {/* In-Page Admin Add Bulletin Trigger */}
-        {enabled && isAdmin && (
+        {isAdmin && (
           <button
             type="button"
             onClick={handleOpenCreateModal}
@@ -263,7 +261,7 @@ export function InteractiveNewslettersList({
                     </span>
 
                     {/* Admin in-page action bar */}
-                    {enabled && isAdmin && (
+                    {isAdmin && (
                       <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-secondary/90 border border-accent-gold/40 shadow-xs backdrop-blur-md ml-1">
                         <button
                           type="button"

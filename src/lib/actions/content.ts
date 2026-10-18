@@ -200,10 +200,12 @@ function revalidateContent(slug?: string | null, previousSlug?: string | null): 
   // admin publish invalidates exactly the cache the page is held in rather than
   // promoting it to a longer-lived profile (see Conservation Mode in AGENTS.md).
   revalidateTag('content', 'hours');
+  revalidateTag('posts', 'hours');
   if (slug) revalidateTag(`content-${slug}`, 'hours');
   // A slug change leaves the old tag orphaned, so invalidate it too.
   if (previousSlug && previousSlug !== slug) revalidateTag(`content-${previousSlug}`, 'hours');
   revalidatePath('/admin/content');
+  revalidatePath('/news');
   revalidatePath('/sitemap.xml');
   revalidatePath('/search');
 }

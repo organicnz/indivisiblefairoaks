@@ -2,7 +2,12 @@ import {
   AlertTriangle,
   ArrowRight,
   BadgePercent,
+  Calendar,
   DollarSign,
+  FilePlus2,
+  FileText,
+  Link2,
+  Newspaper,
   Package,
   ShoppingBag,
   TrendingUp,
@@ -226,6 +231,69 @@ export default async function AdminDashboardPage() {
           </DataPoint>
         </h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
+      </div>
+
+      {/* Quick Publishing & Civic Management Bar */}
+      <div className="bg-surface-card border border-border rounded-3xl p-6 shadow-xs mb-8">
+        <div className="mb-4">
+          <h2 className="text-sm font-black text-foreground uppercase tracking-wider">
+            Civic Publishing &amp; Content
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Publish new dispatches, update chapter events, issue bulletins, and maintain coalition
+            links.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <Link
+            href="/admin/content/new?type=post"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-primary text-white hover:bg-primary-dark transition-all text-center shadow-xs font-bold text-xs uppercase tracking-wider group"
+          >
+            <FilePlus2 size={20} className="group-hover:scale-110 transition-transform" />
+            <span>New Post</span>
+          </Link>
+          <Link
+            href="/admin/events"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all text-center font-bold text-xs uppercase tracking-wider group"
+          >
+            <Calendar
+              size={20}
+              className="text-primary-ink dark:text-primary-on-dark group-hover:scale-110 transition-transform"
+            />
+            <span>Events &amp; Rallies</span>
+          </Link>
+          <Link
+            href="/admin/news"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all text-center font-bold text-xs uppercase tracking-wider group"
+          >
+            <Newspaper
+              size={20}
+              className="text-accent-gold group-hover:scale-110 transition-transform"
+            />
+            <span>News &amp; Bulletins</span>
+          </Link>
+          <Link
+            href="/admin/links"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all text-center font-bold text-xs uppercase tracking-wider group"
+          >
+            <Link2
+              size={20}
+              className="text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform"
+            />
+            <span>Action Links</span>
+          </Link>
+          <Link
+            href="/admin/content"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all text-center font-bold text-xs uppercase tracking-wider group"
+          >
+            <FileText
+              size={20}
+              className="text-muted-foreground group-hover:scale-110 transition-transform"
+            />
+            <span>All Pages &amp; Posts</span>
+          </Link>
+        </div>
       </div>
 
       {/* KPI cards */}

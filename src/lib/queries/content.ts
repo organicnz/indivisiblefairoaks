@@ -117,3 +117,34 @@ export async function getCopyRegionBody(slug: string): Promise<string | null> {
     return null;
   }
 }
+
+export interface PublishedPostSummary {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  featured_image: string | null;
+  published_at: string | null;
+  created_at: string;
+}
+
+export async function getPublishedPosts(limit = 10): Promise<PublishedPostSummary[]> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('content', 'posts');
+  try {
+    const supabase = createPublicClient();
+    const { data } = await supabase
+      .from('content')
+      .select('id, title, slug, excerpt, featured_image, published_at, created_at')
+      .eq('status', 'publish')
+      .eq('type', 'post')
+      .or(buildVisibilityFilter(new Date().toISOString()))
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    return (data as PublishedPostSummary[]) ?? [];
+  } catch {
+    return [];
+  }
+}

@@ -13,6 +13,9 @@ const {
   getCivicNewslettersAdmin,
   saveCivicNewsletter,
   deleteCivicNewsletter,
+  getCoalitionLinksAdmin,
+  saveCoalitionLink,
+  deleteCoalitionLink,
 } = await import('@/lib/actions/civic');
 const { createMockAdminClient } = await import('./supabase-mock');
 
@@ -212,6 +215,95 @@ describe('Civic Server Actions', () => {
       });
 
       const res = await deleteCivicNewsletter('bulletin-summer');
+      expect(res.success).toBe(true);
+    });
+  });
+
+  describe('Coalition Links Admin Actions', () => {
+    it('returns coalition links rows from Supabase', async () => {
+      const mockLinks = [
+        {
+          slug: 'sister-district',
+          name: 'Sister District Project',
+          category: 'Electoral Strategy',
+          url: 'https://sisterdistrict.com',
+          description: 'Focusing resources on competitive state legislative races.',
+          badge: 'Allies',
+          sort_order: 10,
+        },
+      ];
+
+      requireAdmin.mockResolvedValue({
+        adminClient: createMockAdminClient({ coalition_links: { rows: mockLinks } }),
+      });
+
+      const res = await getCoalitionLinksAdmin();
+      expect(res.success).toBe(true);
+      if (res.success && res.data) {
+        expect(res.data.length).toBe(1);
+        expect(res.data[0]?.name).toBe('Sister District Project');
+      }
+    });
+
+    it('validates and saves a coalition link', async () => {
+      const saved = {
+        slug: 'sister-district',
+        name: 'Sister District Project',
+        category: 'Electoral Strategy',
+        url: 'https://sisterdistrict.com',
+        description: 'Focusing resources on competitive state legislative races.',
+        badge: 'Allies',
+        sort_order: 10,
+      };
+
+      requireAdmin.mockResolvedValue({
+        adminClient: {
+          from: () => ({
+            upsert: () => ({
+              select: () => ({
+                single: async () => ({ data: saved, error: null }),
+              }),
+            }),
+          }),
+        },
+      });
+
+      const res = await saveCoalitionLink(saved);
+      expect(res.success).toBe(true);
+      if (res.success && res.data) {
+        expect(res.data.name).toBe('Sister District Project');
+      }
+    });
+
+    it('rejects an invalid coalition link with missing fields', async () => {
+      const invalid = {
+        name: '',
+        category: '',
+        url: 'not-a-url',
+        description: '',
+      };
+
+      const res = await saveCoalitionLink(
+        invalid as unknown as Parameters<typeof saveCoalitionLink>[0]
+      );
+      expect(res.success).toBe(false);
+      if (!res.success) {
+        expect(res.error).toBeDefined();
+      }
+    });
+
+    it('deletes a coalition link by slug', async () => {
+      requireAdmin.mockResolvedValue({
+        adminClient: {
+          from: () => ({
+            delete: () => ({
+              eq: async () => ({ error: null }),
+            }),
+          }),
+        },
+      });
+
+      const res = await deleteCoalitionLink('sister-district');
       expect(res.success).toBe(true);
     });
   });

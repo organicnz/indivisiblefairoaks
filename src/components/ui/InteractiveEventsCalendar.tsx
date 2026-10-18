@@ -17,7 +17,6 @@ import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicEventEditorModal } from '@/components/admin/civic/CivicEventEditorModal';
 import { useEditContext } from '@/components/layout/useEditContext';
-import { useVisualEditMode } from '@/components/layout/visual-edit-store';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicEventRecord, deleteCivicEvent } from '@/lib/actions/civic';
@@ -114,7 +113,6 @@ export function InteractiveEventsCalendar({
   initialEvents?: CivicEvent[];
 } = {}) {
   const { dataPoints } = useDataPoints('events');
-  const { enabled } = useVisualEditMode('/events');
   const { isAdmin } = useEditContext('/events');
   const [activeCategory, setActiveCategory] = useState<string>('All Actions');
   const [searchQuery, setSearchQuery] = useState('');
@@ -302,7 +300,7 @@ export function InteractiveEventsCalendar({
         </div>
 
         {/* In-Page Admin Add Event Trigger */}
-        {enabled && isAdmin && (
+        {isAdmin && (
           <button
             type="button"
             onClick={handleOpenCreateModal}
@@ -356,7 +354,7 @@ export function InteractiveEventsCalendar({
                     </div>
 
                     {/* Admin in-page action bar */}
-                    {enabled && isAdmin && (
+                    {isAdmin && (
                       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/90 border border-accent-gold/40 shadow-sm backdrop-blur-md">
                         <button
                           type="button"

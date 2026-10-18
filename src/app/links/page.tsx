@@ -1,6 +1,7 @@
-import { Compass, ExternalLink, Layers } from 'lucide-react';
+import { Compass } from 'lucide-react';
 import type { Metadata } from 'next';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { InteractiveLinksDirectory } from '@/components/ui/InteractiveLinksDirectory';
 import { pageMetadata } from '@/lib/metadata';
 import { getCoalitionLinks, getDataPoints } from '@/lib/queries/civic';
 
@@ -109,7 +110,6 @@ export default async function LinksPage() {
   } catch {
     // fall through to LINKS_DATA
   }
-  const categories = Array.from(new Set(items.map((l) => l.category)));
 
   return (
     <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
@@ -128,7 +128,7 @@ export default async function LinksPage() {
             initialData={dataPoints}
             className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
           >
-            Coalition & Action Links
+            Coalition &amp; Action Links
           </DataPoint>
           <DataPoint
             name="links.hero.intro"
@@ -142,76 +142,8 @@ export default async function LinksPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
-        {categories.map((category) => {
-          const categoryItems = items.filter((l) => l.category === category);
-          return (
-            <div key={category} className="space-y-4">
-              <h2 className="text-xl sm:text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2.5">
-                <Layers className="text-accent-gold" size={20} />
-                <span>{category}</span>
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {categoryItems.map((item) => (
-                  <a
-                    key={item.name}
-                    data-data-point={item.slug ? `link.${item.slug}` : undefined}
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-5 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-primary-bright/50 hover:bg-secondary transition-all group flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <h3 className="font-bold text-foreground dark:text-white text-base group-hover:text-primary-ink dark:text-primary-on-dark-muted transition-colors">
-                          <DataPoint
-                            as="span"
-                            name={`link.${item.slug ?? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.name`}
-                            initialData={dataPoints}
-                          >
-                            {item.name}
-                          </DataPoint>
-                        </h3>
-                        {item.badge && (
-                          <span className="px-2 py-0.5 rounded-full bg-accent-gold/20 text-primary-ink dark:text-accent-gold text-[10px] font-bold uppercase shrink-0">
-                            <DataPoint
-                              as="span"
-                              name={`link.${item.slug ?? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.badge`}
-                              initialData={dataPoints}
-                            >
-                              {item.badge}
-                            </DataPoint>
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark leading-relaxed">
-                        <DataPoint
-                          as="span"
-                          name={`link.${item.slug ?? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.desc`}
-                          initialData={dataPoints}
-                        >
-                          {item.description}
-                        </DataPoint>
-                      </p>
-                    </div>
-
-                    <div className="pt-4 mt-4 border-t border-border dark:border-white/10 flex items-center justify-between text-xs text-slate-500">
-                      <span className="text-[11px] text-primary-ink dark:text-primary-on-dark-muted/90 font-mono truncate max-w-[240px]">
-                        {item.url.replace(/^https?:\/\//, '')}
-                      </span>
-                      <ExternalLink
-                        size={14}
-                        aria-hidden="true"
-                        className="text-muted-foreground dark:text-ink-muted-on-dark group-hover:text-accent dark:group-hover:text-accent-gold transition-colors shrink-0"
-                      />
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <InteractiveLinksDirectory initialLinks={items} />
       </div>
     </div>
   );
