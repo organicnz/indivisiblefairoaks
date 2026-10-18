@@ -1,8 +1,10 @@
 import { Search, Users } from 'lucide-react';
 import Link from 'next/link';
 import { CustomerAdminToggle } from '@/components/admin/CustomerAdminToggle';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
+import { getDataPoints } from '@/lib/queries/civic';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -36,12 +38,15 @@ export default async function AdminCustomersPage({
   const { q } = await searchParams;
   const query = (q || '').trim().toLowerCase();
 
-  const { data: customers } = await adminClient
-    .from('profiles')
-    .select(`id, email, first_name, last_name, is_admin, created_at,
+  const [{ data: customers }, dataPoints] = await Promise.all([
+    adminClient
+      .from('profiles')
+      .select(`id, email, first_name, last_name, is_admin, created_at,
       orders ( id, total, created_at, status )`)
-    .order('created_at', { ascending: false })
-    .limit(500);
+      .order('created_at', { ascending: false })
+      .limit(500),
+    getDataPoints('admin'),
+  ]);
 
   const rows = ((customers || []) as unknown as Customer[]).filter((c) => {
     if (!query) return true;
@@ -60,7 +65,11 @@ export default async function AdminCustomersPage({
             Admin Panel
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">Customers</h1>
+        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
+          <DataPoint as="span" name="admin.customers.title" initialData={dataPoints}>
+            Customers
+          </DataPoint>
+        </h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
         <p className="mt-4 text-muted-foreground font-bold uppercase tracking-widest text-[10px]">
           {rows.length} profiles

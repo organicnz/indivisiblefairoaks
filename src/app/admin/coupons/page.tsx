@@ -1,8 +1,10 @@
 import { BadgePercent } from 'lucide-react';
 import { CouponCreator, CouponDelete } from '@/components/admin/CouponCreator';
 import { CouponEditor } from '@/components/admin/CouponEditor';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
+import { getDataPoints } from '@/lib/queries/civic';
 import { formatDate } from '@/types/orders';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
@@ -29,7 +31,7 @@ type CouponUsage = {
 export default async function AdminCouponsPage() {
   const { adminClient } = await requireAdmin();
 
-  const [{ data: coupons }, { data: couponUsage }] = await Promise.all([
+  const [{ data: coupons }, { data: couponUsage }, dataPoints] = await Promise.all([
     adminClient
       .from('coupons')
       .select('id, code, discount_type, amount, expiry_date')
@@ -39,6 +41,7 @@ export default async function AdminCouponsPage() {
       .select('coupon_code, total')
       .not('coupon_code', 'is', null)
       .limit(500),
+    getDataPoints('admin'),
   ]);
 
   const rows = (coupons || []) as Coupon[];
@@ -66,7 +69,11 @@ export default async function AdminCouponsPage() {
             Admin Panel
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">Coupons</h1>
+        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
+          <DataPoint as="span" name="admin.coupons.title" initialData={dataPoints}>
+            Coupons
+          </DataPoint>
+        </h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
         <p className="mt-4 text-muted-foreground font-bold uppercase tracking-widest text-[10px]">
           {rows.length} promo codes
@@ -79,7 +86,9 @@ export default async function AdminCouponsPage() {
         {rows.length === 0 ? (
           <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
             <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
-              No coupons yet. Create one above.
+              <DataPoint as="span" name="admin.coupons.empty" initialData={dataPoints}>
+                No coupons yet. Create one above.
+              </DataPoint>
             </p>
           </div>
         ) : (

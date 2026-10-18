@@ -51,9 +51,47 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
   const Icon = MODE_ICON[mode];
   const label = themeToggleLabel(mode);
 
+  const handleSegmentKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, current: ThemeMode) => {
+    const currentIndex = THEME_ORDER.indexOf(current);
+    let targetIndex = -1;
+
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      targetIndex = (currentIndex + 1) % THEME_ORDER.length;
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      targetIndex = (currentIndex - 1 + THEME_ORDER.length) % THEME_ORDER.length;
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      targetIndex = 0;
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      targetIndex = THEME_ORDER.length - 1;
+    }
+
+    if (targetIndex >= 0) {
+      const targetMode = THEME_ORDER[targetIndex];
+      const targetBtn = e.currentTarget.parentElement?.querySelector<HTMLButtonElement>(
+        `button[data-theme-mode="${targetMode}"]`
+      );
+      targetBtn?.focus();
+      const rect = targetBtn?.getBoundingClientRect();
+      const coords = rect
+        ? {
+            x: Math.round(rect.left + rect.width / 2),
+            y: Math.round(rect.top + rect.height / 2),
+          }
+        : undefined;
+      setMode(targetMode, coords);
+    }
+  };
+
   if (variant === 'segmented') {
     return (
-      <fieldset className="inline-flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
+      <fieldset
+        aria-label="Color theme"
+        className="inline-flex items-center gap-1 p-1 rounded-xl bg-white/5 dark:bg-slate-900/40 border border-white/10 backdrop-blur-xs shadow-xs"
+      >
         <legend className="sr-only">
           <DataPoint as="span" name="header.theme.legend" initialData={dataPoints}>
             Color theme
@@ -67,11 +105,18 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               key={m}
               type="button"
               aria-pressed={isActive}
-              onClick={() => setMode(m)}
+              onClick={(e) => {
+                if (e.clientX || e.clientY) {
+                  setMode(m, { x: e.clientX, y: e.clientY });
+                } else {
+                  setMode(m);
+                }
+              }}
+              onKeyDown={(e) => handleSegmentKeyDown(e, m)}
               data-theme-mode={m}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ease-out active:scale-95 cursor-pointer ${
+              className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
                 isActive
-                  ? 'bg-amber-400 text-secondary shadow-raised font-extrabold ring-1 ring-amber-300/50'
+                  ? 'bg-amber-400 text-secondary shadow-raised font-black ring-1 ring-amber-300/50'
                   : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'
               }`}
               title={`Switch to ${themeModeLabel(m)} theme`}
@@ -89,6 +134,14 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               >
                 {themeModeLabel(m)}
               </DataPoint>
+              {m === 'system' && (
+                <span
+                  aria-hidden="true"
+                  className={`size-1.5 rounded-full ring-1 ring-secondary/50 shadow-xs transition-colors duration-300 ${
+                    effective === 'dark' ? 'bg-sky-400' : 'bg-amber-500'
+                  }`}
+                />
+              )}
             </button>
           );
         })}
@@ -100,7 +153,13 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
     return (
       <button
         type="button"
-        onClick={cycle}
+        onClick={(e) => {
+          if (e.clientX || e.clientY) {
+            cycle({ x: e.clientX, y: e.clientY });
+          } else {
+            cycle();
+          }
+        }}
         data-theme-mode={mode}
         data-theme-effective={effective}
         aria-label={label}
@@ -145,7 +204,13 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
     <div className="space-y-2">
       <button
         type="button"
-        onClick={cycle}
+        onClick={(e) => {
+          if (e.clientX || e.clientY) {
+            cycle({ x: e.clientX, y: e.clientY });
+          } else {
+            cycle();
+          }
+        }}
         data-theme-mode={mode}
         aria-label={label}
         title={label}
@@ -181,9 +246,16 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               key={m}
               type="button"
               aria-pressed={isSelected}
-              onClick={() => setMode(m)}
+              onClick={(e) => {
+                if (e.clientX || e.clientY) {
+                  setMode(m, { x: e.clientX, y: e.clientY });
+                } else {
+                  setMode(m);
+                }
+              }}
+              onKeyDown={(e) => handleSegmentKeyDown(e, m)}
               data-theme-mode={m}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all duration-300 ease-out active:scale-95 cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all duration-300 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
                 isSelected
                   ? 'bg-amber-400 text-secondary shadow-raised font-black ring-1 ring-amber-300/50'
                   : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'

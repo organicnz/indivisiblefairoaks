@@ -204,7 +204,11 @@ export function themeBootstrapScript(): string {
  * - `prefers-reduced-motion` is active
  * - AudioContext is not supported or suspended by browser policy
  */
-export function playThemeHaptic(mode: ThemeMode, _effective?: EffectiveTheme): void {
+export function playThemeHaptic(
+  mode: ThemeMode,
+  _effective?: EffectiveTheme,
+  coords?: { x?: number; y?: number }
+): void {
   if (typeof window === 'undefined') return;
   try {
     if (
@@ -213,6 +217,26 @@ export function playThemeHaptic(mode: ThemeMode, _effective?: EffectiveTheme): v
     ) {
       return;
     }
+
+    // Physical micro-vibration on supporting mobile hardware
+    if (
+      typeof navigator !== 'undefined' &&
+      'vibrate' in navigator &&
+      typeof navigator.vibrate === 'function'
+    ) {
+      try {
+        if (mode === 'system') {
+          navigator.vibrate([8, 25, 8]);
+        } else if (mode === 'light') {
+          navigator.vibrate(10);
+        } else {
+          navigator.vibrate(15);
+        }
+      } catch {
+        // Suppress device-level vibration restriction
+      }
+    }
+
     const AudioCtx =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -244,8 +268,21 @@ export function playThemeHaptic(mode: ThemeMode, _effective?: EffectiveTheme): v
     gain.gain.linearRampToValueAtTime(0.025, now + 0.005);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
 
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    // Spatial acoustic panning towards interaction coordinates
+    if (typeof ctx.createStereoPanner === 'function' && typeof coords?.x === 'number') {
+      const panner = ctx.createStereoPanner();
+      const pan = Math.max(
+        -0.85,
+        Math.min(0.85, (coords.x / Math.max(1, window.innerWidth)) * 2 - 1)
+      );
+      panner.pan.setValueAtTime(pan, now);
+      osc.connect(gain);
+      gain.connect(panner);
+      panner.connect(ctx.destination);
+    } else {
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+    }
 
     osc.start(now);
     osc.stop(now + 0.045);

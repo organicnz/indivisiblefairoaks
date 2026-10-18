@@ -107,6 +107,7 @@ export interface ThemeHudEvent {
   effective: EffectiveTheme;
   timestamp: number;
   coords?: ThemeCoords;
+  txId?: number;
 }
 
 const hudListeners = new Set<(event: ThemeHudEvent) => void>();
@@ -121,12 +122,45 @@ export function subscribeThemeHud(listener: (event: ThemeHudEvent) => void): () 
 export function emitThemeHud(
   mode: ThemeMode,
   effective: EffectiveTheme,
-  coords?: ThemeCoords
+  coords?: ThemeCoords,
+  txId?: number
 ): void {
-  const event: ThemeHudEvent = { mode, effective, timestamp: Date.now(), coords };
+  const event: ThemeHudEvent = { mode, effective, timestamp: Date.now(), coords, txId };
   for (const listener of hudListeners) {
     listener(event);
   }
+}
+
+/** Atomic sequence counter to prevent race conditions during rapid theme cycling. */
+let currentTxId = 0;
+let activeViewAnimation: Animation | null = null;
+
+function resolveInteractionCoords(coords?: ThemeCoords): ThemeCoords {
+  if (typeof coords?.x === 'number' && typeof coords?.y === 'number') {
+    return coords;
+  }
+  if (typeof window === 'undefined') {
+    return { x: 0, y: 0 };
+  }
+  // If invoked via keyboard on an active control, center the ripple on that control
+  if (
+    typeof document !== 'undefined' &&
+    document.activeElement &&
+    document.activeElement !== document.body &&
+    typeof document.activeElement.getBoundingClientRect === 'function'
+  ) {
+    const rect = document.activeElement.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return {
+        x: Math.round(rect.left + rect.width / 2),
+        y: Math.round(rect.top + rect.height / 2),
+      };
+    }
+  }
+  return {
+    x: Math.round(window.innerWidth / 2),
+    y: Math.round(window.innerHeight / 2),
+  };
 }
 
 export function setThemeMode(
@@ -134,22 +168,16 @@ export function setThemeMode(
   coords?: ThemeCoords,
   options?: { silent?: boolean; noHud?: boolean }
 ): ThemeState {
+  const txId = ++currentTxId;
+
+  // Atomically persist choice before DOM manipulation
   writeThemeMode(storage(), next);
   const resolved: ThemeState = {
     mode: next,
     effective: resolveEffectiveTheme(next, prefersDark()),
   };
 
-  let resolvedCoords = coords;
-  if (!resolvedCoords && typeof window !== 'undefined' && 'event' in window) {
-    const ev = (window as unknown as { event?: MouseEvent }).event;
-    if (ev && typeof ev.clientX === 'number' && typeof ev.clientY === 'number') {
-      resolvedCoords = { x: ev.clientX, y: ev.clientY };
-    }
-  }
-  if (!resolvedCoords && typeof window !== 'undefined') {
-    resolvedCoords = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-  }
+  const resolvedCoords = resolveInteractionCoords(coords);
 
   const apply = () => {
     if (typeof window !== 'undefined') {
@@ -157,10 +185,10 @@ export function setThemeMode(
     }
     replaceState(resolved);
     if (!options?.silent) {
-      playThemeHaptic(next, resolved.effective);
+      playThemeHaptic(next, resolved.effective, resolvedCoords);
     }
     if (!options?.noHud) {
-      emitThemeHud(next, resolved.effective, resolvedCoords);
+      emitThemeHud(next, resolved.effective, resolvedCoords, txId);
     }
   };
 
@@ -172,17 +200,24 @@ export function setThemeMode(
   const hasViewTransition =
     typeof document !== 'undefined' &&
     'startViewTransition' in document &&
-    typeof document.startViewTransition === 'function';
+    typeof (document as unknown as { startViewTransition?: unknown }).startViewTransition ===
+      'function';
 
   if (hasViewTransition && !isReducedMotion) {
-    const hasCoords =
-      resolvedCoords?.x !== undefined &&
-      resolvedCoords?.y !== undefined &&
-      typeof window !== 'undefined';
-
-    if (hasCoords) {
-      document.documentElement.setAttribute('data-theme-animating', 'circle');
+    // If a previous transition animation was running, cancel it atomically
+    if (activeViewAnimation) {
+      try {
+        activeViewAnimation.cancel();
+      } catch {
+        // Suppress animation cancel errors
+      }
+      activeViewAnimation = null;
     }
+
+    const startX = resolvedCoords.x ?? window.innerWidth / 2;
+    const startY = resolvedCoords.y ?? window.innerHeight / 2;
+
+    document.documentElement.setAttribute('data-theme-animating', 'circle');
 
     try {
       const transition = (
@@ -195,18 +230,12 @@ export function setThemeMode(
         apply();
       });
 
-      if (
-        hasCoords &&
-        transition &&
-        'ready' in transition &&
-        transition.ready &&
-        resolvedCoords?.x !== undefined &&
-        resolvedCoords?.y !== undefined
-      ) {
-        const startX = resolvedCoords.x;
-        const startY = resolvedCoords.y;
+      if (transition?.ready) {
         transition.ready
           .then(() => {
+            // Guard against stale asynchronous resolution if superseded by a newer transaction
+            if (currentTxId !== txId) return;
+
             const endRadius = Math.hypot(
               Math.max(startX, window.innerWidth - startX),
               Math.max(startY, window.innerHeight - startY)
@@ -220,22 +249,30 @@ export function setThemeMode(
                 ],
               },
               {
-                duration: 400,
+                duration: 420,
                 easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
                 pseudoElement: '::view-transition-new(root)',
               }
             );
 
+            activeViewAnimation = anim;
+
             const cleanup = () => {
-              document.documentElement.removeAttribute('data-theme-animating');
+              if (currentTxId === txId) {
+                document.documentElement.removeAttribute('data-theme-animating');
+                activeViewAnimation = null;
+              }
             };
             anim.onfinish = cleanup;
             anim.oncancel = cleanup;
           })
           .catch(() => {
-            document.documentElement.removeAttribute('data-theme-animating');
+            if (currentTxId === txId) {
+              document.documentElement.removeAttribute('data-theme-animating');
+              activeViewAnimation = null;
+            }
           });
-      } else if (hasCoords) {
+      } else {
         document.documentElement.removeAttribute('data-theme-animating');
       }
     } catch {

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { CRMContactList } from '@/components/admin/crm/CRMContactList';
+import { DataPoint } from '@/components/ui/DataPoint';
 import {
   getCRMContacts,
   getCRMEdgeFunctionHealth,
@@ -18,6 +19,7 @@ import {
 import { requireAdmin } from '@/lib/admin-auth';
 import { parseConsentFilter } from '@/lib/crm-filters';
 import { CRM_DIRECTORY_PAGE_SIZE } from '@/lib/crm-limits';
+import { getDataPoints } from '@/lib/queries/civic';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -57,21 +59,23 @@ export default async function AdminCRMPage({
   const page = Math.max(1, parseInt(params.page || '1', 10) || 1);
   const pageSize = CRM_DIRECTORY_PAGE_SIZE;
 
-  const [stats, { contacts, totalCount }, segmentRead, tagScan, backendStatus] = await Promise.all([
-    getCRMStats(),
-    getCRMContacts({
-      query: currentQuery,
-      status: currentStatus,
-      district: currentDistrict,
-      tag: currentTag,
-      consent: currentConsent === 'all' ? undefined : currentConsent,
-      page,
-      pageSize,
-    }),
-    getCRMSegments(),
-    getCRMExistingTags(),
-    getCRMEdgeFunctionHealth(),
-  ]);
+  const [stats, { contacts, totalCount }, segmentRead, tagScan, backendStatus, dataPoints] =
+    await Promise.all([
+      getCRMStats(),
+      getCRMContacts({
+        query: currentQuery,
+        status: currentStatus,
+        district: currentDistrict,
+        tag: currentTag,
+        consent: currentConsent === 'all' ? undefined : currentConsent,
+        page,
+        pageSize,
+      }),
+      getCRMSegments(),
+      getCRMExistingTags(),
+      getCRMEdgeFunctionHealth(),
+      getDataPoints('admin'),
+    ]);
   // The scan behind `existingTags` may have hit its ceiling. On *this* page that
   // matters more than on the composer: a tag in the filter bar is how an
   // organiser finds the constituents carrying it, so an absent one reads as "this
@@ -93,12 +97,16 @@ export default async function AdminCRMPage({
             </span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground uppercase">
-            Constituent Directory
+            <DataPoint as="span" name="admin.crm.title" initialData={dataPoints}>
+              Constituent Directory
+            </DataPoint>
           </h1>
           <div className="h-1.5 w-24 bg-primary mt-3" />
           <p className="mt-3 text-xs font-bold text-muted-foreground max-w-2xl">
-            Track activists, resist choir singers, grassroots donors, and local supporters across
-            CA-06 and CA-03 with direct Resend outreach and campaign blasts.
+            <DataPoint as="span" name="admin.crm.subtitle" initialData={dataPoints}>
+              Track activists, resist choir singers, grassroots donors, and local supporters across
+              CA-06 and CA-03 with direct Resend outreach and campaign blasts.
+            </DataPoint>
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-4">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -146,7 +154,9 @@ export default async function AdminCRMPage({
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
           >
             <Megaphone size={14} className="text-primary-light" />
-            Email Broadcasts
+            <DataPoint as="span" name="admin.crm.btn_compose" initialData={dataPoints}>
+              Email Broadcasts
+            </DataPoint>
           </Link>
         </div>
       </div>

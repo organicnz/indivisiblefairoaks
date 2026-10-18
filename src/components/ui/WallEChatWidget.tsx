@@ -35,21 +35,26 @@ const SUGGESTIONS = [
 ];
 
 function WallEAvatar({ small = false, inButton = false }: { small?: boolean; inButton?: boolean }) {
-  const sizeClasses = inButton ? 'size-full' : small ? 'size-8' : 'size-11';
   return (
     <span
       aria-hidden="true"
       data-testid="walle-avatar"
-      className={`relative inline-flex shrink-0 items-center justify-center rounded-full overflow-hidden shadow-xs ring-1 ring-white/25 bg-slate-900 ${sizeClasses}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-2xl ${
+        inButton
+          ? 'size-11 bg-transparent p-0'
+          : `bg-primary dark:bg-primary-bright p-1 shadow-lg ring-2 ring-white/80 dark:ring-white/20 ${small ? 'size-9' : 'size-12'}`
+      }`}
     >
-      <Image
-        src="/walle-avatar.png"
-        alt=""
-        fill
-        sizes={small ? '32px' : inButton ? '64px' : '44px'}
-        className="object-cover scale-105"
-        priority={!small}
-      />
+      <span className="relative block aspect-[271/237] size-full overflow-hidden rounded-xl bg-white p-0.5 shadow-xs">
+        <Image
+          src="/walle-avatar.png"
+          alt=""
+          fill
+          sizes={small ? '28px' : inButton ? '48px' : '40px'}
+          className="object-cover"
+          priority={!small}
+        />
+      </span>
     </span>
   );
 }
@@ -390,11 +395,7 @@ export function WallEChatWidget() {
                 setOpen(false);
               }
             }}
-            className={`group relative ml-auto flex size-14 items-center justify-center rounded-full ${
-              open
-                ? 'bg-gradient-to-tr from-primary to-primary-bright dark:from-blue-950 dark:via-blue-900 dark:to-primary-bright'
-                : 'bg-slate-950'
-            } shadow-float shadow-primary/35 ring-2 ring-white/90 dark:ring-white/30 transition-all duration-300 ease-out hover:scale-105 hover:shadow-2xl active:scale-95 cursor-pointer motion-reduce:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2`}
+            className="group relative ml-auto flex size-14 items-center justify-center rounded-full bg-gradient-to-tr from-primary to-primary-bright dark:from-blue-950 dark:via-blue-900 dark:to-primary-bright shadow-float shadow-primary/35 ring-2 ring-white/90 dark:ring-white/30 transition-all duration-300 ease-out hover:scale-105 hover:shadow-2xl active:scale-95 cursor-pointer motion-reduce:hover:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
           >
             {/* Ambient hover glow */}
             <span

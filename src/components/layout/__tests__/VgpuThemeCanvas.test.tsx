@@ -23,7 +23,7 @@ describe('VgpuThemeCanvas component', () => {
     document.body.innerHTML = '';
   });
 
-  it('renders decorative canvas element with tabindex="-1" and pointer-events-none', async () => {
+  it('renders decorative canvas element with tabindex="-1", aria-hidden="true", and pointer-events-none', async () => {
     await act(async () => {
       root.render(<VgpuThemeCanvas />);
     });
@@ -31,6 +31,7 @@ describe('VgpuThemeCanvas component', () => {
     const canvas = container.querySelector('canvas');
     expect(canvas).not.toBeNull();
     expect(canvas?.getAttribute('tabindex')).toBe('-1');
+    expect(canvas?.getAttribute('aria-hidden')).toBe('true');
     expect(canvas?.className).toContain('pointer-events-none');
     expect(canvas?.className).toContain('opacity-0');
   });

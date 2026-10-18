@@ -3,8 +3,10 @@
 import { AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { createCoupon, deleteCoupon } from '@/app/admin/actions';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 export function CouponCreator() {
+  const { dataPoints } = useDataPoints('admin');
   const [code, setCode] = useState('');
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent');
   const [amount, setAmount] = useState('');
@@ -38,7 +40,7 @@ export function CouponCreator() {
   return (
     <div className="bg-secondary rounded-3xl p-6 mb-8">
       <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-4">
-        New Coupon
+        {dataPoints['admin.coupons.btn_new'] || 'New Coupon'}
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">

@@ -1,6 +1,6 @@
 {
-  "$comment": "Accepted data-points findings. Each entry records that a human reviewed the mismatch and chose a disposition: \"pending wiring\" (a seeded key whose screen wire-up is still to come), \"no matching UI\" (the string the seed names no longer exists) or \"superseded\" (a later key carries the copy). The gate fails when a finding is not listed here AND when a listed key is no longer a finding, so a fix must delete its own excuse. Regenerate with: bun scripts/check-data-points.mjs --update-baseline",
-  "updated": "2026-10-17",
+  "$comment": "Accepted data-points findings. Each entry records that a human reviewed the mismatch and chose a disposition: \"pending wiring\" (a seeded key whose screen wire-up is still to come), \"no matching UI\" (the string the seed names no longer exists) or \"superseded\" (a later key carries the copy). `acceptedUnread` and `acceptedUnseededReads` are keyed by data-point key; `acceptedMismatches` is keyed by `<key> @ <file> (<shape>)` with shape inline, jsx or map. The gate fails when a finding is not listed here AND when a listed entry is no longer a finding, so a fix must delete its own excuse. Regenerate with: bun scripts/check-data-points.mjs --update-baseline",
+  "updated": "2026-10-18",
   "acceptedUnread": {
     "account.settings.change_password_btn": "no matching UI — the settings screen has no change-password panel (no matching string in src/components/account)",
     "account.settings.change_password_sub": "no matching UI — the settings screen has no change-password panel",
@@ -18,29 +18,15 @@
     "admin.actions.title": "no matching UI — the dashboard has no quick-actions grid",
     "admin.content.btn_new": "no matching UI — the content list shows an empty-state action ('Create the first page'), not a header button",
     "admin.content.subtitle": "no matching UI — the content screen renders no subtitle",
-    "admin.content.title": "pending wiring — ContentList h1 ('Pages & posts'); value already retargeted in 20261017030000",
-    "admin.coupons.btn_new": "pending wiring — CouponCreator button ('New Coupon'); value already retargeted in 20261017030000",
-    "admin.coupons.empty": "pending wiring — coupons empty state ('No coupons yet. Create one above.'); value already retargeted in 20261017030000",
     "admin.coupons.subtitle": "no matching UI — the coupons screen renders no subtitle",
-    "admin.coupons.title": "pending wiring — admin coupons h1 ('Coupons'); value already retargeted in 20261017030000",
-    "admin.crm.btn_compose": "pending wiring — CRM page action button ('Email Broadcasts'); value already retargeted in 20261017030000",
-    "admin.crm.subtitle": "pending wiring — CRM page subtitle; value already retargeted in 20261017030000",
     "admin.crm.tab_broadcasts": "no matching UI — the CRM page has action buttons, not tabs",
     "admin.crm.tab_segments": "no matching UI — the CRM page has action buttons, not tabs",
     "admin.crm.tab_tasks": "no matching UI — the CRM page has action buttons, not tabs",
-    "admin.crm.title": "pending wiring — CRM h1 ('Constituent Directory'); value already retargeted in 20261017030000",
     "admin.customers.subtitle": "no matching UI — the customers screen renders no subtitle",
-    "admin.customers.title": "pending wiring — admin customers h1 ('Customers'); value already retargeted in 20261017030000",
-    "admin.dashboard.coupons_title": "pending wiring — dashboard coupon section ('Coupon usage (30d)'); value already retargeted in 20261017030000",
     "admin.dashboard.subtitle": "no matching UI — the dashboard renders no subtitle",
     "admin.kpi.active_products": "no matching UI — the KPI row has four cards, none for active products",
     "admin.kpi.low_stock": "no matching UI — stock counts render in the stock alerts section, not a KPI card",
-    "admin.orders.empty": "pending wiring — dashboard pending-fulfilment empty state ('All caught up.'); value already retargeted in 20261017030000",
-    "admin.orders.title": "pending wiring — dashboard pending-fulfilment title ('Pending fulfilment'); value already retargeted in 20261017030000",
-    "admin.orders.view_all": "pending wiring — dashboard orders link ('View orders'); value already retargeted in 20261017030000",
-    "admin.products.btn_new": "pending wiring — products page button ('Add product'); value already retargeted in 20261017030000",
     "admin.products.subtitle": "no matching UI — the products screen renders no subtitle",
-    "admin.products.title": "pending wiring — admin products h1 ('Products'); value already retargeted in 20261017030000",
     "cart.summary.shipping": "superseded — the cart reads cart.summary.shipping_label",
     "cart.summary.shipping_view_rates": "superseded — the cart reads cart.shipping.view_rates",
     "cart.summary.title": "no matching UI — the cart summary has no title line",
@@ -63,5 +49,6 @@
     "voter.repfinder.quick_zips_label": "no matching UI — the finder has no quick-ZIP row",
     "wishlist.btn.move_to_cart": "no matching UI — the wishlist reads wishlist.btn.add_to_cart"
   },
-  "acceptedUnseededReads": {}
+  "acceptedUnseededReads": {},
+  "acceptedMismatches": {}
 }

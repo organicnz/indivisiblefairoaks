@@ -7,8 +7,10 @@ import {
   ProductCheckbox,
 } from '@/components/admin/BulkStockActions';
 import { ProductEditor } from '@/components/admin/ProductEditor';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
+import { getDataPoints } from '@/lib/queries/civic';
 import { getStorageUrl } from '@/lib/supabase';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
@@ -55,13 +57,16 @@ export default async function AdminProductsPage({
   const stockFilter = STOCK_FILTERS.includes(stock || 'all') ? stock || 'all' : 'all';
   const query = (q || '').trim().toLowerCase();
 
-  const { data: products } = await adminClient
-    .from('products')
-    .select(
-      `id, name, slug, price, regular_price, stock_status, image_url,
-       product_categories ( categories ( name ) )`
-    )
-    .order('name');
+  const [{ data: products }, dataPoints] = await Promise.all([
+    adminClient
+      .from('products')
+      .select(
+        `id, name, slug, price, regular_price, stock_status, image_url,
+         product_categories ( categories ( name ) )`
+      )
+      .order('name'),
+    getDataPoints('admin'),
+  ]);
 
   const rows = ((products || []) as unknown as ProductRow[]).filter(
     (p) => stockFilter === 'all' || p.stock_status === stockFilter
@@ -82,7 +87,11 @@ export default async function AdminProductsPage({
             Admin Panel
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">Products</h1>
+        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
+          <DataPoint as="span" name="admin.products.title" initialData={dataPoints}>
+            Products
+          </DataPoint>
+        </h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-muted-foreground font-bold uppercase tracking-widest text-[10px]">
@@ -92,7 +101,10 @@ export default async function AdminProductsPage({
             href="/admin/products/new"
             className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest bg-primary hover:bg-primary-dark text-white rounded-full px-4 py-2 hover:opacity-90 transition-opacity"
           >
-            <Plus size={12} /> Add product
+            <Plus size={12} />
+            <DataPoint as="span" name="admin.products.btn_new" initialData={dataPoints}>
+              Add product
+            </DataPoint>
           </Link>
         </div>
       </div>

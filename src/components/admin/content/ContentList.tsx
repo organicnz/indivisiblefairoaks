@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
+import { useDataPoints } from '@/hooks/useDataPoints';
 import { type ContentListRow, deleteContent, setContentStatus } from '@/lib/actions/content';
 import { CONTENT_TYPES } from '@/lib/content';
 
@@ -31,6 +32,7 @@ interface Props {
 export function ContentList({ initialRows, initialTotal, initialPage, pageSize }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { dataPoints } = useDataPoints('admin');
   const [isPending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<number | null>(null);
   const [query, setQuery] = useState(searchParams.get('q') ?? '');
@@ -90,7 +92,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-heading text-2xl font-black uppercase tracking-tight text-foreground">
-          Pages &amp; posts
+          {dataPoints['admin.content.title'] || 'Pages & posts'}
         </h1>
         <Link
           href="/admin/content/new"

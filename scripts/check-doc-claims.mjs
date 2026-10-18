@@ -53,6 +53,7 @@
  * Usage: bun scripts/check-doc-claims.mjs
  * Exit code 0 = every recognised claim matches, 1 = a claim is stale.
  */
+import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
@@ -102,12 +103,19 @@ function lefthookLineCount() {
 
 /** Specs the delivery gate actually executes. `--list` matches runtime here. */
 function e2eSpecCount() {
-  const out = Bun.spawnSync(
-    ['bunx', 'playwright', 'test', '--list'],
-    { cwd: ROOT, stdout: 'pipe', stderr: 'pipe' }
-  ).stdout.toString();
+  const bin = path.join(ROOT, 'node_modules/.bin/playwright');
+  const res = spawnSync(bin, ['test', '--list'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: { ...process.env },
+  });
+  const out = res.stdout || '';
   const match = out.match(/^Total:\s+(\d+)\s+tests/m);
-  if (!match) throw new Error('Could not parse `playwright test --list` output');
+  if (!match) {
+    throw new Error(
+      `Could not parse \`playwright test --list\` output: status=${res.status} out=${out} err=${res.stderr || ''}`
+    );
+  }
   return Number(match[1]);
 }
 

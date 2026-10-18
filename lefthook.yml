@@ -292,12 +292,15 @@ pre-commit:
       glob: "supabase/functions/**/*.ts"
       run: bun run typecheck:edge
 
-    # ── 32. Data-points seed ↔ reader consistency ────────────────────────────
+    # ── 32. Data-points seed ↔ reader ↔ fallback consistency ─────────────────
     # A seed nobody reads is a CMS row whose edits reach no screen; a read
-    # nobody seeds is a literal that silently stops being editable. Both were
-    # live: the `admin.*` wave named copy that never shipped, and the account
-    # page read `account.tabs.*` while the seeds carried the singular.
-    # Rationale, exemptions and the two failure directions live in
+    # nobody seeds is a literal that silently stops being editable; a fallback
+    # that disagrees with its seed is copy that changes the moment the read
+    # resolves. All three were live: the `admin.*` wave named copy that never
+    # shipped, the account page read `account.tabs.*` while the seeds carried
+    # the singular, and 42 seeded values contradicted the literals `src/`
+    # shipped (aligned by 20261017040000).
+    # Rationale, exemptions and the three failure directions live in
     # scripts/check-data-points.mjs; the accepted findings live (annotated) in
     # scripts/data-points-baseline.json, and that baseline is a ratchet — a fix
     # must delete its own entry or this fails.

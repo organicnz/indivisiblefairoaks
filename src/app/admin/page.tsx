@@ -383,7 +383,10 @@ export default async function AdminDashboardPage() {
               href="/admin/orders"
               className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
             >
-              View orders <ArrowRight size={11} />
+              <DataPoint as="span" name="admin.orders.view_all" initialData={dataPoints}>
+                View orders
+              </DataPoint>{' '}
+              <ArrowRight size={11} />
             </Link>
           </div>
           <div className="flex h-2 rounded-full overflow-hidden mb-6 bg-surface-muted">
@@ -427,7 +430,9 @@ export default async function AdminDashboardPage() {
         <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-              Pending fulfilment
+              <DataPoint as="span" name="admin.orders.title" initialData={dataPoints}>
+                Pending fulfilment
+              </DataPoint>
             </h2>
             <Link
               href="/admin/orders?status=processing"
@@ -437,7 +442,11 @@ export default async function AdminDashboardPage() {
             </Link>
           </div>
           {topPending.length === 0 ? (
-            <p className="text-muted-foreground font-bold text-sm">All caught up.</p>
+            <p className="text-muted-foreground font-bold text-sm">
+              <DataPoint as="span" name="admin.orders.empty" initialData={dataPoints}>
+                All caught up.
+              </DataPoint>
+            </p>
           ) : (
             <ul className="space-y-4">
               {topPending.map((o) => {
@@ -525,7 +534,9 @@ export default async function AdminDashboardPage() {
         <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-              Coupon usage (30d)
+              <DataPoint as="span" name="admin.dashboard.coupons_title" initialData={dataPoints}>
+                Coupon usage (30d)
+              </DataPoint>
             </h2>
             <Link
               href="/admin/coupons"

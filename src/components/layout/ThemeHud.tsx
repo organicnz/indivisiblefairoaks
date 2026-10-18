@@ -120,13 +120,20 @@ export function ThemeHud() {
       >
         <span
           aria-hidden="true"
-          className="flex items-center justify-center size-5 rounded-full bg-white/10 text-accent-gold dark:text-sky-400"
+          className={`flex items-center justify-center size-5 rounded-full transition-colors duration-300 ${
+            hudEvent.mode === 'dark'
+              ? 'bg-sky-500/20 text-sky-400 ring-1 ring-sky-400/30'
+              : hudEvent.mode === 'light'
+                ? 'bg-amber-500/20 text-amber-400 ring-1 ring-amber-400/30'
+                : 'bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-400/30'
+          }`}
         >
           <Icon size={12} />
         </span>
         <span className="font-medium text-slate-100">
           <strong className="font-bold text-white">{modeText}</strong> Palette Active
         </span>
+
         <span className="text-white/40 text-[10px]" aria-hidden="true">
           ·
         </span>
