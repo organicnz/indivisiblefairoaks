@@ -215,7 +215,9 @@ export default async function AdminDashboardPage() {
             <TrendingUp size={14} className="text-foreground" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
-            Admin Panel
+            <DataPoint as="span" name="admin.panel.eyebrow" initialData={dataPoints}>
+              Admin Panel
+            </DataPoint>
           </span>
         </div>
         <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
@@ -277,7 +279,13 @@ export default async function AdminDashboardPage() {
                 }`}
               >
                 {delta === null ? (
-                  'No prior data'
+                  <DataPoint
+                    as="span"
+                    name="admin.dashboard.no_prior_data"
+                    initialData={dataPoints}
+                  >
+                    No prior data
+                  </DataPoint>
                 ) : (
                   <>
                     <TrendingUp size={10} className={delta < 0 ? 'rotate-180' : undefined} />
@@ -296,7 +304,9 @@ export default async function AdminDashboardPage() {
         <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-              Revenue — last 14 days
+              <DataPoint as="span" name="admin.dashboard.revenue_title" initialData={dataPoints}>
+                Revenue — last 14 days
+              </DataPoint>
             </h2>
             <div className="flex items-center gap-3">
               <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest inline-flex items-center gap-1">
@@ -346,10 +356,16 @@ export default async function AdminDashboardPage() {
         {/* Top products */}
         <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
           <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em] mb-6">
-            Top products (30d)
+            <DataPoint as="span" name="admin.dashboard.top_products_title" initialData={dataPoints}>
+              Top products (30d)
+            </DataPoint>
           </h2>
           {topProducts.length === 0 ? (
-            <p className="text-muted-foreground font-bold text-sm">No sales yet.</p>
+            <p className="text-muted-foreground font-bold text-sm">
+              <DataPoint as="span" name="admin.dashboard.no_sales" initialData={dataPoints}>
+                No sales yet.
+              </DataPoint>
+            </p>
           ) : (
             <ul className="space-y-4">
               {topProducts.map(([name, units], i) => (
@@ -377,7 +393,9 @@ export default async function AdminDashboardPage() {
         <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm mb-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-              Order status (30d)
+              <DataPoint as="span" name="admin.dashboard.status_title" initialData={dataPoints}>
+                Order status (30d)
+              </DataPoint>
             </h2>
             <Link
               href="/admin/orders"
@@ -438,7 +456,10 @@ export default async function AdminDashboardPage() {
               href="/admin/orders?status=processing"
               className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
             >
-              View all <ArrowRight size={11} />
+              <DataPoint as="span" name="admin.dashboard.pending_view_all" initialData={dataPoints}>
+                View all
+              </DataPoint>{' '}
+              <ArrowRight size={11} />
             </Link>
           </div>
           {topPending.length === 0 ? (
@@ -451,10 +472,14 @@ export default async function AdminDashboardPage() {
             <ul className="space-y-4">
               {topPending.map((o) => {
                 const customer = o.profiles;
-                const name = customer
-                  ? [customer.first_name, customer.last_name].filter(Boolean).join(' ') ||
-                    customer.email
-                  : 'Guest';
+                const name = customer ? (
+                  [customer.first_name, customer.last_name].filter(Boolean).join(' ') ||
+                  customer.email
+                ) : (
+                  <DataPoint as="span" name="admin.dashboard.guest" initialData={dataPoints}>
+                    Guest
+                  </DataPoint>
+                );
                 return (
                   <li key={o.id} className="flex items-center gap-3">
                     <Link
@@ -486,10 +511,16 @@ export default async function AdminDashboardPage() {
         {/* Stock alert */}
         <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm">
           <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em] mb-6">
-            Stock alerts
+            <DataPoint as="span" name="admin.dashboard.stock_title" initialData={dataPoints}>
+              Stock alerts
+            </DataPoint>
           </h2>
           {outOfStock.length === 0 && backorder.length === 0 ? (
-            <p className="text-muted-foreground font-bold text-sm">All products in stock.</p>
+            <p className="text-muted-foreground font-bold text-sm">
+              <DataPoint as="span" name="admin.dashboard.stock_ok" initialData={dataPoints}>
+                All products in stock.
+              </DataPoint>
+            </p>
           ) : (
             <ul className="space-y-3">
               {outOfStock.slice(0, 5).map((p) => (
@@ -502,7 +533,9 @@ export default async function AdminDashboardPage() {
                     {p.name}
                   </p>
                   <span className="ml-auto text-[10px] font-black text-rose-500 dark:text-rose-400 uppercase">
-                    Out of stock
+                    <DataPoint as="span" name="admin.dashboard.stock_out" initialData={dataPoints}>
+                      Out of stock
+                    </DataPoint>
                   </span>
                 </li>
               ))}
@@ -516,7 +549,13 @@ export default async function AdminDashboardPage() {
                     {p.name}
                   </p>
                   <span className="ml-auto text-[10px] font-black text-amber-500 dark:text-amber-400 uppercase">
-                    Backorder
+                    <DataPoint
+                      as="span"
+                      name="admin.dashboard.stock_backorder"
+                      initialData={dataPoints}
+                    >
+                      Backorder
+                    </DataPoint>
                   </span>
                 </li>
               ))}
@@ -526,7 +565,10 @@ export default async function AdminDashboardPage() {
             href="/admin/products"
             className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors mt-4"
           >
-            Manage products <ArrowRight size={11} />
+            <DataPoint as="span" name="admin.dashboard.manage_products" initialData={dataPoints}>
+              Manage products
+            </DataPoint>{' '}
+            <ArrowRight size={11} />
           </Link>
         </section>
 
@@ -542,11 +584,18 @@ export default async function AdminDashboardPage() {
               href="/admin/coupons"
               className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
             >
-              Manage <ArrowRight size={11} />
+              <DataPoint as="span" name="admin.dashboard.manage_coupons" initialData={dataPoints}>
+                Manage
+              </DataPoint>{' '}
+              <ArrowRight size={11} />
             </Link>
           </div>
           {couponStats.size === 0 ? (
-            <p className="text-muted-foreground font-bold text-sm">No coupons used yet.</p>
+            <p className="text-muted-foreground font-bold text-sm">
+              <DataPoint as="span" name="admin.dashboard.no_coupons" initialData={dataPoints}>
+                No coupons used yet.
+              </DataPoint>
+            </p>
           ) : (
             <ul className="space-y-4">
               {[...couponStats.entries()].map(([code, stat]) => (

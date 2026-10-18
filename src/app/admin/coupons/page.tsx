@@ -57,6 +57,7 @@ export default async function AdminCouponsPage() {
     usageByCode.set(u.coupon_code, stat);
   }
   const maxUses = Math.max(0, ...[...usageByCode.values()].map((s) => s.uses));
+  const expiryNeverLabel = dataPoints['admin.coupons.expiry_never'] || 'Never';
 
   return (
     <div>
@@ -66,7 +67,9 @@ export default async function AdminCouponsPage() {
             <BadgePercent size={14} className="text-foreground" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
-            Admin Panel
+            <DataPoint as="span" name="admin.panel.eyebrow" initialData={dataPoints}>
+              Admin Panel
+            </DataPoint>
           </span>
         </div>
         <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
@@ -108,14 +111,26 @@ export default async function AdminCouponsPage() {
                       #{c.id}
                       {expired && (
                         <span className="ml-2 text-[9px] font-black uppercase tracking-widest rounded-full px-2 py-0.5 bg-rose-100 text-rose-700">
-                          Expired
+                          <DataPoint
+                            as="span"
+                            name="admin.coupons.expired_badge"
+                            initialData={dataPoints}
+                          >
+                            Expired
+                          </DataPoint>
                         </span>
                       )}
                     </p>
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      Discount
+                      <DataPoint
+                        as="span"
+                        name="admin.coupons.discount_label"
+                        initialData={dataPoints}
+                      >
+                        Discount
+                      </DataPoint>
                     </p>
                     <p className="text-lg text-primary dark:text-primary-on-dark font-black">
                       {c.discount_type === 'percent' ? `${c.amount}%` : formatPrice(c.amount)}
@@ -123,19 +138,27 @@ export default async function AdminCouponsPage() {
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      Expiry
+                      <DataPoint
+                        as="span"
+                        name="admin.coupons.expiry_label"
+                        initialData={dataPoints}
+                      >
+                        Expiry
+                      </DataPoint>
                     </p>
                     <p
                       className={`text-sm font-black ${
                         expired ? 'text-rose-500' : 'text-foreground'
                       }`}
                     >
-                      {c.expiry_date ? formatDate(c.expiry_date) : 'Never'}
+                      {c.expiry_date ? formatDate(c.expiry_date) : expiryNeverLabel}
                     </p>
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      Used
+                      <DataPoint as="span" name="admin.coupons.used_label" initialData={dataPoints}>
+                        Used
+                      </DataPoint>
                     </p>
                     <p className="text-sm font-black text-foreground">
                       {usageByCode.get(c.code)?.uses ?? 0}×
@@ -151,7 +174,13 @@ export default async function AdminCouponsPage() {
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      Order revenue
+                      <DataPoint
+                        as="span"
+                        name="admin.coupons.revenue_label"
+                        initialData={dataPoints}
+                      >
+                        Order revenue
+                      </DataPoint>
                     </p>
                     <p className="text-sm font-black text-foreground">
                       {formatPrice(usageByCode.get(c.code)?.revenue ?? 0)}

@@ -93,7 +93,9 @@ export default async function AdminCRMPage({
               <UsersRound size={20} />
             </div>
             <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
-              Admin Panel · Grassroots CRM
+              <DataPoint as="span" name="admin.crm.eyebrow" initialData={dataPoints}>
+                Admin Panel · Grassroots CRM
+              </DataPoint>
             </span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground uppercase">
@@ -111,7 +113,10 @@ export default async function AdminCRMPage({
           <div className="flex flex-wrap items-center gap-2 mt-4">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Postgres DB: Live
+              <DataPoint as="span" name="admin.crm.db_label" initialData={dataPoints}>
+                Postgres DB
+              </DataPoint>
+              : Live
             </span>
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
@@ -123,7 +128,10 @@ export default async function AdminCRMPage({
               <span
                 className={`w-1.5 h-1.5 rounded-full ${backendStatus.storage ? 'bg-emerald-500' : 'bg-amber-500'}`}
               />
-              Supabase S3 Media: {backendStatus.storage ? 'Connected' : 'Degraded'}
+              <DataPoint as="span" name="admin.crm.storage_label" initialData={dataPoints}>
+                Supabase S3 Media
+              </DataPoint>
+              : {backendStatus.storage ? 'Connected' : 'Degraded'}
             </span>
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${
@@ -135,7 +143,10 @@ export default async function AdminCRMPage({
               <span
                 className={`w-1.5 h-1.5 rounded-full ${backendStatus.edgeFunction ? 'bg-emerald-500' : 'bg-blue-500'}`}
               />
-              Edge Sender: {backendStatus.edgeFunction ? 'Ready' : 'Direct Fallback'}
+              <DataPoint as="span" name="admin.crm.sender_label" initialData={dataPoints}>
+                Edge Sender
+              </DataPoint>
+              : {backendStatus.edgeFunction ? 'Ready' : 'Direct Fallback'}
             </span>
           </div>
         </div>
@@ -147,7 +158,10 @@ export default async function AdminCRMPage({
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface-card text-foreground hover:bg-surface-muted border border-border text-xs font-black uppercase tracking-wider rounded-xl transition-colors shadow-xs"
           >
             <CalendarCheck size={14} className="text-amber-600" />
-            Follow-ups{stats.openTasks > 0 ? ` (${stats.openTasks})` : ''}
+            <DataPoint as="span" name="admin.crm.followups_label" initialData={dataPoints}>
+              Follow-ups
+            </DataPoint>
+            {stats.openTasks > 0 ? ` (${stats.openTasks})` : ''}
           </Link>
           <Link
             href="/admin/crm/broadcasts"
@@ -170,7 +184,9 @@ export default async function AdminCRMPage({
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-              Total Constituents
+              <DataPoint as="span" name="admin.crm.kpi_contacts" initialData={dataPoints}>
+                Total Constituents
+              </DataPoint>
             </p>
             <p className="text-2xl font-black text-foreground mt-0.5">{stats.totalContacts}</p>
           </div>
@@ -183,7 +199,9 @@ export default async function AdminCRMPage({
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-              Volunteers & Organizers
+              <DataPoint as="span" name="admin.crm.kpi_volunteers" initialData={dataPoints}>
+                Volunteers & Organizers
+              </DataPoint>
             </p>
             <p className="text-2xl font-black text-foreground mt-0.5">{stats.activeVolunteers}</p>
           </div>
@@ -196,7 +214,9 @@ export default async function AdminCRMPage({
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-              CA-06 / CA-03 Grassroots
+              <DataPoint as="span" name="admin.crm.kpi_district" initialData={dataPoints}>
+                CA-06 / CA-03 Grassroots
+              </DataPoint>
             </p>
             <p className="text-2xl font-black text-foreground mt-0.5">{stats.localDistrict}</p>
           </div>
@@ -209,7 +229,9 @@ export default async function AdminCRMPage({
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-              Grassroots Donors
+              <DataPoint as="span" name="admin.crm.kpi_donors" initialData={dataPoints}>
+                Grassroots Donors
+              </DataPoint>
             </p>
             <div className="flex items-baseline gap-2 mt-0.5">
               <p className="text-2xl font-black text-foreground">{stats.totalDonors}</p>

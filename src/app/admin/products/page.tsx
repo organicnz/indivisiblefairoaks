@@ -40,11 +40,14 @@ const stockBadge: Record<string, string> = {
   onbackorder: 'bg-amber-100 text-amber-800',
 };
 
-const stockLabel: Record<string, string> = {
-  instock: 'In stock',
-  outofstock: 'Out of stock',
-  onbackorder: 'On backorder',
-};
+const stockLabelFor = (status: string, dataPoints: Record<string, string>): string =>
+  status === 'instock'
+    ? dataPoints['admin.products.stock_in'] || 'In stock'
+    : status === 'outofstock'
+      ? dataPoints['admin.products.stock_out'] || 'Out of stock'
+      : status === 'onbackorder'
+        ? dataPoints['admin.products.stock_backorder'] || 'On backorder'
+        : status;
 
 export default async function AdminProductsPage({
   searchParams,
@@ -76,6 +79,10 @@ export default async function AdminProductsPage({
     ? rows.filter((p) => p.name.toLowerCase().includes(query) || String(p.id).includes(query))
     : rows;
 
+  const noProductsLabel = dataPoints['admin.products.empty_none'] || 'No products found.';
+  const noProductsFilteredLabel =
+    dataPoints['admin.products.empty_filtered'] || 'No products match the filter.';
+
   return (
     <div>
       <div className="flex flex-col mb-8">
@@ -84,7 +91,9 @@ export default async function AdminProductsPage({
             <Package size={14} className="text-foreground" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
-            Admin Panel
+            <DataPoint as="span" name="admin.panel.eyebrow" initialData={dataPoints}>
+              Admin Panel
+            </DataPoint>
           </span>
         </div>
         <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
@@ -122,7 +131,9 @@ export default async function AdminProductsPage({
                   : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
               }`}
             >
-              {s === 'all' ? 'All' : stockLabel[s] || s}
+              {s === 'all'
+                ? dataPoints['admin.products.all_label'] || 'All'
+                : stockLabelFor(s, dataPoints)}
             </Link>
           ))}
         </nav>
@@ -140,7 +151,7 @@ export default async function AdminProductsPage({
         {filtered.length === 0 ? (
           <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
             <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
-              {rows.length === 0 ? 'No products found.' : 'No products match the filter.'}
+              {rows.length === 0 ? noProductsLabel : noProductsFilteredLabel}
             </p>
           </div>
         ) : (
@@ -181,11 +192,17 @@ export default async function AdminProductsPage({
                             'bg-surface-muted text-muted-foreground'
                           }`}
                         >
-                          {stockLabel[p.stock_status || ''] || p.stock_status || 'unknown'}
+                          {stockLabelFor(p.stock_status || '', dataPoints) || 'unknown'}
                         </span>
                         {onSale && (
                           <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary text-white">
-                            On sale
+                            <DataPoint
+                              as="span"
+                              name="admin.products.on_sale_badge"
+                              initialData={dataPoints}
+                            >
+                              On sale
+                            </DataPoint>
                           </span>
                         )}
                       </div>
@@ -194,7 +211,9 @@ export default async function AdminProductsPage({
                           .flatMap((c) => c.categories ?? [])
                           .map((c) => c.name)
                           .filter(Boolean)
-                          .join(' · ') || 'Uncategorised'}{' '}
+                          .join(' · ') ||
+                          dataPoints['admin.products.uncategorised'] ||
+                          'Uncategorised'}{' '}
                         · #{p.id}
                       </p>
                     </div>

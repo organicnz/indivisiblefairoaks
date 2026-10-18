@@ -487,27 +487,23 @@ pre-push:
       priority: 34
       run: bun tsc --noEmit
 
-    # ── 7. Coverage threshold ─────────────────────────────────────────────────
-    # Vitest enforces the configured statement, branch, function, and line gates.
-    coverage:
-      priority: 35
-      run: bun run test:coverage
-
-    # ── 8. Build smoke-test ───────────────────────────────────────────────────
+    # ── 7. Build smoke-test ───────────────────────────────────────────────────
+    # Coverage thresholds are enforced in CI (`.github/workflows/ci.yml`).
+    # Local runs use `bun run test:coverage` on demand to avoid heap thrashing.
     build-check:
-      priority: 36
+      priority: 35
       run: NEXT_E2E_BUILD=true NEXT_SKIP_ENV_VALIDATION=1 bun run build
 
-    # ── 9. Peer-dependency compatibility ──────────────────────────────────────
+    # ── 8. Peer-dependency compatibility ──────────────────────────────────────
     # Checks the installed dependency graph before a build can reach deployment.
     peer-deps:
-      priority: 37
+      priority: 36
       run: bun scripts/check-peer-deps.mjs --all
 
-    # ── 10. Playwright e2e delivery gate ───────────────────────────────────────
+    # ── 9. Playwright e2e delivery gate ───────────────────────────────────────
     # Body: scripts/hooks/e2e-gate.mjs
     e2e:
-      priority: 38
+      priority: 37
       run: bun scripts/hooks/e2e-gate.mjs
 
 # ─── post-checkout ────────────────────────────────────────────────────────────

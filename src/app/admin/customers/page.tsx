@@ -53,6 +53,7 @@ export default async function AdminCustomersPage({
     const name = [c.first_name, c.last_name].filter(Boolean).join(' ').toLowerCase();
     return name.includes(query) || c.email.toLowerCase().includes(query) || String(c.id) === query;
   });
+  const neverOrderedLabel = dataPoints['admin.customers.never_ordered'] || 'Never ordered';
 
   return (
     <div>
@@ -62,7 +63,9 @@ export default async function AdminCustomersPage({
             <Users size={14} className="text-foreground" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
-            Admin Panel
+            <DataPoint as="span" name="admin.panel.eyebrow" initialData={dataPoints}>
+              Admin Panel
+            </DataPoint>
           </span>
         </div>
         <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
@@ -90,7 +93,9 @@ export default async function AdminCustomersPage({
         {rows.length === 0 ? (
           <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
             <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
-              No customers yet.
+              <DataPoint as="span" name="admin.customers.empty" initialData={dataPoints}>
+                No customers yet.
+              </DataPoint>
             </p>
           </div>
         ) : (
@@ -111,17 +116,31 @@ export default async function AdminCustomersPage({
                         href={`/admin/customers/${c.id}`}
                         className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
                       >
-                        {[c.first_name, c.last_name].filter(Boolean).join(' ') || 'Guest'}
+                        {[c.first_name, c.last_name].filter(Boolean).join(' ') ||
+                          dataPoints['admin.customers.guest'] ||
+                          'Guest'}
                       </Link>
                       {c.is_admin && (
                         <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary text-white">
-                          Admin
+                          <DataPoint
+                            as="span"
+                            name="admin.customers.admin_badge"
+                            initialData={dataPoints}
+                          >
+                            Admin
+                          </DataPoint>
                         </span>
                       )}
                     </div>
                     <p className="text-[11px] text-muted-foreground font-bold mt-0.5">{c.email}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      Joined{' '}
+                      <DataPoint
+                        as="span"
+                        name="admin.customers.joined_label"
+                        initialData={dataPoints}
+                      >
+                        Joined
+                      </DataPoint>{' '}
                       {c.created_at
                         ? new Date(c.created_at).toLocaleDateString('en-US', {
                             month: 'short',
@@ -133,13 +152,25 @@ export default async function AdminCustomersPage({
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      Orders
+                      <DataPoint
+                        as="span"
+                        name="admin.customers.orders_label"
+                        initialData={dataPoints}
+                      >
+                        Orders
+                      </DataPoint>
                     </p>
                     <p className="text-sm text-foreground font-black">{c.orders.length}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      Lifetime Spend
+                      <DataPoint
+                        as="span"
+                        name="admin.customers.spend_label"
+                        initialData={dataPoints}
+                      >
+                        Lifetime Spend
+                      </DataPoint>
                     </p>
                     <p className="text-lg text-primary dark:text-primary-on-dark font-black">
                       {formatPrice(spent)}
@@ -147,7 +178,13 @@ export default async function AdminCustomersPage({
                   </div>
                   <div>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      Last Order
+                      <DataPoint
+                        as="span"
+                        name="admin.customers.last_order_label"
+                        initialData={dataPoints}
+                      >
+                        Last Order
+                      </DataPoint>
                     </p>
                     <p className="text-sm text-foreground font-black">
                       {lastOrder
@@ -159,7 +196,7 @@ export default async function AdminCustomersPage({
                         : '—'}
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {lastOrder ? lastOrder.status : 'Never ordered'}
+                      {lastOrder ? lastOrder.status : neverOrderedLabel}
                     </p>
                   </div>
                 </div>

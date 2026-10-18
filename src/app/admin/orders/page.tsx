@@ -18,8 +18,10 @@ import {
 } from '@/components/admin/BulkOrderActions';
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect';
 import { OrdersExport } from '@/components/admin/OrdersExport';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { CURRENCY_CODE, formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
+import { getDataPoints } from '@/lib/queries/civic';
 import type { createAdminClient } from '@/lib/supabase-server';
 import { formatAddress, formatDate, type AdminOrder as Order } from '@/types/orders';
 
@@ -142,6 +144,7 @@ export default async function AdminOrdersPage({
   const { adminClient } = await requireAdmin();
   const params = await searchParams;
   const filters = buildFilters(params);
+  const dataPoints = await getDataPoints('admin');
 
   const pageParam = Number(params.page);
   const page = Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1;
@@ -206,6 +209,9 @@ export default async function AdminOrdersPage({
         .in('id', ids.length ? ids.slice(0, EXPORT_LIMIT) : [0])
     : await exportQuery.limit(EXPORT_LIMIT);
   const exportOrders = (exportData || []) as Order[];
+  const noOrdersLabel = dataPoints['admin.orders.empty_none'] || 'No orders yet.';
+  const noOrdersFilteredLabel =
+    dataPoints['admin.orders.empty_filtered'] || 'No orders match the filter.';
 
   return (
     <div>
@@ -215,20 +221,42 @@ export default async function AdminOrdersPage({
             <Package size={14} className="text-foreground" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
-            Admin Panel
+            <DataPoint as="span" name="admin.panel.eyebrow" initialData={dataPoints}>
+              Admin Panel
+            </DataPoint>
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">Orders</h1>
+        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
+          <DataPoint as="span" name="admin.orders.h1" initialData={dataPoints}>
+            Orders
+          </DataPoint>
+        </h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Total Orders', value: total.toLocaleString(), icon: ShoppingBag },
-          { label: 'Processing', value: String(processing), icon: Package },
-          { label: 'Completed', value: String(completed), icon: TrendingUp },
-          { label: 'Total Revenue', value: formatPrice(totalRevenue), icon: TrendingUp },
+          {
+            label: dataPoints['admin.orders.kpi_total'] || 'Total Orders',
+            value: total.toLocaleString(),
+            icon: ShoppingBag,
+          },
+          {
+            label: dataPoints['admin.orders.kpi_processing'] || 'Processing',
+            value: String(processing),
+            icon: Package,
+          },
+          {
+            label: dataPoints['admin.orders.kpi_completed'] || 'Completed',
+            value: String(completed),
+            icon: TrendingUp,
+          },
+          {
+            label: dataPoints['admin.orders.kpi_revenue'] || 'Total Revenue',
+            value: formatPrice(totalRevenue),
+            icon: TrendingUp,
+          },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="bg-secondary rounded-3xl p-6">
             <Icon size={16} className="text-primary-on-dark mb-3" />
@@ -268,7 +296,7 @@ export default async function AdminOrdersPage({
                   : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
               }`}
             >
-              {r === 'all' ? 'All time' : `Last ${r}`}
+              {r === 'all' ? dataPoints['admin.orders.range_all_time'] || 'All time' : `Last ${r}`}
             </Link>
           ))}
         </nav>
@@ -297,8 +325,9 @@ export default async function AdminOrdersPage({
               customer: customer
                 ? [customer.first_name, customer.last_name].filter(Boolean).join(' ') ||
                   customer.email ||
+                  dataPoints['admin.orders.guest'] ||
                   'Guest'
-                : 'Guest',
+                : dataPoints['admin.orders.guest'] || 'Guest',
               email: customer?.email || null,
               shipping: formatAddress(order.shipping_address),
               items: order.order_items
@@ -361,11 +390,13 @@ export default async function AdminOrdersPage({
           {orders.length === 0 ? (
             <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
               <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
-                {total === 0 ? 'No orders yet.' : 'No orders match the filter.'}
+                {total === 0 ? noOrdersLabel : noOrdersFilteredLabel}
               </p>
               {total === 0 && (
                 <p className="mt-2 text-xs font-bold text-muted-foreground">
-                  Orders will appear here once a store is connected.
+                  <DataPoint as="span" name="admin.orders.empty_hint" initialData={dataPoints}>
+                    Orders will appear here once a store is connected.
+                  </DataPoint>
                 </p>
               )}
             </div>
@@ -375,7 +406,7 @@ export default async function AdminOrdersPage({
               const name = customer
                 ? [customer.first_name, customer.last_name].filter(Boolean).join(' ') ||
                   customer.email
-                : 'Guest';
+                : dataPoints['admin.orders.guest'] || 'Guest';
               const shippingAddr = formatAddress(order.shipping_address);
               const stripeUrl = order.stripe_session_id
                 ? `https://dashboard.stripe.com/payments/${order.stripe_session_id}`
@@ -392,7 +423,13 @@ export default async function AdminOrdersPage({
                       <OrderCheckbox orderId={order.id} />
                       <div className="min-w-0">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                          Order
+                          <DataPoint
+                            as="span"
+                            name="admin.orders.col_order"
+                            initialData={dataPoints}
+                          >
+                            Order
+                          </DataPoint>
                         </p>
                         <Link
                           href={`/admin/orders/${order.id}`}
@@ -420,7 +457,13 @@ export default async function AdminOrdersPage({
 
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                        Customer
+                        <DataPoint
+                          as="span"
+                          name="admin.orders.col_customer"
+                          initialData={dataPoints}
+                        >
+                          Customer
+                        </DataPoint>
                       </p>
                       <div className="flex items-center gap-1.5">
                         <User size={11} className="text-muted-foreground shrink-0" />
@@ -435,7 +478,13 @@ export default async function AdminOrdersPage({
 
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                        Ship To
+                        <DataPoint
+                          as="span"
+                          name="admin.orders.col_ship_to"
+                          initialData={dataPoints}
+                        >
+                          Ship To
+                        </DataPoint>
                       </p>
                       <div className="flex items-start gap-1.5">
                         <MapPin size={11} className="text-muted-foreground shrink-0 mt-0.5" />
@@ -447,7 +496,9 @@ export default async function AdminOrdersPage({
 
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                        Total
+                        <DataPoint as="span" name="admin.orders.col_total" initialData={dataPoints}>
+                          Total
+                        </DataPoint>
                       </p>
                       <p className="text-lg text-primary dark:text-primary-on-dark font-black">
                         {formatPrice(order.total)}
@@ -469,7 +520,14 @@ export default async function AdminOrdersPage({
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
                         >
-                          <ExternalLink size={11} /> Stripe
+                          <ExternalLink size={11} />{' '}
+                          <DataPoint
+                            as="span"
+                            name="admin.orders.stripe_link"
+                            initialData={dataPoints}
+                          >
+                            Stripe
+                          </DataPoint>
                         </a>
                       )}
                     </div>

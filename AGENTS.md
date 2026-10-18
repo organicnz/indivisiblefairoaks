@@ -614,7 +614,7 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 532 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **`lefthook.yml` is 528 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can
@@ -624,7 +624,7 @@ deployed green and broke silently.
   its `BASELINE=12` is what `check-doc-claims.mjs` parses, and the eight guards that were
   already one-line `bun scripts/check-*.mjs` calls. **Adding a guard means adding a file
   under `scripts/hooks/`, not writing bash in YAML.**
-- **pre-push**: lint → unit → typecheck → coverage → production build → peer-deps → **Playwright e2e delivery gate** (full suite, `workers=2`) when the push range touches `src/`, `e2e/`, `public/`, `supabase/`, app configs, or the lockfile. Docs-only pushes skip e2e with an explicit note.
+- **pre-push**: lint → unit → typecheck → production build → peer-deps → **Playwright e2e delivery gate** (full suite, `workers=2`) when the push range touches `src/`, `e2e/`, `public/`, `supabase/`, app configs, or the lockfile. Docs-only pushes skip e2e with an explicit note.
 - **The coverage gate is per-file, not a global percentage, and that is deliberate.**
   Vitest's bare `statements: 90` is checked against the *aggregate* over every included
   file, so a stricter file cannot raise it and a looser one silently lowers it for
