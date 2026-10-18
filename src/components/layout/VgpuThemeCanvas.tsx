@@ -37,6 +37,7 @@ struct GlobalThemeParams {
   wave1: WaveParams,
   wave2: WaveParams,
   wave3: WaveParams,
+  wave4: WaveParams,
 }
 
 @group(0) @binding(0) var<uniform> globals: GlobalThemeParams;
@@ -68,12 +69,12 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
   }
 
   // Multi-band chromatic dispersion based on Cauchy optical refraction
-  let disp = 0.045 * (1.0 - wave.progress * 0.75);
-  let d_red = dist - (wave_pos + disp * 1.3);
-  let d_amber = dist - (wave_pos + disp * 0.65);
+  let disp = 0.048 * (1.0 - wave.progress * 0.75);
+  let d_red = dist - (wave_pos + disp * 1.35);
+  let d_amber = dist - (wave_pos + disp * 0.68);
   let d_green = dist - wave_pos;
-  let d_cyan = dist - (wave_pos - disp * 0.65);
-  let d_blue = dist - (wave_pos - disp * 1.3);
+  let d_cyan = dist - (wave_pos - disp * 0.68);
+  let d_blue = dist - (wave_pos - disp * 1.35);
 
   let w_red = smoothstep(wave_width, 0.0, abs(d_red));
   let w_amber = smoothstep(wave_width, 0.0, abs(d_amber));
@@ -83,59 +84,69 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
 
   var wave_color = vec3f(0.0);
   var ripple = 0.0;
-
   let angle = atan2(p.y, p.x);
 
   if (wave.theme > 1.5) {
-    // 🌌 Dark Mode: Obsidian Gravitational Singularity & Cosmic Lensing
+    // 🌌 Dark Mode: Obsidian Gravitational Singularity & Relativistic Lensing
     let sapphire = vec3f(0.06, 0.22, 0.88);
     let cobalt = vec3f(0.12, 0.46, 0.98);
     let celestial = vec3f(0.24, 0.80, 1.0);
 
-    // Relativistic space-time deflection and gravitational vortex
-    let vortex = sin(angle * 6.0 + dist * 38.0 - time * 6.0 + wave.phase) * 0.08 * (1.0 - wave.progress);
-    ripple = (sin(dist * 54.0 - time * 8.0) * 0.08 + vortex) * (1.0 - wave.progress);
+    // Accretion disk Doppler beaming and relativistic vortex
+    let doppler = cos(angle * 3.0 - time * 5.0 + wave.phase) * 0.5 + 0.5;
+    let vortex = sin(angle * 6.0 + dist * 40.0 - time * 7.0 + wave.phase) * 0.08 * (1.0 - wave.progress);
+    ripple = (sin(dist * 56.0 - time * 8.0) * 0.08 + vortex) * (1.0 - wave.progress);
+    let tone = mix(sapphire, celestial, doppler);
 
     wave_color = vec3f(
       cobalt.r * w_red * 0.85,
-      mix(sapphire.g, celestial.g, w_cyan) * (w_green + ripple),
-      celestial.b * w_blue * 1.2
+      mix(tone.g, celestial.g, w_cyan) * (w_green + ripple),
+      celestial.b * w_blue * 1.22
     );
   } else if (wave.theme > 0.5) {
     // ☀️ Light Mode: Solar Prismatic Caustic Diamond Burst
-    let solar_white = vec3f(1.0, 0.98, 0.94);
+    let solar_white = vec3f(1.0, 0.98, 0.95);
     let amber_gold = vec3f(0.96, 0.64, 0.06);
     let warm_topaz = vec3f(1.0, 0.78, 0.18);
 
-    // Faceted crystalline caustics and Airy diffraction rings
-    let caustic = (sin(p.x * 32.0 + time * 3.5) * cos(p.y * 32.0 - time * 2.5) + sin((p.x + p.y) * 24.0 + time * 4.0)) * 0.055 * (1.0 - wave.progress);
-    ripple = (cos(dist * 46.0 - wave_pos * 20.0 + wave.phase) * 0.065 + caustic) * (1.0 - wave.progress);
+    // 3-Plane wave interference simulating crystal water caustics
+    let k1 = (p.x) * 36.0 + time * 3.2;
+    let k2 = (-0.5 * p.x + 0.866 * p.y) * 36.0 - time * 2.8;
+    let k3 = (-0.5 * p.x - 0.866 * p.y) * 36.0 + time * 3.6;
+    let caustic = (cos(k1) + cos(k2) + cos(k3)) * 0.035 * (1.0 - wave.progress);
+
+    // Specular diamond glint sparkles at wave crest
+    let glint = pow(max(0.0, sin(p.x * 65.0 + time * 4.0) * cos(p.y * 65.0 - time * 4.0)), 12.0) * 0.5 * (1.0 - wave.progress);
+    ripple = (cos(dist * 48.0 - wave_pos * 20.0 + wave.phase) * 0.06 + caustic + glint) * (1.0 - wave.progress);
 
     let spectral_r = mix(amber_gold.r, solar_white.r, 0.35) * w_red;
     let spectral_g = mix(amber_gold.g, warm_topaz.g, 0.5) * (w_amber + ripple);
     let spectral_b = mix(warm_topaz.b, solar_white.b, 0.6) * w_blue;
-
     wave_color = vec3f(spectral_r, spectral_g, spectral_b);
   } else {
     // ⚛️ System Mode: Quantum Superposition Dual-State Aurora
     let is_dark = wave.effective > 0.5;
-    let primary_tone = select(vec3f(0.06, 0.78, 0.54), vec3f(0.08, 0.55, 0.95), is_dark);
-    let secondary_tone = select(vec3f(0.03, 0.74, 0.88), vec3f(0.25, 0.85, 0.82), is_dark);
+    let primary_tone = select(vec3f(0.08, 0.86, 0.52), vec3f(0.06, 0.68, 0.72), is_dark);
+    let secondary_tone = select(vec3f(0.96, 0.76, 0.16), vec3f(0.18, 0.88, 1.0), is_dark);
 
-    // Quantum wave function interference with double-helix phase modulation
-    let double_helix = sin(angle * 8.0 + dist * 42.0 - time * 7.0 + wave.phase) * 0.5 + 0.5;
-    let quantum_mix = mix(primary_tone, secondary_tone, double_helix);
+    // Quantum wave packet probability interference
+    let wave_packet = sin(angle * 8.0 + dist * 44.0 - time * 7.5 + wave.phase) * cos(angle * 12.0 - dist * 26.0 + time * 6.0 + wave.phase);
+    let quantum_mix = mix(primary_tone, secondary_tone, wave_packet * 0.5 + 0.5);
 
-    ripple = sin(dist * 64.0 - time * 10.0) * 0.06 * (1.0 - wave.progress);
+    // Young double slit diffraction along wavefront
+    let slit_interference = pow(cos(angle * 16.0 + wave.phase), 2.0) * 0.05 * (1.0 - wave.progress);
+    ripple = (sin(dist * 66.0 - time * 10.0) * 0.06 + slit_interference) * (1.0 - wave.progress);
 
     wave_color = vec3f(
       quantum_mix.r * w_red,
       quantum_mix.g * (w_green + ripple),
-      quantum_mix.b * w_cyan * 1.15
+      quantum_mix.b * w_cyan * 1.18
     );
   }
 
-  let alpha = (wave_crest + ripple * 0.5) * wave.intensity * 0.44;
+  // Smooth cinematic falloff towards screen perimeter
+  let edge_fade = 1.0 - pow(clamp(dist / max_dist, 0.0, 1.0), 4.0);
+  let alpha = (wave_crest + ripple * 0.5) * wave.intensity * 0.45 * edge_fade;
   return vec4f(wave_color * alpha, alpha);
 }
 
@@ -144,9 +155,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let c1 = sampleWave(uv, globals.wave1, globals.aspect, globals.time);
   let c2 = sampleWave(uv, globals.wave2, globals.aspect, globals.time);
   let c3 = sampleWave(uv, globals.wave3, globals.aspect, globals.time);
+  let c4 = sampleWave(uv, globals.wave4, globals.aspect, globals.time);
 
-  let combined_rgb = c1.rgb + c2.rgb + c3.rgb;
-  let combined_alpha = min(1.0, c1.a + c2.a + c3.a);
+  let combined_rgb = c1.rgb + c2.rgb + c3.rgb + c4.rgb;
+  let combined_alpha = min(1.0, c1.a + c2.a + c3.a + c4.a);
 
   if (combined_alpha <= 0.0001) {
     return vec4f(0.0);
@@ -163,12 +175,12 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 /**
  * 10x Pro Hardware-Accelerated WebGPU Theme Wavefront Canvas via vgpu.
  *
- * Renders an atomic, multi-wave optical wavefront across the viewport during
+ * Renders an atomic, 4-wave optical wavefront across the viewport during
  * palette transitions (Dark, Light, System).
  *
  * Pro Engineering Highlights:
  * - Direct Metal/Vulkan WebGPU acceleration via vgpu.
- * - Atomic Triple-Wave optical superposition: rapid mode toggling gracefully overlays
+ * - Atomic 4-Wave optical superposition: rapid mode toggling gracefully overlays
  *   concurrent wavefronts instead of abrupt resets.
  * - Reactive viewport calibration via vgpu surface resize hooks.
  * - 0% CPU / GPU consumption when idle (render loop completely halts after transitions).
@@ -184,7 +196,7 @@ export function VgpuThemeCanvas() {
   const wave1Ref = useRef<WaveSlot>({
     origin: [0.5, 0.5],
     startTime: 0,
-    duration: 620,
+    duration: 640,
     theme: 0,
     effective: 0,
     enabled: false,
@@ -194,7 +206,7 @@ export function VgpuThemeCanvas() {
   const wave2Ref = useRef<WaveSlot>({
     origin: [0.5, 0.5],
     startTime: 0,
-    duration: 620,
+    duration: 640,
     theme: 0,
     effective: 0,
     enabled: false,
@@ -204,7 +216,17 @@ export function VgpuThemeCanvas() {
   const wave3Ref = useRef<WaveSlot>({
     origin: [0.5, 0.5],
     startTime: 0,
-    duration: 620,
+    duration: 640,
+    theme: 0,
+    effective: 0,
+    enabled: false,
+    phase: 0,
+  });
+
+  const wave4Ref = useRef<WaveSlot>({
+    origin: [0.5, 0.5],
+    startTime: 0,
+    duration: 640,
     theme: 0,
     effective: 0,
     enabled: false,
@@ -317,6 +339,15 @@ export function VgpuThemeCanvas() {
             enabled: 0.0,
             phase: 0.0,
           },
+          wave4: {
+            origin: [0.5, 0.5],
+            progress: 0.0,
+            theme: 0.0,
+            intensity: 0.0,
+            effective: 0.0,
+            enabled: 0.0,
+            phase: 0.0,
+          },
         };
 
         sharedGlobals = uniformsFn(gpuInstance, initialGlobals);
@@ -342,7 +373,7 @@ export function VgpuThemeCanvas() {
     const step = (currentTime: number) => {
       if (disposed || !themeEffect || !currentSurface) return;
 
-      const DURATION = 620; // ms: sensory luxury ease duration
+      const DURATION = 640; // ms: sensory luxury ease duration
       let anyActive = false;
 
       // Process Wave 1
@@ -356,7 +387,7 @@ export function VgpuThemeCanvas() {
           // Quintic sensory easing: 1 - (1 - t)^5
           w1Progress = 1.0 - (1.0 - rawProgress) ** 5;
           // Smooth intensity envelope: fast attack, graceful decay
-          w1Intensity = rawProgress < 0.2 ? rawProgress / 0.2 : 1.0 - (rawProgress - 0.2) / 0.8;
+          w1Intensity = rawProgress < 0.18 ? rawProgress / 0.18 : 1.0 - (rawProgress - 0.18) / 0.82;
         } else {
           wave1Ref.current.enabled = false;
         }
@@ -371,7 +402,7 @@ export function VgpuThemeCanvas() {
         if (rawProgress < 1.0) {
           anyActive = true;
           w2Progress = 1.0 - (1.0 - rawProgress) ** 5;
-          w2Intensity = rawProgress < 0.2 ? rawProgress / 0.2 : 1.0 - (rawProgress - 0.2) / 0.8;
+          w2Intensity = rawProgress < 0.18 ? rawProgress / 0.18 : 1.0 - (rawProgress - 0.18) / 0.82;
         } else {
           wave2Ref.current.enabled = false;
         }
@@ -386,9 +417,24 @@ export function VgpuThemeCanvas() {
         if (rawProgress < 1.0) {
           anyActive = true;
           w3Progress = 1.0 - (1.0 - rawProgress) ** 5;
-          w3Intensity = rawProgress < 0.2 ? rawProgress / 0.2 : 1.0 - (rawProgress - 0.2) / 0.8;
+          w3Intensity = rawProgress < 0.18 ? rawProgress / 0.18 : 1.0 - (rawProgress - 0.18) / 0.82;
         } else {
           wave3Ref.current.enabled = false;
+        }
+      }
+
+      // Process Wave 4 (tertiary echo wave interference)
+      let w4Progress = 0.0;
+      let w4Intensity = 0.0;
+      if (wave4Ref.current.enabled) {
+        const elapsed = currentTime - wave4Ref.current.startTime;
+        const rawProgress = Math.min(1.0, elapsed / DURATION);
+        if (rawProgress < 1.0) {
+          anyActive = true;
+          w4Progress = 1.0 - (1.0 - rawProgress) ** 5;
+          w4Intensity = rawProgress < 0.18 ? rawProgress / 0.18 : 1.0 - (rawProgress - 0.18) / 0.82;
+        } else {
+          wave4Ref.current.enabled = false;
         }
       }
 
@@ -422,6 +468,15 @@ export function VgpuThemeCanvas() {
           effective: wave3Ref.current.effective,
           enabled: wave3Ref.current.enabled ? 1.0 : 0.0,
           phase: wave3Ref.current.phase,
+        },
+        wave4: {
+          origin: wave4Ref.current.origin,
+          progress: w4Progress,
+          theme: wave4Ref.current.theme,
+          intensity: w4Intensity,
+          effective: wave4Ref.current.effective,
+          enabled: wave4Ref.current.enabled ? 1.0 : 0.0,
+          phase: wave4Ref.current.phase,
         },
       };
 
@@ -468,7 +523,10 @@ export function VgpuThemeCanvas() {
       const now = performance.now();
       const phase = (now * 0.005) % (Math.PI * 2);
 
-      // Triple-wave atomic queue: hand off wave 2 to wave 3, wave 1 to wave 2
+      // Quad-wave atomic FIFO queue: shift older waves to secondary echoes
+      if (wave3Ref.current.enabled) {
+        wave4Ref.current = { ...wave3Ref.current };
+      }
       if (wave2Ref.current.enabled) {
         wave3Ref.current = { ...wave2Ref.current };
       }
@@ -479,7 +537,7 @@ export function VgpuThemeCanvas() {
       wave1Ref.current = {
         origin: [originX, originY],
         startTime: now,
-        duration: 620,
+        duration: 640,
         theme: themeValue,
         effective: effectiveValue,
         enabled: true,
@@ -516,7 +574,8 @@ export function VgpuThemeCanvas() {
       ref={canvasRef}
       tabIndex={-1}
       aria-hidden="true"
-      className={`fixed inset-0 pointer-events-none z-[135] size-full transition-opacity duration-300 ${
+      style={{ willChange: 'opacity' }}
+      className={`fixed inset-0 pointer-events-none z-[135] size-full select-none transition-opacity duration-300 ${
         isActive ? 'opacity-100' : 'opacity-0'
       }`}
     />
