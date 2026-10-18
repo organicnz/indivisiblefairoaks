@@ -317,6 +317,15 @@
   }
 }
 
+@keyframes theme-hud-drain {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
 /* Base timelines. `ease-out` and the 300/500ms durations are the house rules. */
 @utility animate-in {
   animation-name: sensory-enter;

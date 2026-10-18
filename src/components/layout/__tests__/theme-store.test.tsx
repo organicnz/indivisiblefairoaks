@@ -165,4 +165,64 @@ describe('theme store', () => {
     });
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
   });
+
+  it('synchronizes theme mode across tabs via BroadcastChannel', () => {
+    const postMessageSpy = vi.fn();
+    const channels: {
+      name: string;
+      onmessage: ((event: { data: unknown }) => void) | null;
+      postMessage: (msg: unknown) => void;
+      close: () => void;
+    }[] = [];
+
+    class MockBroadcastChannel {
+      name: string;
+      onmessage: ((event: { data: unknown }) => void) | null = null;
+      constructor(name: string) {
+        this.name = name;
+        channels.push(this);
+      }
+      postMessage(msg: unknown) {
+        postMessageSpy(msg);
+      }
+      close() {}
+    }
+
+    vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
+
+    const get = render();
+
+    // Verify setThemeMode broadcasts to channel
+    act(() => {
+      setThemeMode('dark');
+    });
+    expect(postMessageSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'THEME_SYNC',
+        mode: 'dark',
+        effective: 'dark',
+      })
+    );
+
+    // Simulate incoming broadcast from another tab
+    const listenerChannel = channels.find((c) => typeof c.onmessage === 'function');
+    expect(listenerChannel).toBeDefined();
+
+    act(() => {
+      listenerChannel?.onmessage?.({
+        data: {
+          type: 'THEME_SYNC',
+          mode: 'light',
+          effective: 'light',
+          sourceId: 'remote-tab-id-999',
+          txId: 9999,
+          timestamp: Date.now(),
+        },
+      });
+    });
+
+    expect(get().mode).toBe('light');
+    expect(get().effective).toBe('light');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+  });
 });

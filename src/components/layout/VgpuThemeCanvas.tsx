@@ -59,13 +59,22 @@ fn tonemap(color: vec3f) -> vec3f {
   return (color * (1.0 + color * 0.28)) / (1.0 + color);
 }
 
-fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
+fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f, pointerActive: f32) -> vec4f {
   if (wave.enabled < 0.5 || wave.progress <= 0.0 || wave.progress >= 1.0) {
     return vec4f(0.0);
   }
 
   let p = vec2f((uv.x - wave.origin.x) * aspect, uv.y - wave.origin.y);
-  let dist = length(p);
+  var dist = length(p);
+
+  // 10x Pro Hydrodynamic Pointer Wake Perturbation
+  if (pointerActive > 0.5) {
+    let p_mouse = vec2f((uv.x - mouse.x) * aspect, uv.y - mouse.y);
+    let mouse_dist = length(p_mouse);
+    let wake_envelope = exp(-28.0 * mouse_dist * mouse_dist);
+    let wake_ripple = sin(mouse_dist * 48.0 - time * 14.0) * 0.05 * wake_envelope;
+    dist += wake_ripple;
+  }
 
   // Maximum propagation radius to cover furthest viewport corner
   let max_dist = max(2.6, sqrt(aspect * aspect + 1.0) * 1.08);
@@ -105,7 +114,7 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
   let angle = atan2(p.y, p.x);
 
   if (wave.theme > 1.5) {
-    // 🌌 Dark Mode: Obsidian Gravitational Singularity & Relativistic Lensing
+    // 🌌 Dark Mode: Obsidian Gravitational Singularity & Relativistic Kerr Lensing
     let sapphire = vec3f(0.05, 0.20, 0.88);
     let cobalt   = vec3f(0.12, 0.46, 0.98);
     let celestial = vec3f(0.24, 0.82, 1.0);
@@ -114,8 +123,10 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
     // Accretion disk Doppler beaming and relativistic Kerr vortex
     let doppler = cos(angle * 3.0 - time * 5.0 + wave.phase) * 0.5 + 0.5;
     let vortex = sin(angle * 6.0 + dist * 40.0 - time * 7.0 + wave.phase) * 0.08 * (1.0 - wave.progress);
+    // Gravitational redshift effect near event horizon
+    let grav_redshift = 1.0 / (1.0 + exp(-16.0 * (dist - 0.2)));
     ripple = (sin(dist * 56.0 - time * 8.0) * 0.08 + vortex) * (1.0 - wave.progress);
-    let tone = mix(sapphire, celestial, doppler);
+    let tone = mix(sapphire, celestial, doppler * grav_redshift);
 
     // Relativistic photon ring glow around the singularity
     let photon_ring = exp(-32.0 * abs(dist - wave_pos * 0.38)) * pow(1.0 - wave.progress, 2.0) * 0.4;
@@ -141,8 +152,9 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
     let k4 = (0.707 * p.x + 0.707 * p.y) * 44.0 - time * 2.2;
     let caustic = (cos(k1) + cos(k2) + cos(k3) + cos(k4)) * 0.03 * (1.0 - wave.progress);
 
-    // Specular diamond glint sparkles at wave crest
-    let glint = pow(max(0.0, sin(p.x * 65.0 + time * 4.0) * cos(p.y * 65.0 - time * 4.0)), 12.0) * 0.55 * (1.0 - wave.progress);
+    // Crystalline 8-point diamond star glints along wavefront crest
+    let star_axis = max(0.0, cos(angle * 8.0 + time * 3.0)) * max(0.0, sin(angle * 8.0 - time * 3.0));
+    let glint = (pow(max(0.0, sin(p.x * 65.0 + time * 4.0) * cos(p.y * 65.0 - time * 4.0)), 12.0) * 0.45 + pow(star_axis, 4.0) * 0.25) * (1.0 - wave.progress);
 
     // Solar flare corona at interaction epicenter
     let solar_corona = exp(-10.0 * dist) * pow(1.0 - wave.progress, 2.0) * 0.38;
@@ -155,7 +167,7 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
 
     wave_color = vec3f(spectral_r, spectral_g, spectral_b);
   } else {
-    // ⚛️ System Mode: Quantum Superposition Dual-State Aurora
+    // ⚛️ System Mode: Quantum Superposition Dual-State Probability Field
     let is_dark = wave.effective > 0.5;
     let primary_tone = select(vec3f(0.08, 0.86, 0.52), vec3f(0.06, 0.68, 0.72), is_dark);
     let secondary_tone = select(vec3f(0.96, 0.76, 0.16), vec3f(0.18, 0.88, 1.0), is_dark);
@@ -163,10 +175,10 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
     // Quantum wave packet probability interference with orbital nodal harmonic lines
     let orbital_angle = angle + 2.5 * (1.0 - wave.progress);
     let wave_packet = sin(orbital_angle * 8.0 + dist * 44.0 - time * 7.5 + wave.phase) * cos(orbital_angle * 12.0 - dist * 26.0 + time * 6.0 + wave.phase);
-    let quantum_mix = mix(primary_tone, secondary_tone, wave_packet * 0.5 + 0.5);
-
     // Young double slit diffraction along wavefront
     let slit_interference = pow(cos(angle * 16.0 + wave.phase), 2.0) * 0.06 * (1.0 - wave.progress);
+    let quantum_mix = mix(primary_tone, secondary_tone, wave_packet * 0.5 + 0.5);
+
     ripple = (sin(dist * 66.0 - time * 10.0) * 0.06 + slit_interference) * (1.0 - wave.progress);
 
     wave_color = vec3f(
@@ -184,12 +196,12 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32) -> vec4f {
 
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
-  let c1 = sampleWave(uv, globals.wave1, globals.aspect, globals.time);
-  let c2 = sampleWave(uv, globals.wave2, globals.aspect, globals.time);
-  let c3 = sampleWave(uv, globals.wave3, globals.aspect, globals.time);
-  let c4 = sampleWave(uv, globals.wave4, globals.aspect, globals.time);
-  let c5 = sampleWave(uv, globals.wave5, globals.aspect, globals.time);
-  let c6 = sampleWave(uv, globals.wave6, globals.aspect, globals.time);
+  let c1 = sampleWave(uv, globals.wave1, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
+  let c2 = sampleWave(uv, globals.wave2, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
+  let c3 = sampleWave(uv, globals.wave3, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
+  let c4 = sampleWave(uv, globals.wave4, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
+  let c5 = sampleWave(uv, globals.wave5, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
+  let c6 = sampleWave(uv, globals.wave6, globals.aspect, globals.time, globals.mouse, globals.pointerActive);
 
   // Cross-wave physical interference across overlapping waves
   var cross_interference = 0.0;
@@ -325,7 +337,11 @@ export function VgpuThemeCanvas() {
       ];
       pointerActiveRef.current = 1.0;
     };
+    const onPointerLeave = () => {
+      pointerActiveRef.current = 0.0;
+    };
     window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerleave', onPointerLeave, { passive: true });
 
     // Asynchronously initialize WebGPU via vgpu
     void (async () => {
@@ -572,6 +588,7 @@ export function VgpuThemeCanvas() {
     return () => {
       disposed = true;
       window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerleave', onPointerLeave);
       unsubscribe();
       unsubResize?.();
       if (animFrameRef.current) {

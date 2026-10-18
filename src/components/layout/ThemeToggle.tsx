@@ -195,6 +195,12 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
           <kbd className="px-1 py-0.2 rounded bg-white/10 border border-white/15 text-[9px] font-mono text-ink-muted-on-dark uppercase">
             Shift+T
           </kbd>
+          <kbd
+            className="px-1 py-0.2 rounded bg-white/10 border border-white/15 text-[9px] font-mono text-ink-muted-on-dark"
+            title="Press 1 (System), 2 (Light), or 3 (Dark)"
+          >
+            1·2·3
+          </kbd>
         </span>
       </button>
     );

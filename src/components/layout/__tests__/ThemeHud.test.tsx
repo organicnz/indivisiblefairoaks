@@ -2,13 +2,14 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeHud } from '@/components/layout/ThemeHud';
-import { cycleThemeMode, emitThemeHud } from '@/components/layout/theme-store';
+import { cycleThemeMode, emitThemeHud, setThemeMode } from '@/components/layout/theme-store';
 
 vi.mock('@/components/layout/theme-store', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/components/layout/theme-store')>();
   return {
     ...actual,
     cycleThemeMode: vi.fn(actual.cycleThemeMode),
+    setThemeMode: vi.fn(actual.setThemeMode),
   };
 });
 
@@ -226,5 +227,57 @@ describe('ThemeHud component', () => {
     });
 
     expect(hud?.className).toContain('opacity-0');
+  });
+
+  it('switches theme to system/light/dark when user presses 1, 2, or 3 while HUD is visible', async () => {
+    await act(async () => {
+      root.render(<ThemeHud />);
+    });
+
+    await act(async () => {
+      emitThemeHud('dark', 'dark');
+    });
+
+    // Press '2' for light
+    const event2 = new KeyboardEvent('keydown', {
+      key: '2',
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(async () => {
+      window.dispatchEvent(event2);
+    });
+
+    expect(setThemeMode).toHaveBeenCalledWith('light');
+
+    // Press '1' for system
+    const event1 = new KeyboardEvent('keydown', {
+      key: '1',
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(async () => {
+      window.dispatchEvent(event1);
+    });
+
+    expect(setThemeMode).toHaveBeenCalledWith('system');
+  });
+
+  it('switches theme when user presses Alt+1, Alt+2, or Alt+3 globally', async () => {
+    await act(async () => {
+      root.render(<ThemeHud />);
+    });
+
+    const alt3 = new KeyboardEvent('keydown', {
+      key: '3',
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(async () => {
+      window.dispatchEvent(alt3);
+    });
+
+    expect(setThemeMode).toHaveBeenCalledWith('dark');
   });
 });

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import {
   applyThemeAttribute,
   type EffectiveTheme,
+  isThemeMode,
   nextThemeMode,
   playThemeHaptic,
   readThemeMode,
@@ -131,6 +132,48 @@ export function emitThemeHud(
   }
 }
 
+export const THEME_BROADCAST_CHANNEL = 'indivisible:theme-broadcast';
+
+export interface ThemeBroadcastPayload {
+  type: 'THEME_SYNC';
+  mode: ThemeMode;
+  effective: EffectiveTheme;
+  coords?: ThemeCoords;
+  txId: number;
+  sourceId: string;
+  timestamp: number;
+}
+
+const TAB_INSTANCE_ID =
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+
+export function broadcastThemeSync(
+  mode: ThemeMode,
+  effective: EffectiveTheme,
+  coords?: ThemeCoords,
+  txId?: number
+): void {
+  if (typeof BroadcastChannel === 'undefined') return;
+  try {
+    const channel = new BroadcastChannel(THEME_BROADCAST_CHANNEL);
+    const payload: ThemeBroadcastPayload = {
+      type: 'THEME_SYNC',
+      mode,
+      effective,
+      coords,
+      txId: txId ?? ++currentTxId,
+      sourceId: TAB_INSTANCE_ID,
+      timestamp: Date.now(),
+    };
+    channel.postMessage(payload);
+    channel.close();
+  } catch {
+    // Suppress cross-tab communication failures
+  }
+}
+
 /** Atomic sequence counter to prevent race conditions during rapid theme cycling. */
 let currentTxId = 0;
 let activeViewAnimation: Animation | null = null;
@@ -166,7 +209,7 @@ function resolveInteractionCoords(coords?: ThemeCoords): ThemeCoords {
 export function setThemeMode(
   next: ThemeMode,
   coords?: ThemeCoords,
-  options?: { silent?: boolean; noHud?: boolean }
+  options?: { silent?: boolean; noHud?: boolean; noBroadcast?: boolean }
 ): ThemeState {
   const txId = ++currentTxId;
 
@@ -189,6 +232,9 @@ export function setThemeMode(
     }
     if (!options?.noHud) {
       emitThemeHud(next, resolved.effective, resolvedCoords, txId);
+    }
+    if (!options?.noBroadcast) {
+      broadcastThemeSync(next, resolved.effective, resolvedCoords, txId);
     }
   };
 
@@ -393,11 +439,40 @@ export function useThemeMode(): {
     };
     window.addEventListener('storage', onStorage);
 
+    let channel: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        channel = new BroadcastChannel(THEME_BROADCAST_CHANNEL);
+        channel.onmessage = (event: MessageEvent<ThemeBroadcastPayload>) => {
+          const data = event.data;
+          if (
+            data &&
+            data.type === 'THEME_SYNC' &&
+            data.sourceId !== TAB_INSTANCE_ID &&
+            isThemeMode(data.mode)
+          ) {
+            const next: ThemeState = {
+              mode: data.mode,
+              effective: data.effective,
+            };
+            if (typeof document !== 'undefined') {
+              applyThemeAttribute(document.documentElement, next.effective);
+            }
+            replaceState(next);
+            emitThemeHud(data.mode, data.effective, data.coords, data.txId);
+          }
+        };
+      } catch {
+        // BroadcastChannel unavailable or restricted
+      }
+    }
+
     syncTheme();
 
     return () => {
       media?.removeEventListener?.('change', onMediaChange);
       window.removeEventListener('storage', onStorage);
+      channel?.close();
     };
   }, []);
 

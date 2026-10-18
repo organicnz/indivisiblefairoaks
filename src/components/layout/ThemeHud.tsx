@@ -3,7 +3,7 @@
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { type ThemeMode, themeModeLabel } from '@/lib/theme';
-import { cycleThemeMode, subscribeThemeHud, type ThemeHudEvent } from './theme-store';
+import { cycleThemeMode, setThemeMode, subscribeThemeHud, type ThemeHudEvent } from './theme-store';
 
 const MODE_ICON: Record<ThemeMode, typeof Monitor> = {
   system: Monitor,
@@ -17,14 +17,21 @@ const MODE_ICON: Record<ThemeMode, typeof Monitor> = {
  * Provides Apple-grade tactile feedback when theme modes change:
  * 1. Global shortcut `Shift + T` (or `Cmd/Ctrl + Shift + L`) toggles theme modes
  *    from anywhere across the site without interfering with form inputs.
- * 2. Sensory floating HUD pill confirms palette transitions with accessible
+ * 2. `Alt + 1` (System), `Alt + 2` (Light), `Alt + 3` (Dark) direct shortcuts,
+ *    and instant `1`, `2`, `3` selection while the HUD is visible.
+ * 3. Sensory floating HUD pill confirms palette transitions with accessible
  *    announcements (`role="status"`, `aria-live="polite"`).
- * 3. Auto-dismisses smoothly after 2.2s.
+ * 4. Micro countdown drain progress indicator with hover pause and auto-dismiss after 2.2s.
  */
 export function ThemeHud() {
   const [hudEvent, setHudEvent] = useState<ThemeHudEvent | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const isVisibleRef = useRef(false);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    isVisibleRef.current = isVisible;
+  }, [isVisible]);
 
   // Subscribe to theme mode mutations across the application
   useEffect(() => {
@@ -41,7 +48,7 @@ export function ThemeHud() {
     });
   }, []);
 
-  // Global tactile keyboard shortcuts (Shift+T and Cmd/Ctrl+Shift+L)
+  // Global tactile keyboard shortcuts (Shift+T, Cmd/Ctrl+Shift+L, Alt+1/2/3, and 1/2/3 while active)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target;
@@ -63,6 +70,44 @@ export function ThemeHud() {
       if (e.key === 'Escape') {
         setIsVisible(false);
         return;
+      }
+
+      // Alt + 1/2/3 global direct theme switching
+      if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+        if (e.key === '1') {
+          e.preventDefault();
+          setThemeMode('system');
+          return;
+        }
+        if (e.key === '2') {
+          e.preventDefault();
+          setThemeMode('light');
+          return;
+        }
+        if (e.key === '3') {
+          e.preventDefault();
+          setThemeMode('dark');
+          return;
+        }
+      }
+
+      // Direct 1/2/3 selection when HUD is actively visible
+      if (isVisibleRef.current && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        if (e.key === '1') {
+          e.preventDefault();
+          setThemeMode('system');
+          return;
+        }
+        if (e.key === '2') {
+          e.preventDefault();
+          setThemeMode('light');
+          return;
+        }
+        if (e.key === '3') {
+          e.preventDefault();
+          setThemeMode('dark');
+          return;
+        }
       }
 
       // Shift + T (without Cmd/Ctrl/Alt)
@@ -121,7 +166,7 @@ export function ThemeHud() {
         type="button"
         onClick={() => setIsVisible(false)}
         aria-label="Dismiss theme notification"
-        className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-secondary/95 dark:bg-slate-900/95 text-white backdrop-blur-xl border border-white/15 dark:border-white/10 text-xs font-semibold tracking-wide cursor-pointer active:scale-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-bright ${
+        className={`group relative overflow-hidden inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-secondary/95 dark:bg-slate-900/95 text-white backdrop-blur-xl border border-white/15 dark:border-white/10 text-xs font-semibold tracking-wide cursor-pointer active:scale-95 transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-bright ${
           hudEvent.mode === 'dark'
             ? 'shadow-[0_12px_36px_-8px_rgba(21,93,252,0.45)] ring-1 ring-sky-400/30'
             : hudEvent.mode === 'light'
@@ -151,6 +196,29 @@ export function ThemeHud() {
         <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-[10px] font-mono text-ink-muted-on-dark uppercase">
           Shift+T
         </kbd>
+        <span
+          className="text-white/30 text-[9px] font-mono tracking-tight hidden sm:inline"
+          aria-hidden="true"
+          title="Press 1 (System), 2 (Light), or 3 (Dark) while HUD is open"
+        >
+          [1·2·3]
+        </span>
+
+        {/* Micro countdown drain bar */}
+        <span
+          key={hudEvent.timestamp}
+          aria-hidden="true"
+          className={`absolute bottom-0 left-0 h-[2.5px] rounded-b-full transition-colors duration-300 group-hover:[animation-play-state:paused] ${
+            hudEvent.mode === 'dark'
+              ? 'bg-sky-400'
+              : hudEvent.mode === 'light'
+                ? 'bg-amber-400'
+                : 'bg-emerald-400'
+          }`}
+          style={{
+            animation: isVisible ? 'theme-hud-drain 2.2s linear forwards' : 'none',
+          }}
+        />
       </button>
     </aside>
   );
