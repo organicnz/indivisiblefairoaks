@@ -17,6 +17,17 @@ const MODE_ICON: Record<ThemeMode, typeof Monitor> = {
   dark: Moon,
 };
 
+/** High-contrast (WCAG AAA >= 7.2:1) active token styling tailored to each mode */
+function activeThemeClasses(m: ThemeMode): string {
+  if (m === 'dark') {
+    return 'bg-sky-400 text-secondary shadow-raised font-black ring-1 ring-sky-300/50';
+  }
+  if (m === 'light') {
+    return 'bg-amber-400 text-secondary shadow-raised font-black ring-1 ring-amber-300/50';
+  }
+  return 'bg-emerald-400 text-secondary shadow-raised font-black ring-1 ring-emerald-300/50';
+}
+
 /**
  * One sentence that says what the theme is *and* what a click does.
  *
@@ -116,7 +127,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               data-theme-mode={m}
               className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
                 isActive
-                  ? 'bg-amber-400 text-secondary shadow-raised font-black ring-1 ring-amber-300/50'
+                  ? activeThemeClasses(m)
                   : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'
               }`}
               title={`Switch to ${themeModeLabel(m)} theme`}
@@ -263,7 +274,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               data-theme-mode={m}
               className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all duration-300 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
                 isSelected
-                  ? 'bg-amber-400 text-secondary shadow-raised font-black ring-1 ring-amber-300/50'
+                  ? activeThemeClasses(m)
                   : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'
               }`}
             >

@@ -245,28 +245,62 @@ export function playThemeHaptic(
     const ctx = new AudioCtx();
     const now = ctx.currentTime;
     const osc = ctx.createOscillator();
+    const oscOvertone = typeof ctx.createOscillator === 'function' ? ctx.createOscillator() : null;
     const gain = ctx.createGain();
+    const filter = typeof ctx.createBiquadFilter === 'function' ? ctx.createBiquadFilter() : null;
 
     osc.type = 'sine';
+    if (oscOvertone) oscOvertone.type = 'sine';
 
     if (mode === 'light') {
-      // Ascending crystal glass chime (850Hz -> 1320Hz)
+      // Ascending crystal glass chime (fundamental: 850Hz -> 1320Hz, harmonic overtone: 1275Hz -> 1980Hz)
       osc.frequency.setValueAtTime(850, now);
       osc.frequency.exponentialRampToValueAtTime(1320, now + 0.035);
+      if (oscOvertone) {
+        oscOvertone.frequency.setValueAtTime(1275, now);
+        oscOvertone.frequency.exponentialRampToValueAtTime(1980, now + 0.035);
+      }
     } else if (mode === 'dark') {
-      // Descending obsidian switch detent (950Hz -> 650Hz)
+      // Descending obsidian switch detent (fundamental: 950Hz -> 650Hz, sub-harmonic overtone: 475Hz -> 325Hz)
       osc.frequency.setValueAtTime(950, now);
       osc.frequency.exponentialRampToValueAtTime(650, now + 0.038);
+      if (oscOvertone) {
+        oscOvertone.frequency.setValueAtTime(475, now);
+        oscOvertone.frequency.exponentialRampToValueAtTime(325, now + 0.038);
+      }
     } else {
-      // System quantum harmonic duality chord (800Hz -> 1100Hz)
+      // System quantum harmonic duality chord (fundamental: 800Hz -> 1100Hz, overtone: 1064Hz -> 1463Hz)
       osc.frequency.setValueAtTime(800, now);
       osc.frequency.exponentialRampToValueAtTime(1100, now + 0.042);
+      if (oscOvertone) {
+        oscOvertone.frequency.setValueAtTime(1064, now);
+        oscOvertone.frequency.exponentialRampToValueAtTime(1463, now + 0.042);
+      }
+    }
+
+    // Physical acoustic damping lowpass filter (~2400Hz cutoff) to eliminate digital clipping
+    if (filter) {
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(2400, now);
+      filter.Q.setValueAtTime(1.2, now);
     }
 
     // Whisper-quiet gain envelope (0.025 max) with smooth decay to zero
     gain.gain.setValueAtTime(0.001, now);
     gain.gain.linearRampToValueAtTime(0.025, now + 0.005);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
+
+    // Node graph routing: osc + oscOvertone -> gain -> filter -> panner -> destination
+    osc.connect(gain);
+    if (oscOvertone) {
+      oscOvertone.connect(gain);
+    }
+
+    let audioSource: AudioNode = gain;
+    if (filter) {
+      gain.connect(filter);
+      audioSource = filter;
+    }
 
     // Spatial acoustic panning towards interaction coordinates
     if (typeof ctx.createStereoPanner === 'function' && typeof coords?.x === 'number') {
@@ -276,16 +310,18 @@ export function playThemeHaptic(
         Math.min(0.85, (coords.x / Math.max(1, window.innerWidth)) * 2 - 1)
       );
       panner.pan.setValueAtTime(pan, now);
-      osc.connect(gain);
-      gain.connect(panner);
+      audioSource.connect(panner);
       panner.connect(ctx.destination);
     } else {
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+      audioSource.connect(ctx.destination);
     }
 
     osc.start(now);
     osc.stop(now + 0.045);
+    if (oscOvertone) {
+      oscOvertone.start(now);
+      oscOvertone.stop(now + 0.045);
+    }
 
     osc.onended = () => {
       ctx.close().catch(() => {});

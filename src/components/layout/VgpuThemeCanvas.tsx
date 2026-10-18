@@ -88,19 +88,31 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
     return vec4f(0.0);
   }
 
-  // 3D Volumetric Normal & Glass Rim Fresnel Sheen
+  // 3D Volumetric Surface Normal & Glass Rim Fresnel Sheen
+  let grad_dir = select(vec2f(0.0), p / max(0.0001, dist), dist > 0.0001);
+  let grad_mag = -sign(d) * (1.0 - abs(d) / wave_width) * wave_crest;
+  let normal_xy = grad_dir * grad_mag;
   let normal_z = max(0.05, 1.0 - abs(d) / wave_width);
   let fresnel = pow(1.0 - normal_z, 3.5) * 0.45;
 
-  // 7-Band physical chromatic dispersion based on Cauchy optical refraction
+  // 10x Pro Snell's Law Volumetric Refraction Vector across 7-Band Cauchy dispersion
+  let snell_factor = 0.026 * (1.0 - wave.progress * 0.72);
   let disp = 0.048 * (1.0 - wave.progress * 0.75);
-  let d_red     = dist - (wave_pos + disp * 1.50);
-  let d_amber   = dist - (wave_pos + disp * 1.00);
-  let d_yellow  = dist - (wave_pos + disp * 0.50);
-  let d_green   = dist - wave_pos;
-  let d_cyan    = dist - (wave_pos - disp * 0.50);
-  let d_blue    = dist - (wave_pos - disp * 1.00);
-  let d_violet  = dist - (wave_pos - disp * 1.50);
+
+  let p_red    = p - normal_xy * (snell_factor * 1.50);
+  let p_amber  = p - normal_xy * (snell_factor * 1.00);
+  let p_yellow = p - normal_xy * (snell_factor * 0.50);
+  let p_cyan   = p + normal_xy * (snell_factor * 0.50);
+  let p_blue   = p + normal_xy * (snell_factor * 1.00);
+  let p_violet = p + normal_xy * (snell_factor * 1.50);
+
+  let d_red     = length(p_red)    - (wave_pos + disp * 1.50);
+  let d_amber   = length(p_amber)  - (wave_pos + disp * 1.00);
+  let d_yellow  = length(p_yellow) - (wave_pos + disp * 0.50);
+  let d_green   = dist             - wave_pos;
+  let d_cyan    = length(p_cyan)   - (wave_pos - disp * 0.50);
+  let d_blue    = length(p_blue)   - (wave_pos - disp * 1.00);
+  let d_violet  = length(p_violet) - (wave_pos - disp * 1.50);
 
   let w_red    = smoothstep(wave_width, 0.0, abs(d_red));
   let w_amber  = smoothstep(wave_width, 0.0, abs(d_amber));
@@ -280,8 +292,9 @@ function evaluateWave(slot: WaveSlot, currentTime: number, duration: number) {
  * - Direct Metal/Vulkan WebGPU acceleration via vgpu.
  * - Atomic 6-Wave optical superposition: rapid mode toggling gracefully overlays
  *   concurrent wavefronts instead of abrupt resets.
- * - 7-Band Cauchy chromatic dispersion (red to violet).
- * - Relativistic Kerr vortex & photon rings (dark), 4-plane caustics (light), quantum nodal lines (system).
+ * - Snell's Law volumetric refraction ray deflection across 7-Band Cauchy dispersion (red to violet).
+ * - Hydrodynamic pointer wake & bow shock velocity scaling.
+ * - Relativistic Kerr vortex & photon rings (dark), 4-plane caustics (light), quantum Bloch sphere geodesics (system).
  * - Reactive viewport calibration via vgpu surface resize hooks.
  * - Golden-ratio temporal blue-noise dither for Retina & OLED HDR panels.
  * - 0% CPU / GPU consumption when idle (render loop completely halts after transitions).

@@ -238,11 +238,22 @@ describe('playThemeHaptic', () => {
       },
       connect: vi.fn(),
     };
+    const mockFilter = {
+      type: '',
+      frequency: {
+        setValueAtTime: vi.fn(),
+      },
+      Q: {
+        setValueAtTime: vi.fn(),
+      },
+      connect: vi.fn(),
+    };
     const mockCtx = {
       currentTime: 0,
       destination: {},
       createOscillator: vi.fn(() => mockOsc),
       createGain: vi.fn(() => mockGain),
+      createBiquadFilter: vi.fn(() => mockFilter),
       close: vi.fn().mockResolvedValue(undefined),
     };
     class MockAudioContext {
@@ -250,6 +261,7 @@ describe('playThemeHaptic', () => {
       destination = mockCtx.destination;
       createOscillator = mockCtx.createOscillator;
       createGain = mockCtx.createGain;
+      createBiquadFilter = mockCtx.createBiquadFilter;
       close = mockCtx.close;
     }
 
@@ -257,17 +269,23 @@ describe('playThemeHaptic', () => {
 
     try {
       playThemeHaptic('light', 'light');
-      expect(mockCtx.createOscillator).toHaveBeenCalledTimes(1);
+      // Dual oscillators: fundamental + harmonic overtone
+      expect(mockCtx.createOscillator).toHaveBeenCalledTimes(2);
       expect(mockCtx.createGain).toHaveBeenCalledTimes(1);
-      expect(mockOsc.start).toHaveBeenCalledTimes(1);
-      expect(mockOsc.stop).toHaveBeenCalledTimes(1);
+      expect(mockCtx.createBiquadFilter).toHaveBeenCalledTimes(1);
+      expect(mockFilter.type).toBe('lowpass');
+      expect(mockFilter.frequency.setValueAtTime).toHaveBeenCalledWith(2400, 0);
+      expect(mockOsc.start).toHaveBeenCalledTimes(2);
+      expect(mockOsc.stop).toHaveBeenCalledTimes(2);
 
-      // Light mode starts at 850Hz
+      // Light mode starts at 850Hz fundamental, 1275Hz overtone
       expect(mockOsc.frequency.setValueAtTime).toHaveBeenCalledWith(850, 0);
+      expect(mockOsc.frequency.setValueAtTime).toHaveBeenCalledWith(1275, 0);
 
-      // Dark mode starts at 950Hz
+      // Dark mode starts at 950Hz fundamental, 475Hz sub-harmonic overtone
       playThemeHaptic('dark', 'dark');
       expect(mockOsc.frequency.setValueAtTime).toHaveBeenCalledWith(950, 0);
+      expect(mockOsc.frequency.setValueAtTime).toHaveBeenCalledWith(475, 0);
     } finally {
       vi.unstubAllGlobals();
     }
