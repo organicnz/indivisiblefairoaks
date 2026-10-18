@@ -11,6 +11,7 @@ import {
   Moon,
   Music,
   Search,
+  Sparkles,
   Sun,
   Users,
   Vote,
@@ -31,7 +32,7 @@ interface PaletteItem {
   href?: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   isExternal?: boolean;
-  action?: 'theme-light' | 'theme-dark' | 'theme-system';
+  action?: 'theme-light' | 'theme-dark' | 'theme-system' | 'theme-cycle';
   keywords?: string[];
 }
 
@@ -127,6 +128,15 @@ const PALETTE_ITEMS: PaletteItem[] = [
     isExternal: true,
   },
   {
+    id: 'theme-cycle',
+    title: 'Cycle Color Theme',
+    description: 'Toggle forward between System, Light, and Dark palettes',
+    category: 'Preferences',
+    icon: Sparkles,
+    action: 'theme-cycle',
+    keywords: ['cycle', 'toggle', 'switch', 'theme', 'appearance', 'mode', 'palette'],
+  },
+  {
     id: 'theme-light',
     title: 'Switch to Light Theme',
     description: 'Daytime crisp high-contrast presentation',
@@ -166,7 +176,7 @@ export function CivicCommandPalette({
   setIsOpen?: (open: boolean) => void;
 } = {}) {
   const { dataPoints } = useDataPoints('palette');
-  const { setMode } = useThemeMode();
+  const { setMode, cycle } = useThemeMode();
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = controlledOpen ?? internalOpen;
   const setIsOpen: (open: boolean) => void = setControlledOpen ?? setInternalOpen;
@@ -222,7 +232,10 @@ export function CivicCommandPalette({
       setQuery('');
       setSelectedIndex(0);
 
-      if (item.action === 'theme-light') {
+      if (item.action === 'theme-cycle') {
+        if (coords) cycle('next', coords);
+        else cycle('next');
+      } else if (item.action === 'theme-light') {
         if (coords) setMode('light', coords);
         else setMode('light');
       } else if (item.action === 'theme-dark') {
@@ -237,7 +250,7 @@ export function CivicCommandPalette({
         router.push(item.href);
       }
     },
-    [router, setIsOpen, setMode]
+    [router, setIsOpen, setMode, cycle]
   );
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

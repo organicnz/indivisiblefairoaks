@@ -122,4 +122,36 @@ describe('VgpuThemeCanvas component', () => {
       removeEventListenerSpy.mockRestore();
     }
   });
+
+  it('activates canvas opacity when theme change event is emitted', async () => {
+    const { emitThemeHud } = await import('@/components/layout/theme-store');
+
+    const originalGpu = (navigator as unknown as { gpu?: unknown }).gpu;
+    Object.defineProperty(navigator, 'gpu', {
+      value: {},
+      configurable: true,
+      writable: true,
+    });
+
+    try {
+      await act(async () => {
+        root.render(<VgpuThemeCanvas />);
+      });
+
+      const canvas = container.querySelector('canvas');
+      expect(canvas?.className).toContain('opacity-0');
+
+      await act(async () => {
+        emitThemeHud('dark', 'dark', { x: 500, y: 300 });
+      });
+
+      expect(canvas?.className).toContain('opacity-100');
+    } finally {
+      Object.defineProperty(navigator, 'gpu', {
+        value: originalGpu,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
 });

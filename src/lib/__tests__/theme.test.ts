@@ -4,6 +4,7 @@ import {
   isThemeMode,
   nextThemeMode,
   playThemeHaptic,
+  prevThemeMode,
   readThemeMode,
   resolveEffectiveTheme,
   THEME_ATTR,
@@ -12,6 +13,7 @@ import {
   THEME_STORAGE_KEY,
   type ThemeMode,
   themeBootstrapScript,
+  themeModeDescription,
   themeModeLabel,
   writeThemeMode,
 } from '@/lib/theme';
@@ -149,11 +151,28 @@ describe('nextThemeMode', () => {
   });
 });
 
+describe('prevThemeMode', () => {
+  it('cycles system ← light ← dark ← system in reverse order', () => {
+    expect(prevThemeMode('system')).toBe('dark');
+    expect(prevThemeMode('dark')).toBe('light');
+    expect(prevThemeMode('light')).toBe('system');
+  });
+});
+
 describe('themeModeLabel', () => {
   it('names each mode as the toggle announces it', () => {
     expect(themeModeLabel('system')).toBe('System');
     expect(themeModeLabel('light')).toBe('Light');
     expect(themeModeLabel('dark')).toBe('Dark');
+  });
+});
+
+describe('themeModeDescription', () => {
+  it('provides rich descriptive status for system and pinned modes', () => {
+    expect(themeModeDescription('system', 'dark')).toBe('System (Following device: Dark)');
+    expect(themeModeDescription('system', 'light')).toBe('System (Following device: Light)');
+    expect(themeModeDescription('dark', 'dark')).toBe('Dark (Pinned)');
+    expect(themeModeDescription('light', 'light')).toBe('Light (Pinned)');
   });
 });
 
@@ -164,17 +183,19 @@ describe('applyThemeAttribute', () => {
     expect(setAttribute).toHaveBeenCalledWith(THEME_ATTR, 'dark');
   });
 
-  it('synchronizes colorScheme and classList when present', () => {
+  it('synchronizes colorScheme, data-theme-mode, and classList when present', () => {
     const setAttribute = vi.fn();
     const style: { colorScheme?: string } = {};
     const toggle = vi.fn();
-    applyThemeAttribute({ setAttribute, style, classList: { toggle } }, 'dark');
+    applyThemeAttribute({ setAttribute, style, classList: { toggle } }, 'dark', 'system');
     expect(setAttribute).toHaveBeenCalledWith(THEME_ATTR, 'dark');
+    expect(setAttribute).toHaveBeenCalledWith('data-theme-mode', 'system');
     expect(style.colorScheme).toBe('dark');
     expect(toggle).toHaveBeenCalledWith('dark', true);
 
-    applyThemeAttribute({ setAttribute, style, classList: { toggle } }, 'light');
+    applyThemeAttribute({ setAttribute, style, classList: { toggle } }, 'light', 'light');
     expect(setAttribute).toHaveBeenCalledWith(THEME_ATTR, 'light');
+    expect(setAttribute).toHaveBeenCalledWith('data-theme-mode', 'light');
     expect(style.colorScheme).toBe('light');
     expect(toggle).toHaveBeenCalledWith('dark', false);
   });

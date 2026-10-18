@@ -110,6 +110,12 @@ export function nextThemeMode(mode: ThemeMode): ThemeMode {
   return THEME_ORDER[(index + 1) % THEME_ORDER.length];
 }
 
+/** The previous mode when cycling backwards. */
+export function prevThemeMode(mode: ThemeMode): ThemeMode {
+  const index = THEME_ORDER.indexOf(mode);
+  return THEME_ORDER[(index - 1 + THEME_ORDER.length) % THEME_ORDER.length];
+}
+
 /** A human-readable name for the current choice, used by the toggle's label. */
 export function themeModeLabel(mode: ThemeMode): string {
   switch (mode) {
@@ -120,6 +126,14 @@ export function themeModeLabel(mode: ThemeMode): string {
     default:
       return 'System';
   }
+}
+
+/** Rich human-readable descriptive status for announcements and tooltips. */
+export function themeModeDescription(mode: ThemeMode, effective: EffectiveTheme): string {
+  if (mode === 'system') {
+    return `System (Following device: ${effective === 'dark' ? 'Dark' : 'Light'})`;
+  }
+  return `${themeModeLabel(mode)} (Pinned)`;
 }
 
 /**
@@ -138,9 +152,13 @@ export function applyThemeAttribute(
       remove?: (token: string) => void;
     };
   },
-  effective: EffectiveTheme
+  effective: EffectiveTheme,
+  mode?: ThemeMode
 ): void {
   documentElement.setAttribute(THEME_ATTR, effective);
+  if (mode) {
+    documentElement.setAttribute('data-theme-mode', mode);
+  }
   if (documentElement.style) {
     documentElement.style.colorScheme = effective;
   }
@@ -179,12 +197,14 @@ export function themeBootstrapScript(): string {
     "var d=m==='dark'||(m!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);",
     "var c=d?'dark':'light';",
     `document.documentElement.setAttribute('${THEME_ATTR}',c);`,
+    "document.documentElement.setAttribute('data-theme-mode',m||'system');",
     'document.documentElement.style.colorScheme=c;',
     "document.documentElement.classList.toggle('dark',d);",
     'var tc=document.querySelectorAll(\'meta[name="theme-color"]\');',
     "for(var i=0;i<tc.length;i++)tc[i].setAttribute('content',d?'#0f172a':'#ffffff');",
     '}catch(e){',
     `document.documentElement.setAttribute('${THEME_ATTR}','light');`,
+    "document.documentElement.setAttribute('data-theme-mode','system');",
     "document.documentElement.style.colorScheme='light';",
     "document.documentElement.classList.remove('dark');",
     '}})();',

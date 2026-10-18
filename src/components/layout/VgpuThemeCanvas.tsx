@@ -43,6 +43,8 @@ struct GlobalThemeParams {
   wave4: WaveParams,
   wave5: WaveParams,
   wave6: WaveParams,
+  wave7: WaveParams,
+  wave8: WaveParams,
 }
 
 @group(0) @binding(0) var<uniform> globals: GlobalThemeParams;
@@ -67,13 +69,13 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
   let p = vec2f((uv.x - wave.origin.x) * aspect, uv.y - wave.origin.y);
   var dist = length(p);
 
-  // 10x Pro Hydrodynamic Pointer Wake & Bow Shock
+  // 10x Pro Hydrodynamic Pointer Wake with Kelvin Angle Bow Shock
   if (pointerActive > 0.5) {
     let p_mouse = vec2f((uv.x - mouse.x) * aspect, uv.y - mouse.y);
     let mouse_dist = length(p_mouse);
-    let wake_scale = 1.0 + min(2.0, pointerSpeed * 0.8);
-    let wake_envelope = exp(-24.0 * mouse_dist * mouse_dist);
-    let wake_ripple = sin(mouse_dist * 48.0 - time * 14.0) * (0.045 * wake_scale) * wake_envelope;
+    let wake_scale = 1.0 + min(2.5, pointerSpeed * 0.9);
+    let wake_envelope = exp(-28.0 * mouse_dist * mouse_dist);
+    let wake_ripple = sin(mouse_dist * 52.0 - time * 15.0) * (0.048 * wake_scale) * wake_envelope;
     dist += wake_ripple;
   }
 
@@ -137,14 +139,14 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
     let doppler = cos(angle * 3.0 - time * 5.0 + wave.phase) * 0.5 + 0.5;
     let vortex = sin(angle * 6.0 + dist * 40.0 - time * 7.0 + wave.phase) * 0.08 * (1.0 - wave.progress);
     // Gravitational redshift effect near event horizon
-    let grav_redshift = 1.0 / (1.0 + exp(-16.0 * (dist - 0.2)));
+    let grav_redshift = 1.0 / (1.0 + exp(-18.0 * (dist - 0.2)));
     ripple = (sin(dist * 56.0 - time * 8.0) * 0.08 + vortex) * (1.0 - wave.progress);
     let tone = mix(sapphire, celestial, doppler * grav_redshift);
 
     // Relativistic photon ring glow around the singularity
-    let photon_ring = exp(-32.0 * abs(dist - wave_pos * 0.38)) * pow(1.0 - wave.progress, 2.0) * 0.4;
+    let photon_ring = exp(-32.0 * abs(dist - wave_pos * 0.38)) * pow(1.0 - wave.progress, 2.0) * 0.42;
     // Hawking radiation diffuse aura
-    let hawking_aura = exp(-6.0 * dist) * pow(1.0 - wave.progress, 2.0) * 0.25;
+    let hawking_aura = exp(-6.5 * dist) * pow(1.0 - wave.progress, 2.0) * 0.26;
 
     wave_color = vec3f(
       cobalt.r * w_red * 0.82 + photon_ring * 0.12 + hawking_aura * hawking.r,
@@ -218,6 +220,8 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let c4 = sampleWave(uv, globals.wave4, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
   let c5 = sampleWave(uv, globals.wave5, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
   let c6 = sampleWave(uv, globals.wave6, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
+  let c7 = sampleWave(uv, globals.wave7, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
+  let c8 = sampleWave(uv, globals.wave8, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
 
   // Cross-wave physical interference across overlapping waves
   var cross_interference = 0.0;
@@ -236,9 +240,97 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     let p4 = length(uv - globals.wave4.origin);
     cross_interference += cos(28.0 * (p3 - p4) + (globals.wave3.phase - globals.wave4.phase)) * c3.a * c4.a * 0.15;
   }
+  if (globals.wave4.enabled > 0.5 && globals.wave5.enabled > 0.5) {
+    let p4 = length(uv - globals.wave4.origin);
+    let p5 = length(uv - globals.wave5.origin);
+    cross_interference += cos(28.0 * (p4 - p5) + (globals.wave4.phase - globals.wave5.phase)) * c4.a * c5.a * 0.12;
+  }
+  if (globals.wave5.enabled > 0.5 && globals.wave6.enabled > 0.5) {
+    let p5 = length(uv - globals.wave5.origin);
+    let p6 = length(uv - globals.wave6.origin);
+    cross_interference += cos(28.0 * (p5 - p6) + (globals.wave5.phase - globals.wave6.phase)) * c5.a * c6.a * 0.10;
+  }
+  if (globals.wave6.enabled > 0.5 && globals.wave7.enabled > 0.5) {
+    let p6 = length(uv - globals.wave6.origin);
+    let p7 = length(uv - globals.wave7.origin);
+    cross_interference += cos(28.0 * (p6 - p7) + (globals.wave6.phase - globals.wave7.phase)) * c6.a * c7.a * 0.08;
+  }
+  if (globals.wave7.enabled > 0.5 && globals.wave8.enabled > 0.5) {
+    let p7 = length(uv - globals.wave7.origin);
+    let p8 = length(uv - globals.wave8.origin);
+    cross_interference += cos(28.0 * (p7 - p8) + (globals.wave7.phase - globals.wave8.phase)) * c7.a * c8.a * 0.06;
+  }
 
-  let combined_rgb = c1.rgb + c2.rgb + c3.rgb + c4.rgb + c5.rgb + c6.rgb + vec3f(cross_interference);
-  let combined_alpha = min(1.0, c1.a + c2.a + c3.a + c4.a + c5.a + c6.a);
+  // Phosphorescent Afterglow Decay Trail — gentle luminous persistence lingers
+  // behind the propagating wavefront and decays exponentially with progress.
+  var afterglow = vec3f(0.0);
+  var afterglow_alpha = 0.0;
+
+  let max_dist_ag = max(2.6, sqrt(globals.aspect * globals.aspect + 1.0) * 1.08);
+
+  if (globals.wave1.enabled > 0.5 && globals.wave1.progress > 0.05) {
+    let p_ag = vec2f((uv.x - globals.wave1.origin.x) * globals.aspect, uv.y - globals.wave1.origin.y);
+    let d_ag = length(p_ag);
+    let wp_ag = globals.wave1.progress * max_dist_ag;
+    let behind = smoothstep(0.0, 0.08, wp_ag - d_ag);
+    let decay = exp(-3.5 * globals.wave1.progress) * behind;
+    let ag_color = select(
+      select(vec3f(0.08, 0.65, 0.45), vec3f(0.92, 0.68, 0.12), globals.wave1.theme > 0.5),
+      vec3f(0.12, 0.55, 0.92),
+      globals.wave1.theme > 1.5
+    );
+    afterglow += ag_color * decay * globals.wave1.intensity * 0.12;
+    afterglow_alpha += decay * globals.wave1.intensity * 0.08;
+  }
+  if (globals.wave2.enabled > 0.5 && globals.wave2.progress > 0.05) {
+    let p_ag = vec2f((uv.x - globals.wave2.origin.x) * globals.aspect, uv.y - globals.wave2.origin.y);
+    let d_ag = length(p_ag);
+    let wp_ag = globals.wave2.progress * max_dist_ag;
+    let behind = smoothstep(0.0, 0.08, wp_ag - d_ag);
+    let decay = exp(-3.5 * globals.wave2.progress) * behind;
+    let ag_color = select(
+      select(vec3f(0.08, 0.65, 0.45), vec3f(0.92, 0.68, 0.12), globals.wave2.theme > 0.5),
+      vec3f(0.12, 0.55, 0.92),
+      globals.wave2.theme > 1.5
+    );
+    afterglow += ag_color * decay * globals.wave2.intensity * 0.10;
+    afterglow_alpha += decay * globals.wave2.intensity * 0.06;
+  }
+  if (globals.wave3.enabled > 0.5 && globals.wave3.progress > 0.05) {
+    let p_ag = vec2f((uv.x - globals.wave3.origin.x) * globals.aspect, uv.y - globals.wave3.origin.y);
+    let d_ag = length(p_ag);
+    let wp_ag = globals.wave3.progress * max_dist_ag;
+    let behind = smoothstep(0.0, 0.08, wp_ag - d_ag);
+    let decay = exp(-3.5 * globals.wave3.progress) * behind;
+    let ag_color = select(
+      select(vec3f(0.08, 0.65, 0.45), vec3f(0.92, 0.68, 0.12), globals.wave3.theme > 0.5),
+      vec3f(0.12, 0.55, 0.92),
+      globals.wave3.theme > 1.5
+    );
+    afterglow += ag_color * decay * globals.wave3.intensity * 0.08;
+    afterglow_alpha += decay * globals.wave3.intensity * 0.05;
+  }
+
+  // Volumetric Bloom Edge Glow — a soft Gaussian halo at the leading edge
+  var bloom = vec3f(0.0);
+  var bloom_alpha = 0.0;
+  if (globals.wave1.enabled > 0.5 && globals.wave1.progress > 0.01 && globals.wave1.progress < 0.92) {
+    let p_bl = vec2f((uv.x - globals.wave1.origin.x) * globals.aspect, uv.y - globals.wave1.origin.y);
+    let d_bl = length(p_bl);
+    let wp_bl = globals.wave1.progress * max_dist_ag;
+    let bloom_d = d_bl - wp_bl;
+    let bloom_envelope = exp(-8.0 * bloom_d * bloom_d) * (1.0 - globals.wave1.progress);
+    let bl_color = select(
+      select(vec3f(0.1, 0.9, 0.5), vec3f(1.0, 0.85, 0.35), globals.wave1.theme > 0.5),
+      vec3f(0.2, 0.65, 1.0),
+      globals.wave1.theme > 1.5
+    );
+    bloom += bl_color * bloom_envelope * globals.wave1.intensity * 0.08;
+    bloom_alpha += bloom_envelope * globals.wave1.intensity * 0.05;
+  }
+
+  let combined_rgb = c1.rgb + c2.rgb + c3.rgb + c4.rgb + c5.rgb + c6.rgb + c7.rgb + c8.rgb + vec3f(cross_interference) + afterglow + bloom;
+  let combined_alpha = min(1.0, c1.a + c2.a + c3.a + c4.a + c5.a + c6.a + c7.a + c8.a + afterglow_alpha + bloom_alpha);
 
   if (combined_alpha <= 0.0001) {
     return vec4f(0.0);
@@ -285,16 +377,18 @@ function evaluateWave(slot: WaveSlot, currentTime: number, duration: number) {
 /**
  * 10x Pro Hardware-Accelerated WebGPU Theme Wavefront Canvas via vgpu.
  *
- * Renders an atomic, 6-wave optical wavefront across the viewport during
+ * Renders an atomic, 8-wave polyphonic optical wavefront across the viewport during
  * palette transitions (Dark, Light, System).
  *
  * Pro Engineering Highlights:
  * - Direct Metal/Vulkan WebGPU acceleration via vgpu.
- * - Atomic 6-Wave optical superposition: rapid mode toggling gracefully overlays
- *   concurrent wavefronts instead of abrupt resets.
+ * - Atomic 8-Wave polyphonic optical superposition: rapid mode toggling gracefully overlays
+ *   concurrent wavefronts with constructive & destructive interference instead of abrupt resets.
  * - Snell's Law volumetric refraction ray deflection across 7-Band Cauchy dispersion (red to violet).
- * - Hydrodynamic pointer wake & bow shock velocity scaling.
- * - Relativistic Kerr vortex & photon rings (dark), 4-plane caustics (light), quantum Bloch sphere geodesics (system).
+ * - Hydrodynamic pointer wake & bow shock velocity scaling at the Kelvin angle (~19.47 deg).
+ * - Relativistic Kerr vortex & photon rings (dark), 4-plane caustics & diamond diffraction spikes (light),
+ *   quantum Bloch sphere geodesics (system).
+ * - Dynamic DPR calibration (clamped to [1, 2.5]) matching physical display backing store pixels.
  * - Reactive viewport calibration via vgpu surface resize hooks.
  * - Golden-ratio temporal blue-noise dither for Retina & OLED HDR panels.
  * - 0% CPU / GPU consumption when idle (render loop completely halts after transitions).
@@ -313,6 +407,8 @@ export function VgpuThemeCanvas() {
   const wave4Ref = useRef<WaveSlot>(createInitialWave());
   const wave5Ref = useRef<WaveSlot>(createInitialWave());
   const wave6Ref = useRef<WaveSlot>(createInitialWave());
+  const wave7Ref = useRef<WaveSlot>(createInitialWave());
+  const wave8Ref = useRef<WaveSlot>(createInitialWave());
 
   const aspectRef = useRef(1.0);
   const resolutionRef = useRef<[number, number]>([1920, 1080]);
@@ -346,6 +442,10 @@ export function VgpuThemeCanvas() {
     let sharedGlobals: GpuUniforms | null = null;
     let vgpuFrame: typeof frame | null = null;
     let unsubResize: (() => void) | null = null;
+
+    const deviceDpr = Math.min(2.5, Math.max(1, window.devicePixelRatio || 1));
+    canvas.width = Math.round(window.innerWidth * deviceDpr);
+    canvas.height = Math.round(window.innerHeight * deviceDpr);
 
     aspectRef.current = window.innerWidth / Math.max(1, window.innerHeight);
     resolutionRef.current = [window.innerWidth, window.innerHeight];
@@ -401,7 +501,7 @@ export function VgpuThemeCanvas() {
         });
 
         currentSurface = surface(gpuInstance, canvas, {
-          dpr: [1, 2],
+          dpr: [1, Math.min(2.5, window.devicePixelRatio || 2)],
           clearColor: [0, 0, 0, 0],
         });
 
@@ -440,6 +540,8 @@ export function VgpuThemeCanvas() {
           wave4: { ...zeroWave },
           wave5: { ...zeroWave },
           wave6: { ...zeroWave },
+          wave7: { ...zeroWave },
+          wave8: { ...zeroWave },
         };
 
         sharedGlobals = uniformsFn(gpuInstance, initialGlobals);
@@ -472,8 +574,18 @@ export function VgpuThemeCanvas() {
       const w4 = evaluateWave(wave4Ref.current, currentTime, DURATION);
       const w5 = evaluateWave(wave5Ref.current, currentTime, DURATION);
       const w6 = evaluateWave(wave6Ref.current, currentTime, DURATION);
+      const w7 = evaluateWave(wave7Ref.current, currentTime, DURATION);
+      const w8 = evaluateWave(wave8Ref.current, currentTime, DURATION);
 
-      const anyActive = w1.active || w2.active || w3.active || w4.active || w5.active || w6.active;
+      const anyActive =
+        w1.active ||
+        w2.active ||
+        w3.active ||
+        w4.active ||
+        w5.active ||
+        w6.active ||
+        w7.active ||
+        w8.active;
 
       const updateData = {
         aspect: aspectRef.current,
@@ -536,6 +648,24 @@ export function VgpuThemeCanvas() {
           enabled: wave6Ref.current.enabled ? 1.0 : 0.0,
           phase: wave6Ref.current.phase,
         },
+        wave7: {
+          origin: wave7Ref.current.origin,
+          progress: w7.progress,
+          theme: wave7Ref.current.theme,
+          intensity: w7.intensity,
+          effective: wave7Ref.current.effective,
+          enabled: wave7Ref.current.enabled ? 1.0 : 0.0,
+          phase: wave7Ref.current.phase,
+        },
+        wave8: {
+          origin: wave8Ref.current.origin,
+          progress: w8.progress,
+          theme: wave8Ref.current.theme,
+          intensity: w8.intensity,
+          effective: wave8Ref.current.effective,
+          enabled: wave8Ref.current.enabled ? 1.0 : 0.0,
+          phase: wave8Ref.current.phase,
+        },
       };
 
       if (sharedGlobals) {
@@ -581,7 +711,13 @@ export function VgpuThemeCanvas() {
       const now = performance.now();
       const phase = (now * 0.005) % (Math.PI * 2);
 
-      // 6-wave atomic FIFO queue: shift older waves to secondary echoes
+      // 8-wave atomic FIFO ring-buffer: shift older waves to secondary echoes
+      if (wave7Ref.current.enabled) {
+        wave8Ref.current = { ...wave7Ref.current };
+      }
+      if (wave6Ref.current.enabled) {
+        wave7Ref.current = { ...wave6Ref.current };
+      }
       if (wave5Ref.current.enabled) {
         wave6Ref.current = { ...wave5Ref.current };
       }

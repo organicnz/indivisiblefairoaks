@@ -50,7 +50,13 @@ describe('ThemeToggle component', () => {
       button?.click();
     });
 
-    expect(mockCycle).toHaveBeenCalledTimes(1);
+    expect(mockCycle).toHaveBeenCalledWith('next');
+
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    });
+
+    expect(mockCycle).toHaveBeenCalledWith('prev');
   });
 
   it('renders block variant in drawer with direct mode buttons', async () => {

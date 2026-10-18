@@ -139,6 +139,22 @@ describe('theme store', () => {
     expect(get().mode).toBe('system');
   });
 
+  it('cycles system ← light ← dark ← system in reverse order', () => {
+    const get = render();
+    const modes: string[] = [];
+    act(() => {
+      modes.push(cycleThemeMode('prev'));
+    });
+    act(() => {
+      modes.push(cycleThemeMode('prev'));
+    });
+    act(() => {
+      modes.push(cycleThemeMode('prev'));
+    });
+    expect(modes).toEqual(['dark', 'light', 'system']);
+    expect(get().mode).toBe('system');
+  });
+
   it('adopts a preference written by another tab', () => {
     const get = render();
     act(() => {

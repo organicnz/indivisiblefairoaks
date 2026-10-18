@@ -1,11 +1,51 @@
 'use client';
 
 import { Monitor, Moon, Sun } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { nextThemeMode, THEME_ORDER, type ThemeMode, themeModeLabel } from '@/lib/theme';
 import { useThemeMode } from './theme-store';
 
+/**
+ * Spring-physics animated sliding pill backdrop for segmented theme toggle.
+ *
+ * Uses `motion.div` with `layoutId` to create a shared-layout animation that
+ * slides smoothly between segments when the active mode changes. The pill
+ * renders behind the button text (absolute + inset-0) and uses spring
+ * transition for a natural physical feel.
+ *
+ * Each mode gets a distinctive glow color:
+ * - dark:   sky-400 with sky glow
+ * - light:  amber-400 with amber glow
+ * - system: emerald-400 with emerald glow
+ *
+ * Falls back to a static pill when `prefers-reduced-motion` is active.
+ */
+function SegmentedPill({ layoutId, mode }: { layoutId: string; mode: ThemeMode }) {
+  const prefersReduced = useReducedMotion();
+
+  const pillClasses = activeThemeClasses(mode);
+
+  if (prefersReduced) {
+    return <span aria-hidden="true" className={`absolute inset-0 rounded-lg ${pillClasses}`} />;
+  }
+
+  return (
+    <motion.span
+      layoutId={layoutId}
+      aria-hidden="true"
+      className={`absolute inset-0 rounded-lg ${pillClasses}`}
+      transition={{
+        type: 'spring',
+        stiffness: 500,
+        damping: 35,
+        mass: 0.8,
+      }}
+      style={{ originX: 0.5, originY: 0.5 }}
+    />
+  );
+}
 // Focus ring, matching the header's other controls. Declared per component by
 // convention (Header, NavDropdown, CivicCommandPalette each carry their own).
 const FOCUS_RING =
@@ -101,7 +141,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
     return (
       <fieldset
         aria-label="Color theme"
-        className="inline-flex items-center gap-1 p-1 rounded-xl bg-white/5 dark:bg-slate-900/40 border border-white/10 backdrop-blur-xs shadow-xs"
+        className="relative inline-flex items-center gap-0.5 p-1 rounded-xl bg-white/5 dark:bg-slate-900/40 border border-white/10 backdrop-blur-xs shadow-xs"
       >
         <legend className="sr-only">
           <DataPoint as="span" name="header.theme.legend" initialData={dataPoints}>
@@ -125,30 +165,29 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               }}
               onKeyDown={(e) => handleSegmentKeyDown(e, m)}
               data-theme-mode={m}
-              className={`relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
-                isActive
-                  ? activeThemeClasses(m)
-                  : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'
+              className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
+                isActive ? 'text-secondary font-black' : 'text-ink-muted-on-dark hover:text-white'
               }`}
               title={`Switch to ${themeModeLabel(m)} theme`}
             >
+              {isActive && <SegmentedPill layoutId="theme-pill-segmented" mode={m} />}
               <ItemIcon
                 size={14}
                 aria-hidden="true"
-                className="transition-transform duration-300 group-hover:scale-110"
+                className="relative z-10 transition-transform duration-300 group-hover:scale-110"
               />
               <DataPoint
                 as="span"
                 name={`header.theme.mode_${m}`}
                 initialData={dataPoints}
-                className="capitalize"
+                className="relative z-10 capitalize"
               >
                 {themeModeLabel(m)}
               </DataPoint>
               {m === 'system' && (
                 <span
                   aria-hidden="true"
-                  className={`size-1.5 rounded-full ring-1 ring-secondary/50 shadow-xs transition-colors duration-300 ${
+                  className={`relative z-10 size-1.5 rounded-full ring-1 ring-secondary/50 shadow-xs transition-colors duration-300 ${
                     effective === 'dark' ? 'bg-sky-400' : 'bg-amber-500'
                   }`}
                 />
@@ -166,9 +205,17 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
         type="button"
         onClick={(e) => {
           if (e.clientX || e.clientY) {
-            cycle({ x: e.clientX, y: e.clientY });
+            cycle('next', { x: e.clientX, y: e.clientY });
           } else {
-            cycle();
+            cycle('next');
+          }
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (e.clientX || e.clientY) {
+            cycle('prev', { x: e.clientX, y: e.clientY });
+          } else {
+            cycle('prev');
           }
         }}
         data-theme-mode={mode}
@@ -195,7 +242,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
         {/* Sensory luxury micro-tooltip on pointer devices */}
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-9 right-0 sm:left-1/2 sm:-translate-x-1/2 whitespace-nowrap rounded-lg bg-secondary/95 dark:bg-slate-800/95 backdrop-blur-md border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-white dark:text-slate-100 opacity-0 shadow-float transition-opacity duration-300 ease-out z-50 hover-capable:group-hover:opacity-100 hidden sm:flex items-center gap-1.5"
+          className="pointer-events-none absolute -bottom-9 right-0 whitespace-nowrap rounded-lg bg-secondary/95 dark:bg-slate-800/95 backdrop-blur-md border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-white dark:text-slate-100 opacity-0 shadow-float transition-opacity duration-300 ease-out z-50 hover-capable:group-hover:opacity-100 hidden hover-capable:group-hover:flex items-center gap-1.5"
         >
           <span>
             {themeModeLabel(mode)}
@@ -203,7 +250,10 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               ? ` (${effective === 'dark' ? dataPoints['header.theme.dark'] || 'Dark' : dataPoints['header.theme.light'] || 'Light'})`
               : ''}
           </span>
-          <kbd className="px-1 py-0.2 rounded bg-white/10 border border-white/15 text-[9px] font-mono text-ink-muted-on-dark uppercase">
+          <kbd
+            className="px-1 py-0.2 rounded bg-white/10 border border-white/15 text-[9px] font-mono text-ink-muted-on-dark uppercase"
+            title="Cycle forward (Shift+T) / Backward (Shift+Alt+T or Right-click)"
+          >
             Shift+T
           </kbd>
           <kbd
@@ -253,7 +303,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
           )}
         </span>
       </button>
-      <fieldset className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
+      <fieldset className="relative grid grid-cols-3 gap-0.5 p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
         <legend className="sr-only">Color theme modes</legend>
         {THEME_ORDER.map((m) => {
           const ItemIcon = MODE_ICON[m];
@@ -272,18 +322,17 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               }}
               onKeyDown={(e) => handleSegmentKeyDown(e, m)}
               data-theme-mode={m}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-all duration-300 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
-                isSelected
-                  ? activeThemeClasses(m)
-                  : 'text-ink-muted-on-dark hover:text-white hover:bg-white/10'
+              className={`relative z-10 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-bold transition-colors duration-200 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
+                isSelected ? 'text-secondary font-black' : 'text-ink-muted-on-dark hover:text-white'
               }`}
             >
-              <ItemIcon size={13} aria-hidden="true" />
+              {isSelected && <SegmentedPill layoutId="theme-pill-block" mode={m} />}
+              <ItemIcon size={13} aria-hidden="true" className="relative z-10" />
               <DataPoint
                 as="span"
                 name={`header.theme.mode_${m}`}
                 initialData={dataPoints}
-                className="capitalize"
+                className="relative z-10 capitalize"
               >
                 {themeModeLabel(m)}
               </DataPoint>

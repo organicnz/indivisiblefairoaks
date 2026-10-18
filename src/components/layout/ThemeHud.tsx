@@ -110,17 +110,24 @@ export function ThemeHud() {
         }
       }
 
-      // Shift + T (without Cmd/Ctrl/Alt)
+      // Shift + Alt + T: Cycle backward
+      if (e.shiftKey && e.altKey && !e.metaKey && !e.ctrlKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        cycleThemeMode('prev');
+        return;
+      }
+
+      // Shift + T (without Cmd/Ctrl/Alt): Cycle forward
       if (e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === 't') {
         e.preventDefault();
-        cycleThemeMode();
+        cycleThemeMode('next');
         return;
       }
 
       // Cmd/Ctrl + Shift + L
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
-        cycleThemeMode();
+        cycleThemeMode('next');
         return;
       }
     };

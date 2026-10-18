@@ -96,7 +96,26 @@ describe('ThemeHud component', () => {
       window.dispatchEvent(event);
     });
 
-    expect(cycleThemeMode).toHaveBeenCalledTimes(1);
+    expect(cycleThemeMode).toHaveBeenCalledWith('next');
+  });
+
+  it('handles Shift+Alt+T global keyboard shortcut to cycle theme backwards', async () => {
+    await act(async () => {
+      root.render(<ThemeHud />);
+    });
+
+    const event = new KeyboardEvent('keydown', {
+      key: 't',
+      shiftKey: true,
+      altKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(async () => {
+      window.dispatchEvent(event);
+    });
+
+    expect(cycleThemeMode).toHaveBeenCalledWith('prev');
   });
 
   it('ignores Shift+T when user is typing inside an input', async () => {

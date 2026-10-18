@@ -7,6 +7,7 @@ import {
   isThemeMode,
   nextThemeMode,
   playThemeHaptic,
+  prevThemeMode,
   readThemeMode,
   resolveEffectiveTheme,
   THEME_STORAGE_KEY,
@@ -93,7 +94,7 @@ export function syncTheme(): ThemeState {
   if (typeof window === 'undefined') return state;
   const mode = readThemeMode(storage());
   const next: ThemeState = { mode, effective: resolveEffectiveTheme(mode, prefersDark()) };
-  applyThemeAttribute(document.documentElement, next.effective);
+  applyThemeAttribute(document.documentElement, next.effective, next.mode);
   replaceState(next);
   return next;
 }
@@ -224,7 +225,7 @@ export function setThemeMode(
 
   const apply = () => {
     if (typeof window !== 'undefined') {
-      applyThemeAttribute(document.documentElement, resolved.effective);
+      applyThemeAttribute(document.documentElement, resolved.effective, resolved.mode);
     }
     replaceState(resolved);
     if (!options?.silent) {
@@ -265,11 +266,19 @@ export function setThemeMode(
 
     document.documentElement.setAttribute('data-theme-animating', 'circle');
 
+    const cleanup = () => {
+      if (currentTxId === txId) {
+        document.documentElement.removeAttribute('data-theme-animating');
+        activeViewAnimation = null;
+      }
+    };
+
     try {
       const transition = (
         document as unknown as {
           startViewTransition: (callback: () => void) => {
             ready?: Promise<void>;
+            finished?: Promise<void>;
           };
         }
       ).startViewTransition(() => {
@@ -302,27 +311,23 @@ export function setThemeMode(
             );
 
             activeViewAnimation = anim;
-
-            const cleanup = () => {
-              if (currentTxId === txId) {
-                document.documentElement.removeAttribute('data-theme-animating');
-                activeViewAnimation = null;
-              }
-            };
             anim.onfinish = cleanup;
             anim.oncancel = cleanup;
           })
           .catch(() => {
-            if (currentTxId === txId) {
-              document.documentElement.removeAttribute('data-theme-animating');
-              activeViewAnimation = null;
-            }
+            cleanup();
           });
-      } else {
-        document.documentElement.removeAttribute('data-theme-animating');
+      }
+
+      if (transition?.finished) {
+        transition.finished.then(cleanup).catch(() => {
+          cleanup();
+        });
+      } else if (!transition?.ready) {
+        cleanup();
       }
     } catch {
-      document.documentElement.removeAttribute('data-theme-animating');
+      cleanup();
       apply();
     }
   } else {
@@ -332,8 +337,19 @@ export function setThemeMode(
   return resolved;
 }
 
-export function cycleThemeMode(coords?: ThemeCoords): ThemeMode {
-  return setThemeMode(nextThemeMode(state.mode), coords).mode;
+export function cycleThemeMode(
+  directionOrCoords?: 'next' | 'prev' | ThemeCoords,
+  coords?: ThemeCoords
+): ThemeMode {
+  let direction: 'next' | 'prev' = 'next';
+  let resolvedCoords: ThemeCoords | undefined = coords;
+  if (typeof directionOrCoords === 'string') {
+    direction = directionOrCoords;
+  } else if (directionOrCoords && typeof directionOrCoords === 'object') {
+    resolvedCoords = directionOrCoords;
+  }
+  const next = direction === 'prev' ? prevThemeMode(state.mode) : nextThemeMode(state.mode);
+  return setThemeMode(next, resolvedCoords).mode;
 }
 
 function subscribe(listener: () => void): () => void {
@@ -370,6 +386,12 @@ export function useThemeMode(): {
       | { clientX?: number; clientY?: number; x?: number; y?: number }
   ) => void;
   cycle: (
+    directionOrEvent?:
+      | 'next'
+      | 'prev'
+      | React.MouseEvent
+      | MouseEvent
+      | { clientX?: number; clientY?: number; x?: number; y?: number },
     eventOrCoords?:
       | React.MouseEvent
       | MouseEvent
@@ -401,20 +423,33 @@ export function useThemeMode(): {
 
   const cycle = useCallback(
     (
+      directionOrEvent?:
+        | 'next'
+        | 'prev'
+        | React.MouseEvent
+        | MouseEvent
+        | { clientX?: number; clientY?: number; x?: number; y?: number },
       eventOrCoords?:
         | React.MouseEvent
         | MouseEvent
         | { clientX?: number; clientY?: number; x?: number; y?: number }
     ) => {
+      let direction: 'next' | 'prev' = 'next';
+      let target = eventOrCoords;
+      if (directionOrEvent === 'next' || directionOrEvent === 'prev') {
+        direction = directionOrEvent;
+      } else if (directionOrEvent) {
+        target = directionOrEvent;
+      }
       let coords: ThemeCoords | undefined;
-      if (eventOrCoords) {
-        if ('clientX' in eventOrCoords && typeof eventOrCoords.clientX === 'number') {
-          coords = { x: eventOrCoords.clientX, y: eventOrCoords.clientY };
-        } else if ('x' in eventOrCoords && typeof eventOrCoords.x === 'number') {
-          coords = { x: eventOrCoords.x, y: eventOrCoords.y };
+      if (target) {
+        if ('clientX' in target && typeof target.clientX === 'number') {
+          coords = { x: target.clientX, y: target.clientY };
+        } else if ('x' in target && typeof target.x === 'number') {
+          coords = { x: target.x, y: target.y };
         }
       }
-      cycleThemeMode(coords);
+      cycleThemeMode(direction, coords);
     },
     []
   );
@@ -456,7 +491,7 @@ export function useThemeMode(): {
               effective: data.effective,
             };
             if (typeof document !== 'undefined') {
-              applyThemeAttribute(document.documentElement, next.effective);
+              applyThemeAttribute(document.documentElement, next.effective, next.mode);
             }
             replaceState(next);
             emitThemeHud(data.mode, data.effective, data.coords, data.txId);

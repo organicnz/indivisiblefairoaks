@@ -11,12 +11,13 @@ vi.mock('next/navigation', () => ({
 }));
 
 const mockSetMode = vi.fn();
+const mockCycle = vi.fn();
 vi.mock('@/components/layout/theme-store', () => ({
   useThemeMode: vi.fn(() => ({
     mode: 'system',
     effective: 'light',
     setMode: mockSetMode,
-    cycle: vi.fn(),
+    cycle: mockCycle,
   })),
 }));
 
@@ -32,6 +33,7 @@ describe('CivicCommandPalette component', () => {
     root = createRoot(container);
     mockPush.mockClear();
     mockSetMode.mockClear();
+    mockCycle.mockClear();
   });
 
   afterEach(() => {
@@ -104,5 +106,21 @@ describe('CivicCommandPalette component', () => {
     });
 
     expect(mockSetMode).toHaveBeenCalledWith('system');
+  });
+
+  it('triggers cycle for cycle color theme option', async () => {
+    await act(async () => {
+      root.render(<CivicCommandPalette isOpen={true} setIsOpen={vi.fn()} />);
+    });
+
+    const options = Array.from(document.querySelectorAll('li[role="option"]'));
+    const cycleOption = options.find((opt) => opt.textContent?.includes('Cycle Color Theme'));
+    expect(cycleOption).toBeDefined();
+
+    await act(async () => {
+      cycleOption?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+
+    expect(mockCycle).toHaveBeenCalledWith('next');
   });
 });
