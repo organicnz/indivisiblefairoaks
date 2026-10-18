@@ -199,7 +199,8 @@ export function ChoirAudioPlayer() {
       titleKey: '',
       artistKey: '',
       notesKey: '',
-      defaultTitle: customTitleInput.trim() || 'Custom Stream Broadcast',
+      defaultTitle:
+        customTitleInput.trim() || dataPoints['choir.player.status_custom'] || 'Custom Web Stream',
       defaultArtist: isS3 ? 'Supabase S3 Audio' : 'External Audio Stream',
       defaultNotes: rawUrl,
       duration: 'LIVE',

@@ -10,8 +10,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { OrderStatusSelect } from '@/components/admin/OrderStatusSelect';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
+import { getDataPoints } from '@/lib/queries/civic';
 import type { AdminOrder } from '@/types/orders';
 
 // Dashboard projection of the canonical `AdminOrder` — only the columns this
@@ -57,6 +59,7 @@ export default async function AdminDashboardPage() {
     { data: previousOrders },
     { data: products },
     { data: couponUsage },
+    dataPoints,
   ] = await Promise.all([
     adminClient
       .from('orders')
@@ -82,6 +85,7 @@ export default async function AdminDashboardPage() {
       .not('coupon_code', 'is', null)
       .gte('created_at', thirtyDaysAgo)
       .limit(500),
+    getDataPoints('admin'),
   ]);
 
   const orders = (recentOrders || []) as unknown as Order[];
@@ -214,7 +218,11 @@ export default async function AdminDashboardPage() {
             Admin Panel
           </span>
         </div>
-        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">Dashboard</h1>
+        <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
+          <DataPoint as="span" name="admin.dashboard.title" initialData={dataPoints}>
+            Dashboard
+          </DataPoint>
+        </h1>
         <div className="h-1.5 w-24 bg-primary mt-3" />
       </div>
 
@@ -222,24 +230,38 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
           {
+            dpKey: 'admin.kpi.revenue',
             label: 'Revenue (30d)',
             value: fmtMoney(revenue),
             icon: DollarSign,
             delta: revenueDelta,
           },
           {
+            dpKey: 'admin.kpi.orders',
             label: 'Orders (30d)',
             value: orders.length,
             icon: ShoppingBag,
             delta: ordersDelta,
           },
-          { label: 'Avg. order value', value: fmtMoney(aov), icon: TrendingUp },
-          { label: 'Awaiting shipment', value: toShip.length, icon: Package },
-        ].map(({ label, value, icon: Icon, delta }) => (
+          {
+            dpKey: 'admin.kpi.aov',
+            label: 'Avg. order value',
+            value: fmtMoney(aov),
+            icon: TrendingUp,
+          },
+          {
+            dpKey: 'admin.kpi.to_ship',
+            label: 'Awaiting shipment',
+            value: toShip.length,
+            icon: Package,
+          },
+        ].map(({ dpKey, label, value, icon: Icon, delta }) => (
           <div key={label} className="bg-secondary rounded-3xl p-6">
             <Icon size={16} className="text-primary-on-dark mb-3" />
             <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-1">
-              {label}
+              <DataPoint as="span" name={dpKey} initialData={dataPoints}>
+                {label}
+              </DataPoint>
             </p>
             <p className="text-2xl font-black text-white">{value}</p>
             {delta !== undefined && (

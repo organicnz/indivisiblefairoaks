@@ -313,7 +313,16 @@ export function ChoirSongbookExplorer() {
                       <div className="p-4 rounded-xl bg-blue-950/30 border border-primary-bright/20 text-xs sm:text-sm text-primary-on-dark/90 leading-relaxed flex items-start gap-3">
                         <Sparkles size={16} className="text-accent-gold shrink-0 mt-0.5" />
                         <div>
-                          <strong className="text-white block mb-0.5">Historical Context:</strong>
+                          <strong className="text-white block mb-0.5">
+                            <DataPoint
+                              as="span"
+                              name="choir.songbook.context_tab"
+                              initialData={dataPoints}
+                            >
+                              Historical Context &amp; Heritage
+                            </DataPoint>
+                            :
+                          </strong>
                           {song.historicalContext}
                         </div>
                       </div>
@@ -321,13 +330,31 @@ export function ChoirSongbookExplorer() {
                       {/* Chords Box if enabled */}
                       {showChords && song.chords && (
                         <div className="p-3.5 rounded-xl bg-accent-gold/10 border border-accent-gold/20 font-mono text-xs text-accent-gold flex items-center justify-between">
-                          <span>Chords: {song.chords}</span>
+                          <span>
+                            <DataPoint
+                              as="span"
+                              name="choir.songbook.chords_tab"
+                              initialData={dataPoints}
+                            >
+                              Chords &amp; Key
+                            </DataPoint>
+                            : {song.chords}
+                          </span>
                           <span className="text-[10px] text-accent-gold/80">Guitar / Keyboard</span>
                         </div>
                       )}
 
                       {/* Lyrics Box */}
                       <div className="p-5 rounded-xl bg-secondary border border-white/10 font-serif text-sm sm:text-base text-slate-200 leading-relaxed whitespace-pre-line">
+                        <p className="font-sans text-[10px] font-black uppercase tracking-widest text-accent-gold mb-2">
+                          <DataPoint
+                            as="span"
+                            name="choir.songbook.lyrics_tab"
+                            initialData={dataPoints}
+                          >
+                            Lyrics &amp; Call-and-Response
+                          </DataPoint>
+                        </p>
                         {song.lyrics}
                       </div>
 
