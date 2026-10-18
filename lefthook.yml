@@ -292,6 +292,24 @@ pre-commit:
       glob: "supabase/functions/**/*.ts"
       run: bun run typecheck:edge
 
+    # ── 32. Data-points seed ↔ reader consistency ────────────────────────────
+    # A seed nobody reads is a CMS row whose edits reach no screen; a read
+    # nobody seeds is a literal that silently stops being editable. Both were
+    # live: the `admin.*` wave named copy that never shipped, and the account
+    # page read `account.tabs.*` while the seeds carried the singular.
+    # Rationale, exemptions and the two failure directions live in
+    # scripts/check-data-points.mjs; the accepted findings live (annotated) in
+    # scripts/data-points-baseline.json, and that baseline is a ratchet — a fix
+    # must delete its own entry or this fails.
+    #
+    # Deliberately no glob, same reasoning as doc-claims above: the invariant
+    # spans `src/` and `supabase/migrations/`, so a glob over *either* side
+    # would let a commit that changes the other side through unwatched. At
+    # ~0.1s the ungated run is cheaper than the reasoning about when to skip it.
+    data-points:
+      priority: 29
+      run: bun scripts/check-data-points.mjs
+
 # ─── commit-msg ───────────────────────────────────────────────────────────────
 commit-msg:
   commands:
