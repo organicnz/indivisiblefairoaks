@@ -1,7 +1,7 @@
 -- Seed data points for WALL-E interactive suggestion chips and quick actions
 -- Appended as a standalone migration adhering to append-only policy.
 
-INSERT INTO public.data_points (key, group_name, label, value)
+INSERT INTO public.data_points (key, group_name, label, value, content_type)
 VALUES
   ('walle.chip.events', 'walle', 'WALL-E Chip: Upcoming Events', '📅 Upcoming Events', 'text'),
   ('walle.chip.voter', 'walle', 'WALL-E Chip: Voter Resources', '🗳️ Voter Resources', 'text'),
