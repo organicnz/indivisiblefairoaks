@@ -127,7 +127,7 @@ export default function ContactPage() {
               className="block mb-8 p-4 bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 rounded-2xl font-bold text-sm tracking-wide text-center"
             >
               <DataPoint name="contact.status.success_msg" as="span" initialData={dataPoints}>
-                ✅ Message sent successfully! Our organizing team will be in touch soon.
+                Message sent successfully! Our organizing team will be in touch soon.
               </DataPoint>
               {senderEmail && copyStatus === 'sent' && (
                 <span className="block mt-1 normal-case tracking-normal font-medium text-emerald-300">
