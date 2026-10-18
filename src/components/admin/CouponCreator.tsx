@@ -15,6 +15,11 @@ export function CouponCreator() {
   const [success, setSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const amountLabel =
+    discountType === 'percent'
+      ? dataPoints['admin.coupons.form_percent_off'] || 'Percent off'
+      : dataPoints['admin.coupons.form_dollar_off'] || 'Dollar off';
+
   const submit = () => {
     setError(null);
     setSuccess(false);
@@ -45,7 +50,7 @@ export function CouponCreator() {
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-            Code
+            {dataPoints['admin.coupons.form_code'] || 'Code'}
           </span>
           <input
             value={code}
@@ -56,7 +61,7 @@ export function CouponCreator() {
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-            Type
+            {dataPoints['admin.coupons.form_type'] || 'Type'}
           </span>
           <select
             value={discountType}
@@ -64,16 +69,16 @@ export function CouponCreator() {
             className="text-sm font-black text-white bg-surface-card/10 border border-white/10 rounded-xl px-3 py-2 w-32 outline-none focus:border-primary cursor-pointer"
           >
             <option value="percent" className="bg-secondary">
-              Percent %
+              {dataPoints['admin.coupons.form_percent'] || 'Percent %'}
             </option>
             <option value="fixed" className="bg-secondary">
-              Fixed $
+              {dataPoints['admin.coupons.form_fixed'] || 'Fixed $'}
             </option>
           </select>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-            {discountType === 'percent' ? 'Percent off' : 'Dollar off'}
+            {amountLabel}
           </span>
           <input
             value={amount}
@@ -85,7 +90,7 @@ export function CouponCreator() {
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-            Expires
+            {dataPoints['admin.coupons.form_expires'] || 'Expires'}
           </span>
           <input
             type="date"
@@ -100,7 +105,7 @@ export function CouponCreator() {
           disabled={isPending || code.trim().length < 3 || amount === ''}
           className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-primary hover:bg-primary-dark text-white rounded-full px-4 py-2.5 hover:opacity-90 transition-opacity disabled:opacity-40"
         >
-          <Plus size={12} /> Create
+          <Plus size={12} /> {dataPoints['admin.coupons.form_create'] || 'Create'}
         </button>
       </div>
       {error && (
@@ -109,12 +114,17 @@ export function CouponCreator() {
           <span>{error}</span>
         </div>
       )}
-      {success && <p className="text-[11px] font-bold text-emerald-400 mt-3">Coupon created.</p>}
+      {success && (
+        <p className="text-[11px] font-bold text-emerald-400 mt-3">
+          {dataPoints['admin.coupons.created'] || 'Coupon created.'}
+        </p>
+      )}
     </div>
   );
 }
 
 export function CouponDelete({ id, code }: { id: number; code: string }) {
+  const { dataPoints } = useDataPoints('admin');
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
 
@@ -145,7 +155,7 @@ export function CouponDelete({ id, code }: { id: number; code: string }) {
       }`}
     >
       <Trash2 size={11} />
-      {confirming ? `Delete ${code}?` : 'Delete'}
+      {confirming ? `Delete ${code}?` : dataPoints['admin.ui.delete'] || 'Delete'}
     </button>
   );
 }

@@ -3,6 +3,7 @@
 import { AlertCircle, CheckSquare, Square, X } from 'lucide-react';
 import { createContext, type ReactNode, useContext, useState, useTransition } from 'react';
 import { bulkUpdateOrderStatus } from '@/app/admin/actions';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 const STATUSES = ['processing', 'completed', 'cancelled', 'refunded', 'on-hold'];
 
@@ -71,6 +72,7 @@ export function BulkOrderBar({ orderIds }: { orderIds: number[] }) {
   const [status, setStatus] = useState('completed');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { dataPoints } = useDataPoints('admin');
 
   const allSelected = orderIds.length > 0 && orderIds.every((id) => selected.has(id));
 
@@ -106,7 +108,9 @@ export function BulkOrderBar({ orderIds }: { orderIds: number[] }) {
         className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest hover:opacity-80 transition-opacity disabled:opacity-40"
       >
         {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
-        {selected.size > 0 ? `${selected.size} selected` : 'Select all'}
+        {selected.size > 0
+          ? `${selected.size} selected`
+          : dataPoints['admin.ui.select_all'] || 'Select all'}
       </button>
 
       {selected.size > 0 && (
@@ -130,7 +134,7 @@ export function BulkOrderBar({ orderIds }: { orderIds: number[] }) {
             disabled={isPending}
             className="inline-flex items-center text-[10px] font-black uppercase tracking-widest bg-primary hover:bg-primary-dark text-white rounded-full px-4 py-1.5 hover:opacity-90 transition-opacity disabled:opacity-40"
           >
-            Apply
+            {dataPoints['admin.ui.apply'] || 'Apply'}
           </button>
           <button
             type="button"
@@ -138,7 +142,7 @@ export function BulkOrderBar({ orderIds }: { orderIds: number[] }) {
             disabled={isPending}
             className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-white transition-colors px-2 py-1.5"
           >
-            <X size={11} /> Clear
+            <X size={11} /> {dataPoints['admin.ui.clear'] || 'Clear'}
           </button>
           {error && (
             <div role="alert" className="flex items-start gap-2 text-xs font-bold text-rose-400">

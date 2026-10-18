@@ -2,6 +2,7 @@
 
 import { Download } from 'lucide-react';
 import { CURRENCY_CODE } from '@/config/commerce';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 type ExportOrder = {
   id: number;
@@ -21,6 +22,7 @@ function escapeCell(value: string): string {
 }
 
 export function OrdersExport({ orders }: { orders: ExportOrder[] }) {
+  const { dataPoints } = useDataPoints('admin');
   const handleExport = () => {
     const header = [
       'Order ID',
@@ -65,7 +67,8 @@ export function OrdersExport({ orders }: { orders: ExportOrder[] }) {
       onClick={handleExport}
       className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-[11px] font-black uppercase tracking-widest text-muted-foreground hover:border-primary hover:text-foreground transition-colors"
     >
-      <Download size={12} /> Export CSV ({orders.length})
+      <Download size={12} /> {dataPoints['admin.orders.export_csv'] || 'Export CSV'} (
+      {orders.length})
     </button>
   );
 }

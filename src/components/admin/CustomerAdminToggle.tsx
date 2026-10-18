@@ -3,6 +3,7 @@
 import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { markAdminUser } from '@/app/admin/actions';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 export function CustomerAdminToggle({
   profileId,
@@ -14,6 +15,7 @@ export function CustomerAdminToggle({
   const [admin, setAdmin] = useState(isAdmin ?? false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const { dataPoints } = useDataPoints('admin');
 
   const toggle = () => {
     setError(null);
@@ -40,7 +42,9 @@ export function CustomerAdminToggle({
         }`}
       >
         <ShieldCheck size={11} />
-        {admin ? 'Admin access' : 'Promote to admin'}
+        {admin
+          ? dataPoints['admin.customers.admin_access'] || 'Admin access'
+          : dataPoints['admin.customers.promote'] || 'Promote to admin'}
       </button>
       {error && (
         <div role="alert" className="flex items-start gap-2 text-xs font-bold text-rose-600">

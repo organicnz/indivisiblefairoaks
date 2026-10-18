@@ -3,6 +3,7 @@
 import { AlertCircle, Edit3 } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { updateCoupon } from '@/app/admin/actions';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
 export function CouponEditor({
   id,
@@ -25,6 +26,7 @@ export function CouponEditor({
   const [expiry, setExpiry] = useState(expiryDate ? expiryDate.slice(0, 10) : '');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { dataPoints } = useDataPoints('admin');
 
   const save = () => {
     setError(null);
@@ -50,7 +52,7 @@ export function CouponEditor({
           onClick={() => setEditing(true)}
           className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground transition-colors"
         >
-          <Edit3 size={11} /> Edit
+          <Edit3 size={11} /> {dataPoints['admin.ui.edit'] || 'Edit'}
         </button>
       </div>
     );
@@ -59,7 +61,7 @@ export function CouponEditor({
   return (
     <div className="bg-surface-muted rounded-2xl p-4 space-y-3">
       <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-        Edit {code}
+        {dataPoints['admin.ui.edit'] || 'Edit'} {code}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <select
@@ -67,8 +69,8 @@ export function CouponEditor({
           onChange={(e) => setType(e.target.value as 'percent' | 'fixed')}
           className="text-xs font-black bg-surface-card border border-border rounded-xl px-2.5 py-2 outline-none focus:border-primary cursor-pointer"
         >
-          <option value="percent">Percent %</option>
-          <option value="fixed">Fixed $</option>
+          <option value="percent">{dataPoints['admin.coupons.form_percent'] || 'Percent %'}</option>
+          <option value="fixed">{dataPoints['admin.coupons.form_fixed'] || 'Fixed $'}</option>
         </select>
         <input
           value={amountValue}
@@ -89,7 +91,7 @@ export function CouponEditor({
           disabled={isPending}
           className="inline-flex items-center text-[10px] font-black uppercase tracking-widest bg-primary hover:bg-primary-dark text-white rounded-full px-3 py-2 hover:opacity-90 transition-opacity disabled:opacity-40"
         >
-          Save
+          {dataPoints['admin.ui.save'] || 'Save'}
         </button>
         <button
           type="button"
@@ -97,7 +99,7 @@ export function CouponEditor({
           disabled={isPending}
           className="inline-flex items-center text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
         >
-          Cancel
+          {dataPoints['admin.ui.cancel'] || 'Cancel'}
         </button>
       </div>
       {error && (

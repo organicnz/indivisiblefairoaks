@@ -3,12 +3,16 @@
 import { AlertCircle, Check, Pencil, X } from 'lucide-react';
 import { useState, useTransition } from 'react';
 import { updateProduct } from '@/app/admin/actions';
+import { useDataPoints } from '@/hooks/useDataPoints';
 
-const STOCK = [
-  { value: 'instock', label: 'In stock' },
-  { value: 'outofstock', label: 'Out of stock' },
-  { value: 'onbackorder', label: 'On backorder' },
-];
+const STOCK_VALUES = ['instock', 'outofstock', 'onbackorder'];
+
+const stockLabel = (value: string, dataPoints: Record<string, string>): string =>
+  value === 'instock'
+    ? dataPoints['admin.products.stock_in'] || 'In stock'
+    : value === 'outofstock'
+      ? dataPoints['admin.products.stock_out'] || 'Out of stock'
+      : dataPoints['admin.products.stock_backorder'] || 'On backorder';
 
 type ProductRow = {
   id: number;
@@ -31,6 +35,7 @@ export function ProductEditor({ product }: { product: ProductRow }) {
   const [stock, setStock] = useState(product.stock_status || 'instock');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { dataPoints } = useDataPoints('admin');
 
   if (!editing) {
     return (
@@ -39,7 +44,7 @@ export function ProductEditor({ product }: { product: ProductRow }) {
         onClick={() => setEditing(true)}
         className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
       >
-        <Pencil size={11} /> Edit
+        <Pencil size={11} /> {dataPoints['admin.ui.edit'] || 'Edit'}
       </button>
     );
   }
@@ -82,14 +87,14 @@ export function ProductEditor({ product }: { product: ProductRow }) {
           disabled={isPending}
           className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
         >
-          <Check size={12} /> Save
+          <Check size={12} /> {dataPoints['admin.ui.save'] || 'Save'}
         </button>
         <button
           type="button"
           onClick={() => setEditing(false)}
           className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-muted-foreground"
         >
-          <X size={12} /> Cancel
+          <X size={12} /> {dataPoints['admin.ui.cancel'] || 'Cancel'}
         </button>
       </div>
       <div className="flex items-center gap-2">
@@ -97,7 +102,7 @@ export function ProductEditor({ product }: { product: ProductRow }) {
           htmlFor={`price-${editId}`}
           className="text-[10px] font-black uppercase tracking-widest text-muted-foreground"
         >
-          Price
+          {dataPoints['admin.products.price_label'] || 'Price'}
         </label>
         <input
           id={`price-${editId}`}
@@ -110,7 +115,7 @@ export function ProductEditor({ product }: { product: ProductRow }) {
           htmlFor={`sale-${editId}`}
           className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2"
         >
-          Compare-at
+          {dataPoints['admin.products.compare_at_label'] || 'Compare-at'}
         </label>
         <input
           id={`sale-${editId}`}
@@ -126,9 +131,9 @@ export function ProductEditor({ product }: { product: ProductRow }) {
           className="text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 border-0 bg-surface-muted text-foreground outline-none cursor-pointer"
           aria-label="Stock status"
         >
-          {STOCK.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
+          {STOCK_VALUES.map((value) => (
+            <option key={value} value={value}>
+              {stockLabel(value, dataPoints)}
             </option>
           ))}
         </select>
