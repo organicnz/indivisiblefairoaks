@@ -609,6 +609,11 @@ export default async function VoterInfoPage() {
               Sacramento County Elections & Voter Hotlines
             </DataPoint>
           </h2>
+          <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark">
+            <DataPoint initialData={dataPoints} as="span" name="voter.hotlines.subhead">
+              Need assistance casting your ballot or report election irregularities.
+            </DataPoint>
+          </p>
           <CopyRegion id="voter-hotlines">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark">
               <div className="space-y-2">

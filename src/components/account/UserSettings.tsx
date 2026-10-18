@@ -1,7 +1,17 @@
 'use client';
 
-import { Bell, CheckCircle2, Loader2, Mail, MapPin, ShieldCheck } from 'lucide-react';
+import {
+  Bell,
+  CheckCircle2,
+  Loader2,
+  Mail,
+  MapPin,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from 'lucide-react';
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { CURRENCY_CODE } from '@/config/commerce';
 import { useDataPoints } from '@/hooks/useDataPoints';
@@ -208,6 +218,46 @@ export function UserSettings() {
               </dd>
             </div>
           </dl>
+        </div>
+
+        {/* Appearance & Sensory Luxury */}
+        <div className="bg-surface-card border border-border rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow md:col-span-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-surface-muted text-secondary rounded-2xl">
+                <Sparkles size={24} aria-hidden="true" className="text-accent-gold" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-secondary uppercase tracking-tighter">
+                  Appearance & Sensory Luxury
+                </h3>
+                <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.2em]">
+                  10x Pro Hardware-Accelerated Themes
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary-light border border-primary-light/20">
+                <Zap size={12} aria-hidden="true" />
+                WebGPU vGPU Ready
+              </span>
+              <kbd className="px-2 py-1 rounded bg-surface-muted border border-border text-xs font-mono text-muted-foreground">
+                Shift + T
+              </kbd>
+            </div>
+          </div>
+          <div className="p-4 bg-surface-muted rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-black text-secondary uppercase tracking-wider">
+                Palette Mode
+              </p>
+              <p className="text-[11px] text-muted-foreground font-medium">
+                Choose between daytime high contrast, obsidian slate dark mode, or follow your
+                device
+              </p>
+            </div>
+            <ThemeToggle variant="segmented" />
+          </div>
         </div>
       </div>
 

@@ -214,7 +214,7 @@ export function InteractiveNewslettersList({
                   : 'bg-surface-muted dark:bg-secondary/60 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:hover:text-slate-200 hover:bg-surface-card dark:hover:bg-white/5 border border-border dark:border-transparent'
               }`}
             >
-              {topic}
+              {topic === 'All Topics' ? dataPoints['news.topic.all'] || 'All Topics' : topic}
             </button>
           ))}
         </div>
@@ -240,7 +240,7 @@ export function InteractiveNewslettersList({
           <div className="col-span-full p-12 text-center rounded-2xl bg-secondary border border-white/10 text-ink-muted-on-dark">
             <DataPoint as="span" name="news.empty.desc" initialData={dataPoints}>
               No chapter bulletins match your criteria. Try choosing &ldquo;All Topics&rdquo; or
-              clearing the search bar.
+              searching for another civic keyword.
             </DataPoint>
           </div>
         ) : (

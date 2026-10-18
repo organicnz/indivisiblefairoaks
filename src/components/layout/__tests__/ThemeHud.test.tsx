@@ -139,4 +139,67 @@ describe('ThemeHud component', () => {
 
     expect(cycleThemeMode).toHaveBeenCalledTimes(1);
   });
+
+  it('dismisses immediately when the user clicks the dismiss button', async () => {
+    await act(async () => {
+      root.render(<ThemeHud />);
+    });
+
+    await act(async () => {
+      emitThemeHud('light', 'light');
+    });
+
+    const button = container.querySelector('button[aria-label="Dismiss theme notification"]');
+    expect(button).not.toBeNull();
+
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const hud = container.querySelector('[role="status"]');
+    expect(hud?.className).toContain('opacity-0');
+  });
+
+  it('pauses auto-dismiss on mouse enter and resumes on mouse leave', async () => {
+    await act(async () => {
+      root.render(<ThemeHud />);
+    });
+
+    await act(async () => {
+      emitThemeHud('dark', 'dark');
+    });
+
+    const hud = container.querySelector('[role="status"]');
+    expect(hud).not.toBeNull();
+
+    // Mouse enters before delay expires
+    await act(async () => {
+      hud?.dispatchEvent(
+        new MouseEvent('mouseover', { bubbles: true, relatedTarget: document.body })
+      );
+    });
+
+    // Advance beyond normal auto-dismiss timeout (2300ms)
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    // Still visible because hovered
+    expect(hud?.className).toContain('opacity-100');
+
+    // Mouse leaves
+    await act(async () => {
+      hud?.dispatchEvent(
+        new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body })
+      );
+    });
+
+    // Advance by leave timeout (1500ms)
+    await act(async () => {
+      vi.advanceTimersByTime(1550);
+    });
+
+    // Now hidden
+    expect(hud?.className).toContain('opacity-0');
+  });
 });

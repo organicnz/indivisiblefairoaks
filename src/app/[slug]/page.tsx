@@ -3,10 +3,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { DataPoint } from '@/components/ui/DataPoint';
 import { ROBOTS, siteUrl } from '@/config/site';
 import { isCopyRegionSlug } from '@/lib/copy-regions';
 import { pageMetadata } from '@/lib/metadata';
 import { isOwnImageUrl } from '@/lib/own-media';
+import { getDataPoints } from '@/lib/queries/civic';
 import { getAllPublishedSlugs, getPublishedContent } from '@/lib/queries/content';
 import { htmlToExcerpt, sanitizeWPContent } from '@/lib/sanitize';
 import { serializeJsonLd } from '@/lib/utils';
@@ -108,7 +110,10 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
   // set; this closes the on-demand render of the same path.
   if (isCopyRegionSlug(slug)) return notFound();
 
-  const content = await getPublishedContent(slug);
+  const [content, dataPoints] = await Promise.all([
+    getPublishedContent(slug),
+    getDataPoints('content'),
+  ]);
 
   if (!content) {
     return notFound();
@@ -178,7 +183,9 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
               dateTime={content.created_at}
               className="mt-6 text-xs font-black text-muted-foreground uppercase tracking-[0.2em]"
             >
-              Published{' '}
+              <DataPoint as="span" name="content.published_prefix" initialData={dataPoints}>
+                Published
+              </DataPoint>{' '}
               {new Date(content.created_at).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
@@ -240,7 +247,10 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
               href="/"
               className="text-sm font-black text-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors flex items-center gap-2"
             >
-              <span>&larr;</span> Back to Home
+              <span>&larr;</span>{' '}
+              <DataPoint as="span" name="content.back_home" initialData={dataPoints}>
+                Back to Home
+              </DataPoint>
             </Link>
           </div>
         )}

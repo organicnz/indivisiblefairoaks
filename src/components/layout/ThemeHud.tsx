@@ -98,11 +98,26 @@ export function ThemeHud() {
       role="status"
       aria-live="polite"
       aria-atomic="true"
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[140] pointer-events-none transition-all duration-300 ease-out ${
-        isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-3 scale-95'
+      onMouseEnter={() => {
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      }}
+      onMouseLeave={() => {
+        hideTimerRef.current = setTimeout(() => {
+          setIsVisible(false);
+        }, 1500);
+      }}
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[140] transition-all duration-300 ease-out ${
+        isVisible
+          ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto'
+          : 'opacity-0 translate-y-3 scale-95 pointer-events-none'
       }`}
     >
-      <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-secondary/95 dark:bg-slate-900/95 text-white backdrop-blur-xl border border-white/15 dark:border-white/10 shadow-float text-xs font-semibold tracking-wide">
+      <button
+        type="button"
+        onClick={() => setIsVisible(false)}
+        aria-label="Dismiss theme notification"
+        className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-secondary/95 dark:bg-slate-900/95 text-white backdrop-blur-xl border border-white/15 dark:border-white/10 shadow-float text-xs font-semibold tracking-wide cursor-pointer active:scale-95 transition-transform duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-bright"
+      >
         <span
           aria-hidden="true"
           className="flex items-center justify-center size-5 rounded-full bg-white/10 text-accent-gold dark:text-sky-400"
@@ -118,7 +133,7 @@ export function ThemeHud() {
         <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-[10px] font-mono text-ink-muted-on-dark uppercase">
           Shift+T
         </kbd>
-      </div>
+      </button>
     </aside>
   );
 }

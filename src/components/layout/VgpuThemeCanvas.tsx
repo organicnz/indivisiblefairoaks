@@ -195,9 +195,20 @@ export function VgpuThemeCanvas() {
       animFrameRef.current = requestAnimationFrame(step);
     });
 
+    const handleResize = () => {
+      if (currentSurface && typeof window !== 'undefined') {
+        const width = window.innerWidth;
+        const height = Math.max(1, window.innerHeight);
+        canvas.width = width * (window.devicePixelRatio || 1);
+        canvas.height = height * (window.devicePixelRatio || 1);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
     return () => {
       disposed = true;
       unsubscribe();
+      window.removeEventListener('resize', handleResize);
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
       }

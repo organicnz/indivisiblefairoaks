@@ -183,6 +183,14 @@ export function SacramentoRepresentativeFinder() {
     'voting'
   );
   const { dataPoints } = useDataPoints('voter');
+  // Party names double as comparison vocabulary (the colour map below compares
+  // the raw value), so the seed supplies only the display label.
+  const partyLabel = (party: string) =>
+    (party === 'Democrat'
+      ? dataPoints['voter.repfinder.party_dem']
+      : party === 'Republican'
+        ? dataPoints['voter.repfinder.party_rep']
+        : dataPoints['voter.repfinder.party_nonpartisan']) || party;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,11 +273,17 @@ export function SacramentoRepresentativeFinder() {
           className="flex flex-col sm:flex-row items-stretch gap-3 mb-8"
         >
           <div className="relative flex-1">
+            <label htmlFor="repfinder-zip" className="sr-only">
+              <DataPoint as="span" name="voter.repfinder.input_label" initialData={dataPoints}>
+                Sacramento County ZIP Code:
+              </DataPoint>
+            </label>
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
               size={18}
             />
             <input
+              id="repfinder-zip"
               type="text"
               pattern="[0-9]{5}"
               maxLength={5}
@@ -333,7 +347,7 @@ export function SacramentoRepresentativeFinder() {
                           : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-ink-on-dark'
                     }`}
                   >
-                    {official.party}
+                    {partyLabel(official.party)}
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-foreground dark:text-white mb-1">
@@ -349,6 +363,7 @@ export function SacramentoRepresentativeFinder() {
               <div className="pt-4 border-t border-border dark:border-white/10 flex items-center justify-between gap-2">
                 <a
                   href={`tel:${official.phone.replace(/[^0-9]/g, '')}`}
+                  aria-label={`${dataPoints['voter.repfinder.call_action_label'] || 'Call Official'}: ${official.name} — ${official.phone.split('•')[0].trim()}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/20 dark:bg-emerald-600/20 dark:text-emerald-300 dark:hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-mono font-semibold transition-colors"
                 >
                   <Phone size={12} />

@@ -54,7 +54,11 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
   if (variant === 'segmented') {
     return (
       <fieldset className="inline-flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs">
-        <legend className="sr-only">Color theme</legend>
+        <legend className="sr-only">
+          <DataPoint as="span" name="header.theme.legend" initialData={dataPoints}>
+            Color theme
+          </DataPoint>
+        </legend>
         {THEME_ORDER.map((m) => {
           const ItemIcon = MODE_ICON[m];
           const isActive = mode === m;
@@ -125,7 +129,9 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
         >
           <span>
             {themeModeLabel(mode)}
-            {mode === 'system' ? ` (${effective === 'dark' ? 'Dark' : 'Light'})` : ''}
+            {mode === 'system'
+              ? ` (${effective === 'dark' ? dataPoints['header.theme.dark'] || 'Dark mode' : dataPoints['header.theme.light'] || 'Light mode'})`
+              : ''}
           </span>
           <kbd className="px-1 py-0.2 rounded bg-white/10 border border-white/15 text-[9px] font-mono text-ink-muted-on-dark uppercase">
             Shift+T

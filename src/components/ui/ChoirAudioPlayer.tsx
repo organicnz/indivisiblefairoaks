@@ -90,6 +90,12 @@ const DEFAULT_TRACKS: SongTrack[] = [
 
 export function ChoirAudioPlayer() {
   const { dataPoints } = useDataPoints('choir');
+  // Durations are seeded beside the titles — the key mirrors the title key
+  // (`choir.player.trackN_title` → `choir.player.trackN_duration`) — so a
+  // revised recording length is editable without a deploy.
+  const displayDuration = (track: SongTrack) =>
+    (track.titleKey ? dataPoints[`${track.titleKey.replace(/_title$/, '')}_duration`] : '') ||
+    track.duration;
   const [tracks, setTracks] = useState<SongTrack[]>(DEFAULT_TRACKS);
   const [activeTrack, setActiveTrack] = useState<SongTrack>(DEFAULT_TRACKS[0]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -391,7 +397,7 @@ export function ChoirAudioPlayer() {
             <Volume2 size={13} />
             {dataPoints['choir.player.status_stream'] || 'Direct Audio Broadcast'}
           </span>
-          <span>{activeTrack.duration}</span>
+          <span>{displayDuration(activeTrack)}</span>
         </div>
 
         {/* Read-only WAI-ARIA compliant broadcast progress meter */}
@@ -570,7 +576,7 @@ export function ChoirAudioPlayer() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="font-mono text-[10px] text-ink-muted-on-dark">
-                  {track.duration}
+                  {displayDuration(track)}
                 </span>
                 <span
                   className={`size-6 rounded-full flex items-center justify-center ${

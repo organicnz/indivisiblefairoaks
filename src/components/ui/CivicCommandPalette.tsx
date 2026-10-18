@@ -336,9 +336,17 @@ export function CivicCommandPalette({
               className="max-h-80 overflow-y-auto p-2 divide-y divide-white/5 list-none"
             >
               {filteredItems.length === 0 ? (
-                <li className="py-8 text-center text-ink-muted-on-dark text-xs">
-                  <DataPoint as="span" name="palette.empty.title" initialData={dataPoints}>
-                    No matching civic actions or pages found.
+                <li className="py-8 text-center text-ink-muted-on-dark text-xs space-y-1">
+                  <DataPoint as="div" name="palette.empty.title" initialData={dataPoints}>
+                    No civic actions or pages found
+                  </DataPoint>
+                  <DataPoint
+                    as="div"
+                    name="palette.empty.desc"
+                    initialData={dataPoints}
+                    className="text-ink-muted-on-dark/70"
+                  >
+                    Try searching for voter, meeting, choir, or donate.
                   </DataPoint>
                 </li>
               ) : (

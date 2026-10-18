@@ -139,7 +139,7 @@ export default async function AccountPage(props: {
       ? [
           {
             id: 'admin',
-            label: dataPoints['account.tabs.all_orders'] || 'All Orders',
+            label: dataPoints['account.tab.all_orders'] || 'All Orders',
             badge: processing,
           },
         ]
@@ -147,12 +147,12 @@ export default async function AccountPage(props: {
     {
       id: 'orders',
       label: isAdmin
-        ? dataPoints['account.tabs.my_orders'] || 'My Orders'
-        : dataPoints['account.tabs.orders'] || 'Orders',
+        ? dataPoints['account.tab.my_orders'] || 'My Orders'
+        : dataPoints['account.tab.orders'] || 'Orders',
     },
     {
       id: 'settings',
-      label: dataPoints['account.tabs.settings'] || 'Settings',
+      label: dataPoints['account.tab.settings'] || 'Settings',
     },
   ];
 
