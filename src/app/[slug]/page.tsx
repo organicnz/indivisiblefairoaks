@@ -245,7 +245,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           <div className="mt-20 pt-10 border-t border-border flex justify-between items-center">
             <Link
               href="/"
-              className="text-sm font-black text-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors flex items-center gap-2"
+              className="text-sm font-black text-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors flex items-center gap-2"
             >
               <span>&larr;</span>{' '}
               <DataPoint as="span" name="content.back_home" initialData={dataPoints}>

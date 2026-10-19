@@ -127,7 +127,7 @@ export default async function SearchPage({
                   <h3 className="text-lg font-black text-foreground uppercase mb-2">
                     <Link
                       href={`/${post.slug}`}
-                      className="hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+                      className="hover:text-primary dark:hover:text-primary-on-dark transition-colors"
                     >
                       {post.title}
                     </Link>

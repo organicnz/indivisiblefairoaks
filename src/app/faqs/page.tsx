@@ -163,7 +163,7 @@ export default async function FAQPage() {
                     <div
                       key={faq.q}
                       data-data-point={faq.slug ? `faq.${faq.slug}` : undefined}
-                      className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-border dark:hover:border-slate-700 transition-all space-y-2"
+                      className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-border dark:hover:border-white/20 transition-all space-y-2"
                     >
                       <h3 className="text-base sm:text-lg font-bold text-foreground dark:text-white">
                         {faq.q}

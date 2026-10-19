@@ -17,7 +17,7 @@ function StatCard({
   icon: React.ElementType;
 }) {
   return (
-    <div className="bg-secondary rounded-3xl p-6">
+    <div className="bg-secondary rounded-3xl p-6 border border-white/10 shadow-xs">
       <Icon size={16} className="text-primary-on-dark mb-3" aria-hidden="true" />
       <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-1">
         {label}
@@ -56,7 +56,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
               Order
             </DataPoint>
           </p>
-          <p className="text-sm text-secondary font-black">#{order.id}</p>
+          <p className="text-sm text-foreground font-black">#{order.id}</p>
           <time
             dateTime={order.created_at ?? ''}
             className="text-[10px] text-muted-foreground mt-0.5 block"
@@ -80,7 +80,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
           </p>
           <div className="flex items-center gap-1.5">
             <User size={11} className="text-muted-foreground shrink-0" aria-hidden="true" />
-            <p className="text-sm text-secondary font-black truncate">{name}</p>
+            <p className="text-sm text-foreground font-black truncate">{name}</p>
           </div>
           {email && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{email}</p>}
         </div>
@@ -127,7 +127,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
               href={stripeUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+              className="inline-flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors"
             >
               <ExternalLink size={11} aria-hidden="true" />
               Stripe
@@ -145,11 +145,11 @@ function OrderCard({ order }: { order: AdminOrder }) {
           >
             <div className="flex items-center gap-3">
               <div
-                className="w-1.5 h-1.5 bg-primary rounded-full group-hover:scale-150 transition-transform"
+                className="w-1.5 h-1.5 bg-primary dark:bg-primary-on-dark rounded-full group-hover:scale-150 transition-transform"
                 aria-hidden="true"
               />
               <div>
-                <p className="text-sm font-black text-secondary uppercase tracking-wider">
+                <p className="text-sm font-black text-foreground uppercase tracking-wider">
                   {item.product_name}
                 </p>
                 <p className="text-[10px] text-muted-foreground font-bold uppercase">
@@ -157,7 +157,7 @@ function OrderCard({ order }: { order: AdminOrder }) {
                 </p>
               </div>
             </div>
-            <p className="text-sm font-black text-secondary tabular-nums">
+            <p className="text-sm font-black text-foreground tabular-nums">
               {formatPrice(item.unit_price)}
             </p>
           </li>
@@ -234,7 +234,7 @@ export function AdminOrdersPanel({ orders }: { orders: AdminOrder[] }) {
       ) : (
         <ul className="space-y-6">
           {orders.map((order) => (
-            <li key={order.id} className="space-y-6">
+            <li key={order.id}>
               <OrderCard order={order} />
             </li>
           ))}
@@ -247,6 +247,7 @@ export function AdminOrdersPanel({ orders }: { orders: AdminOrder[] }) {
 function EmptyState({ message, hint }: { message: React.ReactNode; hint?: React.ReactNode }) {
   return (
     <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
+      <Package size={32} className="mx-auto mb-3 text-muted-foreground/60" aria-hidden="true" />
       <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
         {message}
       </p>

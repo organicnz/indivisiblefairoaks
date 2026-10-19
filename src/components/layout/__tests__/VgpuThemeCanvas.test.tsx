@@ -90,6 +90,9 @@ describe('VgpuThemeCanvas component', () => {
         root.render(<VgpuThemeCanvas />);
       });
 
+      expect(addEventListenerSpy).toHaveBeenCalledWith('resize', expect.any(Function), {
+        passive: true,
+      });
       expect(addEventListenerSpy).toHaveBeenCalledWith('pointermove', expect.any(Function), {
         passive: true,
       });
@@ -110,6 +113,7 @@ describe('VgpuThemeCanvas component', () => {
         root.unmount();
       });
 
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('resize', expect.any(Function));
       expect(removeEventListenerSpy).toHaveBeenCalledWith('pointermove', expect.any(Function));
       expect(removeEventListenerSpy).toHaveBeenCalledWith('pointerleave', expect.any(Function));
     } finally {

@@ -100,7 +100,7 @@ export default async function EventsPage() {
           <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full md:w-auto">
             <Link
               href="/choir"
-              className="w-full sm:w-auto text-center px-4 py-2.5 rounded-xl border border-border dark:border-slate-700 bg-surface-card hover:bg-surface-muted text-foreground dark:bg-transparent dark:hover:bg-white/5 dark:text-slate-200 text-xs font-semibold uppercase tracking-wider transition-all"
+              className="w-full sm:w-auto text-center px-4 py-2.5 rounded-xl border border-border dark:border-white/10 bg-surface-card hover:bg-surface-muted text-foreground dark:bg-transparent dark:hover:bg-white/10 dark:text-ink-on-dark text-xs font-semibold uppercase tracking-wider transition-all"
             >
               <DataPoint initialData={dataPoints} as="span" name="events.spotlight.btn_songbook">
                 Explore Songbook

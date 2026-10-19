@@ -82,7 +82,7 @@ export function CivicActionTicker({ items: initialItems }: { items?: TickerItem[
         </div>
 
         {/* Scrolling / Flex Items */}
-        <div className="flex items-center gap-8 overflow-x-auto [scrollbar-width:none] py-1 text-xs">
+        <div className="flex-1 min-w-0 flex items-center gap-8 overflow-x-auto [scrollbar-width:none] py-1 text-xs">
           {TICKER_ITEMS.map((item) => (
             <Link
               key={item.label}

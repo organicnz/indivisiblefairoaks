@@ -165,7 +165,7 @@ export default async function AccountPage(props: {
         <UserSettings />
         <MfaSettings />
         <div className="pt-8 border-t border-border">
-          <h3 className="text-sm font-black text-secondary dark:text-white uppercase tracking-widest mb-1">
+          <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-1">
             <DataPoint name="account.session.title" initialData={dataPoints}>
               Session Control
             </DataPoint>
@@ -174,7 +174,7 @@ export default async function AccountPage(props: {
             <DataPoint name="account.session.signed_in_as" as="span" initialData={dataPoints}>
               Signed in as
             </DataPoint>{' '}
-            <span className="text-secondary dark:text-white font-medium">{user.email}</span>
+            <span className="text-foreground font-medium">{user.email}</span>
           </p>
           <LogoutButton />
         </div>
@@ -189,10 +189,10 @@ export default async function AccountPage(props: {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Admin Restricted Notice */}
         {sp.error === 'admin_required' && (
-          <div className="mb-8 p-5 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-4 text-amber-950 animate-in fade-in">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="mb-8 p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-4 text-amber-950 dark:text-amber-200 animate-in fade-in">
+            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <h3 className="text-xs font-black uppercase tracking-wider text-amber-900 mb-1">
+              <h3 className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-200 mb-1">
                 <DataPoint name="account.admin_required.title" initialData={dataPoints}>
                   Administrator Privileges Required
                 </DataPoint>
@@ -201,7 +201,7 @@ export default async function AccountPage(props: {
                 name="account.admin_required.desc"
                 as="p"
                 initialData={dataPoints}
-                className="text-xs text-amber-800"
+                className="text-xs text-amber-800 dark:text-amber-300"
               >
                 The administrative panel is strictly restricted to verified chapter organizers. If
                 you are a chapter lead, please ensure you are signed in with your authorized
@@ -213,14 +213,14 @@ export default async function AccountPage(props: {
 
         {/* Administrator Portal Bridge */}
         {isAdmin && (
-          <div className="mb-10 p-6 rounded-3xl bg-slate-900 text-white shadow-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in fade-in">
+          <div className="mb-10 p-6 rounded-3xl bg-secondary text-white shadow-xl border border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in fade-in">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0">
-                <Shield className="w-6 h-6 text-blue-400" />
+              <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
+                <Shield className="w-6 h-6 text-primary-on-dark" />
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-blue-400">
+                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary-on-dark-muted">
                     <DataPoint name="account.admin_bridge.badge" initialData={dataPoints}>
                       Chapter Leadership
                     </DataPoint>
@@ -232,7 +232,7 @@ export default async function AccountPage(props: {
                     Admin Control & Civic CRM
                   </DataPoint>
                 </h2>
-                <p className="text-xs text-slate-400 font-medium">
+                <p className="text-xs text-ink-muted-on-dark font-medium">
                   <DataPoint name="account.admin_bridge.desc" initialData={dataPoints}>
                     Manage chapter constituents, target volunteer rings, and dispatch Resend
                     broadcasts.
@@ -256,7 +256,7 @@ export default async function AccountPage(props: {
               </Link>
               <Link
                 href="/admin"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs uppercase tracking-wider border border-slate-700 transition-all"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/15 text-ink-on-dark hover:text-white font-bold text-xs uppercase tracking-wider border border-white/10 transition-all"
               >
                 <span>
                   <DataPoint name="account.admin_bridge.control_btn" initialData={dataPoints}>
@@ -269,7 +269,7 @@ export default async function AccountPage(props: {
         )}
 
         <div className="flex flex-col mb-10">
-          <h1 className="text-4xl font-black tracking-tight text-secondary dark:text-white uppercase">
+          <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
             <DataPoint
               name={isAdmin ? 'account.title.dashboard' : 'account.title.my_account'}
               initialData={dataPoints}

@@ -190,7 +190,7 @@ export function WallEChatWidget() {
               e.preventDefault();
               inputRef.current?.focus();
             }}
-            className="fixed z-[70] floating-safe-position-panel flex h-[min(36rem,calc(100dvh-12rem-var(--safe-area-top)-var(--safe-area-bottom)))] w-[min(25rem,calc(100vw-2rem-var(--safe-area-left)-var(--safe-area-right)))] flex-col overflow-hidden rounded-2xl border border-primary/20 dark:border-white/10 bg-white dark:bg-slate-900 shadow-float data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-4 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom-4 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200"
+            className="fixed z-[70] floating-safe-position-panel flex h-[min(36rem,calc(100dvh-12rem-var(--safe-area-top)-var(--safe-area-bottom)))] w-[min(25rem,calc(100vw-2rem-var(--safe-area-left)-var(--safe-area-right)))] flex-col overflow-hidden rounded-2xl border border-primary/20 dark:border-white/10 bg-surface-card dark:bg-secondary shadow-float data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-4 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom-4 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200"
           >
             <Dialog.Title className="sr-only">WALL-E site assistant</Dialog.Title>
             <header className="relative overflow-hidden bg-secondary px-5 py-4 text-white">
@@ -245,7 +245,7 @@ export function WallEChatWidget() {
               </DataPoint>
             </header>
             <div
-              className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 p-4"
+              className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-surface-muted to-surface-card dark:from-secondary dark:to-slate-950 p-4"
               aria-live="polite"
             >
               {messages.map((message) => (
@@ -258,7 +258,7 @@ export function WallEChatWidget() {
                     className={`max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                       message.role === 'user'
                         ? 'rounded-br-md bg-primary dark:bg-primary-bright text-white shadow-raised shadow-primary/20'
-                        : 'rounded-bl-md border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800 text-secondary dark:text-slate-100 shadow-sm'
+                        : 'rounded-bl-md border border-border dark:border-white/10 bg-surface-card dark:bg-secondary/90 text-foreground dark:text-ink-on-dark shadow-sm'
                     }`}
                   >
                     {message.role === 'assistant' ? (
@@ -267,12 +267,12 @@ export function WallEChatWidget() {
                       <p className="whitespace-pre-wrap">{message.content}</p>
                     )}
                     {message.citations?.length ? (
-                      <div className="mt-3 space-y-1.5 border-t border-slate-200 dark:border-slate-700/60 pt-2.5 text-xs">
+                      <div className="mt-3 space-y-1.5 border-t border-border dark:border-white/10 pt-2.5 text-xs">
                         <DataPoint
                           as="p"
                           name="walle.source_heading"
                           initialData={dataPoints}
-                          className="font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+                          className="font-bold uppercase tracking-wider text-muted-foreground dark:text-ink-muted-on-dark"
                         >
                           Explore the source
                         </DataPoint>
@@ -280,7 +280,7 @@ export function WallEChatWidget() {
                           <a
                             key={citation.url}
                             href={citation.url}
-                            className="block rounded-lg bg-slate-100/70 dark:bg-slate-700/60 border border-slate-200/60 dark:border-slate-600/40 px-2.5 py-1.5 font-semibold text-primary-ink dark:text-primary-on-dark transition-colors duration-200 hover:bg-primary/10 dark:hover:bg-primary/20"
+                            className="block rounded-lg bg-surface-muted dark:bg-white/5 border border-border dark:border-white/10 px-2.5 py-1.5 font-semibold text-primary-ink dark:text-primary-on-dark transition-colors duration-200 hover:bg-primary/10 dark:hover:bg-primary/20"
                           >
                             <span className="mr-1">↗</span>
                             {citation.title}
@@ -289,13 +289,13 @@ export function WallEChatWidget() {
                       </div>
                     ) : null}
                     {message.role === 'assistant' && message.id !== 'starter' && (
-                      <div className="mt-2.5 flex items-center justify-end border-t border-slate-100 dark:border-slate-700/40 pt-1.5">
+                      <div className="mt-2.5 flex items-center justify-end border-t border-border dark:border-white/10 pt-1.5">
                         <button
                           type="button"
                           onClick={() => copyMessage(message.content, message.id)}
                           title="Copy response"
                           aria-label="Copy response"
-                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-slate-400 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground dark:text-ink-muted-on-dark hover:bg-surface-muted dark:hover:bg-white/10 hover:text-foreground dark:hover:text-ink-on-dark transition-colors cursor-pointer"
                         >
                           {copiedId === message.id ? (
                             <>
@@ -324,7 +324,7 @@ export function WallEChatWidget() {
               {/* Suggestion Chips shown when conversation has only starter greeting */}
               {messages.length === 1 && !loading && (
                 <div className="pt-1 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400 mb-2 pl-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground dark:text-ink-muted-on-dark mb-2 pl-1">
                     Suggested topics
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -333,7 +333,7 @@ export function WallEChatWidget() {
                         key={item.key}
                         type="button"
                         onClick={() => sendQuery(item.prompt)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/90 dark:border-slate-700/80 bg-white/90 dark:bg-slate-800/90 px-3 py-1.5 text-xs font-semibold text-primary dark:text-primary-on-dark shadow-xs hover:border-primary/40 dark:hover:border-primary-bright/40 hover:bg-primary/5 dark:hover:bg-primary/15 transition-all duration-200 active:scale-95 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border dark:border-white/10 bg-surface-card dark:bg-secondary/90 px-3 py-1.5 text-xs font-semibold text-primary-ink dark:text-primary-on-dark shadow-xs hover:border-primary/40 dark:hover:border-primary-bright/40 hover:bg-primary/5 dark:hover:bg-primary/15 transition-all duration-200 active:scale-95 cursor-pointer"
                       >
                         <DataPoint as="span" name={item.key} initialData={dataPoints}>
                           {item.defaultLabel}
@@ -344,9 +344,9 @@ export function WallEChatWidget() {
                 </div>
               )}
               {loading && (
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                   <WallEAvatar small />
-                  <span className="rounded-full bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 px-3 py-2 shadow-sm text-slate-700 dark:text-slate-200">
+                  <span className="rounded-full bg-surface-card dark:bg-secondary border border-border dark:border-white/10 px-3 py-2 shadow-sm text-foreground dark:text-ink-on-dark">
                     <DataPoint as="span" name="walle.checking" initialData={dataPoints}>
                       WALL-E is checking the site…
                     </DataPoint>
@@ -357,7 +357,7 @@ export function WallEChatWidget() {
             </div>
             <form
               onSubmit={submit}
-              className="flex gap-2 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs p-3"
+              className="flex gap-2 border-t border-border dark:border-white/10 bg-surface-card/95 dark:bg-secondary/95 backdrop-blur-xs p-3"
             >
               <input
                 ref={inputRef}
@@ -366,7 +366,7 @@ export function WallEChatWidget() {
                 maxLength={600}
                 placeholder={dataPoints['walle.input_placeholder'] || 'Ask WALL-E…'}
                 aria-label="Message WALL-E"
-                className="min-w-0 flex-1 rounded-full border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 px-4 py-2.5 text-sm outline-none transition-colors duration-300 ease-out focus:border-primary dark:focus:border-primary-bright focus:bg-white dark:focus:bg-slate-800/90 focus:ring-2 focus:ring-primary/15"
+                className="min-w-0 flex-1 rounded-full border border-border dark:border-white/10 bg-surface-muted dark:bg-secondary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark px-4 py-2.5 text-sm outline-none transition-colors duration-300 ease-out focus:border-primary dark:focus:border-primary-bright focus:bg-surface-card dark:focus:bg-secondary/90 focus:ring-2 focus:ring-primary/15"
               />
               <button
                 type="submit"

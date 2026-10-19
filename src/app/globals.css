@@ -246,13 +246,17 @@
    Rather than add a dependency, the utilities the codebase already uses are
    implemented here against Tailwind v4's `@utility`. Same class names, same
    composition model (animate-in sets the timeline, the `fade-in-0` /
-   `zoom-in-95` / `slide-in-from-*` classes set the CSS variables it reads), so
-   no call site changes.
+   no call site changes. */
+
 /* ─────────────────────────────────────────────────────────────────────────────
    View transitions for theme switching
    Smooth, fluid cross-fade and circular reveal transitions when switching color modes.
    Disabled when reduced motion is preferred.
    ───────────────────────────────────────────────────────────────────────────── */
+::view-transition-image-pair(root) {
+  isolation: isolate;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 350ms;
@@ -267,12 +271,14 @@
   z-index: 9999;
 }
 
-[data-theme-animating='circle']::view-transition-old(root) {
-  animation: none !important;
+[data-theme-animating='circle']::view-transition-image-pair(root) {
+  isolation: isolate;
 }
 
+[data-theme-animating='circle']::view-transition-old(root),
 [data-theme-animating='circle']::view-transition-new(root) {
   animation: none !important;
+  mix-blend-mode: normal !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

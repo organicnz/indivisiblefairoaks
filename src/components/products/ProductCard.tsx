@@ -90,7 +90,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
       <div className="p-6 sm:p-8 grow flex flex-col justify-between relative z-10">
         <div>
-          <h3 className="text-sm font-black text-secondary uppercase tracking-tighter mb-2 line-clamp-2 min-h-10 sm:min-h-12 leading-tight group-hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors duration-300 ease-out">
+          <h3 className="text-sm font-black text-foreground uppercase tracking-tighter mb-2 line-clamp-2 min-h-10 sm:min-h-12 leading-tight group-hover:text-primary dark:group-hover:text-primary-on-dark transition-colors duration-300 ease-out">
             <Link href={href} className={`rounded-sm ${FOCUS_RING}`}>
               {product.name}
             </Link>
@@ -118,7 +118,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
           <span
             aria-hidden="true"
-            className="bg-secondary text-white text-xs font-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-full transition-colors duration-300 ease-out uppercase tracking-[0.2em] shadow-lg shadow-secondary/10 group-hover:bg-primary text-center"
+            className="bg-secondary text-white text-xs font-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-full transition-colors duration-300 ease-out uppercase tracking-[0.2em] shadow-lg shadow-secondary/10 group-hover:bg-primary dark:border dark:border-white/15 dark:shadow-xs text-center"
           >
             <DataPoint as="span" name="products.card.details" initialData={dataPoints}>
               View Gear

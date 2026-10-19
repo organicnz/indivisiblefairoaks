@@ -29,6 +29,7 @@ import { useEditContext } from '@/components/layout/useEditContext';
 import { useVisualEditMode } from '@/components/layout/visual-edit-store';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
+import { themeModeLabel } from '@/lib/theme';
 
 interface PaletteItem {
   id: string;
@@ -242,7 +243,7 @@ export function CivicCommandPalette({
   const { isAdmin } = useEditContext(pathname ?? '/');
   const { toggle: toggleVisualEdit } = useVisualEditMode(pathname ?? '/');
   const { dataPoints } = useDataPoints('palette');
-  const { setMode, cycle } = useThemeMode();
+  const { mode, effective, setMode, cycle } = useThemeMode();
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = controlledOpen ?? internalOpen;
   const setIsOpen: (open: boolean) => void = setControlledOpen ?? setInternalOpen;
@@ -485,6 +486,26 @@ export function CivicCommandPalette({
                             {item.isExternal && (
                               <span className="text-xs px-1.5 py-0.5 rounded bg-white/10 text-ink-muted-on-dark font-mono">
                                 external
+                              </span>
+                            )}
+                            {item.action === 'theme-light' && mode === 'light' && (
+                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                                Active
+                              </span>
+                            )}
+                            {item.action === 'theme-dark' && mode === 'dark' && (
+                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-400/20 text-sky-300 border border-sky-400/40">
+                                Active
+                              </span>
+                            )}
+                            {item.action === 'theme-system' && mode === 'system' && (
+                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/40">
+                                Active · {effective === 'dark' ? 'Dark' : 'Light'}
+                              </span>
+                            )}
+                            {item.action === 'theme-cycle' && (
+                              <span className="text-[10px] font-mono text-ink-muted-on-dark px-1.5 py-0.2 rounded bg-white/10">
+                                {themeModeLabel(mode)}
                               </span>
                             )}
                           </div>

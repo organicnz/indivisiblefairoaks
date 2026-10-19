@@ -22,7 +22,11 @@ export function LogoutButton() {
       router.push('/');
       router.refresh();
     } catch (error) {
-      console.error('Error logging out:', error);
+      if (typeof window !== 'undefined' && 'Sentry' in window) {
+        (
+          window as unknown as { Sentry: { captureException: (e: unknown) => void } }
+        ).Sentry.captureException(error);
+      }
       setIsLoggingOut(false);
     }
   };
@@ -32,7 +36,7 @@ export function LogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={isLoggingOut}
-      className="inline-flex items-center gap-4 px-10 py-5 bg-secondary text-white rounded-full font-black uppercase tracking-[0.2em] text-sm hover:bg-primary transition-all group shadow-xl shadow-secondary/10 disabled:opacity-50 cursor-pointer"
+      className="inline-flex items-center gap-4 px-10 py-5 bg-secondary text-white rounded-full font-black uppercase tracking-[0.2em] text-sm hover:bg-primary transition-all group shadow-xl shadow-secondary/10 border border-white/10 disabled:opacity-50 cursor-pointer"
     >
       {isLoggingOut ? (
         <DataPoint as="span" name="account.btn.signing_out" initialData={dataPoints}>

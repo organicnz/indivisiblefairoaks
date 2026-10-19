@@ -257,7 +257,7 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
 
       {/* Fallback & Ambient Layer for devices without WebGPU or while shader warms up */}
       <div
-        className={`absolute inset-0 bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 transition-opacity duration-1000 ${
+        className={`absolute inset-0 overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 transition-opacity duration-1000 ${
           isWebGPUActive ? 'opacity-20' : 'opacity-100'
         }`}
       >

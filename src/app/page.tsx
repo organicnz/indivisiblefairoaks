@@ -109,7 +109,7 @@ export default async function HomePage() {
                   name="home.hero.mission"
                   as="p"
                   initialData={dataPoints}
-                  className="text-lg sm:text-xl text-slate-200 leading-relaxed mb-8 drop-shadow-sm"
+                  className="text-lg sm:text-xl text-ink-on-dark leading-relaxed mb-8 drop-shadow-sm"
                 >
                   The mission of the Fair Oaks-Carmichael chapter of Indivisible is to cultivate a
                   non-violent grassroots movement to stop the rise of authoritarianism, to support
@@ -128,16 +128,16 @@ export default async function HomePage() {
                   </Link>
                   <Link
                     href="/donate"
-                    className="px-6 py-3.5 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-amber-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                    className="px-6 py-3.5 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-amber-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <Heart size={16} className="fill-slate-950" />
+                    <Heart size={16} className="fill-secondary" />
                     <DataPoint as="span" name="home.hero.btn_support" initialData={dataPoints}>
                       Support Our Chapter
                     </DataPoint>
                   </Link>
                   <Link
                     href="/choir"
-                    className="px-6 py-3.5 rounded-xl bg-secondary/80 hover:bg-white/5 text-slate-200 border border-slate-700/80 backdrop-blur-md font-semibold text-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                    className="px-6 py-3.5 rounded-xl bg-secondary/80 hover:bg-white/10 text-ink-on-dark border border-white/15 backdrop-blur-md font-semibold text-sm transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Music size={16} className="text-primary-on-dark-muted" />
                     <DataPoint as="span" name="home.hero.btn_choir" initialData={dataPoints}>
@@ -516,7 +516,7 @@ export default async function HomePage() {
                   href="https://www.mobilize.us/indivisible/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-xl bg-white/5 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs uppercase tracking-wider transition-all"
+                  className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-ink-on-dark border border-white/15 font-bold text-xs uppercase tracking-wider transition-all"
                 >
                   Register via Mobilize
                 </a>
@@ -524,7 +524,7 @@ export default async function HomePage() {
             </div>
 
             <div className="lg:col-span-5">
-              <div className="rounded-2xl overflow-hidden border border-slate-700 bg-secondary shadow-2xl p-6">
+              <div className="rounded-2xl overflow-hidden border border-white/10 bg-secondary shadow-2xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-xs font-black uppercase tracking-wider text-accent-gold">
                     Protest In Song
@@ -766,16 +766,16 @@ export default async function HomePage() {
           <div className="pt-2 flex flex-wrap justify-center gap-4">
             <Link
               href="/donate"
-              className="px-8 py-4 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-black text-sm uppercase tracking-wider shadow-xl hover:scale-105 transition-all flex items-center gap-2"
+              className="px-8 py-4 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-black text-sm uppercase tracking-wider shadow-xl hover:scale-105 transition-all flex items-center gap-2"
             >
-              <Heart size={18} className="fill-slate-950" />
+              <Heart size={18} className="fill-secondary" />
               <DataPoint as="span" name="home.cta.btn_donate" initialData={dataPoints}>
                 Donate via ActBlue
               </DataPoint>
             </Link>
             <a
               href="mailto:subscribe@indivisiblefairoaks.org"
-              className="px-8 py-4 rounded-xl bg-white/5 hover:bg-slate-700 text-white border border-slate-700 font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-2"
+              className="px-8 py-4 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/15 font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-2"
             >
               <Mail size={18} className="text-primary-on-dark-muted" />
               <DataPoint as="span" name="home.cta.btn_subscribe" initialData={dataPoints}>

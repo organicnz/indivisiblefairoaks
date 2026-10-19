@@ -85,7 +85,7 @@ export default async function NewsPage() {
           <div className="shrink-0 w-full md:w-auto">
             <a
               href="mailto:subscribe@indivisiblefairoaks.org?subject=Subscribe%20to%20Indivisible%20Fair%20Oaks%20Newsletter"
-              className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg transition-all"
+              className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-bold text-xs uppercase tracking-wider shadow-lg transition-all"
             >
               <Send size={16} />
               <DataPoint initialData={dataPoints} as="span" name="news.subscribe.btn">

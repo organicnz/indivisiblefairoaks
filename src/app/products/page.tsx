@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getCategories } from '@/lib/queries/civic';
@@ -84,8 +85,12 @@ export default async function ProductsPage({
         .order('created_at', { ascending: false }));
 
   if (error) {
-    console.error('Error fetching products:', error);
-    return <div className="p-8 text-center text-red-600">Failed to load products.</div>;
+    Sentry.captureException(error);
+    return (
+      <div className="p-8 text-center text-accent-red dark:text-rose-400 font-bold">
+        Failed to load products.
+      </div>
+    );
   }
 
   // Map nulls to undefined for ProductCard compatibility
@@ -110,7 +115,7 @@ export default async function ProductsPage({
               <li>
                 <Link
                   href="/products"
-                  className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${!categorySlug ? 'bg-primary text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark'}`}
+                  className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${!categorySlug ? 'bg-primary text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark'}`}
                 >
                   <DataPoint name="products.sidebar.all" initialData={dataPoints}>
                     All Gear
@@ -121,7 +126,7 @@ export default async function ProductsPage({
                 <li key={category.id}>
                   <Link
                     href={`/products?category=${category.slug}`}
-                    className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${categorySlug === category.slug ? 'bg-primary text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark'}`}
+                    className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${categorySlug === category.slug ? 'bg-primary text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark'}`}
                   >
                     {category.name}
                   </Link>

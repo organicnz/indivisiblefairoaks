@@ -42,7 +42,7 @@ export function ProductEditor({ product }: { product: ProductRow }) {
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+        className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark transition-colors"
       >
         <Pencil size={11} /> {dataPoints['admin.ui.edit'] || 'Edit'}
       </button>
@@ -85,14 +85,14 @@ export function ProductEditor({ product }: { product: ProductRow }) {
           type="button"
           onClick={save}
           disabled={isPending}
-          className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors disabled:opacity-50"
         >
           <Check size={12} /> {dataPoints['admin.ui.save'] || 'Save'}
         </button>
         <button
           type="button"
           onClick={() => setEditing(false)}
-          className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-muted-foreground"
+          className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
         >
           <X size={12} /> {dataPoints['admin.ui.cancel'] || 'Cancel'}
         </button>

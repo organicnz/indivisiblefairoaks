@@ -218,7 +218,7 @@ export default async function AdminOrdersPage({
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Package size={14} className="text-foreground" />
+            <Package size={14} className="text-white" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             <DataPoint as="span" name="admin.panel.eyebrow" initialData={dataPoints}>
@@ -433,7 +433,7 @@ export default async function AdminOrdersPage({
                         </p>
                         <Link
                           href={`/admin/orders/${order.id}`}
-                          className="text-sm text-foreground font-black hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+                          className="text-sm text-foreground font-black hover:text-primary dark:hover:text-primary-on-dark transition-colors"
                         >
                           #{order.id}{' '}
                           <ExternalLink size={10} className="inline text-muted-foreground" />
@@ -518,7 +518,7 @@ export default async function AdminOrdersPage({
                           href={stripeUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+                          className="inline-flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors"
                         >
                           <ExternalLink size={11} />{' '}
                           <DataPoint

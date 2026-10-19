@@ -64,8 +64,8 @@ export function ProductCheckbox({ productId }: { productId: number }) {
       aria-pressed={selected}
       className={`w-8 h-8 shrink-0 rounded-xl flex items-center justify-center transition-colors border ${
         selected
-          ? 'bg-primary border-primary text-secondary'
-          : 'border-border text-muted-foreground hover:border-primary hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark bg-surface-card'
+          ? 'bg-primary border-primary text-white'
+          : 'border-border text-muted-foreground hover:border-primary dark:hover:border-primary-on-dark hover:text-primary dark:hover:text-primary-on-dark bg-surface-card'
       }`}
     >
       <CheckSquare size={14} />
@@ -104,7 +104,9 @@ export function BulkStockBar({ productIds }: { productIds: number[] }) {
     <nav
       aria-label="Bulk stock actions"
       className={`flex flex-wrap items-center gap-3 rounded-2xl px-5 py-3 transition-all ${
-        selected.size > 0 ? 'bg-secondary text-white' : 'bg-surface-muted'
+        selected.size > 0
+          ? 'bg-secondary text-white border border-white/10 shadow-xs'
+          : 'bg-surface-muted border border-border text-foreground'
       }`}
     >
       <button

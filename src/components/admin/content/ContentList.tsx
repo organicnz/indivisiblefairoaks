@@ -227,7 +227,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                       <td className="px-4 py-3">
                         <Link
                           href={`/admin/content/${row.id}`}
-                          className="font-semibold text-foreground underline-offset-2 hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark hover:underline focus-visible:ring-2 focus-visible:ring-primary"
+                          className="font-semibold text-foreground underline-offset-2 hover:text-primary dark:hover:text-primary-on-dark hover:underline focus-visible:ring-2 focus-visible:ring-primary"
                         >
                           {row.title}
                         </Link>
@@ -296,7 +296,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   title={`View /${row.slug}`}
-                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                                 >
                                   View
                                 </Link>
@@ -304,7 +304,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                                 <Link
                                   href={`/admin/content/${row.id}`}
                                   title="Not published yet — opens the editor to preview it"
-                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                                 >
                                   Preview
                                 </Link>
@@ -312,7 +312,7 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                               <button
                                 type="button"
                                 onClick={() => handleToggle(row)}
-                                className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                                className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                               >
                                 {row.status === 'publish' ? 'Unpublish' : 'Publish'}
                               </button>

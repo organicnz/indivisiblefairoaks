@@ -202,14 +202,14 @@ function LoginForm() {
 
         {/* Admin Gateway Notice Banner */}
         {isAdminTarget && (
-          <div className="mb-8 p-4 rounded-2xl bg-blue-50 border border-blue-200/80 text-blue-950 text-center animate-in fade-in slide-in-from-top-4 duration-300 ease-out shadow-sm">
-            <div className="flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider text-blue-900 mb-1">
-              <Shield className="w-4 h-4 text-blue-600" />
+          <div className="mb-8 p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 text-blue-950 dark:text-blue-200 text-center animate-in fade-in slide-in-from-top-4 duration-300 ease-out shadow-sm">
+            <div className="flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider text-blue-900 dark:text-blue-200 mb-1">
+              <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <DataPoint initialData={dataPoints} name="login.notice.admin_title">
                 Chapter Administration
               </DataPoint>
             </div>
-            <p className="text-xs text-blue-800 font-medium">
+            <p className="text-xs text-blue-800 dark:text-blue-300 font-medium">
               <DataPoint initialData={dataPoints} name="login.notice.admin_body">
                 You are accessing an administrative section ({targetNext}). Please authenticate with
                 your authorized chapter credentials.
@@ -239,7 +239,7 @@ function LoginForm() {
               }}
               className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'otp'
-                  ? 'bg-secondary text-white shadow-xl shadow-secondary/20'
+                  ? 'bg-secondary text-white shadow-xl shadow-secondary/20 border border-white/10'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -258,7 +258,7 @@ function LoginForm() {
               onClick={() => setAuthMethod('password')}
               className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'password'
-                  ? 'bg-secondary text-white shadow-xl shadow-secondary/20'
+                  ? 'bg-secondary text-white shadow-xl shadow-secondary/20 border border-white/10'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -346,7 +346,7 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-secondary text-white font-black rounded-full py-6 hover:bg-primary hover:text-foreground transition-all uppercase tracking-[0.4em] text-xs shadow-2xl shadow-secondary/20 flex items-center justify-center gap-4 group disabled:opacity-50 active:scale-[0.98]"
+                className="w-full bg-secondary text-white font-black rounded-full py-6 hover:bg-primary transition-all uppercase tracking-[0.4em] text-xs shadow-2xl shadow-secondary/20 border border-white/10 flex items-center justify-center gap-4 group disabled:opacity-50 active:scale-[0.98]"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={20} />
@@ -386,8 +386,8 @@ function LoginForm() {
                 role={message.type === 'success' ? 'status' : 'alert'}
                 className={`mt-10 p-6 rounded-xl border text-sm font-medium text-center leading-relaxed motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-300 motion-safe:ease-out ${
                   message.type === 'success'
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                    : 'bg-rose-50 border-rose-200 text-accent-red'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-400'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-accent-red dark:text-rose-400'
                 }`}
               >
                 {message.text}

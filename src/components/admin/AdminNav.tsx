@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
 interface AdminNavItem {
@@ -50,30 +51,35 @@ export function AdminNav() {
   const pathname = usePathname();
   const { dataPoints } = useDataPoints('admin');
   return (
-    <nav
-      className="flex items-center gap-2 mb-12 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0"
-      aria-label={dataPoints['admin.nav.aria'] || 'Admin sections'}
-    >
-      {ITEMS.map(({ href, labelKey, label, icon: Icon }) => {
-        const active =
-          href === '/admin'
-            ? pathname === href
-            : pathname === href || pathname.startsWith(`${href}/`);
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-colors ${
-              active
-                ? 'bg-primary text-white'
-                : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
-            }`}
-          >
-            <Icon size={13} />
-            {(labelKey && dataPoints[labelKey]) || label}
-          </Link>
-        );
-      })}
-    </nav>
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-12">
+      <nav
+        className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0"
+        aria-label={dataPoints['admin.nav.aria'] || 'Admin sections'}
+      >
+        {ITEMS.map(({ href, labelKey, label, icon: Icon }) => {
+          const active =
+            href === '/admin'
+              ? pathname === href
+              : pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-colors shrink-0 ${
+                active
+                  ? 'bg-primary text-white'
+                  : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'
+              }`}
+            >
+              <Icon size={13} />
+              {(labelKey && dataPoints[labelKey]) || label}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="hidden lg:flex items-center shrink-0">
+        <ThemeToggle variant="segmented" />
+      </div>
+    </div>
   );
 }

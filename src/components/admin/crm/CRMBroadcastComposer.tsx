@@ -699,7 +699,7 @@ export function CRMBroadcastComposer({
         <div>
           <Link
             href="/admin/crm"
-            className="inline-flex items-center gap-2 text-xs font-black text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark uppercase tracking-widest transition-colors mb-2"
+            className="inline-flex items-center gap-2 text-xs font-black text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark uppercase tracking-widest transition-colors mb-2"
           >
             <ArrowLeft size={14} /> Back to Constituent Directory
           </Link>

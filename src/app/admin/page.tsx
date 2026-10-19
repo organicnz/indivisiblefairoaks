@@ -217,7 +217,7 @@ export default async function AdminDashboardPage() {
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <TrendingUp size={14} className="text-foreground" />
+            <TrendingUp size={14} className="text-white" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             <DataPoint as="span" name="admin.panel.eyebrow" initialData={dataPoints}>
@@ -326,7 +326,10 @@ export default async function AdminDashboardPage() {
             icon: Package,
           },
         ].map(({ dpKey, label, value, icon: Icon, delta }) => (
-          <div key={label} className="bg-secondary rounded-3xl p-6">
+          <div
+            key={label}
+            className="bg-secondary rounded-3xl p-6 border border-white/10 shadow-xs"
+          >
             <Icon size={16} className="text-primary-on-dark mb-3" />
             <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-1">
               <DataPoint as="span" name={dpKey} initialData={dataPoints}>
@@ -467,7 +470,7 @@ export default async function AdminDashboardPage() {
             </h2>
             <Link
               href="/admin/orders"
-              className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+              className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors"
             >
               <DataPoint as="span" name="admin.orders.view_all" initialData={dataPoints}>
                 View orders
@@ -522,7 +525,7 @@ export default async function AdminDashboardPage() {
             </h2>
             <Link
               href="/admin/orders?status=processing"
-              className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+              className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors"
             >
               <DataPoint as="span" name="admin.dashboard.pending_view_all" initialData={dataPoints}>
                 View all
@@ -552,7 +555,7 @@ export default async function AdminDashboardPage() {
                   <li key={o.id} className="flex items-center gap-3">
                     <Link
                       href={`/admin/orders/${o.id}`}
-                      className="flex-1 min-w-0 hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+                      className="flex-1 min-w-0 hover:text-primary dark:hover:text-primary-on-dark transition-colors"
                     >
                       <p className="text-sm font-black text-foreground uppercase tracking-wider truncate">
                         #{o.id} · {name}
@@ -631,7 +634,7 @@ export default async function AdminDashboardPage() {
           )}
           <Link
             href="/admin/products"
-            className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors mt-4"
+            className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors mt-4"
           >
             <DataPoint as="span" name="admin.dashboard.manage_products" initialData={dataPoints}>
               Manage products
@@ -650,7 +653,7 @@ export default async function AdminDashboardPage() {
             </h2>
             <Link
               href="/admin/coupons"
-              className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+              className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors"
             >
               <DataPoint as="span" name="admin.dashboard.manage_coupons" initialData={dataPoints}>
                 Manage
@@ -669,7 +672,7 @@ export default async function AdminDashboardPage() {
               {[...couponStats.entries()].map(([code, stat]) => (
                 <li key={code} className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-xl bg-primary flex items-center justify-center">
-                    <BadgePercent size={13} className="text-foreground" />
+                    <BadgePercent size={13} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-black text-foreground uppercase tracking-wider">
@@ -685,7 +688,7 @@ export default async function AdminDashboardPage() {
           )}
           <Link
             href="/admin/customers"
-            className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors mt-4"
+            className="inline-flex items-center gap-1 text-[10px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors mt-4"
           >
             <Users size={11} /> View customers
           </Link>

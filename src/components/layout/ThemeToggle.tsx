@@ -141,7 +141,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
     return (
       <fieldset
         aria-label="Color theme"
-        className="relative inline-flex items-center gap-0.5 p-1 rounded-xl bg-white/5 dark:bg-slate-900/40 border border-white/10 backdrop-blur-xs shadow-xs"
+        className="relative inline-flex items-center gap-0.5 p-1 rounded-xl bg-surface-muted border border-border backdrop-blur-xs shadow-xs"
       >
         <legend className="sr-only">
           <DataPoint as="span" name="header.theme.legend" initialData={dataPoints}>
@@ -166,7 +166,9 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
               onKeyDown={(e) => handleSegmentKeyDown(e, m)}
               data-theme-mode={m}
               className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors duration-200 ease-out active:scale-95 cursor-pointer ${FOCUS_RING} ${
-                isActive ? 'text-secondary font-black' : 'text-ink-muted-on-dark hover:text-white'
+                isActive
+                  ? 'text-secondary font-black'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               title={`Switch to ${themeModeLabel(m)} theme`}
             >

@@ -195,7 +195,7 @@ export function InteractiveNewslettersList({
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted dark:bg-secondary border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted dark:bg-secondary border border-border dark:border-white/10 text-foreground dark:text-white placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
 
@@ -209,7 +209,7 @@ export function InteractiveNewslettersList({
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTopic === topic
                   ? 'bg-primary-bright text-white shadow-md'
-                  : 'bg-surface-muted dark:bg-secondary/60 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:hover:text-slate-200 hover:bg-surface-card dark:hover:bg-white/5 border border-border dark:border-transparent'
+                  : 'bg-surface-muted dark:bg-secondary/60 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:hover:text-ink-on-dark hover:bg-surface-card dark:hover:bg-white/5 border border-border dark:border-transparent'
               }`}
             >
               {topic === 'All Topics' ? dataPoints['news.topic.all'] || 'All Topics' : topic}
@@ -222,7 +222,7 @@ export function InteractiveNewslettersList({
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
           >
             <Plus size={15} />
             <DataPoint name="news.admin.add_bulletin" as="span" initialData={dataPoints}>
@@ -245,7 +245,7 @@ export function InteractiveNewslettersList({
           filteredNewsletters.map((newsletter) => (
             <div
               key={newsletter.slug || newsletter.title}
-              className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-border dark:hover:border-slate-700 transition-all flex flex-col justify-between"
+              className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-border dark:hover:border-white/20 transition-all flex flex-col justify-between"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

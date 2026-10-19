@@ -40,7 +40,7 @@ export function UserSettings() {
   return (
     <div className="space-y-12 mt-16 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 motion-safe:ease-out">
       <div className="flex flex-col mb-8">
-        <h2 className="text-2xl font-black text-secondary uppercase tracking-tighterer mb-2 inline-block">
+        <h2 className="text-2xl font-black text-foreground uppercase tracking-tighterer mb-2 inline-block">
           <DataPoint as="span" name="account.settings.preferences_title" initialData={dataPoints}>
             Preferences
           </DataPoint>
@@ -50,13 +50,13 @@ export function UserSettings() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Notifications */}
-        <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow">
+        <div className="bg-surface-card border border-border rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-surface-muted text-secondary rounded-2xl">
+            <div className="p-3 bg-surface-muted text-foreground rounded-2xl">
               <Bell size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-black text-secondary uppercase tracking-tighter">
+              <h3 className="text-lg font-black text-foreground uppercase tracking-tighter">
                 <DataPoint
                   as="span"
                   name="account.settings.notifications_title"
@@ -82,7 +82,7 @@ export function UserSettings() {
               <div className="flex items-center gap-3">
                 <Mail size={18} className="text-muted-foreground" />
                 <div>
-                  <p className="text-xs font-black text-secondary uppercase tracking-wider">
+                  <p className="text-xs font-black text-foreground uppercase tracking-wider">
                     <DataPoint
                       as="span"
                       name="account.settings.marketing_title"
@@ -106,14 +106,14 @@ export function UserSettings() {
                 type="button"
                 onClick={() => handleToggle('marketing_emails')}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                  settings.marketing_emails ? 'bg-primary' : 'bg-slate-300'
+                  settings.marketing_emails ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'
                 }`}
                 aria-checked={settings.marketing_emails}
                 role="switch"
               >
                 <span
                   aria-hidden="true"
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ease-out ${
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-slate-100 shadow-xs transition-transform duration-300 ease-out ${
                     settings.marketing_emails ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -124,7 +124,7 @@ export function UserSettings() {
               <div className="flex items-center gap-3">
                 <CheckCircle2 size={18} className="text-muted-foreground" />
                 <div>
-                  <p className="text-xs font-black text-secondary uppercase tracking-wider">
+                  <p className="text-xs font-black text-foreground uppercase tracking-wider">
                     <DataPoint
                       as="span"
                       name="account.settings.order_updates_title"
@@ -148,14 +148,14 @@ export function UserSettings() {
                 type="button"
                 onClick={() => handleToggle('order_updates')}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                  settings.order_updates ? 'bg-primary' : 'bg-slate-300'
+                  settings.order_updates ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'
                 }`}
                 aria-checked={settings.order_updates}
                 role="switch"
               >
                 <span
                   aria-hidden="true"
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ease-out ${
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-slate-100 shadow-xs transition-transform duration-300 ease-out ${
                     settings.order_updates ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -167,11 +167,11 @@ export function UserSettings() {
         {/* Store region */}
         <div className="bg-surface-card border border-border rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-4 mb-8">
-            <div className="p-3 bg-surface-muted text-secondary rounded-2xl">
+            <div className="p-3 bg-surface-muted text-foreground rounded-2xl">
               <MapPin size={24} aria-hidden="true" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-secondary uppercase tracking-tighterer">
+              <h3 className="text-lg font-black text-foreground uppercase tracking-tighterer">
                 <DataPoint as="span" name="account.settings.region_title" initialData={dataPoints}>
                   Store Region
                 </DataPoint>
@@ -192,7 +192,7 @@ export function UserSettings() {
           */}
           <dl className="space-y-4">
             <div className="p-4 bg-surface-muted rounded-2xl flex items-center justify-between gap-4">
-              <dt className="text-xs font-black text-secondary dark:text-ink-on-dark uppercase tracking-wider">
+              <dt className="text-xs font-black text-foreground uppercase tracking-wider">
                 <DataPoint
                   as="span"
                   name="account.settings.currency_label"
@@ -206,7 +206,7 @@ export function UserSettings() {
               </dd>
             </div>
             <div className="p-4 bg-surface-muted rounded-2xl flex items-center justify-between gap-4">
-              <dt className="text-xs font-black text-secondary dark:text-ink-on-dark uppercase tracking-wider">
+              <dt className="text-xs font-black text-foreground uppercase tracking-wider">
                 <DataPoint as="span" name="account.settings.ships_label" initialData={dataPoints}>
                   Ships from
                 </DataPoint>
@@ -224,11 +224,11 @@ export function UserSettings() {
         <div className="bg-surface-card border border-border rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-shadow md:col-span-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-surface-muted text-secondary rounded-2xl">
+              <div className="p-3 bg-surface-muted text-foreground rounded-2xl">
                 <Sparkles size={24} aria-hidden="true" className="text-accent-gold" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-secondary uppercase tracking-tighter">
+                <h3 className="text-lg font-black text-foreground uppercase tracking-tighter">
                   Appearance & Sensory Luxury
                 </h3>
                 <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.2em]">
@@ -248,7 +248,7 @@ export function UserSettings() {
           </div>
           <div className="p-4 bg-surface-muted rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-black text-secondary uppercase tracking-wider">
+              <p className="text-xs font-black text-foreground uppercase tracking-wider">
                 Palette Mode
               </p>
               <p className="text-[11px] text-muted-foreground font-medium">
@@ -264,7 +264,7 @@ export function UserSettings() {
       {error && (
         <div
           role="alert"
-          className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-accent-red text-xs font-bold uppercase tracking-wider text-center motion-safe:animate-in motion-safe:slide-in-from-top-2 motion-safe:duration-300 motion-safe:ease-out"
+          className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-2xl text-accent-red dark:text-rose-400 text-xs font-bold uppercase tracking-wider text-center motion-safe:animate-in motion-safe:slide-in-from-top-2 motion-safe:duration-300 motion-safe:ease-out"
         >
           {error}
           {/*
@@ -296,7 +296,7 @@ export function UserSettings() {
       {!error && !isLoading && (
         <div
           role="status"
-          className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-xs font-bold uppercase tracking-wider text-center flex items-center justify-center gap-2"
+          className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-emerald-700 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider text-center flex items-center justify-center gap-2"
         >
           <CheckCircle2 size={14} aria-hidden="true" />
           <DataPoint as="span" name="account.settings.synced_msg" initialData={dataPoints}>

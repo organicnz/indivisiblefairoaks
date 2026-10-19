@@ -48,7 +48,7 @@ export function InteractivePostsList({ initialPosts }: InteractivePostsListProps
           {isAdmin && (
             <Link
               href="/admin/content/new?type=post"
-              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-sm transition-all"
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-bold text-xs uppercase tracking-wider shadow-sm transition-all"
             >
               <Plus size={14} />
               <span>Create the First Post</span>

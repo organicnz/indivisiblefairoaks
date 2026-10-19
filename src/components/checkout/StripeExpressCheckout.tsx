@@ -4,6 +4,7 @@ import { Elements, ExpressCheckoutElement } from '@stripe/react-stripe-js';
 import type { StripeExpressCheckoutElementConfirmEvent } from '@stripe/stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { useState } from 'react';
+import { useThemeMode } from '@/components/layout/theme-store';
 import { CURRENCY } from '@/config/commerce';
 import { buildCheckoutItems } from '@/lib/checkout-validation';
 import { env } from '@/lib/env';
@@ -13,6 +14,7 @@ const stripePromise = loadStripe(env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
 export function StripeExpressCheckout() {
   const { items, totalPrice } = useCartStore();
+  const { effective } = useThemeMode();
   const [errorMessage, setErrorMessage] = useState('');
   const amount = totalPrice();
 
@@ -62,6 +64,9 @@ export function StripeExpressCheckout() {
           amount: Math.round(amount * 100) > 0 ? Math.round(amount * 100) : 100,
           currency: CURRENCY,
           locale: 'en',
+          appearance: {
+            theme: effective === 'dark' ? 'night' : 'stripe',
+          },
         }}
       >
         <ExpressCheckoutElement

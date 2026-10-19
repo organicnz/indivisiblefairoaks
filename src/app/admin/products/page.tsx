@@ -35,9 +35,9 @@ type ProductRow = {
 const STOCK_FILTERS = ['all', 'instock', 'outofstock', 'onbackorder'];
 
 const stockBadge: Record<string, string> = {
-  instock: 'bg-emerald-100 text-emerald-800',
-  outofstock: 'bg-rose-100 text-rose-800',
-  onbackorder: 'bg-amber-100 text-amber-800',
+  instock: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300',
+  outofstock: 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300',
+  onbackorder: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300',
 };
 
 const stockLabelFor = (status: string, dataPoints: Record<string, string>): string =>
@@ -88,7 +88,7 @@ export default async function AdminProductsPage({
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Package size={14} className="text-foreground" />
+            <Package size={14} className="text-white" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             <DataPoint as="span" name="admin.panel.eyebrow" initialData={dataPoints}>
@@ -182,7 +182,7 @@ export default async function AdminProductsPage({
                       <div className="flex items-center gap-3 flex-wrap">
                         <Link
                           href={`/admin/products/${p.id}`}
-                          className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+                          className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark transition-colors"
                         >
                           {p.name}
                         </Link>

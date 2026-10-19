@@ -116,12 +116,12 @@ export function AddToCartButton({ product, variations = [] }: AddToCartButtonPro
         type="button"
         onClick={handleAddToCart}
         disabled={isOutOfStock}
-        className={`w-full border-none rounded-full py-5 px-10 flex items-center justify-center text-sm font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary transition-all duration-300 ease-out uppercase tracking-[0.2em] shadow-float ${
+        className={`w-full rounded-full py-5 px-10 flex items-center justify-center text-sm font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary transition-all duration-300 ease-out uppercase tracking-[0.2em] shadow-float ${
           isOutOfStock
-            ? 'bg-border cursor-not-allowed shadow-none'
+            ? 'bg-surface-muted text-muted-foreground border border-border cursor-not-allowed shadow-none'
             : isAdded
-              ? 'bg-emerald-600 scale-95'
-              : 'bg-primary hover:bg-primary-dark shadow-primary/20 hover:scale-[1.02] active:scale-95'
+              ? 'bg-emerald-600 text-white scale-95'
+              : 'bg-primary hover:bg-primary-dark text-white shadow-primary/20 hover:scale-[1.02] active:scale-95'
         }`}
       >
         <ShoppingCart className="mr-3" size={20} strokeWidth={3} aria-hidden="true" />

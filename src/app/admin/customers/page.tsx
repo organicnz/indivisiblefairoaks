@@ -60,7 +60,7 @@ export default async function AdminCustomersPage({
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Users size={14} className="text-foreground" />
+            <Users size={14} className="text-white" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             <DataPoint as="span" name="admin.panel.eyebrow" initialData={dataPoints}>
@@ -79,19 +79,25 @@ export default async function AdminCustomersPage({
         </p>
       </div>
 
-      <form className="flex items-center gap-2 bg-surface-muted rounded-full px-4 py-2 mb-8 max-w-md">
-        <Search size={13} className="text-muted-foreground" />
+      <form
+        method="get"
+        aria-label="Search customers"
+        className="flex items-center gap-2 bg-surface-muted border border-border dark:border-white/10 focus-within:ring-2 focus-within:ring-primary dark:focus-within:ring-primary-bright rounded-full px-4 py-2 mb-8 max-w-md transition-shadow"
+      >
+        <Search size={13} className="text-muted-foreground shrink-0" aria-hidden="true" />
         <input
           name="q"
           defaultValue={q}
+          aria-label="Search customers by name, email, or profile ID"
           placeholder="Search customers…"
-          className="bg-transparent text-sm font-bold text-foreground outline-none focus:ring-2 focus:ring-primary rounded-md placeholder:text-muted-foreground"
+          className="bg-transparent text-sm font-bold text-foreground outline-none rounded-md placeholder:text-muted-foreground w-full"
         />
       </form>
 
       <div className="space-y-3">
         {rows.length === 0 ? (
           <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
+            <Users size={32} className="mx-auto mb-3 text-muted-foreground/60" aria-hidden="true" />
             <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
               <DataPoint as="span" name="admin.customers.empty" initialData={dataPoints}>
                 No customers yet.
@@ -114,14 +120,14 @@ export default async function AdminCustomersPage({
                     <div className="flex items-center gap-2 flex-wrap">
                       <Link
                         href={`/admin/customers/${c.id}`}
-                        className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+                        className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark transition-colors"
                       >
                         {[c.first_name, c.last_name].filter(Boolean).join(' ') ||
                           dataPoints['admin.customers.guest'] ||
                           'Guest'}
                       </Link>
                       {c.is_admin && (
-                        <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary text-white">
+                        <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary dark:bg-primary-bright text-white">
                           <DataPoint
                             as="span"
                             name="admin.customers.admin_badge"

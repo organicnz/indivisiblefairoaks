@@ -118,7 +118,7 @@ export default async function PartnersPage() {
                 <span className="text-[11px] font-mono text-primary-ink dark:text-accent-gold font-bold uppercase tracking-wider block">
                   {partner.category}
                 </span>
-                <h2 className="text-xl font-bold text-foreground dark:text-white group-hover:text-primary-ink dark:text-primary-on-dark transition-colors">
+                <h2 className="text-xl font-bold text-foreground dark:text-white group-hover:text-primary-ink dark:group-hover:text-primary-on-dark transition-colors">
                   {partner.name}
                 </h2>
                 <p className="text-xs text-muted-foreground dark:text-ink-on-dark leading-relaxed">
@@ -131,7 +131,7 @@ export default async function PartnersPage() {
                   href={partner.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-primary-on-dark-muted hover:text-primary-ink dark:text-primary-on-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xs"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-primary-ink dark:text-primary-on-dark hover:text-primary-dark dark:hover:text-primary-on-dark-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xs"
                 >
                   <DataPoint initialData={dataPoints} as="span" name="partners.card.visit_link">
                     Visit Partner Website

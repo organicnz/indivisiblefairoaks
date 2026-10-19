@@ -26,7 +26,7 @@ export default async function AdminNewProductPage() {
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Package size={14} className="text-foreground" />
+            <Package size={14} className="text-white" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel

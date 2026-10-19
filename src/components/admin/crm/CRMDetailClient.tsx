@@ -525,7 +525,7 @@ export function CRMDetailClient({
       <div>
         <Link
           href="/admin/crm"
-          className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark transition-colors"
         >
           <ArrowLeft size={14} /> Back to Constituent Directory
         </Link>
@@ -1094,7 +1094,7 @@ export function CRMDetailClient({
                                       <button
                                         type="button"
                                         onClick={() => handleStartEditNote(act)}
-                                        className="p-1 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark hover:bg-surface-card rounded transition-colors"
+                                        className="p-1 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark hover:bg-surface-card rounded transition-colors"
                                         title="Edit note"
                                       >
                                         <Edit2 size={12} />
@@ -1362,7 +1362,7 @@ export function CRMDetailClient({
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditTask(task)}
-                                  className="p-1 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark hover:bg-surface-muted rounded transition-colors"
+                                  className="p-1 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark hover:bg-surface-muted rounded transition-colors"
                                   title="Edit task"
                                 >
                                   <Edit2 size={13} />

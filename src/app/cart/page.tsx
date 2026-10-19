@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Minus, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useSyncExternalStore } from 'react';
@@ -96,6 +96,11 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="bg-background min-h-[70vh] flex flex-col items-center justify-center px-4 py-24 text-center">
+        <ShoppingCart
+          size={48}
+          className="mx-auto mb-6 text-muted-foreground/50"
+          aria-hidden="true"
+        />
         <DataPoint
           name="cart.empty.title"
           as="h1"
@@ -114,7 +119,7 @@ export default function CartPage() {
         </DataPoint>
         <Link
           href="/products"
-          className="inline-block bg-primary hover:bg-primary-dark text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm shadow-xl shadow-primary/20"
+          className="inline-block bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm shadow-xl shadow-primary/20"
         >
           <DataPoint name="cart.empty.btn" as="span" initialData={dataPoints}>
             Start Shopping
@@ -171,7 +176,7 @@ export default function CartPage() {
                           <h3 className="text-md sm:text-lg">
                             <Link
                               href={`/products/${item.slug}`}
-                              className="font-black text-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors uppercase leading-tight"
+                              className="font-black text-foreground hover:text-primary dark:hover:text-primary-on-dark transition-colors uppercase leading-tight"
                             >
                               {item.name}
                             </Link>
@@ -194,7 +199,7 @@ export default function CartPage() {
                               )
                             }
                             disabled={item.quantity <= 1}
-                            className="inline-flex items-center justify-center size-11 rounded-full text-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            className="inline-flex items-center justify-center size-11 rounded-full text-foreground hover:text-primary dark:hover:text-primary-on-dark transition-colors duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             // The buttons said "Increase quantity" with no product
                             // named, so a screen-reader user heard the same label
                             // once per line in the cart.
@@ -225,7 +230,7 @@ export default function CartPage() {
                               )
                             }
                             disabled={item.quantity >= MAX_ITEM_QUANTITY}
-                            className="inline-flex items-center justify-center size-11 rounded-full text-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            className="inline-flex items-center justify-center size-11 rounded-full text-foreground hover:text-primary dark:hover:text-primary-on-dark transition-colors duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             aria-label={`Increase quantity of ${item.name}`}
                           >
                             <Plus size={16} strokeWidth={3} aria-hidden="true" />
@@ -277,14 +282,14 @@ export default function CartPage() {
                   </DataPoint>
                 </dt>
                 <dd className="text-right">
-                  <span className="text-xs font-black text-emerald-600 uppercase tracking-widest block">
+                  <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest block">
                     <DataPoint name="cart.summary.shipping_note" initialData={dataPoints}>
                       Calculated at Checkout
                     </DataPoint>
                   </span>
                   <Link
                     href="/shipping-returns"
-                    className="text-[10px] text-muted-foreground font-medium underline hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors mt-1 inline-block"
+                    className="text-[10px] text-muted-foreground font-medium underline hover:text-primary dark:hover:text-primary-on-dark transition-colors mt-1 inline-block"
                   >
                     <DataPoint name="cart.shipping.view_rates" as="span" initialData={dataPoints}>
                       View Rates (From{' '}
@@ -330,13 +335,13 @@ export default function CartPage() {
 
             <div className="mt-6">
               <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="h-px bg-surface-muted flex-1" />
+                <div className="h-px bg-border flex-1" />
                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                   <DataPoint name="cart.summary.express_label" initialData={dataPoints}>
                     Express Checkout
                   </DataPoint>
                 </span>
-                <div className="h-px bg-surface-muted flex-1" />
+                <div className="h-px bg-border flex-1" />
               </div>
               <StripeExpressCheckout />
             </div>

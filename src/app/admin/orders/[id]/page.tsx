@@ -88,15 +88,15 @@ export default async function AdminOrderDetailPage({
     <div>
       <Link
         href="/admin/orders"
-        className="inline-flex items-center gap-2 text-[11px] font-black text-muted-foreground uppercase tracking-widest hover:text-foreground transition-colors mb-6"
+        className="inline-flex items-center gap-2 text-[11px] font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors mb-6"
       >
         <ArrowLeft size={12} /> Back to Orders
       </Link>
 
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Package size={14} className="text-foreground" />
+          <div className="w-8 h-8 bg-primary dark:bg-primary-bright rounded-full flex items-center justify-center">
+            <Package size={14} className="text-white" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel
@@ -131,10 +131,10 @@ export default async function AdminOrderDetailPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Grand total */}
-        <div className="bg-secondary rounded-3xl p-6 lg:col-span-3 flex flex-wrap items-center justify-between gap-4">
+        <div className="bg-secondary rounded-3xl p-6 lg:col-span-3 flex flex-wrap items-center justify-between gap-4 border border-white/10 shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center">
-              <ShoppingBag size={16} className="text-foreground" />
+            <div className="w-10 h-10 bg-primary/25 border border-primary/40 rounded-2xl flex items-center justify-center">
+              <ShoppingBag size={16} className="text-white" />
             </div>
             <div>
               <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">
@@ -169,7 +169,7 @@ export default async function AdminOrderDetailPage({
                 href={stripeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-[10px] font-black text-white/40 uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+                className="inline-flex items-center gap-1.5 text-[10px] font-black text-white/40 uppercase tracking-widest hover:text-primary-on-dark transition-colors"
               >
                 <ExternalLink size={11} /> Stripe Dashboard
               </a>
@@ -274,7 +274,7 @@ export default async function AdminOrderDetailPage({
           {order.order_items.map((item) => (
             <li key={item.id} className="py-4 flex justify-between items-center gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center border border-white/10 shadow-xs">
                   <ShoppingBag size={14} className="text-primary-on-dark" />
                 </div>
                 <div>

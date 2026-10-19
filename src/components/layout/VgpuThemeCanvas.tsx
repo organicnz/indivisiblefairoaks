@@ -443,12 +443,18 @@ export function VgpuThemeCanvas() {
     let vgpuFrame: typeof frame | null = null;
     let unsubResize: (() => void) | null = null;
 
-    const deviceDpr = Math.min(2.5, Math.max(1, window.devicePixelRatio || 1));
-    canvas.width = Math.round(window.innerWidth * deviceDpr);
-    canvas.height = Math.round(window.innerHeight * deviceDpr);
-
-    aspectRef.current = window.innerWidth / Math.max(1, window.innerHeight);
-    resolutionRef.current = [window.innerWidth, window.innerHeight];
+    const calibrateDimensions = () => {
+      const deviceDpr = Math.min(2.5, Math.max(1, window.devicePixelRatio || 1));
+      const w = window.innerWidth;
+      const h = Math.max(1, window.innerHeight);
+      if (canvas) {
+        canvas.width = Math.round(w * deviceDpr);
+        canvas.height = Math.round(h * deviceDpr);
+      }
+      aspectRef.current = w / h;
+      resolutionRef.current = [w, h];
+    };
+    calibrateDimensions();
 
     const onPointerMove = (e: MouseEvent | PointerEvent) => {
       const now = performance.now();
@@ -470,6 +476,11 @@ export function VgpuThemeCanvas() {
       pointerActiveRef.current = 0.0;
       pointerSpeedRef.current = 0.0;
     };
+    const onResize = () => {
+      calibrateDimensions();
+    };
+
+    window.addEventListener('resize', onResize, { passive: true });
     window.addEventListener('pointermove', onPointerMove, { passive: true });
     window.addEventListener('pointerleave', onPointerLeave, { passive: true });
 
@@ -691,6 +702,16 @@ export function VgpuThemeCanvas() {
       if (anyActive) {
         animFrameRef.current = requestAnimationFrame(step);
       } else {
+        // Clear canvas cleanly so no frozen last frame lingers during opacity transition
+        try {
+          if (vgpuFrame && currentSurface && gpuInstance) {
+            vgpuFrame(gpuInstance, (f) => {
+              f.pass({ target: currentSurface as GpuSurface, clear: [0, 0, 0, 0] }, () => {});
+            });
+          }
+        } catch {
+          // Suppress clear interruption
+        }
         setIsActive(false);
         animFrameRef.current = null;
       }
@@ -753,6 +774,7 @@ export function VgpuThemeCanvas() {
 
     return () => {
       disposed = true;
+      window.removeEventListener('resize', onResize);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerleave', onPointerLeave);
       unsubscribe();

@@ -71,16 +71,20 @@ function ProductSkeleton() {
     <div className="bg-white dark:bg-background min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12 sm:py-20 animate-pulse">
         <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
-          <div className="aspect-square rounded-3xl bg-slate-100" />
+          <div className="aspect-square rounded-3xl bg-slate-100 dark:bg-slate-800" />
           <div className="mt-8 lg:mt-0 space-y-6">
-            <div className="h-10 w-3/4 bg-slate-100 rounded" />
-            <div className="h-6 w-1/4 bg-slate-100 rounded" />
+            <div className="h-10 w-3/4 bg-slate-100 dark:bg-slate-800 rounded" />
+            <div className="h-6 w-1/4 bg-slate-100 dark:bg-slate-800 rounded" />
             <div className="space-y-3 pt-4">
               {['90%', '81%', '72%', '63%', '45%'].map((width) => (
-                <div key={width} className="h-4 bg-slate-100 rounded" style={{ width }} />
+                <div
+                  key={width}
+                  className="h-4 bg-slate-100 dark:bg-slate-800 rounded"
+                  style={{ width }}
+                />
               ))}
             </div>
-            <div className="h-14 w-56 bg-slate-100 rounded-full" />
+            <div className="h-14 w-56 bg-slate-100 dark:bg-slate-800 rounded-full" />
           </div>
         </div>
       </div>
@@ -261,11 +265,11 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
           <div className="mt-10 px-4 sm:px-0 sm:mt-16 lg:mt-0 flex flex-col">
             <div className="mb-6">
               <nav className="flex mb-4" aria-label="Breadcrumb">
-                <ol className="flex items-center space-x-2 text-xs font-bold uppercase tracking-widest text-slate-400">
+                <ol className="flex items-center space-x-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   <li>
                     <Link
                       href="/products"
-                      className="hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+                      className="hover:text-primary dark:hover:text-primary-on-dark transition-colors"
                     >
                       <DataPoint name="product.nav.gear" initialData={dataPoints}>
                         Gear
@@ -291,19 +295,19 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
                   {product.sale_price &&
                     product.regular_price &&
                     (product.regular_price as number) > product.price && (
-                      <p className="text-lg font-bold text-slate-400 line-through decoration-primary/40 decoration-2">
+                      <p className="text-lg font-bold text-muted-foreground line-through decoration-primary/40 decoration-2">
                         ${(product.regular_price as number).toFixed(2)}
                       </p>
                     )}
                 </div>
                 {product.stock_status === 'instock' ? (
-                  <span className="bg-emerald-50 text-emerald-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter border border-emerald-100">
+                  <span className="bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800/60 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter border">
                     <DataPoint name="product.stock.in_stock" initialData={dataPoints}>
                       In Stock
                     </DataPoint>
                   </span>
                 ) : (
-                  <span className="bg-rose-50 text-rose-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter border border-rose-100">
+                  <span className="bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800/60 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter border">
                     <DataPoint name="product.stock.out_of_stock" initialData={dataPoints}>
                       Out of Stock
                     </DataPoint>

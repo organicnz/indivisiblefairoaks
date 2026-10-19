@@ -1009,7 +1009,7 @@ export function CRMContactList({
             type="button"
             onClick={() => setShowSaveSegment(true)}
             disabled={!hasActiveFilters}
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors disabled:opacity-40 disabled:hover:text-muted-foreground"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark transition-colors disabled:opacity-40 disabled:hover:text-muted-foreground"
             title="Save the current filter combination as a reusable segment"
           >
             <BookmarkPlus size={12} /> Save current filter as segment
@@ -1188,7 +1188,7 @@ export function CRMContactList({
                       <td className="py-3.5 px-4">
                         <Link
                           href={`/admin/crm/${contact.id}`}
-                          className="font-bold text-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors flex items-center gap-1.5"
+                          className="font-bold text-foreground hover:text-primary dark:hover:text-primary-on-dark transition-colors flex items-center gap-1.5"
                         >
                           {fullName}
                           <ExternalLink

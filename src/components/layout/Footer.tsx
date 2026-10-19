@@ -1,6 +1,7 @@
 import { Heart, Mail, MapPin, Music } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { getDataPoints } from '@/lib/queries/civic';
 
@@ -227,13 +228,13 @@ export async function Footer() {
               All rights reserved. Grassroots volunteer organization.
             </DataPoint>
           </p>
-          <div className="flex items-center gap-6">
-            <Link href="/about" className="hover:text-slate-200 transition-colors">
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 sm:gap-x-6 gap-y-2">
+            <Link href="/about" className="hover:text-white transition-colors">
               <DataPoint name="footer.bottom.about" as="span" initialData={dataPoints}>
                 About
               </DataPoint>
             </Link>
-            <Link href="/contact" className="hover:text-slate-200 transition-colors">
+            <Link href="/contact" className="hover:text-white transition-colors">
               <DataPoint name="footer.bottom.contact" as="span" initialData={dataPoints}>
                 Contact
               </DataPoint>
@@ -248,11 +249,14 @@ export async function Footer() {
                 ActBlue
               </DataPoint>
             </a>
-            <Link href="/login" className="hover:text-slate-200 transition-colors">
+            <Link href="/login" className="hover:text-white transition-colors">
               <DataPoint name="footer.bottom.organizer" as="span" initialData={dataPoints}>
                 Organizer Access
               </DataPoint>
             </Link>
+            <div className="border-l border-white/10 pl-4 sm:pl-6 flex items-center">
+              <ThemeToggle variant="icon" />
+            </div>
           </div>
         </div>
       </div>

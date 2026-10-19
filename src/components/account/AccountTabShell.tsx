@@ -38,7 +38,7 @@ export function AccountTabShell({ tabs, activeTab, children }: Props) {
       <div
         role="tablist"
         aria-label="Account navigation"
-        className="flex border-b border-slate-100 mb-10 overflow-x-auto"
+        className="flex border-b border-border mb-10 overflow-x-auto"
         style={{ scrollbarWidth: 'none' }}
       >
         {tabs.map((tab, idx) => {
@@ -64,7 +64,7 @@ export function AccountTabShell({ tabs, activeTab, children }: Props) {
                 'transition-colors duration-150 outline-none',
                 'focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset',
                 isActive
-                  ? 'text-secondary dark:text-white after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-0.5 after:bg-primary'
+                  ? 'text-foreground after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-0.5 after:bg-primary'
                   : 'text-muted-foreground hover:text-foreground',
               ].join(' ')}
             >

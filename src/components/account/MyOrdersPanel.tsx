@@ -1,3 +1,4 @@
+import { Package } from 'lucide-react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { formatPrice } from '@/config/commerce';
 import { formatDate, type MyOrder, statusStyle } from '@/types/orders';
@@ -6,6 +7,7 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
   if (orders.length === 0) {
     return (
       <div className="bg-surface-muted p-16 rounded-3xl border border-dashed border-border text-center">
+        <Package size={32} className="mx-auto mb-3 text-muted-foreground/60" aria-hidden="true" />
         <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
           <DataPoint as="span" name="account.orders.empty">
             No past orders found.
@@ -34,7 +36,7 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
                 </p>
                 <time
                   dateTime={order.created_at ?? ''}
-                  className="text-sm text-secondary font-black"
+                  className="text-sm text-foreground font-black"
                 >
                   {formatDate(order.created_at)}
                 </time>
@@ -77,11 +79,11 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className="w-1.5 h-1.5 bg-primary rounded-full group-hover:scale-150 transition-transform"
+                      className="w-1.5 h-1.5 bg-primary dark:bg-primary-on-dark rounded-full group-hover:scale-150 transition-transform"
                       aria-hidden="true"
                     />
                     <div>
-                      <p className="text-sm font-black text-secondary uppercase tracking-wider">
+                      <p className="text-sm font-black text-foreground uppercase tracking-wider">
                         {item.product_name}
                       </p>
                       <p className="text-[10px] text-muted-foreground font-bold uppercase">
@@ -92,7 +94,7 @@ export function MyOrdersPanel({ orders }: { orders: MyOrder[] }) {
                       </p>
                     </div>
                   </div>
-                  <p className="text-sm font-black text-secondary tabular-nums">
+                  <p className="text-sm font-black text-foreground tabular-nums">
                     {formatPrice(item.unit_price)}
                   </p>
                 </li>

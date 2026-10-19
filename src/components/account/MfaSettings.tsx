@@ -1,5 +1,6 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Copy,
@@ -126,7 +127,7 @@ export function MfaSettings() {
         setTotpUri(uri);
       }
     } catch (err) {
-      console.error('MFA Enrollment error:', err);
+      Sentry.captureException(err);
       setError('An unexpected error occurred. Please try again.');
       setEnrolling(false);
     }
@@ -178,7 +179,7 @@ export function MfaSettings() {
       // rejected an unhandled promise, `verifying` stayed true, and the button
       // was disabled for the rest of the session — with the panel's own error
       // box empty, so there was nothing to explain it.
-      console.error('MFA verification error:', err);
+      Sentry.captureException(err);
       setError('Could not reach the verification service. Check your connection and try again.');
     } finally {
       setVerifying(false);
@@ -237,12 +238,12 @@ export function MfaSettings() {
     <div className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm p-8 mt-12">
       <div className="flex items-center gap-4 mb-6">
         <div
-          className={`p-3 rounded-2xl ${activeFactor ? 'bg-emerald-50 text-emerald-600' : 'bg-surface-muted text-muted-foreground'}`}
+          className={`p-3 rounded-2xl ${activeFactor ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400' : 'bg-surface-muted text-muted-foreground'}`}
         >
           {activeFactor ? <ShieldCheck size={24} /> : <Shield size={24} />}
         </div>
         <div>
-          <h3 className="text-lg font-black text-secondary uppercase tracking-tight">
+          <h3 className="text-lg font-black text-foreground uppercase tracking-tight">
             <DataPoint as="span" name="account.mfa.title">
               Two-Factor Authentication
             </DataPoint>
@@ -266,10 +267,10 @@ export function MfaSettings() {
           a dashboard reset.
         */}
         {verified.length > 0 && (
-          <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/60 rounded-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <p className="text-xs font-black text-emerald-800 uppercase tracking-widest">
+              <p className="text-xs font-black text-emerald-800 dark:text-emerald-400 uppercase tracking-widest">
                 {verified.length === 1 ? (
                   <DataPoint as="span" name="account.mfa.active_single">
                     2FA is currently active
@@ -286,7 +287,7 @@ export function MfaSettings() {
                   key={factor.id}
                   className="flex items-center justify-between gap-3 bg-white/70 dark:bg-white/5 rounded-xl px-3 py-2.5"
                 >
-                  <span className="flex items-center gap-2 text-xs font-bold text-emerald-900 min-w-0">
+                  <span className="flex items-center gap-2 text-xs font-bold text-emerald-900 dark:text-emerald-200 min-w-0">
                     <ShieldCheck size={14} aria-hidden="true" className="shrink-0" />
                     <span className="truncate">{factor.friendly_name || 'Authenticator app'}</span>
                   </span>
@@ -313,7 +314,7 @@ export function MfaSettings() {
               The advice is conditional. With one factor, adding a second is the
               difference between "I lost my phone" and "I am locked out".
             */}
-            <p className="mt-4 text-[11px] font-medium text-emerald-900/80">
+            <p className="mt-4 text-[11px] font-medium text-emerald-900/80 dark:text-emerald-300/80">
               {verified.length === 1
                 ? 'Add a second authenticator — a phone you no longer carry, say — so losing this one does not lock you out. If it already has, a chapter organiser can remove the lost one for you: ask at a meeting or by email.'
                 : 'You can sign in with any of the authenticators above.'}
@@ -324,10 +325,14 @@ export function MfaSettings() {
         {otherTypes.length > 0 && (
           <div
             role="status"
-            className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3"
+            className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex items-start gap-3"
           >
-            <ShieldAlert size={18} aria-hidden="true" className="text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-xs font-medium text-amber-900">
+            <ShieldAlert
+              size={18}
+              aria-hidden="true"
+              className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+            />
+            <p className="text-xs font-medium text-amber-900 dark:text-amber-200">
               This account also has a{' '}
               <strong>{[...new Set(otherTypes.map((f) => f.factor_type))].join(', ')}</strong>{' '}
               factor enrolled. This site can only ask for a code from an authenticator app.
@@ -376,7 +381,7 @@ export function MfaSettings() {
 
           <div className="space-y-8 py-4">
             <div className="flex flex-col items-center gap-6 p-6 bg-surface-muted rounded-4xl border border-border">
-              <div className="bg-surface-card p-4 rounded-2xl shadow-sm border border-border min-h-[212px] flex items-center justify-center">
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 min-h-[212px] flex items-center justify-center">
                 {totpUri ? (
                   <QRCodeSVG value={totpUri} size={180} title="Authenticator enrollment QR code" />
                 ) : (
@@ -412,7 +417,7 @@ export function MfaSettings() {
                     <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-2">
                       Setup key
                     </p>
-                    <p className="font-mono text-xs text-secondary break-all tracking-wider">
+                    <p className="font-mono text-xs text-foreground break-all tracking-wider">
                       {groupSecret(totpSecret)}
                     </p>
                   </div>
@@ -440,7 +445,7 @@ export function MfaSettings() {
                     the only two ways into the account, and the QR is a
                     screenshot away from being gone.
                   */}
-                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest text-left leading-relaxed">
+                  <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest text-left leading-relaxed">
                     Save this key somewhere safe before continuing. If you lose this device you will
                     need it, a second authenticator, or a chapter organiser to sign in again.
                   </p>
@@ -451,7 +456,7 @@ export function MfaSettings() {
             <div className="space-y-4">
               <label
                 htmlFor="mfa-code"
-                className="block text-[10px] font-black text-secondary uppercase tracking-widest ml-1"
+                className="block text-[10px] font-black text-foreground uppercase tracking-widest ml-1"
               >
                 <DataPoint as="span" name="account.mfa.code_label">
                   Verification Code
@@ -472,7 +477,7 @@ export function MfaSettings() {
                   aria-busy={verifying}
                   aria-invalid={error ? true : undefined}
                   aria-describedby={error ? 'mfa-enroll-error' : undefined}
-                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-primary outline-none font-black text-secondary tracking-[0.5em] text-center text-xl"
+                  className="w-full px-5 py-4 bg-surface-muted border border-border rounded-2xl focus:ring-2 focus:ring-primary outline-none font-black text-foreground tracking-[0.5em] text-center text-xl"
                 />
                 {/*
                   `aria-busy` on the input and a disabled button while the code is
@@ -509,7 +514,7 @@ export function MfaSettings() {
         <div
           id="mfa-enroll-error"
           role="alert"
-          className="mt-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-accent-red"
+          className="mt-6 p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-2xl flex items-center gap-3 text-accent-red dark:text-rose-400"
         >
           <ShieldAlert size={18} aria-hidden="true" className="shrink-0" />
           <div>
@@ -540,7 +545,7 @@ export function MfaSettings() {
       {success && (
         <div
           role="status"
-          className="mt-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-700"
+          className="mt-6 p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex items-center gap-3 text-emerald-700 dark:text-emerald-400"
         >
           <ShieldCheck size={18} aria-hidden="true" className="shrink-0" />
           <p className="text-sm font-medium">{success}</p>

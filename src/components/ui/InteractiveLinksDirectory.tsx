@@ -218,7 +218,7 @@ export function InteractiveLinksDirectory({ initialLinks }: { initialLinks: Link
                     >
                       <div>
                         <div className="flex items-start justify-between gap-3 mb-2">
-                          <h3 className="font-bold text-foreground dark:text-white text-base group-hover:text-primary-ink dark:text-primary-on-dark-muted transition-colors">
+                          <h3 className="font-bold text-foreground dark:text-white text-base group-hover:text-primary-ink dark:group-hover:text-primary-on-dark transition-colors">
                             <DataPoint
                               as="span"
                               name={`link.${itemSlug}.name`}
@@ -280,7 +280,7 @@ export function InteractiveLinksDirectory({ initialLinks }: { initialLinks: Link
                         </p>
                       </div>
 
-                      <div className="pt-4 mt-4 border-t border-border dark:border-white/10 flex items-center justify-between text-xs text-slate-500">
+                      <div className="pt-4 mt-4 border-t border-border dark:border-white/10 flex items-center justify-between text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                         <a
                           href={item.url}
                           target="_blank"

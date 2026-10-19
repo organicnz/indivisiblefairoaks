@@ -49,7 +49,7 @@ export default function NotFound() {
           </Link>
           <Link
             href="/contact"
-            className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-surface-card border border-border text-foreground font-black uppercase tracking-[0.2em] text-xs hover:border-primary hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors duration-300 ease-out"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-surface-card border border-border text-foreground font-black uppercase tracking-[0.2em] text-xs hover:border-primary dark:hover:border-white/20 hover:text-primary dark:hover:text-primary-on-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors duration-300 ease-out"
           >
             <DataPoint as="span" name="notfound.btn.contact" initialData={dataPoints}>
               Contact us

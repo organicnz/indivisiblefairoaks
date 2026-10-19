@@ -19,7 +19,7 @@ export default async function AboutPage() {
   const dataPoints = await getDataPoints('about');
 
   return (
-    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
       <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
         <VgpuCivicConstellation />
@@ -68,31 +68,34 @@ export default async function AboutPage() {
             name="about.mission.headline"
             as="h2"
             initialData={dataPoints}
-            className="text-2xl sm:text-3xl font-black text-foreground tracking-tight flex items-center gap-3"
+            className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-3"
           >
-            <Shield className="text-accent" />
+            <Shield className="text-accent dark:text-accent-gold" />
             <span>Our Mission Statement</span>
           </DataPoint>
           <CopyRegion id="about-mission">
-            <div className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4 text-muted-foreground leading-relaxed text-base">
+            <div className="p-8 rounded-2xl bg-surface-muted dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card space-y-4 text-muted-foreground dark:text-ink-on-dark leading-relaxed text-base">
               <DataPoint
                 name="about.mission.intro"
                 as="p"
                 initialData={dataPoints}
-                className="font-semibold text-foreground text-lg"
+                className="font-semibold text-foreground dark:text-white text-lg"
               >
                 The mission of the Fair Oaks - Carmichael Indivisible Chapter is to cultivate a
                 disciplined, non-violent grassroots movement that:
               </DataPoint>
               <ul className="space-y-3 pt-2">
                 <li className="flex items-start gap-3">
-                  <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
+                  <CheckCircle2
+                    className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-1"
+                    size={18}
+                  />
                   <span>
                     <DataPoint
                       name="about.mission.point1_title"
                       as="strong"
                       initialData={dataPoints}
-                      className="text-foreground mr-1"
+                      className="text-foreground dark:text-white mr-1"
                     >
                       Stops the rise of authoritarianism:
                     </DataPoint>
@@ -103,13 +106,16 @@ export default async function AboutPage() {
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
+                  <CheckCircle2
+                    className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-1"
+                    size={18}
+                  />
                   <span>
                     <DataPoint
                       name="about.mission.point2_title"
                       as="strong"
                       initialData={dataPoints}
-                      className="text-foreground mr-1"
+                      className="text-foreground dark:text-white mr-1"
                     >
                       Supports and defends democratic norms:
                     </DataPoint>
@@ -120,13 +126,16 @@ export default async function AboutPage() {
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
+                  <CheckCircle2
+                    className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-1"
+                    size={18}
+                  />
                   <span>
                     <DataPoint
                       name="about.mission.point3_title"
                       as="strong"
                       initialData={dataPoints}
-                      className="text-foreground mr-1"
+                      className="text-foreground dark:text-white mr-1"
                     >
                       Elects bold leaders:
                     </DataPoint>
@@ -137,13 +146,16 @@ export default async function AboutPage() {
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <CheckCircle2 className="text-emerald-600 shrink-0 mt-1" size={18} />
+                  <CheckCircle2
+                    className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-1"
+                    size={18}
+                  />
                   <span>
                     <DataPoint
                       name="about.mission.point4_title"
                       as="strong"
                       initialData={dataPoints}
-                      className="text-foreground mr-1"
+                      className="text-foreground dark:text-white mr-1"
                     >
                       Secures progressive policies:
                     </DataPoint>
@@ -164,7 +176,7 @@ export default async function AboutPage() {
             name="about.who.headline"
             as="h2"
             initialData={dataPoints}
-            className="text-2xl sm:text-3xl font-black text-foreground tracking-tight flex items-center gap-3"
+            className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-3"
           >
             <Users
               className="text-primary-ink dark:text-primary-on-dark-muted"
@@ -173,7 +185,7 @@ export default async function AboutPage() {
             <span>Who We Are</span>
           </DataPoint>
           <CopyRegion id="about-who">
-            <div className="text-muted-foreground space-y-4 leading-relaxed">
+            <div className="text-muted-foreground dark:text-ink-on-dark space-y-4 leading-relaxed">
               <DataPoint name="about.who.p1" as="p" initialData={dataPoints}>
                 We are neighbors, retirees, workers, students, educators, and community members in
                 Sacramento County who believe that true democracy requires active, ongoing
@@ -192,14 +204,14 @@ export default async function AboutPage() {
         </section>
 
         {/* Commitment to Nonviolent Action */}
-        <section className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4">
+        <section className="p-8 rounded-2xl bg-surface-muted dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card space-y-4">
           <DataPoint
             name="about.nonviolence.headline"
             as="h3"
             initialData={dataPoints}
-            className="text-xl font-bold text-foreground flex items-center gap-2"
+            className="text-xl font-bold text-foreground dark:text-white flex items-center gap-2"
           >
-            <Sparkles className="text-accent" size={20} />
+            <Sparkles className="text-accent dark:text-accent-gold" size={20} />
             <span>Commitment to Non-Violent Action & De-escalation</span>
           </DataPoint>
           <CopyRegion id="about-nonviolence">
@@ -207,7 +219,7 @@ export default async function AboutPage() {
               name="about.nonviolence.body"
               as="p"
               initialData={dataPoints}
-              className="text-muted-foreground text-sm leading-relaxed"
+              className="text-muted-foreground dark:text-ink-on-dark text-sm leading-relaxed"
             >
               A foundational pillar behind all Indivisible Fair Oaks-Carmichael events is a strict
               commitment to nonviolence. We expect all attendees to act lawfully, treat fellow
@@ -223,7 +235,7 @@ export default async function AboutPage() {
             name="about.foodbank.headline"
             as="h2"
             initialData={dataPoints}
-            className="text-2xl font-black text-foreground tracking-tight flex items-center gap-3"
+            className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-3"
           >
             <Heart className="text-accent-red" />
             <span>Community Care & Food Drives</span>
@@ -232,7 +244,7 @@ export default async function AboutPage() {
             name="about.foodbank.body"
             as="p"
             initialData={dataPoints}
-            className="text-muted-foreground leading-relaxed"
+            className="text-muted-foreground dark:text-ink-on-dark leading-relaxed"
           >
             We believe that civic justice begins with community care. At every in-person monthly
             gathering, our members bring non-perishable canned goods and staple foods to donate to
@@ -241,12 +253,12 @@ export default async function AboutPage() {
         </section>
 
         {/* Contact & Join */}
-        <section className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card text-center space-y-6">
+        <section className="p-8 rounded-2xl bg-surface-muted dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card text-center space-y-6">
           <DataPoint
             name="about.join.headline"
             as="h3"
             initialData={dataPoints}
-            className="text-2xl font-black text-foreground"
+            className="text-2xl font-black text-foreground dark:text-white"
           >
             Join Our Next Gathering
           </DataPoint>
@@ -255,7 +267,7 @@ export default async function AboutPage() {
               name="about.join.body"
               as="p"
               initialData={dataPoints}
-              className="text-muted-foreground text-sm max-w-xl mx-auto"
+              className="text-muted-foreground dark:text-ink-on-dark text-sm max-w-xl mx-auto"
             >
               Ready to get involved? Join our mailing list, attend our next monthly meeting, or sing
               with the Carmichael Resistance Choir.
@@ -264,7 +276,7 @@ export default async function AboutPage() {
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               href="/events"
-              className="px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold text-xs uppercase tracking-wider transition-all"
+              className="px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md"
             >
               <DataPoint name="about.join.btn_events" as="span" initialData={dataPoints}>
                 See Upcoming Events
@@ -272,7 +284,7 @@ export default async function AboutPage() {
             </Link>
             <Link
               href="/contact"
-              className="px-6 py-3 rounded-xl border-2 border-secondary text-foreground hover:bg-secondary hover:text-white dark:border-border font-bold text-xs uppercase tracking-wider transition-all"
+              className="px-6 py-3 rounded-xl border-2 border-secondary text-foreground hover:bg-secondary hover:text-white dark:border-white/20 dark:hover:bg-white/10 dark:text-white font-bold text-xs uppercase tracking-wider transition-all"
             >
               <DataPoint name="about.join.btn_contact" as="span" initialData={dataPoints}>
                 Contact Us

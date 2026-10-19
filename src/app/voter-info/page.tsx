@@ -471,7 +471,7 @@ export default async function VoterInfoPage() {
                     href="https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-white/10 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <FileDown size={14} />
                     <DataPoint initialData={dataPoints} name="voter.guide1.btn" as="span">
@@ -509,7 +509,7 @@ export default async function VoterInfoPage() {
                     href="https://registertovote.ca.gov"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-white/10 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <ExternalLink size={14} />
                     <DataPoint initialData={dataPoints} name="voter.guide2.btn" as="span">
@@ -547,7 +547,7 @@ export default async function VoterInfoPage() {
                     href="https://www.sos.ca.gov/elections/voting-resources/voting-california/who-can-vote-california/voting-rights-californians-criminal-history"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-white/10 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <ExternalLink size={14} />
                     <DataPoint initialData={dataPoints} name="voter.guide3.btn" as="span">
@@ -585,7 +585,7 @@ export default async function VoterInfoPage() {
                     href="https://www.sos.ca.gov/elections/voting-resources/voting-california/homeless"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-slate-700 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/5 hover:bg-secondary hover:text-white dark:hover:bg-white/10 dark:hover:text-white text-primary-ink dark:text-accent-gold text-xs font-bold transition-colors"
                   >
                     <ExternalLink size={14} />
                     <DataPoint initialData={dataPoints} name="voter.guide4.btn" as="span">

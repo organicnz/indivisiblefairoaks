@@ -288,7 +288,7 @@ export function CRMTasksClient({ tasks, scope, page, pageSize, totalCount }: Pro
                     <button
                       type="button"
                       onClick={() => handleStartEdit(task)}
-                      className="p-1.5 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark rounded-lg hover:bg-surface-muted transition-colors"
+                      className="p-1.5 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark rounded-lg hover:bg-surface-muted transition-colors"
                       title="Edit follow-up"
                       aria-label={`Edit follow-up ${task.title}`}
                     >

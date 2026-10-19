@@ -64,7 +64,7 @@ export default async function AdminCouponsPage() {
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <BadgePercent size={14} className="text-foreground" />
+            <BadgePercent size={14} className="text-white" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             <DataPoint as="span" name="admin.panel.eyebrow" initialData={dataPoints}>
@@ -110,7 +110,7 @@ export default async function AdminCouponsPage() {
                     <p className="text-[10px] text-muted-foreground font-bold mt-0.5">
                       #{c.id}
                       {expired && (
-                        <span className="ml-2 text-[9px] font-black uppercase tracking-widest rounded-full px-2 py-0.5 bg-rose-100 text-rose-700">
+                        <span className="ml-2 text-[9px] font-black uppercase tracking-widest rounded-full px-2 py-0.5 bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60">
                           <DataPoint
                             as="span"
                             name="admin.coupons.expired_badge"
@@ -163,9 +163,9 @@ export default async function AdminCouponsPage() {
                     <p className="text-sm font-black text-foreground">
                       {usageByCode.get(c.code)?.uses ?? 0}×
                     </p>
-                    <div className="mt-1.5 h-1 w-20 bg-surface-muted rounded-full overflow-hidden">
+                    <div className="mt-1.5 h-1 w-20 bg-surface-muted dark:bg-slate-700/60 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-primary rounded-full"
+                        className="h-full bg-primary dark:bg-primary-on-dark rounded-full"
                         style={{
                           width: `${Math.round(((usageByCode.get(c.code)?.uses ?? 0) / Math.max(maxUses, 1)) * 100)}%`,
                         }}

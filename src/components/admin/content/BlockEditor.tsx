@@ -611,7 +611,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   onClick={() => openSlash(index)}
                   aria-label="Insert or change block"
                   title="Add or change block"
-                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <Plus size={14} aria-hidden="true" />
                 </button>
@@ -645,7 +645,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   aria-label={`Reorder ${def.label} block`}
                   aria-describedby="block-reorder-help"
                   title="Drag to reorder, or Alt+Arrow Up/Down"
-                  className="cursor-grab rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
+                  className="cursor-grab rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
                 >
                   <GripVertical size={14} aria-hidden="true" />
                 </button>
@@ -658,7 +658,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   onClick={() => move(index, -1)}
                   disabled={index === 0}
                   aria-label="Move block up"
-                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <ChevronUp size={14} aria-hidden="true" />
                 </button>
@@ -667,7 +667,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   onClick={() => move(index, 1)}
                   disabled={index === blocks.length - 1}
                   aria-label="Move block down"
-                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <ChevronDown size={14} aria-hidden="true" />
                 </button>
@@ -675,7 +675,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                   type="button"
                   onClick={() => duplicateAt(index)}
                   aria-label="Duplicate block"
-                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <Copy size={14} aria-hidden="true" />
                 </button>
@@ -735,7 +735,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
           });
           pendingFocus.current = created.id;
         }}
-        className="flex w-full items-center gap-2 rounded-xl border border-dashed border-border px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+        className="flex w-full items-center gap-2 rounded-xl border border-dashed border-border px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
       >
         <Plus size={16} aria-hidden="true" />
         Add a block
@@ -817,7 +817,7 @@ function InlineToolbar({
             }}
             aria-label={format.label}
             title={`${format.label} (${format.key})`}
-            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Icon size={14} />
           </button>
@@ -836,7 +836,7 @@ function InlineToolbar({
         className={`rounded-md p-1.5 transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
           linkEditorOpen
             ? 'bg-surface-card text-primary dark:text-primary-on-dark'
-            : 'text-muted-foreground hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark'
+            : 'text-muted-foreground hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark'
         }`}
       >
         <Link2 size={14} />
@@ -877,7 +877,7 @@ function BlockTypeMenu({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="mb-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+        className="mb-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
       >
         <Icon size={13} aria-hidden="true" />
         {def.label}
@@ -1191,7 +1191,7 @@ function BlockBody({
                       onUpdate(block.id, { head: [...block.head, 'New column'] } as Partial<Block>)
                     }
                     aria-label="Add column"
-                    className="rounded px-1.5 py-1 text-muted-foreground transition-colors hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                    className="rounded px-1.5 py-1 text-muted-foreground transition-colors hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <Plus size={14} aria-hidden="true" />
                   </button>
@@ -1237,7 +1237,7 @@ function BlockBody({
                         } as Partial<Block>)
                       }
                       aria-label={`Add row ${rowIndex + 2}`}
-                      className="rounded px-1.5 py-1 text-muted-foreground transition-colors hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                      className="rounded px-1.5 py-1 text-muted-foreground transition-colors hover:bg-surface-card hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       <Plus size={14} aria-hidden="true" />
                     </button>
@@ -1535,7 +1535,7 @@ function SlashMenu({
             type="button"
             onClick={onClose}
             aria-label="Close block menu"
-            className="rounded p-0.5 text-muted-foreground transition-colors hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
           >
             <X size={14} aria-hidden="true" />
           </button>

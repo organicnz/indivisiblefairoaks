@@ -277,7 +277,7 @@ export function InteractiveEventsCalendar({
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted border border-border dark:bg-secondary dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted border border-border dark:bg-secondary dark:border-white/10 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
 
@@ -291,7 +291,7 @@ export function InteractiveEventsCalendar({
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeCategory === cat
                   ? 'bg-primary-bright text-white shadow-md'
-                  : 'bg-surface-muted text-muted-foreground hover:text-foreground border border-border dark:bg-secondary/60 dark:border-transparent dark:text-ink-muted-on-dark dark:hover:text-slate-200 dark:hover:bg-white/5'
+                  : 'bg-surface-muted text-muted-foreground hover:text-foreground border border-border dark:bg-secondary/60 dark:border-transparent dark:text-ink-muted-on-dark dark:hover:text-ink-on-dark dark:hover:bg-white/5'
               }`}
             >
               {cat}
@@ -304,7 +304,7 @@ export function InteractiveEventsCalendar({
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
           >
             <Plus size={15} />
             <span>Add Event</span>
@@ -336,7 +336,7 @@ export function InteractiveEventsCalendar({
                 className={`rounded-2xl p-6 sm:p-8 transition-all relative overflow-hidden flex flex-col justify-between shadow-xs ${
                   event.highlight
                     ? 'bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/80 border border-primary/30 dark:from-blue-950/60 dark:via-slate-900 dark:to-indigo-950/60 dark:border-primary-bright/40 shadow-xl'
-                    : 'bg-surface-card border border-border hover:border-primary/40 dark:bg-secondary dark:border-white/10 dark:hover:border-slate-700'
+                    : 'bg-surface-card border border-border hover:border-primary/40 dark:bg-secondary dark:border-white/10 dark:hover:border-white/20'
                 }`}
               >
                 <div>
@@ -428,7 +428,7 @@ export function InteractiveEventsCalendar({
                       href={generateGoogleCalendarUrl(event)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground border border-border dark:bg-white/5 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 text-xs font-semibold transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:text-ink-on-dark dark:border-white/10 text-xs font-semibold transition-colors"
                       title="Add event to Google Calendar"
                     >
                       <CalendarPlus
@@ -442,7 +442,7 @@ export function InteractiveEventsCalendar({
                     <button
                       type="button"
                       onClick={() => downloadIcsFile(event)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground border border-border dark:bg-white/5 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 text-xs font-semibold transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:text-ink-on-dark dark:border-white/10 text-xs font-semibold transition-colors"
                       title="Download iCal .ics for Apple Calendar & Outlook"
                     >
                       <Download size={14} className="text-accent dark:text-accent-gold" />

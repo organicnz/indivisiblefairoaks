@@ -55,12 +55,12 @@ export function WishlistButton({ product, showText = false }: WishlistButtonProp
         showText
           ? 'w-full min-h-11 py-4 rounded-full border-2 font-black uppercase tracking-[0.2em] text-xs'
           : // 44px minimum target — p-2 plus a 20px glyph is only 36px.
-            'size-11 rounded-full shadow-raised'
+            'size-11 rounded-full shadow-raised border border-border'
       } ${
         active
           ? // `accent-red` is 4.83:1 on white; `rose-500` measured 3.34:1 and failed.
-            'bg-rose-50 border-rose-200 text-accent-red'
-          : 'bg-surface-card border-border text-muted-foreground hover:text-accent-red'
+            'bg-rose-50 border-rose-200 text-accent-red dark:bg-rose-950/60 dark:border-rose-800/60 dark:text-rose-400'
+          : 'bg-surface-card border-border text-muted-foreground hover:text-accent-red dark:hover:text-rose-400'
       }`}
     >
       <Heart

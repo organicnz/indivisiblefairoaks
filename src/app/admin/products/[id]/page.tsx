@@ -123,7 +123,7 @@ export default async function AdminProductDetailPage({
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <Package size={14} className="text-foreground" />
+            <Package size={14} className="text-white" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
             Admin Panel
@@ -259,7 +259,7 @@ export default async function AdminProductDetailPage({
               <li key={item.orders.id} className="px-8 py-4 flex flex-wrap items-center gap-4">
                 <Link
                   href={`/admin/orders/${item.orders.id}`}
-                  className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark dark:text-primary-on-dark transition-colors"
+                  className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark transition-colors"
                 >
                   #{item.orders.id}
                 </Link>

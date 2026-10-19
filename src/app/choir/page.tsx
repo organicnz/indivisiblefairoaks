@@ -201,7 +201,7 @@ export default async function ChoirPage() {
                   href="https://www.mobilize.us/indivisible/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-3 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all"
+                  className="w-full py-3 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all"
                 >
                   <span>Register for Next Rehearsal</span>
                   <ExternalLink size={14} />
@@ -327,14 +327,14 @@ export default async function ChoirPage() {
           <div className="pt-2 flex flex-wrap justify-center gap-4">
             <a
               href="mailto:contact@indivisiblefairoaks.org?subject=Joining%20the%20Resistance%20Choir"
-              className="px-6 py-3 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2"
+              className="px-6 py-3 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2"
             >
               <Mail size={16} />
               <span>Email Choir Director</span>
             </a>
             <Link
               href="/events"
-              className="px-6 py-3 rounded-xl bg-surface-muted hover:bg-secondary hover:text-white dark:bg-white/5 dark:hover:bg-slate-700 text-foreground dark:text-slate-200 border border-border dark:border-slate-700 font-bold text-xs uppercase tracking-wider transition-all"
+              className="px-6 py-3 rounded-xl bg-surface-muted hover:bg-secondary hover:text-white dark:bg-white/5 dark:hover:bg-white/10 text-foreground dark:text-ink-on-dark border border-border dark:border-white/10 font-bold text-xs uppercase tracking-wider transition-all"
             >
               View Calendar
             </Link>
