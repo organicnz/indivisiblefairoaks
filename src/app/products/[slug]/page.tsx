@@ -68,23 +68,19 @@ export default async function ProductDetails({ params }: { params: Promise<{ slu
 
 function ProductSkeleton() {
   return (
-    <div className="bg-white dark:bg-background min-h-screen">
+    <div className="bg-background min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12 sm:py-20 animate-pulse">
         <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
-          <div className="aspect-square rounded-3xl bg-slate-100 dark:bg-slate-800" />
+          <div className="aspect-square rounded-3xl bg-surface-muted" />
           <div className="mt-8 lg:mt-0 space-y-6">
-            <div className="h-10 w-3/4 bg-slate-100 dark:bg-slate-800 rounded" />
-            <div className="h-6 w-1/4 bg-slate-100 dark:bg-slate-800 rounded" />
+            <div className="h-10 w-3/4 bg-surface-muted rounded" />
+            <div className="h-6 w-1/4 bg-surface-muted rounded" />
             <div className="space-y-3 pt-4">
               {['90%', '81%', '72%', '63%', '45%'].map((width) => (
-                <div
-                  key={width}
-                  className="h-4 bg-slate-100 dark:bg-slate-800 rounded"
-                  style={{ width }}
-                />
+                <div key={width} className="h-4 bg-surface-muted rounded" style={{ width }} />
               ))}
             </div>
-            <div className="h-14 w-56 bg-slate-100 dark:bg-slate-800 rounded-full" />
+            <div className="h-14 w-56 bg-surface-muted rounded-full" />
           </div>
         </div>
       </div>
@@ -204,7 +200,7 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
     categoryIds.length > 0 ? await getRelatedProducts(product.id, categoryIds) : [];
 
   return (
-    <div className="bg-white dark:bg-background min-h-screen">
+    <div className="bg-background min-h-screen">
       <script
         type="application/ld+json"
         // Structured data, not WP content: sanitizeWPContent intentionally not applied

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useThemeMode } from '@/components/layout/theme-store';
 
 // WGSL Shader for Acoustic Choir Vocal Harmonics with Theme-Adaptive Resonances
-const WGSL_CHOIR_HARMONICS = `
+export const WGSL_CHOIR_HARMONICS = `
 struct Params {
   time: f32,
   width: f32,

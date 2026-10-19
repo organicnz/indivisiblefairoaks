@@ -27,7 +27,7 @@ export default async function ShippingReturnsPage() {
           >
             Shipping &amp; Returns
           </DataPoint>
-          <div className="h-2 w-24 bg-primary mx-auto" />
+          <div className="h-2 w-24 bg-primary dark:bg-primary-bright mx-auto" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-20">

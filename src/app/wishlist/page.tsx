@@ -55,7 +55,7 @@ export default function WishlistPage() {
               My Wishlist
             </DataPoint>
           </h1>
-          <div className="h-2 w-24 bg-primary" />
+          <div className="h-2 w-24 bg-primary dark:bg-primary-bright" />
         </div>
 
         {items.length === 0 ? (
@@ -68,7 +68,7 @@ export default function WishlistPage() {
             </p>
             <Link
               href="/products"
-              className="inline-block bg-secondary text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm hover:bg-primary shadow-xl shadow-secondary/10"
+              className="inline-block bg-secondary text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm hover:bg-primary dark:bg-primary-bright dark:hover:bg-primary-light shadow-xl shadow-secondary/10"
             >
               <DataPoint initialData={dataPoints} name="wishlist.empty.btn">
                 Explore Gear
@@ -127,7 +127,7 @@ export default function WishlistPage() {
                       <button
                         type="button"
                         onClick={() => handleMoveToCart(item)}
-                        className="flex items-center justify-center gap-2 bg-secondary text-white font-black py-4 rounded-full transition-all uppercase tracking-widest text-xs hover:bg-primary"
+                        className="flex items-center justify-center gap-2 bg-secondary text-white font-black py-4 rounded-full transition-all uppercase tracking-widest text-xs hover:bg-primary dark:bg-primary-bright dark:hover:bg-primary-light"
                       >
                         <ShoppingCart size={16} />{' '}
                         <DataPoint initialData={dataPoints} name="wishlist.btn.add_to_cart">

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useThemeMode } from '@/components/layout/theme-store';
 
 // WGSL Shader for Interconnected Civic Coalition Constellation with Theme-Adaptive Colors
-const WGSL_CONSTELLATION = `
+export const WGSL_CONSTELLATION = `
 struct Params {
   time: f32,
   width: f32,

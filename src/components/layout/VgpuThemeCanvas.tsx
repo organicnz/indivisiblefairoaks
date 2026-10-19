@@ -19,7 +19,7 @@ interface WaveSlot {
   phase: number;
 }
 
-const THEME_WGSL = `
+export const THEME_WGSL = `
 struct WaveParams {
   origin: vec2f,
   progress: f32,

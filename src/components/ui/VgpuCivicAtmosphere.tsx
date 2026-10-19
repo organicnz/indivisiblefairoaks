@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useThemeMode } from '@/components/layout/theme-store';
 
 // Pure WGSL shader for VGPU with dynamic theme-adaptive chromatic auroras
-const WGSL_ATMOSPHERE = `
+export const WGSL_ATMOSPHERE = `
 struct Params {
   time: f32,
   width: f32,
