@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useThemeMode } from '@/components/layout/theme-store';
 
-// Pure WGSL shader for VGPU
+// Pure WGSL shader for VGPU with dynamic theme-adaptive chromatic auroras
 const WGSL_ATMOSPHERE = `
 struct Params {
   time: f32,
@@ -11,6 +12,8 @@ struct Params {
   mouseX: f32,
   mouseY: f32,
   intensity: f32,
+  themeMode: f32,
+  effectiveTheme: f32,
 }
 
 @group(0) @binding(0) var<uniform> params: Params;
@@ -71,11 +74,28 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let wave = fbm(p * 2.0 + r * 1.6);
   let auroraRibbon = smoothstep(0.35, 0.75, sin(wave * 4.5 + t * 0.8) * 0.5 + 0.5);
 
-  let baseDark = vec3f(0.015, 0.03, 0.08);
-  let midnight = vec3f(0.05, 0.12, 0.32);
-  let sapphire = vec3f(0.08, 0.25, 0.65);
-  let cyanGlow = vec3f(0.12, 0.68, 0.95);
-  let amberGold = vec3f(0.96, 0.74, 0.24);
+  let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
+
+  // Dark Cosmic Midnight Palette
+  let darkBase     = vec3f(0.015, 0.03, 0.08);
+  let darkMidnight = vec3f(0.05, 0.12, 0.32);
+  let darkSapphire = vec3f(0.08, 0.25, 0.65);
+  let darkCyanGlow = vec3f(0.12, 0.68, 0.95);
+  let darkAmber    = vec3f(0.96, 0.74, 0.24);
+
+  // Light Solar Dawn Radiant Palette
+  let lightBase     = vec3f(0.08, 0.22, 0.58);
+  let lightMidnight = vec3f(0.12, 0.38, 0.82);
+  let lightSapphire = vec3f(0.20, 0.55, 0.98);
+  let lightCyanGlow = vec3f(0.32, 0.78, 1.00);
+  let lightAmber    = vec3f(1.00, 0.80, 0.32);
+
+  // Dynamic chromatic morphing across theme transitions
+  let baseDark = mix(lightBase, darkBase, darkFactor);
+  let midnight = mix(lightMidnight, darkMidnight, darkFactor);
+  let sapphire = mix(lightSapphire, darkSapphire, darkFactor);
+  let cyanGlow = mix(lightCyanGlow, darkCyanGlow, darkFactor);
+  let amberGold = mix(lightAmber, darkAmber, darkFactor);
 
   var col = mix(baseDark, midnight, smoothstep(0.05, 0.45, wave));
   col = mix(col, sapphire, smoothstep(0.35, 0.75, wave));
@@ -85,7 +105,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   col += cyanGlow * mouseGlow;
   col += amberGold * (mouseGlow * 0.4);
 
-  // Organic twinkling democratic stardust
+  // Organic twinkling democratic stardust & solar sparkles
   let starGrid = uv * vec2f(45.0 * aspect, 45.0);
   let starCell = floor(starGrid);
   let starRandom = hash21(starCell);
@@ -114,6 +134,15 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
   const containerRef = useRef<HTMLDivElement>(null);
   const [isWebGPUActive, setIsWebGPUActive] = useState(false);
   const [_isSupported, setIsSupported] = useState<boolean | null>(null);
+
+  const { mode, effective } = useThemeMode();
+  const themeModeRef = useRef(mode);
+  const effectiveThemeRef = useRef(effective);
+
+  useEffect(() => {
+    themeModeRef.current = mode;
+    effectiveThemeRef.current = effective;
+  }, [mode, effective]);
 
   useEffect(() => {
     let disposed = false;
@@ -149,6 +178,9 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
         let targetMouseX = 0.5;
         let targetMouseY = 0.5;
 
+        let targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+        let currentEffective = targetEffective;
+
         const handleMouseMove = (e: MouseEvent) => {
           if (!containerRef.current) return;
           const rect = containerRef.current.getBoundingClientRect();
@@ -170,6 +202,13 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
               mouseX: currentMouseX,
               mouseY: currentMouseY,
               intensity,
+              themeMode:
+                themeModeRef.current === 'dark'
+                  ? 2.0
+                  : themeModeRef.current === 'light'
+                    ? 1.0
+                    : 0.0,
+              effectiveTheme: currentEffective,
             },
           },
         });
@@ -204,11 +243,19 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
           currentMouseX += (targetMouseX - currentMouseX) * 0.06;
           currentMouseY += (targetMouseY - currentMouseY) * 0.06;
 
+          // Smooth chromatic transition across theme toggles
+          targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+          currentEffective += (targetEffective - currentEffective) * 0.08;
+          const currentModeValue =
+            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+
           atmosphere.set({
             params: {
               time: timeTracker.time,
               mouseX: currentMouseX,
               mouseY: currentMouseY,
+              themeMode: currentModeValue,
+              effectiveTheme: currentEffective,
             },
           });
 
@@ -223,11 +270,7 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
           gpu.dispose();
           setIsWebGPUActive(false);
         };
-      } catch (err) {
-        console.warn(
-          'WebGPU acceleration disabled or not supported; falling back to CSS aurora.',
-          err
-        );
+      } catch {
         setIsSupported(false);
         setIsWebGPUActive(false);
       }
@@ -250,6 +293,7 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
       {/* WebGPU Canvas */}
       <canvas
         ref={canvasRef}
+        style={{ viewTransitionName: 'none' }}
         className={`w-full h-full block transition-opacity duration-1000 ${
           isWebGPUActive ? 'opacity-100' : 'opacity-0'
         }`}
@@ -257,9 +301,11 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
 
       {/* Fallback & Ambient Layer for devices without WebGPU or while shader warms up */}
       <div
-        className={`absolute inset-0 overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 transition-opacity duration-1000 ${
-          isWebGPUActive ? 'opacity-20' : 'opacity-100'
-        }`}
+        className={`absolute inset-0 overflow-hidden bg-gradient-to-br transition-opacity duration-1000 ${
+          effective === 'dark'
+            ? 'from-slate-950 via-blue-950 to-indigo-950'
+            : 'from-blue-950 via-indigo-950 to-slate-900'
+        } ${isWebGPUActive ? 'opacity-20' : 'opacity-100'}`}
       >
         <div className="absolute -top-[30%] -left-[10%] w-[70vw] h-[70vw] rounded-full bg-blue-600/15 blur-[120px] animate-pulse duration-[8000ms]" />
         <div className="absolute top-[20%] -right-[15%] w-[60vw] h-[60vw] rounded-full bg-indigo-500/15 blur-[140px] animate-pulse duration-[10000ms]" />

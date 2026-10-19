@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useThemeMode } from '@/components/layout/theme-store';
 
-// WGSL Shader for Acoustic Choir Vocal Harmonics
+// WGSL Shader for Acoustic Choir Vocal Harmonics with Theme-Adaptive Resonances
 const WGSL_CHOIR_HARMONICS = `
 struct Params {
   time: f32,
@@ -11,6 +12,8 @@ struct Params {
   mouseX: f32,
   mouseY: f32,
   intensity: f32,
+  themeMode: f32,
+  effectiveTheme: f32,
 }
 
 @group(0) @binding(0) var<uniform> params: Params;
@@ -31,14 +34,17 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let mouseDist = length(p - mouseP);
   let mouseInfluence = exp(-mouseDist * 2.8) * params.intensity;
 
-  // 1. Bass Voice: Deep, resonant, foundation wave (Indigo / Royal Sapphire)
+  let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
+
+  // 1. Bass Voice: Deep, resonant, foundation wave (Indigo / Royal Cobalt)
   let bassFreq = 2.4;
   let bassW = sin(p.x * bassFreq + t * 0.6) * 0.16 
             + sin(p.x * 4.8 - t * 0.3) * 0.08
             + mouseInfluence * 0.08 * sin(p.x * 12.0 + t * 3.0);
   let distBass = abs(p.y + 0.08 - bassW);
   let bassGlow = exp(-distBass * 14.0) * 0.9;
-  let colBass = vec3f(0.12, 0.28, 0.85) * bassGlow;
+  let bassColor = mix(vec3f(0.20, 0.42, 0.98), vec3f(0.12, 0.28, 0.85), darkFactor);
+  let colBass = bassColor * bassGlow;
 
   // 2. Tenor Voice: Warm, rhythmic community heart (Amber Gold / Copper)
   let tenorFreq = 3.6;
@@ -47,7 +53,8 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
              + mouseInfluence * 0.06 * cos(p.x * 15.0 - t * 2.5);
   let distTenor = abs(p.y + 0.02 - tenorW);
   let tenorGlow = exp(-distTenor * 18.0) * 0.85;
-  let colTenor = vec3f(0.96, 0.72, 0.22) * tenorGlow;
+  let tenorColor = mix(vec3f(1.0, 0.80, 0.28), vec3f(0.96, 0.72, 0.22), darkFactor);
+  let colTenor = tenorColor * tenorGlow;
 
   // 3. Alto Voice: Harmonic bridge (Cyan / Emerald Glow)
   let altoFreq = 5.2;
@@ -56,7 +63,8 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
             + mouseInfluence * 0.07 * sin(p.x * 18.0 + t * 4.0);
   let distAlto = abs(p.y - 0.04 - altoW);
   let altoGlow = exp(-distAlto * 20.0) * 0.8;
-  let colAlto = vec3f(0.15, 0.85, 0.75) * altoGlow;
+  let altoColor = mix(vec3f(0.25, 0.92, 0.82), vec3f(0.15, 0.85, 0.75), darkFactor);
+  let colAlto = altoColor * altoGlow;
 
   // 4. Soprano Voice: High, clear, radiant freedom call (Brilliant Cyan / Diamond White)
   let sopFreq = 7.5;
@@ -65,16 +73,16 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
            + mouseInfluence * 0.09 * sin(p.x * 24.0 - t * 5.0);
   let distSop = abs(p.y - 0.10 - sopW);
   let sopGlow = exp(-distSop * 24.0) * 0.95;
-  let colSop = vec3f(0.85, 0.95, 1.0) * sopGlow;
+  let sopColor = mix(vec3f(0.92, 0.98, 1.0), vec3f(0.85, 0.95, 1.0), darkFactor);
+  let colSop = sopColor * sopGlow;
 
-  // Background deep acoustic hall ambience
+  // Background acoustic hall ambience
   let bgGradient = mix(
-    vec3f(0.015, 0.03, 0.08),
-    vec3f(0.04, 0.08, 0.20),
+    mix(vec3f(0.06, 0.12, 0.32), vec3f(0.015, 0.03, 0.08), darkFactor),
+    mix(vec3f(0.10, 0.22, 0.50), vec3f(0.04, 0.08, 0.20), darkFactor),
     smoothstep(-0.5, 0.5, p.y) * 0.4
   );
 
-  // Subtle acoustic particle vibration dust
   let particleGrid = uv * vec2f(40.0 * aspect, 40.0);
   let particleCell = floor(particleGrid);
   let randVal = hash21(particleCell);
@@ -86,16 +94,13 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     particleLight = exp(-pDist * 16.0) * shimmer * 0.5;
   }
 
-  // Interactive cursor acoustic shockwave
   let ripple = sin(mouseDist * 32.0 - t * 6.0) * 0.5 + 0.5;
   let cursorAura = exp(-mouseDist * 4.0) * (0.25 + ripple * 0.25) * params.intensity;
-  let colCursor = vec3f(0.2, 0.6, 1.0) * cursorAura;
+  let colCursor = mix(vec3f(0.35, 0.75, 1.0), vec3f(0.2, 0.6, 1.0), darkFactor) * cursorAura;
 
-  // Blend vocal layers
   var finalColor = bgGradient + colBass + colTenor + colAlto + colSop + colCursor;
   finalColor += vec3f(0.9, 0.8, 1.0) * particleLight;
 
-  // Vignette on edges
   let vig = (1.0 - length(uv - 0.5) * 0.75) * (1.0 - uv.y * 0.25);
   finalColor *= max(vig, 0.2);
 
@@ -113,6 +118,15 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isWebGPUActive, setIsWebGPUActive] = useState(false);
   const [, setIsSupported] = useState<boolean | null>(null);
+
+  const { mode, effective } = useThemeMode();
+  const themeModeRef = useRef(mode);
+  const effectiveThemeRef = useRef(effective);
+
+  useEffect(() => {
+    themeModeRef.current = mode;
+    effectiveThemeRef.current = effective;
+  }, [mode, effective]);
 
   useEffect(() => {
     let cleanupFn: (() => void) | null = null;
@@ -147,6 +161,9 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
         let currentMouseX = 0.5;
         let currentMouseY = 0.5;
 
+        let targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+        let currentEffective = targetEffective;
+
         const handleMouseMove = (e: MouseEvent) => {
           if (!container) return;
           const rect = container.getBoundingClientRect();
@@ -169,11 +186,16 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
             canvas.height = Math.max(h, 1);
           }
 
+          const currentModeValue =
+            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+
           harmonics.set({
             params: {
               width: rect.width,
               height: rect.height,
               intensity,
+              themeMode: currentModeValue,
+              effectiveTheme: currentEffective,
             },
           });
         };
@@ -205,11 +227,18 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
           currentMouseX += (targetMouseX - currentMouseX) * 0.08;
           currentMouseY += (targetMouseY - currentMouseY) * 0.08;
 
+          targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+          currentEffective += (targetEffective - currentEffective) * 0.08;
+          const currentModeValue =
+            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+
           harmonics.set({
             params: {
               time: timeTracker.time,
               mouseX: currentMouseX,
               mouseY: currentMouseY,
+              themeMode: currentModeValue,
+              effectiveTheme: currentEffective,
             },
           });
 
@@ -224,11 +253,7 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
           gpu.dispose();
           setIsWebGPUActive(false);
         };
-      } catch (err) {
-        console.warn(
-          'WebGPU choir harmonics disabled or unsupported; fallback to CSS harmony gradient.',
-          err
-        );
+      } catch {
         setIsSupported(false);
         setIsWebGPUActive(false);
       }
@@ -251,6 +276,7 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
       {/* WebGPU Canvas */}
       <canvas
         ref={canvasRef}
+        style={{ viewTransitionName: 'none' }}
         className={`w-full h-full block transition-opacity duration-1000 ${
           isWebGPUActive ? 'opacity-100' : 'opacity-0'
         }`}
@@ -258,9 +284,11 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
 
       {/* Fallback Ambient Layer for non-WebGPU devices */}
       <div
-        className={`absolute inset-0 bg-gradient-to-br from-slate-950 via-blue-950/80 to-indigo-950 transition-opacity duration-1000 ${
-          isWebGPUActive ? 'opacity-20' : 'opacity-100'
-        }`}
+        className={`absolute inset-0 bg-gradient-to-br transition-opacity duration-1000 ${
+          effective === 'dark'
+            ? 'from-slate-950 via-blue-950/80 to-indigo-950'
+            : 'from-blue-950 via-indigo-950/80 to-slate-900'
+        } ${isWebGPUActive ? 'opacity-20' : 'opacity-100'}`}
       >
         <div className="absolute top-[10%] left-[10%] w-[60vw] h-[25vw] rounded-full bg-blue-600/15 blur-[100px] animate-pulse duration-[7000ms]" />
         <div className="absolute bottom-[10%] right-[10%] w-[50vw] h-[25vw] rounded-full bg-amber-500/10 blur-[110px] animate-pulse duration-[9000ms]" />

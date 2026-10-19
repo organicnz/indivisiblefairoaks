@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ProductCard } from '@/components/products/ProductCard';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { getDataPoints } from '@/lib/queries/civic';
 import { buildTextSearchOr } from '@/lib/queries/content';
 import {
@@ -80,20 +81,24 @@ export default async function SearchPage({
   }
 
   return (
-    <div className="bg-background min-h-[70vh]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12">
-        <div className="flex flex-col mb-10">
-          <h1 className="text-4xl font-black tracking-tight text-foreground uppercase">
+    <div className="w-full bg-background min-h-[70vh] text-foreground dark:bg-secondary dark:text-white pt-(--header-clearance) pb-20">
+      {/* Header Banner with VGPU Constellation Network */}
+      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-12 mb-10">
+        <VgpuCivicConstellation />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white uppercase">
             <DataPoint name="search.header.title" initialData={dataPoints}>
               Search Results
             </DataPoint>
           </h1>
-          <div className="h-1.5 w-24 bg-primary mt-3" />
-          <p className="mt-4 text-muted-foreground font-bold uppercase tracking-widest text-xs">
-            Results for <span className="text-primary-ink">&ldquo;{q}&rdquo;</span>
+          <div className="h-1.5 w-24 bg-accent-gold mt-3" />
+          <p className="mt-4 text-ink-muted-on-dark font-bold uppercase tracking-widest text-xs">
+            Results for <span className="text-primary-on-dark">&ldquo;{q}&rdquo;</span>
           </p>
         </div>
+      </section>
 
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Product Results */}
         {products.length > 0 && (
           <div className="mb-20">

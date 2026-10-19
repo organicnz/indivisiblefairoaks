@@ -206,6 +206,16 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
     );
   }
 
+  // Micro-photonic stardust glints twinkling along the wavefront crest
+  let crestSparkle = hash21(uv * globals.resolution + vec2f(wave.phase, time), time);
+  let sparkleIntensity = pow(crestSparkle, 18.0) * wave_crest * (1.0 - wave.progress) * 0.75;
+  let sparkleColor = select(
+    select(vec3f(0.5, 1.0, 0.7), vec3f(1.0, 0.95, 0.6), wave.theme > 0.5),
+    vec3f(0.7, 0.9, 1.0),
+    wave.theme > 1.5
+  );
+  wave_color += sparkleColor * sparkleIntensity;
+
   // Smooth cinematic falloff towards screen perimeter
   let edge_fade = 1.0 - pow(clamp(dist / max_dist, 0.0, 1.0), 4.0);
   let alpha = (wave_crest + ripple * 0.5 + fresnel * 0.3) * wave.intensity * 0.45 * edge_fade;
@@ -362,7 +372,7 @@ function createInitialWave(): WaveSlot {
 function evaluateWave(slot: WaveSlot, currentTime: number, duration: number) {
   if (!slot.enabled) return { progress: 0.0, intensity: 0.0, active: false };
   const elapsed = currentTime - slot.startTime;
-  const rawProgress = Math.min(1.0, elapsed / duration);
+  const rawProgress = Math.max(0.0, Math.min(1.0, elapsed / duration));
   if (rawProgress < 1.0) {
     // Quintic sensory easing: 1 - (1 - t)^5
     const progress = 1.0 - (1.0 - rawProgress) ** 5;
@@ -400,6 +410,7 @@ export function VgpuThemeCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isActive, setIsActive] = useState(false);
   const animFrameRef = useRef<number | null>(null);
+  const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const wave1Ref = useRef<WaveSlot>(createInitialWave());
   const wave2Ref = useRef<WaveSlot>(createInitialWave());
@@ -569,14 +580,29 @@ export function VgpuThemeCanvas() {
         if (currentSurface && themeEffect) {
           void themeEffect.compile(currentSurface);
         }
+
+        // If any wave was requested before compile finished, start loop
+        if (
+          animFrameRef.current === null &&
+          (wave1Ref.current.enabled ||
+            wave2Ref.current.enabled ||
+            wave3Ref.current.enabled ||
+            wave4Ref.current.enabled ||
+            wave5Ref.current.enabled ||
+            wave6Ref.current.enabled ||
+            wave7Ref.current.enabled ||
+            wave8Ref.current.enabled)
+        ) {
+          animFrameRef.current = requestAnimationFrame(step);
+        }
       } catch {
         // Graceful fallback if WebGPU initialization fails
       }
     })();
 
     // Animation frame step handler
-    const step = (currentTime: number) => {
-      if (disposed || !themeEffect || !currentSurface) return;
+    function step(currentTime: number) {
+      if (disposed) return;
 
       const DURATION = 640; // ms: sensory luxury ease duration
       const w1 = evaluateWave(wave1Ref.current, currentTime, DURATION);
@@ -597,6 +623,15 @@ export function VgpuThemeCanvas() {
         w6.active ||
         w7.active ||
         w8.active;
+
+      if (!themeEffect || !currentSurface) {
+        if (anyActive) {
+          animFrameRef.current = requestAnimationFrame(step);
+        } else {
+          animFrameRef.current = null;
+        }
+        return;
+      }
 
       const updateData = {
         aspect: aspectRef.current,
@@ -702,24 +737,34 @@ export function VgpuThemeCanvas() {
       if (anyActive) {
         animFrameRef.current = requestAnimationFrame(step);
       } else {
-        // Clear canvas cleanly so no frozen last frame lingers during opacity transition
-        try {
-          if (vgpuFrame && currentSurface && gpuInstance) {
-            vgpuFrame(gpuInstance, (f) => {
-              f.pass({ target: currentSurface as GpuSurface, clear: [0, 0, 0, 0] }, () => {});
-            });
-          }
-        } catch {
-          // Suppress clear interruption
-        }
         setIsActive(false);
         animFrameRef.current = null;
+        // Allow the CSS 300ms opacity transition to fade out smoothly before wiping the GPU target
+        if (fadeTimeoutRef.current) {
+          clearTimeout(fadeTimeoutRef.current);
+        }
+        fadeTimeoutRef.current = setTimeout(() => {
+          try {
+            if (vgpuFrame && currentSurface && gpuInstance) {
+              vgpuFrame(gpuInstance, (f) => {
+                f.pass({ target: currentSurface as GpuSurface, clear: [0, 0, 0, 0] }, () => {});
+              });
+            }
+          } catch {
+            // Suppress clear interruption
+          }
+        }, 350);
       }
-    };
+    }
 
     // Listen to atomic theme transitions
     const unsubscribe = subscribeThemeHud((event: ThemeHudEvent) => {
       if (disposed) return;
+
+      if (fadeTimeoutRef.current) {
+        clearTimeout(fadeTimeoutRef.current);
+        fadeTimeoutRef.current = null;
+      }
 
       const width = window.innerWidth;
       const height = Math.max(1, window.innerHeight);
@@ -779,6 +824,10 @@ export function VgpuThemeCanvas() {
       window.removeEventListener('pointerleave', onPointerLeave);
       unsubscribe();
       unsubResize?.();
+      if (fadeTimeoutRef.current) {
+        clearTimeout(fadeTimeoutRef.current);
+        fadeTimeoutRef.current = null;
+      }
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = null;
@@ -798,7 +847,7 @@ export function VgpuThemeCanvas() {
       ref={canvasRef}
       tabIndex={-1}
       aria-hidden="true"
-      style={{ willChange: 'opacity' }}
+      style={{ willChange: 'opacity', viewTransitionName: 'none' }}
       className={`fixed inset-0 pointer-events-none z-[135] size-full select-none transition-opacity duration-300 ${
         isActive ? 'opacity-100' : 'opacity-0'
       }`}

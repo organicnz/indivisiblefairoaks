@@ -17,12 +17,12 @@ function StatCard({
   icon: React.ElementType;
 }) {
   return (
-    <div className="bg-secondary rounded-3xl p-6 border border-white/10 shadow-xs">
-      <Icon size={16} className="text-primary-on-dark mb-3" aria-hidden="true" />
-      <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-1">
+    <div className="bg-surface-card border border-border rounded-3xl p-6 shadow-xs">
+      <Icon size={16} className="text-primary dark:text-primary-on-dark mb-3" aria-hidden="true" />
+      <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.2em] mb-1">
         {label}
       </p>
-      <p className="text-2xl font-black text-white">{value}</p>
+      <p className="text-2xl font-black text-foreground">{value}</p>
     </div>
   );
 }
