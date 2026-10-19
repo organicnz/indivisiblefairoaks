@@ -222,6 +222,46 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
   return vec4f(wave_color * alpha, alpha);
 }
 
+// Phosphorescent Afterglow Decay Trail helper
+fn sampleAfterglow(uv: vec2f, wave: WaveParams, aspect: f32, max_dist: f32) -> vec4f {
+  if (wave.enabled < 0.5 || wave.progress <= 0.05 || wave.progress >= 1.0) {
+    return vec4f(0.0);
+  }
+  let p_ag = vec2f((uv.x - wave.origin.x) * aspect, uv.y - wave.origin.y);
+  let d_ag = length(p_ag);
+  let wp_ag = wave.progress * max_dist;
+  let behind = smoothstep(0.0, 0.08, wp_ag - d_ag);
+  let decay = exp(-3.5 * wave.progress) * behind;
+  let ag_color = select(
+    select(vec3f(0.08, 0.65, 0.45), vec3f(0.92, 0.68, 0.12), wave.theme > 0.5),
+    vec3f(0.12, 0.55, 0.92),
+    wave.theme > 1.5
+  );
+  let rgb = ag_color * decay * wave.intensity * 0.12;
+  let a = decay * wave.intensity * 0.08;
+  return vec4f(rgb, a);
+}
+
+// Volumetric Bloom Edge Glow helper
+fn sampleBloom(uv: vec2f, wave: WaveParams, aspect: f32, max_dist: f32) -> vec4f {
+  if (wave.enabled < 0.5 || wave.progress <= 0.01 || wave.progress >= 0.92) {
+    return vec4f(0.0);
+  }
+  let p_bl = vec2f((uv.x - wave.origin.x) * aspect, uv.y - wave.origin.y);
+  let d_bl = length(p_bl);
+  let wp_bl = wave.progress * max_dist;
+  let bloom_d = d_bl - wp_bl;
+  let bloom_envelope = exp(-8.0 * bloom_d * bloom_d) * (1.0 - wave.progress);
+  let bl_color = select(
+    select(vec3f(0.1, 0.9, 0.5), vec3f(1.0, 0.85, 0.35), wave.theme > 0.5),
+    vec3f(0.2, 0.65, 1.0),
+    wave.theme > 1.5
+  );
+  let rgb = bl_color * bloom_envelope * wave.intensity * 0.08;
+  let a = bloom_envelope * wave.intensity * 0.05;
+  return vec4f(rgb, a);
+}
+
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let c1 = sampleWave(uv, globals.wave1, globals.aspect, globals.time, globals.mouse, globals.pointerActive, globals.pointerSpeed);
@@ -271,73 +311,33 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     cross_interference += cos(28.0 * (p7 - p8) + (globals.wave7.phase - globals.wave8.phase)) * c7.a * c8.a * 0.06;
   }
 
-  // Phosphorescent Afterglow Decay Trail — gentle luminous persistence lingers
-  // behind the propagating wavefront and decays exponentially with progress.
-  var afterglow = vec3f(0.0);
-  var afterglow_alpha = 0.0;
-
+  // Phosphorescent Afterglow Decay across all 8 active wavefronts
   let max_dist_ag = max(2.6, sqrt(globals.aspect * globals.aspect + 1.0) * 1.08);
 
-  if (globals.wave1.enabled > 0.5 && globals.wave1.progress > 0.05) {
-    let p_ag = vec2f((uv.x - globals.wave1.origin.x) * globals.aspect, uv.y - globals.wave1.origin.y);
-    let d_ag = length(p_ag);
-    let wp_ag = globals.wave1.progress * max_dist_ag;
-    let behind = smoothstep(0.0, 0.08, wp_ag - d_ag);
-    let decay = exp(-3.5 * globals.wave1.progress) * behind;
-    let ag_color = select(
-      select(vec3f(0.08, 0.65, 0.45), vec3f(0.92, 0.68, 0.12), globals.wave1.theme > 0.5),
-      vec3f(0.12, 0.55, 0.92),
-      globals.wave1.theme > 1.5
-    );
-    afterglow += ag_color * decay * globals.wave1.intensity * 0.12;
-    afterglow_alpha += decay * globals.wave1.intensity * 0.08;
-  }
-  if (globals.wave2.enabled > 0.5 && globals.wave2.progress > 0.05) {
-    let p_ag = vec2f((uv.x - globals.wave2.origin.x) * globals.aspect, uv.y - globals.wave2.origin.y);
-    let d_ag = length(p_ag);
-    let wp_ag = globals.wave2.progress * max_dist_ag;
-    let behind = smoothstep(0.0, 0.08, wp_ag - d_ag);
-    let decay = exp(-3.5 * globals.wave2.progress) * behind;
-    let ag_color = select(
-      select(vec3f(0.08, 0.65, 0.45), vec3f(0.92, 0.68, 0.12), globals.wave2.theme > 0.5),
-      vec3f(0.12, 0.55, 0.92),
-      globals.wave2.theme > 1.5
-    );
-    afterglow += ag_color * decay * globals.wave2.intensity * 0.10;
-    afterglow_alpha += decay * globals.wave2.intensity * 0.06;
-  }
-  if (globals.wave3.enabled > 0.5 && globals.wave3.progress > 0.05) {
-    let p_ag = vec2f((uv.x - globals.wave3.origin.x) * globals.aspect, uv.y - globals.wave3.origin.y);
-    let d_ag = length(p_ag);
-    let wp_ag = globals.wave3.progress * max_dist_ag;
-    let behind = smoothstep(0.0, 0.08, wp_ag - d_ag);
-    let decay = exp(-3.5 * globals.wave3.progress) * behind;
-    let ag_color = select(
-      select(vec3f(0.08, 0.65, 0.45), vec3f(0.92, 0.68, 0.12), globals.wave3.theme > 0.5),
-      vec3f(0.12, 0.55, 0.92),
-      globals.wave3.theme > 1.5
-    );
-    afterglow += ag_color * decay * globals.wave3.intensity * 0.08;
-    afterglow_alpha += decay * globals.wave3.intensity * 0.05;
-  }
+  let ag1 = sampleAfterglow(uv, globals.wave1, globals.aspect, max_dist_ag);
+  let ag2 = sampleAfterglow(uv, globals.wave2, globals.aspect, max_dist_ag);
+  let ag3 = sampleAfterglow(uv, globals.wave3, globals.aspect, max_dist_ag);
+  let ag4 = sampleAfterglow(uv, globals.wave4, globals.aspect, max_dist_ag);
+  let ag5 = sampleAfterglow(uv, globals.wave5, globals.aspect, max_dist_ag);
+  let ag6 = sampleAfterglow(uv, globals.wave6, globals.aspect, max_dist_ag);
+  let ag7 = sampleAfterglow(uv, globals.wave7, globals.aspect, max_dist_ag);
+  let ag8 = sampleAfterglow(uv, globals.wave8, globals.aspect, max_dist_ag);
 
-  // Volumetric Bloom Edge Glow — a soft Gaussian halo at the leading edge
-  var bloom = vec3f(0.0);
-  var bloom_alpha = 0.0;
-  if (globals.wave1.enabled > 0.5 && globals.wave1.progress > 0.01 && globals.wave1.progress < 0.92) {
-    let p_bl = vec2f((uv.x - globals.wave1.origin.x) * globals.aspect, uv.y - globals.wave1.origin.y);
-    let d_bl = length(p_bl);
-    let wp_bl = globals.wave1.progress * max_dist_ag;
-    let bloom_d = d_bl - wp_bl;
-    let bloom_envelope = exp(-8.0 * bloom_d * bloom_d) * (1.0 - globals.wave1.progress);
-    let bl_color = select(
-      select(vec3f(0.1, 0.9, 0.5), vec3f(1.0, 0.85, 0.35), globals.wave1.theme > 0.5),
-      vec3f(0.2, 0.65, 1.0),
-      globals.wave1.theme > 1.5
-    );
-    bloom += bl_color * bloom_envelope * globals.wave1.intensity * 0.08;
-    bloom_alpha += bloom_envelope * globals.wave1.intensity * 0.05;
-  }
+  let afterglow = ag1.rgb + ag2.rgb + ag3.rgb + ag4.rgb + ag5.rgb + ag6.rgb + ag7.rgb + ag8.rgb;
+  let afterglow_alpha = ag1.a + ag2.a + ag3.a + ag4.a + ag5.a + ag6.a + ag7.a + ag8.a;
+
+  // Volumetric Bloom Edge Glow across all 8 active wavefronts
+  let bl1 = sampleBloom(uv, globals.wave1, globals.aspect, max_dist_ag);
+  let bl2 = sampleBloom(uv, globals.wave2, globals.aspect, max_dist_ag);
+  let bl3 = sampleBloom(uv, globals.wave3, globals.aspect, max_dist_ag);
+  let bl4 = sampleBloom(uv, globals.wave4, globals.aspect, max_dist_ag);
+  let bl5 = sampleBloom(uv, globals.wave5, globals.aspect, max_dist_ag);
+  let bl6 = sampleBloom(uv, globals.wave6, globals.aspect, max_dist_ag);
+  let bl7 = sampleBloom(uv, globals.wave7, globals.aspect, max_dist_ag);
+  let bl8 = sampleBloom(uv, globals.wave8, globals.aspect, max_dist_ag);
+
+  let bloom = bl1.rgb + bl2.rgb + bl3.rgb + bl4.rgb + bl5.rgb + bl6.rgb + bl7.rgb + bl8.rgb;
+  let bloom_alpha = bl1.a + bl2.a + bl3.a + bl4.a + bl5.a + bl6.a + bl7.a + bl8.a;
 
   let combined_rgb = c1.rgb + c2.rgb + c3.rgb + c4.rgb + c5.rgb + c6.rgb + c7.rgb + c8.rgb + vec3f(cross_interference) + afterglow + bloom;
   let combined_alpha = min(1.0, c1.a + c2.a + c3.a + c4.a + c5.a + c6.a + c7.a + c8.a + afterglow_alpha + bloom_alpha);

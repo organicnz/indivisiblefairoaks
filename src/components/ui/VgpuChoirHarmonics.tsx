@@ -36,6 +36,14 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
 
+  // Continuous partition of unity across optical profiles:
+  // themeMode = 2.0 (Dark: Obsidian Kerr Singularity & Relativistic Lensing)
+  // themeMode = 1.0 (Light: Solar Diamond Caustics with Prismatic Dispersion)
+  // themeMode = 0.0 (System: Quantum Bloch Sphere Geodesic Superposition)
+  let modeDark = clamp(params.themeMode - 1.0, 0.0, 1.0);
+  let modeLight = clamp(1.0 - abs(params.themeMode - 1.0), 0.0, 1.0);
+  let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
+
   // 1. Bass Voice: Deep, resonant, foundation wave (Indigo / Royal Cobalt)
   let bassFreq = 2.4;
   let bassW = sin(p.x * bassFreq + t * 0.6) * 0.16 
@@ -43,7 +51,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
             + mouseInfluence * 0.08 * sin(p.x * 12.0 + t * 3.0);
   let distBass = abs(p.y + 0.08 - bassW);
   let bassGlow = exp(-distBass * 14.0) * 0.9;
-  let bassColor = mix(vec3f(0.20, 0.42, 0.98), vec3f(0.12, 0.28, 0.85), darkFactor);
+  let bassDark   = vec3f(0.12, 0.28, 0.85);
+  let bassLight  = vec3f(0.20, 0.42, 0.98);
+  let bassSystem = vec3f(0.10, 0.35, 0.75);
+  let bassColor = bassLight * modeLight + bassDark * modeDark + bassSystem * modeSystem;
   let colBass = bassColor * bassGlow;
 
   // 2. Tenor Voice: Warm, rhythmic community heart (Amber Gold / Copper)
@@ -53,7 +64,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
              + mouseInfluence * 0.06 * cos(p.x * 15.0 - t * 2.5);
   let distTenor = abs(p.y + 0.02 - tenorW);
   let tenorGlow = exp(-distTenor * 18.0) * 0.85;
-  let tenorColor = mix(vec3f(1.0, 0.80, 0.28), vec3f(0.96, 0.72, 0.22), darkFactor);
+  let tenorDark   = vec3f(0.96, 0.72, 0.22);
+  let tenorLight  = vec3f(1.00, 0.80, 0.28);
+  let tenorSystem = vec3f(0.96, 0.76, 0.16);
+  let tenorColor = tenorLight * modeLight + tenorDark * modeDark + tenorSystem * modeSystem;
   let colTenor = tenorColor * tenorGlow;
 
   // 3. Alto Voice: Harmonic bridge (Cyan / Emerald Glow)
@@ -63,7 +77,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
             + mouseInfluence * 0.07 * sin(p.x * 18.0 + t * 4.0);
   let distAlto = abs(p.y - 0.04 - altoW);
   let altoGlow = exp(-distAlto * 20.0) * 0.8;
-  let altoColor = mix(vec3f(0.25, 0.92, 0.82), vec3f(0.15, 0.85, 0.75), darkFactor);
+  let altoDark   = vec3f(0.15, 0.85, 0.75);
+  let altoLight  = vec3f(0.25, 0.92, 0.82);
+  let altoSystem = vec3f(0.08, 0.86, 0.52);
+  let altoColor = altoLight * modeLight + altoDark * modeDark + altoSystem * modeSystem;
   let colAlto = altoColor * altoGlow;
 
   // 4. Soprano Voice: High, clear, radiant freedom call (Brilliant Cyan / Diamond White)
@@ -73,15 +90,17 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
            + mouseInfluence * 0.09 * sin(p.x * 24.0 - t * 5.0);
   let distSop = abs(p.y - 0.10 - sopW);
   let sopGlow = exp(-distSop * 24.0) * 0.95;
-  let sopColor = mix(vec3f(0.92, 0.98, 1.0), vec3f(0.85, 0.95, 1.0), darkFactor);
+  let sopDark   = vec3f(0.85, 0.95, 1.0);
+  let sopLight  = vec3f(0.96, 0.98, 1.0);
+  let sopSystem = vec3f(0.75, 0.96, 1.0);
+  let sopColor = sopLight * modeLight + sopDark * modeDark + sopSystem * modeSystem;
   let colSop = sopColor * sopGlow;
 
   // Background acoustic hall ambience
-  let bgGradient = mix(
-    mix(vec3f(0.06, 0.12, 0.32), vec3f(0.015, 0.03, 0.08), darkFactor),
-    mix(vec3f(0.10, 0.22, 0.50), vec3f(0.04, 0.08, 0.20), darkFactor),
-    smoothstep(-0.5, 0.5, p.y) * 0.4
-  );
+  let bgDark = mix(vec3f(0.015, 0.03, 0.08), vec3f(0.04, 0.08, 0.20), smoothstep(-0.5, 0.5, p.y) * 0.4);
+  let bgLight = mix(vec3f(0.06, 0.12, 0.32), vec3f(0.10, 0.22, 0.50), smoothstep(-0.5, 0.5, p.y) * 0.4);
+  let bgSystem = mix(vec3f(0.02, 0.05, 0.14), vec3f(0.05, 0.14, 0.30), smoothstep(-0.5, 0.5, p.y) * 0.4);
+  let bgGradient = bgLight * modeLight + bgDark * modeDark + bgSystem * modeSystem;
 
   let particleGrid = uv * vec2f(40.0 * aspect, 40.0);
   let particleCell = floor(particleGrid);
@@ -180,6 +199,12 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
 
         const canvasSurface = surface(gpu, canvas, { dpr: [1, 2.5] });
 
+        let targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+        let currentEffective = targetEffective;
+        let targetMode =
+          themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+        let currentMode = targetMode;
+
         // Shared GPU uniform buffer — zero-allocation per-frame updates
         const sharedParams = uniformsFn(gpu, {
           time: 0,
@@ -188,9 +213,8 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
           mouseX: 0.5,
           mouseY: 0.5,
           intensity,
-          themeMode:
-            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0,
-          effectiveTheme: effectiveThemeRef.current === 'dark' ? 1.0 : 0.0,
+          themeMode: currentMode,
+          effectiveTheme: currentEffective,
         });
 
         const harmonics = effect(gpu, WGSL_CHOIR_HARMONICS, {
@@ -202,9 +226,6 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
         let targetMouseY = 0.5;
         let currentMouseX = 0.5;
         let currentMouseY = 0.5;
-
-        let targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
-        let currentEffective = targetEffective;
 
         const handleMouseMove = (e: MouseEvent) => {
           if (!container) return;
@@ -226,8 +247,9 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
           currentEffective = targetEffective;
-          const currentModeValue =
+          targetMode =
             themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+          currentMode = targetMode;
 
           sharedParams.set({
             time,
@@ -236,7 +258,7 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
             mouseX: currentMouseX,
             mouseY: currentMouseY,
             intensity,
-            themeMode: currentModeValue,
+            themeMode: currentMode,
             effectiveTheme: currentEffective,
           });
 
@@ -279,8 +301,9 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
 
             targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
             currentEffective += (targetEffective - currentEffective) * 0.08;
-            const currentModeValue =
+            targetMode =
               themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+            currentMode += (targetMode - currentMode) * 0.08;
 
             sharedParams.set({
               time: timeTracker.time,
@@ -289,7 +312,7 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
               mouseX: currentMouseX,
               mouseY: currentMouseY,
               intensity,
-              themeMode: currentModeValue,
+              themeMode: currentMode,
               effectiveTheme: currentEffective,
             });
 

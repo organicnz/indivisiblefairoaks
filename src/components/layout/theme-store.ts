@@ -465,7 +465,13 @@ export function useThemeMode(): {
       typeof globalThis.matchMedia === 'function' ? globalThis.matchMedia(DARK_QUERY) : null;
     const onMediaChange = () => {
       // A pin exists precisely to stop the OS setting from moving the palette.
-      if (state.mode === 'system') syncTheme();
+      if (state.mode === 'system') {
+        const prevEffective = state.effective;
+        const next = syncTheme();
+        if (next.effective !== prevEffective) {
+          emitThemeHud('system', next.effective);
+        }
+      }
     };
     media?.addEventListener?.('change', onMediaChange);
 

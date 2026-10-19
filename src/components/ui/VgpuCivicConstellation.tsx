@@ -36,13 +36,23 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
 
+  // Continuous partition of unity across optical profiles:
+  // themeMode = 2.0 (Dark: Obsidian Kerr Singularity & Relativistic Lensing)
+  // themeMode = 1.0 (Light: Solar Diamond Caustics with Prismatic Dispersion)
+  // themeMode = 0.0 (System: Quantum Bloch Sphere Geodesic Superposition)
+  let modeDark = clamp(params.themeMode - 1.0, 0.0, 1.0);
+  let modeLight = clamp(1.0 - abs(params.themeMode - 1.0), 0.0, 1.0);
+  let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
+
   let bgDarkStart = vec3f(0.01, 0.025, 0.07);
   let bgDarkEnd   = vec3f(0.03, 0.06, 0.16);
   let bgLightStart = vec3f(0.06, 0.14, 0.36);
   let bgLightEnd   = vec3f(0.10, 0.24, 0.52);
+  let bgSystemStart = mix(vec3f(0.03, 0.08, 0.24), vec3f(0.015, 0.03, 0.09), darkFactor);
+  let bgSystemEnd   = mix(vec3f(0.06, 0.16, 0.38), vec3f(0.025, 0.07, 0.20), darkFactor);
 
-  let bgStart = mix(bgLightStart, bgDarkStart, darkFactor);
-  let bgEnd   = mix(bgLightEnd, bgDarkEnd, darkFactor);
+  let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
+  let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
   var col = mix(
     bgStart,
@@ -66,8 +76,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
       let neighbor = vec2f(f32(x), f32(y));
       let rand = hash22(cellId + neighbor);
 
-      // Orbital oscillation of nodes
-      let nodePos = neighbor + sin(rand * 6.28 + vec2f(t * 1.2, t * 0.8)) * 0.35;
+      // Orbital oscillation of nodes with quantum Bloch phase modulation in system mode
+      let quantumPhase = sin(rand.x * 6.28 + t * 1.5) * 0.12 * modeSystem;
+      let nodePos = neighbor + sin(rand * 6.28 + vec2f(t * 1.2, t * 0.8) + quantumPhase) * 0.35;
       let diff = nodePos - localP;
       let d = length(diff);
 
@@ -83,9 +94,11 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   // Draw node points of light (grassroots activists)
   let nodeGlow = exp(-minDist * 12.0);
-  let nodeDarkColor  = mix(vec3f(0.2, 0.6, 1.0), vec3f(0.95, 0.75, 0.2), hash22(cellId).x);
-  let nodeLightColor = mix(vec3f(0.35, 0.75, 1.0), vec3f(1.0, 0.85, 0.35), hash22(cellId).x);
-  let nodeColor = mix(nodeLightColor, nodeDarkColor, darkFactor);
+  let nodeRand = hash22(cellId).x;
+  let nodeDarkColor  = mix(vec3f(0.12, 0.46, 0.98), vec3f(0.95, 0.75, 0.2), nodeRand);
+  let nodeLightColor = mix(vec3f(0.35, 0.75, 1.0), vec3f(1.0, 0.85, 0.35), nodeRand);
+  let nodeSystemColor = mix(vec3f(0.08, 0.86, 0.52), vec3f(0.96, 0.76, 0.16), nodeRand);
+  let nodeColor = nodeLightColor * modeLight + nodeDarkColor * modeDark + nodeSystemColor * modeSystem;
   col += nodeColor * nodeGlow * 1.25;
 
   // Draw connecting energy filaments between neighboring nodes (coalition ties)
@@ -93,15 +106,17 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let filament = exp(-filamentDist * 8.0) * smoothstep(0.8, 0.1, minDist);
   let filamentDarkColor  = mix(vec3f(0.1, 0.4, 0.8), vec3f(0.8, 0.6, 0.2), mouseInfluence);
   let filamentLightColor = mix(vec3f(0.25, 0.58, 0.95), vec3f(0.95, 0.72, 0.25), mouseInfluence);
-  let filamentColor = mix(filamentLightColor, filamentDarkColor, darkFactor);
+  let filamentSystemColor = mix(vec3f(0.12, 0.72, 0.60), vec3f(0.92, 0.70, 0.20), mouseInfluence);
+  let filamentColor = filamentLightColor * modeLight + filamentDarkColor * modeDark + filamentSystemColor * modeSystem;
   col += filamentColor * filament * (0.35 + mouseInfluence * 0.5);
 
   // Cursor civic aura & ripple
   let aura = exp(-mouseDist * 2.8) * 0.35 * params.intensity;
   let auraCyan = mix(vec3f(0.35, 0.75, 1.0), vec3f(0.2, 0.55, 0.95), darkFactor);
   let auraGold = mix(vec3f(1.0, 0.85, 0.35), vec3f(0.95, 0.75, 0.2), darkFactor);
-  col += auraCyan * aura;
-  col += auraGold * (aura * 0.4);
+  let auraEmerald = vec3f(0.18, 0.88, 0.62);
+  let auraColor = (auraCyan * 0.6 + auraGold * 0.4) * (modeLight + modeDark) + (auraEmerald * 0.5 + auraGold * 0.5) * modeSystem;
+  col += auraColor * aura;
 
   // Edge vignette
   let vig = (1.0 - length(uv - 0.5) * 0.7) * (1.0 - uv.y * 0.25);
@@ -186,6 +201,12 @@ export function VgpuCivicConstellation({
 
         const canvasSurface = surface(gpu, canvas, { dpr: [1, 2.5] });
 
+        let targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+        let currentEffective = targetEffective;
+        let targetMode =
+          themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+        let currentMode = targetMode;
+
         // Shared GPU uniform buffer — zero-allocation per-frame updates
         const sharedParams = uniformsFn(gpu, {
           time: 0,
@@ -194,9 +215,8 @@ export function VgpuCivicConstellation({
           mouseX: 0.5,
           mouseY: 0.5,
           intensity,
-          themeMode:
-            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0,
-          effectiveTheme: effectiveThemeRef.current === 'dark' ? 1.0 : 0.0,
+          themeMode: currentMode,
+          effectiveTheme: currentEffective,
         });
 
         const constellation = effect(gpu, WGSL_CONSTELLATION, {
@@ -208,9 +228,6 @@ export function VgpuCivicConstellation({
         let targetMouseY = 0.5;
         let currentMouseX = 0.5;
         let currentMouseY = 0.5;
-
-        let targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
-        let currentEffective = targetEffective;
 
         const handleMouseMove = (e: MouseEvent) => {
           if (!container) return;
@@ -232,8 +249,9 @@ export function VgpuCivicConstellation({
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
           currentEffective = targetEffective;
-          const currentModeValue =
+          targetMode =
             themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+          currentMode = targetMode;
 
           sharedParams.set({
             time,
@@ -242,7 +260,7 @@ export function VgpuCivicConstellation({
             mouseX: currentMouseX,
             mouseY: currentMouseY,
             intensity,
-            themeMode: currentModeValue,
+            themeMode: currentMode,
             effectiveTheme: currentEffective,
           });
 
@@ -285,8 +303,9 @@ export function VgpuCivicConstellation({
 
             targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
             currentEffective += (targetEffective - currentEffective) * 0.08;
-            const currentModeValue =
+            targetMode =
               themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+            currentMode += (targetMode - currentMode) * 0.08;
 
             sharedParams.set({
               time: timeTracker.time,
@@ -295,7 +314,7 @@ export function VgpuCivicConstellation({
               mouseX: currentMouseX,
               mouseY: currentMouseY,
               intensity,
-              themeMode: currentModeValue,
+              themeMode: currentMode,
               effectiveTheme: currentEffective,
             });
 

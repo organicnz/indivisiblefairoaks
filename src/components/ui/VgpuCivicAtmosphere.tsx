@@ -71,36 +71,65 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     fbm(p * 1.6 + q * 1.3 + vec2f(-t * 0.35, t * 0.6))
   );
 
-  let wave = fbm(p * 2.0 + r * 1.6);
-  let auroraRibbon = smoothstep(0.35, 0.75, sin(wave * 4.5 + t * 0.8) * 0.5 + 0.5);
+  // Continuous partition of unity across optical profiles:
+  // themeMode = 2.0 (Dark: Obsidian Kerr Singularity & Relativistic Vortex)
+  // themeMode = 1.0 (Light: Solar Diamond Caustics with Prismatic Dispersion)
+  // themeMode = 0.0 (System: Quantum Bloch Sphere Geodesic Superposition)
+  let modeDark = clamp(params.themeMode - 1.0, 0.0, 1.0);
+  let modeLight = clamp(1.0 - abs(params.themeMode - 1.0), 0.0, 1.0);
+  let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
+
+  // 1. Relativistic Kerr vortex warping (Dark mode)
+  let kerrAngle = atan2(p.y - mouseP.y, p.x - mouseP.x);
+  let kerrVortex = sin(kerrAngle * 4.0 + mouseDist * 28.0 - t * 3.5) * 0.06 * exp(-mouseDist * 2.2) * modeDark;
+
+  // 2. Solar crystal wave interference caustics (Light mode)
+  let k1 = (p.x * 24.0 + t * 2.2);
+  let k2 = (-0.5 * p.x + 0.866 * p.y) * 24.0 - t * 1.8;
+  let caustics = (cos(k1) + cos(k2)) * 0.025 * modeLight;
+
+  // 3. Quantum wave packets & Bloch sphere geodesic superposition (System mode)
+  let blochTheta = wave * 3.14159265;
+  let blochPhi = t * 2.5 + dot(p, vec2f(1.618, 1.0)) * 5.0;
+  let quantumFringe = sin(blochTheta) * cos(blochPhi) * 0.04 * modeSystem;
+
+  let waveMod = wave + kerrVortex + caustics + quantumFringe;
+  let auroraRibbon = smoothstep(0.35, 0.75, sin(waveMod * 4.5 + t * 0.8) * 0.5 + 0.5);
 
   let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
 
-  // Dark Cosmic Midnight Palette
+  // Dark Cosmic Midnight Palette (Obsidian Singularity)
   let darkBase     = vec3f(0.015, 0.03, 0.08);
   let darkMidnight = vec3f(0.05, 0.12, 0.32);
   let darkSapphire = vec3f(0.08, 0.25, 0.65);
   let darkCyanGlow = vec3f(0.12, 0.68, 0.95);
   let darkAmber    = vec3f(0.96, 0.74, 0.24);
 
-  // Light Solar Dawn Radiant Palette
+  // Light Solar Dawn Radiant Palette (Solar Diamond)
   let lightBase     = vec3f(0.08, 0.22, 0.58);
   let lightMidnight = vec3f(0.12, 0.38, 0.82);
   let lightSapphire = vec3f(0.20, 0.55, 0.98);
   let lightCyanGlow = vec3f(0.32, 0.78, 1.00);
   let lightAmber    = vec3f(1.00, 0.80, 0.32);
 
-  // Dynamic chromatic morphing across theme transitions
-  let baseDark = mix(lightBase, darkBase, darkFactor);
-  let midnight = mix(lightMidnight, darkMidnight, darkFactor);
-  let sapphire = mix(lightSapphire, darkSapphire, darkFactor);
-  let cyanGlow = mix(lightCyanGlow, darkCyanGlow, darkFactor);
-  let amberGold = mix(lightAmber, darkAmber, darkFactor);
+  // System Quantum Superposition Palette (Emerald-Cyan & Topaz Duality)
+  let sysBase      = mix(vec3f(0.04, 0.12, 0.32), vec3f(0.015, 0.04, 0.10), darkFactor);
+  let sysMidnight  = mix(vec3f(0.08, 0.24, 0.50), vec3f(0.03, 0.10, 0.28), darkFactor);
+  let sysSapphire  = mix(vec3f(0.14, 0.40, 0.75), vec3f(0.06, 0.20, 0.55), darkFactor);
+  let sysEmerald   = mix(vec3f(0.18, 0.88, 0.62), vec3f(0.08, 0.76, 0.50), darkFactor);
+  let sysAmber     = mix(vec3f(0.98, 0.78, 0.20), vec3f(0.92, 0.68, 0.16), darkFactor);
 
-  var col = mix(baseDark, midnight, smoothstep(0.05, 0.45, wave));
-  col = mix(col, sapphire, smoothstep(0.35, 0.75, wave));
+  // Dynamic chromatic morphing across theme transitions
+  let baseDark = lightBase * modeLight + darkBase * modeDark + sysBase * modeSystem;
+  let midnight = lightMidnight * modeLight + darkMidnight * modeDark + sysMidnight * modeSystem;
+  let sapphire = lightSapphire * modeLight + darkSapphire * modeDark + sysSapphire * modeSystem;
+  let cyanGlow = lightCyanGlow * modeLight + darkCyanGlow * modeDark + sysEmerald * modeSystem;
+  let amberGold = lightAmber * modeLight + darkAmber * modeDark + sysAmber * modeSystem;
+
+  var col = mix(baseDark, midnight, smoothstep(0.05, 0.45, waveMod));
+  col = mix(col, sapphire, smoothstep(0.35, 0.75, waveMod));
   col = mix(col, cyanGlow, auroraRibbon * 0.45);
-  col = mix(col, amberGold, pow(smoothstep(0.65, 0.95, wave), 2.8) * 0.40);
+  col = mix(col, amberGold, pow(smoothstep(0.65, 0.95, waveMod), 2.8) * 0.40);
 
   col += cyanGlow * mouseGlow;
   col += amberGold * (mouseGlow * 0.4);
@@ -205,6 +234,9 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
 
         let targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
         let currentEffective = targetEffective;
+        let targetMode =
+          themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+        let currentMode = targetMode;
 
         const handleMouseMove = (e: MouseEvent) => {
           if (!containerRef.current) return;
@@ -228,8 +260,7 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
           mouseX: currentMouseX,
           mouseY: currentMouseY,
           intensity,
-          themeMode:
-            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0,
+          themeMode: currentMode,
           effectiveTheme: currentEffective,
         });
 
@@ -244,8 +275,9 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
           currentEffective = targetEffective;
-          const currentModeValue =
+          targetMode =
             themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+          currentMode = targetMode;
 
           sharedParams.set({
             time,
@@ -254,7 +286,7 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
             mouseX: currentMouseX,
             mouseY: currentMouseY,
             intensity,
-            themeMode: currentModeValue,
+            themeMode: currentMode,
             effectiveTheme: currentEffective,
           });
 
@@ -300,11 +332,12 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
             currentMouseX += (targetMouseX - currentMouseX) * 0.06;
             currentMouseY += (targetMouseY - currentMouseY) * 0.06;
 
-            // Smooth chromatic transition across theme toggles
+            // Smooth chromatic transition across theme toggles and optical profiles
             targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
             currentEffective += (targetEffective - currentEffective) * 0.08;
-            const currentModeValue =
+            targetMode =
               themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+            currentMode += (targetMode - currentMode) * 0.08;
 
             sharedParams.set({
               time: timeTracker.time,
@@ -313,7 +346,7 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
               mouseX: currentMouseX,
               mouseY: currentMouseY,
               intensity,
-              themeMode: currentModeValue,
+              themeMode: currentMode,
               effectiveTheme: currentEffective,
             });
 
