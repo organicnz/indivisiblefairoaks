@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { useCartStore } from '@/lib/store/cart';
 import { useWishlistStore } from '@/lib/store/wishlist';
@@ -59,21 +60,24 @@ export default function WishlistPage() {
         </div>
 
         {items.length === 0 ? (
-          <div className="text-center py-32 bg-surface-muted rounded-[3rem] border border-dashed border-border">
-            <Heart className="w-16 h-16 text-muted-foreground mx-auto mb-6" />
-            <p className="text-muted-foreground font-bold uppercase tracking-widest mb-8">
-              <DataPoint initialData={dataPoints} name="wishlist.empty.title">
-                Your wishlist is empty.
-              </DataPoint>
-            </p>
-            <Link
-              href="/products"
-              className="inline-block bg-secondary text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm hover:bg-primary dark:bg-primary-bright dark:hover:bg-primary-light shadow-xl shadow-secondary/10"
-            >
-              <DataPoint initialData={dataPoints} name="wishlist.empty.btn">
-                Explore Gear
-              </DataPoint>
-            </Link>
+          <div className="relative overflow-hidden text-center py-32 bg-surface-muted rounded-[3rem] border border-dashed border-border">
+            <VgpuCivicConstellation className="pointer-events-none opacity-25" />
+            <div className="relative z-10">
+              <Heart className="w-16 h-16 text-muted-foreground mx-auto mb-6" />
+              <p className="text-muted-foreground font-bold uppercase tracking-widest mb-8">
+                <DataPoint initialData={dataPoints} name="wishlist.empty.title">
+                  Your wishlist is empty.
+                </DataPoint>
+              </p>
+              <Link
+                href="/products"
+                className="inline-block bg-secondary text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm hover:bg-primary dark:bg-primary-bright dark:hover:bg-primary-light shadow-xl shadow-secondary/10"
+              >
+                <DataPoint initialData={dataPoints} name="wishlist.empty.btn">
+                  Explore Gear
+                </DataPoint>
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="space-y-8">

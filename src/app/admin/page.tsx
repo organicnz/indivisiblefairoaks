@@ -216,7 +216,7 @@ export default async function AdminDashboardPage() {
     <div>
       <div className="flex flex-col mb-8">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-primary dark:bg-primary-bright rounded-full flex items-center justify-center">
             <TrendingUp size={14} className="text-white" />
           </div>
           <span className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">
@@ -230,7 +230,7 @@ export default async function AdminDashboardPage() {
             Dashboard
           </DataPoint>
         </h1>
-        <div className="h-1.5 w-24 bg-primary mt-3" />
+        <div className="h-1.5 w-24 bg-primary dark:bg-primary-bright mt-3" />
       </div>
 
       {/* Quick Publishing & Civic Management Bar */}
@@ -248,7 +248,7 @@ export default async function AdminDashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <Link
             href="/admin/content/new?type=post"
-            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-primary text-white hover:bg-primary-dark transition-all text-center shadow-xs font-bold text-xs uppercase tracking-wider group"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-primary dark:bg-primary-bright text-white hover:bg-primary-dark dark:hover:bg-primary-light transition-all text-center shadow-xs font-bold text-xs uppercase tracking-wider group"
           >
             <FilePlus2 size={20} className="group-hover:scale-110 transition-transform" />
             <span>New Post</span>
@@ -381,7 +381,8 @@ export default async function AdminDashboardPage() {
             </h2>
             <div className="flex items-center gap-3">
               <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest inline-flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-primary" /> This period
+                <span className="w-2 h-2 rounded-full bg-primary dark:bg-primary-bright" /> This
+                period
               </span>
               <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest inline-flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-surface-muted" /> Prior period
@@ -408,7 +409,7 @@ export default async function AdminDashboardPage() {
                   )}
                   <div
                     title={`${dayLabels.get(day)} — ${fmtMoney(v)}`}
-                    className={`rounded-t-md transition-all ${v > 0 ? 'bg-primary' : 'bg-surface-muted'}`}
+                    className={`rounded-t-md transition-all ${v > 0 ? 'bg-primary dark:bg-primary-bright' : 'bg-surface-muted'}`}
                     style={{ height: `${h}%` }}
                   />
                 </div>
@@ -671,7 +672,7 @@ export default async function AdminDashboardPage() {
             <ul className="space-y-4">
               {[...couponStats.entries()].map(([code, stat]) => (
                 <li key={code} className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-xl bg-primary flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-xl bg-primary dark:bg-primary-bright flex items-center justify-center">
                     <BadgePercent size={13} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0">

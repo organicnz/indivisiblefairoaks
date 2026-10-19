@@ -145,7 +145,7 @@ export function VgpuCivicConstellation({
       }
 
       try {
-        const { init, surface, effect, frameLoop } = await import('vgpu');
+        const { init, surface, effect, frameLoop, clock } = await import('vgpu');
 
         if (disposed) return;
         const canvas = canvasRef.current;
@@ -159,6 +159,7 @@ export function VgpuCivicConstellation({
         }
 
         const canvasSurface = surface(gpu, canvas);
+
         const constellation = effect(gpu, WGSL_CONSTELLATION);
 
         let targetMouseX = 0.5;
@@ -215,12 +216,7 @@ export function VgpuCivicConstellation({
         setIsWebGPUActive(true);
         setIsSupported(true);
 
-        const startTime = performance.now();
-        const timeTracker = {
-          get time() {
-            return (performance.now() - startTime) / 1000;
-          },
-        };
+        const timeTracker = clock(gpu);
 
         const loop = frameLoop(gpu, (frame) => {
           if (!isVisible) return;

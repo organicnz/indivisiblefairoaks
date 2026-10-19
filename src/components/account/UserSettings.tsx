@@ -106,7 +106,9 @@ export function UserSettings() {
                 type="button"
                 onClick={() => handleToggle('marketing_emails')}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                  settings.marketing_emails ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'
+                  settings.marketing_emails
+                    ? 'bg-primary dark:bg-primary-bright'
+                    : 'bg-slate-300 dark:bg-slate-700'
                 }`}
                 aria-checked={settings.marketing_emails}
                 role="switch"
@@ -148,7 +150,9 @@ export function UserSettings() {
                 type="button"
                 onClick={() => handleToggle('order_updates')}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                  settings.order_updates ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'
+                  settings.order_updates
+                    ? 'bg-primary dark:bg-primary-bright'
+                    : 'bg-slate-300 dark:bg-slate-700'
                 }`}
                 aria-checked={settings.order_updates}
                 role="switch"

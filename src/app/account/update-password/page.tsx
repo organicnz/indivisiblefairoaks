@@ -4,6 +4,7 @@ import { CheckCircle, Eye, EyeOff, Loader2, Lock, ShieldCheck } from 'lucide-rea
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { createClient } from '@/lib/supabase';
 import { updatePasswordAction } from './actions';
@@ -209,8 +210,9 @@ export default function UpdatePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
-      <div className="max-w-md w-full">
+    <div className="relative overflow-hidden min-h-screen bg-background flex flex-col items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
+      <VgpuCivicConstellation className="pointer-events-none opacity-25" />
+      <div className="relative z-10 max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-3 px-5 py-2 bg-primary/10 dark:bg-white/5 rounded-full mb-6 border border-primary/20 dark:border-white/10">
@@ -226,7 +228,7 @@ export default function UpdatePasswordPage() {
               New <span className="text-primary dark:text-primary-on-dark italic">Password</span>
             </DataPoint>
           </h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.15em] text-[10px]">
+          <p className="text-muted-foreground dark:text-ink-muted-on-dark font-bold uppercase tracking-[0.15em] text-[10px]">
             <DataPoint name="account.password.new_desc" initialData={dataPoints}>
               Choose a strong password for your account
             </DataPoint>

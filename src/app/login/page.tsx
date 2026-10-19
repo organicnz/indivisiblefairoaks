@@ -4,6 +4,7 @@ import { ArrowRight, Eye, EyeOff, Fingerprint, Loader2, Lock, Shield } from 'luc
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase';
@@ -148,8 +149,9 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-32 selection:bg-primary selection:text-secondary">
-      <div className="max-w-xl w-full">
+    <div className="relative overflow-hidden min-h-screen bg-background flex flex-col items-center justify-center px-4 py-32 selection:bg-primary selection:text-secondary">
+      <VgpuCivicConstellation className="pointer-events-none opacity-20" />
+      <div className="relative z-10 max-w-xl w-full">
         {/* Header */}
         <div className="text-center mb-12 animate-in fade-in slide-in-from-top-8 duration-300 ease-out">
           <div className="inline-flex items-center gap-3 px-6 py-2.5 bg-secondary/5 rounded-full mb-8 border border-secondary/5">
@@ -239,7 +241,7 @@ function LoginForm() {
               }}
               className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'otp'
-                  ? 'bg-secondary text-white dark:bg-primary dark:text-white shadow-xl shadow-secondary/20 border border-white/10'
+                  ? 'bg-secondary text-white dark:bg-primary-bright dark:text-white shadow-xl shadow-secondary/20 border border-white/10'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -258,7 +260,7 @@ function LoginForm() {
               onClick={() => setAuthMethod('password')}
               className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'password'
-                  ? 'bg-secondary text-white dark:bg-primary dark:text-white shadow-xl shadow-secondary/20 border border-white/10'
+                  ? 'bg-secondary text-white dark:bg-primary-bright dark:text-white shadow-xl shadow-secondary/20 border border-white/10'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >

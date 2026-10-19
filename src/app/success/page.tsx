@@ -4,6 +4,7 @@ import { CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { useCartStore } from '@/lib/store/cart';
 
@@ -18,8 +19,9 @@ export default function SuccessPage() {
   }, [clearCart]);
 
   return (
-    <div className="min-h-[80vh] bg-background flex items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
-      <div className="max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-raised text-center border border-border">
+    <div className="relative overflow-hidden min-h-[80vh] bg-background flex items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
+      <VgpuCivicConstellation className="pointer-events-none opacity-25" />
+      <div className="relative z-10 max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-raised text-center border border-border">
         <div className="bg-emerald-100 dark:bg-emerald-950/60 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
           <CheckCircle
             className="w-12 h-12 text-emerald-600 dark:text-emerald-400"
