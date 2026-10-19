@@ -244,7 +244,7 @@ export function ThemeToggle({ variant = 'icon' }: { variant?: 'icon' | 'block' |
         {/* Sensory luxury micro-tooltip on pointer devices */}
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-9 right-0 whitespace-nowrap rounded-lg bg-secondary/95 dark:bg-slate-800/95 backdrop-blur-md border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-white dark:text-slate-100 opacity-0 shadow-float transition-opacity duration-300 ease-out z-50 hover-capable:group-hover:opacity-100 hidden hover-capable:group-hover:flex items-center gap-1.5"
+          className="pointer-events-none absolute -bottom-9 right-0 whitespace-nowrap rounded-lg bg-secondary/95 dark:bg-slate-800/95 backdrop-blur-md border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-white dark:text-slate-100 opacity-0 shadow-float transition-opacity duration-300 ease-out z-50 hover-capable:flex hover-capable:group-hover:opacity-100 hidden items-center gap-1.5"
         >
           <span>
             {themeModeLabel(mode)}

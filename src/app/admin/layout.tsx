@@ -1,4 +1,5 @@
 import { AdminNav } from '@/components/admin/AdminNav';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { requireAdmin } from '@/lib/admin-auth';
 import { isE2EMode } from '@/lib/e2e-mode';
 
@@ -8,8 +9,9 @@ export const instant = false;
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();
   return (
-    <div className="bg-surface-card min-h-screen pt-(--header-h) pb-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="relative overflow-hidden bg-surface-card min-h-screen pt-(--header-h) pb-16">
+      <VgpuCivicConstellation className="pointer-events-none opacity-20" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {isE2EMode() && (
           <div
             role="status"

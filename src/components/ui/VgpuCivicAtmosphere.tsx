@@ -156,7 +156,7 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
 
     async function initVGPU() {
       try {
-        const { init, effect, frameLoop, surface, clock } = await import('vgpu');
+        const { init, effect, frame, frameLoop, surface, clock } = await import('vgpu');
         if (disposed) return;
 
         const canvas = canvasRef.current;
@@ -167,6 +167,13 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
           gpu.dispose();
           return;
         }
+
+        const rawDevice = (gpu as unknown as { device?: { lost?: Promise<unknown> } })?.device;
+        rawDevice?.lost?.then(() => {
+          if (!disposed) {
+            setIsWebGPUActive(false);
+          }
+        });
 
         setIsSupported(true);
         setIsWebGPUActive(true);
@@ -219,12 +226,36 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
         // Pre-warm the GPU render pipeline
         void atmosphere.compile(canvasSurface);
 
+        const renderFrame = (time: number) => {
+          targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+          currentEffective += (targetEffective - currentEffective) * 0.08;
+          const currentModeValue =
+            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+
+          atmosphere.set({
+            params: {
+              time,
+              width: currentWidth,
+              height: currentHeight,
+              mouseX: currentMouseX,
+              mouseY: currentMouseY,
+              intensity,
+              themeMode: currentModeValue,
+              effectiveTheme: currentEffective,
+            },
+          });
+
+          frame(gpu, (f) => f.pass(canvasSurface, atmosphere));
+        };
+
         const unsubscribeResize = canvasSurface.onResize(({ width, height }) => {
           currentWidth = width;
           currentHeight = height;
+          if (isReducedMotion) {
+            renderFrame(1.0);
+          }
         });
 
-        const timeTracker = clock(gpu);
         let isVisible = true;
 
         // Pause GPU frame updates when scrolled off screen
@@ -241,40 +272,53 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
           observer.observe(containerRef.current);
         }
 
-        const loop = frameLoop(gpu, (frame) => {
-          if (!isVisible) return;
+        const isReducedMotion =
+          typeof window !== 'undefined' &&
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-          // Smooth lerp mouse coords
-          currentMouseX += (targetMouseX - currentMouseX) * 0.06;
-          currentMouseY += (targetMouseY - currentMouseY) * 0.06;
+        let loop: { stop: () => void } | null = null;
 
-          // Smooth chromatic transition across theme toggles
-          targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
-          currentEffective += (targetEffective - currentEffective) * 0.08;
-          const currentModeValue =
-            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+        if (isReducedMotion) {
+          renderFrame(1.0);
+        } else {
+          const timeTracker = clock(gpu);
 
-          atmosphere.set({
-            params: {
-              time: timeTracker.time,
-              width: currentWidth,
-              height: currentHeight,
-              mouseX: currentMouseX,
-              mouseY: currentMouseY,
-              intensity,
-              themeMode: currentModeValue,
-              effectiveTheme: currentEffective,
-            },
+          loop = frameLoop(gpu, (f) => {
+            if (!isVisible) return;
+
+            // Smooth lerp mouse coords
+            currentMouseX += (targetMouseX - currentMouseX) * 0.06;
+            currentMouseY += (targetMouseY - currentMouseY) * 0.06;
+
+            // Smooth chromatic transition across theme toggles
+            targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+            currentEffective += (targetEffective - currentEffective) * 0.08;
+            const currentModeValue =
+              themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+
+            atmosphere.set({
+              params: {
+                time: timeTracker.time,
+                width: currentWidth,
+                height: currentHeight,
+                mouseX: currentMouseX,
+                mouseY: currentMouseY,
+                intensity,
+                themeMode: currentModeValue,
+                effectiveTheme: currentEffective,
+              },
+            });
+
+            f.pass(canvasSurface, atmosphere);
           });
-
-          frame.pass(canvasSurface, atmosphere);
-        });
+        }
 
         cleanupFn = () => {
           window.removeEventListener('mousemove', handleMouseMove);
           observer.disconnect();
           unsubscribeResize();
-          loop.stop();
+          loop?.stop();
           gpu.dispose();
           setIsWebGPUActive(false);
         };

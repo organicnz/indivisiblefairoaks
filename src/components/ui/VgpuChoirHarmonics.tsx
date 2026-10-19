@@ -139,7 +139,7 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
       }
 
       try {
-        const { init, surface, effect, frameLoop, clock } = await import('vgpu');
+        const { init, surface, effect, frame, frameLoop, clock } = await import('vgpu');
 
         if (disposed) return;
         const canvas = canvasRef.current;
@@ -151,6 +151,13 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
           gpu.dispose();
           return;
         }
+
+        const rawDevice = (gpu as unknown as { device?: { lost?: Promise<unknown> } })?.device;
+        rawDevice?.lost?.then(() => {
+          if (!disposed) {
+            setIsWebGPUActive(false);
+          }
+        });
 
         const canvasSurface = surface(gpu, canvas, { dpr: [1, 2] });
 
@@ -181,9 +188,34 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
         // Pre-warm the GPU render pipeline
         void harmonics.compile(canvasSurface);
 
+        const renderFrame = (time: number) => {
+          targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+          currentEffective += (targetEffective - currentEffective) * 0.08;
+          const currentModeValue =
+            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+
+          harmonics.set({
+            params: {
+              time,
+              width: currentWidth,
+              height: currentHeight,
+              mouseX: currentMouseX,
+              mouseY: currentMouseY,
+              intensity,
+              themeMode: currentModeValue,
+              effectiveTheme: currentEffective,
+            },
+          });
+
+          frame(gpu, (f) => f.pass(canvasSurface, harmonics));
+        };
+
         const unsubscribeResize = canvasSurface.onResize(({ width, height }) => {
           currentWidth = width;
           currentHeight = height;
+          if (isReducedMotion) {
+            renderFrame(1.0);
+          }
         });
 
         let isVisible = true;
@@ -195,40 +227,51 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
         setIsWebGPUActive(true);
         setIsSupported(true);
 
-        const timeTracker = clock(gpu);
+        const isReducedMotion =
+          typeof window !== 'undefined' &&
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        const loop = frameLoop(gpu, (frame) => {
-          if (!isVisible) return;
+        let loop: { stop: () => void } | null = null;
 
-          currentMouseX += (targetMouseX - currentMouseX) * 0.08;
-          currentMouseY += (targetMouseY - currentMouseY) * 0.08;
+        if (isReducedMotion) {
+          renderFrame(1.0);
+        } else {
+          const timeTracker = clock(gpu);
 
-          targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
-          currentEffective += (targetEffective - currentEffective) * 0.08;
-          const currentModeValue =
-            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+          loop = frameLoop(gpu, (f) => {
+            if (!isVisible) return;
 
-          harmonics.set({
-            params: {
-              time: timeTracker.time,
-              width: currentWidth,
-              height: currentHeight,
-              mouseX: currentMouseX,
-              mouseY: currentMouseY,
-              intensity,
-              themeMode: currentModeValue,
-              effectiveTheme: currentEffective,
-            },
+            currentMouseX += (targetMouseX - currentMouseX) * 0.08;
+            currentMouseY += (targetMouseY - currentMouseY) * 0.08;
+
+            targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+            currentEffective += (targetEffective - currentEffective) * 0.08;
+            const currentModeValue =
+              themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+
+            harmonics.set({
+              params: {
+                time: timeTracker.time,
+                width: currentWidth,
+                height: currentHeight,
+                mouseX: currentMouseX,
+                mouseY: currentMouseY,
+                intensity,
+                themeMode: currentModeValue,
+                effectiveTheme: currentEffective,
+              },
+            });
+
+            f.pass(canvasSurface, harmonics);
           });
-
-          frame.pass(canvasSurface, harmonics);
-        });
+        }
 
         cleanupFn = () => {
           window.removeEventListener('mousemove', handleMouseMove);
           observer.disconnect();
           unsubscribeResize();
-          loop.stop();
+          loop?.stop();
           gpu.dispose();
           setIsWebGPUActive(false);
         };

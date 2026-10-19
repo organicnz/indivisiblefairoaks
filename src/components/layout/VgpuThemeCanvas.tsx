@@ -455,19 +455,6 @@ export function VgpuThemeCanvas() {
     let vgpuClock: ReturnType<typeof clock> | null = null;
     let unsubResize: (() => void) | null = null;
 
-    const calibrateDimensions = () => {
-      const deviceDpr = Math.min(2.5, Math.max(1, window.devicePixelRatio || 1));
-      const w = window.innerWidth;
-      const h = Math.max(1, window.innerHeight);
-      if (canvas) {
-        canvas.width = Math.round(w * deviceDpr);
-        canvas.height = Math.round(h * deviceDpr);
-      }
-      aspectRef.current = w / h;
-      resolutionRef.current = [w, h];
-    };
-    calibrateDimensions();
-
     const onPointerMove = (e: MouseEvent | PointerEvent) => {
       const now = performance.now();
       const dt = Math.max(1, now - lastPointerTimeRef.current);
@@ -488,8 +475,17 @@ export function VgpuThemeCanvas() {
       pointerActiveRef.current = 0.0;
       pointerSpeedRef.current = 0.0;
     };
+
     const onResize = () => {
-      calibrateDimensions();
+      if (currentSurface) {
+        aspectRef.current = currentSurface.size[0] / Math.max(1, currentSurface.size[1]);
+        resolutionRef.current = [currentSurface.size[0], currentSurface.size[1]];
+      } else {
+        const w = window.innerWidth;
+        const h = Math.max(1, window.innerHeight);
+        aspectRef.current = w / h;
+        resolutionRef.current = [w, h];
+      }
     };
 
     window.addEventListener('resize', onResize, { passive: true });
@@ -497,7 +493,10 @@ export function VgpuThemeCanvas() {
     window.addEventListener('pointerleave', onPointerLeave, { passive: true });
 
     // Asynchronously initialize WebGPU via vgpu
-    void (async () => {
+    async function initVgpu() {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
       try {
         const vgpuModule = await import('vgpu');
         if (disposed) return;
@@ -512,42 +511,41 @@ export function VgpuThemeCanvas() {
         } = vgpuModule;
         vgpuFrame = frameFn;
 
-        gpuInstance = await init();
+        const gpu = await init();
         if (disposed) {
-          gpuInstance.dispose();
+          gpu.dispose();
           return;
         }
 
-        vgpuClock = clockFn(gpuInstance);
+        gpuInstance = gpu;
+        vgpuClock = clockFn(gpu);
 
         // Graceful device loss handling (e.g. system sleep, tab backgrounding)
-        const rawDevice = (gpuInstance as unknown as { device?: { lost?: Promise<unknown> } })
-          ?.device;
+        const rawDevice = (gpu as unknown as { device?: { lost?: Promise<unknown> } })?.device;
         rawDevice?.lost?.then(() => {
           if (!disposed) {
             gpuInstance = null;
             currentSurface = null;
             themeEffect = null;
             sharedGlobals = null;
+            vgpuClock = null;
+            vgpuFrame = null;
           }
         });
 
-        currentSurface = surface(gpuInstance, canvas, {
-          dpr: [1, Math.min(2.5, window.devicePixelRatio || 2)],
+        currentSurface = surface(gpu, canvas, {
+          dpr: [1, 2],
           clearColor: [0, 0, 0, 0],
         });
 
+        aspectRef.current = currentSurface.size[0] / Math.max(1, currentSurface.size[1]);
+        resolutionRef.current = [currentSurface.size[0], currentSurface.size[1]];
+
         // Bind reactive resize hook
-        if (typeof (currentSurface as { onResize?: unknown }).onResize === 'function') {
-          unsubResize = (
-            currentSurface as {
-              onResize: (cb: (size: { width: number; height: number }) => void) => () => void;
-            }
-          ).onResize(({ width, height }) => {
-            aspectRef.current = width / Math.max(1, height);
-            resolutionRef.current = [width, height];
-          });
-        }
+        unsubResize = currentSurface.onResize(({ width, height }) => {
+          aspectRef.current = width / Math.max(1, height);
+          resolutionRef.current = [width, height];
+        });
 
         const zeroWave = {
           origin: [0.5, 0.5],
@@ -608,7 +606,9 @@ export function VgpuThemeCanvas() {
       } catch {
         // Graceful fallback if WebGPU initialization fails
       }
-    })();
+    }
+
+    void initVgpu();
 
     // Animation frame step handler
     function step(currentTime: number) {
@@ -770,6 +770,10 @@ export function VgpuThemeCanvas() {
     // Listen to atomic theme transitions
     const unsubscribe = subscribeThemeHud((event: ThemeHudEvent) => {
       if (disposed) return;
+
+      if (!gpuInstance) {
+        void initVgpu();
+      }
 
       if (fadeTimeoutRef.current) {
         clearTimeout(fadeTimeoutRef.current);
