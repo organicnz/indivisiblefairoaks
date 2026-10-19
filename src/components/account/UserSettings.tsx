@@ -11,15 +11,44 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
+import { cycleThemeMode } from '@/components/layout/theme-store';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { CURRENCY_CODE } from '@/config/commerce';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { useSettingsStore } from '@/lib/store/settings';
 
+type GpuAccelerationStatus = 'detecting' | 'webgpu' | 'view-transitions' | 'reduced-motion';
+
 export function UserSettings() {
   const { dataPoints } = useDataPoints('account');
   const { settings, isLoading, error, errorReason, updateSettings } = useSettingsStore();
+  const [gpuStatus, setGpuStatus] = useState<GpuAccelerationStatus>('detecting');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setGpuStatus('reduced-motion');
+      return;
+    }
+
+    const navGpu = (navigator as unknown as { gpu?: { requestAdapter?: () => Promise<unknown> } })
+      ?.gpu;
+    if (navGpu && typeof navGpu.requestAdapter === 'function') {
+      navGpu
+        .requestAdapter()
+        .then((adapter: unknown) => {
+          setGpuStatus(adapter ? 'webgpu' : 'view-transitions');
+        })
+        .catch(() => {
+          setGpuStatus('view-transitions');
+        });
+    } else {
+      setGpuStatus('view-transitions');
+    }
+  }, []);
 
   const handleToggle = async (key: keyof typeof settings) => {
     await updateSettings({ [key]: !settings[key] });
@@ -240,17 +269,45 @@ export function UserSettings() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary-ink dark:text-primary-on-dark border border-primary/20 dark:border-primary-on-dark/30">
-                <Zap size={12} aria-hidden="true" />
-                WebGPU vGPU Ready
-              </span>
-              <kbd className="px-2 py-1 rounded bg-surface-muted border border-border text-xs font-mono text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2">
+              {gpuStatus === 'webgpu' ? (
+                <span
+                  data-testid="gpu-status-badge"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+                >
+                  <span
+                    className="size-1.5 rounded-full bg-emerald-500 animate-pulse"
+                    aria-hidden="true"
+                  />
+                  WebGPU vGPU Hardware Accelerated
+                </span>
+              ) : gpuStatus === 'reduced-motion' ? (
+                <span
+                  data-testid="gpu-status-badge"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/30"
+                >
+                  <span className="size-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+                  Accessible Motion Mode
+                </span>
+              ) : (
+                <span
+                  data-testid="gpu-status-badge"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary-ink dark:text-primary-on-dark border border-primary/20 dark:border-primary-on-dark/30"
+                >
+                  <Zap size={12} aria-hidden="true" />
+                  CSS View Transitions
+                </span>
+              )}
+              <kbd
+                className="px-2 py-1 rounded bg-surface-muted border border-border text-xs font-mono text-muted-foreground"
+                title="Global shortcut to toggle theme"
+              >
                 Shift + T
               </kbd>
             </div>
           </div>
-          <div className="p-4 bg-surface-muted rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+          <div className="p-4 bg-surface-muted rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
             <div>
               <p className="text-xs font-black text-foreground uppercase tracking-wider">
                 Palette Mode
@@ -261,6 +318,48 @@ export function UserSettings() {
               </p>
             </div>
             <ThemeToggle variant="segmented" />
+          </div>
+
+          {/* Interactive tactile test & shortcuts cluster */}
+          <div className="pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-muted-foreground font-medium">
+              <span className="font-bold text-foreground">Tactile Shortcuts:</span>
+              <span className="inline-flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 rounded bg-surface-muted border border-border font-mono text-[10px]">
+                  Shift+T
+                </kbd>{' '}
+                Cycle
+              </span>
+              <span className="text-muted-foreground/40">•</span>
+              <span className="inline-flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 rounded bg-surface-muted border border-border font-mono text-[10px]">
+                  Alt+1/2/3
+                </kbd>{' '}
+                Direct
+              </span>
+              <span className="text-muted-foreground/40">•</span>
+              <span className="inline-flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 rounded bg-surface-muted border border-border font-mono text-[10px]">
+                  [←·→]
+                </kbd>{' '}
+                HUD
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                cycleThemeMode('next', {
+                  x: Math.round(rect.left + rect.width / 2),
+                  y: Math.round(rect.top + rect.height / 2),
+                });
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-surface-card hover:bg-surface-muted border border-border hover:border-primary/40 text-foreground transition-all duration-200 active:scale-95 cursor-pointer shadow-xs self-start sm:self-auto"
+              title="Test the tactile WebGPU optical wavefront ripple"
+            >
+              <Sparkles size={12} className="text-accent-gold" aria-hidden="true" />
+              <span>Trigger Wavefront Ripple</span>
+            </button>
           </div>
         </div>
       </div>

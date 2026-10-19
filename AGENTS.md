@@ -569,7 +569,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
      against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 33 pre-commit guards, then lint → unit → coverage → types → build →
-  peer-deps → 93 Playwright specs (93 + no running tests). Migrations and Edge Functions are **not**
+  peer-deps → 95 Playwright specs (95 + no running tests). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
   migrations to the hosted project at 20:56 on 2026-10-04 while its sibling

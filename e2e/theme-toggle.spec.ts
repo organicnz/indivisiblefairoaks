@@ -104,4 +104,41 @@ test.describe('theme toggle', () => {
       'light'
     );
   });
+
+  test('Shift+T global shortcut toggles theme and reveals the ThemeHud pill', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+    await page.goto('/about');
+
+    const html = page.locator('html');
+    await expect(html).toHaveAttribute('data-theme', 'light');
+
+    // Press Shift+T on document
+    await page.keyboard.press('Shift+KeyT');
+
+    // ThemeHud should become visible with role="status"
+    const hud = page.locator('aside[role="status"]');
+    await expect(hud).toBeVisible();
+    await expect(hud).toHaveClass(/opacity-100/);
+
+    // Escape should dismiss the HUD immediately
+    await page.keyboard.press('Escape');
+    await expect(hud).toHaveClass(/opacity-0/);
+  });
+
+  test('ThemeHud allows switching modes directly using segmented buttons', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+    await page.goto('/about');
+
+    // Open HUD via Shift+T
+    await page.keyboard.press('Shift+KeyT');
+    const hud = page.locator('aside[role="status"]');
+    await expect(hud).toBeVisible();
+
+    // Click 'Dark' button inside HUD
+    const darkBtn = hud.locator('button[data-theme-mode="dark"]');
+    await darkBtn.click();
+
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    expect(await page.evaluate(() => localStorage.getItem('indivisible:theme-mode'))).toBe('dark');
+  });
 });
