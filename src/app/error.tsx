@@ -4,6 +4,7 @@ import * as Sentry from '@sentry/nextjs';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { reportClientError } from '@/lib/error-report';
 
@@ -24,8 +25,9 @@ export default function RouteError({
   }, [error]);
 
   return (
-    <div className="min-h-[70vh] bg-background text-foreground flex items-center justify-center px-4 pt-(--header-h) pb-16">
-      <div className="max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-float text-center border border-border">
+    <div className="relative overflow-hidden min-h-[70vh] bg-background text-foreground flex items-center justify-center px-4 pt-(--header-h) pb-16">
+      <VgpuCivicConstellation className="opacity-25" />
+      <div className="relative z-10 max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-float text-center border border-border">
         <div className="bg-primary/15 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
           <DataPoint
             as="span"
@@ -57,7 +59,7 @@ export default function RouteError({
           <button
             type="button"
             onClick={reset}
-            className="w-full py-5 px-8 bg-primary hover:bg-primary-dark dark:bg-primary-bright text-white font-black rounded-full transition-all uppercase tracking-[0.2em] text-sm cursor-pointer shadow-raised hover:shadow-float duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="w-full py-5 px-8 bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black rounded-full transition-all uppercase tracking-[0.2em] text-sm cursor-pointer shadow-raised hover:shadow-float duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <DataPoint as="span" name="error.btn.retry" initialData={dataPoints}>
               Try Again

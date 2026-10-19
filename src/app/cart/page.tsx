@@ -7,6 +7,7 @@ import { useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { StripeExpressCheckout } from '@/components/checkout/StripeExpressCheckout';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { SHIPPING_RATES } from '@/config/commerce';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { buildCheckoutItems } from '@/lib/checkout-validation';
@@ -95,36 +96,39 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="bg-background min-h-[70vh] flex flex-col items-center justify-center px-4 py-24 text-center">
-        <ShoppingCart
-          size={48}
-          className="mx-auto mb-6 text-muted-foreground/50"
-          aria-hidden="true"
-        />
-        <DataPoint
-          name="cart.empty.title"
-          as="h1"
-          initialData={dataPoints}
-          className="text-4xl font-black text-foreground uppercase tracking-tight mb-6"
-        >
-          Your Cart is Empty
-        </DataPoint>
-        <DataPoint
-          name="cart.empty.desc"
-          as="p"
-          initialData={dataPoints}
-          className="text-muted-foreground font-medium mb-10 max-w-sm"
-        >
-          Looks like you haven&apos;t added any gear yet. Let&apos;s get you equipped.
-        </DataPoint>
-        <Link
-          href="/products"
-          className="inline-block bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm shadow-xl shadow-primary/20"
-        >
-          <DataPoint name="cart.empty.btn" as="span" initialData={dataPoints}>
-            Start Shopping
+      <div className="relative overflow-hidden bg-background min-h-[70vh] flex flex-col items-center justify-center px-4 py-24 text-center">
+        <VgpuCivicConstellation className="opacity-25" />
+        <div className="relative z-10 max-w-md mx-auto">
+          <ShoppingCart
+            size={48}
+            className="mx-auto mb-6 text-muted-foreground/50"
+            aria-hidden="true"
+          />
+          <DataPoint
+            name="cart.empty.title"
+            as="h1"
+            initialData={dataPoints}
+            className="text-4xl font-black text-foreground uppercase tracking-tight mb-6"
+          >
+            Your Cart is Empty
           </DataPoint>
-        </Link>
+          <DataPoint
+            name="cart.empty.desc"
+            as="p"
+            initialData={dataPoints}
+            className="text-muted-foreground font-medium mb-10 max-w-sm"
+          >
+            Looks like you haven&apos;t added any gear yet. Let&apos;s get you equipped.
+          </DataPoint>
+          <Link
+            href="/products"
+            className="inline-block bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm shadow-xl shadow-primary/20"
+          >
+            <DataPoint name="cart.empty.btn" as="span" initialData={dataPoints}>
+              Start Shopping
+            </DataPoint>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -141,7 +145,7 @@ export default function CartPage() {
           >
             Your Cart
           </DataPoint>
-          <div className="h-1.5 w-24 bg-primary mt-3" />
+          <div className="h-1.5 w-24 bg-primary dark:bg-primary-bright mt-3" />
         </div>
 
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-12 lg:items-start">
@@ -260,7 +264,7 @@ export default function CartPage() {
 
           {/* Order summary */}
           <section className="mt-16 bg-surface-muted rounded-3xl px-6 py-8 sm:p-8 lg:mt-0 lg:col-span-5 border border-border shadow-sm sticky top-24">
-            <h2 className="text-xl font-black text-foreground uppercase tracking-widest mb-8 border-b-2 border-primary pb-2 inline-block">
+            <h2 className="text-xl font-black text-foreground uppercase tracking-widest mb-8 border-b-2 border-primary dark:border-primary-bright pb-2 inline-block">
               <DataPoint name="cart.summary.heading" initialData={dataPoints}>
                 Order Summary
               </DataPoint>
@@ -316,7 +320,7 @@ export default function CartPage() {
                 type="button"
                 onClick={handleCheckout}
                 disabled={isLoading}
-                className="w-full bg-primary hover:bg-primary-dark dark:bg-primary-bright text-white rounded-full py-5 px-6 text-sm font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out shadow-raised hover:shadow-float flex justify-center items-center disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                className="w-full bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white rounded-full py-5 px-6 text-sm font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out shadow-raised hover:shadow-float flex justify-center items-center disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 {isLoading ? (
                   <DataPoint name="cart.btn.processing" as="span" initialData={dataPoints}>

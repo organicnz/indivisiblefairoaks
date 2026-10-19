@@ -45,7 +45,7 @@ export function UserSettings() {
             Preferences
           </DataPoint>
         </h2>
-        <div className="h-1 w-12 bg-primary" />
+        <div className="h-1 w-12 bg-primary dark:bg-primary-bright" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -237,7 +237,7 @@ export function UserSettings() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary-light border border-primary-light/20">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary-ink dark:text-primary-on-dark border border-primary/20 dark:border-primary-on-dark/30">
                 <Zap size={12} aria-hidden="true" />
                 WebGPU vGPU Ready
               </span>

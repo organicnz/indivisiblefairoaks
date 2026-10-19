@@ -192,13 +192,16 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
 
         window.addEventListener('mousemove', handleMouseMove, { passive: true });
 
+        let currentWidth = canvasSurface.size[0];
+        let currentHeight = canvasSurface.size[1];
+
         const atmosphere = effect(gpu, WGSL_ATMOSPHERE, {
           label: 'civic-atmosphere',
           set: {
             params: {
               time: 0,
-              width: canvasSurface.size[0],
-              height: canvasSurface.size[1],
+              width: currentWidth,
+              height: currentHeight,
               mouseX: currentMouseX,
               mouseY: currentMouseY,
               intensity,
@@ -213,10 +216,12 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
           },
         });
 
+        // Pre-warm the GPU render pipeline
+        void atmosphere.compile(canvasSurface);
+
         const unsubscribeResize = canvasSurface.onResize(({ width, height }) => {
-          atmosphere.set({
-            params: { width, height },
-          });
+          currentWidth = width;
+          currentHeight = height;
         });
 
         const timeTracker = clock(gpu);
@@ -252,8 +257,11 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
           atmosphere.set({
             params: {
               time: timeTracker.time,
+              width: currentWidth,
+              height: currentHeight,
               mouseX: currentMouseX,
               mouseY: currentMouseY,
+              intensity,
               themeMode: currentModeValue,
               effectiveTheme: currentEffective,
             },

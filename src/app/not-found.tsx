@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { NOT_FOUND_ROUTES } from '@/config/routes';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
@@ -9,8 +10,9 @@ export default function NotFound() {
   const { dataPoints } = useDataPoints('notfound');
 
   return (
-    <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 pt-(--header-h) pb-24 text-center bg-background text-foreground">
-      <div className="max-w-xl">
+    <div className="relative overflow-hidden min-h-[70vh] flex flex-col items-center justify-center px-4 pt-(--header-h) pb-24 text-center bg-background text-foreground">
+      <VgpuCivicConstellation className="opacity-25" />
+      <div className="max-w-xl relative z-10">
         <DataPoint
           as="p"
           name="notfound.badge"
@@ -41,7 +43,7 @@ export default function NotFound() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center mb-12">
           <Link
             href="/"
-            className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-primary hover:bg-primary-dark dark:bg-primary-bright text-white font-black uppercase tracking-[0.2em] text-xs shadow-raised hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors duration-300 ease-out"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black uppercase tracking-[0.2em] text-xs shadow-raised hover:shadow-float focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-colors duration-300 ease-out"
           >
             <DataPoint as="span" name="notfound.btn.home" initialData={dataPoints}>
               Go to homepage

@@ -175,29 +175,25 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
 
         window.addEventListener('mousemove', handleMouseMove, { passive: true });
 
+        let currentWidth = 1920;
+        let currentHeight = 1080;
+
+        // Pre-warm the GPU render pipeline
+        void harmonics.compile(canvasSurface);
+
         const updateDims = () => {
           const rect = container.getBoundingClientRect();
           const dpr = Math.min(window.devicePixelRatio || 1, 2);
           const w = Math.floor(rect.width * dpr);
           const h = Math.floor(rect.height * dpr);
 
+          currentWidth = rect.width;
+          currentHeight = rect.height;
+
           if (canvas.width !== w || canvas.height !== h) {
             canvas.width = Math.max(w, 1);
             canvas.height = Math.max(h, 1);
           }
-
-          const currentModeValue =
-            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
-
-          harmonics.set({
-            params: {
-              width: rect.width,
-              height: rect.height,
-              intensity,
-              themeMode: currentModeValue,
-              effectiveTheme: currentEffective,
-            },
-          });
         };
 
         updateDims();
@@ -235,8 +231,11 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
           harmonics.set({
             params: {
               time: timeTracker.time,
+              width: currentWidth,
+              height: currentHeight,
               mouseX: currentMouseX,
               mouseY: currentMouseY,
+              intensity,
               themeMode: currentModeValue,
               effectiveTheme: currentEffective,
             },

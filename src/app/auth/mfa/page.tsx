@@ -286,23 +286,25 @@ export function MfaChallengePage() {
         tone="error"
         icon={<ShieldAlert size={32} aria-hidden="true" />}
       >
-        <p className="text-slate-600 mb-8 font-medium leading-relaxed">
+        <p className="text-muted-foreground mb-8 font-medium leading-relaxed">
           <DataPoint as="span" name="auth.mfa.unreadable_desc">
             Your sign-in worked, but we could not read your authenticator setup. Nothing has been
             changed and nothing is locked.
           </DataPoint>
         </p>
-        <p className="text-xs text-slate-400 font-medium mb-10 break-words">{outcome.detail}</p>
+        <p className="text-xs text-muted-foreground font-medium mb-10 break-words">
+          {outcome.detail}
+        </p>
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="w-full bg-secondary text-white font-black rounded-full py-5 uppercase tracking-[0.2em] text-sm transition-all hover:bg-primary disabled:opacity-50"
+          className="w-full bg-secondary dark:bg-primary-bright text-white font-black rounded-full py-5 uppercase tracking-[0.2em] text-sm transition-all hover:bg-primary dark:hover:bg-primary-light disabled:opacity-50"
         >
           <DataPoint as="span" name="auth.mfa.unreadable_btn_retry">
             Try again
           </DataPoint>
         </button>
-        <p className="mt-6 text-xs text-slate-500 font-medium">
+        <p className="mt-6 text-xs text-muted-foreground font-medium">
           <DataPoint as="span" name="auth.mfa.unreadable_help">
             Still failing? Sign out and back in.
           </DataPoint>{' '}
@@ -330,12 +332,12 @@ export function MfaChallengePage() {
         tone="error"
         icon={<ShieldAlert size={32} aria-hidden="true" />}
       >
-        <p className="text-slate-600 mb-8 font-medium leading-relaxed">
+        <p className="text-muted-foreground mb-8 font-medium leading-relaxed">
           <DataPoint as="span" name="auth.mfa.no_factor_desc">
             This account cannot ask for a verification code, so there is nothing to enter here.
           </DataPoint>
         </p>
-        <p className="text-sm text-slate-500 font-medium mb-10">
+        <p className="text-sm text-muted-foreground font-medium mb-10">
           {outcome.factorTypes.length > 0 ? (
             <>
               This account has a{' '}
@@ -357,7 +359,7 @@ export function MfaChallengePage() {
         </p>
         <a
           href="/account?tab=settings"
-          className="inline-flex w-full items-center justify-center bg-primary text-white font-black rounded-full py-5 uppercase tracking-[0.2em] text-sm transition-all hover:bg-primary-dark"
+          className="inline-flex w-full items-center justify-center bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 uppercase tracking-[0.2em] text-sm transition-all hover:bg-primary-dark dark:hover:bg-primary-light"
         >
           <DataPoint as="span" name="auth.mfa.no_factor_btn_settings">
             Go to account settings
@@ -377,7 +379,7 @@ export function MfaChallengePage() {
       tone="normal"
       icon={<ShieldCheck size={32} aria-hidden="true" />}
     >
-      <p className="text-slate-600 dark:text-ink-on-dark mb-10 font-medium leading-relaxed">
+      <p className="text-muted-foreground mb-10 font-medium leading-relaxed">
         <DataPoint as="span" name="auth.mfa.challenge_desc">
           Please enter the verification code from your authenticator app to continue.
         </DataPoint>
@@ -424,7 +426,7 @@ export function MfaChallengePage() {
           type="submit"
           disabled={loading || code.length < 6}
           aria-busy={loading}
-          className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20 disabled:opacity-50"
+          className="w-full bg-primary dark:bg-primary-bright text-white font-black rounded-full py-5 hover:bg-primary-dark dark:hover:bg-primary-light transition-all uppercase tracking-[0.2em] text-sm shadow-xl shadow-primary/20 disabled:opacity-50"
         >
           {loading ? (
             <DataPoint as="span" name="auth.mfa.challenge_btn_verifying">

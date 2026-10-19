@@ -277,7 +277,7 @@ export default async function AccountPage(props: {
               {isAdmin ? 'Dashboard' : 'My Account'}
             </DataPoint>
           </h1>
-          <div className="h-1.5 w-24 bg-primary mt-3" />
+          <div className="h-1.5 w-24 bg-primary dark:bg-primary-bright mt-3" />
         </div>
         <AccountTabShell tabs={tabs} activeTab={activeTab}>
           {panel}
