@@ -4,6 +4,7 @@ import { Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase';
 
@@ -484,8 +485,9 @@ function Shell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-[80vh] bg-background flex items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
-      <div className="max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-raised text-center border border-border">
+    <div className="relative overflow-hidden min-h-[80vh] bg-background flex items-center justify-center px-4 pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
+      <VgpuCivicConstellation className="pointer-events-none opacity-25" />
+      <div className="relative z-10 max-w-md w-full bg-surface-card p-10 rounded-3xl shadow-raised text-center border border-border backdrop-blur-md">
         <div className="flex flex-col items-center mb-8">
           <div
             className={`p-4 rounded-2xl mb-4 ${tone === 'error' ? 'bg-rose-50 dark:bg-rose-950/50 text-accent-red' : 'bg-primary/10 text-primary dark:text-primary-on-dark'}`}

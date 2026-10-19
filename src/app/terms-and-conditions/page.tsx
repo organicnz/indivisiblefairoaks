@@ -1,12 +1,14 @@
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { getDataPoints } from '@/lib/queries/civic';
 
 export default async function TermsPage() {
   const dataPoints = await getDataPoints('terms');
 
   return (
-    <div className="bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8 text-foreground transition-colors duration-300">
-      <div className="max-w-3xl mx-auto">
+    <div className="relative overflow-hidden bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8 text-foreground transition-colors duration-300">
+      <VgpuCivicConstellation className="pointer-events-none opacity-20" />
+      <div className="relative z-10 max-w-3xl mx-auto">
         <DataPoint
           name="terms.hero.title"
           as="h1"

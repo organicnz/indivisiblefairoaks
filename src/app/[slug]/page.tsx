@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { ROBOTS, siteUrl } from '@/config/site';
 import { isCopyRegionSlug } from '@/lib/copy-regions';
 import { pageMetadata } from '@/lib/metadata';
@@ -164,7 +165,8 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
   const jsonLd = [breadcrumbJsonLd, articleJsonLd].filter(Boolean);
 
   return (
-    <div className="bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="relative overflow-hidden bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8 text-foreground transition-colors duration-300">
+      <VgpuCivicConstellation className="pointer-events-none opacity-20" />
       {jsonLd.length > 0 && (
         <script
           type="application/ld+json"
@@ -172,12 +174,12 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
       )}
-      <div className="max-w-4xl mx-auto">
+      <div className="relative z-10 max-w-4xl mx-auto">
         <div className="flex flex-col mb-12">
           <h1 className="text-4xl md:text-5xl font-black tracking-tight text-foreground uppercase mb-4 leading-tight">
             {content.title}
           </h1>
-          <div className="h-2 w-24 bg-primary" />
+          <div className="h-2 w-24 bg-primary dark:bg-primary-bright" />
           {content.type === 'post' && content.created_at && (
             <time
               dateTime={content.created_at}

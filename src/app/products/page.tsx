@@ -43,6 +43,7 @@ export async function generateMetadata({
 
 import { ProductCard } from '@/components/products/ProductCard';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { getDataPoints } from '@/lib/queries/civic';
 
 // Deliberate Cache Components opt-out (Block): per-category SEO titles require
@@ -101,12 +102,13 @@ export default async function ProductsPage({
   }));
 
   return (
-    <div className="bg-background min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12">
+    <div className="relative overflow-hidden bg-background min-h-screen text-foreground transition-colors duration-300">
+      <VgpuCivicConstellation className="pointer-events-none opacity-15" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12">
         <div className="flex flex-col md:flex-row gap-12">
           {/* Sidebar / Categories */}
           <div className="w-full md:w-64 shrink-0">
-            <h2 className="text-xl font-black text-foreground uppercase tracking-widest mb-6 border-b-2 border-primary pb-2 inline-block">
+            <h2 className="text-xl font-black text-foreground uppercase tracking-widest mb-6 border-b-2 border-primary dark:border-primary-bright pb-2 inline-block">
               <DataPoint name="products.sidebar.categories" initialData={dataPoints}>
                 Categories
               </DataPoint>
@@ -115,7 +117,7 @@ export default async function ProductsPage({
               <li>
                 <Link
                   href="/products"
-                  className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${!categorySlug ? 'bg-primary text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark'}`}
+                  className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${!categorySlug ? 'bg-primary dark:bg-primary-bright text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark'}`}
                 >
                   <DataPoint name="products.sidebar.all" initialData={dataPoints}>
                     All Gear
@@ -126,7 +128,7 @@ export default async function ProductsPage({
                 <li key={category.id}>
                   <Link
                     href={`/products?category=${category.slug}`}
-                    className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${categorySlug === category.slug ? 'bg-primary text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark'}`}
+                    className={`block px-4 py-3 rounded-lg text-sm font-bold uppercase tracking-wider transition-all ${categorySlug === category.slug ? 'bg-primary dark:bg-primary-bright text-white shadow-md' : 'text-foreground hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark'}`}
                   >
                     {category.name}
                   </Link>
@@ -147,7 +149,7 @@ export default async function ProductsPage({
               </p>
               <Link
                 href="/contact"
-                className="text-xs font-black text-primary-ink uppercase hover:underline"
+                className="text-xs font-black text-primary-ink dark:text-primary-on-dark uppercase hover:underline"
               >
                 <DataPoint name="products.sidebar.contact_cta" initialData={dataPoints}>
                   Contact Us &rarr;
@@ -164,7 +166,7 @@ export default async function ProductsPage({
                   ? categories?.find((c) => c.slug === categorySlug)?.name || 'Gear'
                   : 'All Gear'}
               </h1>
-              <div className="h-1.5 w-24 bg-primary mt-3" />
+              <div className="h-1.5 w-24 bg-primary dark:bg-primary-bright mt-3" />
             </div>
 
             {products?.length === 0 ? (

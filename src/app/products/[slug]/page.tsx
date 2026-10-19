@@ -8,6 +8,7 @@ import { AddToCartButton } from '@/components/checkout/AddToCartButton';
 import { ProductSlider } from '@/components/products/ProductSlider';
 import { WishlistButton } from '@/components/products/WishlistButton';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { CURRENCY_CODE, SHIPPING_RATES } from '@/config/commerce';
 import { ROBOTS, SITE_NAME, siteUrl } from '@/config/site';
 import { pageMetadata } from '@/lib/metadata';
@@ -200,13 +201,14 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
     categoryIds.length > 0 ? await getRelatedProducts(product.id, categoryIds) : [];
 
   return (
-    <div className="bg-background min-h-screen">
+    <div className="relative overflow-hidden bg-background min-h-screen text-foreground transition-colors duration-300">
+      <VgpuCivicConstellation className="pointer-events-none opacity-15" />
       <script
         type="application/ld+json"
         // Structured data, not WP content: sanitizeWPContent intentionally not applied
         dangerouslySetInnerHTML={{ __html: serializeJsonLd([jsonLd, breadcrumbLd]) }}
       />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12 sm:py-20">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-(--header-h) pb-12 sm:py-20">
         <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
           {/* Image gallery */}
           <div className="flex flex-col">

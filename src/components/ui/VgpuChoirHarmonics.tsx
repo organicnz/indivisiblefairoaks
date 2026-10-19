@@ -152,7 +152,7 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
           return;
         }
 
-        const canvasSurface = surface(gpu, canvas);
+        const canvasSurface = surface(gpu, canvas, { dpr: [1, 2] });
 
         const harmonics = effect(gpu, WGSL_CHOIR_HARMONICS);
 
@@ -175,30 +175,15 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
 
         window.addEventListener('mousemove', handleMouseMove, { passive: true });
 
-        let currentWidth = 1920;
-        let currentHeight = 1080;
+        let currentWidth = canvasSurface.size[0];
+        let currentHeight = canvasSurface.size[1];
 
         // Pre-warm the GPU render pipeline
         void harmonics.compile(canvasSurface);
 
-        const updateDims = () => {
-          const rect = container.getBoundingClientRect();
-          const dpr = Math.min(window.devicePixelRatio || 1, 2);
-          const w = Math.floor(rect.width * dpr);
-          const h = Math.floor(rect.height * dpr);
-
-          currentWidth = rect.width;
-          currentHeight = rect.height;
-
-          if (canvas.width !== w || canvas.height !== h) {
-            canvas.width = Math.max(w, 1);
-            canvas.height = Math.max(h, 1);
-          }
-        };
-
-        updateDims();
-        const unsubscribeResize = canvasSurface.onResize(() => {
-          updateDims();
+        const unsubscribeResize = canvasSurface.onResize(({ width, height }) => {
+          currentWidth = width;
+          currentHeight = height;
         });
 
         let isVisible = true;

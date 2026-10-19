@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { effect, frame, init, surface, uniforms } from 'vgpu';
+import type { clock, effect, frame, init, surface, uniforms } from 'vgpu';
 import { subscribeThemeHud, type ThemeHudEvent } from './theme-store';
 
 type GpuContext = Awaited<ReturnType<typeof init>>;
@@ -452,6 +452,7 @@ export function VgpuThemeCanvas() {
     let themeEffect: GpuEffect | null = null;
     let sharedGlobals: GpuUniforms | null = null;
     let vgpuFrame: typeof frame | null = null;
+    let vgpuClock: ReturnType<typeof clock> | null = null;
     let unsubResize: (() => void) | null = null;
 
     const calibrateDimensions = () => {
@@ -501,7 +502,14 @@ export function VgpuThemeCanvas() {
         const vgpuModule = await import('vgpu');
         if (disposed) return;
 
-        const { init, effect, surface, frame: frameFn, uniforms: uniformsFn } = vgpuModule;
+        const {
+          init,
+          effect,
+          surface,
+          frame: frameFn,
+          uniforms: uniformsFn,
+          clock: clockFn,
+        } = vgpuModule;
         vgpuFrame = frameFn;
 
         gpuInstance = await init();
@@ -509,6 +517,8 @@ export function VgpuThemeCanvas() {
           gpuInstance.dispose();
           return;
         }
+
+        vgpuClock = clockFn(gpuInstance);
 
         // Graceful device loss handling (e.g. system sleep, tab backgrounding)
         const rawDevice = (gpuInstance as unknown as { device?: { lost?: Promise<unknown> } })
@@ -635,7 +645,7 @@ export function VgpuThemeCanvas() {
 
       const updateData = {
         aspect: aspectRef.current,
-        time: currentTime * 0.001,
+        time: vgpuClock ? vgpuClock.time : currentTime * 0.001,
         resolution: resolutionRef.current,
         mouse: pointerRef.current,
         pointerActive: pointerActiveRef.current,

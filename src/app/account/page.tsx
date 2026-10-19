@@ -8,6 +8,7 @@ import { MfaSettings } from '@/components/account/MfaSettings';
 import { MyOrdersPanel } from '@/components/account/MyOrdersPanel';
 import { UserSettings } from '@/components/account/UserSettings';
 import { DataPoint } from '@/components/ui/DataPoint';
+import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { getDataPoints } from '@/lib/queries/civic';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 import type { AdminOrder, MyOrder } from '@/types/orders';
@@ -185,8 +186,9 @@ export default async function AccountPage(props: {
   }
 
   return (
-    <div className="bg-background min-h-screen pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="relative overflow-hidden bg-background min-h-screen pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
+      <VgpuCivicConstellation className="pointer-events-none opacity-20" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Admin Restricted Notice */}
         {sp.error === 'admin_required' && (
           <div className="mb-8 p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-4 text-amber-950 dark:text-amber-200 animate-in fade-in">
