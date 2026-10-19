@@ -138,25 +138,43 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
   const { mode, effective } = useThemeMode();
   const themeModeRef = useRef(mode);
   const effectiveThemeRef = useRef(effective);
+  const isReducedMotionRef = useRef(false);
+  const renderFrameRef = useRef<((time: number) => void) | null>(null);
 
   useEffect(() => {
     themeModeRef.current = mode;
     effectiveThemeRef.current = effective;
+    if (isReducedMotionRef.current && renderFrameRef.current) {
+      renderFrameRef.current(1.0);
+    }
   }, [mode, effective]);
 
   useEffect(() => {
     let disposed = false;
     let cleanupFn: (() => void) | null = null;
 
-    // Check WebGPU availability
+    // Check reduced motion and WebGPU support before any GPU work
     if (typeof window === 'undefined' || !('gpu' in navigator)) {
       setIsSupported(false);
       return;
     }
 
+    const isReducedMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    isReducedMotionRef.current = isReducedMotion;
+
     async function initVGPU() {
       try {
-        const { init, effect, frame, frameLoop, surface, clock } = await import('vgpu');
+        const {
+          init,
+          effect,
+          frame,
+          frameLoop,
+          surface,
+          clock,
+          uniforms: uniformsFn,
+        } = await import('vgpu');
         if (disposed) return;
 
         const canvas = canvasRef.current;
@@ -178,7 +196,7 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
         setIsSupported(true);
         setIsWebGPUActive(true);
 
-        const canvasSurface = surface(gpu, canvas, { dpr: [1, 2] });
+        const canvasSurface = surface(gpu, canvas, { dpr: [1, 2.5] });
 
         let currentMouseX = 0.5;
         let currentMouseY = 0.5;
@@ -202,25 +220,22 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
         let currentWidth = canvasSurface.size[0];
         let currentHeight = canvasSurface.size[1];
 
+        // Shared GPU uniform buffer — zero-allocation per-frame updates
+        const sharedParams = uniformsFn(gpu, {
+          time: 0,
+          width: currentWidth,
+          height: currentHeight,
+          mouseX: currentMouseX,
+          mouseY: currentMouseY,
+          intensity,
+          themeMode:
+            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0,
+          effectiveTheme: currentEffective,
+        });
+
         const atmosphere = effect(gpu, WGSL_ATMOSPHERE, {
           label: 'civic-atmosphere',
-          set: {
-            params: {
-              time: 0,
-              width: currentWidth,
-              height: currentHeight,
-              mouseX: currentMouseX,
-              mouseY: currentMouseY,
-              intensity,
-              themeMode:
-                themeModeRef.current === 'dark'
-                  ? 2.0
-                  : themeModeRef.current === 'light'
-                    ? 1.0
-                    : 0.0,
-              effectiveTheme: currentEffective,
-            },
-          },
+          set: { params: sharedParams },
         });
 
         // Pre-warm the GPU render pipeline
@@ -228,25 +243,24 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
-          currentEffective += (targetEffective - currentEffective) * 0.08;
+          currentEffective = targetEffective;
           const currentModeValue =
             themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
 
-          atmosphere.set({
-            params: {
-              time,
-              width: currentWidth,
-              height: currentHeight,
-              mouseX: currentMouseX,
-              mouseY: currentMouseY,
-              intensity,
-              themeMode: currentModeValue,
-              effectiveTheme: currentEffective,
-            },
+          sharedParams.set({
+            time,
+            width: currentWidth,
+            height: currentHeight,
+            mouseX: currentMouseX,
+            mouseY: currentMouseY,
+            intensity,
+            themeMode: currentModeValue,
+            effectiveTheme: currentEffective,
           });
 
           frame(gpu, (f) => f.pass(canvasSurface, atmosphere));
         };
+        renderFrameRef.current = renderFrame;
 
         const unsubscribeResize = canvasSurface.onResize(({ width, height }) => {
           currentWidth = width;
@@ -272,11 +286,6 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
           observer.observe(containerRef.current);
         }
 
-        const isReducedMotion =
-          typeof window !== 'undefined' &&
-          typeof window.matchMedia === 'function' &&
-          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
         let loop: { stop: () => void } | null = null;
 
         if (isReducedMotion) {
@@ -297,17 +306,15 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
             const currentModeValue =
               themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
 
-            atmosphere.set({
-              params: {
-                time: timeTracker.time,
-                width: currentWidth,
-                height: currentHeight,
-                mouseX: currentMouseX,
-                mouseY: currentMouseY,
-                intensity,
-                themeMode: currentModeValue,
-                effectiveTheme: currentEffective,
-              },
+            sharedParams.set({
+              time: timeTracker.time,
+              width: currentWidth,
+              height: currentHeight,
+              mouseX: currentMouseX,
+              mouseY: currentMouseY,
+              intensity,
+              themeMode: currentModeValue,
+              effectiveTheme: currentEffective,
             });
 
             f.pass(canvasSurface, atmosphere);
@@ -315,6 +322,7 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
         }
 
         cleanupFn = () => {
+          renderFrameRef.current = null;
           window.removeEventListener('mousemove', handleMouseMove);
           observer.disconnect();
           unsubscribeResize();

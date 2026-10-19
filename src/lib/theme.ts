@@ -263,6 +263,9 @@ export function playThemeHaptic(
     if (!AudioCtx) return;
 
     const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') {
+      void ctx.resume();
+    }
     const now = ctx.currentTime;
     const osc = ctx.createOscillator();
     const oscOvertone = typeof ctx.createOscillator === 'function' ? ctx.createOscillator() : null;

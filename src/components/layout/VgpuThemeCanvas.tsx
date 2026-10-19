@@ -534,7 +534,7 @@ export function VgpuThemeCanvas() {
         });
 
         currentSurface = surface(gpu, canvas, {
-          dpr: [1, 2],
+          dpr: [1, 2.5],
           clearColor: [0, 0, 0, 0],
         });
 

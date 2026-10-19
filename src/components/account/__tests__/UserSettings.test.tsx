@@ -163,4 +163,13 @@ describe('UserSettings component', () => {
 
     expect(mockUpdateSettings).toHaveBeenCalledWith({ marketing_emails: true });
   });
+
+  it('renders active optical profile physics description based on theme mode', async () => {
+    await act(async () => {
+      root.render(<UserSettings />);
+    });
+
+    const text = container.textContent;
+    expect(text).toContain('Optical Profile:');
+  });
 });

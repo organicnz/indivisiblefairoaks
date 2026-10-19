@@ -422,7 +422,7 @@ export function ThemeHud() {
         <span
           key={hudEvent.timestamp}
           aria-hidden="true"
-          className={`absolute bottom-0 left-0 h-[2.5px] rounded-b-full transition-colors duration-300 group-hover:[animation-play-state:paused] ${
+          className={`absolute bottom-0 left-0 h-[2.5px] rounded-b-full transition-colors duration-300 group-hover:[animation-play-state:paused] group-focus-within:[animation-play-state:paused] ${
             hudEvent.mode === 'dark'
               ? 'bg-sky-400'
               : hudEvent.mode === 'light'

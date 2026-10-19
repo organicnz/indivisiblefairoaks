@@ -45,4 +45,29 @@ describe('VgpuCivicAtmosphere component', () => {
       });
     }).not.toThrow();
   });
+
+  it('respects prefers-reduced-motion without throwing in static rendering mode', async () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+
+    try {
+      await act(async () => {
+        root.render(<VgpuCivicAtmosphere />);
+      });
+
+      const canvas = container.querySelector('canvas');
+      expect(canvas).not.toBeNull();
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
 });

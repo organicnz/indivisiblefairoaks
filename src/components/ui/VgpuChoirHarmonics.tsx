@@ -122,24 +122,43 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
   const { mode, effective } = useThemeMode();
   const themeModeRef = useRef(mode);
   const effectiveThemeRef = useRef(effective);
+  const isReducedMotionRef = useRef(false);
+  const renderFrameRef = useRef<((time: number) => void) | null>(null);
 
   useEffect(() => {
     themeModeRef.current = mode;
     effectiveThemeRef.current = effective;
+    if (isReducedMotionRef.current && renderFrameRef.current) {
+      renderFrameRef.current(1.0);
+    }
   }, [mode, effective]);
 
   useEffect(() => {
     let cleanupFn: (() => void) | null = null;
     let disposed = false;
 
-    async function initHarmonics() {
-      if (typeof window === 'undefined' || !('gpu' in navigator)) {
-        setIsSupported(false);
-        return;
-      }
+    // Check reduced motion and WebGPU support before any GPU work
+    if (typeof window === 'undefined' || !('gpu' in navigator)) {
+      setIsSupported(false);
+      return;
+    }
 
+    const isReducedMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    isReducedMotionRef.current = isReducedMotion;
+
+    async function initHarmonics() {
       try {
-        const { init, surface, effect, frame, frameLoop, clock } = await import('vgpu');
+        const {
+          init,
+          surface,
+          effect,
+          frame,
+          frameLoop,
+          clock,
+          uniforms: uniformsFn,
+        } = await import('vgpu');
 
         if (disposed) return;
         const canvas = canvasRef.current;
@@ -159,9 +178,25 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
           }
         });
 
-        const canvasSurface = surface(gpu, canvas, { dpr: [1, 2] });
+        const canvasSurface = surface(gpu, canvas, { dpr: [1, 2.5] });
 
-        const harmonics = effect(gpu, WGSL_CHOIR_HARMONICS);
+        // Shared GPU uniform buffer — zero-allocation per-frame updates
+        const sharedParams = uniformsFn(gpu, {
+          time: 0,
+          width: canvasSurface.size[0],
+          height: canvasSurface.size[1],
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity,
+          themeMode:
+            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0,
+          effectiveTheme: effectiveThemeRef.current === 'dark' ? 1.0 : 0.0,
+        });
+
+        const harmonics = effect(gpu, WGSL_CHOIR_HARMONICS, {
+          label: 'choir-harmonics',
+          set: { params: sharedParams },
+        });
 
         let targetMouseX = 0.5;
         let targetMouseY = 0.5;
@@ -190,25 +225,24 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
-          currentEffective += (targetEffective - currentEffective) * 0.08;
+          currentEffective = targetEffective;
           const currentModeValue =
             themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
 
-          harmonics.set({
-            params: {
-              time,
-              width: currentWidth,
-              height: currentHeight,
-              mouseX: currentMouseX,
-              mouseY: currentMouseY,
-              intensity,
-              themeMode: currentModeValue,
-              effectiveTheme: currentEffective,
-            },
+          sharedParams.set({
+            time,
+            width: currentWidth,
+            height: currentHeight,
+            mouseX: currentMouseX,
+            mouseY: currentMouseY,
+            intensity,
+            themeMode: currentModeValue,
+            effectiveTheme: currentEffective,
           });
 
           frame(gpu, (f) => f.pass(canvasSurface, harmonics));
         };
+        renderFrameRef.current = renderFrame;
 
         const unsubscribeResize = canvasSurface.onResize(({ width, height }) => {
           currentWidth = width;
@@ -219,18 +253,16 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
         });
 
         let isVisible = true;
-        const observer = new IntersectionObserver(([entry]) => {
-          isVisible = entry.isIntersecting;
-        });
+        const observer = new IntersectionObserver(
+          ([entry]) => {
+            isVisible = entry.isIntersecting;
+          },
+          { threshold: 0.05 }
+        );
         observer.observe(container);
 
         setIsWebGPUActive(true);
         setIsSupported(true);
-
-        const isReducedMotion =
-          typeof window !== 'undefined' &&
-          typeof window.matchMedia === 'function' &&
-          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         let loop: { stop: () => void } | null = null;
 
@@ -250,17 +282,15 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
             const currentModeValue =
               themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
 
-            harmonics.set({
-              params: {
-                time: timeTracker.time,
-                width: currentWidth,
-                height: currentHeight,
-                mouseX: currentMouseX,
-                mouseY: currentMouseY,
-                intensity,
-                themeMode: currentModeValue,
-                effectiveTheme: currentEffective,
-              },
+            sharedParams.set({
+              time: timeTracker.time,
+              width: currentWidth,
+              height: currentHeight,
+              mouseX: currentMouseX,
+              mouseY: currentMouseY,
+              intensity,
+              themeMode: currentModeValue,
+              effectiveTheme: currentEffective,
             });
 
             f.pass(canvasSurface, harmonics);
@@ -268,6 +298,7 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
         }
 
         cleanupFn = () => {
+          renderFrameRef.current = null;
           window.removeEventListener('mousemove', handleMouseMove);
           observer.disconnect();
           unsubscribeResize();

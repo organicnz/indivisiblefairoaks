@@ -13,7 +13,7 @@ import {
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-import { cycleThemeMode } from '@/components/layout/theme-store';
+import { cycleThemeMode, useThemeMode } from '@/components/layout/theme-store';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { CURRENCY_CODE } from '@/config/commerce';
 import { useDataPoints } from '@/hooks/useDataPoints';
@@ -23,6 +23,7 @@ type GpuAccelerationStatus = 'detecting' | 'webgpu' | 'view-transitions' | 'redu
 
 export function UserSettings() {
   const { dataPoints } = useDataPoints('account');
+  const { mode: activeThemeMode, effective: activeEffective } = useThemeMode();
   const { settings, isLoading, error, errorReason, updateSettings } = useSettingsStore();
   const [gpuStatus, setGpuStatus] = useState<GpuAccelerationStatus>('detecting');
 
@@ -312,9 +313,22 @@ export function UserSettings() {
               <p className="text-xs font-black text-foreground uppercase tracking-wider">
                 Palette Mode
               </p>
-              <p className="text-[11px] text-muted-foreground font-medium">
+              <p className="text-[11px] text-muted-foreground font-medium mb-1">
                 Choose between daytime high contrast, obsidian slate dark mode, or follow your
                 device
+              </p>
+              <p className="text-[10px] text-primary-ink dark:text-primary-on-dark font-mono font-medium flex items-center gap-1.5">
+                <span
+                  className="size-1 rounded-full bg-primary dark:bg-primary-on-dark"
+                  aria-hidden="true"
+                />
+                Optical Profile:{' '}
+                {activeThemeMode === 'dark' ||
+                (activeThemeMode === 'system' && activeEffective === 'dark')
+                  ? 'Obsidian Gravitational Kerr Singularity & Relativistic Vortex'
+                  : activeThemeMode === 'light'
+                    ? 'Solar Diamond Caustics with Cauchy Chromatic Dispersion'
+                    : 'Quantum Bloch Sphere Geodesic Superposition'}
               </p>
             </div>
             <ThemeToggle variant="segmented" />

@@ -128,24 +128,43 @@ export function VgpuCivicConstellation({
   const { mode, effective } = useThemeMode();
   const themeModeRef = useRef(mode);
   const effectiveThemeRef = useRef(effective);
+  const isReducedMotionRef = useRef(false);
+  const renderFrameRef = useRef<((time: number) => void) | null>(null);
 
   useEffect(() => {
     themeModeRef.current = mode;
     effectiveThemeRef.current = effective;
+    if (isReducedMotionRef.current && renderFrameRef.current) {
+      renderFrameRef.current(1.0);
+    }
   }, [mode, effective]);
 
   useEffect(() => {
     let cleanupFn: (() => void) | null = null;
     let disposed = false;
 
-    async function initConstellation() {
-      if (typeof window === 'undefined' || !('gpu' in navigator)) {
-        setIsSupported(false);
-        return;
-      }
+    // Check reduced motion and WebGPU support before any GPU work
+    if (typeof window === 'undefined' || !('gpu' in navigator)) {
+      setIsSupported(false);
+      return;
+    }
 
+    const isReducedMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    isReducedMotionRef.current = isReducedMotion;
+
+    async function initConstellation() {
       try {
-        const { init, surface, effect, frame, frameLoop, clock } = await import('vgpu');
+        const {
+          init,
+          surface,
+          effect,
+          frame,
+          frameLoop,
+          clock,
+          uniforms: uniformsFn,
+        } = await import('vgpu');
 
         if (disposed) return;
         const canvas = canvasRef.current;
@@ -165,9 +184,25 @@ export function VgpuCivicConstellation({
           }
         });
 
-        const canvasSurface = surface(gpu, canvas, { dpr: [1, 2] });
+        const canvasSurface = surface(gpu, canvas, { dpr: [1, 2.5] });
 
-        const constellation = effect(gpu, WGSL_CONSTELLATION);
+        // Shared GPU uniform buffer — zero-allocation per-frame updates
+        const sharedParams = uniformsFn(gpu, {
+          time: 0,
+          width: canvasSurface.size[0],
+          height: canvasSurface.size[1],
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity,
+          themeMode:
+            themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0,
+          effectiveTheme: effectiveThemeRef.current === 'dark' ? 1.0 : 0.0,
+        });
+
+        const constellation = effect(gpu, WGSL_CONSTELLATION, {
+          label: 'civic-constellation',
+          set: { params: sharedParams },
+        });
 
         let targetMouseX = 0.5;
         let targetMouseY = 0.5;
@@ -196,25 +231,24 @@ export function VgpuCivicConstellation({
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
-          currentEffective += (targetEffective - currentEffective) * 0.08;
+          currentEffective = targetEffective;
           const currentModeValue =
             themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
 
-          constellation.set({
-            params: {
-              time,
-              width: currentWidth,
-              height: currentHeight,
-              mouseX: currentMouseX,
-              mouseY: currentMouseY,
-              intensity,
-              themeMode: currentModeValue,
-              effectiveTheme: currentEffective,
-            },
+          sharedParams.set({
+            time,
+            width: currentWidth,
+            height: currentHeight,
+            mouseX: currentMouseX,
+            mouseY: currentMouseY,
+            intensity,
+            themeMode: currentModeValue,
+            effectiveTheme: currentEffective,
           });
 
           frame(gpu, (f) => f.pass(canvasSurface, constellation));
         };
+        renderFrameRef.current = renderFrame;
 
         const unsubscribeResize = canvasSurface.onResize(({ width, height }) => {
           currentWidth = width;
@@ -225,18 +259,16 @@ export function VgpuCivicConstellation({
         });
 
         let isVisible = true;
-        const observer = new IntersectionObserver(([entry]) => {
-          isVisible = entry.isIntersecting;
-        });
+        const observer = new IntersectionObserver(
+          ([entry]) => {
+            isVisible = entry.isIntersecting;
+          },
+          { threshold: 0.05 }
+        );
         observer.observe(container);
 
         setIsWebGPUActive(true);
         setIsSupported(true);
-
-        const isReducedMotion =
-          typeof window !== 'undefined' &&
-          typeof window.matchMedia === 'function' &&
-          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         let loop: { stop: () => void } | null = null;
 
@@ -256,17 +288,15 @@ export function VgpuCivicConstellation({
             const currentModeValue =
               themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
 
-            constellation.set({
-              params: {
-                time: timeTracker.time,
-                width: currentWidth,
-                height: currentHeight,
-                mouseX: currentMouseX,
-                mouseY: currentMouseY,
-                intensity,
-                themeMode: currentModeValue,
-                effectiveTheme: currentEffective,
-              },
+            sharedParams.set({
+              time: timeTracker.time,
+              width: currentWidth,
+              height: currentHeight,
+              mouseX: currentMouseX,
+              mouseY: currentMouseY,
+              intensity,
+              themeMode: currentModeValue,
+              effectiveTheme: currentEffective,
             });
 
             f.pass(canvasSurface, constellation);
@@ -274,6 +304,7 @@ export function VgpuCivicConstellation({
         }
 
         cleanupFn = () => {
+          renderFrameRef.current = null;
           window.removeEventListener('mousemove', handleMouseMove);
           observer.disconnect();
           unsubscribeResize();
