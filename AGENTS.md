@@ -787,6 +787,22 @@ description. Two options look like the fix and are neither:
   sanitize-html returns from its close handler before reaching it. Returning true
   for `form` there does nothing at all.
 
+**`sanitize-html` is pinned at `>= 2.18.0`, and the reason is this file's own
+mechanism.** GHSA-x3q4-9hxx-gx8m: a `discard` region's end was decided by
+htmlparser2's *implicit* close, while a browser ends a raw-text element at the
+literal `</noscript`. An end tag for an ancestor could therefore make
+htmlparser2 close the element early, and the content after that point was
+rendered rather than discarded. The fix keeps discarding until the offset the
+browser would have used, and the upstream source names the advisory.
+
+That is not a hypothetical for this file: `disallowedTagsMode: 'discard'` and
+`nonTextTags` are exactly the two options the advisory is about, and
+`htmlToExcerpt` runs the same sanitizer — so a discarded region's early end
+would have reached the SERP meta description as well as the page.
+`bun run audit:deps` is what caught it; the baseline entry it would have
+needed is not there, because the fix was a version bump rather than an
+accepted risk.
+
 The removal is a **pre-pass**, and its position is the part that is invisible
 until it bites. The pass that strips active-content tags already removes the
 opening and closing tags of `form`, `object`, `select` and `marquee`, destroying
