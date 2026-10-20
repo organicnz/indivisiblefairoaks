@@ -186,6 +186,52 @@ would leave 895 tests asserting against a mock that no longer behaves like the
 one they were written for. Vitest executing on Bun's runtime is the same
 runtime with none of that risk.
 
+**The jsdom environment is 60% of the unit suite's time, and on Bun it
+cannot be made cheaper.** Measured: jsdom was constructed 130 times — once
+per test file — for 42 seconds of a 74-second run. Vitest prints its own
+advice for this measurement, and both of the options it names were tried
+here. Neither works.
+
+| Option | Result |
+|---|---|
+| `pool: 'vmThreads'` | **Impossible on Bun.** 128 of 130 files fail. |
+| `isolate: false` | 297 tests fail across 20 files. |
+| `environmentMatchGlobs` | Removed in Vitest 5. |
+| `test.projects` | Would split the coverage gate, whose arithmetic is aggregate by design. |
+
+**Why `vmThreads` cannot work on Bun.** It fails with `TypeError: Proxy is
+not allowed in the global prototype chain`, and that message is not in
+Vitest's code — it is Bun's. Bun's `node:vm` refuses a context whose global
+prototype chain contains a `Proxy`:
+
+```js
+const ctx = vm.createContext({});
+Object.setPrototypeOf(vm.runInContext('globalThis', ctx), new Proxy(realProto, {}));
+vm.runInContext('1 + 1', ctx);
+// Bun: Proxy is not allowed in the global prototype chain.
+```
+
+Vitest's `vmThreads` and `vmForks` pools *deliberately* put a `Proxy` in the
+global prototype chain, to intercept module resolution inside the VM. So the
+two are not merely different — they are in direct opposition, and the
+incompatibility is in Bun's `node:vm`, not in Vitest. The upstream fix
+belongs in Bun.
+
+**Why `isolate: false` cannot work here.** It shares one jsdom environment
+across every file, and the suite genuinely depends on per-file isolation:
+297 tests fail across 20 files. That is the "a gate that is sometimes red is
+not a gate" failure mode, arrived at by the obvious route.
+
+**The remaining option, and why it was not taken.** Running the ~80 files
+that never touch the DOM in a `node` environment would skip 80 jsdom
+constructions and would *not* weaken isolation. It needs a per-file
+classification, though, and a file that touches the DOM only sometimes
+would fail silently rather than loudly. `environmentMatchGlobs`, which
+expressed that classification, was removed in Vitest 5; `test.projects` is
+the replacement, and it would split the coverage gate — whose arithmetic is
+aggregate across every included file, and whose per-file floors are the
+point (see "The coverage gate is per-file, not a global percentage").
+
 **"Vitest on Bun" means the workers too, not just the CLI.** This was
 measured rather than assumed: inside a test, `process.execPath` is the `bun`
 binary, `Bun.version` is `1.4.3`, and `process.versions.node` reads `26.3.0`
