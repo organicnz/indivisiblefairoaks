@@ -1,0 +1,9 @@
+{
+  "name": "typescript",
+  "version": "7.1.0",
+  "private": true,
+  "description": "The `tsc` command line, backed by tsrs — the Rust port of TypeScript 7.",
+  "bin": {
+    "tsc": "./bin/tsc.ts"
+  }
+}

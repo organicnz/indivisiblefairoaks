@@ -4,28 +4,31 @@
   "private": true,
   "scripts": {
     "prepare": "test -d .git && lefthook install || true",
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
+    "dev": "bun --bun next dev --turbopack",
+    "build": "bun --bun next build",
+    "start": "bun --bun next start",
     "lint": "biome lint --write ./src && oxlint ./src",
     "lint:check": "biome lint ./src && oxlint ./src",
+    "typecheck": "bun tsrs --noEmit",
+    "typecheck:bun": "bun check",
     "typecheck:edge": "deno check --config supabase/functions/deno.json --no-lock supabase/functions/*/index.ts",
     "format": "biome format --write ./src",
     "format:check": "biome format ./src",
-    "check": "biome check --write ./src",
+    "check:biome": "biome check --write ./src",
     "check:ci": "biome ci ./src",
     "test": "bun vitest --run",
-    "test:e2e": "playwright test",
+    "test:e2e": "bun node_modules/@playwright/test/cli.js test",
     "test:watch": "bun vitest",
     "test:coverage": "bun vitest run --coverage",
-    "types:generate": "node scripts/gen-types.mjs",
-    "secrets:audit": "node scripts/secrets-audit.mjs",
-    "secrets:baseline": "node scripts/secrets-audit.mjs --update-baseline",
-    "auth:check": "node scripts/check-auth-redirects.mjs --live",
-    "vercel:env:sync": "node scripts/sync-vercel-env.mjs",
-    "snap": "node scripts/snap.mjs",
-    "palette": "node scripts/palette.mjs",
-    "token-sweep": "node scripts/token-sweep.mjs"
+    "types:generate": "bun scripts/gen-types.mjs",
+    "audit:deps": "bun scripts/check-vulnerabilities.mjs",
+    "secrets:audit": "bun scripts/secrets-audit.mjs",
+    "secrets:baseline": "bun scripts/secrets-audit.mjs --update-baseline",
+    "auth:check": "bun scripts/check-auth-redirects.mjs --live",
+    "vercel:env:sync": "bun scripts/sync-vercel-env.mjs",
+    "snap": "bun scripts/snap.mjs",
+    "palette": "bun scripts/palette.mjs",
+    "token-sweep": "bun scripts/token-sweep.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
@@ -45,10 +48,10 @@
     "effect": "^3.22.1",
     "lucide-react": "^1.41.0",
     "motion": "^13.2.0",
-    "next": "16.3.2",
+    "next": "16.4.2",
     "qrcode.react": "^4.2.0",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "sanitize-html": "^2.17.7",
     "sonner": "^2.0.8",
     "stripe": "^22.6.1",
@@ -60,21 +63,23 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@biomejs/biome": "^2.5.12",
-    "@next/playwright": "^16.3.4",
+    "@next/playwright": "16.4.2",
     "@playwright/test": "1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.4.1",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "@types/sanitize-html": "^2.16.1",
     "@vitest/coverage-v8": "^5.0.0",
+    "bun-types": "^1.4.3",
     "fast-check": "^4.9.0",
     "jsdom": "^30.0.1",
     "lefthook": "^2.1.12",
     "oxlint": "^1.81.0",
     "playwright": "1.62.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "file:./tools/typescript-shim",
     "vercel": "^59.11.7",
     "vitest": "^5.0.0"
   },
@@ -82,14 +87,42 @@
     "unrs-resolver"
   ],
   "engines": {
-    "node": ">=20.0.0",
-    "bun": ">=1.4.0"
+    "bun": ">=1.4.3"
   },
   "overrides": {
     "nanoid": "3.3.18",
     "postcss": "8.5.26",
     "ws": "8.21.3",
-    "sharp": "0.35.3",
-    "tar": "7.5.22"
+    "sharp": "0.35.5",
+    "tar": "7.5.22",
+    "ajv": "8.20.0",
+    "js-yaml": "4.3.2",
+    "smol-toml": "1.9.1",
+    "@tootallnate/once": "2.0.1",
+    "@vercel/python-analysis": {
+      "minimatch": "10.2.6"
+    },
+    "@vercel/backends": {
+      "path-to-regexp": "8.4.2"
+    },
+    "@vercel/express": {
+      "path-to-regexp": "8.4.2"
+    },
+    "@vercel/hono": {
+      "path-to-regexp": "8.4.2"
+    },
+    "@vercel/fun": {
+      "path-to-regexp": "8.4.2"
+    },
+    "@vercel/node": {
+      "path-to-regexp": "6.3.0",
+      "undici": "6.28.1"
+    },
+    "@vercel/remix-builder": {
+      "path-to-regexp": "6.3.0"
+    },
+    "vercel": {
+      "undici": "6.28.1"
+    }
   }
 }

@@ -1,0 +1,25 @@
+# mise tool versions for this repository.
+#
+# The project runs on the **latest Bun canary**. Two things make that precise
+# rather than decorative:
+#
+#   - The `npm:bun` backend is used deliberately. Bun's GitHub releases do not
+#     publish a `canary` tag with a matching archive (mise's `core:bun`
+#     backend 404s on `bun-vcanary`), but the npm package publishes a `canary`
+#     dist-tag with a real platform binary for every supported target. The
+#     `npm:` backend is the one that resolves.
+#   - It is pinned to the `canary` *channel*, not a version. Bun's canary
+#     version numbers are not monotonic against its stable releases — a canary
+#     cut from the release branch can carry a lower number than the stable
+#     release that superseded it — so pinning a canary *version* would be a
+#     false precision. The channel is the unit that means "the latest canary".
+#
+# **Production still runs on a stable Bun.** `vercel.json` sets
+# `"bunVersion": "1.4.x"`, and Vercel's Bun runtime accepts only `"1.4.x"`
+# and `"1.x"` — a canary cannot be deployed there. The divergence is
+# deliberate and is recorded in AGENTS.md under "Three runtimes, none of them
+# Node": canary is what the toolchain runs on, stable is what production runs
+# on, and the build is reproducible either way because `bun.lock` pins the
+# dependency graph rather than the runtime that installs it.
+[tools]
+"npm:bun" = "canary"

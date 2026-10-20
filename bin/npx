@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# `npx` for a project that has no Node.js.
+#
+# ## Why this exists
+#
+# Next.js 16.4's agent tooling shells out to `npx`. Its package-manager
+# detection (`get-pkg-manager.js`) knows about yarn, pnpm and npm — and **not
+# about Bun**: it checks for `yarn.lock`, `pnpm-lock.yaml` and
+# `package-lock.json`, and a Bun project has none of them, so it falls through
+# to probing `yarn --version` and `pnpm --version` and finally reports `npm`.
+# `get-npx-command.js` then returns the literal `npx --yes`.
+#
+# On a machine with no Node.js that is a dead end:
+#
+#   $ bun x next@16.4.2 upgrade --agent latest
+#   ⨯ Could not prepare the upgrade: Executable not found in $PATH: "npx"
+#
+# `npx <pkg> [args]` and `bun x <pkg> [args]` are the same operation, so this
+# shim maps one onto the other. It is what makes `next upgrade --agent`,
+# `next dev`'s agent hooks, and the `@next/codemod` runs work here.
+#
+# ## The two flags that are not the same
+#
+#   - `--yes` is npm's "do not ask before installing". Bun has no equivalent
+#     and always installs, so the flag is dropped rather than passed through.
+#   - `--bun` forces the package to run on Bun's runtime. It is the default
+#     here in practice — there is no Node for a `node` shebang to find — but
+#     stating it means a package cannot silently fall back to a Node runtime
+#     that does not exist.
+#
+# ## Installing
+#
+#   install -m 755 bin/npx ~/.local/bin/npx
+#
+# `~/.local/bin` is on PATH on this machine. The canonical copy lives in the
+# repository so the shim is reviewable and reproducible rather than being a
+# mystery file on one laptop.
+
+set -euo pipefail
+
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    --yes | -y)
+      # npm's auto-confirm. Bun has no equivalent and never prompts.
+      continue
+      ;;
+    *)
+      args+=("$arg")
+      ;;
+  esac
+done
+
+exec bun x --bun "${args[@]}"

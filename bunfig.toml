@@ -16,7 +16,21 @@ lockfile = true
 autoInstallPeers = false
 
 [run]
-# Standard run options
+# Run package.json scripts with Bun's own shell rather than the system `sh`.
+#
+# Bun's shell is a real shell with its own parser, not a wrapper around
+# `/bin/sh`: it is cross-platform (the same script runs on Windows without
+# a POSIX layer), it starts faster, and it does not depend on what `/bin/sh`
+# happens to be on the host. For a project whose whole premise is that the
+# runtime is Bun, having the *scripts* fall back to the system shell is an
+# inconsistency worth removing.
+#
+# The scripts in this package.json are ordinary commands, plus one shell
+# construct — `test -d .git && lefthook install || true` — which Bun's shell
+# handles correctly (verified). The lefthook hooks do not go through here
+# at all: they are invoked as `bun scripts/hooks/<name>.mjs`, so they are
+# Bun processes either way.
+shell = "bun"
 
 [test]
 # Playwright instant-navigation guards (e2e/) run via `playwright test`, not bun test.

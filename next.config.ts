@@ -132,7 +132,7 @@ const nextConfig: NextConfig = {
   // built on a 1024 MiB runner where Next's own phases measured 8.4 min
   // (Sentry runAfterProductionCompile) and 54+ min without finishing
   // (the built-in TypeScript check) on 2026-10-08. CI gates types separately
-  // (`bunx tsc --noEmit` in the lint job, which build-e2e `needs`), and the
+  // (`bun check` in the lint job, which build-e2e `needs`), and the
   // Sentry upload is already skipped without a token — so for e2e builds only:
   // skip the redundant type check, skip the Sentry wrapper entirely, and cap
   // build workers to fit the container (`experimental.cpus` is what
@@ -147,6 +147,44 @@ const nextConfig: NextConfig = {
   experimental: {
     exposeTestingApiInProductionBuild: isE2EBuild,
     ...(isE2EBuild ? { cpus: 1 } : {}),
+    // TypeScript through the CLI, not the JavaScript compiler API.
+    //
+    // TypeScript 7 is the native (Go) compiler, and it does not ship
+    // `lib/typescript.js` — the JS API Next's default type-check path loads
+    // is simply gone. That was the reason this project was pinned to
+    // TypeScript 5.9: "Next.js 16.3 loads TypeScript via the JS compiler API,
+    // which was removed in TS 7.0."
+    //
+    // Next.js 16.4 has the other half of the answer. `useTypeScriptCli` runs
+    // the `tsc` **binary** instead of the API, and it resolves that binary
+    // from the `typescript` package's `bin` metadata.
+    //
+    // **The `typescript` package here is a shim, not the npm one.** See
+    // `tools/typescript-shim/`. It is a package named `typescript` whose
+    // `tsc` binary is backed by `tsrs`, the Rust port of the TypeScript 7
+    // compiler, so the build's type check and the `bun run typecheck` gate
+    // are the same compiler. The npm `typescript` package — a Go binary, and
+    // never Node.js — is no longer in the dependency tree.
+    //
+    // This flag is `true` by default in Next 16.4, and it is set explicitly
+    // anyway. It has to be: the shim has no `lib/typescript.js`, so the API
+    // path would fail to find a compiler and the build would report a
+    // missing dependency for a package that is present. A default that
+    // silently flipped would break the build, and the failure would be a
+    // dependency message rather than anything about type checking.
+    //
+    // The spawn is `process.execPath`, which under `bun --bun next build` is
+    // the bun binary, so the CLI runs on Bun rather than needing a Node
+    // runtime this project does not have.
+    useTypeScriptCli: true,
+    // Next.js 16.4's disk-cache garbage collector. Turbopack retains compiled
+    // work for routes that no longer exist; this reclaims it, which matters on
+    // a developer machine where `.next` is not a throwaway.
+    turbopackGc: true,
+    // Compile client-side dynamic imports only when the browser asks for them.
+    // A page that lazily loads a heavy library — a chart, a PDF viewer — stops
+    // paying for that library at build and at first paint.
+    turbopackLazyDynamicImports: true,
   },
   async headers() {
     return routeHeaders;
