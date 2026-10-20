@@ -159,7 +159,7 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="px-2 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-[10px] font-black uppercase tracking-wider">
+                    <span className="px-2 py-0.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-ink-strong dark:text-accent-gold text-[10px] font-black uppercase tracking-wider">
                       {evt.category}
                     </span>
                     {evt.highlight && (

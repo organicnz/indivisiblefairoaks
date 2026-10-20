@@ -58,7 +58,7 @@ export default async function NewsPage() {
         {/* Newsletter Subscription Card */}
         <div className="p-8 rounded-2xl bg-surface-card border border-border dark:bg-gradient-to-tr dark:from-blue-900/60 dark:via-slate-900 dark:to-indigo-950/60 dark:border-primary-bright/30 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-secondary dark:text-accent-gold text-[11px] font-bold uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-ink-strong dark:text-accent-gold text-[11px] font-bold uppercase tracking-wider">
               <Mail size={12} />
               <DataPoint initialData={dataPoints} as="span" name="news.subscribe.badge">
                 Direct To Your Inbox

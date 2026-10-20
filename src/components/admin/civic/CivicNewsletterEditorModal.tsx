@@ -257,7 +257,7 @@ export function CivicNewsletterEditorModal({
                   {topics.map((t) => (
                     <span
                       key={t}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-xs font-bold"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-ink-strong dark:text-accent-gold text-xs font-bold"
                     >
                       <Tag size={11} />
                       <span>{t}</span>

@@ -526,7 +526,7 @@ export function sanitizeWPContent(html: string): string {
     // 2. Replace [wpforms...] shortcodes with a styled contact div
     clean = clean.replace(
       /\[wpforms[^\]]*\]/gi,
-      '<div class="p-4 bg-slate-50 border border-slate-100 rounded-2xl my-8 text-secondary font-bold uppercase tracking-widest text-xs text-center">Please use our official <a href="/contact" class="text-primary underline">Contact Page</a> to reach out.</div>'
+      '<div class="p-4 bg-slate-50 border border-slate-100 rounded-2xl my-8 text-primary-ink font-bold uppercase tracking-widest text-xs text-center">Please use our official <a href="/contact" class="text-primary underline">Contact Page</a> to reach out.</div>'
     );
 
     // 3. Remove untrusted external links. Relative (/contact, #anchor),
