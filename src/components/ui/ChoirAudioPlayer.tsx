@@ -301,7 +301,7 @@ export function ChoirAudioPlayer() {
                   Resistance Radio
                 </DataPoint>
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-900 dark:text-emerald-300 font-semibold">
                 <span
                   aria-hidden="true"
                   className="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-ping motion-reduce:animate-none"

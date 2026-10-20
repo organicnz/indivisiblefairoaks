@@ -248,7 +248,7 @@ export default function GalleryPage() {
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m4_label"
-                className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
+                className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-wider font-semibold"
               >
                 100% People Power
               </DataPoint>
