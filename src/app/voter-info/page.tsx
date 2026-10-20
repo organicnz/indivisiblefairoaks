@@ -419,7 +419,7 @@ export default async function VoterInfoPage() {
                           href="https://www.brennancenter.org/our-work/research-reports/save-act-voter-suppression"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-primary dark:text-white hover:underline inline-flex items-center gap-1 font-semibold"
+                          className="text-primary-ink dark:text-primary-on-dark hover:underline inline-flex items-center gap-1 font-semibold"
                         >
                           <DataPoint initialData={dataPoints} name="voter.spotlight.link" as="span">
                             Brennan Center Analysis

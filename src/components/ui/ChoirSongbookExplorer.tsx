@@ -373,7 +373,7 @@ export function ChoirSongbookExplorer() {
                         </div>
                         <a
                           href="mailto:contact@indivisiblefairoaks.org?subject=Sheet%20Music%20Request"
-                          className="text-primary hover:underline dark:text-white dark:hover:text-white/90 font-semibold"
+                          className="text-primary-ink hover:underline dark:text-primary-on-dark dark:hover:text-primary-on-dark/90 font-semibold"
                         >
                           Request Complete Sheet Music / SATB Scores →
                         </a>
