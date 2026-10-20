@@ -10,6 +10,8 @@
  * self-consistent mistake can pass.
  */
 
+import { decodeBase64 } from '@/lib/base64';
+
 /** Svix's own replay tolerance: five minutes either way. */
 export const SVIX_TIMESTAMP_TOLERANCE_SEC = 5 * 60;
 
@@ -22,17 +24,19 @@ export function isFreshSvixTimestamp(
   return Math.abs(nowSec - ts) <= SVIX_TIMESTAMP_TOLERANCE_SEC;
 }
 
-/** The HMAC key bytes for a `whsec_…` secret. Returns null for a malformed secret. */
+/**
+ * The HMAC key bytes for a `whsec_…` secret. Returns null for a malformed secret.
+ *
+ * The base64 decode is `atob` rather than `Buffer.from` — a Web standard
+ * rather than a Node API, so the file works on the Edge runtime and in a
+ * browser as well as on Bun. See `src/lib/base64.ts` for the reasoning, and
+ * for the one behaviour difference (`atob` throws where `Buffer.from` is
+ * lenient).
+ */
 export function svixSecretKey(secret: string): Uint8Array<ArrayBuffer> | null {
   const encoded = secret.startsWith('whsec_') ? secret.slice('whsec_'.length) : secret;
   if (!encoded || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) return null;
-  const bytes = Buffer.from(encoded, 'base64');
-  if (bytes.length === 0) return null;
-  // Copied into a fresh ArrayBuffer: a Node Buffer may sit on a shared pool,
-  // which `crypto.subtle.importKey` does not accept as a BufferSource.
-  const key = new Uint8Array(new ArrayBuffer(bytes.length));
-  key.set(bytes);
-  return key;
+  return decodeBase64(encoded);
 }
 
 export async function verifySvixSignature(
@@ -60,11 +64,12 @@ export async function verifySvixSignature(
   for (const entry of svixSignature.split(' ')) {
     const [version, b64] = entry.trim().split(',');
     if (version !== 'v1' || !b64) continue;
-    // `Buffer.from` is lenient about malformed base64, so check the shape first.
-    // `crypto.subtle.verify` does the comparison in constant time.
+    // `atob` is strict where `Buffer.from` was lenient, so the shape is
+    // checked first and the decode reports "not decodable" rather than
+    // throwing. `crypto.subtle.verify` does the comparison in constant time.
     if (!/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) continue;
-    const sigBytes = Buffer.from(b64, 'base64');
-    if (sigBytes.length === 0) continue;
+    const sigBytes = decodeBase64(b64);
+    if (!sigBytes) continue;
     if (await crypto.subtle.verify('HMAC', key, sigBytes, signedContent)) return true;
   }
   return false;

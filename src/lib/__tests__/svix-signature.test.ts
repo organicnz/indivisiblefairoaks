@@ -71,6 +71,21 @@ describe('verifySvixSignature', () => {
     );
     expect(svixSecretKey('whsec_!!!')).toBeNull();
   });
+
+  it('rejects a base64 string that is well-shaped but decodes to nothing', async () => {
+    // `"A"` is one base64 character — it passes the shape check, and one
+    // character is not a valid encoding of anything.
+    //
+    // This is the one place `atob` and `Buffer.from` disagree: `Buffer.from`
+    // is lenient and returned zero bytes, while `atob` throws. The decoder
+    // catches the throw and reports "not decodable", so the answer is the
+    // same — a malformed secret yields no key, and a malformed signature is
+    // skipped rather than crashing the route.
+    expect(svixSecretKey('whsec_A')).toBeNull();
+
+    const { secret, id, timestamp, payload } = SVIX_VECTOR;
+    await expect(verifySvixSignature(secret, id, timestamp, payload, 'v1,A')).resolves.toBe(false);
+  });
 });
 
 describe('isFreshSvixTimestamp', () => {

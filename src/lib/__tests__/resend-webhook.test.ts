@@ -1,9 +1,6 @@
 // @vitest-environment node
-// Node, not jsdom: the route reads the server-only `env.RESEND_WEBHOOK_SECRET`,
-// and `env.ts` selects its schema by `typeof window` — under jsdom it parses
-// the public schema, which has no such key, so the secret would always read
-// undefined no matter what the test stubs.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { decodeBase64, encodeBase64 } from '@/lib/base64';
 
 /**
  * Resend delivery-event webhook handler.
@@ -53,7 +50,7 @@ async function loadRoute(secret: string) {
 // A real-format secret. Signatures below are built the way Svix builds them —
 // HMAC keyed by the base64-decoded part after `whsec_` — so the route is tested
 // against the production key derivation, not a self-consistent variant of it.
-const TEST_SECRET = `whsec_${Buffer.from('test-webhook-secret-bytes').toString('base64')}`;
+const TEST_SECRET = `whsec_${encodeBase64(new TextEncoder().encode('test-webhook-secret-bytes'))}`;
 const SVIX_ID = 'msg_01jx000000000000000000000';
 
 /** Fresh seconds-since-epoch timestamp, as Svix sends it. */
@@ -66,14 +63,17 @@ async function sign(body: string, timestamp: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
-    Buffer.from(TEST_SECRET.slice('whsec_'.length), 'base64'),
+    // `Uint8Array<ArrayBuffer>` rather than `Uint8Array`: `importKey` takes a
+    // `BufferSource`, and the widened type is not one — it could be backed by
+    // a `SharedArrayBuffer`.
+    decodeBase64(TEST_SECRET.slice('whsec_'.length)) as Uint8Array<ArrayBuffer>,
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
   );
   const signedContent = `${SVIX_ID}.${timestamp}.${body}`;
   const sigBuf = await crypto.subtle.sign('HMAC', key, encoder.encode(signedContent));
-  const b64 = Buffer.from(sigBuf).toString('base64');
+  const b64 = encodeBase64(new Uint8Array(sigBuf));
   return `v1,${b64}`;
 }
 

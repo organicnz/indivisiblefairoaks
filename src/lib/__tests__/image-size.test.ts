@@ -1,4 +1,6 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { decodeBase64 } from '@/lib/base64';
 import { measureImageSize } from '@/lib/image-size';
 
 /**
@@ -25,7 +27,7 @@ import { measureImageSize } from '@/lib/image-size';
 
 /** base64 -> bytes, so the fixtures stay readable in source. */
 function b64(value: string): Uint8Array {
-  return new Uint8Array(Buffer.from(value, 'base64'));
+  return decodeBase64(value) as Uint8Array;
 }
 
 const FIXTURES: Record<string, { bytes: Uint8Array; type: string }> = {
