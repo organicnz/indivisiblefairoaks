@@ -13,8 +13,8 @@ import { expect, test } from '@playwright/test';
  * Nothing here has side effects (no emails, no orders, no charges).
  */
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
+const SUPABASE_URL = Bun.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const ANON_KEY = Bun.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
 const LIVE = Boolean(SUPABASE_URL && ANON_KEY);
 
 const headers = {
@@ -26,7 +26,7 @@ const headers = {
 const edge = (name: string) => `${SUPABASE_URL}/functions/v1/${name}`;
 
 test.beforeEach(() => {
-  if (!LIVE && process.env.CI) {
+  if (!LIVE && Bun.env.CI) {
     throw new Error('Supabase env is required for the CI edge-function gate.');
   }
   test.skip(!LIVE, 'Supabase env not configured');

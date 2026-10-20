@@ -1,4 +1,3 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test as setup } from '@playwright/test';
 import { GRANT_MARKER } from './helpers/e2e-seeds';
@@ -19,9 +18,9 @@ import { GRANT_MARKER } from './helpers/e2e-seeds';
  * the manual profiles grant the priv-esc trigger demands. Without credentials
  * this skips, and the consuming suites skip too.
  */
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD;
-const STORAGE_STATE = path.join(__dirname, '.auth', 'admin.json');
+const ADMIN_EMAIL = Bun.env.E2E_ADMIN_EMAIL;
+const ADMIN_PASSWORD = Bun.env.E2E_ADMIN_PASSWORD;
+const STORAGE_STATE = path.join(import.meta.dirname, '.auth', 'admin.json');
 
 setup.describe('seeded admin session', () => {
   setup.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run');
@@ -56,7 +55,12 @@ setup.describe('seeded admin session', () => {
       await expect(page.locator('body')).toContainText('Constituent Directory', {
         timeout: 15_000,
       });
-      rmSync(GRANT_MARKER, { force: true });
+      // `Bun.file(x).unlink()` removes the marker. The `force` semantics of
+      // `rmSync` — do not fail when the file is already gone — are what the
+      // marker wants, because a previous run may have left it behind.
+      await Bun.file(GRANT_MARKER)
+        .unlink()
+        .catch(() => {});
     } catch {
       console.log('');
       console.log('ADMIN SEED INCOMPLETE — skipping seeded admin coverage.');
@@ -66,14 +70,18 @@ setup.describe('seeded admin session', () => {
         "  update public.profiles set is_admin = true where email = 'e2e-admin@example.com';"
       );
       console.log('');
-      mkdirSync(path.dirname(GRANT_MARKER), { recursive: true });
-      writeFileSync(GRANT_MARKER, 'seeded e2e-admin lacks the profiles grant\n');
+      // `Bun.write` creates the parent directory on the way, so the explicit
+      // `mkdirSync` is not needed: the file and the directory it lives in are
+      // one operation.
+      await Bun.write(GRANT_MARKER, 'seeded e2e-admin lacks the profiles grant\n');
       setup.skip(
         true,
         'seeded e2e-admin lacks the profiles grant — run the dashboard statement above'
       );
     }
-    mkdirSync(path.dirname(STORAGE_STATE), { recursive: true });
+    // No `mkdir` here: Playwright's own `storageState({ path })` creates the
+    // parent directory (verified), so the explicit call was doing nothing but
+    // adding a second way to make a directory.
     await page.context().storageState({ path: STORAGE_STATE });
   });
 });

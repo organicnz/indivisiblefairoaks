@@ -10,4 +10,4 @@ import path from 'node:path';
  * beforeEach — not at load time, because workers load spec files before the
  * setup project finishes, so a load-time read would race the writer.
  */
-export const GRANT_MARKER = path.join(__dirname, '..', '.auth', 'no-admin-grant');
+export const GRANT_MARKER = path.join(import.meta.dirname, '..', '.auth', 'no-admin-grant');

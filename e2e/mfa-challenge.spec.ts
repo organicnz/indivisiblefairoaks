@@ -16,9 +16,9 @@ import { generateTotp, msRemainingInStep } from './helpers/totp';
  * weakening an assertion, so an unseeded project runs everything else unchanged.
  * A skipped suite is not a passing suite; treat it as an uncovered path.
  */
-const EMAIL = process.env.E2E_MFA_ADMIN_EMAIL;
-const PASSWORD = process.env.E2E_MFA_ADMIN_PASSWORD;
-const SECRET = process.env.E2E_MFA_TOTP_SECRET;
+const EMAIL = Bun.env.E2E_MFA_ADMIN_EMAIL;
+const PASSWORD = Bun.env.E2E_MFA_ADMIN_PASSWORD;
+const SECRET = Bun.env.E2E_MFA_TOTP_SECRET;
 
 test.describe('MFA step-up challenge without a seeded session', () => {
   /**
@@ -76,7 +76,7 @@ test.describe('MFA step-up challenge', () => {
     // flaky failure that looks like a product bug.
     const remaining = msRemainingInStep();
     test.skip(remaining < 5_000, 'too close to a code rollover to type reliably');
-    await page.locator('#code').fill(generateTotp(SECRET as string));
+    await page.locator('#code').fill(await generateTotp(SECRET as string));
 
     await page.getByRole('button', { name: /verify & continue/i }).click();
     await page.waitForURL(/\/account/, { timeout: 20_000 });
@@ -104,7 +104,7 @@ test.describe('MFA step-up challenge', () => {
     // A neighbouring time step is inside GoTrue's accepted skew, so it cannot
     // stand in for a wrong code. Use a code for a step far enough away to be
     // rejected outright.
-    const wrong = generateTotp(SECRET as string, -5);
+    const wrong = await generateTotp(SECRET as string, -5);
     await page.locator('#code').fill(wrong);
     await page.getByRole('button', { name: /verify & continue/i }).click();
 
@@ -172,8 +172,8 @@ test.describe('TOTP helper against RFC 6238 vectors', () => {
   // tuple-inference that this build's `TestType` does not expose, so the
   // generated names lose their argument substitution anyway.
   for (const [seconds, expected] of VECTORS) {
-    test(`matches the reference code at t=${seconds}`, () => {
-      expect(generateTotp(RFC_SECRET, 0, seconds * 1000)).toBe(expected);
+    test(`matches the reference code at t=${seconds}`, async () => {
+      expect(await generateTotp(RFC_SECRET, 0, seconds * 1000)).toBe(expected);
     });
   }
 
@@ -183,9 +183,9 @@ test.describe('TOTP helper against RFC 6238 vectors', () => {
     expect(msRemainingInStep(30_000)).toBe(30_000);
   });
 
-  test('tolerates a lowercased, space-padded secret', () => {
+  test('tolerates a lowercased, space-padded secret', async () => {
     // A human copying a seed out of the dashboard routinely does this, and the
     // difference between working and "Invalid TOTP code" is invisible.
-    expect(generateTotp('gezdgnbvgy3tqojq gezdgnbvgy3tqojq', 0, 59_000)).toBe('287082');
+    expect(await generateTotp('gezdgnbvgy3tqojq gezdgnbvgy3tqojq', 0, 59_000)).toBe('287082');
   });
 });

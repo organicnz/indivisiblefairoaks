@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
@@ -14,9 +13,9 @@ import { GRANT_MARKER } from './helpers/e2e-seeds';
  * admin browser coverage stays opt-in until that user exists, and nothing in
  * the gate silently weakens.
  */
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD;
-const STORAGE_STATE = path.join(__dirname, '.auth', 'admin.json');
+const ADMIN_EMAIL = Bun.env.E2E_ADMIN_EMAIL;
+const ADMIN_PASSWORD = Bun.env.E2E_ADMIN_PASSWORD;
+const STORAGE_STATE = path.join(import.meta.dirname, '.auth', 'admin.json');
 /**
  * Opt-in for the one test that writes data.
  *
@@ -28,7 +27,7 @@ const STORAGE_STATE = path.join(__dirname, '.auth', 'admin.json');
  * read-only tests run. Set `E2E_ALLOW_DB_WRITES=1` only against a project where
  * that row is acceptable.
  */
-const ALLOW_DB_WRITES = process.env.E2E_ALLOW_DB_WRITES === '1';
+const ALLOW_DB_WRITES = Bun.env.E2E_ALLOW_DB_WRITES === '1';
 
 test.describe('admin surfaces with a seeded session', () => {
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run');
@@ -37,9 +36,9 @@ test.describe('admin surfaces with a seeded session', () => {
   // profiles grant, so the suite must skip too instead of failing on the
   // missing storage file. Runtime check, not load-time: workers load this
   // file before the setup project finishes.
-  test.beforeEach(() => {
+  test.beforeEach(async () => {
     test.skip(
-      existsSync(GRANT_MARKER),
+      await Bun.file(GRANT_MARKER).exists(),
       'seeded e2e-admin lacks the profiles grant — see the setup project output'
     );
   });

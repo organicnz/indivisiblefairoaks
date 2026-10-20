@@ -1,7 +1,31 @@
 import { readFileSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 
-// Load .env.local without adding a dotenv dependency; CI injects real env instead.
+/**
+ * Load `.env.local`, without a dotenv dependency; CI injects real env instead.
+ *
+ * **This is not redundant with Bun's own `.env` loading, and it is not dead
+ * code.** Bun reads `.env`, `.env.local` and `.env.{NODE_ENV}` — but it does
+ * so *at startup*, and it decides which files to read from the `NODE_ENV` that
+ * is in the environment **at that moment**:
+ *
+ *   - `NODE_ENV` unset, `development`, `production`, `staging` → `.env.local`
+ *     is read.
+ *   - `NODE_ENV=test` → `.env.local` is **not** read; `.env.test` is read
+ *     instead, and if there is no `.env.test` then neither is present.
+ *
+ * Playwright sets `NODE_ENV=test` inside its own code, which is too late to
+ * change what Bun already loaded — so the usual local run does get
+ * `.env.local` from Bun. But a shell that exports `NODE_ENV=test` sets it
+ * *before* Bun starts, and then Bun reads neither, and this block is the only
+ * thing standing between that developer and a suite that cannot reach
+ * Supabase.
+ *
+ * `node:fs` rather than `Bun.file` on purpose: this has to be read
+ * **synchronously**, before the config object is evaluated, and `Bun.file`
+ * is asynchronous. `readFileSync` blocking for four kilobytes once, at
+ * config load, is the right trade.
+ */
 try {
   for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
     const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
@@ -54,7 +78,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `bunx next start -p ${PORT}`,
+      command: `bun --bun next start -p ${PORT}`,
       url: `http://localhost:${PORT}/robots.txt`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
@@ -69,7 +93,10 @@ export default defineConfig({
       },
     },
     {
-      command: `node scripts/mock-notify-contact.mjs ${MOCK_PORT}`,
+      // Bun, not Node: the project has no Node runtime, and the mock server
+      // is a Bun script. `node` here was a latent failure — the e2e gate
+      // would spawn a missing binary and the webServer would never come up.
+      command: `bun scripts/mock-notify-contact.mjs ${MOCK_PORT}`,
       url: `http://127.0.0.1:${MOCK_PORT}/__health`,
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
