@@ -260,10 +260,10 @@ export function ChoirAudioPlayer() {
     : activeTrack.defaultNotes;
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-secondary/95 dark:bg-secondary/95 border border-white/10 p-5 sm:p-7 md:p-8 backdrop-blur-2xl shadow-float text-white">
+    <div className="relative overflow-hidden rounded-3xl bg-surface-card border border-border text-foreground dark:bg-secondary/95 dark:border-white/10 dark:text-white p-5 sm:p-7 md:p-8 backdrop-blur-2xl shadow-card dark:shadow-float">
       {/* Background ambient lighting */}
-      <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-primary-bright/15 blur-3xl" />
-      <div className="pointer-events-none absolute -left-20 -bottom-20 size-64 rounded-full bg-indigo-600/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-primary/10 dark:bg-primary-bright/15 blur-3xl" />
+      <div className="pointer-events-none absolute -left-20 -bottom-20 size-64 rounded-full bg-indigo-500/10 dark:bg-indigo-600/10 blur-3xl" />
 
       <audio
         ref={audioElRef}
@@ -288,30 +288,30 @@ export function ChoirAudioPlayer() {
       </audio>
 
       {/* Header bar */}
-      <div className="relative flex items-center justify-between gap-4 mb-5 pb-5 border-b border-white/10">
+      <div className="relative flex items-center justify-between gap-4 mb-5 pb-5 border-b border-border dark:border-white/10">
         <div className="flex items-center gap-3.5 min-w-0">
-          <div className="size-11 sm:size-12 rounded-2xl bg-primary-bright/20 border border-primary-bright/30 flex items-center justify-center text-primary-on-dark shrink-0 shadow-raised">
+          <div className="size-11 sm:size-12 rounded-2xl bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/20 dark:border-primary-bright/30 dark:text-primary-on-dark flex items-center justify-center shrink-0 shadow-xs dark:shadow-raised">
             <Music size={22} />
           </div>
           <div className="min-w-0">
-            <div className="text-xs font-mono font-bold uppercase tracking-wider text-primary-on-dark flex items-center gap-2">
+            <div className="text-xs font-mono font-bold uppercase tracking-wider text-primary-ink dark:text-primary-on-dark flex items-center gap-2">
               <span className="flex items-center gap-1.5">
                 <Radio size={13} className="text-accent-gold" />
                 <DataPoint as="span" name="choir.player.radio_title" initialData={dataPoints}>
                   Resistance Radio
                 </DataPoint>
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-300 font-semibold">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold">
                 <span
                   aria-hidden="true"
-                  className="size-1.5 rounded-full bg-emerald-400 animate-ping motion-reduce:animate-none"
+                  className="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-ping motion-reduce:animate-none"
                 />
                 <DataPoint as="span" name="choir.player.live_broadcast" initialData={dataPoints}>
                   Live Web Broadcast
                 </DataPoint>
               </span>
             </div>
-            <h3 className="text-base sm:text-xl font-black text-white tracking-tight truncate leading-snug mt-0.5">
+            <h3 className="text-base sm:text-xl font-black text-foreground dark:text-white tracking-tight truncate leading-snug mt-0.5">
               {activeTitle}
             </h3>
           </div>
@@ -321,7 +321,7 @@ export function ChoirAudioPlayer() {
         <button
           type="button"
           onClick={togglePlay}
-          className="size-13 rounded-full bg-gradient-to-tr from-primary-bright to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white flex items-center justify-center shadow-float shadow-primary/30 hover:scale-105 active:scale-95 transition-all duration-300 ease-out shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+          className="size-13 rounded-full bg-primary hover:bg-primary-dark dark:bg-gradient-to-tr dark:from-primary-bright dark:to-indigo-600 dark:hover:from-blue-500 dark:hover:to-indigo-500 text-white flex items-center justify-center shadow-lg dark:shadow-float dark:shadow-primary/30 hover:scale-105 active:scale-95 transition-all duration-300 ease-out shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
           aria-label={
             isPlaying
               ? dataPoints['choir.player.pause_label'] || 'Pause audio broadcast'
@@ -340,7 +340,7 @@ export function ChoirAudioPlayer() {
         as="p"
         name="choir.player.radio_subtitle"
         initialData={dataPoints}
-        className="mb-5 max-w-2xl text-xs sm:text-sm leading-relaxed text-ink-on-dark"
+        className="mb-5 max-w-2xl text-xs sm:text-sm leading-relaxed text-muted-foreground dark:text-ink-on-dark"
       >
         A browser-based harmonic broadcast and community protest songs for peaceful organizing. Tune
         into any stream from anywhere.
@@ -377,26 +377,26 @@ export function ChoirAudioPlayer() {
       )}
 
       {/* Visualizer & Progress */}
-      <div className="mb-6 rounded-2xl border border-white/10 bg-secondary/70 p-4 sm:p-5 backdrop-blur-md">
-        <div className="flex items-end justify-between gap-1.5 h-14 px-2 py-1 bg-black/30 rounded-xl border border-white/5">
+      <div className="mb-6 rounded-2xl border border-border bg-surface-muted dark:border-white/10 dark:bg-secondary/70 p-4 sm:p-5 backdrop-blur-md">
+        <div className="flex items-end justify-between gap-1.5 h-14 px-2 py-1 bg-slate-200/50 dark:bg-black/30 rounded-xl border border-border dark:border-white/5">
           {visualizerBars.map((bar) => (
             <div
               key={bar.id}
               className={`flex-1 origin-bottom rounded-full transition-transform duration-300 ease-out motion-reduce:transition-none ${
                 isPlaying
                   ? 'bg-gradient-to-t from-primary-bright via-primary-on-dark-muted to-accent-gold shadow-xs'
-                  : 'bg-white/10'
+                  : 'bg-slate-300/60 dark:bg-white/10'
               }`}
               style={{ transform: `scaleY(${bar.height / 100})` }}
             />
           ))}
         </div>
 
-        <div className="flex items-center justify-between text-[11px] font-mono text-ink-muted-on-dark mt-3 px-1">
+        <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground dark:text-ink-muted-on-dark mt-3 px-1">
           <span aria-hidden="true">
             {Math.floor(playbackTime / 60)}:{(playbackTime % 60).toString().padStart(2, '0')}
           </span>
-          <span className="flex items-center gap-1.5 font-sans font-semibold text-primary-on-dark">
+          <span className="flex items-center gap-1.5 font-sans font-semibold text-primary-ink dark:text-primary-on-dark">
             <Volume2 size={13} />
             {dataPoints['choir.player.status_stream'] || 'Direct Audio Broadcast'}
           </span>
@@ -411,7 +411,7 @@ export function ChoirAudioPlayer() {
           aria-valuemax={BROADCAST_LENGTH_SECONDS}
           aria-valuenow={playbackTime}
           aria-valuetext={`${playbackTime} seconds of ${BROADCAST_LENGTH_SECONDS}`}
-          className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10"
+          className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-white/10"
         >
           <div
             className="h-full rounded-full bg-gradient-to-r from-primary-bright to-accent-gold transition-[width] duration-300 ease-out motion-reduce:transition-none"
@@ -422,12 +422,12 @@ export function ChoirAudioPlayer() {
         </div>
 
         {/* Volume & Quick Controls */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-white/10">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-border dark:border-white/10">
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={toggleMute}
-              className="text-primary-on-dark hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold rounded p-1"
+              className="text-primary-ink hover:text-foreground dark:text-primary-on-dark dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold rounded p-1"
               aria-label={volume === 0 ? 'Unmute volume' : 'Mute volume'}
             >
               {volume === 0 ? <VolumeX size={16} /> : <Volume2 size={16} />}
@@ -443,10 +443,10 @@ export function ChoirAudioPlayer() {
                 setVolume(nextVolume);
                 if (audioElRef.current) audioElRef.current.volume = nextVolume;
               }}
-              className="w-28 sm:w-36 h-2 accent-primary-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold rounded-full cursor-pointer"
+              className="w-28 sm:w-36 h-2 accent-primary dark:accent-primary-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold rounded-full cursor-pointer"
               aria-label={dataPoints['choir.player.volume_label'] || 'Broadcast volume'}
             />
-            <span className="text-[11px] font-mono text-ink-muted-on-dark">
+            <span className="text-[11px] font-mono text-muted-foreground dark:text-ink-muted-on-dark">
               {Math.round((volume / 0.5) * 100)}%
             </span>
           </div>
@@ -454,7 +454,7 @@ export function ChoirAudioPlayer() {
           <button
             type="button"
             onClick={() => setShowCustomBar((prev) => !prev)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-primary-on-dark hover:text-white transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-card hover:bg-surface-muted border border-border text-xs font-semibold text-primary-ink hover:text-foreground dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-primary-on-dark dark:hover:text-white transition-colors"
           >
             <Globe size={13} className="text-accent-gold" />
             <DataPoint as="span" name="choir.player.tune_anywhere_btn" initialData={dataPoints}>
@@ -468,9 +468,9 @@ export function ChoirAudioPlayer() {
       {showCustomBar && (
         <form
           onSubmit={handleCustomStreamSubmit}
-          className="mb-6 p-4 rounded-2xl bg-secondary/80 border border-primary-bright/30 space-y-3 animate-in fade-in-0 duration-200"
+          className="mb-6 p-4 rounded-2xl bg-surface-card border border-primary/30 dark:bg-secondary/80 dark:border-primary-bright/30 space-y-3 animate-in fade-in-0 duration-200"
         >
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary-on-dark">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary-ink dark:text-primary-on-dark">
             <Globe size={14} className="text-accent-gold" />
             <DataPoint as="span" name="choir.player.custom_stream_label" initialData={dataPoints}>
               Custom Audio Stream / Song URL from Anywhere
@@ -484,7 +484,7 @@ export function ChoirAudioPlayer() {
               placeholder={
                 dataPoints['choir.player.custom_title_placeholder'] || 'Stream Title (optional)'
               }
-              className="px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/15 text-white placeholder-white/40 text-xs focus:outline-none focus:border-primary-bright"
+              className="px-3.5 py-2.5 rounded-xl bg-surface-muted border border-border text-foreground placeholder:text-muted-foreground dark:bg-black/40 dark:border-white/15 dark:text-white dark:placeholder-white/40 text-xs focus:outline-none focus:border-primary dark:focus:border-primary-bright"
             />
             <input
               type="text"
@@ -495,13 +495,13 @@ export function ChoirAudioPlayer() {
                 dataPoints['choir.player.custom_stream_placeholder'] ||
                 'Stream URL (https://...), Supabase S3 path (audio/song.mp3), or s3://...'
               }
-              className="sm:col-span-2 px-3.5 py-2.5 rounded-xl bg-black/40 border border-white/15 text-white placeholder-white/40 text-xs focus:outline-none focus:border-primary-bright"
+              className="sm:col-span-2 px-3.5 py-2.5 rounded-xl bg-surface-muted border border-border text-foreground placeholder:text-muted-foreground dark:bg-black/40 dark:border-white/15 dark:text-white dark:placeholder-white/40 text-xs focus:outline-none focus:border-primary dark:focus:border-primary-bright"
             />
           </div>
           <div className="flex justify-end gap-2">
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl bg-primary-bright hover:bg-primary-bright text-white font-bold text-xs uppercase tracking-wider shadow-raised transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-bright text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-colors flex items-center gap-1.5"
             >
               <Radio size={13} />
               <DataPoint as="span" name="choir.player.custom_stream_btn" initialData={dataPoints}>
@@ -513,40 +513,42 @@ export function ChoirAudioPlayer() {
       )}
 
       {/* Station Navigation Header */}
-      <div className="mb-3.5 flex items-center justify-between rounded-2xl border border-white/10 bg-secondary/50 px-4 py-2.5">
+      <div className="mb-3.5 flex items-center justify-between rounded-2xl border border-border bg-surface-muted dark:border-white/10 dark:bg-secondary/50 px-4 py-2.5">
         <button
           type="button"
           onClick={() => selectRelativeTrack(-1)}
-          className="inline-flex size-10 items-center justify-center rounded-xl text-ink-on-dark hover:bg-white/10 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-foreground hover:bg-surface-card dark:text-ink-on-dark dark:hover:bg-white/10 dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
           aria-label={dataPoints['choir.player.prev_btn_label'] || 'Previous station'}
         >
           <ChevronLeft size={18} aria-hidden="true" />
         </button>
         <div className="text-center">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary-on-dark block">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-primary-ink dark:text-primary-on-dark block">
             <DataPoint as="span" name="choir.player.now_broadcasting" initialData={dataPoints}>
               Now broadcasting
             </DataPoint>
           </span>
-          <span className="text-xs font-semibold text-white/90">{activeArtist}</span>
+          <span className="text-xs font-semibold text-foreground dark:text-white/90">
+            {activeArtist}
+          </span>
         </div>
         <button
           type="button"
           onClick={() => selectRelativeTrack(1)}
-          className="inline-flex size-10 items-center justify-center rounded-xl text-ink-on-dark hover:bg-white/10 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
+          className="inline-flex size-10 items-center justify-center rounded-xl text-foreground hover:bg-surface-card dark:text-ink-on-dark dark:hover:bg-white/10 dark:hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
           aria-label={dataPoints['choir.player.next_btn_label'] || 'Next station'}
         >
           <ChevronRight size={18} aria-hidden="true" />
         </button>
       </div>
 
-      <p className="mb-4 text-xs italic text-ink-muted-on-dark px-1 leading-relaxed">
+      <p className="mb-4 text-xs italic text-muted-foreground dark:text-ink-muted-on-dark px-1 leading-relaxed">
         {activeNotes}
       </p>
 
       {/* Preset Stations List */}
       <div className="space-y-2">
-        <div className="text-xs font-bold uppercase tracking-wider text-ink-on-dark px-1">
+        <div className="text-xs font-bold uppercase tracking-wider text-foreground dark:text-ink-on-dark px-1">
           <DataPoint as="span" name="choir.player.stations_heading" initialData={dataPoints}>
             Community Stations & Anthems
           </DataPoint>
@@ -564,32 +566,34 @@ export function ChoirAudioPlayer() {
               aria-pressed={isSelected}
               className={`w-full min-h-12 text-left px-4 py-3 rounded-2xl transition-all duration-300 ease-out flex items-center justify-between text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
                 isSelected
-                  ? 'bg-primary-bright/20 border border-primary-bright/50 text-white font-bold shadow-raised'
-                  : 'bg-secondary/40 border border-transparent text-ink-on-dark hover:text-white hover:bg-white/5'
+                  ? 'bg-primary/10 border border-primary/30 text-foreground dark:bg-primary-bright/20 dark:border-primary-bright/50 dark:text-white font-bold shadow-xs'
+                  : 'bg-surface-card border border-border text-muted-foreground hover:text-foreground hover:bg-surface-muted dark:bg-secondary/40 dark:border-transparent dark:text-ink-on-dark dark:hover:text-white dark:hover:bg-white/5'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <span className="font-mono text-primary-on-dark text-xs font-bold shrink-0">
+                <span className="font-mono text-primary-ink dark:text-primary-on-dark text-xs font-bold shrink-0">
                   {String(idx + 1).padStart(2, '0')}
                 </span>
                 <span className="truncate">{trackTitle}</span>
                 {isSelected && isPlaying && (
-                  <span className="inline-flex size-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <span className="inline-flex size-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0" />
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="font-mono text-[10px] text-ink-muted-on-dark">
+                <span className="font-mono text-[10px] text-muted-foreground dark:text-ink-muted-on-dark">
                   {displayDuration(track)}
                 </span>
                 <span
                   className={`size-6 rounded-full flex items-center justify-center ${
-                    isSelected ? 'bg-primary-bright text-white' : 'bg-white/10 text-ink-on-dark'
+                    isSelected
+                      ? 'bg-primary text-white dark:bg-primary-bright'
+                      : 'bg-surface-muted text-foreground border border-border dark:border-transparent dark:bg-white/10 dark:text-ink-on-dark'
                   }`}
                 >
                   {isSelected && isPlaying ? (
-                    <Pause size={10} className="fill-white" />
+                    <Pause size={10} className="fill-current" />
                   ) : (
-                    <Play size={10} className="fill-white ml-0.5" />
+                    <Play size={10} className="fill-current ml-0.5" />
                   )}
                 </span>
               </div>

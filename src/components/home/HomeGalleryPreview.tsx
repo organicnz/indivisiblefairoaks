@@ -89,12 +89,12 @@ export function HomeGalleryPreview({
       : previewPhotos.filter((p) => p.category === selectedFilter);
 
   return (
-    <section className="py-16 md:py-24 bg-secondary text-white border-t border-white/10">
+    <section className="py-16 md:py-24 bg-surface-muted text-foreground border-t border-border dark:bg-secondary dark:text-white dark:border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-3">
               <Camera size={14} className="text-accent-gold" />
               <DataPoint name="home.gallery.eyebrow" initialData={dataPoints}>
                 Photojournalism In Action
@@ -104,7 +104,7 @@ export function HomeGalleryPreview({
               name="home.gallery.headline"
               as="h2"
               initialData={dataPoints}
-              className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight"
+              className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-foreground dark:text-white"
             >
               Moments of Peaceful Resistance
             </DataPoint>
@@ -112,7 +112,7 @@ export function HomeGalleryPreview({
               name="home.gallery.intro"
               as="p"
               initialData={dataPoints}
-              className="text-sm sm:text-base text-ink-on-dark mt-2 max-w-2xl leading-relaxed"
+              className="text-sm sm:text-base text-muted-foreground dark:text-ink-on-dark mt-2 max-w-2xl leading-relaxed"
             >
               Snapshots of our neighbors gathering, singing, holding signs, and speaking truth to
               power across Sacramento County. Strictly 100% grassroots — zero politicians, zero
@@ -122,7 +122,7 @@ export function HomeGalleryPreview({
 
           <Link
             href="/gallery"
-            className="inline-flex items-center gap-2 text-sm font-bold text-accent-gold hover:text-accent-gold transition-colors uppercase tracking-wider group shrink-0"
+            className="inline-flex items-center gap-2 text-sm font-bold text-primary-ink dark:text-accent-gold hover:text-primary-dark dark:hover:text-accent-gold transition-colors uppercase tracking-wider group shrink-0"
           >
             <DataPoint name="home.gallery.btn_view_all" as="span" initialData={dataPoints}>
               Explore Full Gallery
@@ -133,7 +133,10 @@ export function HomeGalleryPreview({
 
         {/* Interactive Filter Pills */}
         <div className="flex items-center gap-2 flex-wrap mb-8 pb-2">
-          <Filter size={14} className="text-ink-muted-on-dark mr-1 hidden sm:inline-block" />
+          <Filter
+            size={14}
+            className="text-muted-foreground dark:text-ink-muted-on-dark mr-1 hidden sm:inline-block"
+          />
           {filterOptions.map((option) => (
             <button
               key={option.id}
@@ -141,8 +144,8 @@ export function HomeGalleryPreview({
               onClick={() => setSelectedFilter(option.id)}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 selectedFilter === option.id
-                  ? 'bg-primary-bright text-white shadow-md shadow-blue-500/25 scale-105'
-                  : 'bg-secondary text-ink-muted-on-dark hover:text-white hover:bg-white/5 border border-white/10'
+                  ? 'bg-primary hover:bg-primary-dark text-white dark:bg-primary-bright shadow-md shadow-blue-500/25 scale-105'
+                  : 'bg-surface-card text-muted-foreground hover:text-foreground hover:bg-surface-muted border border-border dark:bg-secondary dark:text-ink-muted-on-dark dark:hover:text-white dark:hover:bg-white/5 dark:border-white/10'
               }`}
             >
               <DataPoint as="span" name={option.key} initialData={dataPoints}>
@@ -158,7 +161,7 @@ export function HomeGalleryPreview({
             <Link
               key={photo.id}
               href="/gallery"
-              className="group relative h-88 rounded-3xl overflow-hidden border border-white/10 bg-secondary shadow-xl hover:border-slate-700 transition-all block text-left"
+              className="group relative h-88 rounded-3xl overflow-hidden border border-border bg-surface-card shadow-card dark:border-white/10 dark:bg-secondary dark:shadow-xl hover:border-primary/40 dark:hover:border-slate-700 transition-all block text-left"
             >
               <Image
                 src={photo.image}

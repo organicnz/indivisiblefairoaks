@@ -115,10 +115,10 @@ export default async function LinksPage() {
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
-      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
+      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
         <VgpuCivicConstellation />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Compass size={14} className="text-accent-gold" />
             <DataPoint name="links.hero.eyebrow" initialData={dataPoints}>
               Civic Directory
@@ -128,7 +128,7 @@ export default async function LinksPage() {
             name="links.hero.headline"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
+            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
           >
             Coalition &amp; Action Links
           </DataPoint>
@@ -136,7 +136,7 @@ export default async function LinksPage() {
             name="links.hero.intro"
             as="p"
             initialData={dataPoints}
-            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
             Essential websites, nonpartisan voter tools, grassroots allies, and democracy defense
             resources vetted by our chapter.

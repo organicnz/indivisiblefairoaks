@@ -27,7 +27,7 @@ export default async function CancelPage() {
           name="cancel.hero.title"
           as="h1"
           initialData={dataPoints}
-          className="text-3xl font-black text-secondary dark:text-white uppercase tracking-tight mb-4"
+          className="text-3xl font-black text-foreground uppercase tracking-tight mb-4"
         >
           Checkout Cancelled
         </DataPoint>
@@ -35,7 +35,7 @@ export default async function CancelPage() {
           name="cancel.hero.desc"
           as="p"
           initialData={dataPoints}
-          className="text-muted-foreground dark:text-ink-on-dark mb-10 font-medium leading-relaxed"
+          className="text-muted-foreground mb-10 font-medium leading-relaxed"
         >
           No charges were made. Your items are still saved in your cart waiting for your next visit.
         </DataPoint>
@@ -50,7 +50,7 @@ export default async function CancelPage() {
           </Link>
           <Link
             href="/products"
-            className="text-xs font-black text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors"
+            className="text-xs font-black text-muted-foreground uppercase tracking-widest hover:text-primary dark:hover:text-primary-on-dark transition-colors"
           >
             <DataPoint name="cancel.btn.store" as="span" initialData={dataPoints}>
               Back to Store

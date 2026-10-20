@@ -83,17 +83,18 @@ export default async function SearchPage({
   return (
     <div className="w-full bg-background min-h-[70vh] text-foreground pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
-      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-12 mb-10">
+      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-12 mb-10">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white uppercase">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground dark:text-white uppercase">
             <DataPoint name="search.header.title" initialData={dataPoints}>
               Search Results
             </DataPoint>
           </h1>
-          <div className="h-1.5 w-24 bg-accent-gold mt-3" />
-          <p className="mt-4 text-ink-muted-on-dark font-bold uppercase tracking-widest text-xs">
-            Results for <span className="text-primary-on-dark">&ldquo;{q}&rdquo;</span>
+          <div className="h-1.5 w-24 bg-primary dark:bg-accent-gold mt-3" />
+          <p className="mt-4 text-muted-foreground dark:text-ink-muted-on-dark font-bold uppercase tracking-widest text-xs">
+            Results for{' '}
+            <span className="text-primary dark:text-primary-on-dark">&ldquo;{q}&rdquo;</span>
           </p>
         </div>
       </section>
@@ -160,7 +161,7 @@ export default async function SearchPage({
             </p>
             <Link
               href="/products"
-              className="inline-block border-2 border-secondary text-foreground hover:bg-secondary hover:text-white dark:border-border font-black py-3 px-8 rounded-full transition-all uppercase tracking-widest text-xs"
+              className="inline-block border-2 border-primary text-foreground hover:bg-primary hover:text-white dark:border-border dark:hover:bg-primary-bright dark:hover:text-white font-black py-3 px-8 rounded-full transition-all uppercase tracking-widest text-xs"
             >
               <DataPoint name="search.empty.btn" initialData={dataPoints}>
                 Browse all gear

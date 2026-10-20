@@ -71,7 +71,7 @@ export default function WishlistPage() {
               </p>
               <Link
                 href="/products"
-                className="inline-block bg-secondary text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm hover:bg-primary dark:bg-primary-bright dark:hover:bg-primary-light shadow-xl shadow-secondary/10"
+                className="inline-block bg-primary hover:bg-primary-dark text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm dark:bg-primary-bright dark:hover:bg-primary-light shadow-xl shadow-primary/20"
               >
                 <DataPoint initialData={dataPoints} name="wishlist.empty.btn">
                   Explore Gear
@@ -131,7 +131,7 @@ export default function WishlistPage() {
                       <button
                         type="button"
                         onClick={() => handleMoveToCart(item)}
-                        className="flex items-center justify-center gap-2 bg-secondary text-white font-black py-4 rounded-full transition-all uppercase tracking-widest text-xs hover:bg-primary dark:bg-primary-bright dark:hover:bg-primary-light"
+                        className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-black py-4 rounded-full transition-all uppercase tracking-widest text-xs dark:bg-primary-bright dark:hover:bg-primary-light"
                       >
                         <ShoppingCart size={16} />{' '}
                         <DataPoint initialData={dataPoints} name="wishlist.btn.add_to_cart">

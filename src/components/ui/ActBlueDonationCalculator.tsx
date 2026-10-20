@@ -122,11 +122,14 @@ export function ActBlueDonationCalculator() {
   };
 
   return (
-    <div className="rounded-3xl bg-secondary border border-accent-gold/30 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl space-y-8">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-white/10">
+    <div className="rounded-3xl bg-surface-card border border-border dark:bg-secondary dark:border-accent-gold/30 p-6 sm:p-8 md:p-10 shadow-card dark:shadow-2xl backdrop-blur-xl space-y-8">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-border dark:border-white/10">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/20 text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
-            <Heart size={14} className="fill-amber-300 text-accent-gold" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-accent-gold/20 dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
+            <Heart
+              size={14}
+              className="fill-amber-500 text-amber-600 dark:fill-amber-300 dark:text-accent-gold"
+            />
             <DataPoint as="span" name="donate.calc.eyebrow" initialData={dataPoints}>
               Interactive Grassroots Calculator
             </DataPoint>
@@ -135,7 +138,7 @@ export function ActBlueDonationCalculator() {
             as="h2"
             name="donate.calc.title"
             initialData={dataPoints}
-            className="text-2xl sm:text-3xl font-black text-white"
+            className="text-2xl sm:text-3xl font-black text-foreground dark:text-white"
           >
             Choose Your Contribution
           </DataPoint>
@@ -143,21 +146,21 @@ export function ActBlueDonationCalculator() {
             as="p"
             name="donate.calc.subhead"
             initialData={dataPoints}
-            className="text-xs sm:text-sm text-ink-on-dark mt-1"
+            className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark mt-1"
           >
             See the concrete civic impact of your grassroots investment before you give.
           </DataPoint>
         </div>
 
         {/* Recurring / One-time Frequency Toggle */}
-        <div className="flex items-center p-1 bg-secondary rounded-2xl border border-white/10 text-xs font-semibold">
+        <div className="flex items-center p-1 bg-surface-muted rounded-2xl border border-border dark:bg-secondary dark:border-white/10 text-xs font-semibold">
           <button
             type="button"
             onClick={() => setIsMonthly(false)}
             className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
               !isMonthly
                 ? 'bg-accent-gold text-slate-950 font-bold shadow-md'
-                : 'text-ink-muted-on-dark hover:text-white'
+                : 'text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white'
             }`}
           >
             <DataPoint as="span" name="donate.calc.frequency.one_time" initialData={dataPoints}>
@@ -170,7 +173,7 @@ export function ActBlueDonationCalculator() {
             className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
               isMonthly
                 ? 'bg-accent-gold text-slate-950 font-bold shadow-md'
-                : 'text-ink-muted-on-dark hover:text-white'
+                : 'text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white'
             }`}
           >
             <Sparkles size={13} />
@@ -195,20 +198,20 @@ export function ActBlueDonationCalculator() {
                   setSelectedAmount(amt);
                   setCustomAmount('');
                 }}
-                className={`min-h-11 p-4 rounded-2xl border text-center transition-colors duration-300 ease-out relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary ${
+                className={`min-h-11 p-4 rounded-2xl border text-center transition-colors duration-300 ease-out relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-secondary ${
                   isSelected
-                    ? 'bg-accent-gold/10 border-accent-gold shadow-[0_0_20px_rgba(245,158,11,0.2)]'
-                    : 'bg-secondary/60 border-white/10 hover:border-slate-700'
+                    ? 'bg-amber-500/10 border-accent-gold shadow-[0_0_20px_rgba(245,158,11,0.2)]'
+                    : 'bg-surface-muted border-border hover:border-primary/40 dark:bg-secondary/60 dark:border-white/10 dark:hover:border-slate-700'
                 }`}
               >
                 <span
                   className={`text-2xl sm:text-3xl font-black block transition-colors ${
-                    isSelected ? 'text-accent-gold' : 'text-white'
+                    isSelected ? 'text-accent-gold' : 'text-foreground dark:text-white'
                   }`}
                 >
                   ${amt}
                 </span>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-ink-muted-on-dark mt-1 block">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground dark:text-ink-muted-on-dark mt-1 block">
                   {isMonthly ? (
                     <DataPoint as="span" name="donate.calc.per_month" initialData={dataPoints}>
                       Per Month
@@ -230,17 +233,17 @@ export function ActBlueDonationCalculator() {
       </fieldset>
 
       {/* Custom Amount Input */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-secondary border border-white/10">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-surface-muted border border-border dark:bg-secondary dark:border-white/10">
         <label
           htmlFor="custom-amount"
-          className="text-xs font-mono text-ink-on-dark whitespace-nowrap"
+          className="text-xs font-mono text-foreground dark:text-ink-on-dark whitespace-nowrap"
         >
           <DataPoint as="span" name="donate.calc.custom_amount_label" initialData={dataPoints}>
             Or Enter Custom Amount:
           </DataPoint>
         </label>
         <div className="relative flex-1">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark font-bold">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark font-bold">
             $
           </span>
           <input
@@ -251,30 +254,30 @@ export function ActBlueDonationCalculator() {
             placeholder={dataPoints['donate.calc.custom_amount_placeholder'] || 'e.g. 75'}
             value={customAmount}
             onChange={(e) => setCustomAmount(e.target.value)}
-            className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-500 text-sm font-bold focus:outline-none focus:border-amber-400 transition-colors"
+            className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-surface-card border border-border text-foreground placeholder:text-muted-foreground dark:bg-secondary dark:border-slate-700 dark:text-white dark:placeholder-slate-500 text-sm font-bold focus:outline-none focus:border-amber-400 transition-colors"
           />
         </div>
       </div>
 
       {/* Dynamic Impact Display Box */}
-      <div className="rounded-2xl bg-gradient-to-r from-blue-950/50 via-slate-900 to-indigo-950/50 border border-primary-bright/30 p-6 sm:p-8 space-y-4">
+      <div className="rounded-2xl bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-slate-50 border border-border dark:from-blue-950/50 dark:via-slate-900 dark:to-indigo-950/50 dark:border-primary-bright/30 p-6 sm:p-8 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="inline-flex items-center gap-2 text-xs font-mono text-accent-gold uppercase tracking-wide">
+          <div className="inline-flex items-center gap-2 text-xs font-mono text-primary-ink dark:text-accent-gold uppercase tracking-wide">
             <Sparkles size={14} />
             <DataPoint as="span" name="donate.calc.impact_badge" initialData={dataPoints}>
               Grassroots Impact Breakdown
             </DataPoint>
           </div>
-          <span className="px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-semibold">
+          <span className="px-3 py-1 rounded-full bg-primary/10 text-primary-ink dark:bg-primary-bright/20 dark:text-primary-on-dark text-xs font-semibold">
             {impact.badge}
           </span>
         </div>
 
         <div>
-          <h3 className="text-xl sm:text-2xl font-black text-white mb-2">
+          <h3 className="text-xl sm:text-2xl font-black text-foreground dark:text-white mb-2">
             Your ${currentAmount} {isMonthly ? '/ month' : ''} enables: {impact.impactTitle}
           </h3>
-          <p className="text-xs sm:text-sm text-ink-on-dark leading-relaxed">
+          <p className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
             {impact.impactDescription}
           </p>
         </div>
@@ -283,9 +286,9 @@ export function ActBlueDonationCalculator() {
           {impact.tangibleMetrics.map((metric) => (
             <div
               key={metric}
-              className="p-3 rounded-xl bg-secondary border border-white/10 text-xs font-medium text-slate-200 flex items-center gap-2"
+              className="p-3 rounded-xl bg-surface-card border border-border text-foreground dark:bg-secondary dark:border-white/10 dark:text-slate-200 text-xs font-medium flex items-center gap-2"
             >
-              <Check size={14} className="text-emerald-400 shrink-0" />
+              <Check size={14} className="text-emerald-500 dark:text-emerald-400 shrink-0" />
               <span>{metric}</span>
             </div>
           ))}
@@ -322,9 +325,9 @@ export function ActBlueDonationCalculator() {
           <ExternalLink size={18} />
         </a>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-ink-muted-on-dark text-center">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-muted-foreground dark:text-ink-muted-on-dark text-center">
           <span className="flex items-center gap-1">
-            <ShieldCheck size={14} className="text-emerald-400" />
+            <ShieldCheck size={14} className="text-emerald-500 dark:text-emerald-400" />
             <DataPoint as="span" name="donate.calc.security.encrypted" initialData={dataPoints}>
               Encrypted 256-bit Secure ActBlue Processing
             </DataPoint>

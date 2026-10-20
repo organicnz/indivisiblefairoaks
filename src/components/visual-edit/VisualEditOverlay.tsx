@@ -2470,7 +2470,7 @@ export function VisualEditOverlay() {
               setRecoveredDraft(null);
               toast.success('Recovered draft restored');
             }}
-            className="rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-secondary hover:bg-accent-gold"
+            className="rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-ink-strong hover:bg-accent-gold"
           >
             Restore
           </button>
@@ -2612,7 +2612,7 @@ export function VisualEditOverlay() {
                             aria-label={`Set heading level ${lvl}`}
                             className={`px-1 py-0.5 rounded text-[10px] font-black transition-colors ${
                               isCurrentLevel
-                                ? 'bg-accent-gold text-secondary font-black shadow-2xs'
+                                ? 'bg-accent-gold text-ink-strong font-black shadow-2xs'
                                 : 'text-slate-300 hover:text-white hover:bg-white/15'
                             }`}
                           >
@@ -2643,7 +2643,7 @@ export function VisualEditOverlay() {
                             aria-label={`Set callout tone ${tone}`}
                             className={`px-1 py-0.5 rounded text-[9px] font-bold uppercase transition-colors ${
                               isCurrentTone
-                                ? 'bg-accent-gold text-secondary font-black shadow-2xs'
+                                ? 'bg-accent-gold text-ink-strong font-black shadow-2xs'
                                 : 'text-slate-300 hover:text-white hover:bg-white/15'
                             }`}
                           >
@@ -2786,7 +2786,7 @@ export function VisualEditOverlay() {
           <button
             type="button"
             onClick={() => void commitInlineEdit(inlineSession)}
-            className="inline-flex items-center gap-1 rounded-md bg-accent-gold px-2.5 py-1 font-black text-secondary text-[11px] uppercase tracking-wider hover:bg-amber-400 transition-colors shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1 rounded-md bg-accent-gold px-2.5 py-1 font-black text-ink-strong text-[11px] uppercase tracking-wider hover:bg-amber-400 transition-colors shadow-xs cursor-pointer"
             title="Save changes (⌘+Enter)"
           >
             <Check size={13} className="stroke-[3]" />
@@ -3327,7 +3327,7 @@ export function VisualEditOverlay() {
               }
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider shadow-raised transition-all disabled:opacity-50 ${
                 dirty
-                  ? 'bg-accent text-secondary hover:bg-accent-gold'
+                  ? 'bg-accent text-ink-strong hover:bg-accent-gold'
                   : 'bg-white/10 text-ink-muted-on-dark'
               }`}
             >
@@ -4264,7 +4264,7 @@ export function VisualEditOverlay() {
                           onClick={() => setEditingBlock({ ...editingBlock, tone: t })}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize ${
                             editingBlock.tone === t
-                              ? 'bg-accent-gold text-secondary'
+                              ? 'bg-accent-gold text-ink-strong'
                               : 'bg-surface-muted text-foreground hover:bg-border border border-border'
                           }`}
                         >

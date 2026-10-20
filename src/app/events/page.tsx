@@ -24,10 +24,10 @@ export default async function EventsPage() {
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
+      <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Calendar size={14} className="text-accent-gold" />
             <DataPoint initialData={dataPoints} name="events.hero.eyebrow">
               Community Actions & Calendar
@@ -37,7 +37,7 @@ export default async function EventsPage() {
             initialData={dataPoints}
             name="events.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
+            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
           >
             Upcoming Events & Mobilizations
           </DataPoint>
@@ -45,7 +45,7 @@ export default async function EventsPage() {
             initialData={dataPoints}
             name="events.hero.intro"
             as="p"
-            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
             Find out when and where our chapter is gathering. All community members committed to
             peaceful, democratic activism are warmly welcome.

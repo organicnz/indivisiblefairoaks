@@ -25,10 +25,10 @@ export default async function NewsPage() {
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
-      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
+      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Newspaper size={14} className="text-accent-gold" />
             <DataPoint initialData={dataPoints} name="news.hero.eyebrow">
               Chapter Bulletins & Insights
@@ -38,7 +38,7 @@ export default async function NewsPage() {
             initialData={dataPoints}
             name="news.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
+            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
           >
             Newsletters & Chapter Updates
           </DataPoint>
@@ -46,7 +46,7 @@ export default async function NewsPage() {
             initialData={dataPoints}
             name="news.hero.intro"
             as="p"
-            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
             Stay up to date with our grassroots organizing, local legislative actions, and community
             resistance across Fair Oaks, Carmichael, and Sacramento County.
@@ -85,7 +85,7 @@ export default async function NewsPage() {
           <div className="shrink-0 w-full md:w-auto">
             <a
               href="mailto:subscribe@indivisiblefairoaks.org?subject=Subscribe%20to%20Indivisible%20Fair%20Oaks%20Newsletter"
-              className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-bold text-xs uppercase tracking-wider shadow-lg transition-all"
+              className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-bold text-xs uppercase tracking-wider shadow-lg transition-all"
             >
               <Send size={16} />
               <DataPoint initialData={dataPoints} as="span" name="news.subscribe.btn">

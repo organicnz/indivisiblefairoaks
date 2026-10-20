@@ -20,11 +20,11 @@ export default async function DonatePage() {
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
+      <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-gold/10 border border-accent-gold/30 text-accent-gold text-xs font-bold uppercase tracking-wider mb-4">
-            <Heart size={14} className="fill-accent-gold text-accent-gold" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-amber-800 dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-4">
+            <Heart size={14} className="fill-current text-accent dark:text-accent-gold" />
             <DataPoint name="donate.hero.eyebrow" initialData={dataPoints}>
               100% Grassroots Funded
             </DataPoint>
@@ -33,7 +33,7 @@ export default async function DonatePage() {
             name="donate.hero.title"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-white"
+            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-foreground dark:text-white"
           >
             Fuel The Fair Oaks - Carmichael Resistance
           </DataPoint>
@@ -41,7 +41,7 @@ export default async function DonatePage() {
             name="donate.hero.intro"
             as="p"
             initialData={dataPoints}
-            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
             We don't take corporate PAC money. Our work is powered entirely by neighbors like you
             who pitch in to defend democracy right here in Sacramento County.

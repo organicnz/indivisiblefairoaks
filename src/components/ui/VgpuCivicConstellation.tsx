@@ -365,11 +365,19 @@ export function VgpuCivicConstellation({
         className={`absolute inset-0 bg-gradient-to-br transition-opacity duration-1000 ${
           effective === 'dark'
             ? 'from-slate-950 via-blue-950/80 to-indigo-950'
-            : 'from-blue-950 via-indigo-950/80 to-slate-900'
+            : 'from-blue-100/60 via-indigo-50/40 to-slate-100/70'
         } ${isWebGPUActive ? 'opacity-20' : 'opacity-100'}`}
       >
-        <div className="absolute top-[15%] left-[20%] w-[50vw] h-[50vw] rounded-full bg-blue-600/10 blur-[120px] animate-pulse duration-[8000ms]" />
-        <div className="absolute bottom-[10%] right-[15%] w-[45vw] h-[45vw] rounded-full bg-amber-500/10 blur-[130px] animate-pulse duration-[10000ms]" />
+        <div
+          className={`absolute top-[15%] left-[20%] w-[50vw] h-[50vw] rounded-full blur-[120px] animate-pulse duration-[8000ms] ${
+            effective === 'dark' ? 'bg-blue-600/10' : 'bg-blue-400/15'
+          }`}
+        />
+        <div
+          className={`absolute bottom-[10%] right-[15%] w-[45vw] h-[45vw] rounded-full blur-[130px] animate-pulse duration-[10000ms] ${
+            effective === 'dark' ? 'bg-amber-500/10' : 'bg-amber-400/15'
+          }`}
+        />
       </div>
     </div>
   );

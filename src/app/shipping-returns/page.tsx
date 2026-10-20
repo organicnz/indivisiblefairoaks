@@ -182,12 +182,12 @@ export default async function ShippingReturnsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <Clock className="text-slate-400" size={20} />
+                <Clock className="text-muted-foreground" size={20} />
                 <DataPoint
                   name="shipping.delivery.title"
                   as="h3"
                   initialData={dataPoints}
-                  className="text-lg font-black text-secondary dark:text-white uppercase m-0"
+                  className="text-lg font-black text-foreground uppercase m-0"
                 >
                   Delivery Times
                 </DataPoint>
@@ -227,12 +227,12 @@ export default async function ShippingReturnsPage() {
           </div>
         </div>
 
-        <div className="mt-20 text-center bg-secondary dark:bg-surface-card border border-border p-12 rounded-[3rem] text-white shadow-float">
+        <div className="mt-20 text-center bg-surface-card border border-border p-12 rounded-[3rem] text-foreground dark:text-white shadow-card">
           <DataPoint
             name="shipping.help.title"
             as="h3"
             initialData={dataPoints}
-            className="text-2xl font-black uppercase mb-4"
+            className="text-2xl font-black uppercase mb-4 text-foreground dark:text-white"
           >
             Need help with materials or an order?
           </DataPoint>
@@ -240,14 +240,14 @@ export default async function ShippingReturnsPage() {
             name="shipping.help.body"
             as="p"
             initialData={dataPoints}
-            className="text-white/70 mb-8 max-w-md mx-auto"
+            className="text-muted-foreground dark:text-ink-on-dark mb-8 max-w-md mx-auto"
           >
             Our volunteer organizing team is ready to assist with any questions regarding
             deliveries, rally materials, or community inquiries.
           </DataPoint>
           <a
             href="mailto:contact@indivisiblefairoaks.org"
-            className="inline-block bg-primary hover:bg-primary-light text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm"
+            className="inline-block bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black py-4 px-10 rounded-full transition-all uppercase tracking-widest text-sm shadow-xl shadow-primary/20"
           >
             <DataPoint name="shipping.help.cta" as="span" initialData={dataPoints}>
               Contact Organizing Team

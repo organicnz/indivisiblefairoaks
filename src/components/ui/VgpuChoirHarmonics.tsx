@@ -363,11 +363,19 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
         className={`absolute inset-0 bg-gradient-to-br transition-opacity duration-1000 ${
           effective === 'dark'
             ? 'from-slate-950 via-blue-950/80 to-indigo-950'
-            : 'from-blue-950 via-indigo-950/80 to-slate-900'
+            : 'from-blue-100/60 via-indigo-50/40 to-slate-100/70'
         } ${isWebGPUActive ? 'opacity-20' : 'opacity-100'}`}
       >
-        <div className="absolute top-[10%] left-[10%] w-[60vw] h-[25vw] rounded-full bg-blue-600/15 blur-[100px] animate-pulse duration-[7000ms]" />
-        <div className="absolute bottom-[10%] right-[10%] w-[50vw] h-[25vw] rounded-full bg-amber-500/10 blur-[110px] animate-pulse duration-[9000ms]" />
+        <div
+          className={`absolute top-[10%] left-[10%] w-[60vw] h-[25vw] rounded-full blur-[100px] animate-pulse duration-[7000ms] ${
+            effective === 'dark' ? 'bg-blue-600/15' : 'bg-blue-400/20'
+          }`}
+        />
+        <div
+          className={`absolute bottom-[10%] right-[10%] w-[50vw] h-[25vw] rounded-full blur-[110px] animate-pulse duration-[9000ms] ${
+            effective === 'dark' ? 'bg-amber-500/10' : 'bg-amber-400/15'
+          }`}
+        />
       </div>
     </div>
   );

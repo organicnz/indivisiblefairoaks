@@ -90,10 +90,10 @@ export default function ContactPage() {
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20 transition-colors duration-300">
       {/* Header Banner with VGPU Constellation Network */}
-      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
+      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Mail size={14} className="text-accent-gold" />
             <DataPoint as="span" name="contact.hero.eyebrow" initialData={dataPoints}>
               Connect With Organizers
@@ -103,7 +103,7 @@ export default function ContactPage() {
             name="contact.hero.title"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-white"
+            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-foreground dark:text-white"
           >
             Contact Indivisible Fair Oaks-Carmichael
           </DataPoint>
@@ -111,7 +111,7 @@ export default function ContactPage() {
             name="contact.hero.intro"
             as="p"
             initialData={dataPoints}
-            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
             Have a question, want to volunteer, or suggest an action in our community? We’d love to
             hear from you.

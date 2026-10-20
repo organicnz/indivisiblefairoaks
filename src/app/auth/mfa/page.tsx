@@ -299,7 +299,7 @@ export function MfaChallengePage() {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="w-full bg-secondary dark:bg-primary-bright text-white font-black rounded-full py-5 uppercase tracking-[0.2em] text-sm transition-all hover:bg-primary dark:hover:bg-primary-light disabled:opacity-50"
+          className="w-full bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black rounded-full py-5 uppercase tracking-[0.2em] text-sm transition-all shadow-xl shadow-primary/20 disabled:opacity-50"
         >
           <DataPoint as="span" name="auth.mfa.unreadable_btn_retry">
             Try again
@@ -342,7 +342,7 @@ export function MfaChallengePage() {
           {outcome.factorTypes.length > 0 ? (
             <>
               This account has a{' '}
-              <strong className="text-secondary dark:text-white">
+              <strong className="text-foreground">
                 {outcome.factorTypes.join(', ').toUpperCase()}
               </strong>{' '}
               factor enrolled. This site can only complete the check with an authenticator app (a
@@ -351,7 +351,7 @@ export function MfaChallengePage() {
           ) : (
             <>
               Set one up in{' '}
-              <strong className="text-secondary dark:text-white">
+              <strong className="text-foreground">
                 Account → Settings → Two-Factor Authentication
               </strong>
               .
@@ -390,7 +390,7 @@ export function MfaChallengePage() {
         <div className="text-left">
           <label
             htmlFor="code"
-            className="block text-[10px] font-black text-secondary dark:text-white uppercase tracking-widest mb-2 ml-1"
+            className="block text-[10px] font-black text-foreground uppercase tracking-widest mb-2 ml-1"
           >
             <DataPoint as="span" name="auth.mfa.challenge_code_label">
               6-Digit Code
@@ -494,7 +494,7 @@ function Shell({
           >
             {icon}
           </div>
-          <h1 className="text-3xl font-black text-secondary dark:text-white uppercase tracking-tight mb-2">
+          <h1 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">
             {heading}
           </h1>
           <div

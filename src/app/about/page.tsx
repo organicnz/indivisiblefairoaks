@@ -21,20 +21,28 @@ export default async function AboutPage() {
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
-      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
+      <section className="relative overflow-hidden bg-surface-card/90 backdrop-blur-lg border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
         <VgpuCivicConstellation />
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="flex justify-center mb-6">
+            <Image
+              src="/images/logo/indivisible-fairoaks-logo.png"
+              alt="Indivisible Fair Oaks & Carmichael Chapter Identity"
+              width={380}
+              height={67}
+              className="block dark:hidden h-12 sm:h-16 md:h-20 w-auto object-contain drop-shadow-sm"
+              priority
+            />
             <Image
               src="/images/logo/indivisible-fairoaks-logo-dark.png"
               alt="Indivisible Fair Oaks & Carmichael Chapter Identity"
               width={380}
               height={67}
-              className="h-12 sm:h-16 md:h-20 w-auto object-contain drop-shadow-lg"
+              className="hidden dark:block h-12 sm:h-16 md:h-20 w-auto object-contain drop-shadow-lg"
               priority
             />
           </div>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4 animate-fade-in">
             <Users size={14} className="text-accent-gold" />
             <DataPoint name="about.hero.eyebrow" initialData={dataPoints}>
               Grassroots Democracy In Action
@@ -44,7 +52,7 @@ export default async function AboutPage() {
             name="about.hero.headline"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-white"
+            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-foreground dark:text-white"
           >
             About Indivisible Fair Oaks-Carmichael
           </DataPoint>
@@ -52,7 +60,7 @@ export default async function AboutPage() {
             name="about.hero.subhead"
             as="p"
             initialData={dataPoints}
-            className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
+            className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
             We are a local grassroots chapter representing residents in and near Fair Oaks and
             Carmichael, California, dedicated to protecting our democracy through peaceful civic
@@ -74,7 +82,7 @@ export default async function AboutPage() {
             <span>Our Mission Statement</span>
           </DataPoint>
           <CopyRegion id="about-mission">
-            <div className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4 text-muted-foreground dark:text-ink-on-dark leading-relaxed text-base">
+            <div className="p-8 rounded-2xl bg-surface-card border border-border shadow-card space-y-4 text-muted-foreground dark:text-ink-on-dark leading-relaxed text-base">
               <DataPoint
                 name="about.mission.intro"
                 as="p"
@@ -204,7 +212,7 @@ export default async function AboutPage() {
         </section>
 
         {/* Commitment to Nonviolent Action */}
-        <section className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4">
+        <section className="p-8 rounded-2xl bg-surface-card border border-border shadow-card space-y-4">
           <DataPoint
             name="about.nonviolence.headline"
             as="h3"
@@ -253,7 +261,7 @@ export default async function AboutPage() {
         </section>
 
         {/* Contact & Join */}
-        <section className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card text-center space-y-6">
+        <section className="p-8 rounded-2xl bg-surface-card border border-border shadow-card text-center space-y-6">
           <DataPoint
             name="about.join.headline"
             as="h3"
@@ -276,7 +284,7 @@ export default async function AboutPage() {
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               href="/events"
-              className="px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md"
+              className="px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md transform transition-transform duration-200 hover:scale-105"
             >
               <DataPoint name="about.join.btn_events" as="span" initialData={dataPoints}>
                 See Upcoming Events
@@ -284,7 +292,7 @@ export default async function AboutPage() {
             </Link>
             <Link
               href="/contact"
-              className="px-6 py-3 rounded-xl border-2 border-secondary text-foreground hover:bg-secondary hover:text-white dark:border-white/20 dark:hover:bg-white/10 dark:text-white font-bold text-xs uppercase tracking-wider transition-all"
+              className="px-6 py-3 rounded-xl border-2 border-border text-foreground hover:bg-surface-card dark:border-white/20 dark:hover:bg-white/10 dark:text-white font-bold text-xs uppercase tracking-wider transition-all transform transition-transform duration-200 hover:scale-105"
             >
               <DataPoint name="about.join.btn_contact" as="span" initialData={dataPoints}>
                 Contact Us

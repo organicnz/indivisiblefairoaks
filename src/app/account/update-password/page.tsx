@@ -149,12 +149,12 @@ export default function UpdatePasswordPage() {
           <div className="p-4 bg-primary/10 text-primary dark:text-primary-on-dark rounded-2xl mb-6 inline-flex">
             <ShieldCheck size={28} aria-hidden="true" />
           </div>
-          <h1 className="text-2xl font-black text-secondary dark:text-white uppercase tracking-tight mb-3">
+          <h1 className="text-2xl font-black text-foreground uppercase tracking-tight mb-3">
             <DataPoint name="account.security.confirm_title" initialData={dataPoints}>
               Confirm it&apos;s you
             </DataPoint>
           </h1>
-          <p className="text-muted-foreground dark:text-ink-on-dark font-medium mb-8 leading-relaxed">
+          <p className="text-muted-foreground font-medium mb-8 leading-relaxed">
             <DataPoint name="account.security.confirm_desc" initialData={dataPoints}>
               This account has two-factor authentication, so changing the password needs a
               verification code first. It is the same check that protects your account settings.
@@ -184,12 +184,12 @@ export default function UpdatePasswordPage() {
               strokeWidth={2.5}
             />
           </div>
-          <h1 className="text-2xl font-black text-secondary dark:text-white uppercase tracking-tight mb-3">
+          <h1 className="text-2xl font-black text-foreground uppercase tracking-tight mb-3">
             <DataPoint name="account.password.updated_title" initialData={dataPoints}>
               Password Updated
             </DataPoint>
           </h1>
-          <p className="text-muted-foreground dark:text-ink-on-dark font-medium mb-8 leading-relaxed">
+          <p className="text-muted-foreground font-medium mb-8 leading-relaxed">
             <DataPoint name="account.password.updated_desc" initialData={dataPoints}>
               Your password has been changed successfully. You can now sign in with your new
               credentials.
@@ -223,12 +223,12 @@ export default function UpdatePasswordPage() {
               </DataPoint>
             </span>
           </div>
-          <h1 className="text-4xl font-black text-secondary dark:text-white uppercase tracking-tighter leading-none mb-3">
+          <h1 className="text-4xl font-black text-foreground uppercase tracking-tighter leading-none mb-3">
             <DataPoint name="account.password.new_title" initialData={dataPoints}>
               New <span className="text-primary dark:text-primary-on-dark italic">Password</span>
             </DataPoint>
           </h1>
-          <p className="text-muted-foreground dark:text-ink-muted-on-dark font-bold uppercase tracking-[0.15em] text-[10px]">
+          <p className="text-muted-foreground font-bold uppercase tracking-[0.15em] text-[10px]">
             <DataPoint name="account.password.new_desc" initialData={dataPoints}>
               Choose a strong password for your account
             </DataPoint>
@@ -262,7 +262,7 @@ export default function UpdatePasswordPage() {
                   placeholder={
                     dataPoints['account.password.new_placeholder'] || 'Min. 8 characters'
                   }
-                  className="w-full pl-12 pr-12 py-5 bg-surface-muted dark:bg-slate-800/80 border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary dark:focus:border-primary-bright outline-none transition-all font-bold text-foreground text-sm placeholder:text-muted-foreground"
+                  className="w-full pl-12 pr-12 py-5 bg-surface-muted border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary dark:focus:border-primary-bright outline-none transition-all font-bold text-foreground text-sm placeholder:text-muted-foreground"
                 />
                 <button
                   type="button"
@@ -299,7 +299,7 @@ export default function UpdatePasswordPage() {
                   placeholder={
                     dataPoints['account.password.confirm_placeholder'] || 'Repeat your password'
                   }
-                  className="w-full pl-12 pr-12 py-5 bg-surface-muted dark:bg-slate-800/80 border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary dark:focus:border-primary-bright outline-none transition-all font-bold text-foreground text-sm placeholder:text-muted-foreground"
+                  className="w-full pl-12 pr-12 py-5 bg-surface-muted border border-border rounded-3xl focus:ring-4 focus:ring-primary/20 focus:bg-surface-card focus:border-primary dark:focus:border-primary-bright outline-none transition-all font-bold text-foreground text-sm placeholder:text-muted-foreground"
                 />
                 <button
                   type="button"

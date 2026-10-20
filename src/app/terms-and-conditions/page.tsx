@@ -13,18 +13,18 @@ export default async function TermsPage() {
           name="terms.hero.title"
           as="h1"
           initialData={dataPoints}
-          className="text-4xl font-black text-secondary dark:text-white uppercase tracking-tight mb-8"
+          className="text-4xl font-black text-foreground uppercase tracking-tight mb-8"
         >
           Terms and Conditions
         </DataPoint>
         <div className="h-1.5 w-24 bg-primary dark:bg-primary-bright mb-12" />
 
-        <div className="prose prose-slate dark:prose-invert max-w-none space-y-8 text-muted-foreground dark:text-ink-on-dark font-medium leading-relaxed">
+        <div className="prose prose-slate dark:prose-invert max-w-none space-y-8 text-muted-foreground font-medium leading-relaxed">
           <DataPoint
             name="terms.last_updated"
             as="p"
             initialData={dataPoints}
-            className="text-xs font-black uppercase tracking-widest text-muted-foreground dark:text-ink-muted-on-dark"
+            className="text-xs font-black uppercase tracking-widest text-muted-foreground"
           >
             Last updated: October 2026
           </DataPoint>
@@ -41,7 +41,7 @@ export default async function TermsPage() {
               name="terms.mission.title"
               as="h2"
               initialData={dataPoints}
-              className="text-xl font-black text-secondary dark:text-white uppercase tracking-wider mb-4"
+              className="text-xl font-black text-foreground uppercase tracking-wider mb-4"
             >
               Grassroots Mission &amp; Non-Violence
             </DataPoint>
@@ -57,7 +57,7 @@ export default async function TermsPage() {
               name="terms.disclaimer.title"
               as="h2"
               initialData={dataPoints}
-              className="text-xl font-black text-secondary dark:text-white uppercase tracking-wider mb-4"
+              className="text-xl font-black text-foreground uppercase tracking-wider mb-4"
             >
               Contribution &amp; Content Disclaimer
             </DataPoint>

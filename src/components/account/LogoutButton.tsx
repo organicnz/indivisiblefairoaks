@@ -36,7 +36,7 @@ export function LogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={isLoggingOut}
-      className="inline-flex items-center gap-4 px-10 py-5 bg-secondary text-white rounded-full font-black uppercase tracking-[0.2em] text-sm hover:bg-primary transition-all group shadow-xl shadow-secondary/10 border border-white/10 disabled:opacity-50 cursor-pointer"
+      className="inline-flex items-center gap-4 px-10 py-5 bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white rounded-full font-black uppercase tracking-[0.2em] text-sm transition-all group shadow-xl shadow-primary/20 border border-transparent dark:border-white/10 disabled:opacity-50 cursor-pointer"
     >
       {isLoggingOut ? (
         <DataPoint as="span" name="account.btn.signing_out" initialData={dataPoints}>

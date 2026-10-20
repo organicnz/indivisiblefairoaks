@@ -22,10 +22,10 @@ export default async function ChoirPage() {
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Harmonic Soundwave Atmosphere */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-20">
+      <div className="relative overflow-hidden bg-surface-muted border-b border-border dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-20">
         <VgpuChoirHarmonics />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Music size={14} className="text-accent-gold" />
             <DataPoint name="choir.hero.eyebrow" initialData={dataPoints}>
               Harmonizing For Justice
@@ -35,11 +35,11 @@ export default async function ChoirPage() {
             name="choir.hero.title"
             as="h1"
             initialData={dataPoints}
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-white"
+            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-foreground dark:text-white"
           >
             The Carmichael Resistance Choir
           </DataPoint>
-          <p className="text-lg text-ink-on-dark max-w-2xl mx-auto leading-relaxed italic">
+          <p className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed italic">
             &ldquo;
             <DataPoint name="choir.hero.quote" initialData={dataPoints}>
               Every good protest movement needs music. Music lifts us up, keeps us motivated, and
@@ -201,7 +201,7 @@ export default async function ChoirPage() {
                   href="https://www.mobilize.us/indivisible/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-3 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all"
+                  className="w-full py-3 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all"
                 >
                   <span>Register for Next Rehearsal</span>
                   <ExternalLink size={14} />
@@ -242,7 +242,7 @@ export default async function ChoirPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="rounded-2xl overflow-hidden bg-surface-card border border-border p-4 shadow-xl space-y-3">
-              <div className="aspect-video rounded-xl overflow-hidden bg-secondary">
+              <div className="aspect-video rounded-xl overflow-hidden bg-surface-deep dark:bg-secondary">
                 <iframe
                   className="w-full h-full"
                   src="https://www.youtube.com/embed/BhdjDlRUMUw"
@@ -270,7 +270,7 @@ export default async function ChoirPage() {
             </div>
 
             <div className="rounded-2xl overflow-hidden bg-surface-card border border-border p-4 shadow-xl space-y-3">
-              <div className="aspect-video rounded-xl overflow-hidden bg-secondary">
+              <div className="aspect-video rounded-xl overflow-hidden bg-surface-deep dark:bg-secondary">
                 <iframe
                   className="w-full h-full"
                   src="https://www.youtube.com/embed/M631H68kLCE"
@@ -327,14 +327,14 @@ export default async function ChoirPage() {
           <div className="pt-2 flex flex-wrap justify-center gap-4">
             <a
               href="mailto:contact@indivisiblefairoaks.org?subject=Joining%20the%20Resistance%20Choir"
-              className="px-6 py-3 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2"
+              className="px-6 py-3 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2"
             >
               <Mail size={16} />
               <span>Email Choir Director</span>
             </a>
             <Link
               href="/events"
-              className="px-6 py-3 rounded-xl bg-surface-muted hover:bg-secondary hover:text-white dark:bg-white/5 dark:hover:bg-white/10 text-foreground dark:text-ink-on-dark border border-border dark:border-white/10 font-bold text-xs uppercase tracking-wider transition-all"
+              className="px-6 py-3 rounded-xl bg-surface-muted hover:bg-primary/10 hover:text-primary dark:bg-white/5 dark:hover:bg-white/10 text-foreground dark:text-ink-on-dark border border-border dark:border-white/10 font-bold text-xs uppercase tracking-wider transition-all"
             >
               View Calendar
             </Link>

@@ -215,26 +215,26 @@ export default async function AccountPage(props: {
 
         {/* Administrator Portal Bridge */}
         {isAdmin && (
-          <div className="mb-10 p-6 rounded-3xl bg-secondary text-white shadow-xl border border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in fade-in">
+          <div className="mb-10 p-6 rounded-3xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-foreground dark:text-white shadow-card dark:shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 animate-in fade-in">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
-                <Shield className="w-6 h-6 text-primary-on-dark" />
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary/20 dark:border-primary/30 dark:text-primary-on-dark flex items-center justify-center shrink-0">
+                <Shield className="w-6 h-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary-on-dark-muted">
+                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary-ink dark:text-primary-on-dark-muted">
                     <DataPoint name="account.admin_bridge.badge" initialData={dataPoints}>
                       Chapter Leadership
                     </DataPoint>
                   </span>
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
                 </div>
-                <h2 className="text-lg font-black uppercase tracking-tight text-white">
+                <h2 className="text-lg font-black uppercase tracking-tight text-foreground dark:text-white">
                   <DataPoint name="account.admin_bridge.title" initialData={dataPoints}>
                     Admin Control & Civic CRM
                   </DataPoint>
                 </h2>
-                <p className="text-xs text-ink-muted-on-dark font-medium">
+                <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark font-medium">
                   <DataPoint name="account.admin_bridge.desc" initialData={dataPoints}>
                     Manage chapter constituents, target volunteer rings, and dispatch Resend
                     broadcasts.
@@ -246,7 +246,7 @@ export default async function AccountPage(props: {
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
               <Link
                 href="/admin/crm"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-primary-bright/25 transition-all"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-primary/25 transition-all"
               >
                 <Users className="w-4 h-4" />
                 <span>
@@ -258,7 +258,7 @@ export default async function AccountPage(props: {
               </Link>
               <Link
                 href="/admin"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/15 text-ink-on-dark hover:text-white font-bold text-xs uppercase tracking-wider border border-white/10 transition-all"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-surface-muted hover:bg-surface-muted/80 text-foreground dark:bg-white/10 dark:hover:bg-white/15 dark:text-ink-on-dark dark:hover:text-white font-bold text-xs uppercase tracking-wider border border-border dark:border-white/10 transition-all"
               >
                 <span>
                   <DataPoint name="account.admin_bridge.control_btn" initialData={dataPoints}>

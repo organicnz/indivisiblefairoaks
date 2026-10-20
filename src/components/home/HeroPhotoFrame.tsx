@@ -129,7 +129,7 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
           variants={rowVariants}
           initial={reduced !== false ? 'visible' : 'hidden'}
           animate="visible"
-          className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50 aspect-[4/3]"
+          className="relative rounded-2xl overflow-hidden border border-border dark:border-white/10 shadow-2xl shadow-black/20 dark:shadow-black/50 aspect-[4/3]"
         >
           {heroPhotos.length > 0 && (
             <AnimatePresence mode="sync">
@@ -153,8 +153,8 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
             </AnimatePresence>
           )}
           {heroPhotos.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-secondary/80 px-6 text-center">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-ink-muted-on-dark">
+            <div className="absolute inset-0 flex items-center justify-center bg-surface-muted dark:bg-secondary/80 px-6 text-center">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground dark:text-ink-muted-on-dark">
                 <DataPoint as="span" name="home.hero.community_moments" initialData={dataPoints}>
                   Community moments
                 </DataPoint>
@@ -173,7 +173,7 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 5 }}
                   transition={{ duration: dur ?? 0.3 }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary/70 backdrop-blur-sm border border-white/10 text-[10px] font-bold uppercase tracking-wider text-ink-on-dark"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-card/90 dark:bg-secondary/70 backdrop-blur-sm border border-border dark:border-white/10 text-[10px] font-bold uppercase tracking-wider text-foreground dark:text-ink-on-dark"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-accent-gold shrink-0" />
                   {heroPhotos[heroIndex]?.label}
@@ -205,7 +205,7 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
           {pairPhotos.map((photo) => (
             <div
               key={photo.id}
-              className="relative rounded-xl overflow-hidden border border-white/10 shadow-lg aspect-square"
+              className="relative rounded-xl overflow-hidden border border-border dark:border-white/10 shadow-lg aspect-square"
             >
               <Image
                 src={photo.src}
@@ -227,14 +227,17 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
 
       {/* Caption strip — outside aria-hidden so the link is keyboard-reachable */}
       <div className="flex items-center justify-between px-1">
-        <span className="text-[10px] text-slate-500 font-medium" aria-hidden="true">
+        <span
+          className="text-[10px] text-muted-foreground dark:text-ink-muted-on-dark font-medium"
+          aria-hidden="true"
+        >
           <DataPoint as="span" name="home.hero.community_moments" initialData={dataPoints}>
             Community moments
           </DataPoint>
         </span>
         <Link
           href="/gallery"
-          className="text-[10px] text-primary-on-dark-muted hover:text-primary-on-dark font-bold uppercase tracking-wider transition-colors"
+          className="text-[10px] text-primary-ink dark:text-primary-on-dark-muted hover:text-primary dark:hover:text-primary-on-dark font-bold uppercase tracking-wider transition-colors"
         >
           <DataPoint as="span" name="home.hero.view_gallery" initialData={dataPoints}>
             View Gallery →

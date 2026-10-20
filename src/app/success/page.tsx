@@ -32,7 +32,7 @@ export default function SuccessPage() {
           initialData={dataPoints}
           name="success.hero.title"
           as="h1"
-          className="text-3xl font-black text-secondary dark:text-white uppercase tracking-tight mb-4"
+          className="text-3xl font-black text-foreground uppercase tracking-tight mb-4"
         >
           Order Confirmed!
         </DataPoint>
@@ -40,7 +40,7 @@ export default function SuccessPage() {
           initialData={dataPoints}
           name="success.hero.desc"
           as="p"
-          className="text-muted-foreground dark:text-ink-on-dark mb-10 font-medium leading-relaxed"
+          className="text-muted-foreground mb-10 font-medium leading-relaxed"
         >
           Thank you for supporting Indivisible Fair Oaks-Carmichael. We have received your order and
           will follow up with details shortly.
@@ -57,7 +57,7 @@ export default function SuccessPage() {
           initialData={dataPoints}
           name="success.badge.volunteer"
           as="p"
-          className="mt-8 text-[10px] text-muted-foreground dark:text-ink-muted-on-dark font-black uppercase tracking-widest"
+          className="mt-8 text-[10px] text-muted-foreground font-black uppercase tracking-widest"
         >
           100% Volunteer Powered • Grassroots Community Funded
         </DataPoint>

@@ -241,7 +241,7 @@ function LoginForm() {
               }}
               className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'otp'
-                  ? 'bg-secondary text-white dark:bg-primary-bright dark:text-white shadow-xl shadow-secondary/20 border border-white/10'
+                  ? 'bg-primary text-white dark:bg-primary-bright dark:text-white shadow-xl shadow-primary/20'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -260,7 +260,7 @@ function LoginForm() {
               onClick={() => setAuthMethod('password')}
               className={`flex-1 min-h-11 py-5 text-xs font-black uppercase tracking-[0.2em] transition-colors duration-300 ease-out rounded-xl flex items-center justify-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 authMethod === 'password'
-                  ? 'bg-secondary text-white dark:bg-primary-bright dark:text-white shadow-xl shadow-secondary/20 border border-white/10'
+                  ? 'bg-primary text-white dark:bg-primary-bright dark:text-white shadow-xl shadow-primary/20'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -348,7 +348,7 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-secondary text-white dark:bg-primary-bright dark:hover:bg-primary-light font-black rounded-full py-6 hover:bg-primary transition-all uppercase tracking-[0.4em] text-xs shadow-2xl shadow-secondary/20 border border-white/10 flex items-center justify-center gap-4 group disabled:opacity-50 active:scale-[0.98]"
+                className="w-full bg-primary hover:bg-primary-dark dark:bg-primary-bright dark:hover:bg-primary-light text-white font-black rounded-full py-6 transition-all uppercase tracking-[0.4em] text-xs shadow-2xl shadow-primary/20 flex items-center justify-center gap-4 group disabled:opacity-50 active:scale-[0.98]"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={20} />

@@ -71,10 +71,10 @@ export function CivicActionTicker({ items: initialItems }: { items?: TickerItem[
   const TICKER_ITEMS = items.length > 0 ? items : DEFAULT_TICKER_ITEMS;
 
   return (
-    <div className="w-full bg-secondary border-y border-white/10 overflow-hidden py-3 backdrop-blur-md">
+    <div className="w-full bg-surface-card/90 border-y border-border text-foreground dark:bg-secondary dark:border-white/10 dark:text-ink-on-dark overflow-hidden py-3 backdrop-blur-md shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         {/* Fixed Title Tag */}
-        <div className="shrink-0 flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary-bright/20 border border-primary-on-dark-muted/30 text-primary-on-dark text-[11px] font-black uppercase tracking-wider">
+        <div className="shrink-0 flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/20 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-[11px] font-black uppercase tracking-wider">
           <Sparkles size={12} className="text-accent-gold animate-pulse" />
           <DataPoint as="span" name="home.ticker.pulse" initialData={dataPoints}>
             Community Pulse
@@ -87,16 +87,18 @@ export function CivicActionTicker({ items: initialItems }: { items?: TickerItem[
             <Link
               key={item.label}
               href={item.href}
-              className="flex items-center gap-2.5 whitespace-nowrap text-ink-on-dark hover:text-white group transition-colors"
+              className="flex items-center gap-2.5 whitespace-nowrap text-muted-foreground hover:text-foreground dark:text-ink-on-dark dark:hover:text-white group transition-colors"
             >
-              <span className="p-1 rounded-md bg-secondary border border-white/10 group-hover:border-slate-700">
+              <span className="p-1 rounded-md bg-surface-muted border border-border group-hover:border-primary/40 dark:bg-secondary dark:border-white/10 dark:group-hover:border-slate-700">
                 {item.icon ?? <Sparkles size={14} className="text-accent-gold" />}
               </span>
-              <span className="font-bold text-white group-hover:text-primary-on-dark transition-colors">
+              <span className="font-bold text-foreground group-hover:text-primary dark:text-white dark:group-hover:text-primary-on-dark transition-colors">
                 {item.label}:
               </span>
-              <span className="text-ink-muted-on-dark text-[11px]">{item.detail}</span>
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider bg-secondary text-accent-gold border border-accent-gold/20">
+              <span className="text-muted-foreground dark:text-ink-muted-on-dark text-[11px]">
+                {item.detail}
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider bg-surface-muted text-primary-ink border border-border dark:bg-secondary dark:text-accent-gold dark:border-accent-gold/20">
                 {item.badge}
               </span>
             </Link>

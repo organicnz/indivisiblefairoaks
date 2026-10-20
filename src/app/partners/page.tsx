@@ -75,10 +75,10 @@ export default async function PartnersPage() {
   return (
     <div className="bg-background text-foreground min-h-screen">
       {/* Header Banner with VGPU Constellation Network */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
+      <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center text-center pointer-events-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Handshake size={14} className="text-accent-gold" />
             <DataPoint initialData={dataPoints} name="partners.hero.eyebrow">
               Grassroots Coalition Network
@@ -88,7 +88,7 @@ export default async function PartnersPage() {
             initialData={dataPoints}
             name="partners.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4"
+            className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
           >
             Our Coalition Partners & Allies
           </DataPoint>
@@ -97,7 +97,7 @@ export default async function PartnersPage() {
             initialData={dataPoints}
             name="partners.hero.intro"
             as="p"
-            className="text-ink-on-dark text-sm sm:text-base max-w-2xl leading-relaxed"
+            className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-2xl leading-relaxed"
           >
             We believe democracy is a team sport. Indivisible Fair Oaks-Carmichael works in close
             partnership with national organizations, California coalitions, and Sacramento community

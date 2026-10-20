@@ -398,12 +398,24 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
         className={`absolute inset-0 overflow-hidden bg-gradient-to-br transition-opacity duration-1000 ${
           effective === 'dark'
             ? 'from-slate-950 via-blue-950 to-indigo-950'
-            : 'from-blue-950 via-indigo-950 to-slate-900'
+            : 'from-blue-100/60 via-indigo-50/40 to-slate-100/70'
         } ${isWebGPUActive ? 'opacity-20' : 'opacity-100'}`}
       >
-        <div className="absolute -top-[30%] -left-[10%] w-[70vw] h-[70vw] rounded-full bg-blue-600/15 blur-[120px] animate-pulse duration-[8000ms]" />
-        <div className="absolute top-[20%] -right-[15%] w-[60vw] h-[60vw] rounded-full bg-indigo-500/15 blur-[140px] animate-pulse duration-[10000ms]" />
-        <div className="absolute -bottom-[20%] left-[20%] w-[50vw] h-[50vw] rounded-full bg-cyan-400/10 blur-[130px] animate-pulse duration-[12000ms]" />
+        <div
+          className={`absolute -top-[30%] -left-[10%] w-[70vw] h-[70vw] rounded-full blur-[120px] animate-pulse duration-[8000ms] ${
+            effective === 'dark' ? 'bg-blue-600/15' : 'bg-blue-400/20'
+          }`}
+        />
+        <div
+          className={`absolute top-[20%] -right-[15%] w-[60vw] h-[60vw] rounded-full blur-[140px] animate-pulse duration-[10000ms] ${
+            effective === 'dark' ? 'bg-indigo-500/15' : 'bg-indigo-300/20'
+          }`}
+        />
+        <div
+          className={`absolute -bottom-[20%] left-[20%] w-[50vw] h-[50vw] rounded-full blur-[130px] animate-pulse duration-[12000ms] ${
+            effective === 'dark' ? 'bg-cyan-400/10' : 'bg-cyan-300/15'
+          }`}
+        />
       </div>
     </div>
   );

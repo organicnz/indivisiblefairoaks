@@ -121,10 +121,10 @@ export default async function FAQPage() {
       />
 
       {/* Header Banner with VGPU Constellation Network */}
-      <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16 mb-12">
+      <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16 mb-12">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-bright/10 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <HelpCircle size={14} className="text-accent-gold" />
             <DataPoint initialData={dataPoints} name="faqs.hero.eyebrow">
               Frequently Asked Questions
@@ -134,16 +134,16 @@ export default async function FAQPage() {
             initialData={dataPoints}
             name="faqs.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-white"
+            className="text-4xl sm:text-5xl font-black tracking-tight mb-4 text-foreground dark:text-white"
           >
             Frequently Asked Questions
           </DataPoint>
-          <div className="h-1.5 w-24 bg-accent-gold rounded-full mb-4 mx-auto" />
+          <div className="h-1.5 w-24 bg-primary dark:bg-accent-gold rounded-full mb-4 mx-auto" />
           <DataPoint
             initialData={dataPoints}
             name="faqs.hero.intro"
             as="p"
-            className="text-ink-on-dark text-sm sm:text-base max-w-xl mx-auto"
+            className="text-muted-foreground dark:text-ink-on-dark text-sm sm:text-base max-w-xl mx-auto"
           >
             Have questions about attending a meeting, singing with the choir, or getting involved?
             Find quick answers below.
@@ -187,12 +187,12 @@ export default async function FAQPage() {
           })}
         </div>
 
-        <div className="mt-16 text-center p-8 rounded-3xl bg-gradient-to-r from-blue-950/60 via-slate-900 to-indigo-950/60 border border-primary-bright/30 space-y-4">
+        <div className="mt-16 text-center p-8 rounded-3xl bg-surface-card border border-border dark:bg-gradient-to-r dark:from-blue-950/60 dark:via-slate-900 dark:to-indigo-950/60 dark:border-primary-bright/30 space-y-4 shadow-card">
           <DataPoint
             initialData={dataPoints}
             name="faqs.still_have_questions"
             as="h3"
-            className="text-xl font-black text-white"
+            className="text-xl font-black text-foreground dark:text-white"
           >
             Still have a question?
           </DataPoint>
@@ -200,7 +200,7 @@ export default async function FAQPage() {
             initialData={dataPoints}
             name="faqs.still_have_questions_sub"
             as="p"
-            className="text-xs sm:text-sm text-ink-on-dark max-w-md mx-auto"
+            className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark max-w-md mx-auto"
           >
             Our volunteer organizing committee is always here to help you get connected.
           </DataPoint>

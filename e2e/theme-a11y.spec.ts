@@ -65,7 +65,7 @@ test('a11y: all public pages pass axe in the dark palette', async ({ page }) => 
         page: name ?? path,
         violations: serious.map(
           (v) =>
-            `${v.id}: ${v.help} - targets: ${JSON.stringify(v.nodes?.map((n) => n.target) || [])}`
+            `${v.id}: ${v.help} - targets: ${JSON.stringify(v.nodes?.map((n) => ({ target: n.target, summary: n.failureSummary })) || [])}`
         ),
       });
     }

@@ -118,7 +118,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
           <span
             aria-hidden="true"
-            className="bg-secondary text-white text-xs font-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-full transition-colors duration-300 ease-out uppercase tracking-[0.2em] shadow-lg shadow-secondary/10 group-hover:bg-primary dark:border dark:border-white/15 dark:shadow-xs text-center"
+            className="bg-primary text-white text-xs font-black px-4 sm:px-6 py-2.5 sm:py-3 rounded-full transition-colors duration-300 ease-out uppercase tracking-[0.2em] shadow-lg shadow-primary/10 group-hover:bg-primary-light dark:bg-primary-bright dark:group-hover:bg-primary-light dark:border dark:border-white/15 dark:shadow-xs text-center"
           >
             <DataPoint as="span" name="products.card.details" initialData={dataPoints}>
               View Gear

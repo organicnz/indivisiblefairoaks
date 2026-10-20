@@ -144,11 +144,11 @@ export default function GalleryPage() {
   return (
     <div className="bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Hero Header with VGPU Constellation Network */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16 px-4 sm:px-6 lg:px-8">
+      <div className="relative overflow-hidden bg-surface-muted border-b border-border dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />
         <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center text-center space-y-4 pointer-events-auto">
           {/* Eyebrow Pill */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary-bright/15 border border-primary-on-dark-muted/30 text-primary-on-dark text-xs font-bold uppercase tracking-wider backdrop-blur-md">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/15 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider backdrop-blur-md">
             <Camera size={14} className="text-accent-gold" />
             <DataPoint initialData={dataPoints} name="gallery.hero.eyebrow">
               Photojournalism In Action • Moments of Peaceful Resistance
@@ -159,18 +159,18 @@ export default function GalleryPage() {
             initialData={dataPoints}
             name="gallery.hero.headline"
             as="h1"
-            className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-white tracking-tighter leading-[1.08]"
+            className="text-4xl sm:text-5xl md:text-6xl font-black uppercase text-foreground dark:text-white tracking-tighter leading-[1.08]"
           >
             Democracy In Full View
           </DataPoint>
 
-          <div className="h-1.5 w-24 bg-accent-gold rounded-full" />
+          <div className="h-1.5 w-24 bg-primary dark:bg-accent-gold rounded-full" />
 
           <DataPoint
             initialData={dataPoints}
             name="gallery.hero.intro"
             as="p"
-            className="text-base sm:text-lg text-ink-on-dark leading-relaxed max-w-3xl"
+            className="text-base sm:text-lg text-muted-foreground dark:text-ink-on-dark leading-relaxed max-w-3xl"
           >
             Snapshots of our neighbors gathering, singing, holding signs, and speaking truth to
             power across Sacramento County. Curated from our legacy site archives, Sacramento No
@@ -181,12 +181,12 @@ export default function GalleryPage() {
 
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">
-            <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
+            <div className="p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m1_stat"
-                className="text-2xl font-black text-accent-gold block font-mono"
+                className="text-2xl font-black text-amber-600 dark:text-amber-300 block font-mono"
               >
                 No Kings
               </DataPoint>
@@ -194,17 +194,17 @@ export default function GalleryPage() {
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m1_label"
-                className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
+                className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-wider font-semibold"
               >
                 Sacramento Actions
               </DataPoint>
             </div>
-            <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
+            <div className="p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m2_stat"
-                className="text-2xl font-black text-emerald-400 block font-mono"
+                className="text-2xl font-black text-emerald-600 dark:text-emerald-400 block font-mono"
               >
                 NorCal Resist
               </DataPoint>
@@ -212,17 +212,17 @@ export default function GalleryPage() {
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m2_label"
-                className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
+                className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-wider font-semibold"
               >
                 Direct Solidarity
               </DataPoint>
             </div>
-            <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
+            <div className="p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m3_stat"
-                className="text-2xl font-black text-primary-on-dark-muted block font-mono"
+                className="text-2xl font-black text-primary dark:text-primary-on-dark-muted block font-mono"
               >
                 Witty Signs
               </DataPoint>
@@ -230,17 +230,17 @@ export default function GalleryPage() {
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m3_label"
-                className="text-[11px] text-ink-muted-on-dark uppercase tracking-wider font-semibold"
+                className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark uppercase tracking-wider font-semibold"
               >
                 Grassroots Humor
               </DataPoint>
             </div>
-            <div className="p-4 rounded-2xl bg-secondary/80 border border-white/10 text-center">
+            <div className="p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m4_stat"
-                className="text-2xl font-black text-purple-400 block font-mono"
+                className="text-2xl font-black text-violet-600 dark:text-purple-400 block font-mono"
               >
                 0 Politicians
               </DataPoint>
@@ -385,7 +385,7 @@ export default function GalleryPage() {
                   </h2>
                   <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                     <span className="flex items-center gap-1 truncate max-w-[70%]">
-                      <MapPin size={12} className="text-accent dark:text-accent-gold shrink-0" />
+                      <MapPin size={12} className="text-accent dark:text-amber-300 shrink-0" />
                       <span className="truncate">{photo.location}</span>
                     </span>
                     <span className="font-mono text-[10px] text-slate-500 shrink-0">
@@ -402,7 +402,7 @@ export default function GalleryPage() {
         <div className="mt-16 rounded-3xl bg-surface-card border border-border p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8 border-b border-border dark:border-white/10 pb-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 dark:bg-amber-400/20 border border-accent-gold/40 dark:border-amber-400/30 text-secondary dark:text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
                 <Video size={14} />
                 <DataPoint initialData={dataPoints} as="span" name="gallery.video.badge_top">
                   Featured Video Archive
@@ -500,12 +500,12 @@ export default function GalleryPage() {
         </div>
 
         {/* Submit Photo CTA */}
-        <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-indigo-950/40 border border-white/10 text-center space-y-4 max-w-3xl mx-auto">
+        <div className="mt-16 p-8 sm:p-10 rounded-3xl bg-surface-card border border-border dark:bg-gradient-to-r dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 dark:border-white/10 text-center space-y-4 max-w-3xl mx-auto shadow-card">
           <DataPoint
             initialData={dataPoints}
             as="h2"
             name="gallery.cta.title"
-            className="text-2xl font-black text-white uppercase tracking-tighter"
+            className="text-2xl font-black text-foreground dark:text-white uppercase tracking-tighter"
           >
             Have Sacramento Resistance Pics, Unity Shots, or Funny Signs?
           </DataPoint>
@@ -513,7 +513,7 @@ export default function GalleryPage() {
             initialData={dataPoints}
             as="p"
             name="gallery.cta.desc"
-            className="text-sm text-ink-on-dark max-w-xl mx-auto leading-relaxed"
+            className="text-sm text-muted-foreground dark:text-ink-on-dark max-w-xl mx-auto leading-relaxed"
           >
             Did you snap a brilliant, witty cardboard sign, an uplifting choir moment, or neighbors
             standing in solidarity? Strictly grassroots (zero politicians, zero corporate imagery) —

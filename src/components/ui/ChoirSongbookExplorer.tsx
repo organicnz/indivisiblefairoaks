@@ -142,9 +142,9 @@ export function ChoirSongbookExplorer() {
   });
 
   return (
-    <div className="rounded-3xl bg-secondary border border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl space-y-8">
+    <div className="rounded-3xl bg-surface-card border border-border text-foreground dark:bg-secondary dark:border-white/10 dark:text-white p-6 sm:p-8 md:p-10 shadow-card dark:shadow-2xl backdrop-blur-xl space-y-8">
       <div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-bright/20 text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/20 dark:border-transparent dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-3">
           <Music size={14} className="text-accent-gold" />
           <DataPoint as="span" name="choir.songbook.eyebrow" initialData={dataPoints}>
             Carmichael Resistance Choir Songbook
@@ -154,7 +154,7 @@ export function ChoirSongbookExplorer() {
           as="h2"
           name="choir.songbook.headline"
           initialData={dataPoints}
-          className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-2"
+          className="text-2xl sm:text-3xl font-black text-foreground dark:text-white tracking-tight mb-2"
         >
           Anthems, Chants & Freedom Songs
         </DataPoint>
@@ -162,7 +162,7 @@ export function ChoirSongbookExplorer() {
           as="p"
           name="choir.songbook.subhead"
           initialData={dataPoints}
-          className="text-sm sm:text-base text-ink-on-dark max-w-2xl leading-relaxed"
+          className="text-sm sm:text-base text-muted-foreground dark:text-ink-on-dark max-w-2xl leading-relaxed"
         >
           Browse our repertoire of four-part harmony arrangements and call-and-response rally
           chants. Click any song to view lyrics, chord charts, and historical background.
@@ -170,10 +170,10 @@ export function ChoirSongbookExplorer() {
       </div>
 
       {/* Filter and Search Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-secondary border border-white/10">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-muted border border-border dark:bg-secondary dark:border-white/10">
         <div className="relative flex-1">
           <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted-on-dark"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
             size={16}
           />
           <input
@@ -184,7 +184,7 @@ export function ChoirSongbookExplorer() {
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-secondary border border-slate-700 text-white placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-500 transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-card border border-border text-foreground placeholder:text-muted-foreground dark:bg-secondary dark:border-slate-700 dark:text-white dark:placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-primary dark:focus:border-blue-500 transition-colors"
           />
         </div>
 
@@ -196,8 +196,8 @@ export function ChoirSongbookExplorer() {
               onClick={() => setSelectedCategory(cat.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 selectedCategory === cat.id
-                  ? 'bg-primary-bright text-white shadow-md'
-                  : 'bg-secondary text-ink-muted-on-dark hover:text-slate-200'
+                  ? 'bg-primary hover:bg-primary-dark text-white dark:bg-primary-bright shadow-sm'
+                  : 'bg-surface-card text-muted-foreground hover:text-foreground border border-border dark:bg-secondary dark:text-ink-muted-on-dark dark:hover:text-slate-200 dark:border-transparent'
               }`}
             >
               <DataPoint as="span" name={cat.key} initialData={dataPoints}>
@@ -211,8 +211,8 @@ export function ChoirSongbookExplorer() {
             onClick={() => setShowChords((prev) => !prev)}
             className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all border cursor-pointer ${
               showChords
-                ? 'bg-accent-gold/20 text-accent-gold border-accent-gold/40'
-                : 'bg-secondary text-ink-muted-on-dark border-white/10 hover:text-slate-200'
+                ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-400/20 dark:text-amber-300 dark:border-amber-400/40'
+                : 'bg-surface-card text-muted-foreground border-border hover:text-foreground dark:bg-secondary dark:text-ink-muted-on-dark dark:border-white/10 dark:hover:text-slate-200'
             }`}
           >
             {showChords ? 'Chords: Visible' : 'Show Chords'}
@@ -228,7 +228,7 @@ export function ChoirSongbookExplorer() {
               as="h3"
               name="choir.songbook.empty_title"
               initialData={dataPoints}
-              className="font-bold text-white text-sm"
+              className="font-bold text-foreground dark:text-white text-sm"
             >
               No songs matched your search.
             </DataPoint>
@@ -236,7 +236,7 @@ export function ChoirSongbookExplorer() {
               as="p"
               name="choir.songbook.empty_desc"
               initialData={dataPoints}
-              className="text-xs text-ink-muted-on-dark"
+              className="text-xs text-muted-foreground dark:text-ink-muted-on-dark"
             >
               Try searching for a different keyword, artist, or historical era.
             </DataPoint>
@@ -254,16 +254,14 @@ export function ChoirSongbookExplorer() {
                   key={song.id}
                   className={`rounded-2xl border transition-all overflow-hidden ${
                     isExpanded
-                      ? 'bg-secondary/80 border-primary-bright/50 shadow-xl'
-                      : 'bg-secondary/40 border-white/10 hover:border-slate-700'
+                      ? 'bg-surface-card border-primary/40 shadow-card dark:bg-secondary/80 dark:border-primary-bright/50 dark:shadow-xl'
+                      : 'bg-surface-card border-border hover:border-primary/30 dark:bg-secondary/40 dark:border-white/10 dark:hover:border-slate-700'
                   }`}
                 >
                   {/* Header Row / Toggle */}
                   <button
                     type="button"
                     onClick={() => setExpandedSongId(isExpanded ? null : song.id)}
-                    // Without these the button is an unlabelled toggle to a screen
-                    // reader: nothing says what it expands, or whether it is open.
                     aria-expanded={isExpanded}
                     aria-controls={`song-body-${song.id}`}
                     className="w-full min-h-11 p-5 sm:p-6 text-left flex items-center justify-between gap-4 transition-colors duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-inset"
@@ -272,32 +270,34 @@ export function ChoirSongbookExplorer() {
                       <div
                         className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                           isExpanded
-                            ? 'bg-primary-bright text-white'
-                            : 'bg-white/5 text-primary-on-dark-muted'
+                            ? 'bg-primary text-white dark:bg-primary-bright'
+                            : 'bg-surface-muted text-primary-ink border border-border dark:border-transparent dark:bg-white/5 dark:text-primary-on-dark-muted'
                         }`}
                       >
                         <Music size={18} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2.5">
-                          <h3 className="text-base sm:text-lg font-bold text-white leading-snug">
+                          <h3 className="text-base sm:text-lg font-bold text-foreground dark:text-white leading-snug">
                             {song.title}
                           </h3>
-                          <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-white/5 text-[10px] font-mono text-ink-on-dark">
+                          <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-surface-muted border border-border dark:border-transparent dark:bg-white/5 text-[10px] font-mono text-muted-foreground dark:text-ink-on-dark">
                             {song.category}
                           </span>
                         </div>
-                        <p className="text-xs text-ink-muted-on-dark">{song.author}</p>
+                        <p className="text-xs text-muted-foreground dark:text-ink-muted-on-dark">
+                          {song.author}
+                        </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <div className="hidden md:flex items-center gap-3 text-xs font-mono text-ink-muted-on-dark">
+                      <div className="hidden md:flex items-center gap-3 text-xs font-mono text-muted-foreground dark:text-ink-muted-on-dark">
                         <span>Key: {song.key}</span>
                         <span>•</span>
                         <span>{song.tempo}</span>
                       </div>
-                      <div className="p-1 rounded-lg text-ink-muted-on-dark">
+                      <div className="p-1 rounded-lg text-muted-foreground dark:text-ink-muted-on-dark">
                         {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                       </div>
                     </div>
@@ -307,13 +307,13 @@ export function ChoirSongbookExplorer() {
                   {isExpanded && (
                     <div
                       id={`song-body-${song.id}`}
-                      className="px-5 sm:px-6 pb-6 pt-2 border-t border-white/10 space-y-6"
+                      className="px-5 sm:px-6 pb-6 pt-2 border-t border-border dark:border-white/10 space-y-6"
                     >
                       {/* Historical Context */}
-                      <div className="p-4 rounded-xl bg-blue-950/30 border border-primary-bright/20 text-xs sm:text-sm text-primary-on-dark/90 leading-relaxed flex items-start gap-3">
+                      <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200/80 text-xs sm:text-sm text-foreground leading-relaxed flex items-start gap-3 dark:bg-blue-950/30 dark:border-primary-bright/20 dark:text-primary-on-dark/90">
                         <Sparkles size={16} className="text-accent-gold shrink-0 mt-0.5" />
                         <div>
-                          <strong className="text-white block mb-0.5">
+                          <strong className="text-foreground dark:text-white block mb-0.5">
                             <DataPoint
                               as="span"
                               name="choir.songbook.context_tab"
@@ -329,7 +329,7 @@ export function ChoirSongbookExplorer() {
 
                       {/* Chords Box if enabled */}
                       {showChords && song.chords && (
-                        <div className="p-3.5 rounded-xl bg-accent-gold/10 border border-accent-gold/20 font-mono text-xs text-accent-gold flex items-center justify-between">
+                        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-400/10 dark:border-amber-400/20 font-mono text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
                           <span>
                             <DataPoint
                               as="span"
@@ -340,13 +340,15 @@ export function ChoirSongbookExplorer() {
                             </DataPoint>
                             : {song.chords}
                           </span>
-                          <span className="text-[10px] text-accent-gold/80">Guitar / Keyboard</span>
+                          <span className="text-[10px] text-amber-700 dark:text-amber-300/90">
+                            Guitar / Keyboard
+                          </span>
                         </div>
                       )}
 
                       {/* Lyrics Box */}
-                      <div className="p-5 rounded-xl bg-secondary border border-white/10 font-serif text-sm sm:text-base text-slate-200 leading-relaxed whitespace-pre-line">
-                        <p className="font-sans text-[10px] font-black uppercase tracking-widest text-accent-gold mb-2">
+                      <div className="p-5 rounded-xl bg-surface-muted border border-border dark:bg-secondary dark:border-white/10 font-serif text-sm sm:text-base text-foreground dark:text-slate-200 leading-relaxed whitespace-pre-line">
+                        <p className="font-sans text-[10px] font-black uppercase tracking-widest text-primary-ink dark:text-amber-300 mb-2">
                           <DataPoint
                             as="span"
                             name="choir.songbook.lyrics_tab"
@@ -359,16 +361,19 @@ export function ChoirSongbookExplorer() {
                       </div>
 
                       {/* Rehearsal Footer */}
-                      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-ink-muted-on-dark pt-2">
+                      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground dark:text-ink-muted-on-dark pt-2">
                         <div className="flex items-center gap-1.5">
-                          <Heart size={13} className="text-rose-400 fill-rose-400" />
+                          <Heart
+                            size={13}
+                            className="text-rose-500 fill-rose-500 dark:text-rose-400 dark:fill-rose-400"
+                          />
                           <span>
                             Sung by the Carmichael Resistance Choir at community demonstrations.
                           </span>
                         </div>
                         <a
                           href="mailto:contact@indivisiblefairoaks.org?subject=Sheet%20Music%20Request"
-                          className="text-primary-on-dark-muted hover:text-primary-on-dark font-semibold"
+                          className="text-primary hover:underline dark:text-white dark:hover:text-white/90 font-semibold"
                         >
                           Request Complete Sheet Music / SATB Scores →
                         </a>

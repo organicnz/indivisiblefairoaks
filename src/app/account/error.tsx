@@ -19,15 +19,13 @@ export default function AccountError({
           as="h1"
           name="account.error.title"
           initialData={dataPoints}
-          className="text-2xl font-black text-secondary dark:text-white uppercase mb-4"
+          className="text-2xl font-black text-foreground uppercase mb-4"
         >
           Something went wrong
         </DataPoint>
-        <p className="text-muted-foreground dark:text-ink-on-dark text-sm mb-2">{error.message}</p>
+        <p className="text-muted-foreground text-sm mb-2">{error.message}</p>
         {error.digest && (
-          <p className="text-muted-foreground dark:text-ink-muted-on-dark text-xs font-mono mb-6">
-            Digest: {error.digest}
-          </p>
+          <p className="text-muted-foreground text-xs font-mono mb-6">Digest: {error.digest}</p>
         )}
         <button
           type="button"

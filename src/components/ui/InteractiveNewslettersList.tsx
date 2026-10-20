@@ -222,7 +222,7 @@ export function InteractiveNewslettersList({
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
           >
             <Plus size={15} />
             <DataPoint name="news.admin.add_bulletin" as="span" initialData={dataPoints}>
@@ -235,7 +235,7 @@ export function InteractiveNewslettersList({
       {/* Bulletins Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {filteredNewsletters.length === 0 ? (
-          <div className="col-span-full p-12 text-center rounded-2xl bg-secondary border border-white/10 text-ink-muted-on-dark">
+          <div className="col-span-full p-12 text-center rounded-2xl bg-surface-card border border-border text-muted-foreground dark:bg-secondary dark:border-white/10 dark:text-ink-muted-on-dark shadow-card">
             <DataPoint as="span" name="news.empty.desc" initialData={dataPoints}>
               No chapter bulletins match your criteria. Try choosing &ldquo;All Topics&rdquo; or
               searching for another civic keyword.
@@ -249,7 +249,7 @@ export function InteractiveNewslettersList({
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-primary-ink dark:text-accent-gold uppercase tracking-wider">
+                  <span className="text-xs font-bold text-primary-ink dark:text-amber-300 uppercase tracking-wider">
                     {newsletter.date_label}
                   </span>
 
@@ -308,7 +308,7 @@ export function InteractiveNewslettersList({
                   {newsletter.topics.map((topic) => (
                     <span
                       key={topic}
-                      className="px-2 py-0.5 rounded-md bg-surface-muted dark:bg-white/5 text-[10px] font-semibold text-muted-foreground dark:text-ink-muted-on-dark"
+                      className="px-2 py-0.5 rounded-md bg-surface-muted dark:bg-white/10 text-[10px] font-semibold text-slate-700 dark:text-slate-200"
                     >
                       {topic}
                     </span>

@@ -304,7 +304,7 @@ export function InteractiveEventsCalendar({
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
           >
             <Plus size={15} />
             <span>Add Event</span>
