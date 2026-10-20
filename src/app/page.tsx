@@ -249,7 +249,7 @@ export default async function HomePage() {
                 <Calendar size={26} />
               </div>
               <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/15 dark:bg-accent-gold/20 border border-accent-gold/40 dark:border-accent-gold/30 text-ink-strong dark:text-accent-gold text-[11px] font-bold uppercase tracking-wide mb-1">
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/15 dark:bg-accent-gold/20 border border-accent-gold/40 dark:border-accent-gold/30 text-ink-strong dark:text-accent-gold-on-dark text-[11px] font-bold uppercase tracking-wide mb-1">
                   <DataPoint as="span" name="home.gathering.badge" initialData={dataPoints}>
                     Next Community Gathering
                   </DataPoint>

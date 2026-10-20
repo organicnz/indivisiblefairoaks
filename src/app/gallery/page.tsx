@@ -402,7 +402,7 @@ export default function GalleryPage() {
         <div className="mt-16 rounded-3xl bg-surface-card border border-border p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8 border-b border-border dark:border-white/10 pb-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 dark:bg-accent-gold/20 border border-accent-gold/40 dark:border-accent-gold/30 text-ink-strong dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 dark:bg-accent-gold/20 border border-accent-gold/40 dark:border-accent-gold/30 text-ink-strong dark:text-accent-gold-on-dark text-xs font-bold uppercase tracking-wider mb-2">
                 <Video size={14} />
                 <DataPoint initialData={dataPoints} as="span" name="gallery.video.badge_top">
                   Featured Video Archive

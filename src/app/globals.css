@@ -54,6 +54,21 @@
   --primary-on-dark: #8ec5ff; /* display / hero highlight — replaces text-blue-300 */
   --primary-on-dark-muted: #7cbaff; /* eyebrow + label — retuned for >= 4.8:1 on cards */
 
+  /* Gold, as *text*, on a dark surface.
+     `--accent-gold` (#f59e0b) is a surface and a border, never a text colour:
+     the design system's own rule, and it is a real constraint rather than a
+     preference. On a dark surface it measures 7.34:1 on `--surface-deep`
+     (#0f2244) but only 3.56:1 on a gold-tinted chip (#495467) — below the
+     4.5:1 that 11px bold uppercase text needs. The three civic badges that
+     tinted their own background were failing axe for exactly that reason.
+
+     This is the same fix as `--primary-on-dark`: a brand colour that works as
+     text on dark had no token, so the civic pages reached for the surface
+     token. Measured on the tinted chip backgrounds: 5.30:1 on #495467 and
+     6.00:1 on #464c55, and 10.93:1 on `--surface-deep` — the 4.5:1 body-text
+     bar with margin, at every surface the badge can land on. */
+  --accent-gold-on-dark: #fcd34d;
+
   /* Fixed-header clearance and iOS safe-area contracts. */
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
@@ -111,6 +126,7 @@
   --color-accent: var(--accent);
   --color-accent-red: var(--accent-red);
   --color-accent-gold: var(--accent-gold);
+  --color-accent-gold-on-dark: var(--accent-gold-on-dark);
   --color-accent-lime: var(--accent-lime);
   --color-surface-muted: var(--surface-muted);
   --color-surface-card: var(--surface-card);
@@ -754,14 +770,6 @@
   .cw-editor-canvas li {
     min-height: 1.5rem;
   }
-}
-
-.bg-primary {
-  background-color: var(--primary);
-}
-
-.text-primary {
-  color: var(--primary);
 }
 
 .border-primary {

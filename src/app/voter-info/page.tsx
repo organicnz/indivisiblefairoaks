@@ -381,7 +381,7 @@ export default async function VoterInfoPage() {
                       />
                     </div>
                     <div className="space-y-3">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-accent-gold/20 text-amber-700 dark:text-accent-gold text-[11px] font-bold uppercase tracking-wider">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-accent-gold/20 text-amber-700 dark:text-accent-gold-on-dark text-[11px] font-bold uppercase tracking-wider">
                         <DataPoint initialData={dataPoints} name="voter.spotlight.badge" as="span">
                           Educational Video Spotlight
                         </DataPoint>
