@@ -230,6 +230,17 @@ const RULES = [
     test: (line) => /"engines"\s*:\s*\{[^}]*"node"/.test(line),
   },
   {
+    name: 'node runtime declaration',
+    why:
+      'a `node@<version>` runtime entry makes a tool download and run a Node.js runtime — ' +
+      'the one thing this repository does not have. It is the same mistake as a Node shebang, ' +
+      'in the shape a linter config takes.',
+    // The version is required, so that a prose mention of "node@" — a
+    // package name, a URL, a note in a comment — is not a finding. A runtime
+    // declaration always carries a version.
+    test: (line) => /(^|[\s'"\[,])node@\d+\.\d+/.test(line),
+  },
+  {
     name: 'node-fetch',
     why: 'Bun has a built-in fetch, and node-fetch was never a declared dependency here',
     test: (line) => /from\s+['"]node-fetch['"]/.test(line),
