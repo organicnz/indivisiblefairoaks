@@ -2,6 +2,54 @@ import { createServerClient } from '@supabase/ssr';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSafeNextPath } from '@/lib/safe-redirect';
 
+/**
+ * Routing middleware — the auth gate in front of /account, /admin, /login and
+ * /auth/mfa.
+ *
+ * ## Why this file is still `middleware.ts` and not `proxy.ts`
+ *
+ * Next.js 16 deprecated the `middleware` file convention and renamed it to
+ * `proxy`. The rename looks like housekeeping. It is not — **it moves this
+ * code onto Node.js.**
+ *
+ * Measured on this repository, both ways, from the build output:
+ *
+ *   - `middleware.ts` compiles to the **Edge** runtime. The build manifest
+ *     lists `server/edge/chunks/…` and the `edge-wrapper` template.
+ *   - `proxy.ts` compiles to a **Node** bundle — `server/middleware.js`, a
+ *     CommonJS entry — and Next.js's own version history says why: *"Middleware
+ *     is deprecated and renamed to Proxy. **Proxy defaults to the Node.js
+ *     runtime**."* The build also rejects `export const runtime` inside a
+ *     proxy file: *"Proxy always runs on Node.js runtime."*
+ *
+ * So the file convention decides the runtime, and the current convention is
+ * the one that keeps this project off Node.js:
+ *
+ *   | Surface | Runtime | Node.js? |
+ *   |---|---|---|
+ *   | Serverless functions — route handlers, ISR renders | Bun 1.4.x | no |
+ *   | This middleware | Edge (V8) | no |
+ *   | Build, type check, tests, scripts | Bun | no |
+ *
+ * The Edge runtime is not Bun either — it is V8 without the Node
+ * compatibility layer, which is why `src/sentry.edge.config.ts` exists
+ * separately from `src/instrumentation.ts`. But it is **not Node.js**, and the
+ * project's rule is that no Node.js runtime may remain. Renaming this file
+ * would be a silent, framework-level reintroduction of exactly the runtime
+ * this project does not have.
+ *
+ * **Do not rename this file to `proxy.ts` without a runtime decision.** If
+ * Next.js removes the `middleware` convention, the replacement is not a
+ * rename — it is a choice between the Edge runtime and Node.js, and the
+ * answer is not "Node.js" without a reason.
+ *
+ * ## Do not add `export const runtime` here
+ *
+ * Next.js accepts only `'edge'` and `'nodejs'` in a segment config. Adding it
+ * would pin this to Node.js — and, unlike a build error, a runtime that
+ * differs between environments fails at the first request rather than at the
+ * build.
+ */
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {

@@ -27,7 +27,6 @@
  *
  * Run manually; not part of the hook wiring.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
 
 /** [from, to] applied in order. */
 const REPLACEMENTS = [
@@ -59,13 +58,13 @@ const REPLACEMENTS = [
 
 const files = process.argv.slice(2);
 if (files.length === 0) {
-  console.error('usage: node scripts/theme-civic-accents.mjs <file> [...]');
+  console.error('usage: bun scripts/theme-civic-accents.mjs <file> [...]');
   process.exit(1);
 }
 
 let total = 0;
 for (const file of files) {
-  const original = readFileSync(file, 'utf8');
+  const original = await Bun.file(file).text();
   let next = original;
   let changed = 0;
 
@@ -81,7 +80,7 @@ for (const file of files) {
   }
 
   if (changed > 0) {
-    writeFileSync(file, next);
+    await Bun.write(file, next);
     console.log(`${file}: ${changed}`);
     total += changed;
   }

@@ -1,8 +1,7 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Large file guard.
  */
-import { statSync } from 'node:fs';
 
 const LIMIT_KB = 500;
 
@@ -10,13 +9,12 @@ const files = process.argv.slice(2);
 const oversized = [];
 
 for (const file of files) {
-  try {
-    const sizeKb = Math.ceil(statSync(file).size / 1024);
-    if (sizeKb > LIMIT_KB) {
-      oversized.push(`  ${file}  (${sizeKb}KB)`);
-    }
-  } catch {
-    continue;
+  // `Bun.file(x).size` is a synchronous property and reads 0 for a path that
+  // is not there, so a missing file measures 0KB and drops out on its own —
+  // no try/catch needed, and none that could hide a real failure.
+  const sizeKb = Math.ceil(Bun.file(file).size / 1024);
+  if (sizeKb > LIMIT_KB) {
+    oversized.push(`  ${file}  (${sizeKb}KB)`);
   }
 }
 

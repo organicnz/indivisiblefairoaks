@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * RLS Role Repair Automation Script
  *
@@ -8,7 +8,7 @@
  * matching the playbook in:
  *   supabase/migrations/20260825160000_contact_rls_role_repair.sql
  *
- * Usage: node scripts/rls-role-repair.mjs
+ * Usage: bun scripts/rls-role-repair.mjs
  *
  * Safety: This script is idempotent and only reads from the database
  * specified by the Supabase project ref in environment variables. It will
@@ -20,7 +20,6 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 function getEnv(key, defaultValue = '') {
@@ -80,7 +79,7 @@ const publicSupabase = createClient(SUPABASE_URL, ANON_KEY || '', {
 async function readPlaybook() {
   const playbookPath = join('supabase', 'migrations', '20260825160000_contact_rls_role_repair.sql');
   try {
-    const content = await readFile(playbookPath, 'utf-8');
+    const content = await Bun.file(playbookPath).text();
     return content;
   } catch {
     return null;
@@ -185,7 +184,7 @@ async function runRepair() {
     console.log('\nNext steps:');
     console.log('1. Copy the SQL output above');
     console.log('2. Run it in the Supabase SQL editor (or via `supabase db exec`)');
-    console.log('3. Or run: node scripts/rls-role-repair.mjs again to verify');
+    console.log('3. Or run: bun scripts/rls-role-repair.mjs again to verify');
     console.log('\nThe SQL matches the playbook: 20260825160000_contact_rls_role_repair.sql');
   } catch (err) {
     console.error('Fatal error during RLS repair check:', err);

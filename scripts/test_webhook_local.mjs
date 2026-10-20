@@ -1,5 +1,15 @@
-import fetch from 'node-fetch';
-
+#!/usr/bin/env bun
+/**
+ * Local Stripe webhook smoke test.
+ *
+ * Posts a mock `checkout.session.completed` event at a running dev server.
+ *
+ * `fetch` is Bun's own — there is no `node-fetch` import, because there is no
+ * Node runtime to provide one. `node-fetch` was never a declared dependency
+ * of this project either; it resolved only because it is a transitive
+ * dependency of the Vercel CLI, so this script would have failed on a clean
+ * `bun install` for a package the lockfile does not promise.
+ */
 const WEBHOOK_URL = 'http://localhost:3000/api/webhooks/stripe';
 
 const mockEvent = {

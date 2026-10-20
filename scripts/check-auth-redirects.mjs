@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Auth-redirect reconciliation.
  *
@@ -32,7 +32,7 @@
  *   bun scripts/check-auth-redirects.mjs [--offline|--live]
  * Exit 0 = clean or UNKNOWN, 1 = a finding.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { PROJECT_REF } from './hooks/_project-ref.mjs';
 
@@ -53,11 +53,11 @@ const KNOWN_HOSTS = new Set([
  * variable and the value in `.env.local`, so this reads a source of truth that
  * exists rather than introducing a fourth place to keep in sync.
  */
-function expectedOrigin() {
+async function expectedOrigin() {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_URL;
   if (fromEnv) return fromEnv.replace(/\/+$/, '');
   try {
-    const line = readFileSync(path.join(ROOT, '.env.local'), 'utf8')
+    const line = await Bun.file(path.join(ROOT, '.env.local')).text()
       .split('\n')
       .find((l) => l.startsWith('NEXT_PUBLIC_SITE_URL='));
     if (line) return line.slice('NEXT_PUBLIC_SITE_URL='.length).trim().replace(/\/+$/, '');
@@ -101,7 +101,7 @@ function* walk(dir) {
  * the same way this project was broken, which is why it is worth a guard rather
  * than a review convention.
  */
-function scanHardcodedRedirectOrigins() {
+async function scanHardcodedRedirectOrigins() {
   const findings = [];
   const pattern = /['"`]https?:\/\/[^'"`\s]*\/auth\/callback/g;
   for (const base of ['src', 'supabase/functions']) {
@@ -113,7 +113,7 @@ function scanHardcodedRedirectOrigins() {
       continue;
     }
     for (const file of walk(dir)) {
-      const text = readFileSync(file, 'utf8');
+      const text = await Bun.file(file).text();
       for (const [i, line] of text.split('\n').entries()) {
         for (const match of line.matchAll(pattern)) {
           findings.push({
@@ -166,7 +166,7 @@ function parseAllowList(value) {
  * it looks configured while rejecting every callback.
  */
 async function checkLive() {
-  const origin = expectedOrigin();
+  const origin = await expectedOrigin();
   if (!origin) {
     return { status: 'UNKNOWN', reason: 'NEXT_PUBLIC_SITE_URL is not set in the environment or .env.local' };
   }
@@ -245,7 +245,7 @@ async function checkLive() {
 const report = (line) => console.log(line);
 
 if (!LIVE) {
-  const findings = scanHardcodedRedirectOrigins();
+  const findings = await scanHardcodedRedirectOrigins();
   report('Auth redirects — offline (no network)');
   if (findings.length === 0) {
     report('  [OK] no absolute auth redirect origin in application source; callbacks derive from the serving host');

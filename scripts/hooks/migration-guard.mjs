@@ -1,17 +1,22 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Migration guard.
  *
  * Migrations are append-only. Modifying an already-tracked file is dangerous.
  */
-import { execSync } from 'node:child_process';
+import { lines, runText } from '../bun-exec.mjs';
 
-const modified = execSync(
-  'git diff --cached --name-only --diff-filter=M -- "supabase/migrations/*.sql"',
-  { encoding: 'utf8' }
-)
-  .split('\n')
-  .filter(Boolean);
+const modified = lines(
+  runText([
+    'git',
+    'diff',
+    '--cached',
+    '--name-only',
+    '--diff-filter=M',
+    '--',
+    'supabase/migrations/*.sql',
+  ])
+);
 
 if (modified.length > 0) {
   console.log('');

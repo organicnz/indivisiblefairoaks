@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Derive Supabase project ref from environment so a restore/fork only needs
 // secret rotation — no code change. Falls back to the current project ref.
 //
@@ -6,13 +6,11 @@
 // tables from other applications. After generating, we filter to only the
 // tables this application actually uses, to avoid polluting the TypeScript
 // type union with 60+ foreign tables that break type inference.
-import { readFileSync, writeFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
-function loadEnvLocal() {
+async function loadEnvLocal() {
   try {
-    const raw = readFileSync(resolve('.env.local'), 'utf8');
+    const raw = await Bun.file(resolve('.env.local')).text();
     for (const line of raw.split('\n')) {
       const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
       if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
@@ -20,7 +18,7 @@ function loadEnvLocal() {
   } catch { }
 }
 
-loadEnvLocal();
+await loadEnvLocal();
 
 function projectRef() {
   if (process.env.SUPABASE_PROJECT_REF) return process.env.SUPABASE_PROJECT_REF.trim();
@@ -67,17 +65,28 @@ const APP_TABLES = new Set([
 
 const ref = projectRef();
 console.log(`Generating types for project ${ref} ...`);
-execSync(
-  `bun x supabase@latest gen types typescript --project-id ${ref} > /tmp/supabase-types-raw.ts`,
-  { stdio: 'inherit' }
+
+// The generator used to run through a shell with a `>` redirect into
+// `/tmp/supabase-types-raw.ts`, which meant a shell, a temp file on disk and a
+// second read of it. `Bun.spawn` pipes stdout, so the types arrive as a
+// string and the temp file is no longer needed at all.
+//
+// stderr is inherited so the Supabase CLI's own progress output still streams
+// to the terminal while stdout is captured.
+const proc = Bun.spawn(
+  ['bun', 'x', 'supabase@latest', 'gen', 'types', 'typescript', '--project-id', ref],
+  { stdout: 'pipe', stderr: 'inherit', stdin: 'ignore' }
 );
+const raw = await new Response(proc.stdout).text();
+const exitCode = await proc.exited;
+if (exitCode !== 0) {
+  console.error(`✖  supabase gen types failed (exit ${exitCode})`);
+  process.exit(exitCode);
+}
 
 // Post-process: strip non-app tables from the Tables block
-const raw = readFileSync('/tmp/supabase-types-raw.ts', 'utf8');
-
-// Parse and rebuild the public.Tables block with only app tables
 const filtered = filterTables(raw, APP_TABLES);
-writeFileSync(resolve('src/types/supabase.ts'), filtered);
+await Bun.write(resolve('src/types/supabase.ts'), filtered);
 console.log(`✔ Filtered to ${APP_TABLES.size} app tables → src/types/supabase.ts`);
 
 /**

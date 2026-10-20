@@ -20,6 +20,7 @@ import {
   stripControls,
 } from '@/lib/email';
 import { env } from '@/lib/env';
+import { installFetchMock } from './fetch-mock';
 
 describe('Resend email utilities', () => {
   describe('sanitization helpers', () => {
@@ -93,13 +94,15 @@ describe('Resend email utilities', () => {
 
     it('successfully calls Resend API and returns email ID on success', async () => {
       let requestBody: Record<string, unknown> = {};
-      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
-        requestBody = JSON.parse(options.body);
-        return {
-          ok: true,
-          json: async () => ({ id: 'email_12345' }),
-        } as Response;
-      });
+      installFetchMock(
+        vi.fn().mockImplementation(async (_url, options) => {
+          requestBody = JSON.parse(options.body);
+          return {
+            ok: true,
+            json: async () => ({ id: 'email_12345' }),
+          } as Response;
+        })
+      );
 
       const result = await sendEmail({
         to: 'member@example.com',
@@ -128,13 +131,15 @@ describe('Resend email utilities', () => {
 
     it('passes custom RFC headers (e.g. List-Unsubscribe) through to Resend', async () => {
       let requestBody: Record<string, unknown> = {};
-      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
-        requestBody = JSON.parse(options.body);
-        return {
-          ok: true,
-          json: async () => ({ id: 'email_headers_1' }),
-        } as Response;
-      });
+      installFetchMock(
+        vi.fn().mockImplementation(async (_url, options) => {
+          requestBody = JSON.parse(options.body);
+          return {
+            ok: true,
+            json: async () => ({ id: 'email_headers_1' }),
+          } as Response;
+        })
+      );
 
       const result = await sendEmail({
         to: 'member@example.com',
@@ -153,11 +158,13 @@ describe('Resend email utilities', () => {
     });
 
     it('safely handles Resend API error responses without throwing', async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 403,
-        text: async () => JSON.stringify({ message: 'Domain not verified' }),
-      } as Response);
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 403,
+          text: async () => JSON.stringify({ message: 'Domain not verified' }),
+        } as Response)
+      );
 
       const result = await sendEmail({
         to: 'member@example.com',
@@ -174,7 +181,7 @@ describe('Resend email utilities', () => {
     });
 
     it('safely catches network transport errors', async () => {
-      global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+      installFetchMock(vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
 
       const result = await sendEmail({
         to: 'member@example.com',
@@ -206,13 +213,15 @@ describe('Resend email utilities', () => {
 
     it('formats and sends contact submission notification', async () => {
       let requestBody: Record<string, unknown> = {};
-      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
-        requestBody = JSON.parse(options.body);
-        return {
-          ok: true,
-          json: async () => ({ id: 'contact_msg_999' }),
-        } as Response;
-      });
+      installFetchMock(
+        vi.fn().mockImplementation(async (_url, options) => {
+          requestBody = JSON.parse(options.body);
+          return {
+            ok: true,
+            json: async () => ({ id: 'contact_msg_999' }),
+          } as Response;
+        })
+      );
 
       const result = await sendContactNotification({
         id: 99,

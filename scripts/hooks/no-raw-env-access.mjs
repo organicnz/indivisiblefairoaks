@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * process.env must not be accessed outside src/lib/env.ts.
  *
@@ -9,7 +9,6 @@
  * Exception: NEXT_PUBLIC_ vars in metadata (framework pattern) and
  *            supabase-server.ts which needs raw access for SSR client init.
  */
-import { readFileSync } from 'node:fs';
 
 const SKIP = new Set([
   'src/lib/env.ts',
@@ -25,7 +24,7 @@ for (const file of files) {
 
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }

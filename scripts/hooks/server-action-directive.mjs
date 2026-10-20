@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Server actions must have 'use server' directive.
  *
@@ -6,7 +6,6 @@
  * without 'use server' will be treated as a Client Component, causing the
  * server-only imports to leak to the browser bundle.
  */
-import { readFileSync } from 'node:fs';
 
 const TRIGGERS = /revalidatePath|revalidateTag|createServerClient|createAdminClient/;
 
@@ -16,7 +15,7 @@ const violations = [];
 for (const file of files) {
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }

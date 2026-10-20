@@ -118,14 +118,21 @@ else
   log "  Bun $(bun --version) already installed"
 fi
 
-# Node.js 20 (fallback for some tools)
-if ! node --version 2>/dev/null | grep -q "v2[0-9]"; then
-  log "  Installing Node.js 20…"
-  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-  sudo apt-get install -y -qq nodejs
-else
-  log "  Node $(node --version) already installed"
-fi
+# Node.js is deliberately NOT installed.
+#
+# This host used to carry Node 20 "as a fallback for some tools". Nothing
+# needed it, and keeping it installed a second runtime next to Bun is how a
+# project ends up running under Node in production after a job quietly falls
+# back to it. The project has no Node engine, no `setup-node` step, and every
+# JS tool it invokes is run explicitly on Bun (`bun <file>`).
+#
+# The one Node on this host that stays is the GitHub Actions runner's OWN
+# bundled runtime, which is what executes Node-based actions such as
+# `actions/checkout` and `actions/cache`. That copy lives inside the runner
+# package (`externals/node20`), is versioned with the runner, and is
+# independent of the system Node this block used to install. Removing system
+# Node therefore does not affect actions — it removes the runtime a *project*
+# command could accidentally pick up.
 
 # Supabase CLI
 if ! command -v supabase &>/dev/null; then

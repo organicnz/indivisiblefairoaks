@@ -1,21 +1,15 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Lock file sync check (pre-push).
  */
-import { execSync } from 'node:child_process';
+import { lines, tryRunText } from '../bun-exec.mjs';
 
-function diffNames(args) {
-  try {
-    return execSync(`git diff --name-only ${args}`, { encoding: 'utf8' })
-      .split('\n')
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
+function diffNames(refs) {
+  return lines(tryRunText(['git', 'diff', '--name-only', ...refs]) ?? '');
 }
 
-const upstreamDiff = diffNames('HEAD..@{u}');
-const localDiff = diffNames('HEAD');
+const upstreamDiff = diffNames(['HEAD..@{u}']);
+const localDiff = diffNames(['HEAD']);
 
 if (upstreamDiff.includes('package.json') && !upstreamDiff.includes('bun.lock')) {
   console.log('✖  package.json changed but bun.lock not updated. Run: bun install');

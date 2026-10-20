@@ -1,12 +1,11 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Env integrity check.
  *
  * Every key in .env.example must exist in .env.local.
  */
-import { existsSync, readFileSync } from 'node:fs';
 
-if (!existsSync('.env.local')) {
+if (!(await Bun.file('.env.local').exists())) {
   console.log('');
   console.log('⚠️   .env.local not found. Copy .env.example and fill in values:');
   console.log('    cp .env.example .env.local');
@@ -14,8 +13,8 @@ if (!existsSync('.env.local')) {
   process.exit(1);
 }
 
-const example = readFileSync('.env.example', 'utf8');
-const local = readFileSync('.env.local', 'utf8');
+const example = await Bun.file('.env.example').text();
+const local = await Bun.file('.env.local').text();
 
 const missing = [];
 for (const line of example.split('\n')) {

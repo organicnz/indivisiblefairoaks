@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CURRENCY_CODE } from '@/config/commerce';
@@ -44,8 +43,8 @@ const SCRIPT_FILES = [
   'scripts/test_webhook_live2.mjs',
 ];
 
-function sourceOf(relative: string): string {
-  return readFileSync(resolve(process.cwd(), relative), 'utf8');
+async function sourceOf(relative: string): Promise<string> {
+  return Bun.file(resolve(process.cwd(), relative)).text();
 }
 
 describe('commerce has no NZD residue', () => {
@@ -53,28 +52,28 @@ describe('commerce has no NZD residue', () => {
     expect(CURRENCY_CODE).toBe('USD');
   });
 
-  it.each(APP_FILES)('%s mentions no NZD currency', (relative) => {
-    const source = sourceOf(relative);
+  it.each(APP_FILES)('%s mentions no NZD currency', async (relative) => {
+    const source = await sourceOf(relative);
     expect(source, `${relative} still names NZD`).not.toMatch(/nzd/i);
   });
 
-  it.each(APP_FILES)('%s mentions no NZPOST placeholder', (relative) => {
-    const source = sourceOf(relative);
+  it.each(APP_FILES)('%s mentions no NZPOST placeholder', async (relative) => {
+    const source = await sourceOf(relative);
     expect(source, `${relative} still names NZPOST`).not.toMatch(/NZPOST/i);
   });
 
-  it.each(APP_FILES)('%s mentions no en-NZ locale', (relative) => {
-    const source = sourceOf(relative);
+  it.each(APP_FILES)('%s mentions no en-NZ locale', async (relative) => {
+    const source = await sourceOf(relative);
     expect(source, `${relative} still names en-NZ locale`).not.toMatch(/en-NZ/i);
   });
 
-  it.each(SCRIPT_FILES)('%s prices or fixtures nothing in NZD', (relative) => {
-    const source = sourceOf(relative);
+  it.each(SCRIPT_FILES)('%s prices or fixtures nothing in NZD', async (relative) => {
+    const source = await sourceOf(relative);
     expect(source, `${relative} still names NZD`).not.toMatch(/nzd/i);
   });
 
-  it('defines no formatNZD helper anywhere in src', () => {
-    const sources = APP_FILES.map(sourceOf).join('\n');
+  it('defines no formatNZD helper anywhere in src', async () => {
+    const sources = (await Promise.all(APP_FILES.map(sourceOf))).join('\n');
     expect(sources).not.toMatch(/formatNZD/);
   });
 });

@@ -2,8 +2,7 @@
  * Uploads static site images from /public to Supabase Storage (media bucket, site/ folder)
  */
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync, readdirSync } from 'fs';
-import { join, extname } from 'path';
+import { extname, join } from 'node:path';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SECRET_KEY;
@@ -51,7 +50,7 @@ async function uploadImages() {
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
     try {
-      const fileBuffer = readFileSync(localPath);
+      const fileBuffer = await Bun.file(localPath).arrayBuffer();
 
       const { error } = await supabase.storage
         .from('media')

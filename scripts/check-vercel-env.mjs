@@ -1,7 +1,7 @@
 // Guards the Vercel environment contract.
 //
-//   node scripts/check-vercel-env.mjs          # verify
-//   node scripts/check-vercel-env.mjs --list   # print the inventory
+//   bun scripts/check-vercel-env.mjs          # verify
+//   bun scripts/check-vercel-env.mjs --list   # print the inventory
 //
 // Four drift classes, all invisible to the compiler:
 //
@@ -21,7 +21,7 @@
 // requires the CLI to be authenticated against the project — a documented
 // manual step, not something a pre-commit hook can do.
 
-import { readFile, readdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ALL_SECRETS, ALL_VARS, CI_ONLY, SECRETS, VARS } from './vercel-env.mjs';
 import { ALL_NAMES as EDGE_SECRET_NAMES } from '../supabase/functions/secrets.manifest.mjs';
@@ -49,7 +49,7 @@ async function walk(dir) {
 }
 
 for (const file of await walk(SRC)) {
-  const source = await readFile(file, 'utf8');
+  const source = await Bun.file(file).text();
   for (const match of source.matchAll(/\benv\.([A-Z0-9_]+)\b/g)) {
     if (!readInCode.has(match[1])) readInCode.set(match[1], []);
     readInCode.get(match[1]).push(file);
@@ -136,7 +136,7 @@ for (const name of ALL_SECRETS) {
 // 4. A CI-only switch in the local-dev template.
 let example = '';
 try {
-  example = await readFile('.env.example', 'utf8');
+  example = await Bun.file('.env.example').text();
 } catch {
   problems.push('.env.example is missing — it is the template a human copies from');
 }

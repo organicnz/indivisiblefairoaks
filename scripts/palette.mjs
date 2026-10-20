@@ -6,15 +6,14 @@
 // colours — if they do, the sweep is churn; if they differ, there are visible
 // seams between surfaces that are meant to match.
 //
-//   node scripts/palette.mjs <route> [base]
+//   bun scripts/palette.mjs <route> [base]
 import { chromium } from '@playwright/test';
-import { readFileSync } from 'node:fs';
 
 const ROUTE = process.argv[2] ?? '/about';
 const BASE = process.argv[3] ?? 'http://127.0.0.1:3115';
 
 try {
-  for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
+  for (const line of (await Bun.file('.env.local').text()).split('\n')) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
   }

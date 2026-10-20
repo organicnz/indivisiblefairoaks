@@ -1,11 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Conventional Commits message check.
  */
-import { readFileSync } from 'node:fs';
 
 const msgFile = process.argv[2];
-const msg = readFileSync(msgFile, 'utf8');
+const msg = await Bun.file(msgFile).text();
 
 const cleanMsg = msg
   .split('\n')

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -107,17 +107,21 @@ function env(over: Record<string, string | undefined> = {}) {
   };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.restoreAllMocks();
   vi.spyOn(console, 'log').mockImplementation(() => {});
   // Real fixtures in a real directory: `localMigrations` reads and sorts actual
   // filenames, and a stubbed `readdir` would not test the sort it depends on.
+  //
+  // `mkdtempSync` stays on `node:fs` — Bun has no temp-directory primitive
+  // (`Bun.tempdir` does not exist), and a hand-rolled mkdir-plus-random-name
+  // is a worse mkdtemp than the one in the standard library.
   dir = mkdtempSync(join(tmpdir(), 'migrations-'));
-  writeFileSync(
+  await Bun.write(
     join(dir, '20260102000000_second.sql'),
     'ALTER TABLE public.second ADD COLUMN b text;'
   );
-  writeFileSync(
+  await Bun.write(
     join(dir, '20260101000000_first.sql'),
     'ALTER TABLE public.first ADD COLUMN a text;'
   );
@@ -245,7 +249,7 @@ describe('apply-migrations: the apply and the record are one unit', () => {
     // The trap: an empty batch would still INSERT the history row, so the
     // migration would be recorded as delivered having changed nothing, and
     // never retried.
-    writeFileSync(join(dir, '20260101000000_first.sql'), '');
+    await Bun.write(join(dir, '20260101000000_first.sql'), '');
     const sent = stubApi({ history: ['20260102000000'] });
 
     await expect(applyMigrations(env())).rejects.toThrow(/empty/);

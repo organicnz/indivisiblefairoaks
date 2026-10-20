@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * SQL: SECURITY DEFINER must pin `search_path` to the empty string.
  *
@@ -37,14 +37,13 @@
  * any other known table) without the `public.` prefix. That pairing is the whole
  * contract; either half alone is a trap.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
 
 const UPDATE_BASELINE = process.argv.includes('--update-baseline');
 const BASELINE_PATH = 'scripts/sql-guard-baseline.json';
 
 let baseline = { $comment: '', accepted: {} };
 try {
-  baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+  baseline = JSON.parse(await Bun.file(BASELINE_PATH).text());
 } catch {
   // Non-fatal: first run or the file has been removed, start empty.
 }
@@ -58,7 +57,7 @@ const notQualified = [];
 for (const file of files) {
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }
@@ -124,7 +123,7 @@ if (unpinned.length > 0 || notQualified.length > 0) {
     for (const f of findings) {
       acceptedObj[f.id] = { severity: f.kind === 'unpinned' ? 'critical' : 'high', summary: f.detail };
     }
-    writeFileSync(
+    await Bun.write(
       BASELINE_PATH,
       JSON.stringify({ $comment: 'Accepted SECURITY DEFINER guard findings. Each entry records that a human reviewed it. Regenerate with: bun scripts/hooks/sql-security-definer-guard.mjs --update-baseline', updated: new Date().toISOString().slice(0, 10), accepted: acceptedObj }, null, 2) + '\n'
     );

@@ -1,20 +1,17 @@
-import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { runText, tryRunText } from './bun-exec.mjs';
 import { resolve } from 'node:path';
 
 function getSupabaseToken() {
   if (process.env.SUPABASE_ACCESS_TOKEN) return process.env.SUPABASE_ACCESS_TOKEN.trim();
-  try {
-    const raw = execSync('security find-generic-password -s "supabase" -w 2>/dev/null', {
-      encoding: 'utf8',
-    }).trim();
-    if (raw.startsWith('go-keyring-base64:')) {
-      return Buffer.from(raw.replace('go-keyring-base64:', ''), 'base64').toString('utf8').trim();
-    }
-    return raw;
-  } catch {
-    return null;
+  // The macOS keychain. `2>/dev/null` used to suppress the "no such entry"
+  // noise on stderr; capturing stderr does the same thing without a shell.
+  const raw = tryRunText(['security', 'find-generic-password', '-s', 'supabase', '-w']);
+  if (raw === null) return null;
+  const token = raw.trim();
+  if (token.startsWith('go-keyring-base64:')) {
+    return Buffer.from(token.replace('go-keyring-base64:', ''), 'base64').toString('utf8').trim();
   }
+  return token;
 }
 
 // Project ref read from env; fallback split to avoid lefthook hardcoded-ref guard.
@@ -153,7 +150,7 @@ const templates = {
 
 // 1. Write email_templates_v2.json
 const jsonPath = resolve('email_templates_v2.json');
-writeFileSync(jsonPath, JSON.stringify(templates, null, 2));
+await Bun.write(jsonPath, JSON.stringify(templates, null, 2));
 console.log(`✔ Wrote updated templates to ${jsonPath}`);
 
 // 2. Deploy to Supabase Management API if token is available

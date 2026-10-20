@@ -1,11 +1,4 @@
 import Stripe from 'stripe';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 // ---------------------------------------------------------------------------
 // Rotate the Stripe webhook endpoint + secret, printing the new secret for
@@ -52,5 +45,5 @@ const created = await stripe.webhookEndpoints.create({
 console.log(`Created endpoint ${created.id}`);
 console.log(`\n🔑 New STRIPE_WEBHOOK_SECRET=${created.secret}`);
 console.log('\nSync it into Supabase:');
-console.log('  bunx supabase secrets set STRIPE_WEBHOOK_SECRET=<value> --project-ref ' + PROJECT_REF);
+console.log('  bun x supabase@latest secrets set STRIPE_WEBHOOK_SECRET=<value> --project-ref ' + PROJECT_REF);
 console.log('And add to .env.local: STRIPE_WEBHOOK_SECRET=<value>');

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { installFetchMock } from './fetch-mock';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
@@ -88,7 +89,7 @@ describe('CRM mutation failure paths', () => {
     mockEnv.ADMIN_ORDER_EMAIL = 'contact@indivisiblefairoaks.org';
     mockEnv.CRM_BROADCAST_FUNCTION_URL = undefined;
     mockEnv.SUPABASE_SECRET_KEY = undefined;
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 }) as typeof fetch;
+    installFetchMock(vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   });
 
   describe('saveCRMContact', () => {
@@ -365,12 +366,14 @@ describe('CRM mutation failure paths', () => {
       };
       const activities: Record<string, unknown>[] = [];
       tables.crm_activities = { rows: [], insert: {}, onInsert: (row) => activities.push(row) };
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 422,
-        text: async () => '{"message":"domain not verified"}',
-        json: async () => ({ message: 'domain not verified' }),
-      }) as unknown as typeof fetch;
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 422,
+          text: async () => '{"message":"domain not verified"}',
+          json: async () => ({ message: 'domain not verified' }),
+        })
+      );
 
       const res = await sendCRMDirectEmail({ contactId: 'c1', subject: 'Hi', message: 'There' });
 
@@ -392,15 +395,17 @@ describe('CRM mutation failure paths', () => {
       // Two arguments: `fetch(url, init)`. A one-parameter mock silently receives
       // the URL as its first argument, the body is never read, and the action
       // reports a transport failure rather than a send.
-      global.fetch = vi.fn(async (_url: string, init: { body?: unknown }) => {
-        payload = JSON.parse(String(init?.body)) as { text?: string };
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ id: 'e1' }),
-          text: async () => '{"id":"e1"}',
-        };
-      }) as unknown as typeof fetch;
+      installFetchMock(
+        vi.fn(async (_url: string, init: { body?: unknown }) => {
+          payload = JSON.parse(String(init?.body)) as { text?: string };
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ id: 'e1' }),
+            text: async () => '{"id":"e1"}',
+          };
+        })
+      );
 
       const res = await sendCRMDirectEmail({ contactId: 'c1', subject: 'Hi', message: 'There' });
 

@@ -17,21 +17,20 @@
  *
  * Run manually; not part of the hook wiring.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
 
 /** `text-secondary` beside a brand-blue surface is a pairing, not body ink. */
 const PAIRED = /bg-primary(?![a-z-])[^"'`]*text-secondary|text-secondary[^"'`]*bg-primary(?![a-z-])/;
 
 const files = process.argv.slice(2);
 if (files.length === 0) {
-  console.error('usage: node scripts/theme-admin-ink.mjs <file> [...]');
+  console.error('usage: bun scripts/theme-admin-ink.mjs <file> [...]');
   process.exit(1);
 }
 
 let total = 0;
 let paired = 0;
 for (const file of files) {
-  const original = readFileSync(file, 'utf8');
+  const original = await Bun.file(file).text();
   const lines = original.split('\n');
   let changed = 0;
   let kept = 0;
@@ -48,7 +47,7 @@ for (const file of files) {
   });
 
   if (changed > 0) {
-    writeFileSync(file, next.join('\n'));
+    await Bun.write(file, next.join('\n'));
     console.log(`${file}: ${changed} flipped${kept > 0 ? `, ${kept} pairing line(s) kept` : ''}`);
     total += changed;
     paired += kept;

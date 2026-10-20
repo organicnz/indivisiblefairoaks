@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -30,16 +29,14 @@ import { brandShell, LOGO_URL } from '@/lib/email';
  * constants and the template source are compared textually. If the two files
  * drift, this fails.
  */
-const APP_SOURCE_RAW = readFileSync(resolve(process.cwd(), 'src/lib/crm-broadcast.ts'), 'utf8');
-const EDGE_SOURCE = readFileSync(
-  resolve(process.cwd(), 'supabase/functions/_shared/broadcast.ts'),
-  'utf8'
-);
-const SENDER_SOURCE = readFileSync(
-  resolve(process.cwd(), 'supabase/functions/crm-broadcast-send/index.ts'),
-  'utf8'
-);
-const CRM_TYPES_SOURCE = readFileSync(resolve(process.cwd(), 'src/types/crm.ts'), 'utf8');
+const APP_SOURCE_RAW = await Bun.file(resolve(process.cwd(), 'src/lib/crm-broadcast.ts')).text();
+const EDGE_SOURCE = await Bun.file(
+  resolve(process.cwd(), 'supabase/functions/_shared/broadcast.ts')
+).text();
+const SENDER_SOURCE = await Bun.file(
+  resolve(process.cwd(), 'supabase/functions/crm-broadcast-send/index.ts')
+).text();
+const CRM_TYPES_SOURCE = await Bun.file(resolve(process.cwd(), 'src/types/crm.ts')).text();
 
 const FIXTURE = {
   recipientName: 'Jane Doe',

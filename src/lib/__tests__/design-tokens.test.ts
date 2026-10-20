@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -48,8 +48,8 @@ function tsxFiles(root: string): string[] {
 
 const SCANNED = ROOTS.flatMap(tsxFiles);
 
-function sourceOf(relative: string): string {
-  return readFileSync(resolve(process.cwd(), relative), 'utf8');
+async function sourceOf(relative: string): Promise<string> {
+  return Bun.file(resolve(process.cwd(), relative)).text();
 }
 
 /** Light-surface text: the dark-chrome pair is 300/400, everything at 500+ is light-only. */
@@ -69,30 +69,38 @@ describe('admin and editor surfaces use tokens, not raw slate', () => {
     expect(SCANNED.length).toBeGreaterThan(20);
   });
 
-  it.each(SCANNED)('%s has no light-surface text', (relative) => {
-    expect(sourceOf(relative), `${relative} names light slate text`).not.toMatch(LIGHT_TEXT);
+  it.each(SCANNED)('%s has no light-surface text', async (relative) => {
+    expect(await sourceOf(relative), `${relative} names light slate text`).not.toMatch(LIGHT_TEXT);
   });
 
-  it.each(SCANNED)('%s has no light hairline border', (relative) => {
-    expect(sourceOf(relative), `${relative} names a light slate border`).not.toMatch(LIGHT_BORDER);
+  it.each(SCANNED)('%s has no light hairline border', async (relative) => {
+    expect(await sourceOf(relative), `${relative} names a light slate border`).not.toMatch(
+      LIGHT_BORDER
+    );
   });
 
-  it.each(SCANNED)('%s has no light fill', (relative) => {
-    expect(sourceOf(relative), `${relative} names a light slate fill`).not.toMatch(LIGHT_FILL);
+  it.each(SCANNED)('%s has no light fill', async (relative) => {
+    expect(await sourceOf(relative), `${relative} names a light slate fill`).not.toMatch(
+      LIGHT_FILL
+    );
   });
 
-  it.each(SCANNED)('%s has no slate hover state', (relative) => {
-    expect(sourceOf(relative), `${relative} names a slate hover`).not.toMatch(SLATE_HOVER);
+  it.each(SCANNED)('%s has no slate hover state', async (relative) => {
+    expect(await sourceOf(relative), `${relative} names a slate hover`).not.toMatch(SLATE_HOVER);
   });
 
-  it.each(SCANNED)('%s has no bare bg-white', (relative) => {
-    expect(sourceOf(relative), `${relative} names a bare bg-white`).not.toMatch(BARE_WHITE);
+  it.each(SCANNED)('%s has no bare bg-white', async (relative) => {
+    expect(await sourceOf(relative), `${relative} names a bare bg-white`).not.toMatch(BARE_WHITE);
   });
 
-  it('keeps placeholder-slate-400 on the bulk bar and nowhere else', () => {
-    const holders = SCANNED.filter((relative) => /placeholder-slate-/.test(sourceOf(relative)));
+  it('keeps placeholder-slate-400 on the bulk bar and nowhere else', async () => {
+    // The sources are read once, in parallel: `SCANNED.filter` cannot take an
+    // async predicate, and awaiting inside it would filter on a Promise
+    // (always truthy) rather than on the text.
+    const sources = await Promise.all(SCANNED.map((relative) => sourceOf(relative)));
+    const holders = SCANNED.filter((_, i) => /placeholder-slate-/.test(sources[i]));
     expect(holders).toEqual(['src/components/admin/crm/CRMContactList.tsx']);
-    expect(sourceOf('src/components/admin/crm/CRMContactList.tsx')).toMatch(
+    expect(await sourceOf('src/components/admin/crm/CRMContactList.tsx')).toMatch(
       /placeholder-slate-400/
     );
   });

@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -34,8 +33,8 @@ const CONSENT_MIGRATION = resolve(
   process.cwd(),
   'supabase/migrations/20261005020000_contact_consent_tri_state.sql'
 );
-const SEARCH_PATH_SQL = readFileSync(SEARCH_PATH_MIGRATION, 'utf8');
-const CONSENT_SQL = readFileSync(CONSENT_MIGRATION, 'utf8');
+const SEARCH_PATH_SQL = await Bun.file(SEARCH_PATH_MIGRATION).text();
+const CONSENT_SQL = await Bun.file(CONSENT_MIGRATION).text();
 
 /*
  * `fn_sync_contact_submission_to_crm()` is declared in 20261005020000, not

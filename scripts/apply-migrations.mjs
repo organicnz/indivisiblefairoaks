@@ -15,7 +15,7 @@
  * annotations (CI log retrieval is unreliable; annotations are readable).
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const API = 'https://api.supabase.com';
@@ -139,7 +139,7 @@ export async function main(env = process.env) {
   const cols = await historyColumns(creds);
   const hasName = cols.has('name');
   for (const m of pending) {
-    const sql = readFileSync(join(dir, m.file), 'utf8');
+    const sql = await Bun.file(join(dir, m.file)).text();
     if (!sql.trim()) fail(`migration file empty: ${m.file}`);
     // The schema change and the history row go in ONE request, wrapped in an
     // explicit transaction.

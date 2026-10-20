@@ -1,0 +1,11 @@
+{
+  "$comment": "Accepted dependency advisories. Each entry records that a human reviewed the advisory and chose a disposition. The gate fails when an advisory is NOT listed here, and also when a listed advisory no longer applies — so a fix must delete its own excuse. Regenerate with: bun scripts/check-vulnerabilities.mjs --update-baseline",
+  "updated": "2026-10-20",
+  "accepted": {
+    "GHSA-vfj7-8cjw-p6xm": {
+      "package": "braces",
+      "severity": "high",
+      "reason": "No fixed version is published: braces 3.0.3 is the latest release, so there is nothing to pin to and `bun audit fix` reports it as unfixable. Reachable only through micromatch → fast-glob → @ts-morph/common → ts-morph inside the `vercel` CLI's tree, which is a devDependency and is not shipped. The related brace-expansion advisory in the same subtree did have a fix and has been resolved."
+    }
+  }
+}

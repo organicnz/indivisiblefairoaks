@@ -1,8 +1,3 @@
-import crypto from 'node:crypto';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
 const FUNCTION_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/webhook`;
 const PAYLOAD = JSON.stringify({
   id: 'evt_test_local_' + Date.now(),
@@ -13,17 +8,36 @@ const PAYLOAD = JSON.stringify({
   data: { object: { id: 'cs_live_UNUSED_TEST', object: 'checkout.session', payment_status: 'paid', amount_total: 1000, currency: 'usd', metadata: {}, customer_details: { email: 'no-such-user@nowhere.invalid', address: {} } } },
 });
 
-function sign(secret) {
+/**
+ * Stripe's signature scheme, over WebCrypto's HMAC.
+ *
+ * `crypto.subtle` is a Web standard rather than a Node builtin, and it
+ * produces the same bytes `node:crypto`'s `createHmac` does. The
+ * asynchronous signature is why this is a function and not an expression.
+ */
+async function sign(secret) {
   const t = Math.floor(Date.now() / 1000) + '';
-  const sig = crypto.createHmac('sha256', secret).update(`${t}.${PAYLOAD}`).digest('hex');
-  return `t=${t},v1=${sig}`;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(`${t}.${PAYLOAD}`)
+  );
+  const hex = Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('');
+  return `t=${t},v1=${hex}`;
 }
 
 const secret = process.env.STRIPE_WEBHOOK_SECRET;
 for (const contentType of ['application/json', 'text/plain', 'application/octet-stream']) {
   const res = await fetch(FUNCTION_URL, {
     method: 'POST',
-    headers: { 'content-type': contentType, 'stripe-signature': sign(secret) },
+    headers: { 'content-type': contentType, 'stripe-signature': await sign(secret) },
     body: PAYLOAD,
   });
   const body = await res.text();

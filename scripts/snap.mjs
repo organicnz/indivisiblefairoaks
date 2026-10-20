@@ -5,13 +5,12 @@
 // silently wrong on screen, so it must be verified with pixels, not assertions.
 //
 // Usage:
-//   node scripts/snap.mjs <label>          # writes .snapshots/<label>/<route>.png
+//   bun scripts/snap.mjs <label>          # writes .snapshots/<label>/<route>.png
 //
 // Routes cover both surface families: the dark civic pages and the light
 // commerce/auth surfaces, so a token change that leaks across can be caught.
 import { chromium } from '@playwright/test';
 import { mkdir, rm } from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
 
 const LABEL = process.argv[2] ?? 'current';
 const BASE = process.argv[3] ?? 'http://127.0.0.1:3115';
@@ -38,7 +37,7 @@ const ROUTES = [
 
 // Load .env.local so the pages that read Supabase render real content.
 try {
-  for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
+  for (const line of (await Bun.file('.env.local').text()).split('\n')) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
   }
@@ -46,7 +45,7 @@ try {
   /* CI injects env instead */
 }
 
-if (existsSync(OUT)) await rm(OUT, { recursive: true });
+if (await Bun.file(OUT).exists()) await rm(OUT, { recursive: true });
 await mkdir(OUT, { recursive: true });
 
 const browser = await chromium.launch();

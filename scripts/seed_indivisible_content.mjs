@@ -1,13 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SECRET_KEY;
@@ -26,11 +22,11 @@ const scrapedDir = path.resolve(
   '../../../../.gemini/antigravity-ide/brain/50a81e6e-a300-4c0a-9007-f374a28e588b/scraped_site'
 );
 
-function readScrapedText(filename, fallbackText = '') {
+async function readScrapedText(filename, fallbackText = '') {
   try {
     const fullPath = path.join(scrapedDir, filename);
-    if (fs.existsSync(fullPath)) {
-      return fs.readFileSync(fullPath, 'utf-8').trim();
+    if (await Bun.file(fullPath).exists()) {
+      return (await Bun.file(fullPath).text()).trim();
     }
   } catch (err) {
     console.warn(`Could not read ${filename}:`, err.message);
@@ -46,7 +42,7 @@ const civicContent = [
     status: 'publish',
     excerpt:
       'A non-violent grassroots movement dedicated to defending democracy, resisting authoritarianism, electing progressive leaders, and advocating for our community.',
-    body: readScrapedText(
+    body: await readScrapedText(
       'home.txt',
       'Indivisible Fair Oaks-Carmichael is a grassroots community group in Sacramento County.'
     ),
@@ -82,7 +78,7 @@ const civicContent = [
     status: 'publish',
     excerpt:
       'Join our community meetings, volunteer rallies, canvassing days, and postcard writing events.',
-    body: readScrapedText(
+    body: await readScrapedText(
       'upcoming-events.txt',
       'Check out our upcoming schedule of events and community actions.'
     ),
@@ -97,7 +93,7 @@ const civicContent = [
     status: 'publish',
     excerpt:
       'Honoring John Lewis through voter registration, direct advocacy, and persuasion training.',
-    body: readScrapedText(
+    body: await readScrapedText(
       'upcoming-events_good-trouble.txt',
       'Honoring John Lewis with peaceful protest and voting rights advocacy.'
     ),
@@ -113,7 +109,7 @@ const civicContent = [
     status: 'publish',
     excerpt:
       'Demonstrating the power of peaceful community assembly through protest songs and musical resistance.',
-    body: readScrapedText(
+    body: await readScrapedText(
       'upcoming-events_weekend-of-protest-song.txt',
       'Singing protest and freedom songs across our neighborhoods.'
     ),
@@ -129,7 +125,7 @@ const civicContent = [
     status: 'publish',
     excerpt:
       'Canvassing, postcarding, and phone banking opportunities across Sacramento County and swing districts.',
-    body: readScrapedText(
+    body: await readScrapedText(
       'upcoming-events_upcoming-fall-events.txt',
       'Fall election preparation and voter turnout actions.'
     ),
@@ -144,7 +140,7 @@ const civicContent = [
     status: 'publish',
     excerpt:
       'The musical voice of our movement. Rehearsals every other Wednesday evening in Carmichael.',
-    body: readScrapedText(
+    body: await readScrapedText(
       'resistance-choir.txt',
       'The Carmichael Resistance Choir sings songs of freedom, justice, and solidarity at rallies and protests.'
     ),
@@ -160,7 +156,7 @@ const civicContent = [
     status: 'publish',
     excerpt:
       'Official voter resources: voting deadlines, ballot dropboxes, rights for formerly incarcerated citizens, and youth pre-registration at 16.',
-    body: readScrapedText(
+    body: await readScrapedText(
       'voter-information.txt',
       'Essential voter resources for Sacramento County and California.'
     ),
@@ -176,7 +172,7 @@ const civicContent = [
     status: 'publish',
     excerpt:
       'Read our archive of Indivisible Fair Oaks-Carmichael newsletters, legislative updates, and action alerts.',
-    body: readScrapedText(
+    body: await readScrapedText(
       'newsletters.txt',
       'Archive of our weekly and monthly newsletters.'
     ),
@@ -191,7 +187,7 @@ const civicContent = [
     status: 'publish',
     excerpt:
       'Trusted state and national organizations fighting alongside us: National Indivisible, Sister District, Chop Wood Carry Water, 5 Calls, and local allies.',
-    body: readScrapedText(
+    body: await readScrapedText(
       'links.txt',
       'Directory of coalition partners and legislative tools.'
     ),

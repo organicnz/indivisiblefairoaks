@@ -8,6 +8,7 @@ import {
   saveDataPoint,
 } from '@/lib/queries/civic-client';
 import { getGalleryPhotos } from '@/lib/queries/content-client';
+import { installFetchMock } from './fetch-mock';
 
 describe('Client queries through Edge API', () => {
   const originalFetch = globalThis.fetch;
@@ -41,10 +42,12 @@ describe('Client queries through Edge API', () => {
         },
       ];
 
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ success: true, photos: mockPhotos }),
-      } as unknown as Response);
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ success: true, photos: mockPhotos }),
+        } as unknown as Response)
+      );
 
       const photos = await getGalleryPhotos();
 
@@ -58,7 +61,7 @@ describe('Client queries through Edge API', () => {
     });
 
     it('returns empty array when /api/gallery fetch fails', async () => {
-      globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+      installFetchMock(vi.fn().mockRejectedValue(new Error('Network error')));
       const photos = await getGalleryPhotos();
       expect(photos).toEqual([]);
     });
@@ -75,10 +78,12 @@ describe('Client queries through Edge API', () => {
         },
       ];
 
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ success: true, events: mockEvents }),
-      } as unknown as Response);
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ success: true, events: mockEvents }),
+        } as unknown as Response)
+      );
 
       const events = await getTickerEvents();
 
@@ -91,7 +96,7 @@ describe('Client queries through Edge API', () => {
     });
 
     it('returns empty array when /api/civic/events fetch fails', async () => {
-      globalThis.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+      installFetchMock(vi.fn().mockRejectedValue(new Error('Network error')));
       const events = await getTickerEvents();
       expect(events).toEqual([]);
     });
@@ -114,10 +119,12 @@ describe('Client queries through Edge API', () => {
         categories: ['General'],
       };
 
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => mockData,
-      } as unknown as Response);
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => mockData,
+        } as unknown as Response)
+      );
 
       const res = await getFaqs();
       expect(globalThis.fetch).toHaveBeenCalledWith('/api/faqs');
@@ -128,13 +135,15 @@ describe('Client queries through Edge API', () => {
 
   describe('getPartners()', () => {
     it('fetches partners from /api/partners', async () => {
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          success: true,
-          partners: [{ slug: 'p1', name: 'Partner One' }],
-        }),
-      } as unknown as Response);
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            success: true,
+            partners: [{ slug: 'p1', name: 'Partner One' }],
+          }),
+        } as unknown as Response)
+      );
 
       const partners = await getPartners();
       expect(globalThis.fetch).toHaveBeenCalledWith('/api/partners');
@@ -145,13 +154,15 @@ describe('Client queries through Edge API', () => {
 
   describe('getCoalitionLinks()', () => {
     it('fetches coalition links from /api/coalition-links', async () => {
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          success: true,
-          links: [{ slug: 'l1', name: 'Link One' }],
-        }),
-      } as unknown as Response);
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            success: true,
+            links: [{ slug: 'l1', name: 'Link One' }],
+          }),
+        } as unknown as Response)
+      );
 
       const links = await getCoalitionLinks();
       expect(globalThis.fetch).toHaveBeenCalledWith('/api/coalition-links');
@@ -162,17 +173,19 @@ describe('Client queries through Edge API', () => {
 
   describe('getDataPoints() and saveDataPoint()', () => {
     it('fetches data points via Supabase Edge Function or API fallback', async () => {
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          success: true,
-          dataPoints: { 'home.headline': 'Headline Text' },
-          rows: [{ key: 'home.headline', value: 'Headline Text' }],
-        }),
-      } as unknown as Response);
+      const fetchMock = installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            success: true,
+            dataPoints: { 'home.headline': 'Headline Text' },
+            rows: [{ key: 'home.headline', value: 'Headline Text' }],
+          }),
+        } as unknown as Response)
+      );
 
       const res = await getDataPoints('home');
-      const [calledUrl] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+      const [calledUrl] = fetchMock.mock.calls[0];
       expect(calledUrl).toMatch(/(functions\/v1\/data-points|\/api\/data-points)\?group=home/);
       expect(res.dataPoints['home.headline']).toBe('Headline Text');
     });
@@ -184,17 +197,19 @@ describe('Client queries through Edge API', () => {
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key';
 
       try {
-        globalThis.fetch = vi
-          .fn()
-          .mockRejectedValueOnce(new Error('Edge network timeout'))
-          .mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({
-              success: true,
-              dataPoints: { 'home.headline': 'Fallback Text' },
-              rows: [{ key: 'home.headline', value: 'Fallback Text' }],
-            }),
-          } as unknown as Response);
+        installFetchMock(
+          vi
+            .fn()
+            .mockRejectedValueOnce(new Error('Edge network timeout'))
+            .mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({
+                success: true,
+                dataPoints: { 'home.headline': 'Fallback Text' },
+                rows: [{ key: 'home.headline', value: 'Fallback Text' }],
+              }),
+            } as unknown as Response)
+        );
 
         const res = await getDataPoints('home');
         expect(res.dataPoints['home.headline']).toBe('Fallback Text');
@@ -205,13 +220,15 @@ describe('Client queries through Edge API', () => {
     });
 
     it('saves data point via POST /api/data-points', async () => {
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          success: true,
-          dataPoint: { key: 'home.hero', value: 'Saved Text' },
-        }),
-      } as unknown as Response);
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            success: true,
+            dataPoint: { key: 'home.hero', value: 'Saved Text' },
+          }),
+        } as unknown as Response)
+      );
 
       const res = await saveDataPoint({ key: 'home.hero', value: 'Saved Text' });
       expect(globalThis.fetch).toHaveBeenCalledWith('/api/data-points', expect.any(Object));

@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
+import { installFetchMock } from './fetch-mock';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -113,14 +114,15 @@ describe('WallEChatWidget', () => {
   });
 
   it('renders suggestion chips and submits question when a chip is clicked', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        answer: 'Here are our upcoming events for this month.',
-        citations: [{ title: 'Events Calendar', url: '/events' }],
-      }),
-    });
-    globalThis.fetch = mockFetch;
+    const mockFetch = installFetchMock(
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          answer: 'Here are our upcoming events for this month.',
+          citations: [{ title: 'Events Calendar', url: '/events' }],
+        }),
+      })
+    );
 
     await act(async () => {
       root.render(<WallEChatWidget />);

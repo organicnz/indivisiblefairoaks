@@ -1,11 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Secret leak detection.
  *
  * Patterns: Supabase secret/publishable, Stripe live/test/webhook, Resend,
  * PRIVATE_KEY assignments, and Postgres connection strings with passwords.
  */
-import { readFileSync } from 'node:fs';
 
 const PATTERNS = [
   /sb_secret_[A-Za-z0-9]{20,}/,
@@ -24,7 +23,7 @@ const matches = [];
 for (const file of files) {
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }

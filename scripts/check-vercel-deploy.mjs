@@ -1,11 +1,11 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Post-merge deploy confirmation: did *this commit* actually ship, and does the
  * deployed app work?
  *
- *   node scripts/check-vercel-deploy.mjs
- *   node scripts/check-vercel-deploy.mjs --sha=<full-sha>
- *   node scripts/check-vercel-deploy.mjs --sha=<full-sha> --out=vercel-logs
+ *   bun scripts/check-vercel-deploy.mjs
+ *   bun scripts/check-vercel-deploy.mjs --sha=<full-sha>
+ *   bun scripts/check-vercel-deploy.mjs --sha=<full-sha> --out=vercel-logs
  *
  * ## Why this exists instead of polling a URL
  *
@@ -83,7 +83,7 @@ import {
   VercelApiError,
 } from './vercel-api.mjs';
 import { scrubSecrets } from './scrub-secrets.mjs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 const args = process.argv.slice(2);
@@ -167,16 +167,33 @@ export async function main(deps = {}) {
   const siteUrl = deps.siteUrl ?? (siteUrlArg || null);
 
   const summary = [];
-  const note = (line) => summary.push(line);
+  /**
+ * Append to a file.
+ *
+ * `Bun.write` truncates, and the GitHub step summary is append-only across
+ * the steps of a job, so the existing content is read and rewritten. The file
+ * is small — a few lines per step — so reading it back costs nothing.
+ */
+async function writeFileAppend(file, data) {
+  let existing = '';
+  try {
+    existing = await Bun.file(file).text();
+  } catch {
+    // The file does not exist yet; the first append is also the first write.
+  }
+  await Bun.write(file, existing + data);
+}
+
+const note = (line) => summary.push(line);
 
   const finish = async (code) => {
     if (outDir) {
       try {
         await mkdir(outDir, { recursive: true });
-        await writeFile(path.join(outDir, summaryFile), `${summary.join('\n')}\n`);
+        await Bun.write(path.join(outDir, summaryFile), `${summary.join('\n')}\n`);
         const stepSummary = environment.GITHUB_STEP_SUMMARY;
         if (typeof stepSummary === 'string' && stepSummary) {
-          await writeFile(stepSummary, `${summary.join('\n')}\n`, { flag: 'a' });
+          await writeFileAppend(stepSummary, `${summary.join('\n')}\n`);
         }
       } catch {
         console.warn('::warning::could not write the deploy summary file.');
@@ -250,7 +267,7 @@ export async function main(deps = {}) {
         if (outDir) {
           await mkdir(outDir, { recursive: true });
           file = path.join(outDir, `vercel-build-${short}.log`);
-          await writeFile(file, scrubbed);
+          await Bun.write(file, scrubbed);
         }
         return {
           ok: true,

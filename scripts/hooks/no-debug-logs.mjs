@@ -1,11 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Security-path console.log audit.
  *
- * console.log in webhook/API/admin/middleware paths leaks payment data,
+ * console.log in webhook/API/admin/proxy paths leaks payment data,
  * session tokens, and PII into production logs.
  */
-import { readFileSync } from 'node:fs';
 
 const files = process.argv.slice(2);
 const found = [];
@@ -13,7 +12,7 @@ const found = [];
 for (const file of files) {
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }

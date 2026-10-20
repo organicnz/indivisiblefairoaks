@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * New pages must be covered by metadata (page or route layout).
  *
@@ -11,14 +11,13 @@
  * The AGENTS.md spec requires: "Every dynamic page MUST implement
  * generateMetadata for unique titles and descriptions."
  */
-import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { runText } from '../bun-exec.mjs';
 import path from 'node:path';
 
 const files = process.argv.slice(2);
 const violations = [];
 
-const statusOutput = execSync('git diff --cached --name-status', { encoding: 'utf8' });
+const statusOutput = runText(['git', 'diff', '--cached', '--name-status']);
 const added = new Set(
   statusOutput
     .split('\n')
@@ -31,7 +30,7 @@ for (const file of files) {
 
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }
@@ -41,9 +40,9 @@ for (const file of files) {
   }
 
   const layout = path.join(path.dirname(file), 'layout.tsx');
-  if (existsSync(layout)) {
+  if (await Bun.file(layout).exists()) {
     try {
-      const layoutContent = readFileSync(layout, 'utf8');
+      const layoutContent = await Bun.file(layout).text();
       if (
         layoutContent.includes('generateMetadata') ||
         layoutContent.includes('export const metadata')

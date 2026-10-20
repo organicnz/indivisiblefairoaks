@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Data-points gate: seeds ↔ readers in both directions, plus the fallback
  * literal each reader paints before its read resolves.
@@ -53,7 +53,7 @@
  *   bun scripts/check-data-points.mjs --update-baseline
  * (new entries are written with a TODO reason that must be replaced by hand).
  */
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MIGRATIONS_DIR = 'supabase/migrations';
@@ -136,11 +136,11 @@ function decodeJsxText(raw) {
  * row contributes no literals, and a reviewer adjudicates the finding it
  * raises.)
  */
-function readSeeds() {
+async function readSeeds() {
   const seeds = new Map();
   const seedLiterals = new Map();
   for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => MIGRATION_NAME_RE.test(f)).sort()) {
-    const text = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+    const text = await Bun.file(join(MIGRATIONS_DIR, file)).text();
     let inDataPoints = false;
     for (const line of text.split('\n')) {
       if (/INSERT\s+INTO\s+(public\.)?data_points\b/i.test(line)) inDataPoints = true;
@@ -207,7 +207,7 @@ function put(map, key, file) {
  *     holding an expression, or a mis-captured arrow-function prop, is carried
  *     with `skipped: true` — counted, never compared.
  */
-function readReaders() {
+async function readReaders() {
   const files = [];
   walk(SRC_DIR, files);
   const literal = new Map();
@@ -215,7 +215,7 @@ function readReaders() {
   const explicit = new Map();
   const fallbacks = [];
   for (const file of files) {
-    const text = readFileSync(file, 'utf8');
+    const text = await Bun.file(file).text();
     for (const m of text.matchAll(/'([a-z0-9][a-z0-9_.]*)'/g)) put(literal, m[1], file);
     for (const m of text.matchAll(/"([a-z0-9][a-z0-9_.]*)"/g)) put(literal, m[1], file);
     for (const m of text.matchAll(/`([a-z0-9][a-z0-9_.]*)\$\{/g)) {
@@ -272,10 +272,10 @@ function mismatchId(fallback) {
   return `${fallback.key} @ ${fallback.file} (${fallback.shape})`;
 }
 
-function readBaseline() {
+async function readBaseline() {
   let raw = {};
   try {
-    raw = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+    raw = JSON.parse(await Bun.file(BASELINE_PATH).text());
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
     // First run: every finding is new. The fix hint below says what to do.
@@ -287,7 +287,7 @@ function readBaseline() {
   };
 }
 
-function writeBaseline(unread, unseeded, mismatches, previous) {
+async function writeBaseline(unread, unseeded, mismatches, previous) {
   const acceptedUnread = {};
   for (const key of unread) {
     acceptedUnread[key] = previous.acceptedUnread[key] ?? 'TODO: reason (review this finding)';
@@ -301,7 +301,7 @@ function writeBaseline(unread, unseeded, mismatches, previous) {
   for (const id of mismatches) {
     acceptedMismatches[id] = previous.acceptedMismatches[id] ?? 'TODO: reason (review this finding)';
   }
-  writeFileSync(
+  await Bun.write(
     BASELINE_PATH,
     `${JSON.stringify(
       {
@@ -328,8 +328,8 @@ function writeBaseline(unread, unseeded, mismatches, previous) {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-const { seeds, seedLiterals } = readSeeds();
-const { literal, prefix, explicit, fallbacks } = readReaders();
+const { seeds, seedLiterals } = await readSeeds();
+const { literal, prefix, explicit, fallbacks } = await readReaders();
 
 const isDerived = (key) => DERIVED_KEY_FAMILIES.some((f) => f.pattern.test(key));
 
@@ -357,10 +357,10 @@ for (const fallback of fallbacks) {
 }
 
 const updateBaseline = process.argv.includes('--update-baseline');
-const baseline = readBaseline();
+const baseline = await readBaseline();
 
 if (updateBaseline) {
-  writeBaseline(
+  await writeBaseline(
     unread,
     unseededReads,
     fallbackMismatches.map(mismatchId),

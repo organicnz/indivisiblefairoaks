@@ -1,5 +1,3 @@
-import { randomBytes } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { generateTotp, msRemainingInStep } from '../e2e/helpers/totp.ts';
@@ -80,7 +78,17 @@ const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
 });
 
 function generatePassword() {
-  return randomBytes(24).toString('base64url');
+  // WebCrypto's `getRandomValues` rather than `node:crypto`'s `randomBytes` —
+  // a Web standard, and the same CSPRNG either way.
+  //
+  // `toBase64({ alphabet: 'base64url' })` keeps the `=` padding, where Node's
+  // `toString('base64url')` strips it, so the padding is removed here. The
+  // generated value is then byte-identical to what this script produced
+  // before, which matters for anything that has already been seeded with one.
+  return crypto
+    .getRandomValues(new Uint8Array(24))
+    .toBase64({ alphabet: 'base64url' })
+    .replace(/=+$/, '');
 }
 
 async function findUser(email) {
@@ -169,7 +177,7 @@ async function enrollTotp(userClient, email) {
       factorId,
     });
     if (challengeError) throw new Error(`challenge failed for ${email}: ${challengeError.message}`);
-    const code = generateTotp(secret);
+    const code = await generateTotp(secret);
     const { error: verifyError } = await userClient.auth.mfa.verify({
       factorId,
       challengeId: challengeData.id,
@@ -181,11 +189,11 @@ async function enrollTotp(userClient, email) {
   throw new Error(`TOTP verify failed 3 times for ${email}`);
 }
 
-function writeEnvLocal(entries) {
+async function writeEnvLocal(entries) {
   const path = resolve(process.cwd(), '.env.local');
   let text = '';
   try {
-    text = readFileSync(path, 'utf8');
+    text = await Bun.file(path).text();
   } catch {}
   const lines = text.length > 0 ? text.split('\n') : [];
   const wanted = new Map(Object.entries(entries));
@@ -199,7 +207,7 @@ function writeEnvLocal(entries) {
     return line;
   });
   for (const [key, value] of wanted) out.push(`${key}=${value}`);
-  writeFileSync(path, `${out.join('\n').replace(/\n+$/, '\n')}`);
+  await Bun.write(path, `${out.join('\n').replace(/\n+$/, '\n')}`);
 }
 
 async function main() {
@@ -262,7 +270,7 @@ async function main() {
     console.log('');
   }
 
-  writeEnvLocal(envEntries);
+  await writeEnvLocal(envEntries);
   console.log('Wrote credentials to .env.local (git-ignored) for local runs.\n');
   console.log('Store these as CI secrets for the hosted suites:');
   for (const [key, value] of Object.entries(ciSecrets)) {

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Documentation-claims gate.
  *
@@ -53,8 +53,7 @@
  * Usage: bun scripts/check-doc-claims.mjs
  * Exit code 0 = every recognised claim matches, 1 = a claim is stale.
  */
-import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { run } from './bun-exec.mjs';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -64,15 +63,15 @@ const DOC_GLOBS = ['AGENTS.md', 'README.md', 'SKILLS.md', 'docs', '.agents/skill
 
 // ── Sources of truth ────────────────────────────────────────────────────────
 
-function readLines(rel) {
-  return readFileSync(path.join(ROOT, rel), 'utf8').split('\n');
+async function readLines(rel) {
+  return (await Bun.file(path.join(ROOT, rel)).text()).split('\n');
 }
 
 /** Commands registered under `pre-commit:` in lefthook.yml. */
-function precommitGuardCount() {
+async function precommitGuardCount() {
   let section = null;
   let count = 0;
-  for (const line of readLines('lefthook.yml')) {
+  for (const line of await readLines('lefthook.yml')) {
     if (/^[a-z][a-z-]*:$/.test(line)) {
       section = line.slice(0, -1);
       continue;
@@ -84,16 +83,16 @@ function precommitGuardCount() {
   return count;
 }
 
-function suppressionBaseline() {
-  for (const line of readLines('lefthook.yml')) {
+async function suppressionBaseline() {
+  for (const line of await readLines('lefthook.yml')) {
     const match = line.match(/^\s*BASELINE=(\d+)\s*$/);
     if (match) return Number(match[1]);
   }
   throw new Error('No BASELINE=<n> assignment found in lefthook.yml');
 }
 
-function lefthookLineCount() {
-  const lines = readLines('lefthook.yml');
+async function lefthookLineCount() {
+  const lines = await readLines('lefthook.yml');
   // `split('\n')` yields a trailing empty element for a newline-terminated file,
   // so a naive count reads one higher than `wc -l`. Match `wc -l`: the figure in
   // the docs is meant to be checkable with a plain shell command.
@@ -102,18 +101,18 @@ function lefthookLineCount() {
 }
 
 /** Specs the delivery gate actually executes. `--list` matches runtime here. */
-function e2eSpecCount() {
-  const bin = path.join(ROOT, 'node_modules/.bin/playwright');
-  const res = spawnSync(bin, ['test', '--list'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    env: { ...process.env },
-  });
+async function e2eSpecCount() {
+  // Playwright is invoked through Bun, not its `.bin` shim: the shim is a
+  // `#!/usr/bin/env node` script and this project has no Node. The installed
+  // package is used directly — `bunx playwright` would resolve the package
+  // from the registry and run a version the lockfile does not pin.
+  const cli = path.join(ROOT, 'node_modules/@playwright/test/cli.js');
+  const res = run(['bun', cli, 'test', '--list'], { cwd: ROOT });
   const out = res.stdout || '';
   const match = out.match(/^Total:\s+(\d+)\s+tests/m);
   if (!match) {
     throw new Error(
-      `Could not parse \`playwright test --list\` output: status=${res.status} out=${out} err=${res.stderr || ''}`
+      `Could not parse \`playwright test --list\` output: exit=${res.exitCode} out=${out} err=${res.stderr || ''}`
     );
   }
   return Number(match[1]);
@@ -127,7 +126,6 @@ function once(fn) {
   if (!sourceCache.has(fn)) sourceCache.set(fn, fn());
   return sourceCache.get(fn);
 }
-
 /**
  * Compare a claim against its source of truth.
  *
@@ -147,8 +145,8 @@ function sameValue(actual, expected) {
 }
 
 /** The per-file coverage floor declared for a module in vitest.config.ts. */
-function coverageFloor(file) {
-  const text = readFileSync(path.join(ROOT, 'vitest.config.ts'), 'utf8');
+async function coverageFloor(file) {
+  const text = await Bun.file(path.join(ROOT, 'vitest.config.ts')).text();
   const key = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = text.match(
     new RegExp(
@@ -201,7 +199,7 @@ const CLAIMS = [
     label: 'e2e spec count (table)',
     pattern: /— (\d+) specs/g,
     source: () => once(e2eSpecCount),
-    fix: 'run `bunx playwright test --list` and use that number',
+    fix: 'run `bun node_modules/@playwright/test/cli.js test --list` and use that number',
   },
   {
     label: 'e2e spec count (prose)',
@@ -215,36 +213,36 @@ const CLAIMS = [
     // "specs", so neither can match a spec *name*.
     pattern: /(\d+) (?:e2e|Playwright) specs/g,
     source: () => once(e2eSpecCount),
-    fix: 'run `bunx playwright test --list` and use that number',
+    fix: 'run `bun node_modules/@playwright/test/cli.js test --list` and use that number',
   },
 ];
 
 // ── Check ───────────────────────────────────────────────────────────────────
 
-function docFiles() {
+async function docFiles() {
   const files = [];
 
-  function walk(rel, depth = 0) {
-    if (depth > 6) return;
-    const abs = path.join(ROOT, rel);
-    let stat;
-    try {
-      stat = statSync(abs);
-    } catch {
-      return;
+  for (const target of DOC_GLOBS) {
+    const abs = path.join(ROOT, target);
+
+    // A glob target that names a single document rather than a directory.
+    if (await Bun.file(abs).exists()) {
+      if (target.endsWith('.md')) files.push(target);
+      continue;
     }
-    if (stat.isDirectory()) {
-      for (const entry of readdirSync(abs)) walk(path.join(rel, entry), depth + 1);
-      return;
+
+    // `Bun.Glob` walks the tree natively — no `readdirSync`, no `statSync`
+    // per entry, and no recursion to get wrong.
+    const glob = new Bun.Glob('**/*.md');
+    for await (const rel of glob.scan({ cwd: abs })) {
+      files.push(path.join(target, rel));
     }
-    if (rel.endsWith('.md')) files.push(rel);
   }
 
-  for (const target of DOC_GLOBS) walk(target);
   return files;
 }
 
-const files = docFiles();
+const files = await docFiles();
 const failures = [];
 const warnings = [];
 let verified = 0;
@@ -252,7 +250,7 @@ let verified = 0;
 for (const claim of CLAIMS) {
   let expected;
   try {
-    expected = claim.source();
+    expected = await claim.source();
   } catch (error) {
     failures.push(`  ✖ ${claim.label}: no source of truth (${error.message})`);
     continue;
@@ -260,7 +258,7 @@ for (const claim of CLAIMS) {
 
   let matches = 0;
   for (const file of files) {
-    const text = readFileSync(path.join(ROOT, file), 'utf8');
+    const text = await Bun.file(path.join(ROOT, file)).text();
     const lines = text.split('\n');
     for (let i = 0; i < lines.length; i++) {
       // Restart the global pattern per line so lastIndex cannot skip matches.

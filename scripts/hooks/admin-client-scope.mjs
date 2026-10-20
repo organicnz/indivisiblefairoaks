@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Admin client scope guard.
  *
@@ -44,7 +44,6 @@
  * admin. The scan reads `crm_contacts.tags` only — no writes, no
  * user-scoped data.
  */
-import { readFileSync } from 'node:fs';
 
 const ALLOWLIST =
   'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/products/page.tsx|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts|src/lib/crm-tag-scan.ts';
@@ -57,7 +56,7 @@ for (const file of files) {
 
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }

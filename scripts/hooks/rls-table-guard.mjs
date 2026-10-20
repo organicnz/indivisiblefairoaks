@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * SQL: new tables must have RLS enabled.
  *
@@ -6,7 +6,6 @@
  * ALTER TABLE <name> ENABLE ROW LEVEL SECURITY within the same file.
  * Tables without RLS expose all rows to the anon/authenticated roles.
  */
-import { readFileSync } from 'node:fs';
 
 const files = process.argv.slice(2);
 const violations = [];
@@ -14,7 +13,7 @@ const violations = [];
 for (const file of files) {
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }

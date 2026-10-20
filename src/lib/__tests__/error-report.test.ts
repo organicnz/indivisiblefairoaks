@@ -6,6 +6,7 @@ import {
   errorReportSchema,
   reportClientError,
 } from '../error-report';
+import { installFetchMock } from './fetch-mock';
 
 describe('errorReportSchema', () => {
   const valid = { message: 'Boom', stack: 'at fn', digest: 'abc123', path: '/products' };
@@ -91,27 +92,29 @@ describe('reportClientError', () => {
   let fetchResponse: Response | null = null;
   let shouldReject = false;
 
-  const fetchMock = Object.assign(
-    (url: unknown, init?: RequestInit) => {
-      fetchCalls.push({ url, init });
-      if (shouldReject) return Promise.reject(new TypeError('network down'));
-      return Promise.resolve(fetchResponse ?? new Response(null, { status: 204 }));
-    },
-    {
-      mockResolvedValue(res: Response) {
-        fetchResponse = res;
+  const fetchMock = installFetchMock(
+    Object.assign(
+      (url: unknown, init?: RequestInit) => {
+        fetchCalls.push({ url, init });
+        if (shouldReject) return Promise.reject(new TypeError('network down'));
+        return Promise.resolve(fetchResponse ?? new Response(null, { status: 204 }));
       },
-      mockReset() {
-        fetchCalls.length = 0;
-        fetchResponse = null;
-        shouldReject = false;
-      },
-    }
+      {
+        mockResolvedValue(res: Response) {
+          fetchResponse = res;
+        },
+        mockReset() {
+          fetchCalls.length = 0;
+          fetchResponse = null;
+          shouldReject = false;
+        },
+      }
+    )
   );
 
   beforeEach(() => {
     fetchMock.mockReset();
-    globalThis.fetch = fetchMock as typeof fetch;
+    installFetchMock(fetchMock);
   });
 
   afterEach(() => {

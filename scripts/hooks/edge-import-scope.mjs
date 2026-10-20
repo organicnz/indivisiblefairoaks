@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Edge function import scope.
  *
@@ -36,7 +36,6 @@
  * The rule below is what the deployment actually requires, not what the old
  * case statement happened to test.
  */
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const FUNCTIONS_ROOT = 'supabase/functions';
@@ -55,7 +54,7 @@ const violations = [];
 for (const file of files) {
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }

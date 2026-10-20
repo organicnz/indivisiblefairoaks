@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Peer-dependency compatibility gate.
  *
@@ -14,8 +14,6 @@
  *
  * Exit code 0 = all peer ranges satisfied, 1 = violations found.
  */
-import { createRequire } from 'node:module';
-import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const ALL = process.argv.includes('--all');
@@ -26,19 +24,23 @@ const pkg = JSON.parse(
 const scopes = [pkg.dependencies || {}];
 if (ALL) scopes.push(pkg.devDependencies || {});
 
-const requireFrom = createRequire(join(process.cwd(), 'node_modules', '_'));
-
 async function resolveInstalled(name, fromDir) {
   if (fromDir) {
     try {
-      const res = requireFrom.resolve(`${name}/package.json`, { paths: [fromDir] });
+      // `Bun.resolveSync(specifier, parent)` resolves from `parent`'s tree,
+      // which is what the `paths:` option of Node's `require.resolve` did.
+      // Verified equivalent in the case that distinguishes them: scoped to
+      // `tinyglobby`, both find the *nested* `picomatch`, and from the root
+      // both find the hoisted one — so the answer this gate reads is the same
+      // package either way.
+      const res = Bun.resolveSync(`${name}/package.json`, fromDir);
       return JSON.parse(await Bun.file(res).text());
     } catch {
       /* not resolvable from that package's tree — fall through to root */
     }
   }
   try {
-    const res = requireFrom.resolve(`${name}/package.json`);
+    const res = Bun.resolveSync(`${name}/package.json`, process.cwd());
     return JSON.parse(await Bun.file(res).text());
   } catch {
     return null;
@@ -125,7 +127,17 @@ for (const [name] of Object.entries(Object.assign({}, ...scopes))) {
     if (checked.has(key)) continue;
     checked.add(key);
 
-    const depPkg = await resolveInstalled(depName, dirname(requireFrom.resolve(`${name}/package.json`)));
+    // The peer's own tree is the scope its peer range must be satisfied
+    // within, so the package's own directory is what `fromDir` has to be.
+    let peerScope = process.cwd();
+    try {
+      peerScope = dirname(Bun.resolveSync(`${name}/package.json`, process.cwd()));
+    } catch {
+      // The package itself is not installed — `resolveInstalled` will report
+      // that as "not installed" for the peer, which is the honest answer.
+    }
+
+    const depPkg = await resolveInstalled(depName, peerScope);
     const ok = await satisfiedBy(String(range), depPkg);
     if (!ok && !optional) {
       violations.push(

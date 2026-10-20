@@ -2,8 +2,8 @@
  * Declared contract for GitHub Actions configuration.
  *
  * Lives beside its only consumer (`check-ci-env.mjs`) rather than in `src/`,
- * because nothing in the application imports it and a `.ts` file pulled into a
- * plain node script forces type-stripping.
+ * because nothing in the application imports it: it is a build-time contract
+ * for the workflows, not runtime code.
  *
  * This is the single inventory of everything the workflows expect to exist in the
  * repository's secrets/variables store. `scripts/check-ci-env.mjs` diffs it against

@@ -1,11 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Merge conflict markers.
  *
  * A leftover conflict marker compiles fine in most grammars but ships
  * broken code. Fail the commit if any staged file contains one.
  */
-import { readFileSync } from 'node:fs';
 
 const MARKER = /^<<<<<<< |^=======$\|^>>>>>>> /;
 
@@ -15,7 +14,7 @@ const found = [];
 for (const file of files) {
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }

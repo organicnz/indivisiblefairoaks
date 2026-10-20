@@ -1,10 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // AI code reviewer — sends a diff (or explicit files) to an LLM and prints
 // structured findings. Zero dependencies.
 //
 // Usage:
-//   GROQ_API_KEY=... node scripts/ai-review.mjs --since HEAD~1
-//   ZAI_API_KEY=...  node scripts/ai-review.mjs --provider zai --files src/app/contact/actions.ts
+//   GROQ_API_KEY=... bun scripts/ai-review.mjs --since HEAD~1
+//   ZAI_API_KEY=...  bun scripts/ai-review.mjs --provider zai --files src/app/contact/actions.ts
 //
 // Providers:
 //   groq (default) -> Groq OpenAI-compatible API, llama-3.3-70b-versatile
@@ -47,22 +47,21 @@ function parseArgs(argv) {
   return args;
 }
 
-import { execFileSync } from 'node:child_process';
+import { runText, tryRunText } from './bun-exec.mjs';
 
 function getDiff(args) {
   if (args.files.length > 0) {
-    return execFileSync('git', ['diff', 'HEAD', '--', ...args.files], { encoding: 'utf8', maxBuffer: 10 << 20 });
+    return runText(['git', 'diff', 'HEAD', '--', ...args.files]);
   }
   let ref = args.since ?? 'HEAD~1';
   // Accept dates ("2026-08-24T21:00") or revs; resolve dates to the last
   // commit at-or-before the cutoff so "last 24h" just works.
-  try {
-    execFileSync('git', ['cat-file', '-e', `${ref}^{commit}`], { stdio: 'pipe' });
-  } catch {
-    ref = execFileSync('git', ['rev-list', '-n', '1', '--before', ref, 'HEAD'], { encoding: 'utf8' }).trim();
+  // `cat-file -e` writes nothing, so the exit code is the whole answer.
+  if (tryRunText(['git', 'cat-file', '-e', `${ref}^{commit}`]) === null) {
+    ref = runText(['git', 'rev-list', '-n', '1', '--before', ref, 'HEAD']).trim();
     if (!ref) throw new Error(`No commits exist before ${args.since}`);
   }
-  return execFileSync('git', ['diff', `${ref}...HEAD`], { encoding: 'utf8', maxBuffer: 20 << 20 });
+  return runText(['git', 'diff', `${ref}...HEAD`]);
 }
 
 function truncate(text, max) {

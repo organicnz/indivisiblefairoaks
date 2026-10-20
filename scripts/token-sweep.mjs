@@ -7,12 +7,10 @@
 // mappings that *do* change pixels — `bg-blue-600` -> `bg-primary-bright` and
 // friends — land on the identical hex the page was already drawing.
 //
-//   node scripts/token-sweep.mjs [--check]
+//   bun scripts/token-sweep.mjs [--check]
 //
 // `--check` reports what would change without writing.
 
-import { readFile, writeFile } from 'node:fs/promises';
-import { glob } from 'node:fs/promises';
 
 // Dark civic surfaces only. Light commerce/auth/admin pages legitimately use the
 // plain Tailwind palette for body copy (`text-slate-600` passes AA on white) and
@@ -134,7 +132,7 @@ const perFile = [];
 for (const file of FILES) {
   let source;
   try {
-    source = await readFile(file, 'utf8');
+    source = await Bun.file(file).text();
   } catch {
     console.log(`  skip   ${file} (not found)`);
     continue;
@@ -153,7 +151,7 @@ for (const file of FILES) {
   if (edits > 0) {
     perFile.push([file, edits]);
     totalEdits += edits;
-    if (!CHECK) await writeFile(file, next);
+    if (!CHECK) await Bun.write(file, next);
   }
 }
 

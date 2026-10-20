@@ -1,7 +1,7 @@
 // Guards the Supabase Edge Function secret contract.
 //
-//   node scripts/check-edge-secrets.mjs          # verify
-//   node scripts/check-edge-secrets.mjs --list   # print the inventory
+//   bun scripts/check-edge-secrets.mjs          # verify
+//   bun scripts/check-edge-secrets.mjs --list   # print the inventory
 //
 // Edge function secrets are invisible to CI. `supabase functions deploy` ships
 // code only — the deploy workflow never runs `supabase secrets set` — so the
@@ -24,7 +24,7 @@
 // presence check needs network and the Supabase CLI, so it lives in
 // .github/workflows/supabase.yml instead.
 
-import { readFile, readdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   ALL_NAMES,
@@ -47,7 +47,7 @@ for (const fn of files) {
   const entry = join(FUNCTIONS_DIR, fn, 'index.ts');
   let source;
   try {
-    source = await readFile(entry, 'utf8');
+    source = await Bun.file(entry).text();
   } catch {
     continue;
   }
@@ -122,7 +122,7 @@ for (const name of declared.keys()) {
 // 3. env.example.md must document everything the code reads.
 let exampleSource = '';
 try {
-  exampleSource = await readFile(EXAMPLE, 'utf8');
+  exampleSource = await Bun.file(EXAMPLE).text();
 } catch {
   problems.push(`${EXAMPLE} is missing — it is the file a human copies from`);
 }

@@ -1,25 +1,30 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Notify when dependencies change on branch checkout.
  */
-import { execSync } from 'node:child_process';
+import { lines, tryRunText } from '../bun-exec.mjs';
 
 const [, , prev, curr, isBranchCheckout] = process.argv;
 
 if (isBranchCheckout !== '1') process.exit(0);
 
-let changed;
-try {
-  changed = execSync(`git diff --name-only ${prev} ${curr} -- package.json bun.lock`, {
-    encoding: 'utf8',
-  })
-    .split('\n')
-    .filter(Boolean);
-} catch {
-  process.exit(0);
-}
+// The refs are argv elements, not shell text. They used to be interpolated
+// into a command string, which meant a branch named `x; rm -rf ~` was a
+// command line.
+const changed = tryRunText([
+  'git',
+  'diff',
+  '--name-only',
+  prev,
+  curr,
+  '--',
+  'package.json',
+  'bun.lock',
+]);
 
-if (changed.length > 0) {
+if (changed === null) process.exit(0);
+
+if (lines(changed).length > 0) {
   console.log('');
   console.log('📦  Dependencies changed on this branch. Run: bun install');
   console.log('');

@@ -55,6 +55,7 @@ import {
 
 import { CRM_EXPORT_LIMIT } from '@/lib/crm-limits';
 import { env } from '@/lib/env';
+import { installFetchMock } from './fetch-mock';
 import { createMockAdminClient, type MockTableConfig } from './supabase-mock';
 
 /**
@@ -923,7 +924,7 @@ describe('Civic CRM Server Actions', () => {
           },
         ],
       };
-      global.fetch = vi.fn();
+      installFetchMock(vi.fn());
 
       const res = await sendCRMDirectEmail({
         contactId: 'c-1',
@@ -1232,12 +1233,13 @@ describe('Civic CRM Server Actions', () => {
       };
       tables.crm_activities = { rows: [] };
 
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ id: 'resend_msg_123' }),
-      });
-      global.fetch = mockFetch;
+      const mockFetch = installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 'resend_msg_123' }),
+        })
+      );
 
       const res = await sendCRMDirectEmail({
         contactId: 'c-1',
@@ -1290,12 +1292,13 @@ describe('Civic CRM Server Actions', () => {
       };
       tables.crm_activities = { rows: [] };
 
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ id: 'resend_msg_456' }),
-      });
-      global.fetch = mockFetch;
+      const mockFetch = installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 'resend_msg_456' }),
+        })
+      );
 
       const res = await sendCRMDirectEmail({
         contactId: 'c-2',
@@ -1477,8 +1480,7 @@ describe('Civic CRM Server Actions', () => {
       tables.crm_broadcasts = { rows: [], insert: { id: 'broadcast-uuid-1' } };
       tables.crm_activities = { rows: [] };
 
-      const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
-      global.fetch = mockFetch;
+      const mockFetch = installFetchMock(vi.fn().mockResolvedValue({ ok: true, status: 200 }));
       mockEnv.CRM_BROADCAST_FUNCTION_URL =
         'https://project.supabase.co/functions/v1/crm-broadcast-send';
       mockEnv.SUPABASE_SECRET_KEY = 'service-key';
@@ -1611,7 +1613,7 @@ describe('Civic CRM Server Actions', () => {
       // Both the health pre-flight GET and the dispatch POST reject with a
       // string. The pre-flight's failure is inconclusive and swallowed, so the
       // dispatch rejection is what reaches the catch.
-      global.fetch = vi.fn().mockRejectedValue('socket hung up');
+      installFetchMock(vi.fn().mockRejectedValue('socket hung up'));
 
       try {
         const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Hello there' });
@@ -1678,13 +1680,15 @@ describe('Civic CRM Server Actions', () => {
       // no valid JSON body. The pre-flight's json() throw is caught by the outer
       // try/catch (proceeds), and the dispatch's json() throw is caught by the
       // inner try/catch (bare success, no warning).
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => {
-          throw new SyntaxError('Unexpected token');
-        },
-      });
+      installFetchMock(
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => {
+            throw new SyntaxError('Unexpected token');
+          },
+        })
+      );
 
       const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
 
@@ -1719,18 +1723,20 @@ describe('Civic CRM Server Actions', () => {
         // Health pre-flight returns ready: true; dispatch returns ok with a
         // warning string — exercises the `typeof payload.warning === 'string'`
         // true branch at the json-parse site (line ~2464).
-        global.fetch = vi
-          .fn()
-          .mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({ ready: true }),
-          })
-          .mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({
-              warning: '3 activity rows could not be written — timeline may be incomplete',
-            }),
-          });
+        installFetchMock(
+          vi
+            .fn()
+            .mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({ ready: true }),
+            })
+            .mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({
+                warning: '3 activity rows could not be written — timeline may be incomplete',
+              }),
+            })
+        );
 
         const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
 
@@ -1766,17 +1772,19 @@ describe('Civic CRM Server Actions', () => {
           'https://project.supabase.co/functions/v1/crm-broadcast-send';
         mockEnv.SUPABASE_SECRET_KEY = 'service-key';
 
-        global.fetch = vi
-          .fn()
-          .mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({ ready: true }),
-          })
-          .mockResolvedValueOnce({
-            ok: true,
-            // `warning` is a number, not a string — the false branch returns undefined.
-            json: async () => ({ skipped: false, warning: 42 }),
-          });
+        installFetchMock(
+          vi
+            .fn()
+            .mockResolvedValueOnce({
+              ok: true,
+              json: async () => ({ ready: true }),
+            })
+            .mockResolvedValueOnce({
+              ok: true,
+              // `warning` is a number, not a string — the false branch returns undefined.
+              json: async () => ({ skipped: false, warning: 42 }),
+            })
+        );
 
         const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
 
@@ -1811,11 +1819,13 @@ describe('Civic CRM Server Actions', () => {
         mockEnv.SUPABASE_SECRET_KEY = 'service-key';
 
         // Health pre-flight returns ready: false — dispatch must not proceed.
-        global.fetch = vi.fn().mockResolvedValue({
-          ok: true,
-          status: 200,
-          json: async () => ({ ready: false, missing: ['RESEND_API_KEY'] }),
-        });
+        installFetchMock(
+          vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            json: async () => ({ ready: false, missing: ['RESEND_API_KEY'] }),
+          })
+        );
 
         const res = await sendCRMBroadcast({ subject: 'Hi', body: 'Body' });
 
@@ -1850,8 +1860,7 @@ describe('sendCRMBroadcastSelfTest', () => {
     // The row's id is generated by the database; `insert` supplies it, so the id
     // in the dispatch payload below is one the insert actually produced.
     tables.crm_broadcasts = { rows: [], insert: { id: 'test-broadcast-uuid' } };
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
-    global.fetch = mockFetch;
+    const mockFetch = installFetchMock(vi.fn().mockResolvedValue({ ok: true, status: 200 }));
     mockEnv.CRM_BROADCAST_FUNCTION_URL =
       'https://project.supabase.co/functions/v1/crm-broadcast-send';
     mockEnv.SUPABASE_SECRET_KEY = 'service-key';
@@ -1948,7 +1957,7 @@ describe('CRM sends are blocked in an e2e build', () => {
   // because its notifier is redirected to a local mock; nothing does that here.
   const envState = env as unknown as Record<string, string | undefined>;
   const original = { test: envState.CONTACT_SUBMISSION_TEST_MODE, e2e: envState.NEXT_E2E_BUILD };
-  const mockFetch = vi.fn();
+  const mockFetch = installFetchMock(vi.fn());
   const originalId = session.adminUserId;
   let tables: Record<string, MockTableConfig>;
 
@@ -1958,7 +1967,6 @@ describe('CRM sends are blocked in an e2e build', () => {
     mockAdminClient.from.mockImplementation(createMockAdminClient(tables).from);
     session.adminUserId = 'admin-user-e2eguard-uuid';
     mockFetch.mockResolvedValue({ ok: true, status: 200 });
-    global.fetch = mockFetch;
   });
 
   afterEach(() => {
@@ -2046,7 +2054,7 @@ describe('Broadcast blast radius', () => {
     envState.CRM_BROADCAST_FUNCTION_URL =
       'https://project.supabase.co/functions/v1/crm-broadcast-send';
     envState.SUPABASE_SECRET_KEY = 'service-key';
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    installFetchMock(vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   });
 
   afterEach(() => {
@@ -2215,7 +2223,7 @@ describe('Self-test narrowing is unrepresentable', () => {
     envState.CRM_BROADCAST_FUNCTION_URL =
       'https://project.supabase.co/functions/v1/crm-broadcast-send';
     envState.SUPABASE_SECRET_KEY = 'service-key';
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    installFetchMock(vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   });
 
   afterEach(() => {
@@ -2261,7 +2269,7 @@ describe('Broadcast drafts are a document, not a log entry', () => {
     tables = {};
     mockAdminClient.from.mockImplementation(createMockAdminClient(tables).from);
     session.adminUserId = 'admin-user-draft-uuid';
-    global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    installFetchMock(vi.fn().mockResolvedValue({ ok: true, status: 200 }));
   });
 
   afterEach(() => {

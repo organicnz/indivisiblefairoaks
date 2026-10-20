@@ -1,12 +1,11 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * No @ts-ignore / eslint-disable in security-critical paths.
  *
- * Type suppressions in API routes, middleware, and admin paths mean TypeScript
+ * Type suppressions in API routes, the routing proxy, and admin paths mean TypeScript
  * cannot catch type errors in the code that processes payments and auth.
  * There is currently 0 suppressions in these paths — this keeps it at 0.
  */
-import { readFileSync } from 'node:fs';
 
 const files = process.argv.slice(2);
 const found = [];
@@ -14,7 +13,7 @@ const found = [];
 for (const file of files) {
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }

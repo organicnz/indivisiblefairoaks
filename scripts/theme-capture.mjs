@@ -10,8 +10,6 @@
  */
 import { chromium } from '@playwright/test';
 import { mkdir, rm } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { readFileSync } from 'node:fs';
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:3115';
 const LABEL = process.argv[3] ?? 'theme';
@@ -38,7 +36,7 @@ const ROUTES = [
 ];
 
 try {
-  for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
+  for (const line of (await Bun.file('.env.local').text()).split('\n')) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
   }
@@ -46,7 +44,7 @@ try {
   /* CI injects env instead */
 }
 
-if (existsSync(OUT)) await rm(OUT, { recursive: true });
+if (await Bun.file(OUT).exists()) await rm(OUT, { recursive: true });
 await mkdir(`${OUT}/light`, { recursive: true });
 await mkdir(`${OUT}/dark`, { recursive: true });
 

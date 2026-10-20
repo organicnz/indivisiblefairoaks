@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Hardcoded Supabase project ref guard (new files only).
  *
@@ -7,23 +7,30 @@
  * a guard that fires on every touch of an existing file teaches people to
  * reach for the bypass instead.
  */
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { lines, runText } from '../bun-exec.mjs';
 import { PROJECT_REF } from './_project-ref.mjs';
 
-const newFiles = execSync(
-  'git diff --cached --name-only --diff-filter=A -- "*.ts" "*.tsx" "*.js" "*.mjs"',
-  { encoding: 'utf8' }
-)
-  .split('\n')
-  .filter(Boolean);
+const newFiles = lines(
+  runText([
+    'git',
+    'diff',
+    '--cached',
+    '--name-only',
+    '--diff-filter=A',
+    '--',
+    '*.ts',
+    '*.tsx',
+    '*.js',
+    '*.mjs',
+  ])
+);
 
 if (newFiles.length === 0) process.exit(0);
 
 const found = [];
 for (const file of newFiles) {
   try {
-    const content = readFileSync(file, 'utf8');
+    const content = await Bun.file(file).text();
     if (content.includes(PROJECT_REF)) {
       found.push(file);
     }

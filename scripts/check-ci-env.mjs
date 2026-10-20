@@ -1,7 +1,7 @@
 // Guards the GitHub Actions configuration contract.
 //
-//   node scripts/check-ci-env.mjs          # verify
-//   node scripts/check-ci-env.mjs --list   # print the inventory
+//   bun scripts/check-ci-env.mjs          # verify
+//   bun scripts/check-ci-env.mjs --list   # print the inventory
 //
 // Three classes of drift are caught:
 //
@@ -19,7 +19,7 @@
 // shell out to `actionlint` or the GitHub API — the contract must be verifiable
 // offline, in a pre-commit hook, with no network and no auth.
 
-import { readFile, readdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { SECRETS, VARIABLES } from './ci-env.mjs';
 
 const WORKFLOW_DIR = '.github/workflows';
@@ -35,7 +35,7 @@ const usedSecrets = new Map();
 const usedVariables = new Map();
 
 for (const file of files) {
-  const source = await readFile(`${WORKFLOW_DIR}/${file}`, 'utf8');
+  const source = await Bun.file(`${WORKFLOW_DIR}/${file}`).text();
   for (const match of source.matchAll(/secrets\.([A-Z0-9_]+)/g)) {
     if (!usedSecrets.has(match[1])) usedSecrets.set(match[1], new Set());
     usedSecrets.get(match[1]).add(file);
@@ -114,7 +114,7 @@ for (const name of usedSecrets.keys()) {
 // 4. Least privilege: a workflow holding credentials must declare permissions.
 const credentialed = ['RUNNERS_TOKEN', 'SUPABASE_SECRET_KEY', 'SUPABASE_ACCESS_TOKEN'];
 for (const file of files) {
-  const source = await readFile(`${WORKFLOW_DIR}/${file}`, 'utf8');
+  const source = await Bun.file(`${WORKFLOW_DIR}/${file}`).text();
   const usesCredential = credentialed.some((s) => source.includes(`secrets.${s}`));
   if (usesCredential && !/^permissions:/m.test(source)) {
     problems.push(

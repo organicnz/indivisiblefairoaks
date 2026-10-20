@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -33,7 +32,7 @@ const MIGRATION = resolve(
   process.cwd(),
   'supabase/migrations/20261005020000_contact_consent_tri_state.sql'
 );
-const SQL = readFileSync(MIGRATION, 'utf8');
+const SQL = await Bun.file(MIGRATION).text();
 
 /** The earlier migration that created the consent indexes. */
 const INDEX_MIGRATION = resolve(
@@ -43,7 +42,7 @@ const INDEX_MIGRATION = resolve(
 
 /** The statements, with `--` comments stripped so the assertions match code only. */
 const CODE = SQL.replace(/--[^\n]*/g, '');
-const INDEX_CODE = readFileSync(INDEX_MIGRATION, 'utf8').replace(/--[^\n]*/g, '');
+const INDEX_CODE = (await Bun.file(INDEX_MIGRATION).text()).replace(/--[^\n]*/g, '');
 
 function bodyOf(needle: string): string {
   const start = SQL.indexOf(needle);

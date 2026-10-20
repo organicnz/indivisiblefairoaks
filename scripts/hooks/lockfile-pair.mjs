@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Lockfile pairing.
  *
@@ -15,17 +15,18 @@
  * contains the changed version line, not the `"dependencies": {` header, so
  * a line-based check matches nothing and silently passes a real bump.
  */
-import { execSync } from 'node:child_process';
+import { lines, runText } from '../bun-exec.mjs';
 
-const staged = execSync('git diff --cached --name-only', { encoding: 'utf8' })
-  .split('\n')
-  .filter(Boolean);
+const staged = lines(runText(['git', 'diff', '--cached', '--name-only']));
 
 if (!staged.includes('package.json')) process.exit(0);
 if (staged.includes('bun.lock')) process.exit(0);
 
 function readStaged(ref) {
-  return JSON.parse(execSync(`git show ${ref}:package.json`, { encoding: 'utf8' }));
+  // `git show :package.json` is the staged (index) version; `git show
+  // HEAD:package.json` is the committed one. Both are argv elements, so a ref
+  // can never be read as a shell word.
+  return JSON.parse(runText(['git', 'show', `${ref}:package.json`]));
 }
 
 let depChange;

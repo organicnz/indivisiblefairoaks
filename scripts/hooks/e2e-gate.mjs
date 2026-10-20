@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Playwright e2e delivery gate.
  *
@@ -7,33 +7,22 @@
  * Change-aware: full suite only when the push range can affect runtime.
  * Bypass (emergency only): LEFTHOOK_EXCLUDE=e2e git push
  */
-import { existsSync } from 'node:fs';
-import { execSync, spawnSync } from 'node:child_process';
+import { run, tryRunText } from '../bun-exec.mjs';
 
 // Push range: upstream when available, otherwise the tip commit.
-let rangeDiff;
-try {
-  rangeDiff = execSync('git diff --name-only @{u}...HEAD', { encoding: 'utf8' });
-} catch {
-  try {
-    rangeDiff = execSync('git diff --name-only HEAD~1...HEAD', { encoding: 'utf8' });
-  } catch {
-    rangeDiff = '';
-  }
+let rangeDiff = tryRunText(['git', 'diff', '--name-only', '@{u}...HEAD']) ?? '';
+if (!rangeDiff.trim()) {
+  rangeDiff = tryRunText(['git', 'diff', '--name-only', 'HEAD~1...HEAD']) ?? '';
 }
 
 if (!rangeDiff.trim()) {
-  try {
-    rangeDiff = execSync('git show --no-patch --format= HEAD', { encoding: 'utf8' });
-  } catch {
-    rangeDiff = '';
-  }
+  rangeDiff = tryRunText(['git', 'show', '--no-patch', '--format=', 'HEAD']) ?? '';
 }
 
 // Anything that can change served behaviour or the suite itself forces
 // a full run. Docs-only pushes skip cleanly (README, AGENTS, comments).
 const RUNTIME_PATTERN =
-  /^(src\/|e2e\/|public\/|supabase\/|scripts\/mock-notify-contact\.mjs|playwright\.config\.ts|next\.config\.ts|middleware\.ts|package\.json|bun\.lock)/;
+  /^(src\/|e2e\/|public\/|supabase\/|scripts\/mock-notify-contact\.mjs|playwright\.config\.ts|next\.config\.ts|proxy\.ts|package\.json|bun\.lock)/;
 
 if (!RUNTIME_PATTERN.test(rangeDiff)) {
   console.log('ℹ️   No runtime/e2e changes in push range — skipping Playwright.');
@@ -41,7 +30,7 @@ if (!RUNTIME_PATTERN.test(rangeDiff)) {
   process.exit(0);
 }
 
-if (!existsSync('.next/BUILD_ID')) {
+if (!(await Bun.file('.next/BUILD_ID').exists())) {
   console.log('');
   console.log('✖  No production build at .next/BUILD_ID — e2e cannot run.');
   console.log('   Run: NEXT_SKIP_ENV_VALIDATION=1 bun run build');
@@ -52,19 +41,28 @@ if (!existsSync('.next/BUILD_ID')) {
 console.log('🎭  Playwright e2e delivery gate (workers=2)...');
 // workers=2: higher parallelism caused intermittent header-clearance
 // flakes under load; CI keeps CI=true → retries + 2 workers in config.
-const result = spawnSync('./node_modules/.bin/playwright', ['test', '--workers=2'], {
-  stdio: 'inherit',
+//
+// The CLI is invoked as `bun <file>`, never as `./node_modules/.bin/playwright`.
+// The `.bin` shim is a `#!/usr/bin/env node` script, and this project has no
+// Node — so the shim would exec a missing interpreter. `bun <file>` runs the
+// lockfile-pinned Playwright on Bun's runtime. `bunx playwright` is equally
+// wrong for a different reason: `playwright` is only a transitive dependency,
+// so `bunx` would resolve it from the registry and run a version the lockfile
+// does not pin.
+const result = run(['bun', 'node_modules/@playwright/test/cli.js', 'test', '--workers=2'], {
+  stdout: 'inherit',
+  stderr: 'inherit',
 });
 
-if (result.status === 0) {
+if (result.exitCode === 0) {
   console.log('✔   E2E suite passed.');
   process.exit(0);
 }
 
 console.log('');
 console.log('✖  E2E suite failed.');
-console.log('   Report : npx playwright show-report');
-console.log('   Single : ./node_modules/.bin/playwright test e2e/<spec>.spec.ts --headed --debug');
+console.log('   Report : bun node_modules/@playwright/test/cli.js show-report');
+console.log('   Single : bun node_modules/@playwright/test/cli.js test e2e/<spec>.spec.ts --headed --debug');
 console.log('   Bypass : LEFTHOOK_EXCLUDE=e2e git push');
 console.log('');
 process.exit(1);

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * use client guard — hooks without directive.
  *
@@ -6,7 +6,6 @@
  * App Router runtime error: "You're importing a component that needs X".
  * The error only surfaces at request time, not at build time.
  */
-import { readFileSync } from 'node:fs';
 
 const HOOKS = /useState|useEffect|useReducer|useRef|useCallback|useMemo|useContext/;
 
@@ -24,7 +23,7 @@ for (const file of files) {
 
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }

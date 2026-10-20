@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -28,7 +27,7 @@ const MIGRATION = resolve(
   process.cwd(),
   'supabase/migrations/20261005030000_merge_crm_contacts.sql'
 );
-const SQL = readFileSync(MIGRATION, 'utf8');
+const SQL = await Bun.file(MIGRATION).text();
 
 /** The body of one function, so an assertion cannot match the wrong function. */
 function bodyOf(name: string): string {

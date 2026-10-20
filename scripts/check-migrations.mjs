@@ -1,8 +1,8 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Pre-merge migration history check. Read-only; writes nothing, anywhere.
  *
- *   node scripts/check-migrations.mjs
+ *   bun scripts/check-migrations.mjs
  *
  * ## Why this exists separately from `supabase.yml`'s dry-run
  *
@@ -44,7 +44,7 @@
  * than claiming coverage.
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const API = 'https://api.supabase.com';
@@ -121,7 +121,7 @@ export async function main(env = process.env) {
     } else {
       seen.set(m.version, m.file);
     }
-    if (readFileSync(join(dir, m.file), 'utf8').trim() === '') {
+    if ((await Bun.file(join(dir, m.file)).text()).trim() === '') {
       problems.push(`Empty migration file: ${m.file}`);
     }
   }

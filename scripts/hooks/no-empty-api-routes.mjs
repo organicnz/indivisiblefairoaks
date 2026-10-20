@@ -1,8 +1,8 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Empty API route directory guard.
  */
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const API_ROOT = 'src/app/api';
@@ -31,9 +31,9 @@ const emptyDirs = [];
 
 for (const dir of allDirs) {
   if (dir === API_ROOT) continue;
-  const hasRoute = ['route.ts', 'route.tsx', 'route.js'].some((f) =>
-    existsSync(path.join(dir, f))
-  );
+  const hasRoute = await Promise.all(
+    ['route.ts', 'route.tsx', 'route.js'].map((f) => Bun.file(path.join(dir, f)).exists())
+  ).then((results) => results.some(Boolean));
   if (!hasRoute) {
     emptyDirs.push(`  ${dir}`);
   }

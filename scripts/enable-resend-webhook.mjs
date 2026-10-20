@@ -1,7 +1,7 @@
 // Finishes wiring the Resend delivery-event webhook.
 //
-//   node scripts/enable-resend-webhook.mjs            # dry run: report state only
-//   node scripts/enable-resend-webhook.mjs --apply    # write the Vercel secret; enable once live
+//   bun scripts/enable-resend-webhook.mjs            # dry run: report state only
+//   bun scripts/enable-resend-webhook.mjs --apply    # write the Vercel secret; enable once live
 //
 // Order matters, and it is the reason this is a script rather than two
 // dashboard clicks. The webhook was created **disabled**: an enabled webhook
@@ -26,7 +26,6 @@
 // RESEND_API_KEY (webhook scope) and VERCEL_TOKEN from .env.local. Nothing
 // secret is printed.
 
-import { readFileSync } from 'node:fs';
 
 const WEBHOOK_ID = process.env.RESEND_WEBHOOK_ID || '736ff3a2-5703-4426-afe4-1e78627de44d';
 const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID || 'prj_8RtMjuARvtBuUnepj9oEVyovXyb5';
@@ -46,10 +45,10 @@ const EVENTS = [
 const PROBE_OK_BODY = 'Missing signature headers.';
 const APPLY = process.argv.includes('--apply');
 
-function readEnvLocal() {
+async function readEnvLocal() {
   try {
     const out = {};
-    for (const line of readFileSync('.env.local', 'utf8').split('\n')) {
+    for (const line of (await Bun.file('.env.local').text()).split('\n')) {
       const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
       if (!m) continue;
       let v = m[2].trim();
@@ -62,7 +61,7 @@ function readEnvLocal() {
   }
 }
 
-const local = readEnvLocal();
+const local = await readEnvLocal();
 const resendKey = process.env.RESEND_API_KEY || local.RESEND_API_KEY;
 const vercelToken = process.env.VERCEL_TOKEN || local.VERCEL_TOKEN;
 if (!resendKey || !vercelToken) {

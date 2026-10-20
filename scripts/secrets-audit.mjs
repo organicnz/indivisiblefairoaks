@@ -1,11 +1,11 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Authoritative live audit of all four secret stores.
  *
- *   node scripts/secrets-audit.mjs             # live reconcile (needs CLIs + auth)
- *   node scripts/secrets-audit.mjs --offline   # contract-only, no network
- *   node scripts/secrets-audit.mjs --json      # machine-readable
- *   node scripts/secrets-audit.mjs --store=edge-secret
+ *   bun scripts/secrets-audit.mjs             # live reconcile (needs CLIs + auth)
+ *   bun scripts/secrets-audit.mjs --offline   # contract-only, no network
+ *   bun scripts/secrets-audit.mjs --json      # machine-readable
+ *   bun scripts/secrets-audit.mjs --store=edge-secret
  *
  * ## The gap this closes
  *
@@ -64,16 +64,15 @@
  * fails. That converts an unshippable wall of red into a ratchet: the baseline
  * can only get smaller, and every fix removes a line from it.
  *
- *   node scripts/secrets-audit.mjs --update-baseline   # accept current state
+ *   bun scripts/secrets-audit.mjs --update-baseline   # accept current state
  *
  * The baseline is an acceptance list, not a suppression file: it records that a
  * human looked at a finding and decided to live with it for now, alongside the
  * date they did.
  */
 
-import { execFile } from 'node:child_process';
-import { readFile, writeFile } from 'node:fs/promises';
-import { promisify } from 'node:util';
+import { resolve } from 'node:path';
+import { runOrThrow } from './bun-exec.mjs';
 import { STORES } from './secrets-registry.mjs';
 import { probeEnv as readVercelEnv } from './vercel-api.mjs';
 import {
@@ -86,8 +85,26 @@ import {
   SEVERITY_ORDER,
 } from './secrets-reconciler.mjs';
 
-const run = promisify(execFile);
-
+/**
+ * The Vercel CLI is a Node program: its bin carries a `#!/usr/bin/env node`
+ * shebang, and this project has no Node runtime. Spawning `vercel` directly
+ * therefore fails with ENOENT — the bare name resolves to the lockfile's
+ * `node_modules/.bin/vercel` shim, whose interpreter does not exist.
+ *
+ * Bun ignores shebangs when it is handed a file, so the same CLI runs on
+ * Bun's runtime unchanged (verified: `bun node_modules/vercel/dist/vc.js
+ * --version` reports the pinned version). The path is resolved from the
+ * local install rather than from PATH, so the CLI that answers the audit is
+ * the version the lockfile pins — and a missing install is reported as
+ * UNKNOWN, never as a clean store.
+ */
+async function runVercelCli(args) {
+  const cli = resolve('node_modules/vercel/dist/vc.js');
+  if (!(await Bun.file(cli).exists())) {
+    throw new Error('vercel CLI is not installed locally (run `bun install`) and the REST API path was unavailable');
+  }
+  return runOrThrow(['bun', cli, ...args]);
+}
 const argv = process.argv.slice(2);
 const OFFLINE = argv.includes('--offline');
 const JSON_OUT = argv.includes('--json');
@@ -103,7 +120,7 @@ async function probeGithub(kind) {
   const store = kind === 'secret' ? 'github-secret' : 'github-var';
   const cmd = kind === 'secret' ? ['secret', 'list'] : ['variable', 'list'];
   try {
-    const { stdout } = await run('gh', cmd, { maxBuffer: 1 << 20 });
+    const { stdout } = await runOrThrow(['gh', ...cmd]);
     const names = stdout
       .split('\n')
       .map((l) => l.trim())
@@ -135,9 +152,7 @@ async function probeEdge() {
       process.env.SUPABASE_PROJECT_REF.length > 0
         ? ['secrets', 'list', '--project-ref', process.env.SUPABASE_PROJECT_REF, '-o', 'json']
         : ['secrets', 'list', '-o', 'json'];
-    const { stdout } = await run('supabase', args, {
-      maxBuffer: 1 << 20,
-    });
+    const { stdout } = await runOrThrow(['supabase', ...args]);
     const parsed = JSON.parse(stdout);
     if (!Array.isArray(parsed)) throw new Error('unexpected shape');
     return {
@@ -191,7 +206,7 @@ async function probeVercel() {
     try {
       const names = api
         ? await probeVercelApi(api.projectId, api.teamId, api.token)
-        : parseVercelTable((await run('vercel', ['env', 'ls'], { maxBuffer: 1 << 20 })).stdout);
+        : parseVercelTable((await runVercelCli(['env', 'ls'])).stdout);
       results.push({ store, status: 'ok', names: names[expected] ?? [], all: names });
     } catch (err) {
       results.push({
@@ -208,7 +223,7 @@ async function probeVercel() {
 async function probeLocal() {
   let source;
   try {
-    source = await readFile('.env.local', 'utf8');
+    source = await Bun.file('.env.local').text();
   } catch {
     return { store: 'local', status: 'skipped', names: null, detail: '.env.local not present' };
   }
@@ -308,7 +323,7 @@ function report(live, { updateBaseline = false } = {}) {
     if (fresh.length === 0) {
       console.log(
         `\n✅ No new secret drift — ${known.length} finding(s) match the accepted baseline.\n` +
-          `   Re-accept after fixing with: node scripts/secrets-audit.mjs --update-baseline\n`
+          `   Re-accept after fixing with: bun scripts/secrets-audit.mjs --update-baseline\n`
       );
       return;
     }
@@ -331,7 +346,7 @@ function report(live, { updateBaseline = false } = {}) {
 async function loadBaseline() {
   if (UPDATE_BASELINE) return { accepted: new Map(), path: BASELINE_PATH };
   try {
-    const parsed = JSON.parse(await readFile(BASELINE_PATH, 'utf8'));
+    const parsed = JSON.parse(await Bun.file(BASELINE_PATH).text());
     return { accepted: new Map(Object.entries(parsed.accepted ?? {})), path: BASELINE_PATH };
   } catch {
     return { accepted: new Map(), path: BASELINE_PATH };
@@ -367,7 +382,7 @@ if (UPDATE_BASELINE) {
   const out = {
     $comment:
       'Accepted secret findings. Each entry records that a human reviewed it and ' +
-      'chose to defer the fix. Regenerate with: node scripts/secrets-audit.mjs --update-baseline',
+      'chose to defer the fix. Regenerate with: bun scripts/secrets-audit.mjs --update-baseline',
     updated: new Date().toISOString().slice(0, 10),
     accepted: Object.fromEntries(
       findings
@@ -375,7 +390,7 @@ if (UPDATE_BASELINE) {
         .map((f) => [fingerprint(f), { severity: f.severity, summary: summarize(f.message) }])
     ),
   };
-  await writeFile(BASELINE_PATH, `${JSON.stringify(out, null, 2)}\n`);
+  await Bun.write(BASELINE_PATH, `${JSON.stringify(out, null, 2)}\n`);
   console.log(`Baseline written: ${Object.keys(out.accepted).length} accepted finding(s) → ${BASELINE_PATH}`);
 }
 

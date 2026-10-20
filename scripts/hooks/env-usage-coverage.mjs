@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Env usage coverage.
  *
@@ -10,7 +10,6 @@
  * Allowed raw-access files (env.ts, supabase init) are already exempted
  * by no-raw-env-access; this closes the NEXT_PUBLIC + declaration gap.
  */
-import { readFileSync } from 'node:fs';
 
 const files = process.argv.slice(2);
 const violations = [];
@@ -18,7 +17,7 @@ const violations = [];
 for (const file of files) {
   let content;
   try {
-    content = readFileSync(file, 'utf8');
+    content = await Bun.file(file).text();
   } catch {
     continue;
   }
@@ -41,7 +40,7 @@ for (const file of files) {
 
     let example;
     try {
-      example = readFileSync('.env.example', 'utf8');
+      example = await Bun.file('.env.example').text();
     } catch {
       example = '';
     }

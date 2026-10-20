@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -269,7 +269,7 @@ describe('capture contract: verdict-neutral evidence', () => {
 
     expect(exit).toBe(0);
     expect(said.join(' ')).toMatch(/superseded/i);
-    const summary = await readFile(path.join(dir, 'vercel-build-aaaaaaaa.summary.md'), 'utf8');
+    const summary = await Bun.file(path.join(dir, 'vercel-build-aaaaaaaa.summary.md')).text();
     expect(summary).toMatch(/superseded/i);
     logSpy.mockRestore();
   });
@@ -365,7 +365,7 @@ describe('capture contract: verdict-neutral evidence', () => {
     });
     expect(exit).toBe(0);
     expect(warn.mock.calls.flat().join(' ')).toMatch(/capture failed/i);
-    const summary = await readFile(path.join(dir, 'vercel-build-aaaaaaaa.summary.md'), 'utf8');
+    const summary = await Bun.file(path.join(dir, 'vercel-build-aaaaaaaa.summary.md')).text();
     expect(summary).toMatch(/capture failed/i);
     expect(summary).toMatch(/database reachable/i);
     warn.mockRestore();
@@ -390,11 +390,11 @@ describe('capture contract: verdict-neutral evidence', () => {
       }),
     });
     expect(exit).toBe(0);
-    const written = await readFile(path.join(dir, 'vercel-build-aaaaaaaa.log'), 'utf8');
+    const written = await Bun.file(path.join(dir, 'vercel-build-aaaaaaaa.log')).text();
     expect(written).not.toContain('tok_test_12345678');
     expect(written).not.toContain('sk_live_abcDEF123');
     expect(written).toContain('clean line');
-    const summary = await readFile(path.join(dir, 'vercel-build-aaaaaaaa.summary.md'), 'utf8');
+    const summary = await Bun.file(path.join(dir, 'vercel-build-aaaaaaaa.summary.md')).text();
     expect(summary).not.toContain('tok_test_12345678');
   });
 
@@ -413,9 +413,9 @@ describe('capture contract: verdict-neutral evidence', () => {
       getBuildLog: async () => '',
       getFullBuildLog: async () => ({ text: lines.join('\n'), truncated: false, eventCount: 50 }),
     });
-    const written = await readFile(path.join(dir, 'vercel-build-aaaaaaaa.log'), 'utf8');
+    const written = await Bun.file(path.join(dir, 'vercel-build-aaaaaaaa.log')).text();
     expect(written).toContain('line-0');
-    const summary = await readFile(path.join(dir, 'vercel-build-aaaaaaaa.summary.md'), 'utf8');
+    const summary = await Bun.file(path.join(dir, 'vercel-build-aaaaaaaa.summary.md')).text();
     expect(summary).toContain('line-49');
     expect(summary).not.toContain('line-0\n');
   });
@@ -503,7 +503,7 @@ describe('Stage 2 origin: SSO-gated deployment URL', () => {
     // Build-specificity is preserved: the deployment URL is still probed first.
     expect(seen[0]).toContain('indivisible-fairoaks-abc123');
     expect(seen.some((u) => u.startsWith(SITE))).toBe(true);
-    const summary = await readFile(path.join(dir, 'vercel-build-aaaaaaaa.summary.md'), 'utf8');
+    const summary = await Bun.file(path.join(dir, 'vercel-build-aaaaaaaa.summary.md')).text();
     expect(summary).toMatch(/SSO-gated/);
     expect(summary).toContain(SITE);
   });
@@ -546,7 +546,7 @@ describe('Stage 2 origin: SSO-gated deployment URL', () => {
     });
 
     expect(exit).toBe(0);
-    const summary = await readFile(path.join(dir, 'vercel-build-aaaaaaaa.summary.md'), 'utf8');
+    const summary = await Bun.file(path.join(dir, 'vercel-build-aaaaaaaa.summary.md')).text();
     expect(summary).toMatch(/no text lines/i);
   });
 });

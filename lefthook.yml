@@ -54,14 +54,14 @@ pre-commit:
     # Body: scripts/hooks/no-debug-logs.mjs
     no-debug-logs:
       priority: 5
-      glob: "{src/app/api/**,src/app/admin/**,middleware}.{ts,tsx}"
+      glob: "{src/app/api/**,src/app/admin/**,proxy}.{ts,tsx}"
       run: bun scripts/hooks/no-debug-logs.mjs {staged_files}
 
     # ── 6. No @ts-ignore / eslint-disable in security-critical paths ─────────
     # Body: scripts/hooks/no-suppressions-in-security-paths.mjs
     no-suppressions-in-security-paths:
       priority: 6
-      glob: "{src/app/api/**,src/app/admin/**,middleware}.{ts,tsx}"
+      glob: "{src/app/api/**,src/app/admin/**,proxy}.{ts,tsx}"
       run: bun scripts/hooks/no-suppressions-in-security-paths.mjs {staged_files}
 
     # ── 7. process.env must not be accessed outside src/lib/env.ts ───────────
@@ -225,10 +225,16 @@ pre-commit:
       run: bun oxlint {staged_files}
 
     # ── 26. TypeScript – type-check without full build ────────────────────────
+    # `bun check` is Bun's built-in type checker (a typescript-go port). It reads
+    # this repo's tsconfig and reports the same errors as tsc — verified against
+    # tsc on the clean tree and on seven injected type errors (TS2554, TS2339,
+    # TS7006, TS2322 ×2, TS18047), in .ts, .tsx, a path-aliased import and a
+    # spec file, with identical codes, messages and positions. It is ~40x faster
+    # (0.3 s vs 12.1 s) and peaks at 466 MB against tsc's 1.03 GB.
     typecheck:
       priority: 23
       glob: "*.{ts,tsx}"
-      run: bun tsc --noEmit --incremental false
+      run: bun tsrs --noEmit
 
     # ── 27. E2E spec list check (no browsers) ────────────────────────────────
     # Body: scripts/hooks/e2e-spec-list.mjs
@@ -312,6 +318,42 @@ pre-commit:
     data-points:
       priority: 29
       run: bun scripts/check-data-points.mjs
+
+    # ── 33. No Node.js runtime ───────────────────────────────────────────────
+    # This project runs on Bun: there is no `node` binary on the runner hosts,
+    # no `setup-node` step in any workflow, and `package.json` declares
+    # `engines.bun` and nothing else. The migration was done once; this guard
+    # is what keeps it done.
+    #
+    # Without it, the failure mode is not a red build — it is a green local
+    # machine and a red runner. A `#!/usr/bin/env node` shebang, an `npm
+    # install` next to a `bun install`, or a `setup-node` step all work
+    # perfectly on a laptop that still has Node installed, and break on every
+    # machine this project actually runs on. The breakage is real but late,
+    # remote, and intermittent-looking.
+    #
+    # It blocks the *runtime*, not the `node:` prefix: `node:fs`, `node:path`
+    # and `node:crypto` are portable APIs Bun implements natively, and no Node
+    # binary is involved in using them. `node:child_process` is the one
+    # builtin that starts another runtime, and it is blocked.
+    #
+    # The glob is by extension, not by path, and lefthook matches an
+    # extension-only pattern at any depth — so `scripts/hooks/*.mjs` and
+    # `.github/workflows/*.yml` are both covered, not only root-level files.
+    # The extension list is the guard's own: `.md` is not in it, because prose
+    # mentioning `npm install -g vercel` is a sentence about the past rather
+    # than a command, and a guard that fires on prose teaches people to reach
+    # for the bypass.
+    #
+    # This half sees only the files about to be committed, so it catches a
+    # *reintroduction*. The other half — a file that arrived another way, a
+    # merge, a regeneration — is caught by the `--all` pass in CI. A guard
+    # that is only ever shown the staged subset keeps reporting a clean tree
+    # while the violation sits there.
+    no-node-runtime:
+      priority: 30
+      glob: "*.{js,jsx,mjs,cjs,ts,tsx,json,yml,yaml,toml,sh}"
+      run: bun scripts/hooks/no-node-runtime.mjs {staged_files}
 
 # ─── commit-msg ───────────────────────────────────────────────────────────────
 commit-msg:
@@ -485,7 +527,7 @@ pre-push:
 
     typecheck:
       priority: 34
-      run: bun tsc --noEmit
+      run: bun tsrs --noEmit
 
     # ── 7. Build smoke-test ───────────────────────────────────────────────────
     # Coverage thresholds are enforced in CI (`.github/workflows/ci.yml`).

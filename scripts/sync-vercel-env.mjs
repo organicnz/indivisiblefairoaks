@@ -1,10 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Populate the Vercel project from credentials held locally.
  *
- *   node scripts/sync-vercel-env.mjs              # dry run, prints the plan
- *   node scripts/sync-vercel-env.mjs --apply      # write
- *   node scripts/sync-vercel-env.mjs --apply --target=production
+ *   bun scripts/sync-vercel-env.mjs              # dry run, prints the plan
+ *   bun scripts/sync-vercel-env.mjs --apply      # write
+ *   bun scripts/sync-vercel-env.mjs --apply --target=production
  *
  * ## Why this exists separately from the audit
  *
@@ -54,12 +54,18 @@
  *   - Idempotent: re-running with `--force` converges rather than duplicating.
  */
 
-import { execFile, spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
-import { promisify } from 'node:util';
+import { resolve } from 'node:path';
+import { runAsync } from './bun-exec.mjs';
 import { ALL_SECRETS, ALL_VARS, SECRETS, VARS } from './vercel-env.mjs';
 
-const run = promisify(execFile);
+/**
+ * The Vercel CLI's bin is a `#!/usr/bin/env node` script and this project has
+ * no Node runtime, so the bare name `vercel` cannot be executed here. Bun
+ * ignores shebangs when handed a file, so the same CLI runs on Bun's runtime
+ * unchanged. The path is the lockfile's local install, so the CLI that writes
+ * is the version the project pins.
+ */
+const VERCEL_CLI = resolve('node_modules/vercel/dist/vc.js');
 
 const argv = process.argv.slice(2);
 const APPLY = argv.includes('--apply');
@@ -70,7 +76,7 @@ const ENV_FILE = '.env.local';
 async function readEnvFile() {
   let source;
   try {
-    source = await readFile(ENV_FILE, 'utf8');
+    source = await Bun.file(ENV_FILE).text();
   } catch {
     console.error(`✖ ${ENV_FILE} not found. Create it from .env.example and fill in the values.`);
     process.exit(1);
@@ -91,17 +97,18 @@ async function readEnvFile() {
  * one ends up in a commit.
  */
 async function assertEnvFileIgnored() {
-  try {
-    const { stdout } = await run('git', ['check-ignore', '-q', ENV_FILE]);
-    if (stdout === null && stdout === undefined) return; // check-ignore -q exits 0 when ignored
-  } catch {
-    // check-ignore exits 1 when NOT ignored, non-zero for other errors.
-    console.error(
-      `✖ Refusing to run: ${ENV_FILE} is not gitignored.\n` +
-        `  This file holds production credentials. Add it to .gitignore first.`
-    );
-    process.exit(1);
-  }
+  // `check-ignore -q` exits 0 when the path is ignored and 1 when it is not,
+  // so the exit code is the whole answer. `Bun.spawn` reports it without
+  // throwing, which keeps "not ignored" on the same path as the message
+  // rather than in an exception handler.
+  const { exitCode } = await runAsync(['git', 'check-ignore', '-q', ENV_FILE]);
+  if (exitCode === 0) return;
+
+  console.error(
+    `✖ Refusing to run: ${ENV_FILE} is not gitignored.\n` +
+      `  This file holds production credentials. Add it to .gitignore first.`
+  );
+  process.exit(1);
 }
 
 /**
@@ -123,7 +130,7 @@ function contract() {
 /**
  * Run a Vercel write.
  *
- * Uses `spawn` with stdin **ignored** rather than `execFile`. Measured: with a
+ * The CLI's stdin is **ignored** rather than piped. Measured: with a
  * piped-but-open stdin the CLI blocks waiting for input that never comes, and
  * the whole run hangs silently with nothing written. `< /dev/null` is the shell
  * equivalent and works immediately, so this is the programmatic version of that
@@ -135,18 +142,30 @@ function contract() {
  * catch — a `NEXT_PUBLIC_*` value withheld from fork PRs — and a script that
  * reintroduces it while claiming to fix drift is worse than no script.
  */
-function vercelEnvAdd({ name, target, sensitive, value }) {
-  return new Promise((resolve) => {
-    const args = ['env', 'add', name, target, sensitive ? '--sensitive' : '--no-sensitive',
-      '--value', value, '--force', '--yes'];
-    const child = spawn('vercel', args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let err = '';
-    child.stderr.on('data', (d) => { err += d; });
-    child.on('error', (e) => resolve({ ok: false, detail: e.message }));
-    child.on('close', (code) =>
-      resolve({ ok: code === 0, detail: code === 0 ? null : (err.split('\n').find((l) => l.trim()) ?? `exit ${code}`) })
-    );
-  });
+async function vercelEnvAdd({ name, target, sensitive, value }) {
+  if (!(await Bun.file(VERCEL_CLI).exists())) {
+    return { ok: false, detail: 'vercel CLI is not installed locally (run `bun install`)' };
+  }
+
+  const args = [
+    'env',
+    'add',
+    name,
+    target,
+    sensitive ? '--sensitive' : '--no-sensitive',
+    '--value',
+    value,
+    '--force',
+    '--yes',
+  ];
+
+  const { exitCode, stderr } = await runAsync(['bun', VERCEL_CLI, ...args]);
+  const detail =
+    exitCode === 0
+      ? null
+      : (stderr.split('\n').find((l) => l.trim()) ?? `exit ${exitCode}`);
+
+  return { ok: exitCode === 0, detail };
 }
 
 /** Values that are `required: true` and exist in no readable store. */
