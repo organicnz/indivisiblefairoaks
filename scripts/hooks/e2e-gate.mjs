@@ -21,10 +21,35 @@ if (!rangeDiff.trim()) {
 
 // Anything that can change served behaviour or the suite itself forces
 // a full run. Docs-only pushes skip cleanly (README, AGENTS, comments).
+//
+// **The test is per line, and it has to be.** `rangeDiff` is a
+// newline-separated list of paths, and this pattern is anchored with `^`.
+// Without the `m` flag, `^` matches only the start of the *whole string* —
+// so the pattern matched only when the **first** path in the sorted list
+// happened to be one of these.
+//
+// That is how this gate came to skip almost every push. The list is sorted,
+// and it starts with whatever sorts first: `AGENTS.md`, a `.github/`
+// workflow, a skill file, `bun.lock`… None of those is `src/` or `e2e/`, so
+// the gate read "no runtime changes" for a push that had changed 128 of
+// them.
+//
+// The bug arrived with `b7583ec`, which moved this check out of a bash
+// `grep -qE` — which *is* per line — and into a JavaScript regex, which
+// was not. The CI equivalent in `.github/workflows/ci.yml` still uses
+// `grep -qE` and was never affected, so only the local pre-push gate was
+// blind.
+//
+// A guard that skips the work it exists to do is worse than no guard: it
+// reports success, and the push looks delivered.
 const RUNTIME_PATTERN =
   /^(src\/|e2e\/|public\/|supabase\/|scripts\/mock-notify-contact\.mjs|playwright\.config\.ts|next\.config\.ts|proxy\.ts|package\.json|bun\.lock)/;
 
-if (!RUNTIME_PATTERN.test(rangeDiff)) {
+const touchesRuntime = rangeDiff
+  .split('\n')
+  .some((line) => RUNTIME_PATTERN.test(line));
+
+if (!touchesRuntime) {
   console.log('ℹ️   No runtime/e2e changes in push range — skipping Playwright.');
   console.log(`    Range touched: ${rangeDiff.split('\n').join(' ').slice(0, 240)}`);
   process.exit(0);
