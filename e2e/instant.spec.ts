@@ -1,6 +1,7 @@
 import { instant } from '@next/playwright';
 import { expect, test } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
+import { APP_URL } from './helpers/ports';
 
 /**
  * Instant-navigation guards for the Cache Components + Partial Prefetching
@@ -56,7 +57,7 @@ test('shell paints instantly: home → faqs', async ({ page }) => {
       await navigation;
       await shellAssertions(page);
     },
-    { baseURL: 'http://localhost:3100' }
+    { baseURL: APP_URL }
   );
 });
 
@@ -75,7 +76,7 @@ test('shell paints instantly: home → products listing (deliberate block route)
       // Block route streams its body, but the shared shell must still be immediate.
       await shellAssertions(page);
     },
-    { baseURL: 'http://localhost:3100' }
+    { baseURL: APP_URL }
   );
 });
 
@@ -91,6 +92,6 @@ test('shell paints instantly: listing → product detail', async ({ page }) => {
       await navigation;
       await shellAssertions(page);
     },
-    { baseURL: 'http://localhost:3100' }
+    { baseURL: APP_URL }
   );
 });

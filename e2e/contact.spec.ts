@@ -1,6 +1,5 @@
 import { type APIRequestContext, expect, test } from '@playwright/test';
-
-const MOCK = 'http://127.0.0.1:3101';
+import { MOCK_URL as MOCK } from './helpers/ports';
 
 async function setMockMode(request: APIRequestContext, mode: Record<string, unknown>) {
   await request.post(`${MOCK}/__mode`, { data: mode });
