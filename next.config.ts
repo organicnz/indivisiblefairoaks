@@ -3,15 +3,25 @@ import type { NextConfig } from 'next';
 import { LEGACY_REDIRECTS } from './src/config/legacy-redirects';
 
 // Supabase hostname is derived from the build-time env so a project restore
-// or fork only needs a secret rotation — no code change. Fallback preserves
-// the current project when env is not set (e.g. type-check without .env).
+// or fork only needs a secret rotation — no code change.
 const supabaseHost = (() => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url) return 'mojsubkqjdruhpxbzgme.supabase.co';
+  if (!url) return '';
   try {
     return new URL(url).hostname;
   } catch {
-    return 'mojsubkqjdruhpxbzgme.supabase.co';
+    return '';
+  }
+})();
+
+// Sentry ingest host derived from DSN env variable.
+const sentryHost = (() => {
+  const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+  if (!dsn) return '';
+  try {
+    return new URL(dsn).hostname;
+  } catch {
+    return '';
   }
 })();
 
@@ -32,14 +42,21 @@ const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.com",
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: https://${supabaseHost} https://images.unsplash.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`,
+  `img-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://images.unsplash.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`.replace(
+    /\s+/g,
+    ' '
+  ),
   "font-src 'self' data:",
-  `media-src 'self' data: blob: https://${supabaseHost} https://*.supabase.co https://*.s3.amazonaws.com https:`,
+  `media-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://*.supabase.co https://*.s3.amazonaws.com https:`.replace(
+    /\s+/g,
+    ' '
+  ),
   // Same-origin `/_vercel/*` covers the RUM beacons, so no extra origins needed.
-  // Sentry ingest is the exception: the client SDK POSTs events there, and the
-  // exact per-project host (not a wildcard) so a misconfigured DSN fails closed
-  // instead of reporting somewhere unexpected.
-  `connect-src 'self' https://${supabaseHost} https://api.stripe.com https://m.stripe.com https://o4509901022691328.ingest.de.sentry.io`,
+  // Sentry ingest is dynamically allowed when DSN is configured.
+  `connect-src 'self' ${supabaseHost ? `https://${supabaseHost}` : ''} https://api.stripe.com https://m.stripe.com ${sentryHost ? `https://${sentryHost}` : ''}`.replace(
+    /\s+/g,
+    ' '
+  ),
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://js.stripe.com https://hooks.stripe.com https://secure.actblue.com https://www.mobilize.us",
   "worker-src 'self' blob:",
   "object-src 'none'",

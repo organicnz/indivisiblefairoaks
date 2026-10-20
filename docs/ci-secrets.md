@@ -23,9 +23,9 @@ bun scripts/check-ci-env.mjs --list   # print this page's content
 | Name | Example | Used by |
 |---|---|---|
 | `NEXT_PUBLIC_SITE_URL` | `https://test.indivisiblefairoaks.org` | `ci.yml` (build + health probe) |
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://mojsubkqjdruhpxbzgme.supabase.co` | `ci.yml`, `supabase.yml`, `walle-refresh.yml` |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://<project-ref>.supabase.co` | `ci.yml`, `supabase.yml`, `walle-refresh.yml` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` | `ci.yml`, `supabase.yml` |
-| `SUPABASE_PROJECT_REF` | `mojsubkqjdruhpxbzgme` | `supabase.yml` |
+| `SUPABASE_PROJECT_REF` | `<project-ref>` | `supabase.yml` |
 
 ### Why these are variables and not secrets
 

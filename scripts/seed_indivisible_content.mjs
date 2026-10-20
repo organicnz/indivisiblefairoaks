@@ -211,7 +211,7 @@ async function seed() {
     console.error('❌ Table "content" does not exist yet.');
     console.error(`Database error: ${probeError.message}`);
     console.log('\n👉 Please execute the SQL in "supabase/schema_indivisible.sql" in the Supabase SQL Editor:');
-    console.log(`   https://supabase.com/dashboard/project/mojsubkqjdruhpxbzgme/sql/new\n`);
+    console.log(`   https://supabase.com/dashboard/project/${process.env.SUPABASE_PROJECT_REF || '<your-project-ref>'}/sql/new\n`);
     process.exit(1);
   }
 

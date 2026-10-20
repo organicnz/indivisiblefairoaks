@@ -133,8 +133,10 @@ export async function sendResendEmail(
 // non-text decoration only; body copy stays high-contrast slate/white.
 // ---------------------------------------------------------------------------
 
-const LOGO_URL =
-  'https://mojsubkqjdruhpxbzgme.supabase.co/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png'
+const SUPABASE_URL = (typeof Deno !== 'undefined' ? Deno.env.get('SUPABASE_URL') : process.env.NEXT_PUBLIC_SUPABASE_URL)?.replace(/\/+$/, '') ?? ''
+const LOGO_URL = SUPABASE_URL
+  ? `${SUPABASE_URL}/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png`
+  : '/icon-512.png'
 
 export function brandShell(opts: {
   eyebrow: string

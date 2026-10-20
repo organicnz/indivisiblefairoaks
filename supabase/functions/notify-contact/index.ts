@@ -76,8 +76,9 @@ function stripControls(value: string): string {
   return value.replace(/\p{C}/gu, '')
 }
 
-const LOGO_URL =
-  'https://mojsubkqjdruhpxbzgme.supabase.co/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png'
+const LOGO_URL = SUPABASE_URL
+  ? `${SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png`
+  : '/icon-512.png'
 
 function buildEmail(name: string, email: string, message: string, receivedAt: string): string {
   const safeName = escapeHtml(name)

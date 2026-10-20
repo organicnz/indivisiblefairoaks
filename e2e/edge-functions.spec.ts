@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test';
  *
  * Proves all five functions (health, notify-contact, search, checkout,
  * webhook) are actually deployed to the canonical project
- * (mojsubkqjdruhpxbzgme) — the "forgot to deploy" class of bug.
+ * (configured in env) — the "forgot to deploy" class of bug.
  *
  * Strategy: send deliberately INVALID payloads and assert the function
  * answers with its own validation status. Any 4xx/5xx from the function

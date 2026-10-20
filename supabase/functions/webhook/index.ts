@@ -49,7 +49,7 @@ const SUPABASE_HOST = (() => {
   try {
     return new URL(SUPABASE_URL).hostname
   } catch {
-    return 'mojsubkqjdruhpxbzgme.supabase.co'
+    return ''
   }
 })()
 

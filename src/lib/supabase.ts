@@ -25,7 +25,6 @@ export function getStorageUrl(path: string | null, bucket = 'media'): string {
   }
 
   const cleanPath = path.startsWith('/') ? path.slice(1) : path;
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mojsubkqjdruhpxbzgme.supabase.co';
-  return `${baseUrl}/storage/v1/object/public/${bucket}/${cleanPath}`;
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  return baseUrl ? `${baseUrl}/storage/v1/object/public/${bucket}/${cleanPath}` : `/${cleanPath}`;
 }

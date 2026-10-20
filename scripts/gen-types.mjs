@@ -2,7 +2,7 @@
 // Derive Supabase project ref from environment so a restore/fork only needs
 // secret rotation — no code change. Falls back to the current project ref.
 //
-// NOTE: The Supabase project (mojsubkqjdruhpxbzgme) is shared and contains
+// NOTE: The Supabase project is shared and contains
 // tables from other applications. After generating, we filter to only the
 // tables this application actually uses, to avoid polluting the TypeScript
 // type union with 60+ foreign tables that break type inference.

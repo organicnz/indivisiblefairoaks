@@ -17,7 +17,7 @@ Shared modules: `_shared/spam.ts`, `_shared/shipping.ts`
 | `.github/workflows/runner-health.yml` | `backend-runner` | Runner health monitoring, smoke tests |
 | `.github/workflows/supabase.yml` | `backend-runner` | **Dedicated SB delivery** — edge functions + migrations + verification |
 
-Canonical project: https://supabase.com/dashboard/project/mojsubkqjdruhpxbzgme/
+Canonical project: https://supabase.com/dashboard/project/<project-ref>/
 
 ## E2E Test Coverage ✅ (15 files, 163 tests passing)
 - `edge-functions.spec.ts` — proves all 5 functions deployed (4xx=alive, 404=not deployed)

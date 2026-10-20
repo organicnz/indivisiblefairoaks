@@ -5,7 +5,7 @@ cp supabase/functions/env.example.md supabase/functions/.env.local
 # or just edit the block below directly
 
 supabase secrets set --env-file supabase/functions/.env.local \
-  --project-ref mojsubkqjdruhpxbzgme
+  --project-ref <your-project-ref>
 ```
 
 The `KEY=value` block below is machine-readable: `scripts/check-edge-secrets.mjs`
@@ -20,7 +20,7 @@ Not settable and not listed by `supabase secrets list`. Declared here so the
 `supabase start` local path works.
 
 ```
-SUPABASE_URL=https://mojsubkqjdruhpxbzgme.supabase.co
+SUPABASE_URL=https://<your-project-ref>.supabase.co
 SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 ```

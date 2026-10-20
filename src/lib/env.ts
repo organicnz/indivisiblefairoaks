@@ -7,7 +7,10 @@ const isClient = typeof window !== 'undefined';
 const skipValidation = process.env.NEXT_SKIP_ENV_VALIDATION === '1';
 
 const publicSchema = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url().default('https://mojsubkqjdruhpxbzgme.supabase.co'),
+  NEXT_PUBLIC_SUPABASE_URL: z
+    .string()
+    .url()
+    .default(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z
     .string()
     .min(1)

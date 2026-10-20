@@ -586,7 +586,7 @@ attempting the insert they exist to forbid:
 ```bash
 supabase db push --linked --dry-run     # always first
 supabase db push --linked --yes
-supabase functions deploy <name> --project-ref mojsubkqjdruhpxbzgme
+supabase functions deploy <name> --project-ref <project-ref>
 ```
 
 `20260930120000_crm_and_content_safety.sql` and
