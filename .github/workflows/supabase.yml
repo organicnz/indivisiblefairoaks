@@ -36,8 +36,11 @@ env:
   # configuration lives in one place and can be changed without a code review.
   SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-  # Pinned bun for the Management-API applier — same line as ci.yml.
-  BUN_VERSION: "1.4.2"
+  # The Bun canary channel — same as ci.yml, and for the same reason: the
+  # version pin it replaces (`1.4.4`) was never a GitHub release, and a
+  # canary's version number is not monotonic against the stable releases, so
+  # the channel is the only honest unit to pin.
+  BUN_VERSION: "canary"
 
 jobs:
   # ── 1. Deploy all edge functions ─────────────────────────────────────────

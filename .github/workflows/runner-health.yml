@@ -245,7 +245,7 @@ jobs:
           fi
           [ "$FREE_GB" -lt 5 ] && echo "::warning::frontend-runner disk getting low (${FREE_GB} GB free)"
           echo "  Bun:    $(bun --version 2>/dev/null || echo 'not installed')"
-          echo "  Node:   $(node --version 2>/dev/null || echo 'not installed')"
+          echo "  Node:   not required — the toolchain is Bun-only (see AGENTS.md)"
 
   smoke-backend:
     name: Smoke test — backend-runner

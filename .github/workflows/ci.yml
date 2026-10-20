@@ -74,9 +74,9 @@ on:
 # The host is still the ceiling. The container runs with `Memory=1073741824`
 # (1024 MiB) and `MemorySwap=2147483648`, so jobs end `cancelled` rather than
 # `failed` once the cgroup is exhausted; `cancelled` there means the host ran out
-# of room, not that the code was wrong. That is what the `NODE_OPTIONS` heap caps
-# on `lint` and `build` exist for, and they are load-bearing. See
-# docs/ci-runners.md.
+# of room, not that the code was wrong. That is what the build's
+# `experimental.cpus: 1` and Playwright's `--workers=1` exist for, and they are
+# load-bearing. See docs/ci-runners.md.
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -97,8 +97,28 @@ env:
   NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
   NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
-  # Pin bun — bump deliberately. Floor is package.json engines (bun >= 1.4.0).
-  BUN_VERSION: "1.4.2"
+  # The Bun **canary** channel, not a pinned version.
+  #
+  # Two reasons, and they point the same way.
+  #
+  # First, the pin was wrong: `bun-v1.4.4` has never existed as a GitHub
+  # release, and `oven-sh/setup-bun` resolves a strict-semver version to
+  # `bun-v<version>` directly. `BUN_VERSION: "1.4.4"` was therefore a 404 on
+  # every job — a CI step that could not have installed Bun at all.
+  #
+  # Second, a canary version number is not monotonic against the stable
+  # releases: Bun cuts canaries from the release branch, so a canary can carry
+  # a *lower* number than the stable release that superseded it. Pinning a
+  # canary version would be false precision. The channel is the unit that
+  # means "the latest canary", and `setup-bun` resolves `canary` from the
+  # `refs/tags/canary` tag.
+  #
+  # Production still runs a **stable** Bun: `vercel.json` sets
+  # `"bunVersion": "1.4.x"`, and Vercel's Bun runtime accepts only `"1.4.x"`
+  # and `"1.x"`. A canary cannot be deployed there. The toolchain runs canary;
+  # production runs stable; the dependency graph is pinned either way by
+  # `bun.lock`.
+  BUN_VERSION: "canary"
 
 jobs:
   # ── 0. Change scope ──────────────────────────────────────────────────────
@@ -132,7 +152,27 @@ jobs:
             fi
           fi
           FILES=$(git diff --name-only $RANGE 2>/dev/null || echo "src/fail-open")
-          if echo "$FILES" | grep -qE '^(src/|e2e/|public/|supabase/|playwright\.config\.ts|next\.config\.ts|middleware\.ts|package\.json|bun\.lock|scripts/mock-notify-contact\.mjs|\.github/workflows/)'; then
+          #
+          # `middleware.ts` AND `proxy.ts` are both watched, and the second one
+          # is watched deliberately even though the repository has no such file
+          # and `scripts/hooks/no-node-runtime.mjs` forbids creating one.
+          #
+          # `middleware.ts` is this repository's routing middleware — the auth
+          # gate in front of /account, /admin, /login and /auth/mfa. It is the
+          # file that exists, so it must be in this list: a push that touched
+          # only the auth gate and did not trigger the e2e job would be a
+          # change to the one surface where a regression is a security
+          # regression, shipped without the suite that would have caught it.
+          #
+          # `proxy.ts` is the Next.js 16 successor convention, and it compiles
+          # to a **Node** bundle where `middleware.ts` compiles to the Edge
+          # runtime. Watching it costs nothing and means that if someone tries
+          # to introduce the convention, the e2e job runs and fails rather than
+          # the change landing quietly behind a scope that did not match.
+          #
+          # A path that does not exist in this list is a control that reports
+          # success while measuring nothing.
+          if echo "$FILES" | grep -qE '^(src/|e2e/|public/|supabase/|playwright\.config\.ts|next\.config\.ts|middleware\.ts|proxy\.ts|package\.json|bun\.lock|scripts/mock-notify-contact\.mjs|\.github/workflows/)'; then
             echo "runtime=true" >> "$GITHUB_OUTPUT"
           else
             echo "runtime=false" >> "$GITHUB_OUTPUT"
@@ -145,19 +185,19 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.runtime == 'true'
     # 120, not 15. Setup (checkout + bun + cache hit + install) costs ~2 min, so a
-    # 15-minute ceiling left `tsc` about 13 — and tsc was measured at 8m28s on a
-    # quiet host and still running at 13m25s on a loaded one. That is a wall clock
-    # killing a job whose code is correct: biome and oxlint finish in seconds and
-    # fail first, so a real lint error still surfaces immediately. Measured on the
-    # runs of 2026-10-04T20:48 and T22:36, both killed by this ceiling, both with
-    # oxlint reporting 0 warnings and 0 errors. See docs/ci-runners.md.
+    # 15-minute ceiling left the type check about 13 — and tsc was measured at
+    # 8m28s on a quiet host and still running at 13m25s on a loaded one. That is
+    # a wall clock killing a job whose code is correct: biome and oxlint finish
+    # in seconds and fail first, so a real lint error still surfaces
+    # immediately. Measured on the runs of 2026-10-04T20:48 and T22:36, both
+    # killed by this ceiling, both with oxlint reporting 0 warnings and 0
+    # errors. See docs/ci-runners.md.
+    #
+    # The type check itself is no longer the reason for the ceiling — `bun
+    # check` finishes in about a third of a second. `bun install` on the fleet
+    # host still measures ~13 min, so the headroom stays for the install, not
+    # for a V8 heap.
     timeout-minutes: 120
-    env:
-      # tsc's program (~295 files) exceeds Node's default heap cap under this
-      # container's MEMORY=1024M and aborts. With 4096M MemorySwap on the host
-      # (backed by 6 GB host swap), 2048M gives V8 the headroom it needs
-      # without hitting the ineffective mark-compacts allocation failure.
-      NODE_OPTIONS: --max-old-space-size=2048
     steps:
       - uses: actions/checkout@v4
         with:
@@ -186,27 +226,94 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # `bun <binary>`, not `bunx <binary>`. `bunx` can fall back to the
+      # registry when a package is not installed locally, and a linter that
+      # silently ran a different version than the lockfile pins is exactly the
+      # failure the Playwright invocation below is written to avoid. `bun`
+      # resolves the local install and nothing else.
       - name: Biome lint
-        run: bunx biome ci ./src
+        run: bun biome ci ./src
 
       - name: Oxlint
-        run: bunx oxlint ./src
+        run: bun oxlint ./src
 
-      # tsconfig sets incremental:true but nothing persisted .tsbuildinfo, so
-      # every lint job rechecked ~295 files from scratch (8-13 min measured).
-      # Incremental state is version-checked by tsc itself — a stale file
-      # cannot produce a false green, only a slower run on key mismatch.
-      - name: Cache TypeScript info
-        if: "runner.environment != 'self-hosted' && !contains(runner.name, 'personal') && !contains(runner.name, 'ghrunner')"
-        uses: actions/cache@v4
-        with:
-          path: tsconfig.tsbuildinfo
-          key: ${{ runner.os }}-tsbuildinfo-${{ hashFiles('bun.lock') }}-${{ hashFiles('src/**', 'e2e/**') }}
-          restore-keys: |
-            ${{ runner.os }}-tsbuildinfo-${{ hashFiles('bun.lock') }}-
+      # There is no type-check cache here any more, and there is nothing to
+      # restore one from.
+      #
+      # The old tsc-based job cached `tsconfig.tsbuildinfo` keyed on the
+      # lockfile plus `src/**` and `e2e/**`. That cache was never actually
+      # warm: tsconfig sets `incremental: true`, but nothing persisted the
+      # build info, so every lint job re-checked ~295 files from scratch
+      # (8-13 min measured). The cache step was deleted and the comment with
+      # it — restoring a stale tsbuildinfo could only ever have been a
+      # wrong-green waiting to happen.
+      #
+      # `bun check` does not write incremental state, so there is no artifact
+      # to cache: the job is now a fraction of a second of work.
+      - name: TypeScript — tsrs
+        # `tsrs` is the Rust port of the TypeScript 7 compiler (Cloudflare +
+        # VoidZero), and it is this project's type checker. It reads the same
+        # `tsconfig.json` and reports the same diagnostics as `tsc` — verified
+        # against TypeScript 7.1.0-beta's native `tsc` on the clean tree and
+        # on five injected type errors (TS2345, TS2339, TS2322, TS7006,
+        # TS2554), with identical codes, messages and positions.
+        #
+        # It is a **native binary** (the npm package ships per-platform
+        # executables), so the type check needs no JavaScript runtime at all
+        # beyond the launcher Bun runs it with.
+        run: bun tsrs --noEmit
 
-      - name: TypeScript
-        run: bun tsc --noEmit
+      - name: TypeScript — bun check (second implementation)
+        # A second opinion, not a second gate. `bun check` is Bun's own
+        # typescript-go port of TypeScript 7; `tsrs` is a Rust port of the
+        # same compiler. Two independent implementations of the same
+        # language agreeing on a clean tree is worth something that a single
+        # implementation cannot tell you, and it costs about a second.
+        #
+        # This is also the check that would notice if the two ports diverged
+        # on a language feature — the thing the Cloudflare and VoidZero teams
+        # say they are actively working to minimise.
+        run: bun check
+
+      # The no-Node-runtime guard, over the WHOLE tree rather than the staged
+      # subset.
+      #
+      # The pre-commit hook sees only `{staged_files}`, so it catches a
+      # *reintroduction* but says nothing about the current state of the
+      # repository: a file committed before the guard existed, a merge that
+      # brought one in, a file regenerated by a tool — those sit there
+      # indefinitely while the guard keeps reporting a clean tree. `--all`
+      # walks everything, which is the half that describes the repository as
+      # it stands.
+      #
+      # It is cheap (a tree walk and a read of a few hundred small files) and
+      # it is the only gate that would notice a Node.js runtime arriving
+      # through a *file convention* rather than through a line of code — the
+      # Next.js 16 `proxy` convention compiles to a Node bundle where
+      # `middleware.ts` compiles to the Edge runtime, and nothing in a diff
+      # of a renamed file says "Node.js". See AGENTS.md, "Three runtimes, none
+      # of them Node".
+      - name: No Node.js runtime
+        run: bun scripts/hooks/no-node-runtime.mjs --all
+
+      # Dependency vulnerabilities, via Bun's own advisory database.
+      #
+      # `bun audit` is the Bun-native equivalent of `npm audit`, and this is
+      # the only place in CI that asks whether the dependency tree is
+      # vulnerable. It is a **ratchet**: a NEW advisory fails the job, and a
+      # baselined advisory that has stopped applying also fails, so a fix must
+      # delete its own excuse. The accepted set and the reason for each entry
+      # live in `scripts/vulnerabilities-baseline.json`.
+      #
+      # CI only, deliberately. `bun audit` needs the network, and a
+      # pre-commit hook that needs the network is a hook that gets bypassed.
+      #
+      # `--strict` is NOT used: an advisory database that cannot be reached is
+      # reported as UNKNOWN, not as clean and not as a failure, because a
+      # network outage is not a defect in this repository. The output says
+      # UNKNOWN either way.
+      - name: Dependency vulnerabilities
+        run: bun scripts/check-vulnerabilities.mjs
 
   # ── 2. Unit Tests + Coverage ─────────────────────────────────────────────────
   test:
@@ -312,10 +419,27 @@ jobs:
     if: needs.changes.outputs.runtime == 'true'
     timeout-minutes: 60
     env:
-      # Keep V8 heap ceiling at 1280 MB. Setting it higher (2048-3584 MB) allows V8 to balloon
-      # its working set across swap on the 887 MB VPS, causing severe page-fault swap thrashing (wa: 91%)
-      # and OOM / connection loss. 1280 MB prompts timely young-generation GCs, keeping active pages hot in physical RAM.
-      NODE_OPTIONS: --max-old-space-size=1280
+      # No NODE_OPTIONS here any more, and that is not a loss of protection —
+      # it is the removal of a protection that stopped applying.
+      #
+      # This job used to cap V8's heap at 1280 MB because the build ran on
+      # Node, where a larger ceiling let the working set balloon across swap on
+      # the 887 MB VPS (page-fault thrashing, then OOM). Every process in this
+      # job now runs on Bun's runtime, and Bun does not read `--max-old-space-size`
+      # from NODE_OPTIONS: measured on Bun 1.4.4, the heap limit is ~48 MB
+      # whether the variable is set to 1280, 4096 or absent. The cap was
+      # therefore inert — a comment that read like a safety rail over a cliff
+      # that was not there.
+      #
+      # What actually keeps this job inside 1024 MiB is unchanged and real:
+      #   - `experimental.cpus: 1` for the e2e build (next.config.ts), so
+      #     prerendering is serial rather than one worker per host CPU;
+      #   - `--workers=1` for Playwright, so one Chromium fights the build for
+      #     memory instead of several.
+      # If the container ever becomes the binding constraint again, the
+      # Bun-native lever is `--smol` (more frequent GC, less resident memory) —
+      # and it should be measured before it is enabled, because it trades
+      # wall clock for footprint.
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
@@ -381,10 +505,11 @@ jobs:
         # No --with-deps: OS dependencies are baked into the runner image and
         # persist system-wide. Re-add --with-deps after a runner rebuild if
         # browsers fail to launch with missing shared libraries.
-        # The installed binary, not `bunx`: `playwright` is only a transitive
+        # The installed package, not `bunx`: `playwright` is only a transitive
         # dependency, so `bunx` would resolve it from the registry and run a
-        # different version than the lockfile pins.
-        run: ./node_modules/.bin/playwright install chromium
+        # different version than the lockfile pins. `bun <file>` runs the
+        # installed CLI on Bun's runtime, so the runner needs no Node.
+        run: bun node_modules/@playwright/test/cli.js install chromium
 
       - name: Run E2E tests
         # Draft PRs run a fast smoke subset for iteration signal; ready PRs and
@@ -393,9 +518,9 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.event.pull_request.draft }}" = "true" ]; then
             echo "Draft PR — smoke subset (full suite runs when ready)."
-            ./node_modules/.bin/playwright test --workers=1 e2e/account-entry.spec.ts e2e/header-fit.spec.ts e2e/mobile-navigation.spec.ts e2e/search.spec.ts e2e/mfa-challenge.spec.ts
+            bun node_modules/@playwright/test/cli.js test --workers=1 e2e/account-entry.spec.ts e2e/header-fit.spec.ts e2e/mobile-navigation.spec.ts e2e/search.spec.ts e2e/mfa-challenge.spec.ts
           else
-            ./node_modules/.bin/playwright test --workers=1
+            bun node_modules/@playwright/test/cli.js test --workers=1
           fi
         env:
           CI: "true"
