@@ -244,7 +244,7 @@ export function SacramentoRepresentativeFinder() {
     <div className="rounded-3xl bg-surface-card border border-border p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl transition-colors">
       <div className="max-w-3xl">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 dark:bg-white/10 text-primary-ink dark:text-white text-xs font-bold uppercase tracking-wider mb-4">
-          <MapPin size={14} className="text-accent dark:text-amber-300" />
+          <MapPin size={14} className="text-accent dark:text-accent-gold" />
           <DataPoint as="span" name="voter.repfinder.eyebrow" initialData={dataPoints}>
             Instant District & Representative Finder
           </DataPoint>

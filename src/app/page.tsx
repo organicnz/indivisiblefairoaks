@@ -78,7 +78,7 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col w-full">
       {/* Hero Section with VGPU Dynamic Civic Atmosphere */}
-      <section className="relative overflow-hidden bg-background text-foreground dark:bg-secondary dark:text-white w-full min-h-screen pt-28 pb-20 md:pt-36 md:pb-28">
+      <section className="relative overflow-hidden bg-background text-foreground w-full min-h-screen pt-28 pb-20 md:pt-36 md:pb-28">
         {/* VGPU WebGPU Background Atmosphere */}
         <VgpuCivicAtmosphere intensity={1.0} />
 
@@ -189,7 +189,7 @@ export default async function HomePage() {
                       name="home.impact.funding"
                       as="div"
                       initialData={dataPoints}
-                      className="text-2xl sm:text-3xl font-black text-amber-700 dark:text-amber-300 tracking-tight"
+                      className="text-2xl sm:text-3xl font-black text-amber-700 dark:text-accent-gold tracking-tight"
                     >
                       100%
                     </DataPoint>
@@ -245,11 +245,11 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="rounded-2xl bg-surface-muted border border-border p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-card">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-white/5 flex items-center justify-center text-primary dark:text-amber-300 shrink-0 mt-1">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 dark:bg-white/5 flex items-center justify-center text-primary dark:text-accent-gold shrink-0 mt-1">
                 <Calendar size={26} />
               </div>
               <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/15 dark:bg-amber-400/20 border border-accent-gold/40 dark:border-amber-400/30 text-secondary dark:text-amber-300 text-[11px] font-bold uppercase tracking-wide mb-1">
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/15 dark:bg-accent-gold/20 border border-accent-gold/40 dark:border-accent-gold/30 text-secondary dark:text-accent-gold text-[11px] font-bold uppercase tracking-wide mb-1">
                   <DataPoint as="span" name="home.gathering.badge" initialData={dataPoints}>
                     Next Community Gathering
                   </DataPoint>
@@ -310,7 +310,7 @@ export default async function HomePage() {
                 name="home.pillars.eyebrow"
                 as="span"
                 initialData={dataPoints}
-                className="text-primary-ink dark:text-amber-300 text-xs font-black uppercase tracking-widest block mb-2"
+                className="text-primary-ink dark:text-accent-gold text-xs font-black uppercase tracking-widest block mb-2"
               >
                 Our Core Principles
               </DataPoint>
@@ -359,7 +359,7 @@ export default async function HomePage() {
               </div>
 
               <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-white/5 text-amber-600 dark:text-amber-300 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-white/5 text-amber-600 dark:text-accent-gold flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Vote size={24} />
                 </div>
                 <DataPoint
@@ -532,7 +532,7 @@ export default async function HomePage() {
             <div className="lg:col-span-5">
               <div className="rounded-2xl overflow-hidden border border-border bg-surface-card shadow-2xl dark:border-white/10 dark:bg-secondary p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-black uppercase tracking-wider text-primary-ink dark:text-amber-300">
+                  <span className="text-xs font-black uppercase tracking-wider text-primary-ink dark:text-accent-gold">
                     Protest In Song
                   </span>
                   <span className="text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
@@ -576,7 +576,7 @@ export default async function HomePage() {
                 name="home.voter.eyebrow"
                 as="span"
                 initialData={dataPoints}
-                className="text-primary-ink dark:text-amber-300 text-xs font-black uppercase tracking-widest block mb-2"
+                className="text-primary-ink dark:text-accent-gold text-xs font-black uppercase tracking-widest block mb-2"
               >
                 Empowering Every Voter
               </DataPoint>
@@ -638,7 +638,7 @@ export default async function HomePage() {
 
               <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-white/5 text-amber-600 dark:text-amber-300 flex items-center justify-center mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-white/5 text-amber-600 dark:text-accent-gold flex items-center justify-center mb-4">
                     <Vote size={20} />
                   </div>
                   <DataPoint
@@ -747,7 +747,7 @@ export default async function HomePage() {
             name="home.cta.eyebrow"
             as="span"
             initialData={dataPoints}
-            className="text-primary-ink dark:text-amber-300 text-xs font-black uppercase tracking-widest block"
+            className="text-primary-ink dark:text-accent-gold text-xs font-black uppercase tracking-widest block"
           >
             Grassroots Power Runs On Grassroots Support
           </DataPoint>

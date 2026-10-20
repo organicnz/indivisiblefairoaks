@@ -181,12 +181,12 @@ export default function GalleryPage() {
 
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-4xl pt-4">
-            <div className="p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 text-center">
+            <div className="p-4 rounded-2xl bg-surface-card border border-border text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
                 name="gallery.metrics.m1_stat"
-                className="text-2xl font-black text-amber-600 dark:text-amber-300 block font-mono"
+                className="text-2xl font-black text-amber-600 dark:text-accent-gold block font-mono"
               >
                 No Kings
               </DataPoint>
@@ -199,7 +199,7 @@ export default function GalleryPage() {
                 Sacramento Actions
               </DataPoint>
             </div>
-            <div className="p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 text-center">
+            <div className="p-4 rounded-2xl bg-surface-card border border-border text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
@@ -217,7 +217,7 @@ export default function GalleryPage() {
                 Direct Solidarity
               </DataPoint>
             </div>
-            <div className="p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 text-center">
+            <div className="p-4 rounded-2xl bg-surface-card border border-border text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
@@ -235,7 +235,7 @@ export default function GalleryPage() {
                 Grassroots Humor
               </DataPoint>
             </div>
-            <div className="p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 text-center">
+            <div className="p-4 rounded-2xl bg-surface-card border border-border text-center">
               <DataPoint
                 initialData={dataPoints}
                 as="span"
@@ -385,7 +385,7 @@ export default function GalleryPage() {
                   </h2>
                   <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                     <span className="flex items-center gap-1 truncate max-w-[70%]">
-                      <MapPin size={12} className="text-accent dark:text-amber-300 shrink-0" />
+                      <MapPin size={12} className="text-accent dark:text-accent-gold shrink-0" />
                       <span className="truncate">{photo.location}</span>
                     </span>
                     <span className="font-mono text-[10px] text-slate-500 shrink-0">
@@ -402,7 +402,7 @@ export default function GalleryPage() {
         <div className="mt-16 rounded-3xl bg-surface-card border border-border p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8 border-b border-border dark:border-white/10 pb-6">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 dark:bg-amber-400/20 border border-accent-gold/40 dark:border-amber-400/30 text-secondary dark:text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 dark:bg-accent-gold/20 border border-accent-gold/40 dark:border-accent-gold/30 text-secondary dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
                 <Video size={14} />
                 <DataPoint initialData={dataPoints} as="span" name="gallery.video.badge_top">
                   Featured Video Archive

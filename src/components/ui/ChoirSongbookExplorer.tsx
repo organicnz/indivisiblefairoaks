@@ -170,7 +170,7 @@ export function ChoirSongbookExplorer() {
       </div>
 
       {/* Filter and Search Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-muted border border-border dark:bg-secondary dark:border-white/10">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-muted border border-border">
         <div className="relative flex-1">
           <Search
             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
@@ -211,7 +211,7 @@ export function ChoirSongbookExplorer() {
             onClick={() => setShowChords((prev) => !prev)}
             className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition-all border cursor-pointer ${
               showChords
-                ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-400/20 dark:text-amber-300 dark:border-amber-400/40'
+                ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-accent-gold/20 dark:text-accent-gold dark:border-accent-gold/40'
                 : 'bg-surface-card text-muted-foreground border-border hover:text-foreground dark:bg-secondary dark:text-ink-muted-on-dark dark:border-white/10 dark:hover:text-slate-200'
             }`}
           >
@@ -329,7 +329,7 @@ export function ChoirSongbookExplorer() {
 
                       {/* Chords Box if enabled */}
                       {showChords && song.chords && (
-                        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 dark:bg-amber-400/10 dark:border-amber-400/20 font-mono text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
+                        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 dark:bg-accent-gold/10 dark:border-accent-gold/20 font-mono text-xs text-amber-800 dark:text-accent-gold flex items-center justify-between">
                           <span>
                             <DataPoint
                               as="span"
@@ -340,15 +340,15 @@ export function ChoirSongbookExplorer() {
                             </DataPoint>
                             : {song.chords}
                           </span>
-                          <span className="text-[10px] text-amber-700 dark:text-amber-300/90">
+                          <span className="text-[10px] text-amber-700 dark:text-accent-gold/90">
                             Guitar / Keyboard
                           </span>
                         </div>
                       )}
 
                       {/* Lyrics Box */}
-                      <div className="p-5 rounded-xl bg-surface-muted border border-border dark:bg-secondary dark:border-white/10 font-serif text-sm sm:text-base text-foreground dark:text-slate-200 leading-relaxed whitespace-pre-line">
-                        <p className="font-sans text-[10px] font-black uppercase tracking-widest text-primary-ink dark:text-amber-300 mb-2">
+                      <div className="p-5 rounded-xl bg-surface-muted border border-border font-serif text-sm sm:text-base text-foreground dark:text-slate-200 leading-relaxed whitespace-pre-line">
+                        <p className="font-sans text-[10px] font-black uppercase tracking-widest text-primary-ink dark:text-accent-gold mb-2">
                           <DataPoint
                             as="span"
                             name="choir.songbook.lyrics_tab"

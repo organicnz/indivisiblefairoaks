@@ -249,7 +249,7 @@ export function InteractiveNewslettersList({
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-primary-ink dark:text-amber-300 uppercase tracking-wider">
+                  <span className="text-xs font-bold text-primary-ink dark:text-accent-gold uppercase tracking-wider">
                     {newsletter.date_label}
                   </span>
 

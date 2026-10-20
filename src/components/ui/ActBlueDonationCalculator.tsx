@@ -128,7 +128,7 @@ export function ActBlueDonationCalculator() {
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-accent-gold/20 dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">
             <Heart
               size={14}
-              className="fill-amber-500 text-amber-600 dark:fill-amber-300 dark:text-accent-gold"
+              className="fill-accent-gold text-amber-600 dark:fill-amber-300 dark:text-accent-gold"
             />
             <DataPoint as="span" name="donate.calc.eyebrow" initialData={dataPoints}>
               Interactive Grassroots Calculator
@@ -200,7 +200,7 @@ export function ActBlueDonationCalculator() {
                 }}
                 className={`min-h-11 p-4 rounded-2xl border text-center transition-colors duration-300 ease-out relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-secondary ${
                   isSelected
-                    ? 'bg-amber-500/10 border-accent-gold shadow-[0_0_20px_rgba(245,158,11,0.2)]'
+                    ? 'bg-accent-gold/10 border-accent-gold shadow-[0_0_20px_rgba(245,158,11,0.2)]'
                     : 'bg-surface-muted border-border hover:border-primary/40 dark:bg-secondary/60 dark:border-white/10 dark:hover:border-slate-700'
                 }`}
               >
@@ -233,7 +233,7 @@ export function ActBlueDonationCalculator() {
       </fieldset>
 
       {/* Custom Amount Input */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-surface-muted border border-border dark:bg-secondary dark:border-white/10">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 p-4 rounded-2xl bg-surface-muted border border-border">
         <label
           htmlFor="custom-amount"
           className="text-xs font-mono text-foreground dark:text-ink-on-dark whitespace-nowrap"

@@ -52,21 +52,21 @@ const FILES = [
 /** Ordered longest-first within each family so `blue-500/15` beats `blue-500`. */
 const MAP = [
   // Surface Card & Muted Card Normalization (Eliminates invisible dark cards)
-  [/bg-surface-card\s+dark:bg-secondary\/80\s+border\s+border-border\s+dark:border-white\/10\b/g, 'bg-surface-card border border-border'],
-  [/bg-surface-card\s+border\s+border-border\s+dark:bg-secondary\/80\s+dark:border-white\/10\b/g, 'bg-surface-card border border-border'],
-  [/bg-surface-card\s+border\s+border-border\s+dark:bg-secondary\/70\s+dark:border-white\/10\b/g, 'bg-surface-card border border-border'],
-  [/bg-surface-card\s+border\s+border-border\s+dark:bg-secondary\s+dark:border-white\/10\b/g, 'bg-surface-card border border-border'],
-  [/bg-surface-card\s+dark:bg-secondary\s+border\s+border-border\s+dark:border-white\/10\b/g, 'bg-surface-card border border-border'],
-  [/bg-surface-card\s+dark:bg-secondary\/80\b/g, 'bg-surface-card'],
-  [/bg-surface-card\s+dark:bg-secondary\b/g, 'bg-surface-card'],
-  [/bg-surface-muted\s+dark:bg-secondary\/80\s+border\s+border-border\s+dark:border-white\/10\b/g, 'bg-surface-muted border border-border'],
-  [/bg-surface-muted\s+border\s+border-border\s+dark:bg-secondary\s+dark:border-white\/10\b/g, 'bg-surface-muted border border-border'],
-  [/bg-surface-muted\s+dark:bg-secondary\/80\b/g, 'bg-surface-muted'],
-  [/bg-surface-muted\s+dark:bg-secondary\b/g, 'bg-surface-muted'],
+  [/(?<![\w:-])bg-surface-card\s+dark:bg-secondary\/80\s+border\s+border-border\s+dark:border-white\/10(?![/\w-])/g, 'bg-surface-card border border-border'],
+  [/(?<![\w:-])bg-surface-card\s+border\s+border-border\s+dark:bg-secondary\/80\s+dark:border-white\/10(?![/\w-])/g, 'bg-surface-card border border-border'],
+  [/(?<![\w:-])bg-surface-card\s+border\s+border-border\s+dark:bg-secondary\/70\s+dark:border-white\/10(?![/\w-])/g, 'bg-surface-card border border-border'],
+  [/(?<![\w:-])bg-surface-card\s+border\s+border-border\s+dark:bg-secondary(?![/\w-])\s+dark:border-white\/10(?![/\w-])/g, 'bg-surface-card border border-border'],
+  [/(?<![\w:-])bg-surface-card\s+dark:bg-secondary(?![/\w-])\s+border\s+border-border\s+dark:border-white\/10(?![/\w-])/g, 'bg-surface-card border border-border'],
+  [/(?<![\w:-])bg-surface-card\s+dark:bg-secondary\/80(?![/\w-])/g, 'bg-surface-card'],
+  [/(?<![\w:-])bg-surface-card\s+dark:bg-secondary(?![/\w-])/g, 'bg-surface-card'],
+  [/(?<![\w:-])bg-surface-muted\s+dark:bg-secondary\/80\s+border\s+border-border\s+dark:border-white\/10(?![/\w-])/g, 'bg-surface-muted border border-border'],
+  [/(?<![\w:-])bg-surface-muted\s+border\s+border-border\s+dark:bg-secondary(?![/\w-])\s+dark:border-white\/10(?![/\w-])/g, 'bg-surface-muted border border-border'],
+  [/(?<![\w:-])bg-surface-muted\s+dark:bg-secondary\/80(?![/\w-])/g, 'bg-surface-muted'],
+  [/(?<![\w:-])bg-surface-muted\s+dark:bg-secondary(?![/\w-])/g, 'bg-surface-muted'],
 
   // Page shell normalization
-  [/bg-background\s+text-foreground\s+dark:bg-secondary\s+dark:text-white\b/g, 'bg-background text-foreground'],
-  [/bg-background\s+min-h-\[70vh\]\s+text-foreground\s+dark:bg-secondary\s+dark:text-white\b/g, 'bg-background min-h-[70vh] text-foreground'],
+  [/(?<![\w:-])bg-background\s+text-foreground\s+dark:bg-secondary(?![/\w-])\s+dark:text-white(?![/\w-])/g, 'bg-background text-foreground'],
+  [/(?<![\w:-])bg-background\s+min-h-\[70vh\]\s+text-foreground\s+dark:bg-secondary(?![/\w-])\s+dark:text-white(?![/\w-])/g, 'bg-background min-h-[70vh] text-foreground'],
   // Brand blue on dark — the values the site was already rendering.
   [/bg-blue-600\b/g, 'bg-primary-bright'],
   [/hover:bg-blue-500\b/g, 'hover:bg-primary-light'],

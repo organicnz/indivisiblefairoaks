@@ -153,7 +153,7 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
             </AnimatePresence>
           )}
           {heroPhotos.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-surface-muted dark:bg-secondary/80 px-6 text-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-surface-muted px-6 text-center">
               <span className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground dark:text-ink-muted-on-dark">
                 <DataPoint as="span" name="home.hero.community_moments" initialData={dataPoints}>
                   Community moments
