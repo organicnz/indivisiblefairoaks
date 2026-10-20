@@ -12,8 +12,8 @@ import { createClient } from '@supabase/supabase-js';
 // Never touches 'completed' or admin-set states outside those rules.
 // ---------------------------------------------------------------------------
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-01-27.acacia' });
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
+const stripe = new Stripe(Bun.env.STRIPE_SECRET_KEY, { apiVersion: '2025-01-27.acacia' });
+const supabase = createClient(Bun.env.NEXT_PUBLIC_SUPABASE_URL, Bun.env.SUPABASE_SECRET_KEY);
 
 function sessionError(session, msg) {
   console.warn(`  ⚠️ ${session.id}: ${msg}`);

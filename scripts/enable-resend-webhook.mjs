@@ -27,9 +27,9 @@
 // secret is printed.
 
 
-const WEBHOOK_ID = process.env.RESEND_WEBHOOK_ID || '736ff3a2-5703-4426-afe4-1e78627de44d';
-const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID || 'prj_8RtMjuARvtBuUnepj9oEVyovXyb5';
-const VERCEL_TEAM_ID = process.env.VERCEL_ORG_ID || 'team_G8IMZRRSHw7ti3HLUs3aWmPS';
+const WEBHOOK_ID = Bun.env.RESEND_WEBHOOK_ID || '736ff3a2-5703-4426-afe4-1e78627de44d';
+const VERCEL_PROJECT_ID = Bun.env.VERCEL_PROJECT_ID || 'prj_8RtMjuARvtBuUnepj9oEVyovXyb5';
+const VERCEL_TEAM_ID = Bun.env.VERCEL_ORG_ID || 'team_G8IMZRRSHw7ti3HLUs3aWmPS';
 const TARGETS = ['production', 'preview'];
 // Must match RESEND_TO_EVENT_TYPE in src/app/api/webhooks/resend/route.ts. A
 // subscribed event the route does not map is acked and dropped; a mapped event
@@ -62,8 +62,8 @@ async function readEnvLocal() {
 }
 
 const local = await readEnvLocal();
-const resendKey = process.env.RESEND_API_KEY || local.RESEND_API_KEY;
-const vercelToken = process.env.VERCEL_TOKEN || local.VERCEL_TOKEN;
+const resendKey = Bun.env.RESEND_API_KEY || local.RESEND_API_KEY;
+const vercelToken = Bun.env.VERCEL_TOKEN || local.VERCEL_TOKEN;
 if (!resendKey || !vercelToken) {
   console.error('✖ RESEND_API_KEY and VERCEL_TOKEN must be set (env or .env.local).');
   process.exit(1);

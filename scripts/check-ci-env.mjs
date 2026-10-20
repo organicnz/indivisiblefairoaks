@@ -19,7 +19,6 @@
 // shell out to `actionlint` or the GitHub API — the contract must be verifiable
 // offline, in a pre-commit hook, with no network and no auth.
 
-import { readdir } from 'node:fs/promises';
 import { SECRETS, VARIABLES } from './ci-env.mjs';
 
 const WORKFLOW_DIR = '.github/workflows';
@@ -30,7 +29,13 @@ const declaredVariables = new Set(Object.keys(VARIABLES));
 // Provided by GitHub itself; never declared as a repository secret.
 const BUILT_IN = new Set(['GITHUB_TOKEN']);
 
-const files = (await readdir(WORKFLOW_DIR)).filter((f) => f.endsWith('.yml'));
+// `Bun.Glob` rather than `node:fs`'s `readdir`: the pattern states the query,
+// and the walk does not block the event loop. A missing directory throws,
+// exactly as `readdir` did.
+const workflowGlob = new Bun.Glob('*.yml');
+const files = [];
+for await (const file of workflowGlob.scan({ cwd: WORKFLOW_DIR })) files.push(file);
+files.sort();
 const usedSecrets = new Map();
 const usedVariables = new Map();
 

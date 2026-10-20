@@ -15,7 +15,6 @@
  * annotations (CI log retrieval is unreliable; annotations are readable).
  */
 
-import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const API = 'https://api.supabase.com';
@@ -59,10 +58,19 @@ const versionsOf = (rows) => new Set(rows.map((r) => String(r.version ?? r[0])))
  * @param {string} dir
  * @returns {{version: string, file: string}[]}
  */
-function localMigrations(dir) {
-  const files = readdirSync(dir)
-    .filter((f) => /^\d+_.*\.sql$/.test(f))
-    .sort();
+async function localMigrations(dir) {
+  // `Bun.Glob` rather than `node:fs`'s `readdir`. The pattern states the
+  // query, and the walk does not block the event loop.
+  //
+  // A missing directory still throws, exactly as `readdirSync` did: the glob
+  // scan opens the directory and fails to find it. That matters here — a
+  // silent empty list would read as "there are no migrations to apply".
+  const glob = new Bun.Glob('*.sql');
+  const files = [];
+  for await (const name of glob.scan({ cwd: dir })) {
+    if (/^\d+_.*\.sql$/.test(name)) files.push(name);
+  }
+  files.sort();
   return files.map((f) => ({ version: f.split('_')[0], file: f }));
 }
 
@@ -99,13 +107,13 @@ const esc = (s) => s.replace(/'/g, "''");
  * Apply every local migration the remote history does not already record.
  *
  * Exported, and taking its environment as an object, so the delivery path can
- * be exercised without a Supabase project and without mutating `process.env`.
+ * be exercised without a Supabase project and without mutating `Bun.env`.
  * Two reasons that matters beyond convenience:
  *
  *  - The failure this file has to get right — a migration applied but not
  *    recorded — cannot be observed by a read-only check, or by a test that does
  *    not drive the writes.
- *  - A parameter defaulted to `process.env` without a type annotation infers
+ *  - A parameter defaulted to `Bun.env` without a type annotation infers
  *    `ProcessEnv`, which requires `NODE_ENV` and so rejects any caller passing
  *    only the three keys actually read.
  *
@@ -113,7 +121,7 @@ const esc = (s) => s.replace(/'/g, "''");
  * @returns {Promise<void>}
  * @throws {MigrationError} on any discrepancy or API failure
  */
-export async function main(env = process.env) {
+export async function main(env = Bun.env) {
   const ref = env.SUPABASE_PROJECT_REF ?? '';
   const token = env.SUPABASE_ACCESS_TOKEN ?? '';
   const dir = env.MIGRATIONS_DIR ?? 'supabase/migrations';
@@ -127,7 +135,7 @@ export async function main(env = process.env) {
   const boot = await api('SELECT 1 AS ok;', creds);
   notice(`management API reachable (boot rows: ${boot.length})`);
 
-  const local = localMigrations(dir);
+  const local = await localMigrations(dir);
   const applied = await appliedVersions(creds);
   const pending = local.filter((m) => !applied.has(m.version));
   notice(`local=${local.length} applied=${applied.size} pending=[${pending.map((m) => m.version).join(',') || 'none'}]`);

@@ -15,6 +15,19 @@ const files = process.argv.slice(2);
 const violations = [];
 
 for (const file of files) {
+  // A variable named in a *test* is a fixture, not an application setting.
+  //
+  // The guard's subject is the contract every environment has to honour:
+  // `.env.example` lists the app's configuration, and a name that is
+  // referenced only by a test is not part of it. Declaring a test fixture in
+  // `.env.example` would put a key in the production contract that nothing
+  // in production reads.
+  //
+  // The application's own references are still checked, which is where the
+  // value of this guard is: a typo'd variable in shipped code is
+  // silently `undefined` in CI and in production.
+  if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(file) || file.includes('/__tests__/')) continue;
+
   let content;
   try {
     content = await Bun.file(file).text();
@@ -22,14 +35,21 @@ for (const file of files) {
     continue;
   }
 
-  const varRegex = /process\.env\.([A-Z_][A-Z0-9_]*)/g;
-  const vars = new Set();
+  // Both raw-access spellings, for the same reason
+  // `no-raw-env-access.mjs` matches both: `Bun.env` in `src/` is a latent
+  // crash on the Edge runtime and in the browser, so a var reached through it
+  // is just as undeclared as one reached through `process.env`.
+  //
+  // The *spelling* is captured as well as the name, so the finding names the
+  // form it actually found — the two have different fixes.
+  const varRegex = /(process\.env|Bun\.env)\.([A-Z_][A-Z0-9_]*)/g;
+  const vars = new Map();
   let match;
   while ((match = varRegex.exec(content)) !== null) {
-    vars.add(match[1]);
+    vars.set(match[2], match[1]);
   }
 
-  for (const varName of vars) {
+  for (const [varName, spelling] of vars) {
     if (
       varName.startsWith('NEXT_PUBLIC_') ||
       varName === 'NODE_ENV' ||
@@ -46,7 +66,7 @@ for (const file of files) {
     }
 
     if (!example.includes(`${varName}=`)) {
-      violations.push(`  ${file} → process.env.${varName}`);
+      violations.push(`  ${file} → ${spelling}.${varName}`);
     }
   }
 }

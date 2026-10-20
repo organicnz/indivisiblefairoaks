@@ -293,7 +293,7 @@ export async function getFullBuildLog(idOrUrl, teamId, token, opts = {}) {
  * Resolve credentials from an environment, or `null` when incomplete.
  *
  * The parameter is annotated as a partial record for the same reason as
- * `check-migrations`' `main`: an unannotated `env = process.env` infers
+ * `check-migrations`' `main`: an unannotated `env = Bun.env` infers
  * `ProcessEnv`, which requires `NODE_ENV` and so rejects any caller passing the
  * three keys actually read — including every test. It also lets a caller supply
  * an environment without mutating the process one, which leaks across test files
@@ -302,7 +302,7 @@ export async function getFullBuildLog(idOrUrl, teamId, token, opts = {}) {
  * @param {Record<string, string | undefined>} [env]
  * @returns {{projectId: string, teamId: string, token: string} | null}
  */
-export function credentialsFromEnv(env = process.env) {
+export function credentialsFromEnv(env = Bun.env) {
   const { VERCEL_PROJECT_ID, VERCEL_ORG_ID, VERCEL_TOKEN } = env;
   if (!VERCEL_PROJECT_ID || !VERCEL_TOKEN) return null;
   return { projectId: VERCEL_PROJECT_ID, teamId: VERCEL_ORG_ID ?? '', token: VERCEL_TOKEN };

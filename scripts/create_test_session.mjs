@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 
-const stripeKey = process.env.STRIPE_SECRET_KEY;
+const stripeKey = Bun.env.STRIPE_SECRET_KEY;
 const stripe = new Stripe(stripeKey, { apiVersion: '2026-04-22.dahlia' });
 
 async function createSession() {

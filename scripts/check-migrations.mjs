@@ -44,7 +44,6 @@
  * than claiming coverage.
  */
 
-import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const API = 'https://api.supabase.com';
@@ -74,25 +73,32 @@ async function api(query, { ref, token }) {
   throw new Error(`Unrecognized API response shape (keys: ${Object.keys(parsed ?? {}).join(',')})`);
 }
 
-function localMigrations(dir) {
-  let files;
+async function localMigrations(dir) {
+  // `Bun.Glob` rather than `node:fs`'s `readdir`: the pattern states the
+  // query, and the walk does not block the event loop. A missing directory
+  // throws, and is caught below exactly as `readdirSync`'s was.
+  const glob = new Bun.Glob('*.sql');
+  const files = [];
   try {
-    files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+    for await (const file of glob.scan({ cwd: dir })) {
+      if (file.endsWith('.sql')) files.push(file);
+    }
   } catch {
     return null;
   }
+  files.sort();
   return files.map((file) => ({ version: file.split('_')[0], file }));
 }
 
 /**
  * @param {Record<string, string | undefined>} [env]
- *   Defaults to `process.env`. Annotated as a partial record rather than left to
- *   inference: an unannotated `env = process.env` infers `ProcessEnv`, which
+ *   Defaults to `Bun.env`. Annotated as a partial record rather than left to
+ *   inference: an unannotated `env = Bun.env` infers `ProcessEnv`, which
  *   requires `NODE_ENV` and so rejects any caller passing the handful of keys
  *   this actually reads — including every test.
  * @returns {Promise<number>} process exit code
  */
-export async function main(env = process.env) {
+export async function main(env = Bun.env) {
   // Read inside main, not at module scope: a module-scope read captures the
   // environment at import time, which makes every branch unreachable from a
   // test and therefore untestable.
@@ -103,7 +109,7 @@ export async function main(env = process.env) {
   // malformed filename or a duplicate version is a fact about the checkout, so
   // reporting it must not depend on a token being present — otherwise the check
   // answers "cannot check" for a repository it could have diagnosed locally.
-  const local = localMigrations(dir);
+  const local = await localMigrations(dir);
   const problems = [];
 
   if (!local) {

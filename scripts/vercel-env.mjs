@@ -126,7 +126,7 @@ export const SECRETS = {
     note:
       'Verifies Resend webhook signatures on /api/webhooks/resend. ' +
       'Absent, every delivery event is rejected with 400 and bounces never ' +
-      'suppress — read via env.RESEND_WEBHOOK_SECRET, never process.env.',
+      'suppress — read via env.RESEND_WEBHOOK_SECRET, never Bun.env.',
   },
   SENTRY_AUTH_TOKEN: {
     required: true,

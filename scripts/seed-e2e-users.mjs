@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { loadEnvLocal } from './load-env-local.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { generateTotp, msRemainingInStep } from '../e2e/helpers/totp.ts';
 
@@ -30,15 +31,14 @@ import { generateTotp, msRemainingInStep } from '../e2e/helpers/totp.ts';
  * Usage: bun scripts/seed-e2e-users.mjs
  */
 
-if (typeof process.loadEnvFile === 'function') {
-  try {
-    process.loadEnvFile(resolve(process.cwd(), '.env.local'));
-  } catch {}
-}
+// `loadEnvLocal` rather than `process.loadEnvFile`: the latter is a Node
+// builtin, and this project does not have a Node runtime. The loader also
+// strips the surrounding quotes Bun's own `.env` parser strips.
+await loadEnvLocal({ path: resolve(process.cwd(), '.env.local') });
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = Bun.env.NEXT_PUBLIC_SUPABASE_URL;
+const ANON_KEY = Bun.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const SERVICE_KEY = Bun.env.SUPABASE_SECRET_KEY ?? Bun.env.SUPABASE_SERVICE_ROLE_KEY;
 
 for (const [name, value] of [
   ['NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL],
@@ -171,7 +171,9 @@ async function enrollTotp(userClient, email) {
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     if (msRemainingInStep() < 5_000) {
-      await new Promise((r) => setTimeout(r, msRemainingInStep() + 1000));
+      // `Bun.sleep` rather than a promise wrapped around `setTimeout`. It is
+      // the same wait, expressed as the thing it is: a sleep.
+      await Bun.sleep(msRemainingInStep() + 1000);
     }
     const { data: challengeData, error: challengeError } = await userClient.auth.mfa.challenge({
       factorId,

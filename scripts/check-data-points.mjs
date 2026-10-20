@@ -53,7 +53,6 @@
  *   bun scripts/check-data-points.mjs --update-baseline
  * (new entries are written with a TODO reason that must be replaced by hand).
  */
-import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MIGRATIONS_DIR = 'supabase/migrations';
@@ -129,6 +128,20 @@ function decodeJsxText(raw) {
 }
 
 /**
+ * The migration filenames in the migrations directory.
+ *
+ * `Bun.Glob` rather than `node:fs`'s `readdir`: the pattern states the
+ * query, and the walk does not block the event loop. A missing directory
+ * throws, exactly as `readdirSync` did.
+ */
+async function listMigrations() {
+  const glob = new Bun.Glob('*.sql');
+  const files = [];
+  for await (const name of glob.scan({ cwd: MIGRATIONS_DIR })) files.push(name);
+  return files;
+}
+
+/**
  * seed key -> Set(migration files that write it), plus the string literals of
  * the key's rows. Only data_points rows count, and only a row that owns its
  * line contributes literals — a mid-line `('key',` inside some other statement
@@ -139,7 +152,7 @@ function decodeJsxText(raw) {
 async function readSeeds() {
   const seeds = new Map();
   const seedLiterals = new Map();
-  for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => MIGRATION_NAME_RE.test(f)).sort()) {
+  for (const file of (await listMigrations()).filter((f) => MIGRATION_NAME_RE.test(f)).sort()) {
     const text = await Bun.file(join(MIGRATIONS_DIR, file)).text();
     let inDataPoints = false;
     for (const line of text.split('\n')) {
@@ -174,17 +187,21 @@ async function readSeeds() {
   return { seeds, seedLiterals };
 }
 
-function walk(dir, out) {
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry);
-    const stat = statSync(path);
-    if (stat.isDirectory()) {
-      if (entry === '__tests__' || entry === 'node_modules') continue;
-      walk(path, out);
-    } else if (/\.(ts|tsx)$/.test(entry) && !entry.includes('.test.')) {
-      out.push(path);
-    }
+async function walk(dir, out) {
+  // `Bun.Glob` rather than `node:fs`'s `readdir` + `stat` per entry. The
+  // pattern states the query — "every TypeScript file under this root" — and
+  // the walk does not block the event loop or stat every entry to decide
+  // whether it is a directory.
+  const glob = new Bun.Glob('**/*.{ts,tsx}');
+  for await (const rel of glob.scan({ cwd: dir, dot: true })) {
+    const segments = rel.split('/');
+    if (segments.some((s) => s === '__tests__' || s === 'node_modules')) continue;
+    if (rel.includes('.test.')) continue;
+    out.push(join(dir, rel));
   }
+  // `Bun.Glob` does not promise an order, and a report whose findings move
+  // between runs cannot be diffed against the previous one.
+  out.sort();
 }
 
 function put(map, key, file) {
@@ -209,7 +226,7 @@ function put(map, key, file) {
  */
 async function readReaders() {
   const files = [];
-  walk(SRC_DIR, files);
+  await walk(SRC_DIR, files);
   const literal = new Map();
   const prefix = new Map();
   const explicit = new Map();

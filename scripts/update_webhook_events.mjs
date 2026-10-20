@@ -1,8 +1,8 @@
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-01-27.acacia' });
+const stripe = new Stripe(Bun.env.STRIPE_SECRET_KEY, { apiVersion: '2025-01-27.acacia' });
 
-const FUNCTION_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/webhook`;
+const FUNCTION_URL = `${Bun.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/webhook`;
 const EVENTS = [
   'checkout.session.completed',
   'checkout.session.expired',

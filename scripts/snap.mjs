@@ -10,6 +10,7 @@
 // Routes cover both surface families: the dark civic pages and the light
 // commerce/auth surfaces, so a token change that leaks across can be caught.
 import { chromium } from '@playwright/test';
+import { loadEnvLocal } from './load-env-local.mjs';
 import { mkdir, rm } from 'node:fs/promises';
 
 const LABEL = process.argv[2] ?? 'current';
@@ -36,14 +37,7 @@ const ROUTES = [
 ];
 
 // Load .env.local so the pages that read Supabase render real content.
-try {
-  for (const line of (await Bun.file('.env.local').text()).split('\n')) {
-    const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
-  }
-} catch {
-  /* CI injects env instead */
-}
+await loadEnvLocal();
 
 if (await Bun.file(OUT).exists()) await rm(OUT, { recursive: true });
 await mkdir(OUT, { recursive: true });

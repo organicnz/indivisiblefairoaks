@@ -7,22 +7,13 @@
 // tables this application actually uses, to avoid polluting the TypeScript
 // type union with 60+ foreign tables that break type inference.
 import { resolve } from 'node:path';
+import { loadEnvLocal } from './load-env-local.mjs';
 
-async function loadEnvLocal() {
-  try {
-    const raw = await Bun.file(resolve('.env.local')).text();
-    for (const line of raw.split('\n')) {
-      const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
-    }
-  } catch { }
-}
-
-await loadEnvLocal();
+await loadEnvLocal({ path: resolve('.env.local') });
 
 function projectRef() {
-  if (process.env.SUPABASE_PROJECT_REF) return process.env.SUPABASE_PROJECT_REF.trim();
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (Bun.env.SUPABASE_PROJECT_REF) return Bun.env.SUPABASE_PROJECT_REF.trim();
+  const url = Bun.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (url) {
     try { return new URL(url).hostname.split('.')[0]; } catch { }
   }

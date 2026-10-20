@@ -2,24 +2,30 @@ import { runText, tryRunText } from './bun-exec.mjs';
 import { resolve } from 'node:path';
 
 function getSupabaseToken() {
-  if (process.env.SUPABASE_ACCESS_TOKEN) return process.env.SUPABASE_ACCESS_TOKEN.trim();
+  if (Bun.env.SUPABASE_ACCESS_TOKEN) return Bun.env.SUPABASE_ACCESS_TOKEN.trim();
   // The macOS keychain. `2>/dev/null` used to suppress the "no such entry"
   // noise on stderr; capturing stderr does the same thing without a shell.
   const raw = tryRunText(['security', 'find-generic-password', '-s', 'supabase', '-w']);
   if (raw === null) return null;
   const token = raw.trim();
   if (token.startsWith('go-keyring-base64:')) {
-    return Buffer.from(token.replace('go-keyring-base64:', ''), 'base64').toString('utf8').trim();
+    // `atob` rather than `Buffer.from`: a Web standard rather than a Node
+    // API. It yields a Latin-1 *binary string*, and the keychain holds UTF-8
+    // text, so the bytes go through a `TextDecoder` on the way out.
+    const binary = atob(token.replace('go-keyring-base64:', ''));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder().decode(bytes).trim();
   }
   return token;
 }
 
 // Project ref read from env; fallback split to avoid lefthook hardcoded-ref guard.
 const _REF_FALLBACK = ['mojsubkq', 'jdruhpxbzgme'].join('');
-const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || _REF_FALLBACK;
-const SUPABASE_HOST = process.env.NEXT_PUBLIC_SUPABASE_URL || `https://${PROJECT_REF}.supabase.co`;
+const PROJECT_REF = Bun.env.SUPABASE_PROJECT_REF || _REF_FALLBACK;
+const SUPABASE_HOST = Bun.env.NEXT_PUBLIC_SUPABASE_URL || `https://${PROJECT_REF}.supabase.co`;
 const LOGO_URL = `${SUPABASE_HOST}/storage/v1/object/public/media/wp-content/uploads/2021/10/logo.png`;
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://indivisiblefairoaks.org';
+const SITE_URL = Bun.env.NEXT_PUBLIC_SITE_URL || 'https://indivisiblefairoaks.org';
 
 function generateEmailTemplate({ eyebrow, title, description, buttonText, buttonUrl, note }) {
   return `<!DOCTYPE html>

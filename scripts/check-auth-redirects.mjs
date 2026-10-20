@@ -32,7 +32,6 @@
  *   bun scripts/check-auth-redirects.mjs [--offline|--live]
  * Exit 0 = clean or UNKNOWN, 1 = a finding.
  */
-import { readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { PROJECT_REF } from './hooks/_project-ref.mjs';
 
@@ -54,7 +53,7 @@ const KNOWN_HOSTS = new Set([
  * exists rather than introducing a fourth place to keep in sync.
  */
 async function expectedOrigin() {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL;
+  const fromEnv = Bun.env.NEXT_PUBLIC_SITE_URL;
   if (fromEnv) return fromEnv.replace(/\/+$/, '');
   try {
     const line = await Bun.file(path.join(ROOT, '.env.local')).text()
@@ -81,13 +80,24 @@ function isTestFile(file) {
   );
 }
 
-function* walk(dir) {
-  for (const entry of readdirSync(dir)) {
-    if (entry === 'node_modules' || entry === '.next') continue;
-    const full = path.join(dir, entry);
-    if (statSync(full).isDirectory()) yield* walk(full);
-    else if (/\.(ts|tsx|mjs)$/.test(entry) && !isTestFile(full)) yield full;
+async function walk(dir) {
+  // `Bun.Glob` rather than `node:fs`'s `readdir` + `stat` per entry. The
+  // pattern states the query, and the walk does not block the event loop.
+  //
+  // A missing directory throws — the glob scan opens the directory and fails
+  // to find it — which is what the caller's `try`/`catch` expects.
+  const glob = new Bun.Glob('**/*.{ts,tsx,mjs}');
+  const out = [];
+  for await (const rel of glob.scan({ cwd: dir, dot: true })) {
+    if (rel.split('/').some((s) => s === 'node_modules' || s === '.next')) continue;
+    const full = path.join(dir, rel);
+    if (isTestFile(full)) continue;
+    out.push(full);
   }
+  // `Bun.Glob` does not promise an order, and a report whose findings move
+  // between runs cannot be diffed against the previous one.
+  out.sort();
+  return out;
 }
 
 // ── Offline: the code-side cause ─────────────────────────────────────────────
@@ -105,14 +115,14 @@ async function scanHardcodedRedirectOrigins() {
   const findings = [];
   const pattern = /['"`]https?:\/\/[^'"`\s]*\/auth\/callback/g;
   for (const base of ['src', 'supabase/functions']) {
-    let dir;
+    const dir = path.join(ROOT, base);
+    let files;
     try {
-      dir = path.join(ROOT, base);
-      statSync(dir);
+      files = await walk(dir);
     } catch {
       continue;
     }
-    for (const file of walk(dir)) {
+    for (const file of files) {
       const text = await Bun.file(file).text();
       for (const [i, line] of text.split('\n').entries()) {
         for (const match of line.matchAll(pattern)) {
@@ -133,7 +143,7 @@ async function scanHardcodedRedirectOrigins() {
 
 async function fetchAuthConfig() {
   const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth`, {
-    headers: { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}` },
+    headers: { Authorization: `Bearer ${Bun.env.SUPABASE_ACCESS_TOKEN}` },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} — ${(await res.text()).slice(0, 200)}`);
   return res.json();
@@ -170,7 +180,7 @@ async function checkLive() {
   if (!origin) {
     return { status: 'UNKNOWN', reason: 'NEXT_PUBLIC_SITE_URL is not set in the environment or .env.local' };
   }
-  if (!process.env.SUPABASE_ACCESS_TOKEN) {
+  if (!Bun.env.SUPABASE_ACCESS_TOKEN) {
     return { status: 'UNKNOWN', reason: 'SUPABASE_ACCESS_TOKEN is not set' };
   }
 

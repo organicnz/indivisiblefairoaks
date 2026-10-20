@@ -7,9 +7,9 @@ import Stripe from 'stripe';
 // Then: supabase secrets set STRIPE_WEBHOOK_SECRET=<printed value>
 // ---------------------------------------------------------------------------
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-01-27.acacia' });
-const FUNCTION_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/webhook`;
-const PROJECT_REF = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.split('.')[0];
+const stripe = new Stripe(Bun.env.STRIPE_SECRET_KEY, { apiVersion: '2025-01-27.acacia' });
+const FUNCTION_URL = `${Bun.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/webhook`;
+const PROJECT_REF = new URL(Bun.env.NEXT_PUBLIC_SUPABASE_URL).hostname.split('.')[0];
 const EVENTS = [
   'checkout.session.completed',
   'checkout.session.expired',

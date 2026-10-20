@@ -1,12 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// `import.meta.dirname` rather than `path.dirname(fileURLToPath(import.meta.url))`.
+// Bun resolves the directory of the current module directly, so the two-step
+// conversion through a file URL is not needed — and `fileURLToPath` is Bun's
+// own `Bun.fileURLToPath`, which is a global rather than a module import.
+//
+// Named `SCRIPT_DIR` rather than `__dirname`: `__dirname` is a Node global,
+// and a local variable wearing that name reads as one.
+const SCRIPT_DIR = import.meta.dirname;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SECRET_KEY;
+const supabaseUrl = Bun.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = Bun.env.SUPABASE_SECRET_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('❌ Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SECRET_KEY in .env.local');
@@ -18,7 +23,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 });
 
 const scrapedDir = path.resolve(
-  __dirname,
+  SCRIPT_DIR,
   '../../../../.gemini/antigravity-ide/brain/50a81e6e-a300-4c0a-9007-f374a28e588b/scraped_site'
 );
 
@@ -207,7 +212,7 @@ async function seed() {
     console.error('❌ Table "content" does not exist yet.');
     console.error(`Database error: ${probeError.message}`);
     console.log('\n👉 Please execute the SQL in "supabase/schema_indivisible.sql" in the Supabase SQL Editor:');
-    console.log(`   https://supabase.com/dashboard/project/${process.env.SUPABASE_PROJECT_REF || '<your-project-ref>'}/sql/new\n`);
+    console.log(`   https://supabase.com/dashboard/project/${Bun.env.SUPABASE_PROJECT_REF || '<your-project-ref>'}/sql/new\n`);
     process.exit(1);
   }
 

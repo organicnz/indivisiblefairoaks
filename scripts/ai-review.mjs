@@ -73,7 +73,7 @@ function truncate(text, max) {
 
 async function review(providerName, diff) {
   const p = PROVIDERS[providerName];
-  const key = process.env[p.keyEnv];
+  const key = Bun.env[p.keyEnv];
   if (!key) throw new Error(`${p.keyEnv} not set in environment`);
 
   // Free-tier token ceilings reject large diffs outright — shrink and retry.

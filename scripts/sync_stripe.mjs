@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
-const stripeKey = process.env.STRIPE_SECRET_KEY;
+const supabase = createClient(Bun.env.NEXT_PUBLIC_SUPABASE_URL, Bun.env.SUPABASE_SECRET_KEY);
+const stripeKey = Bun.env.STRIPE_SECRET_KEY;
 
 if (!stripeKey || stripeKey.includes('placeholder') || stripeKey === 'sk_test_...') {
   console.error('\n❌ Missing Valid Stripe Secret Key!');

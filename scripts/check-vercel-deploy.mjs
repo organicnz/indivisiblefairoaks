@@ -159,7 +159,7 @@ export async function main(deps = {}) {
   // boot, and deriving that window from the poll interval would make it zero for
   // a fast poll — the probe would be skipped entirely rather than run once.
   const healthBudget = deps.healthBudget ?? 120_000;
-  const environment = deps.env ?? process.env;
+  const environment = deps.env ?? Bun.env;
   // File writes happen only when an output dir is configured — the workflow
   // always passes `--out`, unit tests pass a tmp dir or nothing. A null dir
   // skips the writes without changing any verdict.
@@ -219,8 +219,8 @@ const note = (line) => summary.push(line);
 
     // The SHA is required as an argument, not read from the environment.
     //
-    // `GITHUB_SHA` would work — GitHub injects it — but reading `process.env`
-    // outside the validated env layer is exactly what
+    // `GITHUB_SHA` would work — GitHub injects it — but reading the
+    // environment outside the validated env layer is exactly what
     // `scripts/hooks/no-raw-env-access.mjs` exists to prevent, and adding a
     // CI-injected variable to `.env.example` would be worse: it would describe an
     // app setting that does not exist. The workflow knows the SHA and can state it.

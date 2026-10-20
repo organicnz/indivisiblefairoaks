@@ -8,8 +8,8 @@
 // than a Node builtin, and byte-identical to what `node:crypto` produces.
 // ---------------------------------------------------------------------------
 
-const FUNCTION_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/webhook`;
-const secret = process.env.STRIPE_WEBHOOK_SECRET;
+const FUNCTION_URL = `${Bun.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/webhook`;
+const secret = Bun.env.STRIPE_WEBHOOK_SECRET;
 const now = Math.floor(Date.now() / 1000);
 
 async function signedEvent(type, object) {

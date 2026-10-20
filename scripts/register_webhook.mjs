@@ -1,8 +1,8 @@
 import Stripe from 'stripe';
 
-const stripeKey = process.env.STRIPE_SECRET_KEY;
+const stripeKey = Bun.env.STRIPE_SECRET_KEY;
 const argUrl = process.argv[2];
-const appUrl = argUrl || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const appUrl = argUrl || Bun.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 if (!stripeKey || stripeKey.includes('placeholder')) {
   console.error('\n❌ Missing STRIPE_SECRET_KEY in .env.local');

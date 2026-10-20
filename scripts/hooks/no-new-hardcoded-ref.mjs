@@ -44,7 +44,7 @@ if (found.length > 0) {
   console.log(`✖  Hardcoded Supabase project ref '${PROJECT_REF}' in new file(s):`);
   for (const f of found) console.log(f);
   console.log('');
-  console.log('   Use process.env.NEXT_PUBLIC_SUPABASE_URL instead.');
+  console.log('   Use Bun.env.NEXT_PUBLIC_SUPABASE_URL instead.');
   console.log('');
   process.exit(1);
 }

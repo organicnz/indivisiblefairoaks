@@ -22,13 +22,20 @@
 import { createClient } from '@supabase/supabase-js';
 import { join } from 'node:path';
 
+/**
+ * Read an environment variable.
+ *
+ * This used to prefer a `NEXT_PUBLIC_`-prefixed key when a `window` global
+ * was present — a browser-context path that a Bun script never takes, since
+ * `typeof window` is `'undefined'` in Bun and `Bun.env` does not exist in a
+ * browser anyway. It is gone rather than kept as dead code.
+ *
+ * The precedence it implied never applied here, so nothing changes: the raw
+ * key was always the one that was read. `getEnv('NEXT_PUBLIC_…')` still
+ * resolves to the public key, because that *is* the raw key.
+ */
 function getEnv(key, defaultValue = '') {
-  // Try NEXT_PUBLIC_ first (client-side env), then raw env
-  const publicKey = `NEXT_PUBLIC_${key}`;
-  if (typeof window !== 'undefined' && process.env[publicKey]) {
-    return process.env[publicKey];
-  }
-  return process.env[key] || defaultValue;
+  return Bun.env[key] || defaultValue;
 }
 
 // Supabase URL and keys

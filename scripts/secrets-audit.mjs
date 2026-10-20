@@ -148,9 +148,9 @@ async function probeEdge() {
     // This reads a *public* project ref, not a credential. Auth is unchanged:
     // whatever `SUPABASE_ACCESS_TOKEN` the caller provides.
     const args =
-      typeof process.env.SUPABASE_PROJECT_REF === 'string' &&
-      process.env.SUPABASE_PROJECT_REF.length > 0
-        ? ['secrets', 'list', '--project-ref', process.env.SUPABASE_PROJECT_REF, '-o', 'json']
+      typeof Bun.env.SUPABASE_PROJECT_REF === 'string' &&
+      Bun.env.SUPABASE_PROJECT_REF.length > 0
+        ? ['secrets', 'list', '--project-ref', Bun.env.SUPABASE_PROJECT_REF, '-o', 'json']
         : ['secrets', 'list', '-o', 'json'];
     const { stdout } = await runOrThrow(['supabase', ...args]);
     const parsed = JSON.parse(stdout);
@@ -185,18 +185,18 @@ async function probeVercel() {
   // Prefer the API when the project is addressed explicitly. Fall back to the
   // CLI — and its link state — for a local checkout that never sets these.
   const api =
-    typeof process.env.VERCEL_PROJECT_ID === 'string' &&
-    process.env.VERCEL_PROJECT_ID.length > 0 &&
-    typeof process.env.VERCEL_TOKEN === 'string' &&
-    process.env.VERCEL_TOKEN.length > 0
+    typeof Bun.env.VERCEL_PROJECT_ID === 'string' &&
+    Bun.env.VERCEL_PROJECT_ID.length > 0 &&
+    typeof Bun.env.VERCEL_TOKEN === 'string' &&
+    Bun.env.VERCEL_TOKEN.length > 0
       ? {
-          projectId: process.env.VERCEL_PROJECT_ID,
+          projectId: Bun.env.VERCEL_PROJECT_ID,
           teamId:
-            typeof process.env.VERCEL_ORG_ID === 'string' &&
-            process.env.VERCEL_ORG_ID.length > 0
-              ? process.env.VERCEL_ORG_ID
+            typeof Bun.env.VERCEL_ORG_ID === 'string' &&
+            Bun.env.VERCEL_ORG_ID.length > 0
+              ? Bun.env.VERCEL_ORG_ID
               : '',
-          token: process.env.VERCEL_TOKEN,
+          token: Bun.env.VERCEL_TOKEN,
         }
       : null;
   for (const [store, expected] of [

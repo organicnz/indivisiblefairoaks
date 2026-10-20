@@ -1,4 +1,4 @@
-const FUNCTION_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/webhook`;
+const FUNCTION_URL = `${Bun.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/webhook`;
 const PAYLOAD = JSON.stringify({
   id: 'evt_test_local_' + Date.now(),
   object: 'event',
@@ -33,7 +33,7 @@ async function sign(secret) {
   return `t=${t},v1=${hex}`;
 }
 
-const secret = process.env.STRIPE_WEBHOOK_SECRET;
+const secret = Bun.env.STRIPE_WEBHOOK_SECRET;
 for (const contentType of ['application/json', 'text/plain', 'application/octet-stream']) {
   const res = await fetch(FUNCTION_URL, {
     method: 'POST',

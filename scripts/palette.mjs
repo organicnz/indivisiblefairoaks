@@ -8,18 +8,12 @@
 //
 //   bun scripts/palette.mjs <route> [base]
 import { chromium } from '@playwright/test';
+import { loadEnvLocal } from './load-env-local.mjs';
 
 const ROUTE = process.argv[2] ?? '/about';
 const BASE = process.argv[3] ?? 'http://127.0.0.1:3115';
 
-try {
-  for (const line of (await Bun.file('.env.local').text()).split('\n')) {
-    const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
-  }
-} catch {
-  /* CI injects env */
-}
+await loadEnvLocal();
 
 // Read the design tokens straight from the stylesheet so the comparison uses the
 // same values the app ships.

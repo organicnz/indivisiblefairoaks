@@ -1,14 +1,15 @@
 import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+import { loadEnvLocal } from './load-env-local.mjs';
 
-if (typeof process.loadEnvFile === 'function') {
-  try {
-    process.loadEnvFile(resolve(process.cwd(), '.env.local'));
-  } catch {}
-}
+// `loadEnvLocal` rather than `process.loadEnvFile`: the latter is a Node
+// builtin, and this project does not have a Node runtime. The loader also
+// strips the surrounding quotes Bun's own `.env` parser strips, which matters
+// for the API credentials in `.env.local` — two of its values are quoted.
+await loadEnvLocal({ path: resolve(process.cwd(), '.env.local') });
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SECRET_KEY!;
+const SUPABASE_URL = Bun.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = Bun.env.SUPABASE_SECRET_KEY!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
