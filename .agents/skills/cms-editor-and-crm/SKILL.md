@@ -3,7 +3,7 @@
 name: cms-editor-and-crm
 description: Project-specific rules for the Indivisible Fair Oaks visual content editor and grassroots CRM. Use when editing anything under src/components/admin/content/, src/components/admin/crm/, src/lib/blocks/, src/lib/actions/content.ts, src/lib/actions/crm.ts, src/lib/sanitize.ts, src/lib/trusted-links.ts, src/lib/own-media.ts, src/lib/image-size.ts, src/lib/__tests__/supabase-mock.ts,
 supabase/functions/_shared/broadcast.ts, supabase/functions/crm-broadcast-send/, the
-unsubscribe route, a coverage threshold in `vitest.config.ts`,
+unsubscribe route, a coverage threshold in `vitest.config.mts`,
 src/app/admin/layout.tsx, e2e/admin-authenticated.spec.ts, supabase/functions/checkout/,
 src/components/layout/Header.tsx, or e2e/mobile-navigation.spec.ts — and
 whenever a change could make CMS content vanish on publish, change a page's publish state, lose an
@@ -400,7 +400,7 @@ The same shape appeared twice more, and the pattern is worth recognising:
 resolution, the rate limits and the e2e guard, and was in no coverage threshold
 at all. That is how both of the last two bugs shipped.
 
-**When you add a file, add it to `vitest.config.ts`'s `include`, or say why not.**
+**When you add a file, add it to `vitest.config.mts`'s `include`, or say why not.**
 Coverage thresholds are globs, not a global number, because Vitest checks a bare
 `statements: 90` against the *aggregate* — so a stricter file cannot raise it and
 a looser one silently lowers it for everything else. The thresholds are floors
@@ -413,7 +413,7 @@ green. **Cover the new file — never widen an exclusion to accommodate it.**
 
 **Current floors, stated on single lines where the gate checks them.**
 `src/lib/actions/crm.ts` on an explicit floor of **89 / 85 / 100 / 93**; `src/lib/actions/content.ts` on **65 / 57 / 70 / 70** — both re-derived from
-`vitest.config.ts` by `scripts/check-doc-claims.mjs`, which fails on a mismatch.
+`vitest.config.mts` by `scripts/check-doc-claims.mjs`, which fails on a mismatch.
 (The single-line rule matters: that script matches per line, so a guarded number
 split across two lines matches nothing and the staleness goes silent. That is
 how the previous sentence in this section drifted.) The content file was

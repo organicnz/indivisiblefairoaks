@@ -172,10 +172,25 @@ system `sh`. Bun's shell is a real shell with its own parser — cross-platform
 (the same script runs on Windows without a POSIX layer) and independent of what
 `/bin/sh` happens to be on the host. For a project whose premise is that the
 runtime is Bun, having the *scripts* fall back to the system shell is an
-inconsistency worth removing. The one shell construct in this
-`package.json` — `test -d .git && lefthook install || true` — was verified
-against it. The lefthook hooks never went through it: they are invoked as
-`bun scripts/hooks/<name>.mjs`, so they were always Bun processes.
+inconsistency worth removing.
+
+**There is now no shell construct in `package.json` at all.** The last one —
+`test -d .git && lefthook install || true` — was the `prepare` script, and it
+was worse than an inconsistency: it ran `lefthook`, whose bin is a
+`#!/usr/bin/env node` script, **through the system shell**, on every
+`bun install`, on every developer's machine. The shell honoured the shebang
+and executed it with Node.js. `prepare` is now
+`bun scripts/install-hooks.mjs`, which does the same four things in Bun:
+
+1. does nothing outside a git checkout (a published tarball, a CI install);
+2. does nothing when lefthook is not installed (a `--production` install);
+3. runs lefthook on Bun, with the path read out of lefthook's own `package.json`
+   `bin` metadata rather than hard-coded;
+4. never fails the install — a broken hook install must not stop somebody
+   getting their dependencies installed.
+
+The lefthook hooks themselves never went through `prepare`: they are invoked
+as `bun scripts/hooks/<name>.mjs`, so they were always Bun processes.
 
 **Vitest stays, and runs on Bun.** The unit suite's surface is
 `vi.fn` (547 uses), `vi.mock` (142), `vi.hoisted` (126), `vi.stubGlobal` (37)
@@ -186,18 +201,64 @@ would leave 895 tests asserting against a mock that no longer behaves like the
 one they were written for. Vitest executing on Bun's runtime is the same
 runtime with none of that risk.
 
-**The jsdom environment is 60% of the unit suite's time, and on Bun it
-cannot be made cheaper.** Measured: jsdom was constructed 130 times — once
-per test file — for 42 seconds of a 74-second run. Vitest prints its own
-advice for this measurement, and both of the options it names were tried
-here. Neither works.
+**The config is `vitest.config.mts`, not `vitest.config.ts`.** Vite's native
+config loader — `configLoader: 'native'`, which Vite 8 makes the default in a
+future major — reads a config's ESM syntax directly instead of bundling it to
+CommonJS first. A `.ts` file in a package without `"type": "module"` is loaded
+as CommonJS, and Vite warns about exactly that on every run. `.mts` is
+unambiguously ESM, and the alias it declares uses `import.meta.dirname` —
+the ESM spelling of `__dirname`, which does not exist in an ES module.
+
+**The jsdom environment was 60% of the unit suite's time, and it is now 38% —
+by classifying every file, not by making jsdom cheaper.** Measured before the
+change: jsdom was constructed 130 times — once per test file — for 127.66s of
+a 224.22s run.
+
+The cause was not jsdom's slowness. It was that **the environment was a
+global default**, so all 130 files inherited it, including the 81 that never
+touch a DOM. Every one of those files paid a full jsdom construction for a
+`document` it never used.
+
+So the environment is now stated **per file**, on the first line:
+
+```ts
+// @vitest-environment node
+// @vitest-environment jsdom
+```
+
+81 files run in `node`; the 49 that need a DOM run in `jsdom`.
+`scripts/hooks/vitest-environment.mjs` refuses a test file that declares
+neither, and refuses a `jsdom` file that reaches for `Bun.*`. The config's
+default is `node` — the cheap one — so an unclassified file is fast rather
+than slow, and the guard makes sure there is no such file.
+
+**The classification was measured, not guessed.** Every test file was run
+under `--environment=node`, and the ones that failed were marked `jsdom`. All
+37 failures were a DOM dependency and nothing else — `ReferenceError:
+document is not defined`, `window is not defined`, `localStorage is not
+defined`, `DOMParser is not defined`. The 12 files that already declared
+`jsdom` were re-tested the same way, with the docblock removed, and all 12
+failed too.
+
+**That is what makes the classification safe to maintain: the failure is
+loud.** A file marked `node` that turns out to need a DOM fails at the first
+`document`, in every test in the file, with a message that names the missing
+global. It cannot quietly pass a different way. The old objection — "a file
+that touches the DOM only sometimes would fail silently rather than loudly" —
+is answered by the mechanism: a DOM touch is a `ReferenceError` at the moment
+it happens, whether it happens on every run or on one.
+
+**Measured result: 224.22s → 45.42s.** Same 130 files, same 2266 passing
+tests, same 19 skipped, same coverage numbers (94.83 / 91.89 / 98.63 / 97.1).
+jsdom constructions: 130 → 49.
+
+**Three cheaper-looking options were tried and lost, on measurement:**
 
 | Option | Result |
 |---|---|
-| `pool: 'vmThreads'` | **Impossible on Bun.** 128 of 130 files fail. |
+| `pool: 'threads'` | **Slower.** 65.22s vs 45.42s — worker threads on Bun cost ~229ms to spawn against the fork pool's ~162ms. |
+| `poolOptions.forks.singleFork` | **Slower.** 98.39s — one fork serialises every file, and the per-file environment construction contends inside it. |
 | `isolate: false` | 297 tests fail across 20 files. |
-| `environmentMatchGlobs` | Removed in Vitest 5. |
-| `test.projects` | Would split the coverage gate, whose arithmetic is aggregate by design. |
 
 **Why `vmThreads` cannot work on Bun.** It fails with `TypeError: Proxy is
 not allowed in the global prototype chain`, and that message is not in
@@ -217,20 +278,17 @@ two are not merely different — they are in direct opposition, and the
 incompatibility is in Bun's `node:vm`, not in Vitest. The upstream fix
 belongs in Bun.
 
-**Why `isolate: false` cannot work here.** It shares one jsdom environment
-across every file, and the suite genuinely depends on per-file isolation:
-297 tests fail across 20 files. That is the "a gate that is sometimes red is
-not a gate" failure mode, arrived at by the obvious route.
+**Why `isolate: false` cannot work here.** It shares one environment across
+every file, and the suite genuinely depends on per-file isolation: 297 tests
+fail across 20 files. That is the "a gate that is sometimes red is not a
+gate" failure mode, arrived at by the obvious route.
 
-**The remaining option, and why it was not taken.** Running the ~80 files
-that never touch the DOM in a `node` environment would skip 80 jsdom
-constructions and would *not* weaken isolation. It needs a per-file
-classification, though, and a file that touches the DOM only sometimes
-would fail silently rather than loudly. `environmentMatchGlobs`, which
-expressed that classification, was removed in Vitest 5; `test.projects` is
-the replacement, and it would split the coverage gate — whose arithmetic is
-aggregate across every included file, and whose per-file floors are the
-point (see "The coverage gate is per-file, not a global percentage").
+**Why `test.projects` was not used.** It splits the coverage gate, whose
+arithmetic is aggregate across every included file, and whose per-file floors
+are the point (see "The coverage gate is per-file, not a global percentage").
+The per-file `@vitest-environment` docblock reaches the same classification
+*without* splitting anything, because the environment is a property of the
+file rather than of the project.
 
 **"Vitest on Bun" means the workers too, not just the CLI.** This was
 measured rather than assumed: inside a test, `process.execPath` is the `bun`
@@ -261,6 +319,72 @@ slower on a Bun-hosted server, and the log volume is two orders of magnitude
 higher.
 
 ### The Bun-native execution layer
+
+**`bun <binary>` is not the same as `bun --bun <binary>`, and the difference
+is a Node.js runtime.** This is the subtlest way Node.js survives a codebase
+that has removed it from every *file*, and it is the one that a guard written
+against shebangs cannot see.
+
+Every binary in `node_modules/.bin` carries a `#!/usr/bin/env node` shebang:
+
+```
+$ head -1 node_modules/.bin/vitest
+#!/usr/bin/env node
+$ head -1 node_modules/.bin/biome
+#!/usr/bin/env node
+```
+
+Bun substitutes itself for that interpreter when *Bun* is the thing doing the
+executing — which is why `bun <file>` runs a `node`-shebanged file on Bun.
+But `bun <binary>` resolves `node_modules/.bin/<binary>` and lets **the
+shebang** decide, so it hands the program to Node.js whenever Node.js is
+installed. Measured, with a stub `node` on `PATH`:
+
+```
+$ bun vitest --version
+FAKE NODE INVOKED with: …/node_modules/.bin/vitest --version
+
+$ bun --bun vitest --version
+vitest/5.0.5 darwin-arm64 node-v26.3.0      ← Bun's Node-compat string
+```
+
+So `bun vitest` ran the unit suite on **Node.js** on any machine with Node
+installed, and on **Bun** on the runner fleet, which has none. The suite
+behaved differently in the two places, and the difference was invisible in the
+output: `process.versions.node` reports a Node-compatibility version string
+on both.
+
+`bun --bun <binary>` forces Bun's runtime and makes the two identical. That
+is the whole reason the flag exists, and **every local binary in this
+repository is now invoked that way** — in `package.json`, in the workflows,
+and in `lefthook.yml`.
+
+**`bunfig.toml` sets `[run] bun = true`, which is the second line of
+defence.** Bun prepends `$PATH` with a `node` symlink pointing at the `bun`
+binary, so a `node` shebang resolves to Bun — and the alias "also applies to
+shebangs that point to `node`", which is exactly the gap above. It is set
+**explicitly** rather than left to Bun's default, because the default enables
+it *only when `node` is not already in `$PATH`* — which is precisely the
+machine-dependent case. The explicit `bun --bun` on each invocation remains
+the primary guarantee, because it does not depend on `bunfig.toml` being
+found; the setting covers the shebangs this repository does not write
+itself, such as a dependency's `postinstall` script.
+
+`scripts/hooks/no-node-runtime.mjs` enforces the explicit form. The rule
+reads the local bin set out of `node_modules/.bin`, so a dependency that
+arrives tomorrow is covered without the guard being edited, and it recognises
+both command shapes — a shell word (`bun biome ci ./src`) and an argv array
+(`run(['bun', 'biome', 'ci'])`).
+
+**One directory listing still uses `node:fs`, and the reason is measured.**
+`Bun.Glob` does not list a directory of symlinks, and `node_modules/.bin` is
+exactly that — every entry is a symlink into the installed package. A glob
+over it returns nothing at all:
+
+```
+$ bun -e "for await (const p of new Bun.Glob('*').scan({cwd:'node_modules/.bin'})) console.log(p)"
+(no output)
+```
 
 The migration removed Node.js as a *runtime*. What it did not do is pretend
 that `node:fs` is Node.js — it is not. Bun implements `node:fs`, `node:path`,
@@ -307,18 +431,53 @@ throughout `scripts/`, `e2e/` and the unit tests. This is not only style:
 the Ruby `Psych` call the workflow guard used to make, and `Bun.sleep(3000)`
 replaces forking a `sleep` process to do nothing for three seconds.
 
-**`node:fs` remains for exactly four things**: `readdir` with entry types,
-`mkdir`, `rm` and `mkdtemp`. Bun has no first-class directory API that
-carries an entry type — `Bun.Glob` lists paths but cannot say which of them is
-a directory — and there is no `Bun.tempdir` at all, so a hand-rolled
-mkdir-plus-random-name would be a worse `mkdtemp` than the one in the
-standard library. They are still Bun's implementations.
+**`Bun.Glob` is the listing API, and the pattern states the query.** A tree
+walk that used to be `readdir` plus a `stat()` per entry — to decide whether
+each entry was a directory — is now one pattern and no stats:
+`new Bun.Glob('**/*.{ts,tsx}').scan({ cwd: dir })`. It also does not block the
+event loop, which matters in a pre-commit hook, where the whole point is to
+be quick.
 
-**`node:path` is everywhere and should stay.** Bun has no path API, and
-`node:path` is the portable standard one. `node:os`'s `tmpdir` and
-`node:url`'s `fileURLToPath` are the same story. `node:crypto` is the one
-that went: `crypto.subtle` covers what this repository used it for, and it
-is a Web standard rather than a Node module.
+`Bun.Glob` does not promise an order, so every walk that feeds a report
+sorts its results. A guard whose findings move between runs cannot be diffed
+against the previous run.
+
+**`node:fs` remains for exactly five things**, and each has a measured
+reason:
+
+| Remaining use | Why Bun cannot do it |
+|---|---|
+| `readdir` with entry types | `Bun.Glob` lists paths but cannot say which of them is a directory. |
+| `readdir` over `node_modules/.bin` | That directory is **all symlinks**, and `Bun.Glob` does not list a directory of symlinks — a glob over it returns nothing. |
+| `mkdir`, `rm` | There is no Bun directory-creation API. |
+| `mkdtemp` | There is no `Bun.tempdir` at all, so a hand-rolled mkdir-plus-random-name would be a worse `mkdtemp` than the one in the standard library. |
+| `existsSync` on a `.git` entry | `Bun.file(p).exists()` answers *false* for a **directory**, because it asks "is this a file". A `.git` entry is usually a directory, so the Bun-native call would report every ordinary checkout as "not a checkout". |
+
+They are still Bun's implementations.
+
+**`node:path` is everywhere and should stay.** Bun has no *documented* path
+API. There is a `bun:path` module — it works, and its `join`, `resolve`,
+`dirname`, `relative` and `sep` agree with `node:path` exactly (measured) —
+but it is absent from Bun's published API table, absent from `bun-types`, and
+**untyped**: `import { join } from 'bun:path'` fails the type check with
+`TS2307: Cannot find module 'bun:path'`. Adopting it would mean hand-writing
+ambient declarations that duplicate `node:path`'s types and would conflict
+with the real ones when Bun ships them. So `node:path` stays, and it is the
+portable standard rather than a Node.js runtime either way — Bun implements
+it natively.
+
+`node:os`'s `tmpdir` is the same story, and more firmly: there is no
+`Bun.tmpdir()`, and `Bun.env.TMPDIR` is `undefined` on a system that does not
+set it, where `os.tmpdir()` falls back through `TMPDIR` → `TMP` → `TEMP` →
+`/tmp`. `node:url`'s `fileURLToPath` and `pathToFileURL` **did** go, because
+Bun's own API table has them as globals: `Bun.fileURLToPath()` and
+`Bun.pathToFileURL()`. And `import.meta.dirname` / `import.meta.filename`
+replaced the `path.dirname(fileURLToPath(import.meta.url))` idiom — which also
+removes the `new URL(import.meta.url).pathname` form, whose `.pathname` is
+percent-encoded and so breaks on a path containing a space.
+
+`node:crypto` is the one that went: `crypto.subtle` covers what this
+repository used it for, and it is a Web standard rather than a Node module.
 
 **Two `node:` builtins had Bun equivalents and now use them.**
 `scripts/mock-notify-contact.mjs` is a `Bun.serve` server rather than a
@@ -349,7 +508,8 @@ dependency of the Vercel CLI, so those scripts failed to import on a clean
 `bun install`. Bun's own loader reads `.env`, `.env.local` and the per-mode
 variants, with the shell's environment taking precedence, so the import and
 the call were both redundant as well as broken. `Bun.env` reads a variable;
-`process.env` also works, because Bun populates it.
+`process.env` also works, because Bun populates it — but which of the two a
+file should use depends on where that file runs, and that is settled below.
 
 **But Bun reads those files at *startup*, and it chooses which ones from the
 `NODE_ENV` in the environment at that moment.** Measured:
@@ -369,16 +529,74 @@ is fine — but a shell that exports `NODE_ENV=test` sets it before Bun
 starts, and then the manual parser is the only source. It reads like dead
 code. It is not, and it says so in a comment.
 
-**One place deliberately did *not* move to a Bun-only API.**
-`src/lib/svix-signature.ts` decodes base64 with `Buffer.from`, and
-`Uint8Array.fromBase64` is the cutting-edge replacement. It was left alone:
-no route in `src/` declares `export const runtime = 'edge'`, so the handlers
-run on the default Next.js runtime, and `Uint8Array.fromBase64` is a
-Bun/Deno/modern-V8 API that is **not** in Node 20 or 22. The unit suite runs
-on Bun, so the swap would have been green in tests and thrown at runtime on
-a Node function — a webhook verifier failing closed on every real Resend
-event, with nothing failing until production did. `Buffer` is portable and
-the code is already validated against Svix's own test vector.
+**`Bun.env` and `process.env` are not interchangeable here — which one is
+correct depends on where the code runs.** Bun documents `Bun.env` as an
+*alias* for `process.env`, and the two are the same object in both
+directions (verified: a write to either is visible to a read of the other).
+So the choice is not about capability; it is about **which runtimes the file
+has to survive**.
+
+| Where the code runs | The spelling | Why |
+|---|---|---|
+| `src/` | `process.env` | It runs in the browser, on the Edge runtime, **and** on Bun. `Bun.env` does not exist in the first two — a single use is a crash on two of the three, and one the build will not catch. |
+| `scripts/`, `e2e/` | `Bun.env` | They run on Bun and nowhere else, so the native accessor is the right one. |
+
+**The one exception is a write.** `scripts/load-env-local.mjs` writes the
+environment, and the write stays `process.env`: that is the spelling every
+Bun version accepts for a mutation. The reads elsewhere see what it wrote,
+because they are the same object.
+
+**`scripts/hooks/no-raw-env-access.mjs` enforces both halves of the split.**
+It rejects `process.env.X` in `src/` — which bypasses the Zod validation and
+can silently return `undefined` — and it rejects `Bun.env.X` there too, which
+is the *worse* of the two: a guaranteed crash on the Edge runtime and in the
+browser, rather than an undefined value. The same guard therefore has to
+know about both spellings, and
+`scripts/hooks/env-usage-coverage.mjs` reports undeclared variables through
+whichever of the two it found.
+
+**One loader, and it strips quotes.** Six scripts hand-rolled the same
+`.env.local` parser; they are `scripts/load-env-local.mjs` now. Five of the
+six did **not** strip surrounding quotes from a value, and one did — and
+**two of the twenty-three keys in this repository's `.env.local` are
+quoted**: `VERCEL_TOKEN` and `VERCEL_OIDC_TOKEN`, both API credentials. A
+loader that keeps the quotes hands the next script a token with literal
+quote characters on the end, and the failure is an authentication error that
+says nothing about the cause. `playwright.config.ts` cannot call the shared
+loader — it has to read the file *synchronously*, before the config object
+is evaluated — so it keeps its own parser and follows the same two rules:
+the shell's environment wins, and a quoted value means the value without the
+quotes.
+
+**`Buffer` is gone from this repository, and the last one needed a Web
+standard rather than a Bun-only API.** `src/lib/svix-signature.ts` decoded
+base64 with `Buffer.from`, and it was left alone for a stated reason:
+`Uint8Array.fromBase64` is the cutting-edge replacement, and it is a
+Bun/Deno/modern-V8 API that is **not** in Node 20 or 22, so a swap would have
+been green in tests and thrown at runtime on a Node function — a webhook
+verifier failing closed on every real Resend event, with nothing failing
+until production did.
+
+That reason was sound, and it was also **not the only option**. The
+principle `b8513c3` established for the e2e suite's TOTP helper — *prefer
+the Web standard over the runtime-specific API* — has a third answer:
+`atob` and `btoa` are **Web standards**, present in browsers, in Node (16 and
+later), in Bun, in Deno, and on the Edge runtime. `atob` has neither problem
+`Uint8Array.fromBase64` had.
+
+The one behavioural difference is real and is now pinned by a test rather
+than by a comment: `Buffer.from(value, 'base64')` is **lenient** — it decodes
+whatever it can and ignores the rest — while `atob` **throws**. The callers
+validate the shape first, so the throw is mostly unreachable, but a
+valid-*shaped* string can still be undecodable: `"A"` is one base64
+character, and one character encodes nothing. `Buffer.from('A', 'base64')`
+returned zero bytes; `src/lib/base64.ts` returns `null` — the same answer,
+reached by a different route.
+
+`src/lib/base64.ts` is the shared home for `decodeBase64`, `encodeBase64` and
+`decodeBase64Text`, and it is in the coverage gate. The verifier's own test
+still checks **Svix's published vector** — an external reference that no
+self-consistent mistake can satisfy.
 
 **Where WebCrypto replaced `node:crypto`, it was the right trade.** The
 e2e suite's TOTP helper and the two Stripe-webhook signers used
@@ -435,6 +653,61 @@ rewritten by `bunx skills update`), the gitignored `.kiro/` and `scratch/`
 directories, and Markdown — because prose mentioning `npm install -g vercel` is
 a sentence about the past, not a command. A guard that fires on prose teaches
 people to reach for the bypass.
+
+### Bun has a linter and a formatter now — and both were measured, and both were declined
+
+Bun 1.4 ships `bun lint` and `bun fmt` as built-ins. Zero install, no
+`node_modules` entry, no `#!/usr/bin/env node` shim. That is exactly the
+shape of the "maximum Bun" claim, so it was measured against the two
+devDependencies it would replace — **Biome** (lint + format) and **oxlint**
+(React/hooks/Next.js rules) — rather than adopted on the strength of the
+marketing.
+
+**`bun lint` is oxlint.** It is the same engine: 96 rules run natively, and
+`bun lint --doctor` says *"Using oxlint's defaults"* and *"Still needed:
+oxlint (its defaults apply while package.json has it)"*. On a file with
+known violations, the two produce **identical output** — same rule names,
+same messages, same positions, same severities. `bun lint` is oxlint with the
+package manager's copy removed.
+
+**It was still declined, and the reason is the same one that pins `tsrs`.**
+`oxlint` is pinned by `bun.lock`; `bun lint`'s rule set is whatever the
+running Bun bundles, and this repository's toolchain runs the **canary**
+channel. A gate whose output can change without an install is a worse gate
+than one whose version is a caret range in a lockfile — and the repo has
+already reasoned this out for the type checker: *"it gates the type check,
+and it moves fast — nine minor versions in nine days — so a caret range would
+let a release change a gate's output under a routine `bun install`."* A
+canary-floated linter is the same hazard with a shorter fuse. The pinned
+`oxlint` stays.
+
+**`bun fmt` is Prettier-compatible, and Biome's output is not.** With the
+settings that map one-for-one onto `biome.json` — `printWidth = 100`,
+`singleQuote`, `trailingComma = "es5"`, `semi`, `arrowParens = "always"`,
+`bracketSpacing`, `jsxSingleQuote = false` — `bun fmt --check ./src` reports
+**21 files** of 401 needing changes. That is a small diff, and the
+differences are ordinary Prettier-vs-Biome ones.
+
+**But one of those 21 files is `src/app/globals.css`, and there the
+difference is a downgrade.** Bun's CSS formatter rewrites
+`translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0)`
+onto one line where Biome's keeps the arguments expanded, and it changes
+`@import "tailwindcss"` to single quotes. `globals.css` is the design
+system's source of truth — every `@theme` token, every `@utility` — and
+reformatting it with a *less capable* CSS printer to save one devDependency
+is a bad trade. Biome's formatter stays.
+
+So the linter and formatter remain two devDependencies, both with
+`#!/usr/bin/env node` shims. That cost is already paid down: every
+invocation is `bun --bun <bin>`, so the shim runs on Bun and then execs the
+native binary behind it.
+
+`bun fmt` also offers `sortTailwindcss` — Tailwind class sorting — which
+Biome does not. It is tempting, and it is **not** an addition: Biome would
+not sort, so the two formatters would undo each other on every file, and a
+class order that one tool asserts and the other rejects is a formatting
+argument rather than a formatting rule. It becomes viable only if Biome's
+formatter is replaced outright, and the CSS is what blocks that.
 
 ### Three runtimes, none of them Node
 
@@ -1275,11 +1548,68 @@ worth recording because it is not the shape you expect:
   against the live API, under Bun — because "the CLI still starts" is not
   evidence that its HTTP stack still works.
 
+**One more arrived later, and it was the only one in a *shipped* dependency.**
+`vgpu` — a runtime dependency, for the WebGPU components — pins
+`@modelcontextprotocol/server` at exactly `2.0.0`, and three advisories
+landed against it: two `high` (a shared transport delivering one HTTP
+client's messages to another; a single request exhausting server memory
+during validation) and one `moderate` (bearer authentication accepting tokens
+issued for another service). All three are fixed in `2.3.0`.
+
+The fix is the nested-scope override the same section documents:
+
+```json
+"overrides": {
+  "vgpu": { "@modelcontextprotocol/server": "2.3.1" }
+}
+```
+
+`2.3.1` rather than `2.3.0` because it is the latest patch of the fixed
+line, and it is a **minor** bump within the same major, so the MCP SDK's
+surface is unchanged. The scope matters: `vgpu` is the only package that
+depends on the MCP server, and a *flat* override would have applied to every
+copy of it in the tree.
+
+The MCP SDK is vgpu's dev-facing tooling; the browser bundle uses
+`@vgpu/core` and `@vgpu/wgsl`, so the vulnerable code is not shipped to a
+visitor. That is a reason to fix it rather than accept it — the SDK runs on
+the server, where a shared transport is exactly the kind of thing that gets
+exercised — and it is not a reason to leave it. The build and the full e2e
+suite (which exercise the five vgpu components) were re-run against the
+override.
+
 **The one advisory that remains has no fix.** `braces@3.0.3` is the latest
 published version, so there is nothing to pin to; it is reachable only
 through `ts-morph` inside the `vercel` tree, and the related
 `brace-expansion` advisory in the same subtree *did* have a fix and was
 resolved. It is in the baseline with that reason attached.
+
+**The shipped tree is a second, independent gate — and it has no baseline.**
+The baseline is a *whole-tree* ratchet, and the reason recorded against the
+accepted advisory is a **manual claim about reachability**: "reachable only
+through `ts-morph` inside the `vercel` CLI's tree, which is a devDependency
+and is not shipped". A manual claim is exactly the kind of thing that stops
+being true without anyone noticing — and the baseline is keyed on the GHSA
+id, so it knows nothing about which packages ship. Promote `vercel` to a
+runtime dependency and the baseline would still accept it.
+
+So `scripts/check-vulnerabilities.mjs` makes **two** statements, from two
+different computations:
+
+| Gate | Computation | Tolerance |
+|---|---|---|
+| The whole tree | `bun audit --json` | A ratchet against the baseline: new fails, stale fails. |
+| The **shipped** tree | `bun audit --production --json` | **Zero.** No baseline, no exceptions. |
+
+`bun audit --production` computes the second set itself, from the dependency
+graph, rather than from a claim in a JSON file. It reports "No
+vulnerabilities found (checked 250 packages)" against 804 installed — so the
+one accepted advisory really is dev-only, and that is now a *measured* fact.
+
+**Verified by injection:** adding `braces@3.0.3` to `dependencies` — a
+package the baseline *accepts* — makes the whole-tree half pass and the
+production half fail. The scenario the baseline alone could not catch is the
+one the second gate catches.
 
 ### Supabase Edge Function secrets — a *separate* store
 
@@ -1310,8 +1640,8 @@ deployed green and broke silently.
 
 ## Delivery Gates (lefthook)
 
-- **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), the no-Node-runtime guard (`scripts/hooks/no-node-runtime.mjs` — a Node shebang, a second package manager or a `setup-node` step works on a laptop with Node installed and breaks on every runner this project has; CI runs it over the **whole tree** with `--all`, not just the staged subset, so a violation that arrived by a merge is caught too), the test-environment guard (`scripts/hooks/vitest-environment.mjs` — a test that calls `Bun.file` passes on macOS and fails on the Linux runner with `ReferenceError: Bun is not defined`, because Vitest's `jsdom` environment replaces the worker's global with the jsdom window's; the guard requires the `node` environment on any test that reaches for `Bun.*`, directly or through an imported script), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 596 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), the no-Node-runtime guard (`scripts/hooks/no-node-runtime.mjs` — a Node shebang, a second package manager or a `setup-node` step works on a laptop with Node installed and breaks on every runner this project has; and a local binary invoked as `bun <bin>` rather than `bun --bun <bin>`, which hands the program to Node.js wherever Node.js is installed and to Bun only where it is not — the same divergence, wearing a different hat. The rule reads the local bin set out of `node_modules/.bin`, so a dependency that arrives tomorrow is covered without the guard being edited. CI runs it over the **whole tree** with `--all`, not just the staged subset, so a violation that arrived by a merge is caught too), the test-environment guard (`scripts/hooks/vitest-environment.mjs` — **every** test file must declare its Vitest environment on its first line, because Vitest constructs an environment per file and jsdom's construction was 63% of the unit suite's time; the guard also requires the `node` environment on any test that reaches for `Bun.*`, directly or through an imported script, because Vitest's `jsdom` environment replaces the worker's global with the jsdom window's and the `Bun` global does not survive that swap on every platform), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
+- **`lefthook.yml` is 626 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can
@@ -1322,10 +1652,69 @@ deployed green and broke silently.
   already one-line `bun scripts/check-*.mjs` calls. **Adding a guard means adding a file
   under `scripts/hooks/`, not writing bash in YAML.**
 - **pre-push**: lint → unit → typecheck → production build → peer-deps → **Playwright e2e delivery gate** (full suite, `workers=2`) when the push range touches `src/`, `e2e/`, `public/`, `supabase/`, app configs, or the lockfile. Docs-only pushes skip e2e with an explicit note.
+
+### The e2e suite must be pointed at *this* build — and it now proves it
+
+`reuseExistingServer` means a local run reuses whatever is already listening
+on the port instead of starting its own. That is a reasonable convenience,
+and it is also a way for the suite to drive **the wrong application** without
+saying so.
+
+**It happened here.** Another Next.js app on the same machine was listening on
+the e2e port; Playwright reused it; the suite drove it; and the first thing
+that failed was `waiting for locator('#auth-tab-password')` — an element the
+*other* application does not have. The error named a locator and said nothing
+about the fact that the entire suite was pointed at a different product.
+Ninety-four tests "did not run", and the report read like a product
+regression.
+
+The page snapshot gave it away: the other app's name, in the header.
+
+Three things now prevent it:
+
+| Change | What it does |
+|---|---|
+| `e2e/global-setup.ts` | **Proves the server under test is this build.** Next writes the build id into the RSC flight payload as the segment's `b` field, so one marker answers both questions that matter: *which* application is answering, and *which* build of it. A stale server fails the same way a foreign one does. |
+| `e2e/helpers/ports.ts` | **One source of truth for the ports.** `playwright.config.ts`, `e2e/contact.spec.ts` and `e2e/instant.spec.ts` all need them, and they each hard-coded `3100`/`3101` — three copies of a port, and the one nobody remembered to move. `E2E_PORT` overrides them together. |
+
+The global setup **fails rather than starting its own server** — it cannot,
+the port is occupied, which is the whole reason the foreign server was
+reached. So the honest outcome is a failure that names the cause, which is
+the difference between a diagnosis and a symptom.
+
+**One subtlety worth keeping:** the build id is read from the flight
+payload's `b` field, not by searching the page for the id as a substring. A
+page that merely *mentions* the id would satisfy a bare search, and this is a
+check about the server's identity. The payload's quotes arrive escaped
+(`\"b\":\"<id>\"`) because it is embedded in a `<script>` as a JSON string, so
+the escaping is undone first.
+
+**And a dead guard, found on the way.** The commit-time spec-parse hook's
+glob was `e2e/**/*.spec.ts`. lefthook matches with gobwas/glob, where `**/`
+means *one or more directory levels* — so that pattern does **not** match
+`e2e/contact.spec.ts`. Every spec in this repository sits directly in
+`e2e/`, so **the glob matched nothing and the hook had been dead since it
+was written**: a guard that reported success while measuring nothing.
+Verified with lefthook's own matcher:
+
+```
+$ lefthook run pre-commit --file e2e/contact.spec.ts
+│  old (skip) no matching staged files
+```
+
+It is now two globs — `e2e/*.{ts,tsx}` for the files directly in `e2e/` and
+`e2e/**/*.{ts,tsx}` for the ones below it — because `**/` cannot express
+"zero or more levels" on its own. The scope is the whole `e2e/` TypeScript
+rather than just the specs, because `e2e/helpers/ports.ts` is imported by the
+specs and a syntax error in it is a spec that cannot be listed.
+`e2e/global-setup.ts` is the exception: Playwright does not load the global
+setup at `--list` time, so that file is covered by the type check instead
+(`tsconfig.json`'s `include` is `**/*.ts`).
+
 - **The coverage gate is per-file, not a global percentage, and that is deliberate.**
   Vitest's bare `statements: 90` is checked against the *aggregate* over every included
   file, so a stricter file cannot raise it and a looser one silently lowers it for
-  everything else. `vitest.config.ts` therefore names globs: 90 across the board, with
+  everything else. `vitest.config.mts` therefore names globs: 90 across the board, with
   `src/lib/actions/crm.ts` on an explicit floor of **89 / 85 / 100 / 93** and
   `src/lib/actions/content.ts` on **65 / 57 / 70 / 70** (raised 2026-10-12 with the
   first `getContentList` suite; was **58 / 54 / 61 / 65**). Both were in **no threshold

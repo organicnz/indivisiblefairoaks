@@ -483,6 +483,28 @@ and total RSS is their sum. Anyone expecting a heap cap to bring this under
 > be **measured** before it is enabled, because it trades wall clock for
 > footprint, and the point of the table above is that the obvious knob was
 > never the one doing the work.
+>
+> **It has now been measured, and it is not the lever.** Three runs each, peak
+> resident set size of `bun --bun next build` against
+> `bun --smol --bun next build` on the same machine:
+>
+> | | run 1 | run 2 | run 3 |
+> |---|---|---|---|
+> | plain | 1388 MiB | 1846 MiB | 1192 MiB |
+> | `--smol` | 1487 MiB | 1561 MiB | 1216 MiB |
+>
+> The distributions overlap completely — the same command measured 1.19 GiB
+> and 1.85 GiB on different runs — so `--smol` did not move the footprint
+> beyond run-to-run variance, and its effect on wall clock was lost in the
+> same noise. The build's memory profile is dominated by something other than
+> GC pressure, so a smaller heap does not help. `experimental.cpus: 1`
+> remains the lever that does.
+>
+> Worth knowing in the other direction: the build's peak RSS is 1.2–1.8 GiB,
+> which is *above* the 1024 MiB container ceiling. The job passes because the
+> cgroup counts the whole tree against 1 GiB with swap behind it, and because
+> `experimental.cpus: 1` keeps the working set serial. A runner with less
+> headroom would need a different build strategy, not a different GC setting.
 
 **So it fits, but only just, and only alone.** The container ceiling is
 `--memory=1024M --memory-swap 2048M` — 1024 MB of RAM plus up to 1024 MB of swap,

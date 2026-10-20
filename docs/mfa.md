@@ -209,7 +209,7 @@ through a seeded admin rather than a local one.
 | `src/app/auth/mfa/__tests__/MfaChallengePage.test.tsx` | The rendered gate: which factors render a box, the explained (not bounced) `no-factor` state, `?next=` handling including the dot-segment cases, and the submit path's own re-filter. |
 | `e2e/mfa-challenge.spec.ts` | The thing no unit test can: that GoTrue actually upgrades the session to AAL2 and the destination gate then lets the page through. |
 
-`mfa.ts`, `mfa-guard.ts` and `admin-auth.ts` are in `vitest.config.ts`'s
+`mfa.ts`, `mfa-guard.ts` and `admin-auth.ts` are in `vitest.config.mts`'s
 `include` list and carry the global 90% threshold. Each was previously in
 neither, despite having a dedicated suite — a suite that exists is not a gate
 that runs.

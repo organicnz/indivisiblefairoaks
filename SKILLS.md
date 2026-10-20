@@ -156,7 +156,7 @@ Entry: `.agents/skills/vgpu/SKILL.md`
 ### `cms-editor-and-crm`
 **Load when:** touching `src/components/admin/content/`, `src/components/admin/crm/`, `src/lib/blocks/`, `src/lib/actions/content.ts`, `src/lib/actions/crm.ts`, `src/lib/sanitize.ts`, `src/lib/trusted-links.ts`, `src/lib/own-media.ts`, `src/lib/image-size.ts`, `src/lib/__tests__/supabase-mock.ts`,
 `supabase/functions/_shared/broadcast.ts`, `supabase/functions/crm-broadcast-send/`, the
-unsubscribe route, a coverage threshold in `vitest.config.ts`,
+unsubscribe route, a coverage threshold in `vitest.config.mts`,
 `src/components/layout/Header.tsx`, or `e2e/mobile-navigation.spec.ts`
 (the drawer focus trap lives there now — §32).
 

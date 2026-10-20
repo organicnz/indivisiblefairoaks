@@ -293,7 +293,7 @@ comment at `:466-472` should say which is intended.
 
 ### 2.5 `admin-auth.ts` is unmeasured
 
-`vitest.config.ts:63-75` added `mfa.ts`, `mfa-guard.ts`, `crm-filters.ts`,
+`vitest.config.mts:63-75` added `mfa.ts`, `mfa-guard.ts`, `crm-filters.ts`,
 `crm-limits.ts` and `safe-redirect.ts` — but not `admin-auth.ts`, which holds the
 redirect-vs-throw decision `docs/mfa.md:73` calls load-bearing. Same omission
 class as `crm.ts` before it. Add it to `include` and a suite asserting
@@ -521,7 +521,7 @@ Recorded so the next reviewer does not re-derive it.
 
 - `check-doc-claims.mjs` re-derives all 11 numeric claims from their sources of
   truth, including the 135 spec count and the two coverage floors. The new
-  `include` entries in `vitest.config.ts` are a genuine ratchet, not a widening.
+  `include` entries in `vitest.config.mts` are a genuine ratchet, not a widening.
 - The `sql-security-definer-guard.mjs` diff is a **fix**, not a weakening.
 
 ---
