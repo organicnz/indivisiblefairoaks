@@ -46,7 +46,7 @@ the same queries. It flips automatically at cutover.
 
 | # | Check | Command / where | Expected |
 |---|---|---|---|
-| 1 | Delivery gates green | `bun run lint:check && bun tsc --noEmit && bun run test` | 0 errors |
+| 1 | Delivery gates green | `bun run lint:check && bun run typecheck && bun run test` | 0 errors |
 | 2 | Production build | `bun run build` | exit 0 |
 | 3 | Coverage ≥ 90% | `bun run test:coverage` | 4/4 metrics |
 | 4 | Supabase auth URLs | Dashboard → Authentication → URL Configuration | apex in **both** Site URL and Redirect URLs |

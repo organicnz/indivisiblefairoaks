@@ -25,7 +25,7 @@ Deploy the new modern Next.js 16 web application (built with Supabase SSR and Ta
 ### Actions Taken
 1. **Codebase & Type Audit**:
    - Fixed a TypeScript compilation error in `src/components/layout/AccountButton.tsx` (explicit type import: `import type { User } from '@supabase/supabase-js'`).
-   - Verified automated unit tests (`npm test`) and type checking (`npm run type-check`), passing 100% with zero warnings.
+   - Verified automated unit tests (`bun run test`) and type checking (`bun check`), passing 100% with zero warnings.
 2. **Vercel Production Deployment**:
    - Deployed the latest build to Vercel production.
    - Assigned the custom domain `test.indivisiblefairoaks.org` in Vercel project settings.

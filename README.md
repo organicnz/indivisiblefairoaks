@@ -13,7 +13,7 @@ Platform for [Indivisible Fair Oaks-Carmichael](https://indivisiblefairoaks.org)
 
 | Layer | Technology |
 |---|---|
-| Runtime | Bun ≥1.4 |
+| Runtime | Bun ≥1.4.3 — **no Node.js anywhere** (server, build, type check, tests, scripts) |
 | Frontend | Next.js 16.3 · App Router · React 19 · TypeScript 5.9 |
 | Backend | Supabase (PostgreSQL · Auth · Storage · Edge Functions) |
 | Payments | Stripe Checkout + Webhooks |
@@ -27,7 +27,7 @@ Platform for [Indivisible Fair Oaks-Carmichael](https://indivisiblefairoaks.org)
 ## Getting Started
 
 ### Prerequisites
-- Bun ≥1.4
+- Bun ≥1.4.3
 - A Supabase project with migrations applied (see `supabase/migrations/`)
 
 ### Install
@@ -48,18 +48,25 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 ### Commands
 ```bash
-bun run dev          # dev server (Turbopack)
-bun run build        # production build
+bun run dev          # dev server (Turbopack) — runs on Bun
+bun run build        # production build — runs on Bun
+bun run start        # production server — runs on Bun
 bun run lint         # Biome + oxlint (auto-fix)
 bun run lint:check   # lint without writing
 bun run format       # Biome format (auto-fix)
 bun run check:ci     # full Biome CI check (no writes)
+bun run typecheck    # type check (`tsrs` — TypeScript 7 in Rust, no Node)
 bun run test         # Vitest unit suite (single run)
 bun run test:watch   # Vitest in watch mode
 bun run test:e2e     # Playwright suite
 bun run test:coverage
 bun run types:generate  # regenerate Supabase types
 ```
+
+> **The runtime is Bun.** There is no Node.js in this project — not for the
+> Next.js server, not for the build, not for the type checker, not for
+> Playwright, not for the scripts. See "The runtime is Bun" in `AGENTS.md` for
+> what makes that work, and for what it costs.
 
 ### Mobile web/PWA validation
 
@@ -69,7 +76,7 @@ real-device browser profiles are opt-in so ordinary local runs do not require
 extra browser downloads:
 
 ```bash
-bunx playwright install webkit chromium
+bun node_modules/@playwright/test/cli.js install webkit chromium
 PW_MOBILE_BROWSERS=1 bun run test:e2e
 ```
 
@@ -101,7 +108,7 @@ supabase/
   migrations/     # Ordered SQL migration files
   functions/      # Edge Functions (notify-contact, etc.)
 e2e/              # Playwright specs (a11y, nav, link-integrity)
-scripts/          # Node/mjs utilities (gen-types, ai-review, etc.)
+scripts/          # Bun utilities (gen-types, ai-review, etc.)
 ```
 
 ---

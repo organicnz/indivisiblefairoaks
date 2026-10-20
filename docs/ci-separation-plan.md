@@ -81,8 +81,11 @@ That last distinction was impossible before.
 ### No Vercel CLI
 
 REST only, per `scripts/secrets-audit.mjs`: *"the CLI aborts on the runner… it
-needs `vercel link` state that must not exist on a runner."* Unlike
-`secret-audit.yml` this job needs **no** `npm install -g vercel` step.
+needs `vercel link` state that must not exist on a runner."* The Vercel CLI is
+not installed on the fleet at all any more — it used to arrive via
+`npm install -g vercel`, which was the last npm invocation in CI and the last
+reason the runner host needed Node. The CLI's bin is a `#!/usr/bin/env node`
+script, so it could not have run here even if it were installed.
 `VERCEL_TOKEN` / `VERCEL_PROJECT_ID` / `VERCEL_ORG_ID` are already declared
 (`scripts/ci-env.mjs:55-64`).
 

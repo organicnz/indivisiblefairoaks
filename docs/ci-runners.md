@@ -103,6 +103,20 @@ Jobs end `cancelled` rather than `failed` once the cgroup is exhausted, and
 With expanded 6 GB host swap, `build-e2e` sets `NODE_OPTIONS: --max-old-space-size=3584`
 to let V8 utilize the available swap without triggering excessive GC cycles or allocation failures.
 
+> **Superseded 2026-10-20 — the `NODE_OPTIONS` caps are gone, and they were
+> already inert.** Every process in these jobs now runs on Bun's runtime, and
+> Bun does not read `--max-old-space-size` from `NODE_OPTIONS`: measured on Bun
+> 1.4.4, the heap limit is ~48 MB whether the variable is 768, 1280, 3584 or
+> absent. The caps were protecting a V8 heap that no longer existed, and
+> reading like a safety rail over a cliff that was not there.
+>
+> What actually keeps the jobs inside 1024 MiB is unchanged and real:
+> `experimental.cpus: 1` for the e2e build (so prerendering is serial rather
+> than one worker per host CPU) and `--workers=1` for Playwright (so one
+> Chromium fights the build for memory instead of several). The measurements
+> below are kept as the record they are; the heap numbers in them describe a
+> V8 pipeline that no longer exists.
+
 ### Never switch to `ubuntu-latest`
 
 Workflows in this repository run exclusively on self-hosted runners (`[self-hosted, linux, <role>-runner]`).
@@ -311,6 +325,19 @@ It is scoped to that one job on purpose. A workflow-level `NODE_OPTIONS` would
 also raise the ceiling for `bun install`, `vitest` and the Next build, which have
 their own memory profiles and share one 887 MB machine.
 
+> **Superseded 2026-10-20 — the fault itself is gone.** The type check is
+> `bun check` now, not `bunx tsc --noEmit`. `bun check` reads the same
+> tsconfig and reports the same errors, and it peaks at **466 MB against
+> tsc's 1.03 GB** while finishing in about a third of a second instead of
+> 12.1 — which is what took this job off the 887 MB host's critical path.
+> The `NODE_OPTIONS` block was removed with the checker, because a cap on a
+> heap the job no longer has is noise that reads like a safety rail.
+>
+> The measurements above describe a V8 pipeline. They are kept because the
+> *shape* of the fault is the point: a job that reports a timeout is not the
+> same as a job that reports a defect, and killing a correct job's wall clock
+> is how a real regression gets through.
+
 ### Two faults, and they are not the same fault
 
 On 2026-10-03 the runner was brought back and the pipeline was observed for the
@@ -345,6 +372,21 @@ Two numbers carry the argument. The cache took `bun install` from ~13 minutes to
 **30 seconds**, which is what made any of this reachable. And `tsc` takes **8m28s
 on the runner against 1.4 s on a workstation** — roughly 360× — which is what
 makes this job's wall clock the binding constraint rather than the code.
+
+> **This row is history.** The type check is now `bun check` — Bun's built-in
+> type checker, a typescript-go port — and it is a different shape of problem
+> entirely: **0.3 s against 12.1 s** on a workstation, and **466 MB peak against
+> tsc's 1.03 GB**, which is what matters on a 1024 MiB runner. It was verified
+> equivalent to `tsc --noEmit` on the clean tree and on seven injected type
+> errors (TS2554, TS2339, TS7006, TS2322 ×2, TS18047) across `.ts`, `.tsx`, a
+> path-aliased import and a spec file, with identical error codes, messages
+> and positions. The 8m28s row above is the *reason* the swap was worth
+> making, and the 1 GiB ceiling it produced is the reason the runner's memory
+> contract is not the binding constraint on this job any more.
+>
+> The runner still needs its memory headroom for the **build**, which is a
+> different job (`build-e2e`) and does not type-check — e2e builds set
+> `typescript.ignoreBuildErrors`. See `AGENTS.md` for the current contract.
 
 **That ceiling was wrong, and it was wrong in the direction that hides a pass.**
 The job ran `timeout-minutes: 15` while this table measures a *passing* job at
@@ -428,6 +470,19 @@ stays ~1.8 GB whether the heap is capped at 768 MB or uncapped, and
 worker processes for static generation, so `NODE_OPTIONS` caps each one separately
 and total RSS is their sum. Anyone expecting a heap cap to bring this under
 `MEMORY=1024M` is wrong by 800 MB.
+
+> **Superseded 2026-10-20 — the cap is inert, and `cpus: 1` is the control
+> that survived.** The build runs on Bun, which ignores `NODE_OPTIONS`, so the
+> 768 MB / 512 MB rows above measured a knob that was already disconnected.
+> `experimental.cpus: 1` was always the real lever, and it still is: one
+> worker prerenders every page in sequence instead of one worker per host CPU
+> the container does not have.
+>
+> If the container ever becomes the binding constraint again, the Bun-native
+> lever is `--smol` (more frequent GC, less resident memory) — and it should
+> be **measured** before it is enabled, because it trades wall clock for
+> footprint, and the point of the table above is that the obvious knob was
+> never the one doing the work.
 
 **So it fits, but only just, and only alone.** The container ceiling is
 `--memory=1024M --memory-swap 2048M` — 1024 MB of RAM plus up to 1024 MB of swap,
@@ -528,7 +583,7 @@ ones that finish:
 
 | Gate | Command |
 |---|---|
-| 33 pre-commit guards | lefthook, on `git commit` |
+| 34 pre-commit guards | lefthook, on `git commit` |
 | documentation claims | `bun scripts/check-doc-claims.mjs` — guards, baseline, spec counts |
 | suppression ratchet | pre-push, baseline 27 |
 | lint | `bun run lint:check` |

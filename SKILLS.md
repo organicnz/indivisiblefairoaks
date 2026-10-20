@@ -8,13 +8,19 @@
 
 ## How skills are loaded
 
-Skills are installed via `npx skills add` from `vercel-labs/agent-skills` and `vercel-labs/vgpu`.
+Skills are installed via `bunx skills add` from `vercel-labs/agent-skills` and `vercel-labs/vgpu`.
 Hashes are pinned in `skills-lock.json`. Do not re-install or modify individual skill files.
 
 ```
-npx skills update              # update all to latest
-npx skills experimental_install  # restore from skills-lock.json
+bunx skills update                # update all to latest
+bunx skills experimental_install  # restore from skills-lock.json
 ```
+
+`bunx`, not `npx`: this project has no Node runtime, and `npx` is npm's
+runner. `bunx` executes the package's bin on Bun's own runtime — it strips the
+`#!/usr/bin/env node` shebang those bins carry — and it resolves from the
+project's `node_modules` first, so a locally installed package is used rather
+than a registry copy.
 
 The per-skill `SKILL.md` is the trigger definition and entry point.
 The per-skill `AGENTS.md` (where it exists) is the full compiled reference — read it for detailed rules and examples.
@@ -135,7 +141,7 @@ Entry: `.agents/skills/writing-guidelines/SKILL.md`
 Project-specific context:
 - `vgpu` v0.4.0 is installed. The skill was generated against v0.3.1 — minor version gap, API is stable.
 - Installed in `.agents/skills/vgpu/`, same root as all other skills.
-- Use `npx -y vgpu docs cat <symbol>` to load specific API docs on demand. Do not read the full skill upfront.
+- Use `bunx vgpu docs cat <symbol>` to load specific API docs on demand. Do not read the full skill upfront.
 - Entry point for this project: `vgpu/client` for browser-side canvas rendering.
 
 Entry: `.agents/skills/vgpu/SKILL.md`

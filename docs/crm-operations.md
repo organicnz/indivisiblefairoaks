@@ -906,8 +906,8 @@ disabled until the route is deployed, because an endpoint that answers 404 or
 the deploy:
 
 ```bash
-node scripts/enable-resend-webhook.mjs           # dry run: webhook, secret, live probe
-node scripts/enable-resend-webhook.mjs --apply   # upsert the secret; enable once the probe passes
+bun scripts/enable-resend-webhook.mjs           # dry run: webhook, secret, live probe
+bun scripts/enable-resend-webhook.mjs --apply   # upsert the secret; enable once the probe passes
 ```
 
 The script reads the signing secret back from Resend, so it never touches a
