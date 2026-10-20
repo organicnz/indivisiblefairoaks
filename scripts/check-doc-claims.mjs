@@ -28,7 +28,7 @@
  *     "112 e2e specs" because `specs` is not adjacent to the digits, so each
  *     phrasing present in the docs needs its own pattern.
  *   - the `crm.ts` and `content.ts` coverage floors — the four values are
- *     re-derived from `vitest.config.ts`. These are ratchets, so a doc ahead of
+ *     re-derived from `vitest.config.mts`. These are ratchets, so a doc ahead of
  *     the config invites someone to "fix" a red gate by editing prose.
  *
  * Comparison normalises on both sides (commas dropped, whitespace collapsed),
@@ -144,16 +144,16 @@ function sameValue(actual, expected) {
   return norm(actual) === norm(expected);
 }
 
-/** The per-file coverage floor declared for a module in vitest.config.ts. */
+/** The per-file coverage floor declared for a module in vitest.config.mts. */
 async function coverageFloor(file) {
-  const text = await Bun.file(path.join(ROOT, 'vitest.config.ts')).text();
+  const text = await Bun.file(path.join(ROOT, 'vitest.config.mts')).text();
   const key = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = text.match(
     new RegExp(
       `'${key}':\\s*\\{\\s*statements:\\s*(\\d+),\\s*branches:\\s*(\\d+),\\s*functions:\\s*(\\d+),\\s*lines:\\s*(\\d+)`
     )
   );
-  if (!match) throw new Error(`no coverage floor for ${file} in vitest.config.ts`);
+  if (!match) throw new Error(`no coverage floor for ${file} in vitest.config.mts`);
   return `${match[1]} / ${match[2]} / ${match[3]} / ${match[4]}`;
 }
 
@@ -187,13 +187,13 @@ const CLAIMS = [
     label: 'crm.ts coverage floor',
     pattern: /`src\/lib\/actions\/crm\.ts` on an explicit floor of \*\*([\d/ ]+)\*\*/g,
     source: () => coverageFloor('src/lib/actions/crm.ts'),
-    fix: 'vitest.config.ts is the source of truth — copy the four values in order',
+    fix: 'vitest.config.mts is the source of truth — copy the four values in order',
   },
   {
     label: 'content.ts coverage floor',
     pattern: /`src\/lib\/actions\/content\.ts` on \*\*([\d/ ]+)\*\*/g,
     source: () => coverageFloor('src/lib/actions/content.ts'),
-    fix: 'vitest.config.ts is the source of truth — copy the four values in order',
+    fix: 'vitest.config.mts is the source of truth — copy the four values in order',
   },
   {
     label: 'e2e spec count (table)',

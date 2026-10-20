@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { effect, frame, init, target, uniforms } from 'vgpu/mock';
 import { describe, expect, it } from 'vitest';
 import { THEME_WGSL } from '@/components/layout/VgpuThemeCanvas';

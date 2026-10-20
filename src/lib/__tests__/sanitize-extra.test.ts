@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Unit tests for the three sanitize.ts functions not covered by the
  * existing property-based test suite: isSpamContent, sanitizeText,

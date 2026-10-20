@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { renderUnsubscribeGreeting } from '@/lib/crm-unsubscribe';
 

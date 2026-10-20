@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { isLegacySlug } from '@/config/legacy-redirects';
 import { ROUTES } from '@/config/routes';

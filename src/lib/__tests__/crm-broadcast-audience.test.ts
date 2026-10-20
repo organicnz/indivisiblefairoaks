@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { isInAudience as isInAudienceApp } from '@/lib/crm-filters';
 import { isInAudience as isInAudienceEdge } from '../../../supabase/functions/_shared/broadcast';

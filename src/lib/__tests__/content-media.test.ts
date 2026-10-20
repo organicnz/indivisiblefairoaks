@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ContentMediaInsert, ContentMediaRow } from '@/types/content-media';
 import { createMockAdminClient, type MockTableConfig } from './supabase-mock';

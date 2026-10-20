@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { MAX_CONTACT_NOTES_LENGTH } from '@/lib/crm-import';
 import {

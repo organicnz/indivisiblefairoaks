@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it } from 'vitest';
 import './localstorage-shim';
 import { MAX_ITEM_QUANTITY, useCartStore } from '@/lib/store/cart';

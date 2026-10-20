@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { isSafeHref } from '@/components/admin/content/BlockEditor';
 import { isLinkableHref } from '@/components/admin/content/LinkPopover';

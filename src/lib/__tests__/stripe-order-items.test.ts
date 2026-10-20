@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
 import { buildOrderItems, type OrderItemRow } from '@/lib/stripe-order-items';

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // `src/config/site.ts` and `src/lib/metadata.ts` both import `@/lib/env`, which

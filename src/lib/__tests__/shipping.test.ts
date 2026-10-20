@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { CURRENCY, formatPrice, getStripeShippingOptions, SHIPPING_RATES } from '@/config/commerce';
 

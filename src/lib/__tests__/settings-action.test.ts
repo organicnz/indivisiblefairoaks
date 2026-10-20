@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Bug Condition Exploration Test: profiles `updated_at` column missing from schema cache
  *

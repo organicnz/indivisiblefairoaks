@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { SECRETS as CI_SECRETS, VARIABLES as CI_VARIABLES } from '../../../scripts/ci-env.mjs';
 import {

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Unit tests for src/app/auth/callback/route.ts
  *

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { parseHtml } from '@/lib/blocks';
 import { sanitizeWPContent } from '@/lib/sanitize';

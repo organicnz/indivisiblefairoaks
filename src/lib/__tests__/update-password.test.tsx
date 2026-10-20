@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Bug Condition Smoke Test: /account/update-password returns 404
  *

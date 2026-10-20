@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Regression tests for the sanitizeWPContent hardening (XSS bypass closes):
  * unquoted attributes, protocol-relative links, subdomain-aware trust,

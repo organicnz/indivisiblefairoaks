@@ -33,7 +33,7 @@
  * beside the code that enforces it keeps the importer's copy and the schema's copy
  * in the same import statement.
  *
- * Both files are in `vitest.config.ts`'s `include` list and carry the global 90%
+ * Both files are in `vitest.config.mts`'s `include` list and carry the global 90%
  * threshold, because every number here is a claim about what the UI will accept
  * and a silent drift turns into a server-side rejection the user cannot see.
  */

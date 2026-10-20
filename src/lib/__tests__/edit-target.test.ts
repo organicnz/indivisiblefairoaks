@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import { resolveEditContext } from '@/lib/edit-context';
 import { cmsSlugForPath, editUrlForContentId } from '@/lib/edit-target';

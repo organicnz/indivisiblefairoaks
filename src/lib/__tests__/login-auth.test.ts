@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import LoginPage from '@/app/login/page';
 import { getSafeNextPath } from '@/lib/safe-redirect';

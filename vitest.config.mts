@@ -3,7 +3,39 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    environment: 'jsdom',
+    // The default is `node`, not `jsdom`, and that is a performance decision
+    // with a measurement behind it.
+    //
+    // Vitest constructs a fresh environment **per test file**. jsdom's
+    // construction dominated this suite: measured on the whole run, jsdom was
+    // created 130 times for 127.66s of a 224.22s run — 63% of the tracked
+    // time, and the single largest cost in the unit suite by a wide margin.
+    //
+    // The reason it was 130 times is that the environment was a global
+    // default, and 130 of the 130 test files inherited it — including the
+    // ~81 that never touch a DOM. Every one of those files paid a full jsdom
+    // construction for a `document` it never used.
+    //
+    // So the classification is now **explicit per file**: every test file
+    // declares `// @vitest-environment node` or `// @vitest-environment
+    // jsdom` on its first line, and `scripts/hooks/vitest-environment.mjs`
+    // refuses a file that declares neither. 81 files run in `node`; 49 that
+    // need a DOM run in `jsdom`.
+    //
+    // The classification was not guessed. Every file was run under
+    // `--environment=node` and the ones that failed — all of them on
+    // `ReferenceError: document is not defined`, `window is not defined`,
+    // `localStorage is not defined` or `DOMParser is not defined` — were
+    // marked `jsdom`. The failure is loud, which is what makes the
+    // classification safe: a file that turns out to need a DOM fails at the
+    // first `document`, in every test in the file, rather than quietly
+    // behaving differently.
+    //
+    // This default is therefore only a safety net for a file that has not
+    // been classified yet — and the guard makes sure there is no such file.
+    // `node` is the right net: it is the cheap environment, and a file that
+    // needs a DOM says so loudly rather than slowly.
+    environment: 'node',
     globals: true,
     fileParallelism: false,
     testTimeout: 20000,
@@ -84,6 +116,11 @@ export default defineConfig({
         'src/lib/crm-tag-scan.ts',
         // Webhook signature verification. Pinned to Svix's published vector.
         'src/lib/svix-signature.ts',
+        // The base64 helpers the verifier and its neighbours use. Pure
+        // functions over the Web platform's `atob`/`btoa`, with the one
+        // behaviour difference between those and `Buffer.from` pinned by a
+        // test rather than by a comment.
+        'src/lib/base64.ts',
         'src/lib/safe-redirect.ts',
         // The two step-up and settings surfaces. `settings.ts` imports
         // `mfa-guard.ts`, so a change to a guard branch moves this file's number
@@ -231,7 +268,26 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      // `import.meta.dirname` rather than `__dirname`.
+      //
+      // This file is `.mts` so that Vite loads it as ESM. Vite's native
+      // config loader — `configLoader: 'native'`, which Vite 8 makes the
+      // default in a future major — reads the file's ESM syntax directly
+      // instead of bundling it to CommonJS first. A `.ts` file in a package
+      // without `"type": "module"` is loaded as CommonJS, and Vite warns
+      // about exactly that on every run:
+      //
+      //     Your Vite config uses features that are unsupported by
+      //     `configLoader: 'native'` … ESM syntax in a file loaded as
+      //     CommonJS
+      //
+      // `.mts` is unambiguously ESM, and `import.meta.dirname` is the ESM
+      // spelling of `__dirname` — which does not exist in an ES module, so
+      // the alias would have been the next failure.
+      //
+      // `import.meta.dirname` is Bun 1.1+ and Node 20.11+. This repository
+      // runs on Bun; the config is only ever read by Bun.
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
 });
