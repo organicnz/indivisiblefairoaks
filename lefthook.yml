@@ -355,6 +355,32 @@ pre-commit:
       glob: "*.{js,jsx,mjs,cjs,ts,tsx,json,yml,yaml,toml,sh}"
       run: bun scripts/hooks/no-node-runtime.mjs {staged_files}
 
+    # ── 34. A test that uses Bun.* must declare the `node` environment ───────
+    # Vitest's `jsdom` environment replaces the worker's global with the jsdom
+    # window's, and the `Bun` global does not survive that swap on every
+    # platform. A test file that calls `Bun.file` — or imports a script that
+    # does — therefore passes on a developer's macOS machine and fails on the
+    # Linux runner with `ReferenceError: Bun is not defined`, at the first
+    # call, in every test in the file. That is a 403-test failure a local run
+    # cannot reproduce, and the error names a missing global rather than an
+    # environment.
+    #
+    # A `node` environment leaves the global as the worker's own, where `Bun`
+    # is present because the worker is a Bun process. It is also the correct
+    # environment for these files: they read files off disk and call scripts,
+    # and have no DOM to work with.
+    #
+    # The check is transitive through imported scripts, because that is how the
+    # failure actually reached the test — `check-migrations.test.ts` never
+    # mentions `Bun`, but the script it imports does.
+    #
+    # No glob: the invariant spans every test file and every script it
+    # imports, and a glob over one side would let a change to the other side
+    # through unwatched. The tree walk is a few hundred small files.
+    vitest-environment:
+      priority: 31
+      run: bun scripts/hooks/vitest-environment.mjs
+
 # ─── commit-msg ───────────────────────────────────────────────────────────────
 commit-msg:
   commands:

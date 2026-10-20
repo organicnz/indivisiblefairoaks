@@ -296,6 +296,21 @@ jobs:
       - name: No Node.js runtime
         run: bun scripts/hooks/no-node-runtime.mjs --all
 
+      # A test that uses `Bun.*` must declare the `node` environment.
+      #
+      # Vitest's `jsdom` environment replaces the worker's global with the
+      # jsdom window's, and the `Bun` global does not survive that swap on
+      # every platform. A test file that calls `Bun.file` — or imports a
+      # script that does — therefore passes on a developer's macOS machine and
+      # fails *here*, with `ReferenceError: Bun is not defined`, at the first
+      # call, in every test in the file.
+      #
+      # That is a 403-test failure that no local run reproduces, and the error
+      # names a missing global rather than an environment. The guard is what
+      # keeps the next such file from being added.
+      - name: Test environments
+        run: bun scripts/hooks/vitest-environment.mjs
+
       # Dependency vulnerabilities, via Bun's own advisory database.
       #
       # `bun audit` is the Bun-native equivalent of `npm audit`, and this is

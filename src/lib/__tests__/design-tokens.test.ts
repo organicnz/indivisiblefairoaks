@@ -1,3 +1,21 @@
+// @vitest-environment node
+//
+// This suite exercises node-side code: it reads files off disk, and it calls
+// scripts that use Bun's file APIs. It has no DOM to work with.
+//
+// The environment is load-bearing, and not for the reason it looks. Vitest's
+// `jsdom` environment replaces the worker's global with the jsdom window's,
+// and the `Bun` global does not survive that swap everywhere. This suite
+// passed on macOS and failed on the Linux runner with
+// `ReferenceError: Bun is not defined` — every test in it, at the first
+// `Bun.file`.
+//
+// In a `node` environment the global is the worker's own, so `Bun` is there
+// because the worker *is* a Bun process: Vitest spawns its workers with
+// `process.execPath`, and this suite runs under `bun vitest`.
+//
+// `scripts/hooks/vitest-environment.mjs` enforces this for every test file
+// that reaches for `Bun.*`, directly or through an imported script.
 import { readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';

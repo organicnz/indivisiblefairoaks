@@ -583,7 +583,7 @@ ones that finish:
 
 | Gate | Command |
 |---|---|
-| 34 pre-commit guards | lefthook, on `git commit` |
+| 35 pre-commit guards | lefthook, on `git commit` |
 | documentation claims | `bun scripts/check-doc-claims.mjs` — guards, baseline, spec counts |
 | suppression ratchet | pre-push, baseline 27 |
 | lint | `bun run lint:check` |
