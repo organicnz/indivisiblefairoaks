@@ -97,9 +97,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let colSop = sopColor * sopGlow;
 
   // Background acoustic hall ambience
-  let bgDark = mix(vec3f(0.015, 0.03, 0.08), vec3f(0.04, 0.08, 0.20), smoothstep(-0.5, 0.5, p.y) * 0.4);
-  let bgLight = mix(vec3f(0.06, 0.12, 0.32), vec3f(0.10, 0.22, 0.50), smoothstep(-0.5, 0.5, p.y) * 0.4);
-  let bgSystem = mix(vec3f(0.02, 0.05, 0.14), vec3f(0.05, 0.14, 0.30), smoothstep(-0.5, 0.5, p.y) * 0.4);
+  let bgDark = mix(vec3f(0.086, 0.188, 0.361), vec3f(0.11, 0.23, 0.44), smoothstep(-0.5, 0.5, p.y) * 0.4);
+  let bgLight = mix(vec3f(0.933, 0.957, 1.0), vec3f(0.88, 0.92, 0.98), smoothstep(-0.5, 0.5, p.y) * 0.4);
+  let bgSystem = mix(bgLight, bgDark, darkFactor);
   let bgGradient = bgLight * modeLight + bgDark * modeDark + bgSystem * modeSystem;
 
   let particleGrid = uv * vec2f(40.0 * aspect, 40.0);

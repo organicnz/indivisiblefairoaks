@@ -22,7 +22,7 @@ export function EmailActions({ email }: { email: string | null }) {
     <div className="flex items-center gap-2 mt-3 flex-wrap">
       <a
         href={`mailto:${email}`}
-        className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest rounded-full bg-surface-muted text-muted-foreground hover:bg-primary hover:text-secondary px-3 py-1.5 transition-colors"
+        className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest rounded-full bg-surface-muted text-muted-foreground hover:bg-primary hover:text-white px-3 py-1.5 transition-colors"
       >
         <Mail size={11} /> Email customer
       </a>

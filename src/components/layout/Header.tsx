@@ -200,9 +200,9 @@ function HeaderInner() {
               <EditorialButton />
               <Link
                 href="/donate"
-                className={`hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent hover:bg-accent-gold text-secondary font-bold text-xs uppercase tracking-wider shadow-raised hover:shadow-float active:scale-95 transition-all duration-300 ease-out motion-reduce:hover:scale-100 ${FOCUS_RING}`}
+                className={`hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent hover:bg-accent-gold text-ink-strong font-bold text-xs uppercase tracking-wider shadow-raised hover:shadow-float active:scale-95 transition-all duration-300 ease-out motion-reduce:hover:scale-100 ${FOCUS_RING}`}
               >
-                <Heart size={14} className="fill-secondary" aria-hidden="true" />
+                <Heart size={14} className="fill-current" aria-hidden="true" />
                 <DataPoint as="span" name="header.donate_btn" initialData={dataPoints}>
                   Donate
                 </DataPoint>
@@ -396,9 +396,9 @@ function HeaderInner() {
               <Link
                 href="/donate"
                 onClick={() => setIsMenuOpen(false)}
-                className={`w-full py-3 rounded-xl bg-accent hover:bg-accent-gold text-secondary font-bold text-center text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-2 shadow-float transition-colors duration-300 ease-out ${FOCUS_RING}`}
+                className={`w-full py-3 rounded-xl bg-accent hover:bg-accent-gold text-ink-strong font-bold text-center text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-2 shadow-float transition-colors duration-300 ease-out ${FOCUS_RING}`}
               >
-                <Heart size={16} className="fill-secondary" aria-hidden="true" />
+                <Heart size={16} className="fill-current" aria-hidden="true" />
                 <DataPoint as="span" name="header.drawer.donate_cta" initialData={dataPoints}>
                   Support via ActBlue
                 </DataPoint>

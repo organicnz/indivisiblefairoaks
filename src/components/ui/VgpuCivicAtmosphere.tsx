@@ -98,26 +98,26 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
 
-  // Dark Cosmic Midnight Palette (Obsidian Singularity)
-  let darkBase     = vec3f(0.015, 0.03, 0.08);
-  let darkMidnight = vec3f(0.05, 0.12, 0.32);
-  let darkSapphire = vec3f(0.08, 0.25, 0.65);
-  let darkCyanGlow = vec3f(0.12, 0.68, 0.95);
+  // Dark Cosmic Midnight Palette (Civic Sapphire #16305c)
+  let darkBase     = vec3f(0.086, 0.188, 0.361);
+  let darkMidnight = vec3f(0.11, 0.23, 0.44);
+  let darkSapphire = vec3f(0.14, 0.32, 0.65);
+  let darkCyanGlow = vec3f(0.25, 0.68, 0.95);
   let darkAmber    = vec3f(0.96, 0.74, 0.24);
 
-  // Light Solar Dawn Radiant Palette (Solar Diamond)
-  let lightBase     = vec3f(0.08, 0.22, 0.58);
-  let lightMidnight = vec3f(0.12, 0.38, 0.82);
-  let lightSapphire = vec3f(0.20, 0.55, 0.98);
-  let lightCyanGlow = vec3f(0.32, 0.78, 1.00);
-  let lightAmber    = vec3f(1.00, 0.80, 0.32);
+  // Light Solar Dawn Radiant Palette (Solar Dawn #eef4ff)
+  let lightBase     = vec3f(0.933, 0.957, 1.0);
+  let lightMidnight = vec3f(0.88, 0.92, 0.98);
+  let lightSapphire = vec3f(0.80, 0.88, 0.99);
+  let lightCyanGlow = vec3f(0.45, 0.75, 0.98);
+  let lightAmber    = vec3f(0.98, 0.82, 0.45);
 
-  // System Quantum Superposition Palette (Emerald-Cyan & Topaz Duality)
-  let sysBase      = mix(vec3f(0.04, 0.12, 0.32), vec3f(0.015, 0.04, 0.10), darkFactor);
-  let sysMidnight  = mix(vec3f(0.08, 0.24, 0.50), vec3f(0.03, 0.10, 0.28), darkFactor);
-  let sysSapphire  = mix(vec3f(0.14, 0.40, 0.75), vec3f(0.06, 0.20, 0.55), darkFactor);
-  let sysEmerald   = mix(vec3f(0.18, 0.88, 0.62), vec3f(0.08, 0.76, 0.50), darkFactor);
-  let sysAmber     = mix(vec3f(0.98, 0.78, 0.20), vec3f(0.92, 0.68, 0.16), darkFactor);
+  // System Quantum Superposition Palette
+  let sysBase      = mix(vec3f(0.933, 0.957, 1.0), vec3f(0.086, 0.188, 0.361), darkFactor);
+  let sysMidnight  = mix(vec3f(0.88, 0.92, 0.98), vec3f(0.11, 0.23, 0.44), darkFactor);
+  let sysSapphire  = mix(vec3f(0.80, 0.88, 0.99), vec3f(0.14, 0.32, 0.65), darkFactor);
+  let sysEmerald   = mix(vec3f(0.45, 0.75, 0.98), vec3f(0.25, 0.68, 0.95), darkFactor);
+  let sysAmber     = mix(vec3f(0.98, 0.82, 0.45), vec3f(0.96, 0.74, 0.24), darkFactor);
 
   // Dynamic chromatic morphing across theme transitions
   let baseDark = lightBase * modeLight + darkBase * modeDark + sysBase * modeSystem;
@@ -146,7 +146,8 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     col += mix(cyanGlow, amberGold, starRandom) * starLight;
   }
 
-  let vig = (1.0 - length(uv - 0.5) * 0.62) * (1.0 - uv.y * 0.3);
+  // Dark-mode vignette; in light mode keep luminous edges
+  let vig = mix(1.0, (1.0 - length(uv - 0.5) * 0.62) * (1.0 - uv.y * 0.3), darkFactor);
   col *= max(vig, 0.25);
 
   return vec4f(col, 1.0);

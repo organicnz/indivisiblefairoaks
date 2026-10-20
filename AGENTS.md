@@ -239,21 +239,25 @@ Tokens are defined in `src/app/globals.css` via `@theme`. No `tailwind.config.*`
 ### Active color tokens
 | Token | Hex | Usage |
 |---|---|---|
-| `--primary` | `#1e3a8a` | Primary blue — buttons, links, active states |
+| `--primary` | `#1e3a8a` / `#155dfc` | Primary blue — buttons, links, active states |
 | `--primary-light` | `#2563eb` | Hover/focus variants. **Light surfaces only** — 3.5:1 on the dark header |
 | `--primary-dark` | `#172554` | Pressed/deep variants |
 | `--primary-ink` | `#1e3a8a` | Text on light surfaces (replaces raw lime) |
-| `--secondary` | `#0f172a` | Page backgrounds, dark surfaces |
+| `--secondary` | `#16305c` | Page backgrounds, dark surfaces, header/footer anchor |
+| `--ink-strong` | `#0f172a` | High-contrast text on amber CTAs (7.2:1 contrast) |
 | `--ink-on-dark` | `#cbd5e1` | Body copy on dark surfaces |
-| `--ink-muted-on-dark` | `#94a3b8` | Secondary copy on dark surfaces |
+| `--ink-muted-on-dark` | `#a3b4c9` | Secondary copy on dark surfaces (>=5.3:1 on raised cards) |
 | `--primary-bright` | `#155dfc` | Brand blue as a **surface on dark pages** (CTAs) |
 | `--primary-on-dark` | `#8ec5ff` | Brand blue as **display text on dark** (hero highlights) |
-| `--primary-on-dark-muted` | `#50a2ff` | Brand blue as **eyebrow/label text on dark** |
+| `--primary-on-dark-muted` | `#7cbaff` | Brand blue as **eyebrow/label text on dark** (>=4.8:1 on raised cards) |
 | `--accent` | `#d97706` | Amber — donate CTA, warnings. **Surface, not text** |
 | `--accent-gold` | `#f59e0b` | Active nav indicators, dark-surface accents |
 | `--accent-red` | `#dc2626` | Destructive actions, errors |
 | `--accent-lime` | `#d1ff00` | Dark-surface non-text accent only |
-| `--surface-muted` | `#f8fafc` | Card backgrounds on light pages |
+| `--surface-muted` | `#f4f8ff` / `#1a3768` | Secondary panels, trays, inputs |
+| `--surface-card` | `#ffffff` / `#1e427e` | Raised content cards (1.33:1 luminance lift above dark canvas) |
+| `--surface-deep` | `#e2ecfc` / `#0f2244` | Sunken containers, code blocks |
+| `--border` | `#c3d3f0` / `#3a6699` | Hairline card borders, subtle dividers |
 
 Use `text-primary-ink` for any text placed on light/white surfaces. Raw lime
 (`#D1FF00`) is reserved for dark-surface non-text accents only — do not use it for
@@ -261,7 +265,7 @@ body or heading text.
 
 **`--accent` and `--accent-gold` are text-unsafe on white** (3.19:1 and 2.15:1)
 and `--primary-light` is text-unsafe on the dark header (3.51:1). These are
-surfaces. On an amber background use `text-secondary` (5.69:1); on a dark
+surfaces. On an amber background use `text-ink-strong` (7.2:1); on a dark
 background use the `--ink-*-on-dark` pair. The axe gate in `e2e/a11y.spec.ts`
 enforces this — do not "fix" a failing contrast check by swapping to a token
 without re-measuring.

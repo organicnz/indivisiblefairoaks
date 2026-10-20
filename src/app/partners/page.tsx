@@ -73,7 +73,7 @@ export default async function PartnersPage() {
   }
 
   return (
-    <div className="bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen">
+    <div className="bg-background text-foreground min-h-screen">
       {/* Header Banner with VGPU Constellation Network */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />
@@ -112,7 +112,7 @@ export default async function PartnersPage() {
             <div
               key={partner.name}
               data-data-point={'slug' in partner ? `partner.${partner.slug}` : undefined}
-              className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-primary-bright/40 transition-all flex flex-col justify-between group"
+              className="p-6 rounded-2xl bg-surface-card border border-border hover:border-primary-bright/40 transition-all flex flex-col justify-between group"
             >
               <div className="space-y-3">
                 <span className="text-[11px] font-mono text-primary-ink dark:text-accent-gold font-bold uppercase tracking-wider block">
@@ -143,7 +143,7 @@ export default async function PartnersPage() {
           ))}
         </div>
 
-        <div className="p-8 rounded-3xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-center space-y-4">
+        <div className="p-8 rounded-3xl bg-surface-card border border-border text-center space-y-4">
           <DataPoint
             initialData={dataPoints}
             name="partners.cta.headline"

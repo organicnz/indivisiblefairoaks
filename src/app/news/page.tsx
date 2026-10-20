@@ -23,7 +23,7 @@ export default async function NewsPage() {
   ]);
   const initialNewsletters = newslettersRows.length > 0 ? newslettersRows : undefined;
   return (
-    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
       <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
         <VgpuCivicConstellation />
@@ -113,7 +113,7 @@ export default async function NewsPage() {
         </div>
 
         {/* National Indivisible Wire */}
-        <div className="p-8 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 space-y-4">
+        <div className="p-8 rounded-2xl bg-surface-card border border-border space-y-4">
           <div className="flex items-center gap-3">
             <Megaphone className="text-accent-gold" size={22} />
             <DataPoint

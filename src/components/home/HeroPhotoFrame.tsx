@@ -153,8 +153,8 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
             </AnimatePresence>
           )}
           {heroPhotos.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 px-6 text-center">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+            <div className="absolute inset-0 flex items-center justify-center bg-secondary/80 px-6 text-center">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-ink-muted-on-dark">
                 <DataPoint as="span" name="home.hero.community_moments" initialData={dataPoints}>
                   Community moments
                 </DataPoint>
@@ -173,9 +173,9 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 5 }}
                   transition={{ duration: dur ?? 0.3 }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-sm border border-white/10 text-[10px] font-bold uppercase tracking-wider text-slate-300"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary/70 backdrop-blur-sm border border-white/10 text-[10px] font-bold uppercase tracking-wider text-ink-on-dark"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-gold shrink-0" />
                   {heroPhotos[heroIndex]?.label}
                 </motion.span>
               </AnimatePresence>
@@ -185,7 +185,7 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
                   <span
                     key={p.id}
                     className={`block rounded-full transition-all duration-300 ${
-                      i === heroIndex ? 'w-4 h-1.5 bg-amber-400' : 'w-1.5 h-1.5 bg-white/25'
+                      i === heroIndex ? 'w-4 h-1.5 bg-accent-gold' : 'w-1.5 h-1.5 bg-white/25'
                     }`}
                   />
                 ))}
@@ -216,7 +216,7 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 to-transparent" />
               <div className="absolute bottom-2 left-2 right-2">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-300 bg-slate-950/60 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-ink-on-dark bg-secondary/60 backdrop-blur-sm px-1.5 py-0.5 rounded-full">
                   {photo.label}
                 </span>
               </div>
@@ -234,7 +234,7 @@ export function HeroPhotoFrame({ photos: initialPhotos }: { photos?: GalleryPhot
         </span>
         <Link
           href="/gallery"
-          className="text-[10px] text-blue-400 hover:text-blue-300 font-bold uppercase tracking-wider transition-colors"
+          className="text-[10px] text-primary-on-dark-muted hover:text-primary-on-dark font-bold uppercase tracking-wider transition-colors"
         >
           <DataPoint as="span" name="home.hero.view_gallery" initialData={dataPoints}>
             View Gallery →

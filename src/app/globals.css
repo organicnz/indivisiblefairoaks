@@ -17,52 +17,42 @@
 :root,
 [data-theme='light'] {
   color-scheme: light;
-  --background: #ffffff;
-  --foreground: #0f172a;
+  --background: #eef4ff;
+  --foreground: #0f1f3d;
   --primary: #1e3a8a;
   --primary-light: #2563eb;
   --primary-dark: #172554;
   --primary-ink: #1e3a8a;
-  --secondary: #0f172a;
+  --secondary: #16305c;
   --accent: #d97706;
   --accent-red: #dc2626;
   --accent-gold: #f59e0b;
-  --surface-muted: #f8fafc;
+  --surface-muted: #f4f8ff;
   --surface-card: #ffffff;
+  --surface-deep: #e2ecfc;
 
-  /* Hairline borders and secondary copy. Both were used as raw
-     `border-slate-200` / `text-slate-600` classes across the codebase, which
-     made them the most-repeated colours in the project and the two hardest to
-     change in one place. Promoting them to tokens is what lets the CMS content
-     stylesheet — which styles raw HTML and so cannot use utility classes — obey
-     the same "tokens always" rule as the components. Values are exactly what the
-     utilities were already rendering, so nothing shifts. */
-  --border: #e2e8f0;
-  --muted-foreground: #475569;
+  /* Hairline borders and secondary copy.
+     Promoting them to tokens lets the CMS content stylesheet obey the same
+     "tokens always" rule as the components. */
+  --border: #c3d3f0;
+  --muted-foreground: #475f85;
 
   /* Body copy on dark surfaces. `--ink-on-dark` exists because `text-slate-600`
-     — the token the design system names for body copy — measures 1.86:1 on the
-     dark civic pages and is unreadable there. Dark surfaces need their own pair
-     or the "always use text-slate-600" rule cannot be followed. */
+     measures 1.86:1 on the dark civic pages and is unreadable there.
+     `--ink-muted-on-dark` is retuned to #a3b4c9 to guarantee >= 5.3:1 on cards. */
   --ink-on-dark: #cbd5e1;
-  --ink-muted-on-dark: #94a3b8;
+  --ink-muted-on-dark: #a3b4c9;
+  --ink-strong: #0f172a;
 
   /* Reserved dark-surface accent. Named here so the rule in AGENTS.md ("raw lime
      is never body or heading text, never on light surfaces") is enforceable by a
-     token rather than a comment. Previously it existed only as a raw hex in
-     global-error.tsx, which is how it ended up in JSX at all. */
+     token rather than a comment. */
   --accent-lime: #d1ff00;
 
-  /* Brand blue, on a dark surface.
-     `--primary` (#1e3a8a) is 1.5:1 against `--secondary`, which is fine as a
-     surface on white but makes a CTA disappear on a dark page. The dark civic
-     pages therefore need their own brand-blue entry, and previously had none —
-     which is exactly why they reached for raw `blue-600`. Both values below are
-     the ones the site was already rendering, so adopting the token is a no-op
-     that makes the choice explicit and governed. */
+  /* Brand blue, on a dark surface. */
   --primary-bright: #155dfc; /* CTA surface on dark — replaces bg-blue-600 */
   --primary-on-dark: #8ec5ff; /* display / hero highlight — replaces text-blue-300 */
-  --primary-on-dark-muted: #50a2ff; /* eyebrow + label — replaces text-blue-400 */
+  --primary-on-dark-muted: #7cbaff; /* eyebrow + label — retuned for >= 4.8:1 on cards */
 
   /* Fixed-header clearance and iOS safe-area contracts. */
   --safe-area-top: env(safe-area-inset-top, 0px);
@@ -79,42 +69,26 @@
    Applied by `data-theme="dark"` on `<html>`, set before first paint by the
    inline bootstrap script and kept current by the theme store (see
    `lib/theme.ts` and `components/layout/theme-store.ts`).
-
-   Everything that inverts is redefined here; everything that is a *dark
-   surface* already is not. The header, the nav drawer, the footer and the
-   civic pages use the dark-surface token set (`--secondary`,
-   `--ink-on-dark`, …) in both modes by design, so those tokens deliberately
-   do not change value here — a page section that is dark in light mode is
-   that way because it says so, not because the browser is in dark mode.
-
-   The surface values are drawn from the same tokens the dark surfaces
-   already use, so a light page in dark mode lands on the palette the civic
-   pages have been painted with all along rather than a new one.
-
-   `--primary` swaps to `--primary-bright` (#155dfc): #1e3a8a is 1.5:1
-   against the dark background, which makes every `bg-primary` control
-   disappear — the exact reason `--primary-bright` exists. The compensating
-   cost is that `text-primary` on a dark surface falls to 3.4:1, so the
-   brand-on-dark sweep pairs those call sites with `dark:text-primary-on-dark`
-   (6.5:1). The axe gate is what proves each one. */
+───────────────────────────────────────────────────────────────────────────── */
 [data-theme='dark'],
 .dark {
   color-scheme: dark;
-  --background: #0f172a;
-  --foreground: #cbd5e1;
-  --surface-muted: #1e293b;
-  --surface-card: #1e293b;
-  --border: #334155;
-  --muted-foreground: #94a3b8;
+  --background: #16305c;
+  --foreground: #f1f5f9;
+  --surface-muted: #1a3768;
+  --surface-card: #1e427e;
+  --surface-deep: #0f2244;
+  --border: #3a6699;
+  --muted-foreground: #a3b4c9;
   --primary: #155dfc;
   --primary-dark: #2563eb;
 
-  /* `--primary-ink` is the light-surface brand ink (7.9:1 on white, 1.5:1 on
-     dark), so dark mode holds it to the same value the dark surfaces already
-     use for display text. `--primary-light` is the hover step, lifted one so a
-     hover on a dark surface reads rather than sinking. */
   --primary-ink: #8ec5ff;
   --primary-light: #60a5fa;
+  --ink-on-dark: #cbd5e1;
+  --ink-muted-on-dark: #a3b4c9;
+  --ink-strong: #0f172a;
+  --primary-on-dark-muted: #7cbaff;
 }
 
 @media (min-width: 48rem) {
@@ -140,10 +114,12 @@
   --color-accent-lime: var(--accent-lime);
   --color-surface-muted: var(--surface-muted);
   --color-surface-card: var(--surface-card);
+  --color-surface-deep: var(--surface-deep);
   --color-border: var(--border);
   --color-muted-foreground: var(--muted-foreground);
   --color-ink-on-dark: var(--ink-on-dark);
   --color-ink-muted-on-dark: var(--ink-muted-on-dark);
+  --color-ink-strong: var(--ink-strong);
   --font-sans: var(--font-inter);
   --font-outfit: var(--font-outfit);
 
@@ -174,7 +150,7 @@
 
 @layer base {
   html {
-    background: var(--secondary);
+    background: var(--background);
   }
 
   body {

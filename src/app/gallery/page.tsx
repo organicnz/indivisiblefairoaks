@@ -142,7 +142,7 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Hero Header with VGPU Constellation Network */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16 px-4 sm:px-6 lg:px-8">
         <VgpuCivicConstellation />
@@ -269,7 +269,7 @@ export default function GalleryPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by quote, slogan, location (e.g. 'IKEA', 'Tower Bridge', 'Brake Light')..."
-                className="w-full pl-12 pr-10 py-3 rounded-2xl bg-surface-card dark:bg-secondary border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-md shadow-lg"
+                className="w-full pl-12 pr-10 py-3 rounded-2xl bg-surface-card border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-md shadow-lg"
               />
               {searchQuery && (
                 <button
@@ -301,7 +301,7 @@ export default function GalleryPage() {
                     className={`px-3.5 min-h-11 rounded-xl text-xs sm:text-sm font-semibold transition-colors duration-300 ease-out cursor-pointer flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
                       isSelected
                         ? 'bg-primary text-white shadow-raised'
-                        : 'bg-surface-card dark:bg-secondary/90 text-muted-foreground dark:text-ink-on-dark hover:text-foreground dark:text-white hover:bg-surface-muted dark:hover:bg-white/5 border border-border dark:border-white/10'
+                        : 'bg-surface-card/90 text-muted-foreground dark:text-ink-on-dark hover:text-foreground dark:text-white hover:bg-surface-muted dark:hover:bg-white/5 border border-border dark:border-white/10'
                     }`}
                   >
                     <span>{category}</span>
@@ -353,7 +353,7 @@ export default function GalleryPage() {
                 type="button"
                 data-gallery-photo={photo.id}
                 onClick={() => setSelectedPhotoId(photo.id)}
-                className="group relative h-88 rounded-3xl overflow-hidden border border-border dark:border-white/10 bg-surface-card dark:bg-secondary cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-bright hover:border-primary dark:hover:border-slate-700 transition-all shadow-xl"
+                className="group relative h-88 rounded-3xl overflow-hidden border border-border dark:border-white/10 bg-surface-card cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:focus-visible:ring-primary-bright hover:border-primary dark:hover:border-slate-700 transition-all shadow-xl"
               >
                 <Image
                   src={photo.url}
@@ -399,7 +399,7 @@ export default function GalleryPage() {
         )}
 
         {/* Featured Video Archive: No Kings 3 (Issue #88) */}
-        <div className="mt-16 rounded-3xl bg-surface-card border border-border dark:bg-secondary/80 dark:border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
+        <div className="mt-16 rounded-3xl bg-surface-card border border-border p-6 sm:p-8 md:p-10 shadow-2xl relative overflow-hidden">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8 border-b border-border dark:border-white/10 pb-6">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-secondary dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-2">

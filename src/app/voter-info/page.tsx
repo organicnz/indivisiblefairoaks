@@ -28,7 +28,7 @@ export default async function VoterInfoPage() {
   const dataPoints = await getDataPoints('voter');
 
   return (
-    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
         <VgpuCivicConstellation />
@@ -100,7 +100,7 @@ export default async function VoterInfoPage() {
             href="https://wheresmyballot.sos.ca.gov"
             target="_blank"
             rel="noopener noreferrer"
-            className="p-6 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 hover:border-accent-gold/40 transition-all group flex flex-col justify-between"
+            className="p-6 rounded-2xl bg-surface-card border border-border hover:border-accent-gold/40 transition-all group flex flex-col justify-between"
           >
             <div>
               <div className="w-12 h-12 rounded-xl bg-accent-gold/20 text-accent dark:text-accent-gold flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
@@ -134,7 +134,7 @@ export default async function VoterInfoPage() {
             href="https://elections.saccounty.gov"
             target="_blank"
             rel="noopener noreferrer"
-            className="p-6 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 hover:border-emerald-500/40 transition-all group flex flex-col justify-between"
+            className="p-6 rounded-2xl bg-surface-card border border-border hover:border-emerald-500/40 transition-all group flex flex-col justify-between"
           >
             <div>
               <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
@@ -444,7 +444,7 @@ export default async function VoterInfoPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Guide 1: Elected Officials */}
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-4">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-4">
                 <div className="w-10 h-10 rounded-lg bg-primary-bright/20 text-primary-ink dark:text-primary-on-dark-muted flex items-center justify-center">
                   <UserCheck size={20} />
                 </div>
@@ -482,7 +482,7 @@ export default async function VoterInfoPage() {
               </div>
 
               {/* Guide 2: Youth Pre-Registration */}
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-4">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-4">
                 <div className="w-10 h-10 rounded-lg bg-accent-gold/20 text-accent dark:text-accent-gold flex items-center justify-center">
                   <Vote size={20} />
                 </div>
@@ -520,7 +520,7 @@ export default async function VoterInfoPage() {
               </div>
 
               {/* Guide 3: Rights Restoration */}
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-4">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-4">
                 <div className="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                   <Shield size={20} />
                 </div>
@@ -558,7 +558,7 @@ export default async function VoterInfoPage() {
               </div>
 
               {/* Guide 4: Unhoused Voters */}
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-4">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-4">
                 <div className="w-10 h-10 rounded-lg bg-primary-bright/20 text-primary-ink dark:text-primary-on-dark-muted flex items-center justify-center">
                   <HelpCircle size={20} />
                 </div>

@@ -20,7 +20,7 @@ export default async function ChoirPage() {
   const dataPoints = await getDataPoints('choir');
 
   return (
-    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Harmonic Soundwave Atmosphere */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-20">
         <VgpuChoirHarmonics />
@@ -77,7 +77,7 @@ export default async function ChoirPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div className="p-4 rounded-xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 flex items-start gap-3">
+              <div className="p-4 rounded-xl bg-surface-card border border-border flex items-start gap-3">
                 <CheckCircle2
                   className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5"
                   size={18}
@@ -101,7 +101,7 @@ export default async function ChoirPage() {
                   </DataPoint>
                 </div>
               </div>
-              <div className="p-4 rounded-xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 flex items-start gap-3">
+              <div className="p-4 rounded-xl bg-surface-card border border-border flex items-start gap-3">
                 <CheckCircle2
                   className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5"
                   size={18}
@@ -241,7 +241,7 @@ export default async function ChoirPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="rounded-2xl overflow-hidden bg-surface-card border border-border dark:bg-secondary dark:border-white/10 p-4 shadow-xl space-y-3">
+            <div className="rounded-2xl overflow-hidden bg-surface-card border border-border p-4 shadow-xl space-y-3">
               <div className="aspect-video rounded-xl overflow-hidden bg-secondary">
                 <iframe
                   className="w-full h-full"
@@ -269,7 +269,7 @@ export default async function ChoirPage() {
               </DataPoint>
             </div>
 
-            <div className="rounded-2xl overflow-hidden bg-surface-card border border-border dark:bg-secondary dark:border-white/10 p-4 shadow-xl space-y-3">
+            <div className="rounded-2xl overflow-hidden bg-surface-card border border-border p-4 shadow-xl space-y-3">
               <div className="aspect-video rounded-xl overflow-hidden bg-secondary">
                 <iframe
                   className="w-full h-full"
@@ -306,7 +306,7 @@ export default async function ChoirPage() {
         <ChoirSongbookExplorer />
 
         {/* Join CTA */}
-        <div className="p-8 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-center space-y-4">
+        <div className="p-8 rounded-2xl bg-surface-card border border-border text-center space-y-4">
           <DataPoint
             name="choir.join.title"
             as="h3"

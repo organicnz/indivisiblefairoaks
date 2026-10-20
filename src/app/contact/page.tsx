@@ -88,7 +88,7 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20 transition-colors duration-300">
+    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20 transition-colors duration-300">
       {/* Header Banner with VGPU Constellation Network */}
       <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
         <VgpuCivicConstellation />
@@ -120,7 +120,7 @@ export default function ContactPage() {
       </section>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="bg-surface-card dark:bg-secondary/90 p-8 sm:p-12 rounded-3xl border border-border dark:border-white/10 shadow-2xl backdrop-blur-md">
+        <div className="bg-surface-card/90 p-8 sm:p-12 rounded-3xl border border-border dark:border-white/10 shadow-2xl backdrop-blur-md">
           {status === 'success' && (
             <output
               id="form-success-message"
@@ -147,7 +147,7 @@ export default function ContactPage() {
           {status === 'partial-copy' && (
             <output
               id="form-partial-message"
-              className="block mb-8 p-4 bg-amber-950/80 border border-amber-500/50 text-amber-200 rounded-2xl font-bold text-sm tracking-wide text-center"
+              className="block mb-8 p-4 bg-amber-950/80 border border-accent-gold/50 text-amber-200 rounded-2xl font-bold text-sm tracking-wide text-center"
             >
               <DataPoint name="contact.status.partial_copy_msg" as="span" initialData={dataPoints}>
                 ⚠️ Message sent to our organizing team! We will be in touch soon.
@@ -156,7 +156,7 @@ export default function ContactPage() {
                 name="contact.status.partial_copy_detail"
                 as="span"
                 initialData={dataPoints}
-                className="block mt-1 normal-case tracking-normal font-medium text-amber-300"
+                className="block mt-1 normal-case tracking-normal font-medium text-accent-gold"
               >
                 The copy to your inbox could not be delivered — but your message reached us and we
                 will reply directly.
@@ -167,7 +167,7 @@ export default function ContactPage() {
           {status === 'partial-notify' && (
             <output
               id="form-partial-message"
-              className="block mb-8 p-4 bg-amber-950/80 border border-amber-500/50 text-amber-200 rounded-2xl font-bold text-sm tracking-wide text-center"
+              className="block mb-8 p-4 bg-amber-950/80 border border-accent-gold/50 text-amber-200 rounded-2xl font-bold text-sm tracking-wide text-center"
             >
               <DataPoint
                 name="contact.status.partial_notify_msg"
@@ -179,7 +179,7 @@ export default function ContactPage() {
               </DataPoint>{' '}
               <a
                 href="mailto:contact@indivisiblefairoaks.org"
-                className="underline font-bold text-amber-300"
+                className="underline font-bold text-accent-gold"
               >
                 contact@indivisiblefairoaks.org
               </a>
@@ -219,7 +219,7 @@ export default function ContactPage() {
                 id="name"
                 required
                 placeholder={dataPoints['contact.form.name_placeholder'] || 'First and last name'}
-                className="w-full px-5 py-3.5 bg-surface-muted dark:bg-secondary border border-border dark:border-white/10 rounded-xl focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright focus:border-transparent outline-none transition-all font-medium text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark"
+                className="w-full px-5 py-3.5 bg-surface-muted border border-border dark:border-white/10 rounded-xl focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright focus:border-transparent outline-none transition-all font-medium text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark"
               />
             </div>
 
@@ -241,7 +241,7 @@ export default function ContactPage() {
                 inputMode="email"
                 spellCheck={false}
                 placeholder={dataPoints['contact.form.email_placeholder'] || 'you@domain.org'}
-                className="w-full px-5 py-3.5 bg-surface-muted dark:bg-secondary border border-border dark:border-white/10 rounded-xl focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright focus:border-transparent outline-none transition-all font-medium text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark"
+                className="w-full px-5 py-3.5 bg-surface-muted border border-border dark:border-white/10 rounded-xl focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright focus:border-transparent outline-none transition-all font-medium text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark"
               />
             </div>
 
@@ -263,7 +263,7 @@ export default function ContactPage() {
                   dataPoints['contact.form.message_placeholder'] ||
                   'Tell us how you would like to get involved, ask a question about our chapter, or join the Resistance Choir...'
                 }
-                className="w-full px-5 py-3.5 bg-surface-muted dark:bg-secondary border border-border dark:border-white/10 rounded-xl focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright focus:border-transparent outline-none transition-all font-medium text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark resize-none"
+                className="w-full px-5 py-3.5 bg-surface-muted border border-border dark:border-white/10 rounded-xl focus:ring-2 focus:ring-primary dark:focus:ring-primary-bright focus:border-transparent outline-none transition-all font-medium text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark resize-none"
               />
             </div>
 
@@ -279,7 +279,7 @@ export default function ContactPage() {
                   type="checkbox"
                   name="sendCopy"
                   id="sendCopy"
-                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card dark:bg-secondary accent-amber-500"
+                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card accent-amber-500"
                 />
                 <label
                   htmlFor="sendCopy"
@@ -296,7 +296,7 @@ export default function ContactPage() {
                   type="checkbox"
                   name="consentToEmail"
                   id="consentToEmail"
-                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card dark:bg-secondary accent-amber-500"
+                  className="mt-1 h-4 w-4 rounded border-border dark:border-white/20 bg-surface-card accent-amber-500"
                 />
                 <label
                   htmlFor="consentToEmail"

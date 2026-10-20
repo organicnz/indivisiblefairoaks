@@ -141,7 +141,7 @@ export function InteractiveLinksDirectory({ initialLinks }: { initialLinks: Link
   return (
     <div className="space-y-10">
       {/* Search, Filter & Admin Toolbar */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary/70 dark:border-white/10 shadow-sm">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border shadow-sm">
         <div className="relative flex-1 max-w-md">
           <Search
             className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
@@ -152,7 +152,7 @@ export function InteractiveLinksDirectory({ initialLinks }: { initialLinks: Link
             placeholder="Search resources, partners, or voting guides..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted dark:bg-secondary border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted border border-border dark:border-slate-700 text-foreground dark:text-white placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
 
@@ -166,7 +166,7 @@ export function InteractiveLinksDirectory({ initialLinks }: { initialLinks: Link
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeCategory === cat
                   ? 'bg-primary-bright text-white shadow-md'
-                  : 'bg-surface-muted dark:bg-secondary/60 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:hover:text-slate-200 hover:bg-surface-card dark:hover:bg-white/5 border border-border dark:border-transparent'
+                  : 'bg-surface-muted/60 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:hover:text-slate-200 hover:bg-surface-card dark:hover:bg-white/5 border border-border dark:border-transparent'
               }`}
             >
               {cat}
@@ -179,7 +179,7 @@ export function InteractiveLinksDirectory({ initialLinks }: { initialLinks: Link
           <button
             type="button"
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent-gold hover:bg-accent-gold text-slate-950 font-black text-xs uppercase tracking-wider shadow-md transition-all shrink-0 cursor-pointer"
           >
             <Plus size={15} />
             <span>Add Link</span>
@@ -189,7 +189,7 @@ export function InteractiveLinksDirectory({ initialLinks }: { initialLinks: Link
 
       {/* Links Grouped by Category */}
       {Object.keys(groupedLinks).length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-muted-foreground dark:text-ink-muted-on-dark">
+        <div className="p-12 text-center rounded-2xl bg-surface-card border border-border text-muted-foreground dark:text-ink-muted-on-dark">
           <p className="text-sm font-semibold">
             No resources found matching your search. Try adjusting the search query or selecting
             &ldquo;All&rdquo;.
@@ -214,7 +214,7 @@ export function InteractiveLinksDirectory({ initialLinks }: { initialLinks: Link
                     <div
                       key={itemSlug}
                       data-data-point={`link.${itemSlug}`}
-                      className="p-5 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-primary-bright/50 transition-all group flex flex-col justify-between shadow-xs relative"
+                      className="p-5 rounded-2xl bg-surface-card border border-border hover:border-primary-bright/50 transition-all group flex flex-col justify-between shadow-xs relative"
                     >
                       <div>
                         <div className="flex items-start justify-between gap-3 mb-2">

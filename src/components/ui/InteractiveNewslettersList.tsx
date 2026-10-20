@@ -181,7 +181,7 @@ export function InteractiveNewslettersList({
   return (
     <div className="space-y-8">
       {/* Controls: Search and Filter Chips */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 shadow-xs backdrop-blur-md">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border shadow-xs backdrop-blur-md">
         {/* Search Bar */}
         <div className="relative flex-1">
           <Search
@@ -195,7 +195,7 @@ export function InteractiveNewslettersList({
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted dark:bg-secondary border border-border dark:border-white/10 text-foreground dark:text-white placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted border border-border dark:border-white/10 text-foreground dark:text-white placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
 
@@ -209,7 +209,7 @@ export function InteractiveNewslettersList({
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 activeTopic === topic
                   ? 'bg-primary-bright text-white shadow-md'
-                  : 'bg-surface-muted dark:bg-secondary/60 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:hover:text-ink-on-dark hover:bg-surface-card dark:hover:bg-white/5 border border-border dark:border-transparent'
+                  : 'bg-surface-muted/60 text-muted-foreground dark:text-ink-muted-on-dark hover:text-foreground dark:hover:text-ink-on-dark hover:bg-surface-card dark:hover:bg-white/5 border border-border dark:border-transparent'
               }`}
             >
               {topic === 'All Topics' ? dataPoints['news.topic.all'] || 'All Topics' : topic}
@@ -245,7 +245,7 @@ export function InteractiveNewslettersList({
           filteredNewsletters.map((newsletter) => (
             <div
               key={newsletter.slug || newsletter.title}
-              className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-border dark:hover:border-white/20 transition-all flex flex-col justify-between"
+              className="p-6 rounded-2xl bg-surface-card border border-border hover:border-border dark:hover:border-white/20 transition-all flex flex-col justify-between"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

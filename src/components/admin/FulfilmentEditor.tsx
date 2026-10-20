@@ -80,7 +80,7 @@ export function FulfilmentEditor({
         <button
           type="submit"
           disabled={isPending || !hasChanges}
-          className="inline-flex items-center gap-2 rounded-full bg-secondary px-5 py-2 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-primary hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 rounded-full bg-secondary px-5 py-2 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-primary hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isPending ? (
             <Loader2 size={12} className="animate-spin" />

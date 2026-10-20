@@ -157,7 +157,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(webSiteJsonLd()) }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans selection:bg-primary selection:text-secondary">
+      <body className="min-h-full flex flex-col bg-background text-foreground font-sans selection:bg-primary selection:text-white">
         <Providers>
           <a
             href="#main-content"

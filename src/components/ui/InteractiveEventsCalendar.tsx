@@ -263,7 +263,7 @@ export function InteractiveEventsCalendar({
   return (
     <div className="space-y-8">
       {/* Controls: Search and Filter Chips */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 backdrop-blur-md shadow-xs">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border backdrop-blur-md shadow-xs">
         {/* Search Bar */}
         <div className="relative flex-1">
           <Search
@@ -277,7 +277,7 @@ export function InteractiveEventsCalendar({
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted border border-border dark:bg-secondary dark:border-white/10 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted border border-border text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
 
@@ -315,7 +315,7 @@ export function InteractiveEventsCalendar({
       {/* Events Grid */}
       <div className="grid grid-cols-1 gap-6">
         {filteredEvents.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-muted-foreground dark:text-ink-muted-on-dark">
+          <div className="p-12 text-center rounded-2xl bg-surface-card border border-border text-muted-foreground dark:text-ink-muted-on-dark">
             <DataPoint as="span" name="events.empty.desc" initialData={dataPoints}>
               No events found matching your criteria. Try selecting &ldquo;All Actions&rdquo; or
               clearing the search query.

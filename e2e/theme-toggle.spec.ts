@@ -29,7 +29,7 @@ test.describe('theme toggle', () => {
     // page is open must see the palette follow.
     await page.emulateMedia({ colorScheme: 'dark' });
     await expect(html).toHaveAttribute('data-theme', 'dark');
-    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(15, 23, 42)');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(22, 48, 92)');
   });
 
   test('cycles system → light → dark → system, pinning each', async ({ page }) => {
@@ -45,7 +45,7 @@ test.describe('theme toggle', () => {
 
     await toggle.click();
     await expect(html).toHaveAttribute('data-theme', 'light');
-    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(238, 244, 255)');
     expect(await page.evaluate(() => localStorage.getItem('indivisible:theme-mode'))).toBe('light');
 
     await toggle.click();
@@ -78,7 +78,7 @@ test.describe('theme toggle', () => {
     // bootstrap script reads it before paint, so there is no light flash.
     await page.reload({ waitUntil: 'load' });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(15, 23, 42)');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(22, 48, 92)');
   });
 
   test('the drawer control and the header control stay in sync', async ({ page }) => {

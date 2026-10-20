@@ -149,7 +149,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="relative overflow-hidden min-h-screen bg-background flex flex-col items-center justify-center px-4 py-32 selection:bg-primary selection:text-secondary">
+    <div className="relative overflow-hidden min-h-screen bg-background flex flex-col items-center justify-center px-4 py-32 selection:bg-primary selection:text-white">
       <VgpuCivicConstellation className="pointer-events-none opacity-20" />
       <div className="relative z-10 max-w-xl w-full">
         {/* Header */}
@@ -282,7 +282,7 @@ function LoginForm() {
                 <div className="group">
                   <label
                     htmlFor="login-email"
-                    className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
+                    className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1 mb-3 group-focus-within:text-primary dark:group-focus-within:text-primary-on-dark transition-colors"
                   >
                     <DataPoint initialData={dataPoints} name="login.form.email_label">
                       Credential Email
@@ -304,7 +304,7 @@ function LoginForm() {
                     <div className="flex justify-between items-center ml-1 mb-3">
                       <label
                         htmlFor="login-password"
-                        className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] group-focus-within:text-primary dark:text-primary-on-dark transition-colors"
+                        className="block text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] group-focus-within:text-primary dark:group-focus-within:text-primary-on-dark transition-colors"
                       >
                         <DataPoint initialData={dataPoints} name="login.form.password_label">
                           Access Key

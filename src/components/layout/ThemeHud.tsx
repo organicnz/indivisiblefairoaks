@@ -17,10 +17,10 @@ function SegmentedHudPill({ mode }: { mode: ThemeMode }) {
 
   const pillColor =
     mode === 'dark'
-      ? 'bg-sky-400 text-secondary shadow-xs ring-1 ring-sky-300/50'
+      ? 'bg-sky-400 text-ink-strong shadow-xs ring-1 ring-sky-300/50'
       : mode === 'light'
-        ? 'bg-amber-400 text-secondary shadow-xs ring-1 ring-amber-300/50'
-        : 'bg-emerald-400 text-secondary shadow-xs ring-1 ring-emerald-300/50';
+        ? 'bg-amber-400 text-ink-strong shadow-xs ring-1 ring-amber-300/50'
+        : 'bg-emerald-400 text-ink-strong shadow-xs ring-1 ring-emerald-300/50';
 
   if (prefersReduced) {
     return <span aria-hidden="true" className={`absolute inset-0 rounded-full ${pillColor}`} />;
@@ -373,7 +373,7 @@ export function ThemeHud() {
                 onKeyDown={(e) => handleHudSegmentKeyDown(e, m)}
                 className={`group/btn relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors duration-200 ease-out cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white ${
                   isActive
-                    ? 'text-secondary font-black'
+                    ? 'text-ink-strong font-black'
                     : 'text-ink-on-dark hover:text-white hover:bg-white/10 font-medium'
                 }`}
                 title={`Switch to ${themeModeLabel(m)} theme (Press ${keyNum} or Alt+${keyNum})`}
@@ -386,7 +386,7 @@ export function ThemeHud() {
                 <kbd
                   className={`relative z-10 px-1 py-0.5 rounded text-[9px] font-mono leading-none ${
                     isActive
-                      ? 'bg-black/20 text-secondary font-bold'
+                      ? 'bg-black/20 text-ink-strong font-bold'
                       : 'bg-white/10 text-white/50 group-hover/btn:text-white'
                   }`}
                 >

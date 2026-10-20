@@ -241,7 +241,7 @@ export function SacramentoRepresentativeFinder() {
   };
 
   return (
-    <div className="rounded-3xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl transition-colors">
+    <div className="rounded-3xl bg-surface-card border border-border p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl transition-colors">
       <div className="max-w-3xl">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 dark:bg-white/10 text-primary-ink dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
           <MapPin size={14} className="text-accent dark:text-primary-on-dark" />
@@ -307,7 +307,7 @@ export function SacramentoRepresentativeFinder() {
         </form>
 
         {/* Current District Header */}
-        <div className="p-4 rounded-2xl bg-surface-muted border border-border dark:bg-secondary dark:border-white/10 mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="p-4 rounded-2xl bg-surface-muted border border-border mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <DataPoint
               name="voter.repfinder.selected_community"
@@ -331,7 +331,7 @@ export function SacramentoRepresentativeFinder() {
           {activeDistrict.officials.map((official) => (
             <div
               key={official.name}
-              className="p-5 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 hover:border-primary/50 dark:hover:border-slate-700 transition-all flex flex-col justify-between shadow-xs"
+              className="p-5 rounded-2xl bg-surface-card border border-border hover:border-primary/50 dark:hover:border-slate-700 transition-all flex flex-col justify-between shadow-xs"
             >
               <div>
                 <div className="flex items-center justify-between text-xs mb-2">
@@ -407,7 +407,7 @@ export function SacramentoRepresentativeFinder() {
             </div>
 
             {/* Issue Selector Tabs */}
-            <div className="flex items-center gap-1 p-1 bg-surface-card dark:bg-secondary rounded-xl border border-border dark:border-white/10 text-xs font-medium">
+            <div className="flex items-center gap-1 p-1 bg-surface-card rounded-xl border border-border dark:border-white/10 text-xs font-medium">
               <button
                 type="button"
                 onClick={() => setSelectedIssue('voting')}
@@ -450,7 +450,7 @@ export function SacramentoRepresentativeFinder() {
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-surface-card dark:bg-secondary border border-border dark:border-white/10 font-sans text-xs sm:text-sm text-foreground/90 dark:text-slate-200 leading-relaxed mb-4 relative">
+          <div className="p-4 rounded-xl bg-surface-card border border-border font-sans text-xs sm:text-sm text-foreground/90 dark:text-slate-200 leading-relaxed mb-4 relative">
             &ldquo;{getCallScript()}&rdquo;
           </div>
 

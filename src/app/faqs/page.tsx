@@ -111,7 +111,7 @@ export default async function FAQPage() {
   };
 
   return (
-    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white pt-(--header-clearance) pb-20 min-h-screen">
+    <div className="w-full bg-background text-foreground pt-(--header-clearance) pb-20 min-h-screen">
       {/* JSON-LD. biome's noDangerouslySetInnerHtml is suppressed for this file
           (see biome.json); the value is escaped by serializeJsonLd, which handles
           <, >, & and the JS line separators so it cannot break out of the tag. */}
@@ -171,7 +171,7 @@ export default async function FAQPage() {
                     <div
                       key={faq.q}
                       data-data-point={faq.slug ? `faq.${faq.slug}` : undefined}
-                      className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-border dark:hover:border-white/20 transition-all space-y-2"
+                      className="p-6 rounded-2xl bg-surface-card border border-border hover:border-border dark:hover:border-white/20 transition-all space-y-2"
                     >
                       <h3 className="text-base sm:text-lg font-bold text-foreground dark:text-white">
                         {faq.q}

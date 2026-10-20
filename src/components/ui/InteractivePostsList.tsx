@@ -39,7 +39,7 @@ export function InteractivePostsList({ initialPosts }: InteractivePostsListProps
       </div>
 
       {initialPosts.length === 0 ? (
-        <div className="p-8 text-center rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 text-muted-foreground dark:text-ink-muted-on-dark">
+        <div className="p-8 text-center rounded-2xl bg-surface-card border border-border text-muted-foreground dark:text-ink-muted-on-dark">
           <FileText className="mx-auto mb-3 opacity-40" size={32} />
           <p className="text-sm">
             No published articles yet. Check back soon for deep-dive campaign reports and
@@ -73,7 +73,7 @@ export function InteractivePostsList({ initialPosts }: InteractivePostsListProps
             return (
               <article
                 key={post.id}
-                className="group p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 hover:border-primary/40 dark:hover:border-primary-bright/40 transition-all flex flex-col justify-between shadow-xs"
+                className="group p-6 rounded-2xl bg-surface-card border border-border hover:border-primary/40 dark:hover:border-primary-bright/40 transition-all flex flex-col justify-between shadow-xs"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">

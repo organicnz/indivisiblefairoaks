@@ -128,9 +128,9 @@ export default async function HomePage() {
                   </Link>
                   <Link
                     href="/donate"
-                    className="px-6 py-3.5 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-amber-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                    className="px-6 py-3.5 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-bold text-sm uppercase tracking-wider shadow-lg hover:shadow-amber-500/30 transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <Heart size={16} className="fill-secondary" />
+                    <Heart size={16} className="fill-current" />
                     <DataPoint as="span" name="home.hero.btn_support" initialData={dataPoints}>
                       Support Our Chapter
                     </DataPoint>
@@ -335,8 +335,8 @@ export default async function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-white/5 text-primary-on-dark-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Shield size={24} />
                 </div>
                 <DataPoint
@@ -358,8 +358,8 @@ export default async function HomePage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-accent-gold flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-white/5 text-accent-gold flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Vote size={24} />
                 </div>
                 <DataPoint
@@ -381,8 +381,8 @@ export default async function HomePage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-white/5 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Megaphone size={24} />
                 </div>
                 <DataPoint
@@ -404,8 +404,8 @@ export default async function HomePage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
-                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-slate-800 text-primary-on-dark flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all group">
+                <div className="w-12 h-12 rounded-xl bg-secondary dark:bg-white/5 text-primary-on-dark flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Users size={24} />
                 </div>
                 <DataPoint
@@ -596,9 +596,9 @@ export default async function HomePage() {
 
           <CopyRegion id="home-voter-hub">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-primary-on-dark-muted flex items-center justify-center mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-white/5 text-primary-on-dark-muted flex items-center justify-center mb-4">
                     <FileText size={20} />
                   </div>
                   <DataPoint
@@ -630,9 +630,9 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-accent-gold flex items-center justify-center mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-white/5 text-accent-gold flex items-center justify-center mb-4">
                     <Vote size={20} />
                   </div>
                   <DataPoint
@@ -664,9 +664,9 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-card hover:border-primary/40 dark:hover:border-primary-bright/50 transition-all flex flex-col justify-between">
                 <div>
-                  <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-slate-800 text-emerald-400 flex items-center justify-center mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-secondary dark:bg-white/5 text-emerald-400 flex items-center justify-center mb-4">
                     <Shield size={20} />
                   </div>
                   <DataPoint
@@ -766,9 +766,9 @@ export default async function HomePage() {
           <div className="pt-2 flex flex-wrap justify-center gap-4">
             <Link
               href="/donate"
-              className="px-8 py-4 rounded-xl bg-accent-gold hover:brightness-105 text-secondary font-black text-sm uppercase tracking-wider shadow-xl hover:scale-105 transition-all flex items-center gap-2"
+              className="px-8 py-4 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-black text-sm uppercase tracking-wider shadow-xl hover:scale-105 transition-all flex items-center gap-2"
             >
-              <Heart size={18} className="fill-secondary" />
+              <Heart size={18} className="fill-current" />
               <DataPoint as="span" name="home.cta.btn_donate" initialData={dataPoints}>
                 Donate via ActBlue
               </DataPoint>

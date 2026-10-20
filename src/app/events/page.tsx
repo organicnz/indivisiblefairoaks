@@ -22,7 +22,7 @@ export default async function EventsPage() {
   ]);
   const initialEvents = initialEventsRows.length > 0 ? initialEventsRows : undefined;
   return (
-    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
         <VgpuCivicConstellation />
@@ -59,7 +59,7 @@ export default async function EventsPage() {
         {/* Ongoing Street Corner Singing Protest Spotlight (Issue #87) */}
         <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/80 border border-border dark:from-blue-950/40 dark:via-slate-900 dark:to-indigo-950/40 dark:border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-surface-card dark:bg-secondary flex items-center justify-center text-accent dark:text-accent-gold shrink-0 mt-1 border border-border dark:border-white/10 shadow-xs">
+            <div className="w-12 h-12 rounded-xl bg-surface-card flex items-center justify-center text-accent dark:text-accent-gold shrink-0 mt-1 border border-border dark:border-white/10 shadow-xs">
               <Music size={24} />
             </div>
             <div>
@@ -130,7 +130,7 @@ export default async function EventsPage() {
 
           <CopyRegion id="events-trainings">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 rounded-2xl bg-surface-card border border-border dark:bg-secondary/70 dark:border-white/10 space-y-3">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
                 <DataPoint
                   initialData={dataPoints}
                   as="h3"
@@ -158,7 +158,7 @@ export default async function EventsPage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card border border-border dark:bg-secondary/70 dark:border-white/10 space-y-3">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
                 <DataPoint
                   initialData={dataPoints}
                   as="h3"
@@ -194,7 +194,7 @@ export default async function EventsPage() {
         </div>
 
         {/* Nonviolence Banner */}
-        <div className="p-6 rounded-2xl bg-surface-card border border-border dark:bg-secondary dark:border-white/10 flex items-start gap-4">
+        <div className="p-6 rounded-2xl bg-surface-card border border-border flex items-start gap-4">
           <AlertCircle className="text-accent dark:text-accent-gold shrink-0 mt-1" size={24} />
           <div className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark leading-relaxed">
             <DataPoint

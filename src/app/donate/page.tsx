@@ -18,7 +18,7 @@ export default async function DonatePage() {
   const dataPoints = await getDataPoints('donate');
 
   return (
-    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
       <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-slate-950 border-b border-white/10 py-16">
         <VgpuCivicConstellation />
@@ -66,7 +66,7 @@ export default async function DonatePage() {
 
           <CopyRegion id="donate-impact">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-3">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary-ink dark:bg-primary-bright/20 dark:text-primary-on-dark-muted flex items-center justify-center">
                   <Users size={20} />
                 </div>
@@ -89,7 +89,7 @@ export default async function DonatePage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-3">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
                 <div className="w-10 h-10 rounded-xl bg-accent/10 text-accent dark:bg-accent-gold/20 dark:text-accent-gold flex items-center justify-center">
                   <Music size={20} />
                 </div>
@@ -112,7 +112,7 @@ export default async function DonatePage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-3">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-600/20 text-rose-400 flex items-center justify-center">
                   <Megaphone size={20} />
                 </div>
@@ -135,7 +135,7 @@ export default async function DonatePage() {
                 </DataPoint>
               </div>
 
-              <div className="p-6 rounded-2xl bg-surface-card dark:bg-secondary/80 border border-border dark:border-white/10 space-y-3">
+              <div className="p-6 rounded-2xl bg-surface-card border border-border space-y-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center">
                   <Shield size={20} />
                 </div>

@@ -44,12 +44,12 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let modeLight = clamp(1.0 - abs(params.themeMode - 1.0), 0.0, 1.0);
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
-  let bgDarkStart = vec3f(0.01, 0.025, 0.07);
-  let bgDarkEnd   = vec3f(0.03, 0.06, 0.16);
-  let bgLightStart = vec3f(0.06, 0.14, 0.36);
-  let bgLightEnd   = vec3f(0.10, 0.24, 0.52);
-  let bgSystemStart = mix(vec3f(0.03, 0.08, 0.24), vec3f(0.015, 0.03, 0.09), darkFactor);
-  let bgSystemEnd   = mix(vec3f(0.06, 0.16, 0.38), vec3f(0.025, 0.07, 0.20), darkFactor);
+  let bgDarkStart = vec3f(0.086, 0.188, 0.361);
+  let bgDarkEnd   = vec3f(0.11, 0.23, 0.44);
+  let bgLightStart = vec3f(0.933, 0.957, 1.0);
+  let bgLightEnd   = vec3f(0.88, 0.92, 0.98);
+  let bgSystemStart = mix(vec3f(0.933, 0.957, 1.0), vec3f(0.086, 0.188, 0.361), darkFactor);
+  let bgSystemEnd   = mix(vec3f(0.88, 0.92, 0.98), vec3f(0.11, 0.23, 0.44), darkFactor);
 
   let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
   let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;

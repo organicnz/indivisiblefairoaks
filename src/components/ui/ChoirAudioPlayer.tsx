@@ -260,7 +260,7 @@ export function ChoirAudioPlayer() {
     : activeTrack.defaultNotes;
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-slate-900/95 dark:bg-slate-900/95 border border-white/10 p-5 sm:p-7 md:p-8 backdrop-blur-2xl shadow-float text-white">
+    <div className="relative overflow-hidden rounded-3xl bg-secondary/95 dark:bg-secondary/95 border border-white/10 p-5 sm:p-7 md:p-8 backdrop-blur-2xl shadow-float text-white">
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute -right-20 -top-20 size-72 rounded-full bg-primary-bright/15 blur-3xl" />
       <div className="pointer-events-none absolute -left-20 -bottom-20 size-64 rounded-full bg-indigo-600/10 blur-3xl" />
@@ -348,16 +348,16 @@ export function ChoirAudioPlayer() {
 
       {/* Stream Notice / Error with Retry Action */}
       {streamError && (
-        <div className="mb-4 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-200 flex flex-wrap items-center justify-between gap-2">
+        <div className="mb-4 rounded-xl border border-accent-gold/20 bg-accent-gold/10 p-3 text-xs text-amber-200 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Wifi size={14} className="shrink-0 text-amber-400" />
+            <Wifi size={14} className="shrink-0 text-accent-gold" />
             <span className="truncate">{streamError}</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => playActiveTrack(activeTrack)}
-              className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-semibold text-[11px] transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-accent-gold/20 hover:bg-accent-gold/30 text-amber-200 font-semibold text-[11px] transition-colors"
             >
               <DataPoint as="span" name="choir.player.retry_btn" initialData={dataPoints}>
                 Retry
@@ -501,7 +501,7 @@ export function ChoirAudioPlayer() {
           <div className="flex justify-end gap-2">
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl bg-primary-bright hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-wider shadow-raised transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-primary-bright hover:bg-primary-bright text-white font-bold text-xs uppercase tracking-wider shadow-raised transition-colors flex items-center gap-1.5"
             >
               <Radio size={13} />
               <DataPoint as="span" name="choir.player.custom_stream_btn" initialData={dataPoints}>

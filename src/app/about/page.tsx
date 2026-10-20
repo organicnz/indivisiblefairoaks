@@ -19,7 +19,7 @@ export default async function AboutPage() {
   const dataPoints = await getDataPoints('about');
 
   return (
-    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
       <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
         <VgpuCivicConstellation />
@@ -74,7 +74,7 @@ export default async function AboutPage() {
             <span>Our Mission Statement</span>
           </DataPoint>
           <CopyRegion id="about-mission">
-            <div className="p-8 rounded-2xl bg-surface-muted dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card space-y-4 text-muted-foreground dark:text-ink-on-dark leading-relaxed text-base">
+            <div className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4 text-muted-foreground dark:text-ink-on-dark leading-relaxed text-base">
               <DataPoint
                 name="about.mission.intro"
                 as="p"
@@ -204,7 +204,7 @@ export default async function AboutPage() {
         </section>
 
         {/* Commitment to Nonviolent Action */}
-        <section className="p-8 rounded-2xl bg-surface-muted dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card space-y-4">
+        <section className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card space-y-4">
           <DataPoint
             name="about.nonviolence.headline"
             as="h3"
@@ -253,7 +253,7 @@ export default async function AboutPage() {
         </section>
 
         {/* Contact & Join */}
-        <section className="p-8 rounded-2xl bg-surface-muted dark:bg-secondary/80 border border-border dark:border-white/10 shadow-card text-center space-y-6">
+        <section className="p-8 rounded-2xl bg-surface-muted border border-border shadow-card text-center space-y-6">
           <DataPoint
             name="about.join.headline"
             as="h3"

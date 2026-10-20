@@ -190,7 +190,7 @@ export function WallEChatWidget() {
               e.preventDefault();
               inputRef.current?.focus();
             }}
-            className="fixed z-[70] floating-safe-position-panel flex h-[min(36rem,calc(100dvh-12rem-var(--safe-area-top)-var(--safe-area-bottom)))] w-[min(25rem,calc(100vw-2rem-var(--safe-area-left)-var(--safe-area-right)))] flex-col overflow-hidden rounded-2xl border border-primary/20 dark:border-white/10 bg-surface-card dark:bg-secondary shadow-float data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-4 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom-4 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200"
+            className="fixed z-[70] floating-safe-position-panel flex h-[min(36rem,calc(100dvh-12rem-var(--safe-area-top)-var(--safe-area-bottom)))] w-[min(25rem,calc(100vw-2rem-var(--safe-area-left)-var(--safe-area-right)))] flex-col overflow-hidden rounded-2xl border border-primary/20 dark:border-white/10 bg-surface-card shadow-float data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-4 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom-4 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200"
           >
             <Dialog.Title className="sr-only">WALL-E site assistant</Dialog.Title>
             <header className="relative overflow-hidden bg-secondary px-5 py-4 text-white">
@@ -258,7 +258,7 @@ export function WallEChatWidget() {
                     className={`max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                       message.role === 'user'
                         ? 'rounded-br-md bg-primary dark:bg-primary-bright text-white shadow-raised shadow-primary/20'
-                        : 'rounded-bl-md border border-border dark:border-white/10 bg-surface-card dark:bg-secondary/90 text-foreground dark:text-ink-on-dark shadow-sm'
+                        : 'rounded-bl-md border border-border dark:border-white/10 bg-surface-card/90 text-foreground dark:text-ink-on-dark shadow-sm'
                     }`}
                   >
                     {message.role === 'assistant' ? (
@@ -333,7 +333,7 @@ export function WallEChatWidget() {
                         key={item.key}
                         type="button"
                         onClick={() => sendQuery(item.prompt)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border dark:border-white/10 bg-surface-card dark:bg-secondary/90 px-3 py-1.5 text-xs font-semibold text-primary-ink dark:text-primary-on-dark shadow-xs hover:border-primary/40 dark:hover:border-primary-bright/40 hover:bg-primary/5 dark:hover:bg-primary/15 transition-all duration-200 active:scale-95 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border dark:border-white/10 bg-surface-card/90 px-3 py-1.5 text-xs font-semibold text-primary-ink dark:text-primary-on-dark shadow-xs hover:border-primary/40 dark:hover:border-primary-bright/40 hover:bg-primary/5 dark:hover:bg-primary/15 transition-all duration-200 active:scale-95 cursor-pointer"
                       >
                         <DataPoint as="span" name={item.key} initialData={dataPoints}>
                           {item.defaultLabel}
@@ -346,7 +346,7 @@ export function WallEChatWidget() {
               {loading && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-ink-muted-on-dark">
                   <WallEAvatar small />
-                  <span className="rounded-full bg-surface-card dark:bg-secondary border border-border dark:border-white/10 px-3 py-2 shadow-sm text-foreground dark:text-ink-on-dark">
+                  <span className="rounded-full bg-surface-card border border-border px-3 py-2 shadow-sm text-foreground dark:text-ink-on-dark">
                     <DataPoint as="span" name="walle.checking" initialData={dataPoints}>
                       WALL-E is checking the site…
                     </DataPoint>
@@ -366,7 +366,7 @@ export function WallEChatWidget() {
                 maxLength={600}
                 placeholder={dataPoints['walle.input_placeholder'] || 'Ask WALL-E…'}
                 aria-label="Message WALL-E"
-                className="min-w-0 flex-1 rounded-full border border-border dark:border-white/10 bg-surface-muted dark:bg-secondary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark px-4 py-2.5 text-sm outline-none transition-colors duration-300 ease-out focus:border-primary dark:focus:border-primary-bright focus:bg-surface-card dark:focus:bg-secondary/90 focus:ring-2 focus:ring-primary/15"
+                className="min-w-0 flex-1 rounded-full border border-border dark:border-white/10 bg-surface-muted text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark px-4 py-2.5 text-sm outline-none transition-colors duration-300 ease-out focus:border-primary dark:focus:border-primary-bright focus:bg-surface-card dark:focus:bg-secondary/90 focus:ring-2 focus:ring-primary/15"
               />
               <button
                 type="submit"
@@ -418,12 +418,12 @@ export function WallEChatWidget() {
                   className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center"
                 >
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden" />
-                  <span className="relative inline-flex size-3 rounded-full border-2 border-white dark:border-slate-900 bg-emerald-500 shadow-xs" />
+                  <span className="relative inline-flex size-3 rounded-full border-2 border-white dark:border-white/10 bg-emerald-500 shadow-xs" />
                 </span>
               </span>
             )}
             {/* Tooltip */}
-            <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full bg-secondary/95 dark:bg-slate-800/95 backdrop-blur-md border border-white/10 px-3 py-1.5 text-xs font-bold text-white dark:text-slate-100 opacity-0 shadow-lg transition-opacity duration-300 ease-out hover-capable:group-hover:opacity-100 group-focus-visible:opacity-100">
+            <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-full bg-secondary/95 dark:bg-white/5/95 backdrop-blur-md border border-white/10 px-3 py-1.5 text-xs font-bold text-white dark:text-slate-100 opacity-0 shadow-lg transition-opacity duration-300 ease-out hover-capable:group-hover:opacity-100 group-focus-visible:opacity-100">
               {open ? (
                 <DataPoint as="span" name="walle.tooltip.close" initialData={dataPoints}>
                   Close

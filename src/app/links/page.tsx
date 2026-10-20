@@ -113,7 +113,7 @@ export default async function LinksPage() {
   }
 
   return (
-    <div className="w-full bg-background text-foreground dark:bg-secondary dark:text-white min-h-screen pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
       <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-16">
         <VgpuCivicConstellation />

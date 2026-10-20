@@ -167,7 +167,7 @@ export function applyThemeAttribute(
   }
   if (typeof document !== 'undefined') {
     const metas = document.querySelectorAll?.('meta[name="theme-color"]');
-    const color = effective === 'dark' ? '#0f172a' : '#ffffff';
+    const color = effective === 'dark' ? '#16305c' : '#eef4ff';
     if (metas && metas.length > 0) {
       metas.forEach((meta) => {
         meta.setAttribute('content', color);
@@ -201,7 +201,7 @@ export function themeBootstrapScript(): string {
     'document.documentElement.style.colorScheme=c;',
     "document.documentElement.classList.toggle('dark',d);",
     'var tc=document.querySelectorAll(\'meta[name="theme-color"]\');',
-    "for(var i=0;i<tc.length;i++)tc[i].setAttribute('content',d?'#0f172a':'#ffffff');",
+    "for(var i=0;i<tc.length;i++)tc[i].setAttribute('content',d?'#16305c':'#eef4ff');",
     '}catch(e){',
     `document.documentElement.setAttribute('${THEME_ATTR}','light');`,
     "document.documentElement.setAttribute('data-theme-mode','system');",

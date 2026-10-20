@@ -236,7 +236,7 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           className="cw prose prose-slate prose-lg max-w-none
             prose-headings:text-foreground prose-headings:uppercase prose-headings:font-black
             prose-p:text-muted-foreground prose-p:leading-relaxed
-            prose-a:text-primary dark:text-primary-on-dark prose-a:font-bold prose-a:no-underline hover:prose-a:underline
+            prose-a:text-primary dark:prose-a:text-primary-on-dark prose-a:font-bold prose-a:no-underline hover:prose-a:underline
             prose-strong:text-foreground prose-strong:font-black
             prose-img:rounded-3xl prose-img:shadow-lg"
           data-visual-edit-root=""

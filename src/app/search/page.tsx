@@ -81,7 +81,7 @@ export default async function SearchPage({
   }
 
   return (
-    <div className="w-full bg-background min-h-[70vh] text-foreground dark:bg-secondary dark:text-white pt-(--header-clearance) pb-20">
+    <div className="w-full bg-background min-h-[70vh] text-foreground pt-(--header-clearance) pb-20">
       {/* Header Banner with VGPU Constellation Network */}
       <section className="relative overflow-hidden bg-secondary text-white border-b border-border py-12 mb-10">
         <VgpuCivicConstellation />
