@@ -30,6 +30,34 @@
  * a hook that gets bypassed, so this runs in CI and nowhere else. The
  * pre-commit gate stays offline.
  *
+ * ## The second gate: the *shipped* tree must be clean
+ *
+ * The baseline is a **whole-tree** ratchet. It accepts an advisory
+ * *anywhere* in the tree, and the reason recorded against it is a human
+ * judgement — the accepted `braces` advisory says it is "reachable only
+ * through `ts-morph` inside the `vercel` CLI's tree, which is a
+ * devDependency and is not shipped".
+ *
+ * That judgement is a **manual claim about reachability**, and a manual
+ * claim is exactly the kind of thing that stops being true without anyone
+ * noticing. If `vercel` were ever promoted to a runtime dependency, the
+ * baseline would still accept the advisory, because the baseline is keyed on
+ * the GHSA id and knows nothing about which packages ship.
+ *
+ * So the gate makes **two** statements, from two different computations:
+ *
+ *   - the **whole tree** matches the baseline — a ratchet, so a new advisory
+ *     anywhere fails, and an accepted one must delete its own excuse; and
+ *   - the **production tree** — the packages reachable from `dependencies`,
+ *     which is what a visitor's browser and the serverless functions
+ *     actually load — has **zero** advisories. No baseline, no exceptions.
+ *
+ * `bun audit --production` computes that second set itself, from the
+ * dependency graph, rather than from a claim in a JSON file. Today it
+ * reports "No vulnerabilities found (checked 250 packages)" against 804
+ * installed — so the one accepted advisory really is dev-only, and that is
+ * now a *measured* fact rather than an assertion in a reason string.
+ *
  * ## Regenerating
  *
  *   bun scripts/check-vulnerabilities.mjs --update-baseline
@@ -67,15 +95,21 @@ function severityRank(s) {
  * advisory *database entry*, while the GHSA id is what the advisory is
  * published under and is what a human recognises.
  *
+ * `production` restricts the audit to the packages reachable from
+ * `dependencies` — the ones that ship. The devDependency tree, which is
+ * where the accepted advisory lives, is not consulted at all.
+ *
  * Returns `{ advisories }` on success, or `{ unknown: <reason> }` when the
  * advisory database could not be read at all.
  */
-function runAudit() {
+function runAudit({ production = false } = {}) {
   // `bun audit` exits non-zero when it finds advisories and still writes its
   // JSON report to stdout. `Bun.spawnSync` reports the exit code without
   // throwing, so the report and the status are both available — no
   // exception-driven control flow to read a status out of.
-  const { exitCode, stdout, stderr } = run(['bun', 'audit', '--json']);
+  const argv = ['bun', 'audit', '--json'];
+  if (production) argv.push('--production');
+  const { exitCode, stdout, stderr } = run(argv);
 
   // Only a failure with no JSON at all is an error.
   if (!stdout) {
@@ -115,11 +149,21 @@ async function readBaseline() {
 }
 
 const result = runAudit();
+const production = runAudit({ production: true });
 
-if (result.unknown) {
-  const message = `Could not read the advisory database: ${result.unknown}`;
+if (result.unknown || production.unknown) {
+  const message =
+    result.unknown ??
+    production.unknown ??
+    'the advisory database could not be read';
   if (JSON_OUT) {
-    console.log(JSON.stringify({ unknown: message, new: [], accepted: [], stale: [] }, null, 2));
+    console.log(
+      JSON.stringify(
+        { unknown: message, new: [], accepted: [], stale: [], shipped: [] },
+        null,
+        2
+      )
+    );
   } else {
     console.log(`⚠️   UNKNOWN — ${message}`);
     console.log('   The vulnerability state of the dependency tree is UNKNOWN, not clean.');
@@ -129,6 +173,7 @@ if (result.unknown) {
 }
 
 const advisories = result.advisories;
+const shippedAdvisories = production.advisories;
 const baseline = await readBaseline();
 const accepted = baseline.accepted ?? {};
 const found = new Map(advisories.map((a) => [a.ghsa, a]));
@@ -164,6 +209,7 @@ if (JSON_OUT) {
         new: newAdvisories,
         accepted: advisories.filter((a) => a.ghsa in accepted),
         stale,
+        shipped: shippedAdvisories,
         total: advisories.length,
       },
       null,
@@ -179,6 +225,9 @@ if (JSON_OUT) {
     }
   } else {
     console.log('✔  No advisories in the dependency tree.');
+  }
+  if (shippedAdvisories.length === 0) {
+    console.log('✔  No advisories in the shipped (production) dependency tree.');
   }
 }
 
@@ -206,6 +255,24 @@ if (stale.length > 0) {
   console.log('');
   console.log('   Regenerate the baseline:');
   console.log('     bun scripts/check-vulnerabilities.mjs --update-baseline');
+  failed = true;
+}
+
+if (shippedAdvisories.length > 0) {
+  console.log('');
+  console.log('✖  Advisories in the SHIPPED dependency tree — these reach production.');
+  for (const a of shippedAdvisories.sort(
+    (x, y) => severityRank(x.severity) - severityRank(y.severity)
+  )) {
+    console.log(`   [${a.severity}] ${a.package} ${a.ghsa} — ${a.title}`);
+    console.log(`           vulnerable: ${a.vulnerableVersions}`);
+  }
+  console.log('');
+  console.log('   The production tree is zero-tolerance. The baseline does not apply here:');
+  console.log('   an accepted advisory is a judgement about the *whole* tree, and the whole');
+  console.log('   tree includes devDependencies that never ship. This one does.');
+  console.log('');
+  console.log('   Fix it (an `overrides` pin is usually enough).');
   failed = true;
 }
 
