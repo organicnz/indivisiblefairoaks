@@ -78,6 +78,46 @@
  *   - `node_modules/`, `.next/`, `.vercel/`, `coverage/` and friends — build
  *     output and dependencies, not source.
  *
+ * ## A local binary invoked without `--bun` is a Node.js dependency in disguise
+ *
+ * This is the subtlest form of the mistake, and it is the one that survives a
+ * codebase that has removed Node.js from every *file*.
+ *
+ * Every binary in `node_modules/.bin` carries a `#!/usr/bin/env node` shebang:
+ *
+ *     $ head -1 node_modules/.bin/vitest
+ *     #!/usr/bin/env node
+ *     $ head -1 node_modules/.bin/biome
+ *     #!/usr/bin/env node
+ *
+ * And `bun <binary>` **honours that shebang**. Bun only substitutes itself
+ * for the interpreter when *Bun* is the thing doing the executing — which is
+ * why `bun <file>` runs a `node`-shebanged file on Bun, while
+ * `bun <binary>` runs the `.bin` shim through its shebang, and therefore
+ * through Node.js.
+ *
+ * Measured on this repository, with a stub `node` on `PATH`:
+ *
+ *     $ bun vitest --version
+ *     FAKE NODE INVOKED with: …/node_modules/.bin/vitest --version
+ *
+ *     $ bun --bun vitest --version
+ *     vitest/5.0.5 darwin-arm64 node-v26.3.0      ← Bun's Node-compat string
+ *
+ * So `bun vitest` runs the test suite on **Node.js** on a machine that has
+ * Node installed, and on **Bun** on a machine that does not. The runner fleet
+ * has no Node, so CI always got Bun; a developer's laptop with Node got
+ * Node. The suite then behaves differently in the two places, and the
+ * difference is invisible in the output — `process.versions.node` reports a
+ * Node-compatibility version string on both.
+ *
+ * `bun --bun <binary>` forces Bun's runtime and makes the two identical. That
+ * is the whole reason the flag exists, and this rule is what keeps every
+ * invocation in the repository spelled that way.
+ *
+ * The rule reads the local bin set out of `node_modules/.bin`, so a
+ * dependency that arrives tomorrow is covered without this file being edited.
+ *
  * ## Comments
  *
  * A rule that fires on prose teaches people to reach for the bypass, so a
@@ -112,8 +152,9 @@
 // `node:fs` and `node:path` are portable APIs Bun implements natively, and
 // this guard deliberately does not block them — it blocks `node:child_process`,
 // the one builtin that starts another runtime.
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { run } from '../bun-exec.mjs';
 
 const argv = process.argv.slice(2);
 const scanAll = argv.includes('--all');
@@ -169,6 +210,16 @@ const SCANNED_EXTENSIONS = new Set([
  * Whether a path is one this guard has no business judging.
  */
 function isExcluded(path) {
+  // `.agents/tasks/` is a gitignored local working directory — the same kind
+  // of thing as `.kiro/` and `scratch/`, which are excluded by name below. It
+  // holds task *specifications*: prose that describes commands an agent
+  // should run, rather than commands the toolchain runs. A guard that reads
+  // prose as an instruction fires on every one of them.
+  //
+  // Excluded by path rather than by segment, because `src/app/admin/crm/tasks/`
+  // is a real, tracked route and must not be swept up by accident.
+  if (path.startsWith('.agents/tasks/') || path.startsWith('agent/tasks/')) return true;
+
   const parts = path.split('/').filter(Boolean);
   if (parts.some((p) => EXCLUDED_DIRS.has(p))) return true;
   const dot = path.lastIndexOf('.');
@@ -290,6 +341,135 @@ const FILE_RULES = [
 ];
 
 /**
+ * The local bin set — the binaries `bun <name>` would resolve from
+ * `node_modules/.bin`.
+ *
+ * Read from the installed tree rather than hard-coded, so a dependency that
+ * arrives tomorrow is covered without this file being edited, and so a binary
+ * that is *removed* stops being special-cased.
+ *
+ * `node:fs`'s `readdir` rather than `Bun.Glob`, and the reason is measured
+ * rather than stylistic: **`Bun.Glob` does not list a directory of
+ * symlinks.** `node_modules/.bin` is exactly that — every entry is a symlink
+ * into the installed package — and a glob over it returns nothing at all:
+ *
+ *     $ bun -e "for await (const p of new Bun.Glob('*').scan({cwd:'node_modules/.bin'})) console.log(p)"
+ *     (no output)
+ *
+ * So the one directory listing in this repository that genuinely needs
+ * `node:fs` is the one Bun cannot answer. That is a narrower exception than
+ * the one the policy already allows, and it is narrower for a reason.
+ *
+ * The *path* is the conventional `node_modules/.bin`, with `bun pm bin` as the
+ * fallback. `bun pm bin` is Bun's own answer to "where is the bin folder",
+ * and it is layout-independent — so if Bun's install layout ever moves it, the
+ * guard follows rather than silently finding nothing. It is the fallback and
+ * not the primary because it costs a subprocess, and because its stdout can
+ * carry Bun's `.env`-loaded notice, which would have to be parsed out.
+ *
+ * `null` when the tree is not installed. The caller treats that as a finding
+ * rather than a pass: a rule that cannot see the bin set cannot see the
+ * violation, and a guard that reports success while measuring nothing is the
+ * failure mode this whole file exists to prevent.
+ */
+function localBinNames(root) {
+  let binDir = join(root, 'node_modules', '.bin');
+
+  if (!existsSync(binDir)) {
+    // Ask Bun where the bin folder is, in case the layout is not the
+    // conventional one.
+    //
+    // `cwd: root` matters: `bun pm bin` answers for the project it is run
+    // *in*, and the guard can be invoked from a subdirectory. Without it the
+    // fallback would answer for the wrong project.
+    const { exitCode, stdout } = run(['bun', 'pm', 'bin'], { cwd: root });
+    const reported =
+      exitCode === 0 ? stdout.split('\n').map((l) => l.trim()).find(Boolean) : null;
+    if (reported && existsSync(reported)) binDir = reported;
+  }
+
+  let entries;
+  try {
+    entries = readdirSync(binDir);
+  } catch {
+    return null;
+  }
+  // `node_modules/.bin` holds symlinks to the real entry points. A broken
+  // symlink is still a bin name — `bun` would try to run it — so the filter is
+  // on the name, not on whether the target resolves.
+  return new Set(entries.filter((name) => !name.startsWith('.')));
+}
+
+/**
+ * The `bun` invocations on a line, with the flags that precede the binary.
+ *
+ * A line can carry a command in two shapes, and both are real:
+ *
+ *   - a shell word — `run: bun biome ci ./src`
+ *   - an argv array — `run(['bun', 'vitest', 'run'])`
+ *
+ * The array shape is the one this repository uses most, because
+ * `scripts/bun-exec.mjs` takes argv arrays so that an interpolated value is
+ * an argument rather than shell syntax. So the search is for the *token*
+ * `bun`, wherever it appears, and the tokens that follow it are read out of
+ * the line with quotes and commas removed.
+ */
+function bunInvocations(line) {
+  // `bun` as a word — not `bunx`, not `Bun`, not a path segment like
+  // `node_modules/.bin/bun`.
+  const token = /(?<![\w@/.-])bun(?![\w-])/g;
+  const found = [];
+
+  for (const match of line.matchAll(token)) {
+    const rest = line.slice(match.index + match[0].length);
+    // Strip the quoting and comma separators an argv array is written with,
+    // so `', 'vitest', 'run'` reads as the words `vitest run`.
+    const words = rest
+      .replace(/['"`]/g, ' ')
+      .replace(/[,()[\]{}]/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
+
+    const flags = [];
+    let cursor = 0;
+    // `bun run <script>` is a different command from `bun <binary>`: it
+    // resolves a package.json script first. It still ends up in the `.bin`
+    // shim when no such script exists, so it is the same hazard.
+    if (words[cursor] === 'run') cursor++;
+
+    while (cursor < words.length && words[cursor].startsWith('-')) {
+      flags.push(words[cursor]);
+      cursor++;
+    }
+
+    const name = words[cursor];
+    if (!name) continue;
+
+    found.push({ name, flags, index: match.index });
+  }
+
+  return found;
+}
+
+/**
+ * The rule: a local binary is invoked without `--bun`.
+ *
+ * The flag is checked among the flags that *precede* the binary name, so a
+ * compound line is judged per invocation:
+ *
+ *     bun biome ci ./src && bun --bun oxlint ./src
+ *                  ^^^^^^ unpinned              ^^^^^ pinned
+ */
+function checkBunInvocation(line, bins) {
+  for (const invocation of bunInvocations(line)) {
+    if (!bins.has(invocation.name)) continue;
+    if (invocation.flags.includes('--bun')) continue;
+    return invocation.name;
+  }
+  return null;
+}
+
+/**
  * Whether a directory is a repository root.
  *
  * The presence of a `.git` entry is not enough. A `.git` *directory* without a
@@ -390,6 +570,29 @@ function resolvePath(file) {
 
 let scanned = 0;
 
+/**
+ * The local bin set, and the reason it might be missing.
+ *
+ * A missing `node_modules/.bin` means the `--bun` rule cannot be evaluated.
+ * That is a finding, not a pass: the rule would otherwise report success
+ * while measuring nothing, which is the exact failure mode this file exists
+ * to prevent.
+ */
+const localBins = localBinNames(base);
+if (!localBins) {
+  violations.push({
+    file: 'node_modules/.bin',
+    line: 0,
+    text: 'the local bin set could not be read',
+    rule: {
+      name: 'unreadable local bin set',
+      why:
+        'without node_modules/.bin the guard cannot tell which binaries are local, ' +
+        'so it cannot tell which of them Bun would hand to Node.js. Run `bun install` and try again.',
+    },
+  });
+}
+
 for (const file of targets) {
   const path = resolvePath(file);
 
@@ -420,6 +623,27 @@ for (const file of targets) {
         rule,
       });
     }
+
+    if (!localBins) continue;
+    if (isComment(line)) continue;
+
+    const unpinned = checkBunInvocation(line, localBins);
+    if (!unpinned) continue;
+
+    violations.push({
+      file,
+      line: i + 1,
+      text: line.trim().slice(0, 120),
+      rule: {
+        name: 'local binary not pinned to Bun',
+        why:
+          `\`bun ${unpinned}\` honours the \`#!/usr/bin/env node\` shebang in node_modules/.bin, ` +
+          'so it runs on Node.js wherever Node.js is installed and on Bun only where it is not. ' +
+          'Write `bun --bun ' +
+          unpinned +
+          '` to force Bun\'s runtime.',
+      },
+    });
   }
 }
 

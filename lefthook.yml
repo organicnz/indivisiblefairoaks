@@ -8,7 +8,7 @@
     # suppress-count baseline: 27  (checked in pre-push; composition is
     # documented beside the BASELINE below)
 
-# coverage threshold     : 90% (checked in pre-push + vitest.config.ts)
+# coverage threshold     : 90% (checked in pre-push + vitest.config.mts)
 # env contract           : every code-referenced env var exists in .env.example
 # lockfile contract      : package.json and bun.lock must move together
 # deps contract          : all non-optional peerDependencies must be satisfied
@@ -212,17 +212,22 @@ pre-commit:
       run: bun scripts/hooks/workflow-yaml.mjs {staged_files}
 
     # ── 24. Biome – format + lint staged files ────────────────────────────────
+    # `bun --bun`, not `bun`: every bin in `node_modules/.bin` carries a
+    # `#!/usr/bin/env node` shebang, and `bun <bin>` honours it. On a
+    # developer's machine that has Node installed, the linter would run on
+    # Node; on the runner, which has none, it would not start. `--bun` forces
+    # Bun's runtime and makes the two identical.
     biome-check:
       priority: 21
       glob: "*.{js,jsx,ts,tsx,json,css}"
-      run: bun biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      run: bun --bun biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
 
     # ── 25. oxlint – React / hooks / Next.js rules ───────────────────────────
     oxlint:
       priority: 22
       glob: "*.{ts,tsx}"
-      run: bun oxlint {staged_files}
+      run: bun --bun oxlint {staged_files}
 
     # ── 26. TypeScript – type-check without full build ────────────────────────
     # `bun check` is Bun's built-in type checker (a typescript-go port). It reads
@@ -234,13 +239,38 @@ pre-commit:
     typecheck:
       priority: 23
       glob: "*.{ts,tsx}"
-      run: bun tsrs --noEmit
+      run: bun --bun tsrs --noEmit
 
     # ── 27. E2E spec list check (no browsers) ────────────────────────────────
     # Body: scripts/hooks/e2e-spec-list.mjs
+    #
+    # **Two globs, and the reason is not cosmetic.** lefthook matches with
+    # gobwas/glob, where `**/` means "one or more directory levels" — so
+    # `e2e/**/*.spec.ts` does **not** match `e2e/contact.spec.ts`.
+    #
+    # Every spec in this repository sits directly in `e2e/`, so the old glob
+    # matched *nothing*: the check had been dead since it was written, and it
+    # reported success while measuring nothing. Verified with lefthook's own
+    # matcher:
+    #
+    #     $ lefthook run pre-commit --file e2e/contact.spec.ts
+    #     │  old (skip) no matching staged files
+    #
+    # `e2e/*.ts` covers the files directly in `e2e/`; `e2e/**/*.ts` covers
+    # the ones in subdirectories. Both are needed, which is why this is a
+    # list.
+    #
+    # The scope is the whole `e2e/` TypeScript, not just the specs:
+    # `e2e/helpers/ports.ts` is imported by the specs, so a syntax error in
+    # it is a spec that cannot be listed. `e2e/global-setup.ts` is the
+    # exception — Playwright does not load the global setup at `--list` time,
+    # so that file is covered by the type check instead (tsconfig's `include`
+    # is `**/*.ts`).
     e2e-spec-list:
       priority: 24
-      glob: "e2e/**/*.spec.ts"
+      glob:
+        - "e2e/*.{ts,tsx}"
+        - "e2e/**/*.{ts,tsx}"
       run: bun scripts/hooks/e2e-spec-list.mjs
 
     # ── 28. Env usage coverage ────────────────────────────────────────────────
@@ -553,7 +583,7 @@ pre-push:
 
     typecheck:
       priority: 34
-      run: bun tsrs --noEmit
+      run: bun --bun tsrs --noEmit
 
     # ── 7. Build smoke-test ───────────────────────────────────────────────────
     # Coverage thresholds are enforced in CI (`.github/workflows/ci.yml`).

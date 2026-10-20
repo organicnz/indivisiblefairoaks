@@ -16,6 +16,41 @@ lockfile = true
 autoInstallPeers = false
 
 [run]
+# Alias `node` to `bun` for everything this project runs.
+#
+# Every binary in `node_modules/.bin` carries a `#!/usr/bin/env node` shebang,
+# and `bun <binary>` honours that shebang — so it hands the program to
+# Node.js whenever Node.js is installed, and to Bun only when it is not.
+# Measured on this repository, with a stub `node` on `PATH`:
+#
+#     $ bun vitest --version
+#     FAKE NODE INVOKED with: …/node_modules/.bin/vitest --version
+#
+#     $ bun --bun vitest --version
+#     vitest/5.0.5 darwin-arm64 node-v26.3.0      ← Bun's Node-compat string
+#
+# So `bun vitest` ran the unit suite on **Node.js** on any machine with Node
+# installed, and on **Bun** on the runner fleet, which has none. The suite
+# behaved differently in the two places, and the difference was invisible in
+# the output.
+#
+# `bun = true` makes it deterministic everywhere. Bun prepends `$PATH` with a
+# `node` symlink pointing at the `bun` binary, so a `node` shebang resolves to
+# Bun — which is what makes the shebang decision above land on Bun rather
+# than on whatever Node.js the machine happens to have.
+#
+# **This is set explicitly, not left to the default.** Bun enables it by
+# default *only when `node` is not already in `$PATH`* — which is precisely
+# the machine-dependent case. Being explicit makes the behaviour identical on
+# a laptop with Node and on a runner without it.
+#
+# The explicit `bun --bun` on each invocation is the *primary* guarantee: it
+# does not depend on this file being found, which matters for a `bun` invoked
+# from another directory or outside the project. This setting is the second
+# line of defence, and it also covers the shebangs this repository does not
+# write itself — a dependency's `postinstall` script, for instance.
+bun = true
+
 # Run package.json scripts with Bun's own shell rather than the system `sh`.
 #
 # Bun's shell is a real shell with its own parser, not a wrapper around
@@ -25,9 +60,9 @@ autoInstallPeers = false
 # runtime is Bun, having the *scripts* fall back to the system shell is an
 # inconsistency worth removing.
 #
-# The scripts in this package.json are ordinary commands, plus one shell
-# construct — `test -d .git && lefthook install || true` — which Bun's shell
-# handles correctly (verified). The lefthook hooks do not go through here
+# There is no shell construct left in this `package.json` to support: the
+# `prepare` script was the last one, and it is now
+# `bun scripts/install-hooks.mjs`. The lefthook hooks do not go through here
 # at all: they are invoked as `bun scripts/hooks/<name>.mjs`, so they are
 # Bun processes either way.
 shell = "bun"

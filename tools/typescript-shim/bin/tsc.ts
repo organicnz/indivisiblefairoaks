@@ -57,7 +57,6 @@
  */
 
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 if (typeof Bun === 'undefined') {
   console.error(
@@ -323,7 +322,7 @@ async function resolveTsrsBinary(): Promise<string> {
 
   const resolverPath = join(tsrsDir, 'lib', 'getExePath.js');
   if (await Bun.file(resolverPath).exists()) {
-    const resolver = (await import(pathToFileURL(resolverPath).href)) as {
+    const resolver = (await import(Bun.pathToFileURL(resolverPath).href)) as {
       default: () => string;
     };
     return resolver.default();

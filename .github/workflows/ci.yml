@@ -231,11 +231,19 @@ jobs:
       # silently ran a different version than the lockfile pins is exactly the
       # failure the Playwright invocation below is written to avoid. `bun`
       # resolves the local install and nothing else.
+      #
+      # `bun --bun <binary>`, not `bun <binary>`. Every bin in
+      # `node_modules/.bin` carries a `#!/usr/bin/env node` shebang — biome's
+      # even calls `require("child_process")` — and `bun <binary>` honours
+      # that shebang. On a machine with Node installed the linter would run on
+      # **Node**; on the runner, which has none, it would fail to start at
+      # all. `--bun` forces Bun's runtime and makes the two identical. See
+      # AGENTS.md, "The runtime is Bun".
       - name: Biome lint
-        run: bun biome ci ./src
+        run: bun --bun biome ci ./src
 
       - name: Oxlint
-        run: bun oxlint ./src
+        run: bun --bun oxlint ./src
 
       # There is no type-check cache here any more, and there is nothing to
       # restore one from.
@@ -261,7 +269,7 @@ jobs:
         # It is a **native binary** (the npm package ships per-platform
         # executables), so the type check needs no JavaScript runtime at all
         # beyond the launcher Bun runs it with.
-        run: bun tsrs --noEmit
+        run: bun --bun tsrs --noEmit
 
       - name: TypeScript — bun check (second implementation)
         # A second opinion, not a second gate. `bun check` is Bun's own
@@ -366,7 +374,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run tests with coverage
-        run: bun vitest run --coverage
+        run: bun --bun vitest run --coverage
 
   # ── 3. Migration history (pre-merge gate) ──────────────────────────────────
   # Runs on EVERY pull request with no path filter. That is the whole point: a
@@ -451,10 +459,29 @@ jobs:
       #     prerendering is serial rather than one worker per host CPU;
       #   - `--workers=1` for Playwright, so one Chromium fights the build for
       #     memory instead of several.
-      # If the container ever becomes the binding constraint again, the
-      # Bun-native lever is `--smol` (more frequent GC, less resident memory) —
-      # and it should be measured before it is enabled, because it trades
-      # wall clock for footprint.
+      #
+      # `--smol` is NOT the lever, and that was measured rather than assumed.
+      # The comment here used to propose it — "more frequent GC, less resident
+      # memory" — on the reasoning that it should be measured first. Measured:
+      # three runs each, peak resident set size of `bun --bun next build`
+      # against `bun --smol --bun next build`, on the same machine:
+      #
+      #     plain  1388 MiB · 1846 MiB · 1192 MiB
+      #     smol   1487 MiB · 1561 MiB · 1216 MiB
+      #
+      # The two distributions overlap completely — the same command measured
+      # 1.19 GiB and 1.85 GiB on different runs — so `--smol` did not move
+      # the footprint beyond the run-to-run variance, and its effect on wall
+      # clock was lost in the same noise. The build's memory profile is
+      # dominated by something other than GC pressure, so a smaller heap does
+      # not help. `experimental.cpus: 1` is the lever that does.
+      #
+      # Worth knowing in the other direction too: the build's peak RSS is
+      # 1.2–1.8 GiB, which is *above* this container's 1024 MiB ceiling. The
+      # job passes because the cgroup counts the whole tree against 1 GiB
+      # with 4 GiB of swap behind it, and because `experimental.cpus: 1`
+      # keeps the working set serial. A runner with less headroom would need
+      # a different build strategy, not a different GC setting.
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
