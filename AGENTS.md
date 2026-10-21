@@ -1412,6 +1412,32 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
   independent of the system Node: nothing in this repository's workflows
   uses `actions/setup-node`, and no project command can reach the runner's
   copy.
+- **That copy is on Node 24, because the actions are.** The workflow's
+  actions were three majors behind — `actions/checkout@v4`,
+  `actions/upload-artifact@v4` and `actions/cache@v4` — and every one of them
+  targets **Node 20**, which the runners now deprecate:
+
+  > Node.js 20 is deprecated. The following actions target Node.js 20 but are
+  > being forced to run on Node.js 24: actions/checkout@v4,
+  > actions/upload-artifact@v4.
+
+  The upload action also emitted `punycode` and `url.parse()` deprecation
+  warnings from its own code. `checkout` is on **v7**, `upload-artifact` on
+  **v7** and `cache` on **v6** now, and every one of them runs on Node 24.
+  `upload-artifact@v6` fixed the `punycode` deprecation outright.
+
+  Three things had to be true for the jump to be safe, and all three were
+  checked rather than assumed. The **runner** is `2.337.0`, and the Node 24
+  majors require `2.327.1` or newer. The workflows set
+  `persist-credentials: false` everywhere, which matters because
+  `checkout@v6` changed *where* credentials are persisted when they are
+  persisted at all. And `checkout@v7` blocks fork checkouts for
+  `pull_request_target` and `workflow_run` — neither of which this
+  repository's workflows use, since they trigger on `pull_request` and
+  `push`.
+
+  The deprecation warnings are gone from the job logs, and the last Node 20
+  in the toolchain went with them.
 - **Trunk is gone, and it was the only thing on a developer machine that
   pulled a Node runtime.** `.trunk/trunk.yaml` enabled `node@26.8.1`,
   because two of trunk's linters — `markdownlint` and `svgo` — are npm
