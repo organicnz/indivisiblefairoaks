@@ -356,6 +356,18 @@ describe('Civic CRM Server Actions', () => {
   });
 
   describe('getCRMContacts', () => {
+    it('treats an absent filter as an empty one', async () => {
+      // `status ?? ''` and its two siblings. A caller that passes no filter at
+      // all gets the unfiltered directory — not a filter on the *string*
+      // "undefined", which is what a `??` that read `String(status)` would
+      // have produced.
+      tables.crm_contacts = { rows: [] };
+
+      const res = await getCRMContacts({});
+      expect(res.contacts).toEqual([]);
+      expect(res.totalCount).toBe(0);
+    });
+
     it('applies query filters and pagination range', async () => {
       // Eleven volunteers who match every filter, plus one supporter carrying
       // the same `choir` tag. The supporter is the control: `filterRows` states

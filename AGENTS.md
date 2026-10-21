@@ -1723,6 +1723,40 @@ setup at `--list` time, so that file is covered by the type check instead
   the pipeline green. Their remaining uncovered branches are `?? 0` / `?? 'draft'`
   defences against `NOT NULL` columns. A floor is a ratchet, not an exemption: it can
   only go up.
+- **The coverage measurement depends on the Bun version, and the floors have
+  to rest on tests rather than on the instrument.**
+  Bun's v8 coverage changed how it counts a **never-taken fallback**: the
+  older canary counted `value ?? fallback` as covered when only the left
+  side was taken, and the newer canary counts it as uncovered. Measured on
+  the same tree, the same tests:
+
+  | | Bun `6bb5dc195` | Bun `9b4284f7` |
+  |---|---|---|
+  | `crm.ts` branches | 93.07% | **84.91%** |
+  | the thresholded set | 92% | 87% |
+
+  The newer numbers are the *accurate* ones: a fallback nobody exercises is
+  not coverage. And the floors had been satisfied partly by the old
+  instrument's over-reporting — so the gate had been failing on CI since the
+  canary moved, masked by the `Bun is not defined` failure that the
+  `--bun` fix removed. It surfaced as
+  `Coverage for branches (84.91%) does not meet "src/lib/actions/crm.ts"
+  threshold (85%)`.
+
+  The response was to **test the gap, not to lower the floor**. Every
+  fallback the gate named was either exercised by a new test or shown to be
+  unreachable by construction (PostgREST answers a table select with `[]`,
+  never `null`; Zod always produces at least one issue, so its
+  `issues[0]?.message` has a message). `crm.ts` went from 84.91% to **86%**
+  and the floors are unchanged.
+
+  The rule this leaves behind is the one the repository already applied to
+  `tsrs`: **a gate's output must not depend on a moving toolchain**, and
+  when it does move, the gap is a gap in the *tests*. `/* v8 ignore next */`
+  is available for a branch that is genuinely unreachable, and it makes the
+  measurement identical under both Buns — but it also removes the branch
+  from the denominator, so it is a statement about the code rather than a
+  way to make a number.
 - **Two exclusion globs do not compose; write one.** Vitest treats each threshold key
   as its own "everything except this" set, so naming `'!crm.ts'` and
   `'!content.ts'` separately makes each one *include* the other file, and each set

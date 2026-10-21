@@ -124,6 +124,38 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       const res = await getCRMMediaFiles({ folder: 'crm' });
       expect(res.items.map((item) => item.name)).toEqual(['newer.jpg', 'older.jpg']);
     });
+
+    it('defaults to the crm folder when no folder is given', async () => {
+      // `options?.folder || 'crm'` — the caller may pass no options at all,
+      // and the default is the folder the media library opens on.
+      mockStorageFrom.list.mockResolvedValueOnce({ data: [], error: null });
+
+      const res = await getCRMMediaFiles();
+      expect(res.items).toEqual([]);
+      expect(mockStorageFrom.list).toHaveBeenCalledWith('crm', expect.anything());
+    });
+
+    it('fills in the defaults a storage row may be missing', async () => {
+      // A row with no `metadata`, no `id` and no timestamps is what a file
+      // uploaded outside the CRM looks like. Every field the library shows has
+      // a fallback, and this is the test that says the fallbacks are the ones
+      // that are used — a row missing `metadata` must not render `undefined`
+      // bytes or a broken URL.
+      mockStorageFrom.list.mockResolvedValueOnce({
+        data: [{ name: 'bare-upload.jpg' }],
+        error: null,
+      });
+
+      const res = await getCRMMediaFiles({ folder: 'crm' });
+      expect(res.items).toHaveLength(1);
+      const item = res.items[0];
+      expect(item.size).toBe(0);
+      expect(item.mimeType).toBe('image/jpeg');
+      // No `created_at` and no `updated_at`: the library falls back to now.
+      expect(item.createdAt).toBeTruthy();
+      // No `id`: the object's path is the reference.
+      expect(item.id).toBe('crm/bare-upload.jpg');
+    });
   });
 
   describe('uploadCRMMedia', () => {
@@ -175,6 +207,27 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(res.data?.folder).toBe('crm');
       expect(res.data?.mimeType).toBe('image/png');
       expect(res.data?.path).toMatch(/^crm\/banner-[a-z0-9]+\.png$/);
+    });
+
+    it('names a file whose name reduces to nothing', async () => {
+      // A file called `.jpg` has an empty stem once the extension is removed,
+      // and an empty name is not a name — so the fallback is `media`. The
+      // extension itself is still taken from the file's *type*, not from the
+      // name, which is why the path ends in `.jpg` and not in nothing.
+      mockStorageFrom.upload.mockResolvedValueOnce({
+        data: { path: 'crm/media-abc.jpg' },
+        error: null,
+      });
+
+      const fd = new FormData();
+      const nameless = new File([new Uint8Array([1, 2, 3])], '.jpg', {
+        type: 'image/jpeg',
+      });
+      fd.append('file', nameless);
+
+      const res = await uploadCRMMedia(fd);
+      expect(res.success).toBe(true);
+      expect(res.data?.path).toMatch(/^crm\/media-[a-z0-9]+\.jpg$/);
     });
 
     it('falls back to a generic message when the upload throws a non-Error', async () => {
@@ -438,6 +491,31 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
         expect(status.edgeFunction).toBe(false);
         expect(status.edgeFunctionDetails?.ready).toBe(false);
         expect(status.edgeFunctionDetails?.missing).toContain('HTTP_503');
+      });
+
+      it('treats a probe body with neither `ready` nor `ok` as ready', async () => {
+        // `body.ready ?? body.ok ?? true`: a probe that answers with a body it
+        // does not recognise is not a failure. The default is the optimistic
+        // one, and this is the test that says so — a probe that answered
+        // `false` for a body it did not understand would report every
+        // deployment as broken.
+        mockAdminClient.from.mockReturnValueOnce({
+          select: vi.fn(() => ({
+            limit: vi.fn().mockResolvedValue({ error: null, data: [{ id: '1' }] }),
+          })),
+        });
+        mockStorageFrom.list.mockResolvedValueOnce({ data: [], error: null });
+
+        vi.stubGlobal(
+          'fetch',
+          vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ status: 'unknown-shape' }),
+          })
+        );
+
+        const status = await getCRMEdgeFunctionHealth();
+        expect(status.edgeFunction).toBe(true);
       });
 
       it('reports unreachable when the probe throws', async () => {
