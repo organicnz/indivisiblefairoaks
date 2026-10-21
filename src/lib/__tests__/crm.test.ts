@@ -221,6 +221,24 @@ describe('Civic CRM Server Actions', () => {
       expect(activity?.title).toBe('Status Changed');
       expect(activity?.metadata).toEqual({ from: 'supporter', to: 'organizer' });
     });
+
+    it('reports that the contact no longer exists when the update matched nothing', async () => {
+      // A contact deleted between the read and the write leaves the update
+      // matching no row. "That contact no longer exists" is the answer that
+      // sends a volunteer back to the list; a bare failure would not.
+      const validUuid = 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d';
+      tables.crm_contacts = { rows: [] };
+
+      const res = await saveCRMContact({
+        id: validUuid,
+        email: 'jane@example.com',
+        first_name: 'Jane',
+        status: 'organizer',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('no longer exists');
+    });
   });
 
   describe('getCRMBroadcastDrafts', () => {
@@ -781,6 +799,21 @@ describe('Civic CRM Server Actions', () => {
       expect(res.success).toBe(false);
     });
 
+    it('surfaces the database error when the task cannot be inserted', async () => {
+      // The insert is the only thing that can fail here, so the error the
+      // database reports is the error the caller has to see — a generic
+      // "could not add" would send a volunteer looking in the wrong place.
+      tables.crm_tasks = { rows: [], error: { message: 'tasks table is locked' } };
+
+      const res = await addCRMTask({
+        contactId: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        title: 'Call about canvass',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('tasks table is locked');
+    });
+
     it('marks a task done with completed_at', async () => {
       // The update asks for the affected row back (`.select('contact_id')`) so it
       // can revalidate the contact's page, which means an update matching
@@ -1216,6 +1249,21 @@ describe('Civic CRM Server Actions', () => {
 
       expect(res.success).toBe(false);
       expect(res.error).toBe('Title is required');
+    });
+
+    it('surfaces the database error when the note cannot be written', async () => {
+      // The insert is the only thing that can fail, so the error the database
+      // reports is the error the caller has to see.
+      tables.crm_activities = { rows: [], error: { message: 'activities table is locked' } };
+
+      const res = await addCRMNote({
+        contactId: 'contact-uuid-1',
+        title: 'Attended Rally',
+        description: 'Brought 4 neighbors.',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('activities table is locked');
     });
   });
 

@@ -244,6 +244,23 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(res.error).toBe('Failed to upload media');
     });
 
+    it('surfaces the message when the upload throws an Error', async () => {
+      // The other side of the same branch: a thrown `Error` carries a message
+      // worth showing, and only a thrown *non-Error* has to be replaced with
+      // a generic one.
+      mockStorageFrom.upload.mockRejectedValueOnce(new Error('bucket is read-only'));
+
+      const fd = new FormData();
+      const validPng = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'banner.png', {
+        type: 'image/png',
+      });
+      fd.append('file', validPng);
+
+      const res = await uploadCRMMedia(fd);
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('bucket is read-only');
+    });
+
     it('surfaces the storage error message when the upload is rejected', async () => {
       mockStorageFrom.upload.mockResolvedValueOnce({
         data: null,
@@ -431,6 +448,17 @@ describe('CRM Supabase S3 Storage Media & Edge Function API', () => {
       expect(status.database).toBe(false);
       expect(status.storage).toBe(false);
       expect(status.error).toBe('Failed to query CRM health');
+    });
+
+    it('surfaces the message when requireAdmin throws an Error', async () => {
+      // The other side of the same branch: a thrown `Error` carries a message
+      // worth showing, and only a thrown *non-Error* has to be replaced.
+      const { requireAdmin } = await import('@/lib/admin-auth');
+      vi.mocked(requireAdmin).mockRejectedValueOnce(new Error('admin session expired'));
+
+      const status = await getCRMEdgeFunctionHealth();
+      expect(status.database).toBe(false);
+      expect(status.error).toBe('admin session expired');
     });
 
     describe('with CRM_BROADCAST_FUNCTION_URL set', () => {

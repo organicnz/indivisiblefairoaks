@@ -1769,12 +1769,20 @@ setup at `--list` time, so that file is covered by the type check instead
   `Coverage for branches (84.91%) does not meet "src/lib/actions/crm.ts"
   threshold (85%)`.
 
-  The response was to **test the gap, not to lower the floor**. Every
-  fallback the gate named was either exercised by a new test or shown to be
-  unreachable by construction (PostgREST answers a table select with `[]`,
-  never `null`; Zod always produces at least one issue, so its
-  `issues[0]?.message` has a message). `crm.ts` went from 84.91% to **86%**
-  and the floors are unchanged.
+  The response was to **test the gap, not to lower the floor**. The
+  fallbacks that a caller can actually reach — the media library's defaults
+  for a row with no metadata, the directory query with no filter, the
+  health probe answering with a body it does not recognise, a file whose name
+  reduces to nothing — are now exercised by new tests. `crm.ts` went from
+  84.91% to **86%** and the floors are unchanged.
+
+  What is left uncovered in `crm.ts` is mostly **error paths** — `if (error)
+  return { success: false, error: error.message }` and its neighbours — and
+  those are a real gap the floor deliberately allows at 85%, not something to
+  annotate away. `/* v8 ignore next */` is available for a branch that is
+  genuinely unreachable, and it makes the measurement identical under both
+  Buns — but it also removes the branch from the denominator, so it is a
+  statement about the code rather than a way to make a number.
 
   The rule this leaves behind is the one the repository already applied to
   `tsrs`: **a gate's output must not depend on a moving toolchain**, and
