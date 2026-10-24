@@ -70,7 +70,7 @@ import {
   setContentStatus,
 } from '@/lib/actions/content';
 import { getCRMEdgeFunctionHealth, uploadCRMMedia } from '@/lib/actions/crm';
-import { getVisualPageContext, type VisualPageContext } from '@/lib/actions/visual';
+import { getVisualPageContext } from '@/lib/actions/visual';
 import {
   type Block,
   CALLOUT_TONES,
@@ -122,6 +122,7 @@ import type {
   MoveSectionDetail,
   ToggleSectionDetail,
   VisualContentRow,
+  VisualPageContext,
   VisualSectionOverlayItem,
 } from '@/types/unified';
 import { CRMPanel } from './CRMPanel';
