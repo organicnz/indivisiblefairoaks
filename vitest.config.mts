@@ -43,7 +43,6 @@ export default defineConfig({
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
-      '**/.trunk/**',
       '**/.next/**',
       '**/.worktrees/**',
       'e2e/**',

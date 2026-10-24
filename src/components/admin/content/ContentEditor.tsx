@@ -42,6 +42,7 @@ import {
   undo as undoHistory,
 } from '@/lib/editor-history';
 import { htmlToExcerpt } from '@/lib/sanitize';
+import { isStaleConflict } from '@/lib/visual-edit/conflict';
 import { BlockEditor } from './BlockEditor';
 import { ContentImageInput } from './ContentImageInput';
 import { ContentPreview } from './ContentPreview';
@@ -95,13 +96,6 @@ interface EditorFields {
 
 /** The failure branch of a save, so `persist` keeps a narrow union return type. */
 type SaveFailure = { success: false; error: string };
-
-/**
- * The prefix `saveContent` uses for an optimistic-concurrency refusal. Matching
- * on the message is deliberately narrow: this UI branch must recognise only the
- * failure whose only safe recovery is reloading onto the newer row.
- */
-const STALE_SAVE_CONFLICT_PREFIX = 'Someone else saved this page';
 
 /**
  * A save whose promise *rejected*, which is a different animal from a save that
@@ -389,8 +383,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
     via: 'manual' | 'autosave';
   } | null>(null);
   const activeSaveFailure = saveFailure?.snapshot === snapshot ? saveFailure : null;
-  const staleSaveConflict =
-    activeSaveFailure?.message.startsWith(STALE_SAVE_CONFLICT_PREFIX) ?? false;
+  const staleSaveConflict = isStaleConflict(activeSaveFailure?.message);
   const saveFailureLabel = activeSaveFailure?.via === 'manual' ? 'Save failed' : 'Autosave failed';
 
   const handleSaveRef = useRef<() => void>(() => {});

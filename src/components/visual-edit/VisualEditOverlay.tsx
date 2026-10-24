@@ -5,7 +5,6 @@ import {
   Activity,
   ArrowDown,
   ArrowUp,
-  Bold,
   Calendar,
   Check,
   ClipboardPaste,
@@ -13,23 +12,18 @@ import {
   Copy,
   Database,
   Download,
-  Eraser,
   ExternalLink,
   Eye,
   EyeOff,
   FilePlus2,
   FolderOpen,
   Globe,
-  Highlighter,
   History,
   Image as ImageIcon,
   ImagePlus,
-  Italic,
   Keyboard,
   Layers,
   Link as LinkIcon,
-  List,
-  ListOrdered,
   Loader2,
   Monitor,
   Moon,
@@ -41,13 +35,10 @@ import {
   Settings,
   Smartphone,
   Sparkles,
-  Strikethrough,
   Sun,
   Tablet,
   Trash2,
-  Underline,
   Undo2,
-  Unlink,
   Upload,
   UploadCloud,
   UsersRound,
@@ -107,6 +98,7 @@ import {
 } from '@/lib/editor-history';
 import { saveDataPoint } from '@/lib/queries/civic-client';
 import { themeModeLabel } from '@/lib/theme';
+import { isStaleConflict } from '@/lib/visual-edit/conflict';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import { highlightPageSection } from '@/lib/visual-edit-mode';
 import {
@@ -132,6 +124,12 @@ import type {
   VisualSectionOverlayItem,
 } from '@/types/unified';
 import { CRMPanel } from './CRMPanel';
+import {
+  applyInlineFormatCommand,
+  type InlineFormatCommand,
+  InlineFormatToolbar,
+} from './InlineFormatToolbar';
+import { useBlockWriter } from './useBlockWriter';
 
 /**
  * Visual editing surface for every page across the site.
@@ -171,63 +169,26 @@ export interface ImageEditSession {
 }
 
 /**
- * Wraps or toggles the active DOM selection with an inline HTML element.
- */
-function wrapSelectionWithTag(tagName: string, className?: string) {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
-  const range = selection.getRangeAt(0);
-  const selectedText = range.toString();
-  if (!selectedText) return;
-
-  const parent = range.commonAncestorContainer.parentElement;
-  if (parent && parent.tagName.toLowerCase() === tagName.toLowerCase()) {
-    const textNode = document.createTextNode(parent.textContent || '');
-    parent.replaceWith(textNode);
-    return;
-  }
-
-  const el = document.createElement(tagName);
-  if (className) el.className = className;
-  el.textContent = selectedText;
-  range.deleteContents();
-  range.insertNode(el);
-}
-
-/**
- * The prefix `saveContent` puts on a refused concurrent write.
+ * The canonical block-type list, used by the dock's Add Block menu and the
+ * section editor's type selector.
  *
- * The action has no `reason` field — a refusal is an error string — and the
- * overlay has to tell it apart from a quota failure or a validation failure,
- * because it is the only one where retrying is futile and reloading is the
- * answer. It matches the same prefix `ContentEditor` does, so the two editors
- * cannot disagree about which failures are conflicts.
+ * One list, not two: a label added here and not to the selector is a block that
+ * can be created but never converted back to, and a label removed here but left
+ * there is the reverse. `CONVERT_BLOCK_OPTIONS` is deliberately separate — it
+ * carries variants (heading levels, callout tones) rather than types.
  */
-const STALE_SAVE_CONFLICT_PREFIX = 'Someone else saved this page';
-
-function isStaleConflict(message: string | undefined): boolean {
-  return typeof message === 'string' && message.startsWith(STALE_SAVE_CONFLICT_PREFIX);
-}
-
-/**
- * The dock's Add Block menu options.
- *
- * One list, not nine hand-written buttons: a label added here and not to the
- * section editor's type selector is a block that can be created but never
- * converted back to, and a label removed here but left there is the reverse.
- */
-const ADD_BLOCK_OPTIONS: ReadonlyArray<{ type: Block['type']; label: string }> = [
+const BLOCK_TYPE_OPTIONS: ReadonlyArray<{ type: Block['type']; label: string }> = [
   { type: 'paragraph', label: 'Paragraph Text' },
-  { type: 'heading', label: 'Heading (H2)' },
+  { type: 'heading', label: 'Heading' },
   { type: 'bulletList', label: 'Bullet List' },
   { type: 'orderedList', label: 'Numbered Steps' },
-  { type: 'image', label: 'Image (S3 Storage)' },
+  { type: 'image', label: 'Image (Supabase S3)' },
   { type: 'table', label: 'Data Table' },
-  { type: 'callout', label: 'Alert / Callout' },
+  { type: 'callout', label: 'Callout / Alert' },
   { type: 'button', label: 'Button CTA' },
-  { type: 'quote', label: 'Quote Block' },
-  { type: 'code', label: 'Code Block' },
-  { type: 'divider', label: 'Divider Line' },
+  { type: 'quote', label: 'Quote' },
+  { type: 'code', label: 'Code' },
+  { type: 'divider', label: 'Divider' },
 ];
 
 const CONVERT_BLOCK_OPTIONS: ReadonlyArray<{
@@ -245,6 +206,37 @@ const CONVERT_BLOCK_OPTIONS: ReadonlyArray<{
   { type: 'quote', label: 'Quote Block' },
   { type: 'bulletList', label: 'Bullet List' },
   { type: 'code', label: 'Code Snippet' },
+];
+
+/** Every command the floating pill offers, in run order. */
+const INLINE_FORMAT_COMMANDS: readonly InlineFormatCommand[] = [
+  'bold',
+  'italic',
+  'underline',
+  'strikethrough',
+  'code',
+  'highlight',
+  'bulletList',
+  'orderedList',
+  'link',
+  'unlink',
+  'clear',
+  'h2',
+  'h3',
+  'paragraph',
+];
+
+/**
+ * The section modal's paragraph toolbar. Deliberately narrower than the pill:
+ * the field is a textarea of HTML, so list and block-format commands have no
+ * selection to act on and would be controls that do nothing.
+ */
+const SECTION_MODAL_FORMAT_COMMANDS: readonly InlineFormatCommand[] = [
+  'bold',
+  'italic',
+  'code',
+  'strikethrough',
+  'link',
 ];
 
 /**
@@ -711,23 +703,42 @@ export function VisualEditOverlay() {
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
   }, []);
 
-  /** Handle keyboard shortcuts in the editor. */
-  const handleEditorShortcuts = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>, textareaId: string) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      const key = e.key.toLowerCase();
-      if (key === 'b') {
-        e.preventDefault();
-        wrapSelection(textareaId, '<strong>', '</strong>');
-      } else if (key === 'i') {
-        e.preventDefault();
-        wrapSelection(textareaId, '<em>', '</em>');
-      } else if (key === 'k') {
-        e.preventDefault();
+  /** Apply an inline-format command to a textarea's selected text. */
+  const runTextareaFormatCommand = useCallback(
+    (textareaId: string, command: InlineFormatCommand) => {
+      const tags: Partial<Record<InlineFormatCommand, [string, string]>> = {
+        bold: ['<strong>', '</strong>'],
+        italic: ['<em>', '</em>'],
+        code: ['<code>', '</code>'],
+        strikethrough: ['<s>', '</s>'],
+        underline: ['<u>', '</u>'],
+      };
+      const tag = tags[command];
+      if (tag) {
+        wrapSelection(textareaId, tag[0], tag[1]);
+      } else if (command === 'link') {
         insertLink(textareaId);
       }
     },
     [wrapSelection, insertLink]
+  );
+
+  /** Handle keyboard shortcuts in the editor. */
+  const handleEditorShortcuts = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>, textareaId: string) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const shortcuts: Record<string, InlineFormatCommand> = {
+        b: 'bold',
+        i: 'italic',
+        u: 'underline',
+        k: 'link',
+      };
+      const command = shortcuts[e.key.toLowerCase()];
+      if (!command) return;
+      e.preventDefault();
+      runTextareaFormatCommand(textareaId, command);
+    },
+    [runTextareaFormatCommand]
   );
 
   // Load content row and blocks when visual editing is turned on
@@ -1341,6 +1352,21 @@ export function VisualEditOverlay() {
   );
 
   /**
+   * Shared write path for direct-edit surfaces (inline text, image alt/src,
+   * section mutation). Keeps the copy-region-vs-block branch in one place so
+   * the region-slug rule and the commit+persist pair cannot drift between
+   * call sites.
+   */
+  const { writeToCopyRegion, writeToBlock } = useBlockWriter({
+    commitBlocks,
+    handlePersistBlocks,
+    saveContentWithEdgeApi,
+    setSavingBackend,
+    setSavedBody,
+    router,
+  });
+
+  /**
    * A local copy of the document, written as it changes.
    *
    * The overlay writes straight to the page, so a closed tab between two edits
@@ -1544,9 +1570,9 @@ export function VisualEditOverlay() {
         return;
       }
 
-      setSavingBackend(true);
-      try {
-        if (dataPointKey) {
+      if (dataPointKey) {
+        setSavingBackend(true);
+        try {
           const textVal = element.textContent?.trim() || '';
           const groupName = dataPointKey.split('.')[0] || 'general';
           const res = await saveDataPoint({
@@ -1567,108 +1593,82 @@ export function VisualEditOverlay() {
             toast.error(res.error || 'Failed to save data point');
             element.innerHTML = initialHtml;
           }
-        } else if (copyRegionId) {
-          const regionContainer = document.querySelector<HTMLElement>(
-            `[data-copy-region="${copyRegionId}"]`
-          );
-          if (regionContainer) {
-            const regionHtml = regionContainer.innerHTML;
-            const res = await saveContentWithEdgeApi({
-              slug: copyRegionSlug(copyRegionId),
-              title: copyRegionId,
-              body: regionHtml,
-              status: 'publish',
-              type: 'page',
-            });
-            if (res.success) {
-              toast.success(`Region "${copyRegionId}" updated and published`);
-              setSavedBody(regionHtml);
-              router.refresh();
-            } else {
-              toast.error(res.error || 'Failed to save copy region');
-              element.innerHTML = initialHtml;
-            }
-          }
-        } else if (blockIndex !== null && blocksRef.current[blockIndex]) {
-          const updatedBlocks = [...blocksRef.current];
-          const targetBlock = updatedBlocks[blockIndex];
-          if (targetBlock.type === 'heading') {
-            updatedBlocks[blockIndex] = {
-              ...targetBlock,
-              html: element.textContent?.trim() || '',
-            };
-          } else if (
-            targetBlock.type === 'paragraph' ||
-            targetBlock.type === 'quote' ||
-            targetBlock.type === 'callout'
-          ) {
-            updatedBlocks[blockIndex] = { ...targetBlock, html: updatedHtml };
-          } else if (targetBlock.type === 'button') {
-            updatedBlocks[blockIndex] = {
-              ...targetBlock,
-              label: element.textContent?.trim() || targetBlock.label,
-            };
-          }
-          commitBlocks(updatedBlocks);
-          await handlePersistBlocks(updatedBlocks, 'Section saved to backend');
-        } else {
-          toast.success('Section text updated');
+        } catch {
+          toast.error('Failed to save changes');
+          element.innerHTML = initialHtml;
+        } finally {
+          setSavingBackend(false);
         }
-      } catch {
-        toast.error('Failed to save changes');
-        element.innerHTML = initialHtml;
-      } finally {
-        setSavingBackend(false);
+        return;
       }
+
+      if (copyRegionId) {
+        await writeToCopyRegion({
+          copyRegionId,
+          successMessage: `Region "${copyRegionId}" updated and published`,
+          errorMessage: 'Failed to save copy region',
+          onRollback: () => {
+            element.innerHTML = initialHtml;
+          },
+        });
+        return;
+      }
+
+      if (blockIndex !== null && blocksRef.current[blockIndex]) {
+        await writeToBlock({
+          blockIndex,
+          blocks: blocksRef.current,
+          successMessage: 'Section saved to backend',
+          mutate: (target) => {
+            if (target.type === 'heading') {
+              return { ...target, html: element.textContent?.trim() || '' };
+            }
+            if (
+              target.type === 'paragraph' ||
+              target.type === 'quote' ||
+              target.type === 'callout'
+            ) {
+              return { ...target, html: updatedHtml };
+            }
+            if (target.type === 'button') {
+              return { ...target, label: element.textContent?.trim() || target.label };
+            }
+            return undefined;
+          },
+        });
+        return;
+      }
+
+      toast.success('Section text updated');
     },
-    [commitBlocks, handlePersistBlocks, router, saveContentWithEdgeApi]
+    [router, writeToBlock, writeToCopyRegion]
   );
 
   const handleSaveImageAlt = useCallback(
     async (session: ImageEditSession, newAlt: string) => {
       const { element, copyRegionId, blockIndex } = session;
       element.alt = newAlt;
-      setSavingBackend(true);
-      try {
-        if (copyRegionId) {
-          const regionContainer = document.querySelector<HTMLElement>(
-            `[data-copy-region="${copyRegionId}"]`
-          );
-          if (regionContainer) {
-            const regionHtml = regionContainer.innerHTML;
-            const res = await saveContentWithEdgeApi({
-              slug: copyRegionSlug(copyRegionId),
-              title: copyRegionId,
-              body: regionHtml,
-              status: 'publish',
-              type: 'page',
-            });
-            if (res.success) {
-              toast.success('Alt text saved to copy region');
-              setSavedBody(regionHtml);
-              router.refresh();
-            } else {
-              toast.error(res.error || 'Failed to save copy region');
-            }
-          }
-        } else if (blockIndex !== null && blocksRef.current[blockIndex]) {
-          const updatedBlocks = [...blocksRef.current];
-          const targetBlock = updatedBlocks[blockIndex];
-          if (targetBlock.type === 'image') {
-            updatedBlocks[blockIndex] = { ...targetBlock, alt: newAlt };
-            commitBlocks(updatedBlocks);
-            await handlePersistBlocks(updatedBlocks, 'Image alt text updated');
-          }
-        } else {
-          toast.success('Alt text updated');
-        }
-      } catch {
-        toast.error('Failed to save alt text');
-      } finally {
-        setSavingBackend(false);
+      if (copyRegionId) {
+        await writeToCopyRegion({
+          copyRegionId,
+          successMessage: 'Alt text saved to copy region',
+          errorMessage: 'Failed to save alt text',
+        });
+        return;
       }
+      if (blockIndex !== null && blocksRef.current[blockIndex]) {
+        await writeToBlock({
+          blockIndex,
+          blocks: blocksRef.current,
+          successMessage: 'Image alt text updated',
+          errorMessage: 'Failed to save alt text',
+          mutate: (target) => (target.type === 'image' ? { ...target, alt: newAlt } : undefined),
+        });
+        return;
+      }
+      toast.success('Alt text updated');
     },
-    [commitBlocks, handlePersistBlocks, router, saveContentWithEdgeApi]
+    [writeToBlock, writeToCopyRegion]
   );
 
   const handleDirectImageUpload = useCallback(
@@ -1686,34 +1686,20 @@ export function VisualEditOverlay() {
           const session = imageSessionRef.current;
           session.element.src = newUrl;
           if (session.copyRegionId) {
-            const regionContainer = document.querySelector<HTMLElement>(
-              `[data-copy-region="${session.copyRegionId}"]`
-            );
-            if (regionContainer) {
-              const regionHtml = regionContainer.innerHTML;
-              const saveRes = await saveContentWithEdgeApi({
-                slug: copyRegionSlug(session.copyRegionId),
-                title: session.copyRegionId,
-                body: regionHtml,
-                status: 'publish',
-                type: 'page',
-              });
-              if (saveRes.success) {
-                toast.success('Image uploaded and saved to region!');
-                setSavedBody(regionHtml);
-                router.refresh();
-              } else {
-                toast.error(saveRes.error || 'Failed to save copy region');
-              }
-            }
+            await writeToCopyRegion({
+              copyRegionId: session.copyRegionId,
+              successMessage: 'Image uploaded and saved to region!',
+              errorMessage: 'Failed to save copy region',
+            });
           } else if (session.blockIndex !== null && blocksRef.current[session.blockIndex]) {
-            const updated = [...blocksRef.current];
-            const target = updated[session.blockIndex];
-            if (target.type === 'image') {
-              updated[session.blockIndex] = { ...target, src: newUrl };
-              commitBlocks(updated);
-              await handlePersistBlocks(updated, 'Image replaced and saved');
-            }
+            await writeToBlock({
+              blockIndex: session.blockIndex,
+              blocks: blocksRef.current,
+              successMessage: 'Image replaced and saved',
+              errorMessage: 'Image upload failed',
+              mutate: (target) =>
+                target.type === 'image' ? { ...target, src: newUrl } : undefined,
+            });
           }
           setImageSession(null);
           imageSessionRef.current = null;
@@ -1727,7 +1713,7 @@ export function VisualEditOverlay() {
         if (e.target) e.target.value = '';
       }
     },
-    [commitBlocks, handlePersistBlocks, router, saveContentWithEdgeApi]
+    [writeToBlock, writeToCopyRegion]
   );
 
   // Responsive Viewport Simulation effect: smoothly constrain <main>
@@ -1955,27 +1941,22 @@ export function VisualEditOverlay() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (inlineSession) {
+        const comboCommand: Record<string, InlineFormatCommand> = {
+          b: 'bold',
+          i: 'italic',
+          u: 'underline',
+          k: 'link',
+        };
+        const command = e.metaKey || e.ctrlKey ? comboCommand[e.key.toLowerCase()] : undefined;
         if (e.key === 'Escape') {
           e.preventDefault();
           cancelInlineEdit(inlineSession);
         } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
           void commitInlineEdit(inlineSession);
-        } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        } else if (command) {
           e.preventDefault();
-          document.execCommand('bold', false);
-        } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'i') {
-          e.preventDefault();
-          document.execCommand('italic', false);
-        } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'u') {
-          e.preventDefault();
-          document.execCommand('underline', false);
-        } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-          e.preventDefault();
-          const url = window.prompt('Enter link URL (e.g. https://... or /about):');
-          if (url) {
-            document.execCommand('createLink', false, url);
-          }
+          applyInlineFormatCommand(command);
         }
       } else if (imageSession) {
         if (e.key === 'Escape') {
@@ -2723,7 +2704,7 @@ export function VisualEditOverlay() {
                         aria-label="Add block below"
                         className="z-50 w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
                       >
-                        {ADD_BLOCK_OPTIONS.map((option) => (
+                        {BLOCK_TYPE_OPTIONS.map((option) => (
                           <DropdownMenu.Item
                             key={option.type}
                             onSelect={() => handleAddNewSection(option.type, item.blockIndex)}
@@ -2817,225 +2798,11 @@ export function VisualEditOverlay() {
 
           <div className="mx-0.5 h-3.5 w-px bg-white/20" />
 
-          {/* Bold */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              document.execCommand('bold', false);
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Bold (⌘B)"
-            aria-label="Bold"
-          >
-            <Bold size={13} />
-          </button>
-
-          {/* Italic */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              document.execCommand('italic', false);
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Italic (⌘I)"
-            aria-label="Italic"
-          >
-            <Italic size={13} />
-          </button>
-
-          {/* Underline */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              document.execCommand('underline', false);
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Underline (⌘U)"
-            aria-label="Underline"
-          >
-            <Underline size={13} />
-          </button>
-
-          {/* Strikethrough */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              document.execCommand('strikeThrough', false);
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Strikethrough"
-            aria-label="Strikethrough"
-          >
-            <Strikethrough size={13} />
-          </button>
-
-          {/* Inline Code */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              wrapSelectionWithTag(
-                'code',
-                'px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-mono text-xs'
-              );
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Inline code snippet"
-            aria-label="Inline Code"
-          >
-            <Code size={13} />
-          </button>
-
-          {/* Highlight */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              wrapSelectionWithTag('mark', 'bg-amber-400/25 text-inherit px-1 rounded');
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Highlight selection"
-            aria-label="Highlight"
-          >
-            <Highlighter size={13} />
-          </button>
-
-          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
-
-          {/* Bullet List */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              document.execCommand('insertUnorderedList', false);
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Bullet list"
-            aria-label="Bullet list"
-          >
-            <List size={13} />
-          </button>
-
-          {/* Numbered List */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              document.execCommand('insertOrderedList', false);
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Numbered list"
-            aria-label="Numbered list"
-          >
-            <ListOrdered size={13} />
-          </button>
-
-          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
-
-          {/* Link */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              const url = window.prompt('Enter link URL (e.g. https://... or /about):');
-              if (url) {
-                document.execCommand('createLink', false, url);
-              }
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Insert link (⌘K)"
-            aria-label="Insert link"
-          >
-            <LinkIcon size={13} />
-          </button>
-
-          {/* Unlink */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              document.execCommand('unlink', false);
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Remove link"
-            aria-label="Remove link"
-          >
-            <Unlink size={13} />
-          </button>
-
-          {/* Clear Formatting */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              document.execCommand('removeFormat', false);
-            }}
-            className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-            title="Clear formatting"
-            aria-label="Clear formatting"
-          >
-            <Eraser size={13} />
-          </button>
-
-          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
-
-          {/* Heading 2 */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              try {
-                document.execCommand('formatBlock', false, '<h2>');
-              } catch {
-                document.execCommand('formatBlock', false, 'h2');
-              }
-            }}
-            className="rounded px-1.5 py-0.5 text-slate-300 font-bold hover:bg-white/15 hover:text-white transition-colors cursor-pointer text-[10px]"
-            title="Format as Heading 2"
-            aria-label="Heading 2"
-          >
-            H2
-          </button>
-
-          {/* Heading 3 */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              try {
-                document.execCommand('formatBlock', false, '<h3>');
-              } catch {
-                document.execCommand('formatBlock', false, 'h3');
-              }
-            }}
-            className="rounded px-1.5 py-0.5 text-slate-300 font-bold hover:bg-white/15 hover:text-white transition-colors cursor-pointer text-[10px]"
-            title="Format as Heading 3"
-            aria-label="Heading 3"
-          >
-            H3
-          </button>
-
-          {/* Paragraph */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              try {
-                document.execCommand('formatBlock', false, '<p>');
-              } catch {
-                document.execCommand('formatBlock', false, 'p');
-              }
-            }}
-            className="rounded px-1.5 py-0.5 text-slate-300 font-bold hover:bg-white/15 hover:text-white transition-colors cursor-pointer text-[10px]"
-            title="Format as Paragraph"
-            aria-label="Paragraph"
-          >
-            ¶
-          </button>
+          <InlineFormatToolbar
+            variant="pill"
+            commands={INLINE_FORMAT_COMMANDS}
+            onCommand={applyInlineFormatCommand}
+          />
 
           {/* Word and Char Counter Badge */}
           <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono text-ink-muted-on-dark select-none ml-0.5">
@@ -3523,7 +3290,7 @@ export function VisualEditOverlay() {
                   aria-label="Add block"
                   className="z-50 w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
                 >
-                  {ADD_BLOCK_OPTIONS.map((option) => (
+                  {BLOCK_TYPE_OPTIONS.map((option) => (
                     <DropdownMenu.Item
                       key={option.type}
                       onSelect={() => handleAddNewSection(option.type)}
@@ -3998,58 +3765,20 @@ export function VisualEditOverlay() {
                   </label>
                   <div className="border border-border rounded-lg overflow-hidden">
                     {/* Inline formatting toolbar */}
-                    <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 bg-surface-muted border-b border-border">
-                      <button
-                        type="button"
-                        onClick={() => wrapSelection(paragraphContentId, '<strong>', '</strong>')}
-                        title="Bold (⌘B)"
-                        className="p-1.5 rounded hover:bg-border text-foreground transition-colors"
-                        aria-label="Bold"
-                      >
-                        <Bold size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => wrapSelection(paragraphContentId, '<em>', '</em>')}
-                        title="Italic (⌘I)"
-                        className="p-1.5 rounded hover:bg-border text-foreground transition-colors"
-                        aria-label="Italic"
-                      >
-                        <Italic size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => wrapSelection(paragraphContentId, '<code>', '</code>')}
-                        title="Inline Code"
-                        className="p-1.5 rounded hover:bg-border text-foreground transition-colors"
-                        aria-label="Inline Code"
-                      >
-                        <Code size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => wrapSelection(paragraphContentId, '<s>', '</s>')}
-                        title="Strikethrough"
-                        className="p-1.5 rounded hover:bg-border text-foreground transition-colors"
-                        aria-label="Strikethrough"
-                      >
-                        <Strikethrough size={14} />
-                      </button>
-                      <div className="w-px h-5 bg-border mx-1" />
-                      <button
-                        type="button"
-                        onClick={() => insertLink(paragraphContentId)}
-                        title="Insert Link (⌘K)"
-                        className="p-1.5 rounded hover:bg-border text-foreground transition-colors"
-                        aria-label="Insert Link"
-                      >
-                        <LinkIcon size={14} />
-                      </button>
-                      <span className="flex-1" />
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        HTML supported
-                      </span>
-                    </div>
+                    <InlineFormatToolbar
+                      variant="panel"
+                      commands={SECTION_MODAL_FORMAT_COMMANDS}
+                      onCommand={(command) => runTextareaFormatCommand(paragraphContentId, command)}
+                      className="flex flex-wrap items-center gap-1 px-2 py-1.5 bg-surface-muted border-b border-border"
+                      trailing={
+                        <>
+                          <span className="flex-1" />
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            HTML supported
+                          </span>
+                        </>
+                      }
+                    />
                     <textarea
                       id={paragraphContentId}
                       rows={5}
@@ -4859,58 +4588,34 @@ export function VisualEditOverlay() {
               if (item.alt || item.name) {
                 imgEl.alt = item.alt || item.name;
               }
-              setSavingBackend(true);
-              if (copyRegionId) {
-                const regionContainer = document.querySelector<HTMLElement>(
-                  `[data-copy-region="${copyRegionId}"]`
-                );
-                if (regionContainer) {
-                  const regionHtml = regionContainer.innerHTML;
-                  void saveContentWithEdgeApi({
-                    slug: copyRegionSlug(copyRegionId),
-                    title: copyRegionId,
-                    body: regionHtml,
-                    status: 'publish',
-                    type: 'page',
-                  }).then((res) => {
-                    setSavingBackend(false);
-                    if (res.success) {
-                      toast.success(`Region "${copyRegionId}" image updated from S3`);
-                      setSavedBody(regionHtml);
-                      router.refresh();
-                    } else {
-                      toast.error(res.error || 'Failed to save copy region');
-                    }
-                  });
-                } else {
-                  setSavingBackend(false);
-                }
-              } else if (blockIndex !== null && blocksRef.current[blockIndex]) {
-                const updatedBlocks = [...blocksRef.current];
-                const targetBlock = updatedBlocks[blockIndex];
-                if (targetBlock.type === 'image') {
-                  updatedBlocks[blockIndex] = {
-                    ...targetBlock,
-                    src: item.url,
-                    alt: item.alt || item.name,
-                    width: item.width ?? targetBlock.width,
-                    height: item.height ?? targetBlock.height,
-                  };
-                  commitBlocks(updatedBlocks);
-                  void handlePersistBlocks(updatedBlocks, 'Image updated from S3 storage').finally(
-                    () => {
-                      setSavingBackend(false);
-                    }
-                  );
-                } else {
-                  setSavingBackend(false);
-                }
-              } else {
-                setSavingBackend(false);
-                toast.success('Image source updated');
-              }
               imageSessionRef.current = null;
               setImageSession(null);
+              if (copyRegionId) {
+                void writeToCopyRegion({
+                  copyRegionId,
+                  successMessage: `Region "${copyRegionId}" image updated from S3`,
+                  errorMessage: 'Failed to save copy region',
+                });
+              } else if (blockIndex !== null && blocksRef.current[blockIndex]) {
+                void writeToBlock({
+                  blockIndex,
+                  blocks: blocksRef.current,
+                  successMessage: 'Image updated from S3 storage',
+                  errorMessage: 'Failed to save image',
+                  mutate: (target) =>
+                    target.type === 'image'
+                      ? {
+                          ...target,
+                          src: item.url,
+                          alt: item.alt || item.name,
+                          width: item.width ?? target.width,
+                          height: item.height ?? target.height,
+                        }
+                      : undefined,
+                });
+              } else {
+                toast.success('Image source updated');
+              }
             } else if (mediaTarget === 'featured') {
               setPageFeaturedImage(item.url);
               toast.success('Featured image selected from Supabase storage');

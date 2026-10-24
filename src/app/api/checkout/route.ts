@@ -6,7 +6,7 @@ import { env } from '@/lib/env';
 import { clientKey, rateLimit } from '@/lib/rate-limit';
 import { createServerClient } from '@/lib/supabase-server';
 
-const STRIPE_API_VERSION = '2026-08-26.dahlia' as const;
+const STRIPE_API_VERSION = '2026-09-30.endive' as const;
 
 /**
  * Success/cancel redirects must be absolute HTTPS URLs or the Stripe SDK
@@ -194,7 +194,6 @@ export async function POST(req: Request) {
     // per checkout *attempt* — regenerated whenever the cart changes, reused
     // only by a retry of that same attempt. Never a hash of the contents.
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
       currency: CURRENCY,
