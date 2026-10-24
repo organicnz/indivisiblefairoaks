@@ -373,6 +373,66 @@ describe('EditorialButton component', () => {
     }
   });
 
+  it('does not close the drawer when opening panels inside the overlay', async () => {
+    mockEnabled = true;
+    const onNavigate = vi.fn();
+
+    await act(async () => {
+      root.render(<EditorialDrawerRow onNavigate={onNavigate} />);
+    });
+    await act(async () => {
+      publishSections([{ index: 0, label: 'Section', blockIndex: 0, enabled: false }]);
+    });
+
+    const clickByText = async (text: string) => {
+      const btn = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((b) =>
+        b.textContent?.includes(text)
+      );
+      expect(btn, `button containing "${text}" not found`).not.toBeUndefined();
+      await act(async () => {
+        btn?.click();
+      });
+    };
+
+    // These six open panels inside the overlay, not pages. The drawer should
+    // stay open so the admin can return to it after the panel interaction.
+    await clickByText('Add block');
+    await clickByText('Supabase media library');
+    await clickByText('Constituents & CRM');
+    await clickByText('System diagnostics');
+    await clickByText('Revisions');
+    await clickByText('Document settings');
+
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it('closes the drawer when performing section operations', async () => {
+    mockEnabled = true;
+    const onNavigate = vi.fn();
+
+    await act(async () => {
+      root.render(<EditorialDrawerRow onNavigate={onNavigate} />);
+    });
+    await act(async () => {
+      publishSections([
+        { index: 0, label: 'First', blockIndex: 2, enabled: false },
+        { index: 1, label: 'Second', blockIndex: 3, enabled: false },
+      ]);
+    });
+
+    const jumpBtn = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.title === 'Jump to Second'
+    );
+    expect(jumpBtn).not.toBeUndefined();
+    await act(async () => {
+      jumpBtn?.click();
+    });
+
+    // Section operations mutate the visible page — the drawer closes so the
+    // admin sees the result of their action on the page they are editing.
+    expect(onNavigate).toHaveBeenCalled();
+  });
+
   /**
    * `/about` has copy regions, so the drawer must offer them and switching one
    * must reach the overlay as an event.

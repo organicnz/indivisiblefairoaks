@@ -552,6 +552,62 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(dialog?.textContent).toContain('Supabase S3 Storage');
   });
 
+  it('shows an amber health dot when the edge function is degraded but DB and storage are healthy', async () => {
+    getCRMEdgeFunctionHealth.mockResolvedValue({
+      database: true,
+      storage: true,
+      edgeFunction: false,
+    });
+    getVisualPageContext.mockResolvedValue({
+      content: null,
+      revisions: [],
+      revisionsTruncated: false,
+      media: { items: [], folders: ['crm', 'content', 'products'] },
+      backend: { database: true, storage: true, edgeFunction: false },
+      crmStats: null,
+      segments: [],
+      segmentsTruncated: false,
+      catalog: { products: 0, galleryPhotos: 0, events: 0 },
+    });
+
+    await withPage();
+
+    const healthBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Supabase Backend & Edge Function Health"]'
+    );
+    expect(healthBtn).not.toBeNull();
+    const dot = healthBtn?.querySelector('span.rounded-full');
+    expect(dot?.className).toContain('bg-amber-400');
+    expect(dot?.className).not.toContain('bg-emerald-400');
+  });
+
+  it('shows a rose health dot when the database is offline', async () => {
+    getCRMEdgeFunctionHealth.mockResolvedValue({
+      database: false,
+      storage: true,
+      edgeFunction: true,
+    });
+    getVisualPageContext.mockResolvedValue({
+      content: null,
+      revisions: [],
+      revisionsTruncated: false,
+      media: { items: [], folders: ['crm', 'content', 'products'] },
+      backend: { database: false, storage: true, edgeFunction: true },
+      crmStats: null,
+      segments: [],
+      segmentsTruncated: false,
+      catalog: { products: 0, galleryPhotos: 0, events: 0 },
+    });
+
+    await withPage();
+
+    const healthBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Supabase Backend & Edge Function Health"]'
+    );
+    const dot = healthBtn?.querySelector('span.rounded-full');
+    expect(dot?.className).toContain('bg-rose-400');
+  });
+
   it('opens system diagnostics modal when receiving VISUAL_EDIT_EVENTS.openDiagnostics event', async () => {
     await withPage();
 

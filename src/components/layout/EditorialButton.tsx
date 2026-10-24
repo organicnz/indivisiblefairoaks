@@ -374,7 +374,6 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
                     ? { insertAfterBlockIndex: last.blockIndex, type: 'paragraph' }
                     : {}
                 );
-                onNavigate();
               }}
               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/10 transition-all bg-gradient-to-r from-emerald-500/5 to-transparent"
             >
@@ -386,7 +385,6 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
               type="button"
               onClick={() => {
                 openMediaLibraryVisual();
-                onNavigate();
               }}
               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-amber-200 hover:text-amber-100 hover:bg-amber-400/10 transition-all bg-gradient-to-r from-amber-400/5 to-transparent"
             >
@@ -397,7 +395,6 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
               type="button"
               onClick={() => {
                 openCRMVisual();
-                onNavigate();
               }}
               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/10 transition-all bg-gradient-to-r from-emerald-500/5 to-transparent"
             >
@@ -416,7 +413,6 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
               type="button"
               onClick={() => {
                 openDiagnosticsVisual();
-                onNavigate();
               }}
               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-accent-gold hover:text-white hover:bg-amber-400/10 transition-all bg-gradient-to-r from-amber-400/5 to-transparent"
             >
@@ -427,7 +423,6 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
               type="button"
               onClick={() => {
                 openRevisionsVisual();
-                onNavigate();
               }}
               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-all bg-gradient-to-r from-white/5 to-transparent"
             >
@@ -438,7 +433,6 @@ export function EditorialDrawerRow({ onNavigate }: { onNavigate: () => void }) {
               type="button"
               onClick={() => {
                 openSettingsVisual();
-                onNavigate();
               }}
               className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-all bg-gradient-to-r from-white/5 to-transparent"
             >

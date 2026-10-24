@@ -99,6 +99,7 @@ import {
 import { saveDataPoint } from '@/lib/queries/civic-client';
 import { themeModeLabel } from '@/lib/theme';
 import { isStaleConflict } from '@/lib/visual-edit/conflict';
+import { extractBlocksFromDOM } from '@/lib/visual-edit/extract-blocks-from-dom';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import { highlightPageSection } from '@/lib/visual-edit-mode';
 import {
@@ -129,6 +130,7 @@ import {
   type InlineFormatCommand,
   InlineFormatToolbar,
 } from './InlineFormatToolbar';
+import { runTextareaFormatCommand } from './textareaFormat';
 import { useBlockWriter } from './useBlockWriter';
 
 /**
@@ -238,135 +240,6 @@ const SECTION_MODAL_FORMAT_COMMANDS: readonly InlineFormatCommand[] = [
   'strikethrough',
   'link',
 ];
-
-/**
- * Intelligently extracts structured blocks from a live rendered DOM element
- * so that static pages can be edited and synced directly to Supabase.
- */
-function extractBlocksFromDOM(root: HTMLElement): Block[] {
-  const extracted: Block[] = [];
-  const children = Array.from(root.children);
-
-  children.forEach((child, idx) => {
-    if (!(child instanceof HTMLElement)) return;
-    const blockId = nextBlockId();
-
-    // Check heading
-    const heading = child.matches('h1, h2, h3, h4, h5, h6')
-      ? child
-      : child.querySelector('h1, h2, h3, h4, h5, h6');
-    if (heading) {
-      const levelNum = Number.parseInt(heading.tagName.replace('H', ''), 10) || 2;
-      const level = (levelNum >= 2 && levelNum <= 4 ? levelNum : 2) as HeadingLevel;
-      extracted.push({
-        id: blockId,
-        type: 'heading',
-        level,
-        html: heading.innerHTML.trim() || heading.textContent?.trim() || `Section ${idx + 1}`,
-      });
-      return;
-    }
-
-    // Check image
-    const img = child.matches('img') ? (child as HTMLImageElement) : child.querySelector('img');
-    if (img?.src) {
-      extracted.push({
-        id: blockId,
-        type: 'image',
-        src: img.src,
-        alt: img.alt || '',
-        caption: '',
-        width: img.naturalWidth || null,
-        height: img.naturalHeight || null,
-      });
-      return;
-    }
-
-    // Check table (checked before lists — a table can contain <ul>/<li>)
-    const table = child.matches('table')
-      ? (child as HTMLTableElement)
-      : child.querySelector('table');
-    if (table) {
-      const head = Array.from(table.querySelectorAll('thead th')).map(
-        (th) => th.textContent?.trim() || ''
-      );
-      const rows = Array.from(table.querySelectorAll('tbody tr')).map((row) =>
-        Array.from(row.querySelectorAll('td')).map((td) => td.textContent?.trim() || '')
-      );
-      extracted.push({
-        id: blockId,
-        type: 'table',
-        head: head.length > 0 ? head : rows[0]?.length ? (rows.shift() ?? []) : ['Column'],
-        rows: rows.length > 0 ? rows : [['Cell']],
-      });
-      return;
-    }
-
-    // Check lists
-    const ul = child.matches('ul, ol') ? child : child.querySelector('ul, ol');
-    if (ul) {
-      const isOrdered = ul.tagName === 'OL';
-      const items = Array.from(ul.querySelectorAll('li')).map((li) => li.textContent?.trim() || '');
-      extracted.push({
-        id: blockId,
-        type: isOrdered ? 'orderedList' : 'bulletList',
-        items: items.length > 0 ? items : ['List item'],
-      });
-      return;
-    }
-
-    // Check quotes
-    const quote = child.matches('blockquote') ? child : child.querySelector('blockquote');
-    if (quote) {
-      extracted.push({
-        id: blockId,
-        type: 'quote',
-        html: quote.innerHTML.trim() || quote.textContent?.trim() || '',
-      });
-      return;
-    }
-
-    // Check button / CTA
-    const btn = child.matches('a, button') ? child : child.querySelector('a, button');
-    if (
-      btn &&
-      btn instanceof HTMLElement &&
-      (btn.classList.contains('btn') ||
-        btn.getAttribute('role') === 'button' ||
-        btn.tagName === 'BUTTON')
-    ) {
-      const href = btn.getAttribute('href') || '/';
-      extracted.push({
-        id: blockId,
-        type: 'button',
-        label: btn.textContent?.trim() || 'Take Action',
-        href,
-      });
-      return;
-    }
-
-    // Paragraph or generic text
-    const p = child.matches('p') ? child : child.querySelector('p');
-    const htmlContent = p ? p.innerHTML.trim() : child.innerHTML.trim();
-    if (htmlContent) {
-      extracted.push({
-        id: blockId,
-        type: 'paragraph',
-        html: htmlContent,
-      });
-    } else {
-      extracted.push({
-        id: blockId,
-        type: 'paragraph',
-        html: child.textContent?.trim() || `Section ${idx + 1} content`,
-      });
-    }
-  });
-
-  return extracted.length > 0
-    ? extracted
-    : [{ id: nextBlockId(), type: 'paragraph', html: 'Section content' }];
-}
 
 export function VisualEditOverlay() {
   const router = useRouter();
@@ -523,6 +396,22 @@ export function VisualEditOverlay() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Link insertion dialog (replaces browser prompt) ─────────────────────
+  // `textareaId` is set when the dialog is opened from the section modal's
+  // textarea toolbar; null means it was opened from the inline contentEditable
+  // pill, which uses `execCommand('createLink')` instead of `wrapSelection`.
+  const [linkModal, setLinkModal] = useState<{
+    textareaId: string | null;
+    url: string;
+    text: string;
+  } | null>(null);
+
+  // ── Alt text edit dialog (replaces browser prompt) ───────────────────────
+  const [altTextModal, setAltTextModal] = useState<{
+    session: ImageEditSession;
+    value: string;
+  } | null>(null);
+
   // Responsive Viewport Simulation Mode
   const [viewportMode, setViewportMode] = useState<ViewportMode>('desktop');
 
@@ -667,62 +556,6 @@ export function VisualEditOverlay() {
     [findEffectiveVisualEditRoot, sections]
   );
 
-  /** Wrap selected text in a textarea with prefix/suffix tags. */
-  const wrapSelection = useCallback((textareaId: string, prefix: string, suffix: string) => {
-    const textarea = document.getElementById(textareaId) as HTMLTextAreaElement | null;
-    if (!textarea) return;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
-    const selected = text.slice(start, end);
-    const wrapped = selected ? `${prefix}${selected}${suffix}` : `${prefix}${suffix}`;
-    textarea.value = text.slice(0, start) + wrapped + text.slice(end);
-    textarea.focus();
-    // Restore cursor position after wrapped text
-    const newPos = start + wrapped.length;
-    textarea.setSelectionRange(newPos, newPos);
-    // Trigger React change event
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-  }, []);
-
-  /** Insert a link at cursor position. */
-  const insertLink = useCallback((textareaId: string) => {
-    const textarea = document.getElementById(textareaId) as HTMLTextAreaElement | null;
-    if (!textarea) return;
-    const url = prompt('Enter link URL:');
-    if (!url) return;
-    const text = prompt('Enter link text:', 'Link') || 'Link';
-    const linkHtml = `<a href="${url}">${text}</a>`;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const currentText = textarea.value;
-    textarea.value = currentText.slice(0, start) + linkHtml + currentText.slice(end);
-    textarea.focus();
-    const newPos = start + linkHtml.length;
-    textarea.setSelectionRange(newPos, newPos);
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-  }, []);
-
-  /** Apply an inline-format command to a textarea's selected text. */
-  const runTextareaFormatCommand = useCallback(
-    (textareaId: string, command: InlineFormatCommand) => {
-      const tags: Partial<Record<InlineFormatCommand, [string, string]>> = {
-        bold: ['<strong>', '</strong>'],
-        italic: ['<em>', '</em>'],
-        code: ['<code>', '</code>'],
-        strikethrough: ['<s>', '</s>'],
-        underline: ['<u>', '</u>'],
-      };
-      const tag = tags[command];
-      if (tag) {
-        wrapSelection(textareaId, tag[0], tag[1]);
-      } else if (command === 'link') {
-        insertLink(textareaId);
-      }
-    },
-    [wrapSelection, insertLink]
-  );
-
   /** Handle keyboard shortcuts in the editor. */
   const handleEditorShortcuts = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>, textareaId: string) => {
@@ -736,9 +569,13 @@ export function VisualEditOverlay() {
       const command = shortcuts[e.key.toLowerCase()];
       if (!command) return;
       e.preventDefault();
-      runTextareaFormatCommand(textareaId, command);
+      if (command === 'link') {
+        setLinkModal({ textareaId, url: '', text: '' });
+      } else {
+        runTextareaFormatCommand(textareaId, command);
+      }
     },
-    [runTextareaFormatCommand]
+    []
   );
 
   // Load content row and blocks when visual editing is turned on
@@ -1138,8 +975,6 @@ export function VisualEditOverlay() {
     };
   }, [enabled, isAdmin, updateOverlays]);
 
-  const located = useMemo(() => new Map<string, HTMLElement>(), []);
-
   const jumpTo = useCallback(
     (blockIndex: number) => {
       const element = locate(blockIndex);
@@ -1147,9 +982,8 @@ export function VisualEditOverlay() {
 
       setActiveBlockIndex(blockIndex);
       highlightPageSection(element);
-      located.set(String(blockIndex), element);
     },
-    [locate, located]
+    [locate]
   );
 
   // ── Undo, redo, and the record of what changed ───────────────────────────
@@ -1956,7 +1790,11 @@ export function VisualEditOverlay() {
           void commitInlineEdit(inlineSession);
         } else if (command) {
           e.preventDefault();
-          applyInlineFormatCommand(command);
+          if (command === 'link') {
+            setLinkModal({ textareaId: null, url: '', text: '' });
+          } else {
+            applyInlineFormatCommand(command);
+          }
         }
       } else if (imageSession) {
         if (e.key === 'Escape') {
@@ -2517,6 +2355,7 @@ export function VisualEditOverlay() {
                       handleOpenEditSection(item.blockIndex);
                     }}
                     title="Edit section content"
+                    aria-label="Edit section content"
                     className="rounded p-1 text-accent-gold hover:bg-white/15 hover:text-white transition-colors"
                   >
                     <PenLine size={13} />
@@ -2533,6 +2372,7 @@ export function VisualEditOverlay() {
                         setMediaModalOpen(true);
                       }}
                       title="Replace image from Supabase S3 storage"
+                      aria-label="Replace image from Supabase S3 storage"
                       className="rounded p-1 text-sky-400 hover:bg-white/15 hover:text-sky-300 transition-colors"
                     >
                       <ImageIcon size={13} />
@@ -2544,6 +2384,7 @@ export function VisualEditOverlay() {
                     type="button"
                     onClick={() => handleDuplicateSection(item.blockIndex)}
                     title="Duplicate section"
+                    aria-label="Duplicate section"
                     className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
                   >
                     <Copy size={13} />
@@ -2555,6 +2396,7 @@ export function VisualEditOverlay() {
                       type="button"
                       onClick={() => handleMoveSection(item.blockIndex, 'up')}
                       title="Move section up"
+                      aria-label="Move section up"
                       className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
                     >
                       <ArrowUp size={13} />
@@ -2567,6 +2409,7 @@ export function VisualEditOverlay() {
                       type="button"
                       onClick={() => handleMoveSection(item.blockIndex, 'down')}
                       title="Move section down"
+                      aria-label="Move section down"
                       className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
                     >
                       <ArrowDown size={13} />
@@ -2722,6 +2565,7 @@ export function VisualEditOverlay() {
                     type="button"
                     onClick={() => toggleSectionFrame(item.blockIndex)}
                     title="Hide visual frame for this section"
+                    aria-label="Hide visual frame for this section"
                     className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors"
                   >
                     <EyeOff size={13} />
@@ -2801,7 +2645,13 @@ export function VisualEditOverlay() {
           <InlineFormatToolbar
             variant="pill"
             commands={INLINE_FORMAT_COMMANDS}
-            onCommand={applyInlineFormatCommand}
+            onCommand={(command) => {
+              if (command === 'link') {
+                setLinkModal({ textareaId: null, url: '', text: '' });
+              } else {
+                applyInlineFormatCommand(command);
+              }
+            }}
           />
 
           {/* Word and Char Counter Badge */}
@@ -2890,16 +2740,14 @@ export function VisualEditOverlay() {
           <button
             type="button"
             onClick={() => {
-              const newAlt = window.prompt(
-                'Enter alt text for accessibility:',
-                imageSession.element.alt || ''
-              );
-              if (newAlt !== null) {
-                void handleSaveImageAlt(imageSession, newAlt);
-              }
+              setAltTextModal({
+                session: imageSession,
+                value: imageSession.element.alt || '',
+              });
             }}
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-slate-300 text-[11px] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
             title="Edit image alt text"
+            aria-label="Edit image alt text"
           >
             <Settings size={12} />
             <span className="hidden sm:inline">Alt Text</span>
@@ -2916,6 +2764,7 @@ export function VisualEditOverlay() {
             }}
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-slate-400 text-[11px] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
             title="Dismiss image controls"
+            aria-label="Dismiss image controls"
           >
             <X size={12} />
           </button>
@@ -3311,6 +3160,7 @@ export function VisualEditOverlay() {
                 setMediaModalOpen(true);
               }}
               title="Open Supabase S3 Media Library"
+              aria-label="Open Supabase S3 Media Library"
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
             >
               <FolderOpen size={14} className="text-accent-gold" />
@@ -3322,6 +3172,7 @@ export function VisualEditOverlay() {
               type="button"
               onClick={() => setIsSettingsOpen(true)}
               title="Edit page title, slug, and featured image"
+              aria-label="Edit page title, slug, and featured image"
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
             >
               <Settings size={14} />
@@ -3334,6 +3185,7 @@ export function VisualEditOverlay() {
                 type="button"
                 onClick={handleOpenRevisions}
                 title="View page revision history and restore previous snapshots"
+                aria-label="View page revision history and restore previous snapshots"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
                 <History size={14} />
@@ -3347,6 +3199,7 @@ export function VisualEditOverlay() {
                 <button
                   type="button"
                   title="Create or manage: Posts, Events, Bulletins, or Links"
+                  aria-label="Create or manage: Posts, Events, Bulletins, or Links"
                   className="inline-flex items-center gap-1.5 rounded-lg border border-primary-bright/40 bg-primary/20 px-2.5 py-1.5 text-xs font-bold text-primary-on-dark transition-colors hover:bg-primary/30 focus-visible:ring-2 focus-visible:ring-accent-gold"
                 >
                   <Plus size={14} className="text-accent-gold" />
@@ -3397,6 +3250,7 @@ export function VisualEditOverlay() {
               type="button"
               onClick={() => openCrmWithTab()}
               title="Open Civic CRM (Constituents, Events, News, Links)"
+              aria-label="Open Civic CRM (Constituents, Events, News, Links)"
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
             >
               <UsersRound size={14} className="text-emerald-400" />
@@ -3409,6 +3263,7 @@ export function VisualEditOverlay() {
               target="_blank"
               rel="noreferrer"
               title="Open CRM Studio (Broadcasts & Constituents)"
+              aria-label="Open CRM Studio (Broadcasts & Constituents)"
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
             >
               <ExternalLink size={14} className="text-primary-on-dark" />
@@ -3433,17 +3288,24 @@ export function VisualEditOverlay() {
                 type="button"
                 onClick={() => setShowHealthDetails((p) => !p)}
                 title="Supabase Backend & Edge Function Health"
+                aria-label="Supabase Backend & Edge Function Health"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:bg-white/10"
               >
                 <Activity
                   size={13}
-                  className={backendStatus?.database ? 'text-emerald-400' : 'text-amber-400'}
+                  className={
+                    backendStatus?.database && backendStatus?.storage && backendStatus?.edgeFunction
+                      ? 'text-emerald-400'
+                      : 'text-amber-400'
+                  }
                 />
                 <span
                   className={`size-2 rounded-full ${
-                    backendStatus?.database && backendStatus?.storage
+                    backendStatus?.database && backendStatus?.storage && backendStatus?.edgeFunction
                       ? 'bg-emerald-400'
-                      : 'bg-amber-400'
+                      : !backendStatus?.database || !backendStatus?.storage
+                        ? 'bg-rose-400'
+                        : 'bg-amber-400'
                   }`}
                 />
               </button>
@@ -3561,6 +3423,7 @@ export function VisualEditOverlay() {
                 target="_blank"
                 rel="noreferrer"
                 title="Open full admin page editor in new tab"
+                aria-label="Open full admin page editor in new tab"
                 className="hidden md:inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:text-white hover:bg-white/10"
               >
                 <span>Admin</span>
@@ -3623,6 +3486,7 @@ export function VisualEditOverlay() {
                     type="button"
                     onClick={() => handleOpenEditSection(idx)}
                     title="Edit block"
+                    aria-label={`Edit block ${label}`}
                     className="text-accent-gold hover:text-white p-0.5"
                   >
                     <PenLine size={11} />
@@ -3631,6 +3495,7 @@ export function VisualEditOverlay() {
                     type="button"
                     onClick={() => handleDuplicateSection(idx)}
                     title="Duplicate block"
+                    aria-label={`Duplicate block ${label}`}
                     className="text-slate-400 hover:text-white p-0.5"
                   >
                     <Copy size={11} />
@@ -3640,6 +3505,7 @@ export function VisualEditOverlay() {
                       type="button"
                       onClick={() => handleMoveSection(idx, 'up')}
                       title="Move up"
+                      aria-label={`Move block ${label} up`}
                       className="text-slate-400 hover:text-white p-0.5"
                     >
                       <ArrowUp size={11} />
@@ -3650,6 +3516,7 @@ export function VisualEditOverlay() {
                       type="button"
                       onClick={() => handleMoveSection(idx, 'down')}
                       title="Move down"
+                      aria-label={`Move block ${label} down`}
                       className="text-slate-400 hover:text-white p-0.5"
                     >
                       <ArrowDown size={11} />
@@ -3700,17 +3567,11 @@ export function VisualEditOverlay() {
                   }}
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary"
                 >
-                  <option value="paragraph">Paragraph Text</option>
-                  <option value="heading">Heading</option>
-                  <option value="bulletList">Bullet List</option>
-                  <option value="orderedList">Numbered Steps</option>
-                  <option value="image">Image (Supabase S3)</option>
-                  <option value="table">Data Table</option>
-                  <option value="callout">Callout / Alert</option>
-                  <option value="button">Button CTA</option>
-                  <option value="quote">Quote</option>
-                  <option value="code">Code</option>
-                  <option value="divider">Divider</option>
+                  {BLOCK_TYPE_OPTIONS.map((o) => (
+                    <option key={o.type} value={o.type}>
+                      {o.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -3768,7 +3629,13 @@ export function VisualEditOverlay() {
                     <InlineFormatToolbar
                       variant="panel"
                       commands={SECTION_MODAL_FORMAT_COMMANDS}
-                      onCommand={(command) => runTextareaFormatCommand(paragraphContentId, command)}
+                      onCommand={(command) => {
+                        if (command === 'link') {
+                          setLinkModal({ textareaId: paragraphContentId, url: '', text: '' });
+                        } else {
+                          runTextareaFormatCommand(paragraphContentId, command);
+                        }
+                      }}
                       className="flex flex-wrap items-center gap-1 px-2 py-1.5 bg-surface-muted border-b border-border"
                       trailing={
                         <>
@@ -4239,6 +4106,14 @@ export function VisualEditOverlay() {
               {editingBlock.type === 'divider' && (
                 <div className="p-3 bg-surface-muted border border-border rounded-xl text-xs text-muted-foreground">
                   A visual horizontal rule dividing sections.
+                </div>
+              )}
+
+              {/* Unsupported block type */}
+              {editingBlock.type === 'unsupported' && (
+                <div className="p-3 bg-surface-muted border border-border rounded-xl text-xs text-muted-foreground">
+                  Preserved markup from the original import. You can delete or convert this block,
+                  but its raw HTML cannot be edited here.
                 </div>
               )}
             </div>
@@ -5034,6 +4909,188 @@ export function VisualEditOverlay() {
                 className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
               >
                 Close
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── Link Insert Dialog (replaces browser prompt) ────────────────── */}
+      {linkModal && (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setLinkModal(null);
+          }}
+        >
+          <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-black text-foreground">Insert link</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                {linkModal.textareaId
+                  ? 'Enter the destination URL and optional link text.'
+                  : 'Enter the destination URL for the selected text.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="link-url" className="block text-xs font-bold text-foreground mb-1">
+                  URL
+                </label>
+                <input
+                  id="link-url"
+                  type="url"
+                  autoFocus
+                  value={linkModal.url}
+                  onChange={(e) =>
+                    setLinkModal((prev) => (prev ? { ...prev, url: e.target.value } : null))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      (
+                        e.currentTarget.form?.querySelector('[data-confirm]') as HTMLButtonElement
+                      )?.click();
+                    }
+                  }}
+                  placeholder="https://example.com or /about"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              {linkModal.textareaId && (
+                <div>
+                  <label
+                    htmlFor="link-text"
+                    className="block text-xs font-bold text-foreground mb-1"
+                  >
+                    Link text (optional — uses selected text if empty)
+                  </label>
+                  <input
+                    id="link-text"
+                    type="text"
+                    value={linkModal.text}
+                    onChange={(e) =>
+                      setLinkModal((prev) => (prev ? { ...prev, text: e.target.value } : null))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        (
+                          e.currentTarget.form?.querySelector('[data-confirm]') as HTMLButtonElement
+                        )?.click();
+                      }
+                    }}
+                    placeholder="Link"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setLinkModal(null)}
+                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                data-confirm
+                disabled={!linkModal.url.trim()}
+                onClick={() => {
+                  const url = linkModal.url.trim();
+                  if (!url) return;
+                  if (linkModal.textareaId) {
+                    const ta = document.getElementById(
+                      linkModal.textareaId
+                    ) as HTMLTextAreaElement | null;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const selectedText = ta.value.slice(start, end);
+                    const linkHtml = `<a href="${url}">${linkModal.text || selectedText || 'Link'}</a>`;
+                    ta.value = ta.value.slice(0, start) + linkHtml + ta.value.slice(end);
+                    ta.dispatchEvent(new Event('input', { bubbles: true }));
+                    ta.focus();
+                    const newPos = start + linkHtml.length;
+                    ta.setSelectionRange(newPos, newPos);
+                  } else {
+                    document.execCommand('createLink', false, url);
+                  }
+                  setLinkModal(null);
+                }}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 disabled:opacity-40"
+              >
+                Insert link
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── Alt Text Edit Dialog (replaces browser prompt) ──────────────── */}
+      {altTextModal && (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setAltTextModal(null);
+          }}
+        >
+          <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-black text-foreground">
+                Edit alt text
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Describe the image for screen readers and search engines.
+              </DialogDescription>
+            </DialogHeader>
+            <div>
+              <label
+                htmlFor="alt-text-input"
+                className="block text-xs font-bold text-foreground mb-1"
+              >
+                Alt text for accessibility
+              </label>
+              <input
+                id="alt-text-input"
+                type="text"
+                autoFocus
+                value={altTextModal.value}
+                onChange={(e) =>
+                  setAltTextModal((prev) => (prev ? { ...prev, value: e.target.value } : null))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    (
+                      e.currentTarget.form?.querySelector('[data-confirm]') as HTMLButtonElement
+                    )?.click();
+                  }
+                }}
+                placeholder="A brief description of the image"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setAltTextModal(null)}
+                className="rounded-xl px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-border"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                data-confirm
+                onClick={() => {
+                  void handleSaveImageAlt(altTextModal.session, altTextModal.value);
+                  setAltTextModal(null);
+                }}
+                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90"
+              >
+                Save
               </button>
             </div>
           </DialogContent>
