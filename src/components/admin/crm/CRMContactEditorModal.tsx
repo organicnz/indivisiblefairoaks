@@ -1,8 +1,8 @@
 'use client';
 
-import { ImageIcon, Plus, X } from 'lucide-react';
+import { ImageIcon, Loader2, Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import {
@@ -23,9 +23,12 @@ interface Props {
   onSaved?: () => void;
 }
 
+type ActionResult = { success: boolean; error?: string; reason?: string } | null;
+
+const initialState: ActionResult = null;
+
 export function CRMContactEditorModal({ contact, isOpen, onClose, onSaved }: Props) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
 
@@ -76,62 +79,61 @@ export function CRMContactEditorModal({ contact, isOpen, onClose, onSaved }: Pro
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function contactEditorAction(
+    _prevState: ActionResult,
+    _formData: FormData
+  ): Promise<ActionResult> {
     if (!formData.email) {
       toast.error('Email address is required');
-      return;
+      return { success: false, error: 'Email address is required' };
     }
 
-    setLoading(true);
-    try {
-      const res = await saveCRMContact({
-        id: contact?.id,
-        email: formData.email,
-        first_name: formData.first_name || null,
-        last_name: formData.last_name || null,
-        phone: formData.phone || null,
-        address: formData.address || null,
-        city: formData.city || null,
-        zip_code: formData.zip_code || null,
-        district: formData.district,
-        status: formData.status as
-          | 'active_volunteer'
-          | 'supporter'
-          | 'donor'
-          | 'choir'
-          | 'organizer'
-          | 'inactive',
-        tags: formData.tags,
-        notes: formData.notes || null,
-        // Sent only on an edit. On create there is no row to be stale against,
-        // and sending `null` would ask the action to match a row whose
-        // `updated_at` is not null.
-        ...(contact ? { updated_at: baseVersionRef.current } : {}),
-      });
+    const res = await saveCRMContact({
+      id: contact?.id,
+      email: formData.email,
+      first_name: formData.first_name || null,
+      last_name: formData.last_name || null,
+      phone: formData.phone || null,
+      address: formData.address || null,
+      city: formData.city || null,
+      zip_code: formData.zip_code || null,
+      district: formData.district,
+      status: formData.status as
+        | 'active_volunteer'
+        | 'supporter'
+        | 'donor'
+        | 'choir'
+        | 'organizer'
+        | 'inactive',
+      tags: formData.tags,
+      notes: formData.notes || null,
+      // Sent only on an edit. On create there is no row to be stale against,
+      // and sending `null` would ask the action to match a row whose
+      // `updated_at` is not null.
+      ...(contact ? { updated_at: baseVersionRef.current } : {}),
+    });
 
-      if (!res.success) {
-        // A conflict is not a generic failure and gets its own copy: the save was
-        // refused deliberately, and "Failed to save contact" tells the volunteer
-        // nothing about what to do next.
-        if (res.reason === 'conflict') {
-          toast.error(res.error || 'Someone else saved this contact while you were editing.');
-        } else {
-          toast.error(res.error || 'Failed to save contact');
-        }
+    if (!res.success) {
+      // A conflict is not a generic failure and gets its own copy: the save was
+      // refused deliberately, and "Failed to save contact" tells the volunteer
+      // nothing about what to do next.
+      if (res.reason === 'conflict') {
+        toast.error(res.error || 'Someone else saved this contact while you were editing.');
       } else {
-        baseVersionRef.current = res.updatedAt ?? null;
-        toast.success(contact ? 'Constituent updated' : 'Constituent created');
-        onSaved?.();
-        router.refresh();
-        onClose();
+        toast.error(res.error || 'Failed to save contact');
       }
-    } catch {
-      toast.error('An unexpected error occurred');
-    } finally {
-      setLoading(false);
+      return { success: false, error: res.error, reason: res.reason };
     }
-  };
+
+    baseVersionRef.current = res.updatedAt ?? null;
+    toast.success(contact ? 'Constituent updated' : 'Constituent created');
+    onSaved?.();
+    router.refresh();
+    onClose();
+    return { success: true };
+  }
+
+  const [, formAction, isPending] = useActionState(contactEditorAction, initialState);
 
   return (
     <Dialog
@@ -153,7 +155,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose, onSaved }: Pro
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form action={formAction} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label
@@ -231,7 +233,7 @@ export function CRMContactEditorModal({ contact, isOpen, onClose, onSaved }: Pro
               email → blocked reads as a broken save otherwise. */}
           {!contact && (
             <p className="text-[11px] font-medium text-muted-foreground bg-surface-muted border border-border/70 rounded-xl px-3.5 py-2.5">
-              New constituents start as “Never asked” and won’t receive chapter email until opt-in
+              New constituents start as "Never asked" and won't receive chapter email until opt-in
               is recorded on their profile.
             </p>
           )}
@@ -425,10 +427,19 @@ export function CRMContactEditorModal({ contact, isOpen, onClose, onSaved }: Pro
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={isPending}
               className="px-6 py-2.5 bg-primary text-white hover:bg-primary-light text-xs font-black uppercase tracking-widest rounded-xl shadow-md transition-colors disabled:opacity-50"
             >
-              {loading ? 'Saving...' : contact ? 'Save Changes' : 'Create Constituent'}
+              {isPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                  Saving...
+                </span>
+              ) : contact ? (
+                'Save Changes'
+              ) : (
+                'Create Constituent'
+              )}
             </button>
           </div>
         </form>

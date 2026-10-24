@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath, revalidateTag } from 'next/cache';
+import { cacheLife, cacheTag, revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { requireAdmin } from '@/lib/admin-auth';
 import {
@@ -123,6 +123,16 @@ const taskSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Due date must be YYYY-MM-DD')
     .nullable()
     .optional(),
+});
+
+const noteSchema = z.object({
+  contactId: z.string().uuid(),
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Title is required')
+    .max(200, 'Title must be 200 characters or fewer'),
+  description: z.string().trim().max(2000, 'Notes must be 2000 characters or fewer').optional(),
 });
 
 const updateTaskSchema = z.object({
@@ -744,16 +754,20 @@ export async function setCRMTaskStatus({
   id: string;
   status: 'open' | 'done';
 }): Promise<{ success: boolean; error?: string }> {
+  const taskStatusSchema = z.object({ id: z.string().uuid(), status: z.enum(['open', 'done']) });
+  const parsed = taskStatusSchema.safeParse({ id, status });
+  if (!parsed.success)
+    return { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
   const { adminClient } = await requireAdmin();
   const now = new Date().toISOString();
   const { data, error } = await adminClient
     .from('crm_tasks')
     .update({
-      status,
-      completed_at: status === 'done' ? now : null,
+      status: parsed.data.status,
+      completed_at: parsed.data.status === 'done' ? now : null,
       updated_at: now,
     })
-    .eq('id', id)
+    .eq('id', parsed.data.id)
     .select('contact_id')
     .single();
 
@@ -1365,19 +1379,21 @@ export async function addCRMNote({
 }): Promise<{ success: boolean; error?: string }> {
   const { adminClient, adminUserId } = await requireAdmin();
 
-  if (!title.trim()) return { success: false, error: 'Title is required' };
+  const parsed = noteSchema.safeParse({ contactId, title, description });
+  if (!parsed.success)
+    return { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' };
 
   const { error } = await adminClient.from('crm_activities').insert({
-    contact_id: contactId,
+    contact_id: parsed.data.contactId,
     type: 'note',
-    title: title.trim(),
-    description: description.trim() || null,
+    title: parsed.data.title,
+    description: parsed.data.description?.trim() || null,
     created_by: adminUserId,
   });
 
   if (error) return { success: false, error: error.message };
 
-  revalidateCRMRoutes(contactId);
+  revalidateCRMRoutes(parsed.data.contactId);
   return { success: true };
 }
 
@@ -2679,6 +2695,9 @@ export async function getCRMBroadcastDrafts(): Promise<CRMBroadcast[]> {
  * forget to check.
  */
 export async function getCRMExistingTags(): Promise<CRMTagScan> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('crm-tags');
   // Authorize first, outside any cache. A server action is callable by anyone
   // who can POST to it, so the check has to run on every call; only the data
   // behind it is cached. See `getCachedCRMTags` for why the two are separate.

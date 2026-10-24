@@ -821,10 +821,20 @@ describe('Civic CRM Server Actions', () => {
       // proof that `.eq('id', …)` found a task — where the old stub answered
       // `{error: null}` for a table with no tasks in it at all.
       tables.crm_tasks = {
-        rows: [{ id: 'task-1', contact_id: 'c-1', status: 'open', completed_at: null }],
+        rows: [
+          {
+            id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+            contact_id: 'c-1',
+            status: 'open',
+            completed_at: null,
+          },
+        ],
       };
 
-      const res = await setCRMTaskStatus({ id: 'task-1', status: 'done' });
+      const res = await setCRMTaskStatus({
+        id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        status: 'done',
+      });
       expect(res.success).toBe(true);
       const task = tables.crm_tasks.rows?.[0];
       expect(task?.status).toBe('done');
@@ -838,7 +848,7 @@ describe('Civic CRM Server Actions', () => {
       tables.crm_tasks = {
         rows: [
           {
-            id: 'task-1',
+            id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
             contact_id: 'c-1',
             status: 'done',
             completed_at: '2026-09-01T00:00:00.000Z',
@@ -846,7 +856,10 @@ describe('Civic CRM Server Actions', () => {
         ],
       };
 
-      const res = await setCRMTaskStatus({ id: 'task-1', status: 'open' });
+      const res = await setCRMTaskStatus({
+        id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d',
+        status: 'open',
+      });
       expect(res.success).toBe(true);
       expect(tables.crm_tasks.rows?.[0]).toMatchObject({ status: 'open', completed_at: null });
     });
@@ -1225,14 +1238,14 @@ describe('Civic CRM Server Actions', () => {
       tables.crm_activities = { rows: [] };
 
       const res = await addCRMNote({
-        contactId: 'contact-uuid-1',
+        contactId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
         title: 'Attended Rally',
         description: 'Brought 4 neighbors and signed up for phonebank.',
       });
 
       expect(res.success).toBe(true);
       expect(tables.crm_activities.rows?.[0]).toMatchObject({
-        contact_id: 'contact-uuid-1',
+        contact_id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
         type: 'note',
         title: 'Attended Rally',
         description: 'Brought 4 neighbors and signed up for phonebank.',
@@ -1242,7 +1255,7 @@ describe('Civic CRM Server Actions', () => {
 
     it('rejects note with empty title', async () => {
       const res = await addCRMNote({
-        contactId: 'contact-uuid-1',
+        contactId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
         title: '   ',
         description: 'desc',
       });
@@ -1257,7 +1270,7 @@ describe('Civic CRM Server Actions', () => {
       tables.crm_activities = { rows: [], error: { message: 'activities table is locked' } };
 
       const res = await addCRMNote({
-        contactId: 'contact-uuid-1',
+        contactId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
         title: 'Attended Rally',
         description: 'Brought 4 neighbors.',
       });

@@ -168,7 +168,11 @@ describe('CRM mutation failure paths', () => {
 
   describe('addCRMNote', () => {
     it('refuses a note with no title', async () => {
-      const res = await addCRMNote({ contactId: 'c1', title: '   ', description: '' });
+      const res = await addCRMNote({
+        contactId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        title: '   ',
+        description: '',
+      });
       expect(res.success).toBe(false);
       expect(mockAdminClient.from).not.toHaveBeenCalled();
     });
@@ -177,7 +181,11 @@ describe('CRM mutation failure paths', () => {
       const inserted: Record<string, unknown>[] = [];
       tables.crm_activities = { rows: [], insert: {}, onInsert: (row) => inserted.push(row) };
 
-      await addCRMNote({ contactId: 'c1', title: '  Spoke at the fair  ', description: 'body' });
+      await addCRMNote({
+        contactId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        title: '  Spoke at the fair  ',
+        description: 'body',
+      });
 
       // The row that reached the database, not the arguments a stub was handed.
       expect(inserted[0]?.title).toBe('Spoke at the fair');

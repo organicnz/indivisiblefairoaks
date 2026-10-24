@@ -2,7 +2,7 @@
 
 import { ImageIcon, Loader2, Plus, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useId, useState } from 'react';
+import { useActionState, useId, useState } from 'react';
 import { toast } from 'sonner';
 import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
 import { addCRMTask } from '@/lib/actions/crm';
@@ -13,6 +13,10 @@ interface Props {
   contactName?: string;
   onDone?: () => void;
 }
+
+type ActionResult = { success: boolean; error?: string } | null;
+
+const initialState: ActionResult = null;
 
 /**
  * Creating a follow-up used to be reachable only from a constituent's profile,
@@ -30,7 +34,6 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
   const [title, setTitle] = useState('');
   const [dueAt, setDueAt] = useState('');
   const [details, setDetails] = useState('');
-  const [busy, setBusy] = useState(false);
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const titleId = useId();
 
@@ -41,32 +44,30 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
     setIsMediaModalOpen(false);
   };
 
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (busy) return;
-    setBusy(true);
-    try {
-      const res = await addCRMTask({
-        contactId: contactId ?? null,
-        title,
-        details: details || null,
-        dueAt: dueAt || null,
-      });
-      if (res.success) {
-        toast.success('Follow-up added');
-        reset();
-        setOpen(false);
-        onDone?.();
-        router.refresh();
-      } else {
-        toast.error(res.error || 'Failed to add follow-up');
-      }
-    } catch {
-      toast.error('Failed to add follow-up');
-    } finally {
-      setBusy(false);
+  async function taskFormAction(
+    _prevState: ActionResult,
+    _formData: FormData
+  ): Promise<ActionResult> {
+    const res = await addCRMTask({
+      contactId: contactId ?? null,
+      title,
+      details: details || null,
+      dueAt: dueAt || null,
+    });
+    if (res.success) {
+      toast.success('Follow-up added');
+      reset();
+      setOpen(false);
+      onDone?.();
+      router.refresh();
+      return { success: true };
+    } else {
+      toast.error(res.error || 'Failed to add follow-up');
+      return { success: false, error: res.error };
     }
-  };
+  }
+
+  const [, formAction, isPending] = useActionState(taskFormAction, initialState);
 
   if (!open) {
     return (
@@ -83,7 +84,7 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
 
   return (
     <form
-      onSubmit={submit}
+      action={formAction}
       className="rounded-2xl border border-border bg-surface-card p-4 shadow-xs space-y-3"
     >
       <div className="flex items-center justify-between">
@@ -164,10 +165,10 @@ export function CRMTaskForm({ contactId, contactName, onDone }: Props) {
       <div className="flex items-center gap-3 pt-1">
         <button
           type="submit"
-          disabled={busy || !title.trim()}
+          disabled={isPending || !title.trim()}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
         >
-          {busy && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
+          {isPending && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
           Add follow-up
         </button>
         <p className="text-xs text-muted-foreground">
