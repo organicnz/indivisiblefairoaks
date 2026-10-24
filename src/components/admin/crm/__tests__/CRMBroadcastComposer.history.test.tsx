@@ -18,6 +18,19 @@ vi.mock('next/navigation', () => ({
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), message: vi.fn(), info: vi.fn() },
 }));
+vi.mock('@/lib/supabase', () => ({
+  createClient: () => {
+    const ch = {
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn(),
+      unsubscribe: vi.fn(),
+    };
+    return {
+      channel: vi.fn().mockReturnValue(ch),
+      removeChannel: vi.fn(),
+    };
+  },
+}));
 vi.mock('@/lib/actions/crm', () => ({
   deleteCRMBroadcastDraft: vi.fn(),
   getBroadcastProgress: vi.fn(),

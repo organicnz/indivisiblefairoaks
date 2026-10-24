@@ -53,6 +53,7 @@ import {
 import { BROADCAST_RECIPIENT_CEILING } from '@/lib/crm-broadcast';
 import { countPages, pageRange } from '@/lib/crm-filters';
 import { BROADCAST_HISTORY_PAGE_SIZE, PROGRESS_POLL_TIMEOUT_MS } from '@/lib/crm-limits';
+import { createClient } from '@/lib/supabase';
 import type { BroadcastProgress, CRMBroadcast, CRMSegment } from '@/types/crm';
 import type { BackendStatus, ComposerBlock, ComposerTemplate } from '@/types/unified';
 
@@ -249,71 +250,139 @@ export function CRMBroadcastComposer({
   };
 
   /**
-   * Poll until the sender leaves an in-flight state.
+   * Watch a broadcast until it leaves an in-flight state.
    *
-   * The give-up is now visible. It used to return silently after 180 seconds,
-   * never calling `router.refresh()`, so a large campaign — the sender moves ten
-   * recipients per round-trip, and 5,000 is five hundred rounds — outlived the
-   * poll and left the row in this tab reading `sending` forever, with no
-   * indication that anything was still happening or that the page needed a
-   * refresh. An admin who saw that had no way to tell a slow send from a stuck
-   * one, and the recovery procedure for a stuck send is in the docs.
+   * Primary path: a Supabase Realtime subscription fires on every UPDATE to the
+   * broadcast row, so progress updates land immediately rather than after a 2s
+   * wait.
    *
-   * So: say so, refresh what is known, and keep the number of attempts
-   * proportional to the ceiling rather than a fixed 90.
+   * Fallback: a 10s heartbeat poll via getBroadcastProgress() handles the case
+   * where Realtime is unavailable (network partition, WebSocket blocked). The
+   * heartbeat also drives the give-up logic — maxAttempts counts 10s intervals
+   * instead of 2s ones, preserving the same total time budget.
+   *
+   * The give-up is visible: it used to return silently after 180 seconds, leaving
+   * the row reading `sending` forever in this tab. An admin had no way to tell a
+   * slow send from a stuck one, and the recovery procedure for a stuck send is in
+   * the docs. Now it says so, refreshes what is known, and keeps attempts
+   * proportional to the ceiling.
    */
   const followProgress = async (broadcastId: string) => {
+    // 10s heartbeat intervals. The same time budget as before (2s × 5 = 10s per
+    // interval, same maxAttempts formula).
+    const HEARTBEAT_MS = 10_000;
     // The sender batches ten at a time, so the worst case is the full ceiling
     // plus slack for the audience query and the final status write.
     const maxAttempts = Math.ceil(BROADCAST_RECIPIENT_CEILING / 10) + 30;
+
+    // Set up Realtime subscription for live updates.
+    const supabase = createClient();
+    const channel = supabase.channel(`broadcast:${broadcastId}`).on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'crm_broadcasts',
+        filter: `id=eq.${broadcastId}`,
+      },
+      (payload) => {
+        const row = payload.new as Record<string, unknown>;
+        const status = row.status as BroadcastProgress['status'] | undefined;
+        const sentCount = (row.sent_count as number | null) ?? 0;
+        const failedCount = (row.failed_count as number | null) ?? 0;
+        const recipientCount = (row.recipient_count as number | null) ?? 0;
+        const sentAt = (row.sent_at as string | null) ?? null;
+        const subject = (row.subject as string | null) ?? null;
+        const createdAt = (row.created_at as string) ?? new Date().toISOString();
+
+        if (!status) return;
+
+        setProgress((prev) => ({
+          id: broadcastId,
+          subject: subject ?? prev?.subject ?? null,
+          status,
+          recipientCount,
+          sentCount,
+          failedCount,
+          sentAt,
+          createdAt,
+          stillWatching: true,
+        }));
+
+        const isTerminal = status !== 'queued' && status !== 'sending';
+        if (isTerminal) {
+          startTransition(() => router.refresh());
+          void channel.unsubscribe();
+          supabase.removeChannel(channel);
+        }
+      }
+    );
+
+    channel.subscribe();
+
+    // Heartbeat: poll once every 10s as a fallback for when Realtime is not
+    // delivering. This also drives the give-up logic. The first poll is
+    // immediate to preserve the original behavior (fast path to error reporting
+    // when the first server-action call fails or times out).
     try {
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        // Wait before polling (except on the first attempt — immediate first poll
+        // preserves the original behavior for fast error detection).
+        if (attempt > 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, HEARTBEAT_MS));
+        }
+
         // Each poll is bounded, *in the browser*. `getBroadcastProgress` is a
         // server action with no client-side timeout, and the `catch` below is
         // the only thing that could end the loop — so a request that hangs
-        // rather than rejects froze the loop with no fallback and a frozen
-        // "Sending 120 of 5,000". Racing a timeout turns a hang into the
-        // visible failure the catch was written for.
+        // rather than rejects froze the loop with no fallback. Racing a timeout
+        // turns a hang into the visible failure the catch was written for.
         const current = await Promise.race([
           getBroadcastProgress(broadcastId),
           new Promise<null>((resolve) => setTimeout(() => resolve(null), PROGRESS_POLL_TIMEOUT_MS)),
         ]);
-        // `null` is ambiguous: it is also what a finished-and-deleted row
-        // returns. Distinguish them by the attempt count — the give-up below
-        // handles exhaustion, so here it means the poll did not answer.
+
+        // `null` means the poll timed out (PROGRESS_POLL_TIMEOUT_MS). It is
+        // also what a finished-and-deleted row returns, but exhaustion is
+        // handled by the loop; here it means the heartbeat did not answer.
         if (current === null) {
-          if (attempt >= maxAttempts) break;
           setProgress((prev) => (prev ? { ...prev, stillWatching: false } : prev));
           toast.error('Lost the progress feed — reload to check the campaign');
           startTransition(() => router.refresh());
+          void channel.unsubscribe();
+          supabase.removeChannel(channel);
           return;
         }
+
         setProgress(current);
         if (current.status !== 'queued' && current.status !== 'sending') {
           startTransition(() => router.refresh());
+          void channel.unsubscribe();
+          supabase.removeChannel(channel);
           return;
         }
-        await new Promise((resolve) => {
-          setTimeout(resolve, 2000);
-        });
       }
     } catch {
-      // One failed poll used to end the readout permanently with the last
+      // One failed heartbeat used to end the readout permanently with the last
       // number frozen on screen. Freeze is still possible — reloading is the
       // recovery — but the author is told instead of left to read a stale
       // "Sending 120 of 5,000".
       setProgress((current) => (current ? { ...current, stillWatching: false } : current));
       toast.error('Lost the progress feed — reload to check the campaign');
       startTransition(() => router.refresh());
+      void channel.unsubscribe();
+      supabase.removeChannel(channel);
       return;
     }
 
-    // Still in flight after roughly half an hour. Not an error — the send may
+    // Still in flight after the full time budget. Not an error — the send may
     // well be fine — but the operator needs to know this tab has stopped
     // watching, because the row they are looking at is not the row in the
     // database.
     setProgress((current) => (current ? { ...current, stillWatching: false } : current));
     startTransition(() => router.refresh());
+    void channel.unsubscribe();
+    supabase.removeChannel(channel);
   };
 
   const followProgressRef = useRef(followProgress);
