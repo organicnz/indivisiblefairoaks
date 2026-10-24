@@ -30,6 +30,16 @@ function fakeMatchMedia(prefersDark: boolean) {
   return media;
 }
 
+// Module-scope probe — Biome's noComponentHookFactories rule disallows
+// defining React components inside functions. The captured box is a mutable
+// module-level slot; `render()` resets it each call so tests don't share state.
+let _capturedBox: { current: ReturnType<typeof useThemeMode> | null } = { current: null };
+
+function Probe() {
+  _capturedBox.current = useThemeMode();
+  return null;
+}
+
 describe('theme store', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -55,21 +65,14 @@ describe('theme store', () => {
   });
 
   function render() {
-    // Held in a box because the probe assigns it during render, which React
-    // runs inside `act`. A `let` would trip the no-non-null-assertion rule on
-    // the read; a box makes the null real and checked.
-    const captured: { current: ReturnType<typeof useThemeMode> | null } = { current: null };
-    function Probe() {
-      captured.current = useThemeMode();
-      return null;
-    }
+    _capturedBox = { current: null };
     act(() => {
       root = createRoot(container);
       root.render(<Probe />);
     });
     return () => {
-      if (!captured.current) throw new Error('probe never rendered');
-      return captured.current;
+      if (!_capturedBox.current) throw new Error('probe never rendered');
+      return _capturedBox.current;
     };
   }
 
