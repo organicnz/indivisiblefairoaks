@@ -190,6 +190,28 @@ describe('CRM mutation failure paths', () => {
       // The row that reached the database, not the arguments a stub was handed.
       expect(inserted[0]?.title).toBe('Spoke at the fair');
     });
+
+    it('refuses a title over 200 characters', async () => {
+      const res = await addCRMNote({
+        contactId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        title: 'x'.repeat(201),
+        description: '',
+      });
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/200 characters or fewer/i);
+      expect(mockAdminClient.from).not.toHaveBeenCalled();
+    });
+
+    it('refuses a description over 2000 characters', async () => {
+      const res = await addCRMNote({
+        contactId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        title: 'Valid title',
+        description: 'x'.repeat(2001),
+      });
+      expect(res.success).toBe(false);
+      expect(res.error).toMatch(/2000 characters or fewer/i);
+      expect(mockAdminClient.from).not.toHaveBeenCalled();
+    });
   });
 
   describe('importCRMContacts', () => {
