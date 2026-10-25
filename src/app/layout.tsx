@@ -12,6 +12,7 @@ import { ThemeAwareToaster } from '@/components/layout/ThemeAwareToaster';
 import { ThemeHud } from '@/components/layout/ThemeHud';
 import { VgpuThemeCanvas } from '@/components/layout/VgpuThemeCanvas';
 import { WallEChatWidget } from '@/components/ui/WallEChatWidget';
+import { VisualEditErrorBoundary } from '@/components/visual-edit/VisualEditErrorBoundary';
 import { VisualEditOverlay } from '@/components/visual-edit/VisualEditOverlay';
 import { BRAND } from '@/config/brand';
 import {
@@ -174,7 +175,9 @@ export default function RootLayout({
           </main>
           <Footer />
           <WallEChatWidget />
-          <VisualEditOverlay />
+          <VisualEditErrorBoundary>
+            <VisualEditOverlay />
+          </VisualEditErrorBoundary>
         </Providers>
         <ThemeAwareToaster />
         <ThemeHud />
