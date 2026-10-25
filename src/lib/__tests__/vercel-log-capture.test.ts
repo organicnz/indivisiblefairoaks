@@ -100,25 +100,6 @@ describe('eventText', () => {
   });
 });
 
-describe('eventText', () => {
-  it('reads the nested payload shape from the documented API', async () => {
-    expect(eventText({ type: 'stdout', created: 100, payload: { text: 'hi' } })).toBe('hi');
-  });
-
-  it('keeps reading the legacy top-level shape', async () => {
-    expect(eventText({ type: 'stdout', created: 100, text: 'hi' })).toBe('hi');
-  });
-
-  it('prefers top-level text when both shapes are present', async () => {
-    expect(eventText({ text: 'top', payload: { text: 'nested' } })).toBe('top');
-  });
-
-  it('yields empty for lifecycle events carrying no output', async () => {
-    expect(eventText({ type: 'delimiter', created: 100 })).toBe('');
-    expect(eventText(null)).toBe('');
-  });
-});
-
 describe('getFullBuildLog pagination', () => {
   it('pages forward from the start until an empty page, oldest first', async () => {
     const fetchMock = vi

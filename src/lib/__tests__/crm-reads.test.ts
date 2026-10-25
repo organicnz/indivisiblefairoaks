@@ -314,7 +314,7 @@ describe('CRM reads and bookkeeping', () => {
     });
   });
 
-  describe('getCRMBroadcastHistoryPage', () => {
+  describe('getCRMBroadcastHistoryPage pagination and count', () => {
     /**
      * `.limit(50)` with no offset, no count and no pager meant a chapter past
      * fifty campaigns could not see its fifty-first — and a twenty-first draft
