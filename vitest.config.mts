@@ -45,6 +45,7 @@ export default defineConfig({
       '**/dist/**',
       '**/.next/**',
       '**/.worktrees/**',
+      '**/.trunk/**',
       'e2e/**',
       'playwright/tests/**', // Playwright E2E tests run via `playwright test`, not vitest
     ],
