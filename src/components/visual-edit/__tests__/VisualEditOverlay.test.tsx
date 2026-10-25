@@ -757,6 +757,58 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(imageToolbar?.textContent).toContain('Alt Text');
   });
 
+  it('opens a link insert dialog instead of browser prompt when clicking the inline toolbar link button', async () => {
+    await withPage();
+
+    const heading = document.querySelector('h2');
+    await act(async () => {
+      heading?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const linkBtn = container.querySelector<HTMLButtonElement>('button[aria-label="Insert link"]');
+    expect(linkBtn).not.toBeNull();
+
+    // The pill variant uses onMouseDown (not onClick) to prevent the
+    // contentEditable selection from collapsing before the command runs.
+    await act(async () => {
+      linkBtn?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('Insert link');
+    expect(dialog?.querySelector('input[type="url"]')).not.toBeNull();
+    expect(dialog?.querySelector('button[data-confirm]')).not.toBeNull();
+  });
+
+  it('opens an alt text edit dialog instead of browser prompt when clicking the image Alt Text button', async () => {
+    await withPage();
+
+    const img = document.createElement('img');
+    img.src = 'https://example.com/photo.jpg';
+    img.alt = 'Protest photo';
+    document.querySelector('main')?.appendChild(img);
+
+    await act(async () => {
+      img.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const altBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit image alt text"]'
+    );
+    expect(altBtn).not.toBeNull();
+
+    await act(async () => {
+      altBtn?.click();
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('Edit alt text');
+    expect(dialog?.querySelector('input[type="text"]')).not.toBeNull();
+    expect(dialog?.querySelector('button[data-confirm]')).not.toBeNull();
+  });
+
   it('does not hijack interactive controls like tabs, audio players, or civic buttons into contentEditable', async () => {
     await withPage();
 
