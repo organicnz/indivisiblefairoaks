@@ -108,6 +108,7 @@ export function CivicLinkManager({ onRefreshParent }: CivicLinkManagerProps) {
             onClick={fetchLinks}
             disabled={loading}
             title="Refresh links"
+            aria-label="Refresh links"
             className="p-1.5 rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -178,6 +179,7 @@ export function CivicLinkManager({ onRefreshParent }: CivicLinkManagerProps) {
                         }}
                         className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                         title="Edit link"
+                        aria-label={`Edit link ${l.name}`}
                       >
                         <Pencil size={13} />
                       </button>

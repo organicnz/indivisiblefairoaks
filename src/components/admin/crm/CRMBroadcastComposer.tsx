@@ -1154,6 +1154,7 @@ export function CRMBroadcastComposer({
                   onClick={handleSelfTest}
                   disabled={isSelfTesting || !subject.trim() || !body.trim()}
                   title="Send this message to your own inbox. Nobody else receives it."
+                  aria-label="Send test to self"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-muted-foreground bg-surface-muted hover:bg-surface-muted transition-colors disabled:opacity-40 disabled:hover:bg-surface-muted"
                 >
                   {isSelfTesting ? (

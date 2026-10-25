@@ -91,6 +91,7 @@ export function CivicNewsletterManager({ onRefreshParent }: CivicNewsletterManag
             onClick={fetchNewsletters}
             disabled={loading}
             title="Refresh newsletters list"
+            aria-label="Refresh newsletters list"
             className="p-1.5 rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />

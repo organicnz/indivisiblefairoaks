@@ -1096,6 +1096,7 @@ export function CRMDetailClient({
                                         onClick={() => handleStartEditNote(act)}
                                         className="p-1 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark hover:bg-surface-card rounded transition-colors"
                                         title="Edit note"
+                                        aria-label={`Edit note: ${act.title}`}
                                       >
                                         <Edit2 size={12} />
                                       </button>
@@ -1364,6 +1365,7 @@ export function CRMDetailClient({
                                   onClick={() => handleStartEditTask(task)}
                                   className="p-1 text-muted-foreground hover:text-primary dark:hover:text-primary-on-dark hover:bg-surface-muted rounded transition-colors"
                                   title="Edit task"
+                                  aria-label={`Edit task: ${task.title}`}
                                 >
                                   <Edit2 size={13} />
                                 </button>

@@ -582,6 +582,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
             onClick={openMediaLibraryGlobal}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-foreground bg-surface-card border border-border hover:bg-surface-muted transition-colors shadow-2xs"
             title="Browse Supabase S3 Media Library"
+            aria-label="Browse Supabase S3 Media Library"
           >
             <FolderOpen size={13} className="text-primary dark:text-primary-on-dark" />
             <span className="hidden md:inline">Supabase Media</span>
@@ -1297,6 +1298,7 @@ export function VisualComposerCanvas({ blocks, onChange }: Props) {
                                   }}
                                   className="p-1 text-muted-foreground hover:text-red-600 rounded"
                                   title="Delete item"
+                                  aria-label={`Delete list item ${itemIdx + 1}`}
                                 >
                                   <Trash2 size={13} />
                                 </button>

@@ -111,6 +111,7 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
             onClick={fetchEvents}
             disabled={loading}
             title="Refresh events list"
+            aria-label="Refresh events list"
             className="p-1.5 rounded-lg border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -191,6 +192,7 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
                     target="_blank"
                     rel="noopener noreferrer"
                     title="View RSVP Page"
+                    aria-label={`View RSVP page for ${evt.title}`}
                     className="p-1.5 rounded-lg border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <ExternalLink size={14} />

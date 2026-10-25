@@ -235,6 +235,7 @@ export function CRMMediaLibraryModal({
               type="button"
               onClick={() => loadMedia()}
               title="Refresh Media"
+              aria-label="Refresh media"
               className="p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-surface-muted transition-colors"
             >
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
@@ -343,6 +344,7 @@ export function CRMMediaLibraryModal({
                         type="button"
                         onClick={() => handleCopyUrl(item.url)}
                         title="Copy Public URL"
+                        aria-label={`Copy public URL for ${item.name}`}
                         className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-surface-muted transition-colors"
                       >
                         {copiedUrl === item.url ? (

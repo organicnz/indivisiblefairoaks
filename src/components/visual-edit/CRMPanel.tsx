@@ -1868,6 +1868,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                                 />
                                 <button
                                   type="submit"
+                                  aria-label="Add tag"
                                   className="p-1 rounded bg-primary text-white text-xs font-bold hover:bg-primary-light"
                                   title="Add tag"
                                 >
@@ -1881,6 +1882,7 @@ export const CRMPanel: React.FC<CRMPanelProps> = ({
                                   }}
                                   className="p-1 rounded text-muted-foreground hover:text-foreground"
                                   title="Cancel"
+                                  aria-label="Cancel adding tag"
                                 >
                                   <X size={12} />
                                 </button>
