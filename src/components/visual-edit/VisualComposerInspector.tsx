@@ -249,7 +249,7 @@ export function VisualComposerInspector({
   const anchorIdInputId = useId();
   const blockAnchorIdInputId = useId();
   const customClassesInputId = useId();
-  const customStyleInputId = useId();
+  const customStyleInputId = 'block-custom-style-input';
   const rawHtmlInputId = useId();
   const designJsonInputId = useId();
 

@@ -1,9 +1,9 @@
 'use client';
 
 import { Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Block } from '@/lib/blocks';
-import type { ThemeMode } from '@/lib/theme';
+import { resolveEffectiveTheme, type ThemeMode } from '@/lib/theme';
 import type {
   VisualComposerDevice,
   VisualComposerMode,
@@ -36,11 +36,20 @@ export function DevicePreviewFrame({
   const activeTheme = propTheme ?? internalTheme;
   const handleSetTheme = propSetTheme ?? setInternalTheme;
 
-  const isOsDark =
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const effectiveTheme = activeTheme === 'system' ? (isOsDark ? 'dark' : 'light') : activeTheme;
+  const [osPrefersDark, setOsPrefersDark] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (e: MediaQueryListEvent) => setOsPrefersDark(e.matches);
+    media.addEventListener?.('change', onChange);
+    return () => media.removeEventListener?.('change', onChange);
+  }, []);
+
+  const effectiveTheme = resolveEffectiveTheme(activeTheme, osPrefersDark);
 
   const hasThemeOverride =
     (styles?.themeMode && styles.themeMode !== 'inherit') ||

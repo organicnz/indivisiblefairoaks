@@ -1,10 +1,11 @@
 'use client';
 
-import { Code, Download, SlidersHorizontal, Upload } from 'lucide-react';
+import { Download, SlidersHorizontal, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Block } from '@/lib/blocks';
 import type { VisualComposerStyles } from '@/types/unified';
 import { CIVIC_CLASS_PRESETS } from './constants';
+import { StudioInput, StudioSection } from './ui';
 
 export interface CodeStudioProps {
   currentBlock: Block;
@@ -39,14 +40,12 @@ export function CodeStudio({
 }: CodeStudioProps) {
   return (
     <div className="space-y-4">
-      <div>
-        <span className="block text-slate-300 font-bold mb-1 flex items-center gap-1.5">
-          <Code size={13} className="text-accent-gold" />
-          <span>Raw Block HTML Markup</span>
-        </span>
-        <p className="text-[11px] text-slate-400 mb-2">
-          Directly view and edit raw HTML markup. Changes persist to Supabase CMS.
-        </p>
+      {/* Raw HTML Editor */}
+      <StudioSection
+        title="Raw Block HTML Markup"
+        badge="Direct HTML"
+        description="Directly view and edit raw HTML markup. Changes persist to Supabase CMS."
+      >
         <label htmlFor={rawHtmlInputId} className="sr-only">
           Raw Block HTML
         </label>
@@ -65,45 +64,31 @@ export function CodeStudio({
           }}
           className="w-full rounded-xl border border-white/10 bg-slate-950 p-3 text-white font-mono text-[11px] focus:border-accent-gold/50 focus:outline-none"
         />
-      </div>
+      </StudioSection>
 
       {/* Block Element Anchor ID */}
-      <div>
-        <span className="block text-slate-300 font-bold mb-1">
-          Block Element Anchor ID (Deep Linking)
-        </span>
-        <label htmlFor={blockAnchorIdInputId} className="sr-only">
-          Block Anchor ID
-        </label>
-        <div className="relative">
-          <span className="absolute left-2.5 top-2 text-xs font-mono text-slate-400">#</span>
-          <input
-            id={blockAnchorIdInputId}
-            type="text"
-            value={styles.anchorId}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                anchorId: e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''),
-              })
-            }
-            placeholder="e.g. block-cta, hero-heading"
-            className="w-full rounded-xl border border-white/10 bg-slate-900 py-1.5 pl-6 pr-2.5 text-xs text-white placeholder:text-white/40 focus:border-accent-gold focus:outline-none font-mono"
-          />
-        </div>
-      </div>
+      <StudioInput
+        id={blockAnchorIdInputId}
+        label="Block Element Anchor ID (Deep Linking)"
+        prefix="#"
+        value={styles.anchorId}
+        onChange={(val) =>
+          setStyles({
+            ...styles,
+            anchorId: val.replace(/[^a-zA-Z0-9_-]/g, ''),
+          })
+        }
+        placeholder="e.g. block-cta, hero-heading"
+      />
 
+      {/* Custom Classes & Utility Tokens */}
       <div>
-        <label htmlFor={customClassesInputId} className="block text-slate-300 font-bold mb-1">
-          Custom CSS &amp; Tailwind Utilities
-        </label>
-        <input
+        <StudioInput
           id={customClassesInputId}
-          type="text"
+          label="Custom CSS & Tailwind Utilities"
           value={styles.customClasses}
-          onChange={(e) => setStyles({ ...styles, customClasses: e.target.value })}
+          onChange={(val) => setStyles({ ...styles, customClasses: val })}
           placeholder="e.g. shadow-2xl backdrop-blur-lg hover:rotate-1"
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono text-[11px]"
         />
 
         {/* Quick Civic Class Tokens */}
@@ -124,7 +109,7 @@ export function CodeStudio({
                     toast.success(`Appended ${token.label}`);
                   }
                 }}
-                className="px-2 py-0.5 rounded-md border border-white/10 bg-white/5 text-[10px] text-slate-300 hover:border-accent-gold/50 hover:bg-white/10 hover:text-accent-gold transition-colors"
+                className="px-2 py-0.5 rounded-md border border-white/10 bg-white/5 text-[10px] text-slate-300 hover:border-accent-gold/50 hover:bg-white/10 hover:text-accent-gold transition-colors cursor-pointer"
               >
                 +{token.label}
               </button>
@@ -133,6 +118,7 @@ export function CodeStudio({
         </div>
       </div>
 
+      {/* Custom Inline CSS Styles */}
       <div>
         <label htmlFor={customStyleInputId} className="block text-slate-300 font-bold mb-1">
           Custom Inline CSS Styles (style="...")
@@ -143,7 +129,7 @@ export function CodeStudio({
           value={styles.customStyle || ''}
           onChange={(e) => setStyles({ ...styles, customStyle: e.target.value })}
           placeholder="e.g. background-image: radial-gradient(...); letter-spacing: 0.05em;"
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono text-[11px]"
+          className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono text-[11px]"
         />
         <p className="text-[10px] text-slate-400 mt-1">
           Custom inline CSS rules applied directly to the outer block element container.
@@ -161,7 +147,7 @@ export function CodeStudio({
             <button
               type="button"
               onClick={onExportJson}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             >
               <Download size={11} />
               <span>Export JSON</span>
@@ -169,7 +155,7 @@ export function CodeStudio({
             <button
               type="button"
               onClick={onImportJson}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-accent-gold/40 bg-accent-gold/20 text-accent-gold hover:bg-accent-gold/30 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-accent-gold/40 bg-accent-gold/20 text-accent-gold hover:bg-accent-gold/30 transition-colors cursor-pointer"
             >
               <Upload size={11} />
               <span>Import JSON</span>
