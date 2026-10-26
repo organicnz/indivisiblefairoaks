@@ -10,6 +10,8 @@
     "lint": "bun --bun biome lint --write ./src && bun --bun oxlint ./src",
     "lint:check": "bun --bun biome lint ./src && bun --bun oxlint ./src",
     "typecheck": "bun --bun tsrs --noEmit",
+    "typecheck:watch": "bun --bun tsrs --watch --noEmit",
+    "typecheck:stats": "bun --bun tsrs --extendedDiagnostics --noEmit",
     "typecheck:edge": "deno check --config supabase/functions/deno.json --no-lock supabase/functions/*/index.ts",
     "format": "bun --bun biome format --write ./src",
     "format:check": "bun --bun biome format ./src",

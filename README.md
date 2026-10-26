@@ -82,7 +82,9 @@ bun run lint         # Biome + oxlint (auto-fix)
 bun run lint:check   # lint without writing
 bun run format       # Biome format (auto-fix)
 bun run check:ci     # full Biome CI check (no writes)
-bun run typecheck    # type check (`tsrs` — TypeScript 7 in Rust, no Node)
+bun run typecheck        # type check (`tsrs` — TypeScript 7 in Rust, no Node)
+bun run typecheck:watch  # live watch mode (`tsrs --watch`)
+bun run typecheck:stats  # Rust compiler telemetry & diagnostics (`tsrs --extendedDiagnostics`)
 bun run test         # Vitest unit suite (single run)
 bun run test:watch   # Vitest in watch mode
 bun run test:e2e     # Playwright suite
