@@ -43,6 +43,9 @@ export interface VisualComposerSection {
   bottomDivider?: string;
   overflow?: string;
   zIndex?: string;
+  bgBlendMode?: string;
+  innerShadow?: string;
+  equalHeight?: boolean;
 }
 
 export interface VisualComposerTypography {
@@ -56,6 +59,7 @@ export interface VisualComposerTypography {
   textTransform: 'none' | 'uppercase' | 'capitalize' | 'lowercase';
   textDecoration?: string;
   textWrap?: string;
+  wordBreak?: string;
   color: string;
   textGradient: string;
   textShadow: string;
@@ -82,6 +86,11 @@ export interface VisualComposerLayout {
   alignItems: string;
   columns: string;
   maxWidth: string;
+  minWidth?: string;
+  width?: string;
+  minHeight?: string;
+  maxHeight?: string;
+  height?: string;
   position: string;
   zIndex: string;
   overflow: string;
@@ -90,8 +99,12 @@ export interface VisualComposerLayout {
   alignSelf?: string;
   order?: string;
   flexGrow?: string;
+  flexShrink?: string;
+  flexWrap?: string;
   aspectRatio?: string;
   objectFit?: string;
+  pointerEvents?: string;
+  userSelect?: string;
 }
 
 export interface VisualComposerEffects {
@@ -107,6 +120,8 @@ export interface VisualComposerEffects {
   blendMode?: string;
   hoverBrightness?: string;
   hoverOpacity?: string;
+  invert?: string;
+  dropShadow?: string;
 }
 
 export interface VisualComposerMotion {
@@ -116,6 +131,8 @@ export interface VisualComposerMotion {
   hoverLift?: string;
   hoverRotate?: string;
   hoverGlow?: string;
+  hoverBorder?: string;
+  hoverShadow?: string;
   duration?: string;
   delay?: string;
   timing?: string;
@@ -125,6 +142,9 @@ export interface VisualComposerTransform {
   rotate?: string;
   scale?: string;
   skew?: string;
+  translateX?: string;
+  translateY?: string;
+  transformOrigin?: string;
 }
 
 export interface VisualComposerResponsive {
@@ -150,6 +170,15 @@ export interface VisualComposerStyles {
   responsive: VisualComposerResponsive;
   animation: string;
   customClasses: string;
+  customStyle?: string;
+}
+
+export interface StylePreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerStyles>;
 }
 
 export type VisualComposerMode = 'block' | 'section';

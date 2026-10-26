@@ -1,0 +1,187 @@
+import type {
+  VisualComposerBorder,
+  VisualComposerEffects,
+  VisualComposerMode,
+  VisualComposerMotion,
+  VisualComposerResponsive,
+  VisualComposerSection,
+  VisualComposerStyles,
+} from '@/types/unified';
+
+/**
+ * Builds border utility string based on side, width, style, color, and radius.
+ */
+export function compileBorderClasses(border: VisualComposerBorder): string {
+  if (border.width === 'border-0') return '';
+  const sidePrefix =
+    border.side === 'top'
+      ? border.width.replace('border', 'border-t')
+      : border.side === 'bottom'
+        ? border.width.replace('border', 'border-b')
+        : border.side === 'left'
+          ? border.width.replace('border', 'border-l')
+          : border.side === 'right'
+            ? border.width.replace('border', 'border-r')
+            : border.side === 'y'
+              ? border.width.replace('border', 'border-y')
+              : border.width;
+  const styleClass = border.style !== 'none' ? `border-${border.style}` : '';
+  return [sidePrefix, styleClass, border.color, border.radius].filter(Boolean).join(' ');
+}
+
+/**
+ * Builds Tailwind classes string for section mode.
+ */
+export function compileSectionClasses(
+  section: VisualComposerSection,
+  effects: VisualComposerEffects,
+  motion: VisualComposerMotion,
+  responsive: VisualComposerResponsive,
+  customClasses = ''
+): string {
+  return [
+    section.containerWidth,
+    section.paddingY,
+    section.paddingX !== 'px-4' ? section.paddingX : '',
+    section.marginY,
+    section.marginX,
+    section.minHeight,
+    section.pattern || section.bgGradient || section.background,
+    effects.backdropBlur,
+    section.overlay,
+    section.divider,
+    section.topDivider,
+    section.bottomDivider,
+    section.overflow,
+    section.zIndex,
+    section.border,
+    section.border && section.borderColor ? section.borderColor : '',
+    section.bgPosition,
+    section.bgAttachment,
+    section.bgSize,
+    section.bgRepeat,
+    section.columns,
+    section.columns ? section.columnGap : '',
+    section.columns ? section.verticalAlign : '',
+    section.columns && section.justifyContent ? section.justifyContent : '',
+    section.reverseMobile ? 'flex flex-col-reverse md:flex-row' : '',
+    section.radius !== 'rounded-none' ? section.radius : '',
+    section.shadow !== 'shadow-none' ? section.shadow : '',
+    section.sticky ? 'sticky top-0 z-40 backdrop-blur-md' : '',
+    motion.entrance,
+    motion.hover,
+    responsive.hideMobile ? 'max-sm:hidden' : '',
+    responsive.hideTablet ? 'sm:max-md:hidden' : '',
+    responsive.hideDesktop ? 'md:hidden' : '',
+    responsive.hidePrint ? 'print:hidden' : '',
+    customClasses,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
+/**
+ * Builds Tailwind classes string for block mode.
+ */
+export function compileBlockClasses(styles: VisualComposerStyles): string {
+  const compiledBorder = compileBorderClasses(styles.border);
+
+  return [
+    styles.layout.display,
+    styles.layout.display === 'flex' || styles.layout.display === 'inline-flex'
+      ? [styles.layout.flexDirection, styles.layout.justifyContent, styles.layout.alignItems]
+          .filter(Boolean)
+          .join(' ')
+      : '',
+    styles.layout.position,
+    styles.layout.zIndex,
+    styles.layout.overflow,
+    styles.layout.cursor,
+    styles.layout.visibility,
+    styles.layout.alignSelf,
+    styles.layout.order,
+    styles.layout.flexGrow,
+    styles.layout.aspectRatio,
+    styles.layout.objectFit,
+    styles.layout.maxWidth,
+    styles.layout.columns,
+    styles.margin.top,
+    styles.margin.bottom,
+    styles.margin.left,
+    styles.margin.right,
+    styles.padding.top,
+    styles.padding.bottom,
+    styles.padding.left,
+    styles.padding.right,
+    styles.typography.fontFamily,
+    styles.typography.fontStyle === 'italic' ? 'italic' : '',
+    styles.typography.textGradient || styles.typography.color,
+    styles.typography.fontSize,
+    styles.typography.fontWeight,
+    styles.typography.textAlign === 'center'
+      ? 'text-center'
+      : styles.typography.textAlign === 'right'
+        ? 'text-right'
+        : styles.typography.textAlign === 'justify'
+          ? 'text-justify'
+          : 'text-left',
+    styles.typography.lineHeight,
+    styles.typography.letterSpacing,
+    styles.typography.textTransform !== 'none' ? styles.typography.textTransform : '',
+    styles.typography.textDecoration,
+    styles.typography.textWrap,
+    styles.typography.textShadow,
+    compiledBorder,
+    styles.background.gradient || styles.background.preset,
+    styles.effects.backdropBlur || (styles.background.blur ? 'backdrop-blur-md' : ''),
+    styles.effects.opacity,
+    styles.effects.grayscale,
+    styles.effects.brightness,
+    styles.effects.contrast,
+    styles.effects.saturate,
+    styles.effects.sepia,
+    styles.effects.hueRotate,
+    styles.effects.blur,
+    styles.effects.blendMode,
+    styles.effects.hoverBrightness,
+    styles.effects.hoverOpacity,
+    styles.shadow !== 'shadow-none' ? styles.shadow : '',
+    styles.transform?.rotate,
+    styles.transform?.scale,
+    styles.transform?.skew,
+    styles.motion.entrance,
+    styles.motion.delay,
+    styles.motion.hover,
+    styles.motion.hoverScale,
+    styles.motion.hoverLift,
+    styles.motion.hoverRotate,
+    styles.motion.hoverGlow,
+    styles.motion.duration,
+    styles.motion.timing,
+    styles.responsive.hideMobile ? 'max-sm:hidden' : '',
+    styles.responsive.hideTablet ? 'sm:max-md:hidden' : '',
+    styles.responsive.hideDesktop ? 'md:hidden' : '',
+    styles.responsive.hidePrint ? 'print:hidden' : '',
+    styles.animation !== 'none' ? styles.animation : '',
+    styles.customClasses,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
+/**
+ * Universal compiler dispatching based on editor mode.
+ */
+export function compileClassNames(mode: VisualComposerMode, styles: VisualComposerStyles): string {
+  return mode === 'section'
+    ? compileSectionClasses(
+        styles.section,
+        styles.effects,
+        styles.motion,
+        styles.responsive,
+        styles.customClasses
+      )
+    : compileBlockClasses(styles);
+}

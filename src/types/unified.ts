@@ -69,8 +69,34 @@ export interface CopyRegionDefinition {
 }
 
 export type { BlockTemplate } from '@/components/visual-edit/BlockLibraryModal';
+export type { BreadcrumbBarProps } from '@/components/visual-edit/BreadcrumbBar';
+export type { CommandPaletteProps } from '@/components/visual-edit/CommandPalette';
+export type { ScannedDataPoint } from '@/components/visual-edit/DataPointDrawer';
+export type { ElementInspectorHudProps } from '@/components/visual-edit/ElementInspectorHud';
+export type { AuditIssue } from '@/components/visual-edit/PageA11yAuditor';
+export type { PageNavigatorDrawerProps } from '@/components/visual-edit/PageNavigatorDrawer';
+export type {
+  SlashCommandItem,
+  SlashCommandMenuProps,
+} from '@/components/visual-edit/SlashCommandMenu';
+export type {
+  UseBlockWriterArgs,
+  WriteToBlockArgs,
+  WriteToCopyRegionArgs,
+} from '@/components/visual-edit/useBlockWriter';
+export type { ViewportDeviceBarProps } from '@/components/visual-edit/ViewportDeviceBar';
+export type {
+  ModifiedBlockItem,
+  ModifiedDataPointItem,
+  VisualDiffModalProps,
+} from '@/components/visual-edit/VisualDiffModal';
+export type {
+  ImageEditSession,
+  InlineEditSession,
+} from '@/components/visual-edit/VisualEditOverlay';
 export type { PublishedSection, VisualSection } from '@/lib/visual-sections';
 export type {
+  StylePreset,
   VisualComposerBackground,
   VisualComposerBorder,
   VisualComposerBoxModel,
