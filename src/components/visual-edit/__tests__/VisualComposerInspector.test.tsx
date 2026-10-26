@@ -1493,4 +1493,242 @@ describe('VisualComposerInspector', () => {
     expect(savedClasses).toContain('italic');
     expect(savedClasses).toContain('text-balance');
   });
+
+  it('configures section horizontal margin and stacking z-index in section mode', async () => {
+    const onSaveBlock = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="section"
+        />
+      );
+    });
+
+    // 1. Horizontal Section Margin (mx-auto)
+    const marginXLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Horizontal Margin')
+    );
+    const marginXSelect = marginXLabel
+      ? (document.getElementById(marginXLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(marginXSelect).not.toBeNull();
+    if (marginXSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(marginXSelect, 'mx-auto');
+        marginXSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(marginXSelect.value).toBe('mx-auto');
+    }
+
+    // 2. Section Stacking Z-Index
+    const zIndexLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Stacking Z-Index')
+    );
+    const zIndexSelect = zIndexLabel
+      ? (document.getElementById(zIndexLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(zIndexSelect).not.toBeNull();
+    if (zIndexSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(zIndexSelect, 'relative z-30');
+        zIndexSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(zIndexSelect.value).toBe('relative z-30');
+    }
+
+    // Save Section and verify compiled classes include marginX and zIndex
+    const saveButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Section'
+    );
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    const savedClasses = onSaveBlock.mock.calls[0][1];
+    expect(savedClasses).toContain('mx-auto');
+    expect(savedClasses).toContain('relative z-30');
+  });
+
+  it('configures flex self-alignment, order, grow/shrink, media aspect ratio, object fit, easing curve, and block anchor ID in block mode', async () => {
+    const onSaveBlock = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="block"
+        />
+      );
+    });
+
+    // 1. Switch to Box Model / Design tab: Self Alignment, Order, Grow, Aspect Ratio, Object Fit
+    const designTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Box Model')
+    );
+    expect(designTabBtn).toBeDefined();
+    await act(async () => {
+      designTabBtn?.click();
+    });
+
+    const alignSelfLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Self Alignment')
+    );
+    const alignSelfSelect = alignSelfLabel
+      ? (document.getElementById(alignSelfLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(alignSelfSelect).not.toBeNull();
+    if (alignSelfSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(alignSelfSelect, 'self-center');
+        alignSelfSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(alignSelfSelect.value).toBe('self-center');
+    }
+
+    const orderLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Display Order')
+    );
+    const orderSelect = orderLabel
+      ? (document.getElementById(orderLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(orderSelect).not.toBeNull();
+    if (orderSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(orderSelect, 'order-first');
+        orderSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(orderSelect.value).toBe('order-first');
+    }
+
+    const flexGrowLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Flex Sizing')
+    );
+    const flexGrowSelect = flexGrowLabel
+      ? (document.getElementById(flexGrowLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(flexGrowSelect).not.toBeNull();
+    if (flexGrowSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(flexGrowSelect, 'grow');
+        flexGrowSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(flexGrowSelect.value).toBe('grow');
+    }
+
+    const aspectRatioLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Aspect Ratio')
+    );
+    const aspectRatioSelect = aspectRatioLabel
+      ? (document.getElementById(aspectRatioLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(aspectRatioSelect).not.toBeNull();
+    if (aspectRatioSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(aspectRatioSelect, 'aspect-video');
+        aspectRatioSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(aspectRatioSelect.value).toBe('aspect-video');
+    }
+
+    const objectFitLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Media Object Fit')
+    );
+    const objectFitSelect = objectFitLabel
+      ? (document.getElementById(objectFitLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(objectFitSelect).not.toBeNull();
+    if (objectFitSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(objectFitSelect, 'object-cover');
+        objectFitSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(objectFitSelect.value).toBe('object-cover');
+    }
+
+    // 2. Switch to Advanced tab: Animation Easing Curve
+    const advancedTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Advanced')
+    );
+    expect(advancedTabBtn).toBeDefined();
+    await act(async () => {
+      advancedTabBtn?.click();
+    });
+
+    const timingLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Animation Easing Curve')
+    );
+    const timingSelect = timingLabel
+      ? (document.getElementById(timingLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(timingSelect).not.toBeNull();
+    if (timingSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(timingSelect, 'ease-out');
+        timingSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(timingSelect.value).toBe('ease-out');
+    }
+
+    // 3. Switch to Code tab: Block Element Anchor ID
+    const codeTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Code')
+    );
+    expect(codeTabBtn).toBeDefined();
+    await act(async () => {
+      codeTabBtn?.click();
+    });
+
+    const anchorInput = document.querySelector(
+      'input[placeholder="e.g. block-cta, hero-heading"]'
+    ) as HTMLInputElement | null;
+    expect(anchorInput).not.toBeNull();
+    if (anchorInput) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        setter?.call(anchorInput, 'cta-banner');
+        anchorInput.dispatchEvent(new Event('input', { bubbles: true }));
+        anchorInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(anchorInput.value).toBe('cta-banner');
+    }
+
+    // Save Block and verify compiled classes and anchorId
+    const saveButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Block'
+    );
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('self-center'),
+      'cta-banner'
+    );
+    const savedClasses = onSaveBlock.mock.calls[0][1];
+    expect(savedClasses).toContain('order-first');
+    expect(savedClasses).toContain('grow');
+    expect(savedClasses).toContain('aspect-video');
+    expect(savedClasses).toContain('object-cover');
+    expect(savedClasses).toContain('ease-out');
+  });
 });

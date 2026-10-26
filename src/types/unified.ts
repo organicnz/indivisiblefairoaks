@@ -69,7 +69,7 @@ export interface CopyRegionDefinition {
 }
 
 export type { BlockTemplate } from '@/components/visual-edit/BlockLibraryModal';
-export type { PublishedSection } from '@/lib/visual-sections';
+export type { PublishedSection, VisualSection } from '@/lib/visual-sections';
 export type {
   VisualComposerBackground,
   VisualComposerBorder,

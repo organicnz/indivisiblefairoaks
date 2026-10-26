@@ -18,6 +18,7 @@ export interface VisualComposerSection {
   paddingY: string;
   paddingX: string;
   marginY?: string;
+  marginX?: string;
   minHeight: string;
   background: string;
   bgGradient: string;
@@ -41,6 +42,7 @@ export interface VisualComposerSection {
   topDivider?: string;
   bottomDivider?: string;
   overflow?: string;
+  zIndex?: string;
 }
 
 export interface VisualComposerTypography {
@@ -85,6 +87,11 @@ export interface VisualComposerLayout {
   overflow: string;
   cursor?: string;
   visibility?: string;
+  alignSelf?: string;
+  order?: string;
+  flexGrow?: string;
+  aspectRatio?: string;
+  objectFit?: string;
 }
 
 export interface VisualComposerEffects {
@@ -111,6 +118,7 @@ export interface VisualComposerMotion {
   hoverGlow?: string;
   duration?: string;
   delay?: string;
+  timing?: string;
 }
 
 export interface VisualComposerTransform {

@@ -63,12 +63,14 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     paddingY: 'py-8',
     paddingX: 'px-4',
     marginY: '',
+    marginX: '',
     minHeight: '',
     background: 'bg-transparent',
     divider: '',
     topDivider: '',
     bottomDivider: '',
     overflow: '',
+    zIndex: '',
     columns: '',
     columnGap: 'gap-8',
     verticalAlign: 'items-start',
@@ -127,6 +129,11 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     overflow: '',
     cursor: '',
     visibility: '',
+    alignSelf: '',
+    order: '',
+    flexGrow: '',
+    aspectRatio: '',
+    objectFit: '',
   },
   effects: {
     opacity: '',
@@ -151,6 +158,7 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     hoverGlow: '',
     duration: '',
     delay: '',
+    timing: '',
   },
   transform: {
     rotate: '',
@@ -666,6 +674,7 @@ export function VisualComposerInspector({
   const sectionPaddingYSelectId = useId();
   const sectionPaddingXSelectId = useId();
   const sectionMarginYSelectId = useId();
+  const sectionMarginXSelectId = useId();
   const sectionMinHeightSelectId = useId();
   const sectionPatternSelectId = useId();
   const sectionBgSelectId = useId();
@@ -673,6 +682,7 @@ export function VisualComposerInspector({
   const sectionTopDividerSelectId = useId();
   const sectionBottomDividerSelectId = useId();
   const sectionOverflowSelectId = useId();
+  const sectionZIndexSelectId = useId();
   const sectionColumnsSelectId = useId();
   const sectionGapSelectId = useId();
   const sectionAlignSelectId = useId();
@@ -694,6 +704,11 @@ export function VisualComposerInspector({
   const layoutFlexDirSelectId = useId();
   const layoutJustifySelectId = useId();
   const layoutAlignSelectId = useId();
+  const layoutAlignSelfSelectId = useId();
+  const layoutOrderSelectId = useId();
+  const layoutFlexGrowSelectId = useId();
+  const layoutAspectRatioSelectId = useId();
+  const layoutObjectFitSelectId = useId();
   const layoutPositionSelectId = useId();
   const layoutZIndexSelectId = useId();
   const layoutOverflowSelectId = useId();
@@ -732,7 +747,9 @@ export function VisualComposerInspector({
   const motionHoverGlowSelectId = useId();
   const motionDurationSelectId = useId();
   const motionDelaySelectId = useId();
+  const motionTimingSelectId = useId();
   const anchorIdInputId = useId();
+  const blockAnchorIdInputId = useId();
   const customClassesInputId = useId();
   const rawHtmlInputId = useId();
   const designJsonInputId = useId();
@@ -796,6 +813,7 @@ export function VisualComposerInspector({
           styles.section.paddingY,
           styles.section.paddingX !== 'px-4' ? styles.section.paddingX : '',
           styles.section.marginY,
+          styles.section.marginX,
           styles.section.minHeight,
           styles.section.pattern || styles.section.bgGradient || styles.section.background,
           styles.effects.backdropBlur,
@@ -804,6 +822,7 @@ export function VisualComposerInspector({
           styles.section.topDivider,
           styles.section.bottomDivider,
           styles.section.overflow,
+          styles.section.zIndex,
           styles.section.border,
           styles.section.border && styles.section.borderColor ? styles.section.borderColor : '',
           styles.section.bgPosition,
@@ -840,6 +859,11 @@ export function VisualComposerInspector({
           styles.layout.overflow,
           styles.layout.cursor,
           styles.layout.visibility,
+          styles.layout.alignSelf,
+          styles.layout.order,
+          styles.layout.flexGrow,
+          styles.layout.aspectRatio,
+          styles.layout.objectFit,
           styles.layout.maxWidth,
           styles.layout.columns,
           styles.margin.top,
@@ -894,6 +918,7 @@ export function VisualComposerInspector({
           styles.motion.hoverRotate,
           styles.motion.hoverGlow,
           styles.motion.duration,
+          styles.motion.timing,
           styles.responsive.hideMobile ? 'max-sm:hidden' : '',
           styles.responsive.hideTablet ? 'sm:max-md:hidden' : '',
           styles.responsive.hideDesktop ? 'md:hidden' : '',
@@ -1280,32 +1305,58 @@ export function VisualComposerInspector({
               </div>
             </div>
 
-            {/* Section Outer Margin (Vertical) */}
-            <div>
-              <span className="block text-slate-300 font-bold mb-2">
-                Vertical Section Margin (Outer Separation)
-              </span>
-              <label htmlFor={sectionMarginYSelectId} className="sr-only">
-                Vertical Section Margin
-              </label>
-              <select
-                id={sectionMarginYSelectId}
-                value={styles.section.marginY || ''}
-                onChange={(e) =>
-                  setStyles({
-                    ...styles,
-                    section: { ...styles.section, marginY: e.target.value },
-                  })
-                }
-                className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-              >
-                <option value="">Default (Flush / None)</option>
-                <option value="my-4">Compact (my-4 / 16px)</option>
-                <option value="my-8">Standard Rhythm (my-8 / 32px)</option>
-                <option value="my-12">Spacious Rhythm (my-12 / 48px)</option>
-                <option value="my-16">Deep Separation (my-16 / 64px)</option>
-                <option value="my-24">Dramatic Separation (my-24 / 96px)</option>
-              </select>
+            {/* Section Outer Margin Studio (Vertical & Horizontal) */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="block text-slate-300 font-bold mb-2">Vertical Section Margin</span>
+                <label htmlFor={sectionMarginYSelectId} className="sr-only">
+                  Vertical Section Margin
+                </label>
+                <select
+                  id={sectionMarginYSelectId}
+                  value={styles.section.marginY || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, marginY: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
+                >
+                  <option value="">Default (Flush / None)</option>
+                  <option value="my-4">Compact (my-4 / 16px)</option>
+                  <option value="my-8">Standard Rhythm (my-8 / 32px)</option>
+                  <option value="my-12">Spacious Rhythm (my-12 / 48px)</option>
+                  <option value="my-16">Deep Separation (my-16 / 64px)</option>
+                  <option value="my-24">Dramatic Separation (my-24 / 96px)</option>
+                </select>
+              </div>
+              <div>
+                <span className="block text-slate-300 font-bold mb-2">
+                  Horizontal Margin / Float
+                </span>
+                <label htmlFor={sectionMarginXSelectId} className="sr-only">
+                  Horizontal Margin
+                </label>
+                <select
+                  id={sectionMarginXSelectId}
+                  value={styles.section.marginX || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, marginX: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
+                >
+                  <option value="">Default (None / Edge)</option>
+                  <option value="mx-auto">Auto Center (mx-auto)</option>
+                  <option value="mx-4">Compact Inset (mx-4 / 16px)</option>
+                  <option value="mx-8">Medium Floating (mx-8 / 32px)</option>
+                  <option value="mx-12">Spacious Floating (mx-12 / 48px)</option>
+                  <option value="mx-16">Island Card (mx-16 / 64px)</option>
+                </select>
+              </div>
             </div>
 
             {/* Section Min-Height & Viewport Sizing */}
@@ -1587,30 +1638,59 @@ export function VisualComposerInspector({
               </div>
             </div>
 
-            <div>
-              <label
-                htmlFor={sectionOverflowSelectId}
-                className="block text-slate-300 font-bold mb-1.5 text-xs"
-              >
-                Section Overflow &amp; Shape Boundary Clipping
-              </label>
-              <select
-                id={sectionOverflowSelectId}
-                value={styles.section.overflow || ''}
-                onChange={(e) =>
-                  setStyles({
-                    ...styles,
-                    section: { ...styles.section, overflow: e.target.value },
-                  })
-                }
-                className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-              >
-                <option value="">Visible (Default)</option>
-                <option value="overflow-hidden">Hidden (Clip Bleeds &amp; Slants)</option>
-                <option value="overflow-clip">Clip (Strict Boundary Clip)</option>
-                <option value="overflow-x-hidden">Horizontal Hidden Only</option>
-                <option value="overflow-y-auto">Vertical Scrollable (Auto)</option>
-              </select>
+            {/* Section Overflow Clipping & Stacking Z-Index */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label
+                  htmlFor={sectionOverflowSelectId}
+                  className="block text-slate-300 font-bold mb-1.5 text-xs"
+                >
+                  Section Overflow &amp; Shape Boundary Clipping
+                </label>
+                <select
+                  id={sectionOverflowSelectId}
+                  value={styles.section.overflow || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, overflow: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
+                >
+                  <option value="">Visible (Default)</option>
+                  <option value="overflow-hidden">Hidden (Clip Bleeds)</option>
+                  <option value="overflow-clip">Clip (Strict Boundary)</option>
+                  <option value="overflow-x-hidden">Horizontal Hidden Only</option>
+                  <option value="overflow-y-auto">Vertical Scrollable (Auto)</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor={sectionZIndexSelectId}
+                  className="block text-slate-300 font-bold mb-1.5 text-xs"
+                >
+                  Stacking Z-Index
+                </label>
+                <select
+                  id={sectionZIndexSelectId}
+                  value={styles.section.zIndex || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, zIndex: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
+                >
+                  <option value="">Auto (Default 0)</option>
+                  <option value="relative z-10">Low Float (z-10)</option>
+                  <option value="relative z-20">Mid Floating (z-20)</option>
+                  <option value="relative z-30">High Elevation (z-30)</option>
+                  <option value="relative z-40">Modal / Sticky Layer (z-40)</option>
+                  <option value="relative z-50">Topmost Foreground (z-50)</option>
+                </select>
+              </div>
             </div>
 
             <div>
@@ -3302,6 +3382,143 @@ export function VisualComposerInspector({
                 </div>
               )}
 
+              {/* Flex Child & Self-Alignment */}
+              <div className="grid grid-cols-3 gap-1.5 mb-2">
+                <div>
+                  <label
+                    htmlFor={layoutAlignSelfSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Self Alignment
+                  </label>
+                  <select
+                    id={layoutAlignSelfSelectId}
+                    value={styles.layout.alignSelf || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        layout: { ...styles.layout, alignSelf: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">Default (Auto)</option>
+                    <option value="self-auto">Auto (self-auto)</option>
+                    <option value="self-start">Start / Top (self-start)</option>
+                    <option value="self-center">Centered (self-center)</option>
+                    <option value="self-end">End / Bottom (self-end)</option>
+                    <option value="self-stretch">Stretch (self-stretch)</option>
+                    <option value="self-baseline">Baseline (self-baseline)</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={layoutOrderSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Display Order
+                  </label>
+                  <select
+                    id={layoutOrderSelectId}
+                    value={styles.layout.order || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        layout: { ...styles.layout, order: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">Natural Order</option>
+                    <option value="order-first">Order First</option>
+                    <option value="order-last">Order Last</option>
+                    <option value="order-1">Position 1</option>
+                    <option value="order-2">Position 2</option>
+                    <option value="order-3">Position 3</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={layoutFlexGrowSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Flex Sizing
+                  </label>
+                  <select
+                    id={layoutFlexGrowSelectId}
+                    value={styles.layout.flexGrow || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        layout: { ...styles.layout, flexGrow: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">Default Sizing</option>
+                    <option value="grow">Grow to Fill (grow)</option>
+                    <option value="grow-0">Fixed Scale (grow-0)</option>
+                    <option value="shrink">Allow Shrink (shrink)</option>
+                    <option value="shrink-0">Prevent Shrink (shrink-0)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Media Aspect Ratio & Object Fit */}
+              <div className="grid grid-cols-2 gap-1.5 mb-2">
+                <div>
+                  <label
+                    htmlFor={layoutAspectRatioSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Aspect Ratio
+                  </label>
+                  <select
+                    id={layoutAspectRatioSelectId}
+                    value={styles.layout.aspectRatio || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        layout: { ...styles.layout, aspectRatio: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">Natural Ratio (Auto)</option>
+                    <option value="aspect-square">Square 1:1 (aspect-square)</option>
+                    <option value="aspect-video">Widescreen 16:9 (aspect-video)</option>
+                    <option value="aspect-[4/3]">Standard Photo 4:3</option>
+                    <option value="aspect-[3/2]">Classic 3:2</option>
+                    <option value="aspect-[21/9]">Cinematic Ultra-Wide 21:9</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={layoutObjectFitSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Media Object Fit
+                  </label>
+                  <select
+                    id={layoutObjectFitSelectId}
+                    value={styles.layout.objectFit || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        layout: { ...styles.layout, objectFit: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">Default Fit</option>
+                    <option value="object-cover">Cover (Fill Boundary)</option>
+                    <option value="object-contain">Contain (Keep Proportions)</option>
+                    <option value="object-fill">Fill (Stretch)</option>
+                    <option value="object-scale-down">Scale Down</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Positioning & Layering */}
               <div className="grid grid-cols-3 gap-1.5">
                 <div>
@@ -4281,6 +4498,32 @@ export function VisualComposerInspector({
                 className="w-full rounded-xl border border-white/10 bg-slate-950 p-3 text-white font-mono text-[11px] focus:border-accent-gold/50 focus:outline-none"
               />
             </div>
+            {/* Block Element Anchor ID */}
+            <div>
+              <span className="block text-slate-300 font-bold mb-1">
+                Block Element Anchor ID (Deep Linking)
+              </span>
+              <label htmlFor={blockAnchorIdInputId} className="sr-only">
+                Block Anchor ID
+              </label>
+              <div className="relative">
+                <span className="absolute left-2.5 top-2 text-xs font-mono text-slate-400">#</span>
+                <input
+                  id={blockAnchorIdInputId}
+                  type="text"
+                  value={styles.anchorId}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      anchorId: e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''),
+                    })
+                  }
+                  placeholder="e.g. block-cta, hero-heading"
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 py-1.5 pl-6 pr-2.5 text-xs text-white placeholder:text-white/40 focus:border-accent-gold focus:outline-none font-mono"
+                />
+              </div>
+            </div>
+
             <div>
               <label htmlFor={customClassesInputId} className="block text-slate-300 font-bold mb-1">
                 Custom CSS &amp; Tailwind Utilities
@@ -4625,6 +4868,32 @@ export function VisualComposerInspector({
                       </option>
                     </select>
                   </div>
+                </div>
+
+                <div className="mt-2">
+                  <label
+                    htmlFor={motionTimingSelectId}
+                    className="text-[9px] text-slate-400 mb-0.5 block"
+                  >
+                    Animation Easing Curve
+                  </label>
+                  <select
+                    id={motionTimingSelectId}
+                    value={styles.motion.timing || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        motion: { ...styles.motion, timing: e.target.value },
+                      })
+                    }
+                    className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+                  >
+                    <option value="">Default Curve (ease)</option>
+                    <option value="ease-out">Ease Out (Decelerate)</option>
+                    <option value="ease-in">Ease In (Accelerate)</option>
+                    <option value="ease-in-out">Ease In Out (Smooth S-Curve)</option>
+                    <option value="ease-linear">Linear (Constant Speed)</option>
+                  </select>
                 </div>
               </div>
             </div>
