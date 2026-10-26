@@ -62,6 +62,7 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     containerWidth: 'max-w-4xl mx-auto px-4',
     paddingY: 'py-8',
     paddingX: 'px-4',
+    marginY: '',
     minHeight: '',
     background: 'bg-transparent',
     divider: '',
@@ -71,6 +72,7 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     columns: '',
     columnGap: 'gap-8',
     verticalAlign: 'items-start',
+    justifyContent: '',
     reverseMobile: false,
     bgGradient: '',
     pattern: '',
@@ -82,16 +84,20 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     overlay: '',
     bgAttachment: '',
     bgPosition: '',
+    bgSize: '',
+    bgRepeat: '',
   },
   typography: {
     fontFamily: '',
     fontSize: 'text-base',
     fontWeight: 'font-normal',
+    fontStyle: 'normal',
     textAlign: 'left',
     lineHeight: 'leading-relaxed',
     letterSpacing: 'tracking-normal',
     textTransform: 'none',
     textDecoration: '',
+    textWrap: '',
     color: 'text-foreground',
     textGradient: '',
     textShadow: '',
@@ -119,6 +125,8 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     position: '',
     zIndex: '',
     overflow: '',
+    cursor: '',
+    visibility: '',
   },
   effects: {
     opacity: '',
@@ -131,6 +139,8 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     hueRotate: '',
     blur: '',
     blendMode: '',
+    hoverBrightness: '',
+    hoverOpacity: '',
   },
   motion: {
     entrance: '',
@@ -655,6 +665,7 @@ export function VisualComposerInspector({
   const sectionWidthSelectId = useId();
   const sectionPaddingYSelectId = useId();
   const sectionPaddingXSelectId = useId();
+  const sectionMarginYSelectId = useId();
   const sectionMinHeightSelectId = useId();
   const sectionPatternSelectId = useId();
   const sectionBgSelectId = useId();
@@ -665,6 +676,7 @@ export function VisualComposerInspector({
   const sectionColumnsSelectId = useId();
   const sectionGapSelectId = useId();
   const sectionAlignSelectId = useId();
+  const sectionJustifyContentSelectId = useId();
   const sectionRadiusSelectId = useId();
   const sectionShadowSelectId = useId();
   const sectionBorderSelectId = useId();
@@ -672,6 +684,8 @@ export function VisualComposerInspector({
   const sectionOverlaySelectId = useId();
   const sectionBgAttachmentSelectId = useId();
   const sectionBgPositionSelectId = useId();
+  const sectionBgSizeSelectId = useId();
+  const sectionBgRepeatSelectId = useId();
   const sectionAnchorIdInputId = useId();
   const sectionCustomClassesInputId = useId();
   const sectionBackdropBlurSelectId = useId();
@@ -683,6 +697,8 @@ export function VisualComposerInspector({
   const layoutPositionSelectId = useId();
   const layoutZIndexSelectId = useId();
   const layoutOverflowSelectId = useId();
+  const layoutCursorSelectId = useId();
+  const layoutVisibilitySelectId = useId();
 
   const effectOpacitySelectId = useId();
   const effectBackdropBlurSelectId = useId();
@@ -694,16 +710,20 @@ export function VisualComposerInspector({
   const effectHueRotateSelectId = useId();
   const effectBlurSelectId = useId();
   const effectBlendModeSelectId = useId();
+  const effectHoverBrightnessSelectId = useId();
+  const effectHoverOpacitySelectId = useId();
 
   const fontFamilySelectId = useId();
   const fontSizeSelectId = useId();
   const fontWeightSelectId = useId();
+  const fontStyleSelectId = useId();
   const lineHeightSelectId = useId();
   const textGradientSelectId = useId();
   const textShadowSelectId = useId();
   const letterSpacingSelectId = useId();
   const textTransformSelectId = useId();
   const textDecorationSelectId = useId();
+  const textWrapSelectId = useId();
   const motionEntranceSelectId = useId();
   const motionHoverSelectId = useId();
   const motionHoverScaleSelectId = useId();
@@ -775,6 +795,7 @@ export function VisualComposerInspector({
           styles.section.containerWidth,
           styles.section.paddingY,
           styles.section.paddingX !== 'px-4' ? styles.section.paddingX : '',
+          styles.section.marginY,
           styles.section.minHeight,
           styles.section.pattern || styles.section.bgGradient || styles.section.background,
           styles.effects.backdropBlur,
@@ -787,9 +808,14 @@ export function VisualComposerInspector({
           styles.section.border && styles.section.borderColor ? styles.section.borderColor : '',
           styles.section.bgPosition,
           styles.section.bgAttachment,
+          styles.section.bgSize,
+          styles.section.bgRepeat,
           styles.section.columns,
           styles.section.columns ? styles.section.columnGap : '',
           styles.section.columns ? styles.section.verticalAlign : '',
+          styles.section.columns && styles.section.justifyContent
+            ? styles.section.justifyContent
+            : '',
           styles.section.reverseMobile ? 'flex flex-col-reverse md:flex-row' : '',
           styles.section.radius !== 'rounded-none' ? styles.section.radius : '',
           styles.section.shadow !== 'shadow-none' ? styles.section.shadow : '',
@@ -812,6 +838,8 @@ export function VisualComposerInspector({
           styles.layout.position,
           styles.layout.zIndex,
           styles.layout.overflow,
+          styles.layout.cursor,
+          styles.layout.visibility,
           styles.layout.maxWidth,
           styles.layout.columns,
           styles.margin.top,
@@ -823,6 +851,7 @@ export function VisualComposerInspector({
           styles.padding.left,
           styles.padding.right,
           styles.typography.fontFamily,
+          styles.typography.fontStyle === 'italic' ? 'italic' : '',
           styles.typography.textGradient || styles.typography.color,
           styles.typography.fontSize,
           styles.typography.fontWeight,
@@ -837,6 +866,7 @@ export function VisualComposerInspector({
           styles.typography.letterSpacing,
           styles.typography.textTransform !== 'none' ? styles.typography.textTransform : '',
           styles.typography.textDecoration,
+          styles.typography.textWrap,
           styles.typography.textShadow,
           compiledBorderClasses,
           styles.background.gradient || styles.background.preset,
@@ -850,6 +880,8 @@ export function VisualComposerInspector({
           styles.effects.hueRotate,
           styles.effects.blur,
           styles.effects.blendMode,
+          styles.effects.hoverBrightness,
+          styles.effects.hoverOpacity,
           styles.shadow !== 'shadow-none' ? styles.shadow : '',
           styles.transform?.rotate,
           styles.transform?.scale,
@@ -1248,6 +1280,34 @@ export function VisualComposerInspector({
               </div>
             </div>
 
+            {/* Section Outer Margin (Vertical) */}
+            <div>
+              <span className="block text-slate-300 font-bold mb-2">
+                Vertical Section Margin (Outer Separation)
+              </span>
+              <label htmlFor={sectionMarginYSelectId} className="sr-only">
+                Vertical Section Margin
+              </label>
+              <select
+                id={sectionMarginYSelectId}
+                value={styles.section.marginY || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    section: { ...styles.section, marginY: e.target.value },
+                  })
+                }
+                className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
+              >
+                <option value="">Default (Flush / None)</option>
+                <option value="my-4">Compact (my-4 / 16px)</option>
+                <option value="my-8">Standard Rhythm (my-8 / 32px)</option>
+                <option value="my-12">Spacious Rhythm (my-12 / 48px)</option>
+                <option value="my-16">Deep Separation (my-16 / 64px)</option>
+                <option value="my-24">Dramatic Separation (my-24 / 96px)</option>
+              </select>
+            </div>
+
             {/* Section Min-Height & Viewport Sizing */}
             <div>
               <span className="block text-slate-300 font-bold mb-2">
@@ -1625,7 +1685,7 @@ export function VisualComposerInspector({
             </div>
 
             {styles.section.columns && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <div>
                   <label
                     htmlFor={sectionGapSelectId}
@@ -1673,6 +1733,32 @@ export function VisualComposerInspector({
                     <option value="items-center">Middle Centered</option>
                     <option value="items-end">Bottom Aligned</option>
                     <option value="items-stretch">Stretch Equal Height</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={sectionJustifyContentSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Column Justification
+                  </label>
+                  <select
+                    id={sectionJustifyContentSelectId}
+                    value={styles.section.justifyContent || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        section: { ...styles.section, justifyContent: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">Default (Start)</option>
+                    <option value="justify-start">Left / Start</option>
+                    <option value="justify-center">Center Distribution</option>
+                    <option value="justify-between">Space Between Columns</option>
+                    <option value="justify-around">Space Around</option>
+                    <option value="justify-end">Right / End</option>
                   </select>
                 </div>
               </div>
@@ -1939,6 +2025,59 @@ export function VisualComposerInspector({
                   <option value="bg-cover bg-center">Cover Center</option>
                   <option value="bg-contain bg-center">Contain Center</option>
                   <option value="bg-cover bg-top">Cover Top</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Section Background Sizing & Repeat Studio */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label
+                  htmlFor={sectionBgSizeSelectId}
+                  className="text-[10px] text-slate-400 mb-1 block"
+                >
+                  Background Scale / Size
+                </label>
+                <select
+                  id={sectionBgSizeSelectId}
+                  value={styles.section.bgSize || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, bgSize: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="">Default Sizing</option>
+                  <option value="bg-cover">Cover Canvas (bg-cover)</option>
+                  <option value="bg-contain">Contain Proportional (bg-contain)</option>
+                  <option value="bg-auto">Original Scale (bg-auto)</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor={sectionBgRepeatSelectId}
+                  className="text-[10px] text-slate-400 mb-1 block"
+                >
+                  Background Tiling / Repeat
+                </label>
+                <select
+                  id={sectionBgRepeatSelectId}
+                  value={styles.section.bgRepeat || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, bgRepeat: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="">Default (No Repeat)</option>
+                  <option value="bg-no-repeat">Single Image (bg-no-repeat)</option>
+                  <option value="bg-repeat">Tile Both Axis (bg-repeat)</option>
+                  <option value="bg-repeat-x">Horizontal Strip (bg-repeat-x)</option>
+                  <option value="bg-repeat-y">Vertical Column (bg-repeat-y)</option>
                 </select>
               </div>
             </div>
@@ -3242,6 +3381,61 @@ export function VisualComposerInspector({
                   </select>
                 </div>
               </div>
+
+              {/* Interactive Cursor & Visibility */}
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                <div>
+                  <label
+                    htmlFor={layoutCursorSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Cursor Behavior
+                  </label>
+                  <select
+                    id={layoutCursorSelectId}
+                    value={styles.layout.cursor || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        layout: { ...styles.layout, cursor: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">Default (Browser)</option>
+                    <option value="cursor-pointer">Clickable Pointer (cursor-pointer)</option>
+                    <option value="cursor-grab">Draggable Grab (cursor-grab)</option>
+                    <option value="cursor-text">Text Selection (cursor-text)</option>
+                    <option value="cursor-not-allowed">
+                      Disabled / Not Allowed (cursor-not-allowed)
+                    </option>
+                    <option value="cursor-default">Arrow Default (cursor-default)</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={layoutVisibilitySelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    CSS Visibility
+                  </label>
+                  <select
+                    id={layoutVisibilitySelectId}
+                    value={styles.layout.visibility || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        layout: { ...styles.layout, visibility: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">Default (visible)</option>
+                    <option value="visible">Force Visible (visible)</option>
+                    <option value="invisible">Hidden in DOM Space (invisible)</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             {/* Glassmorphism & Visual Effects */}
@@ -3518,6 +3712,66 @@ export function VisualComposerInspector({
                   <option value="mix-blend-exclusion">Exclusion</option>
                   <option value="mix-blend-luminosity">Luminosity (Luma Blend)</option>
                 </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                <div>
+                  <label
+                    htmlFor={effectHoverBrightnessSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Hover Brightness Shift
+                  </label>
+                  <select
+                    id={effectHoverBrightnessSelectId}
+                    value={styles.effects.hoverBrightness || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        effects: { ...styles.effects, hoverBrightness: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">No Brightness Shift</option>
+                    <option value="hover:brightness-105 transition-all">Subtle Light (+5%)</option>
+                    <option value="hover:brightness-110 transition-all">Luminous (+10%)</option>
+                    <option value="hover:brightness-125 transition-all">
+                      High Radiance (+25%)
+                    </option>
+                    <option value="hover:brightness-90 transition-all">Darken Depth (-10%)</option>
+                    <option value="hover:brightness-75 transition-all">Moody Shadow (-25%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={effectHoverOpacitySelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Hover Opacity Shift
+                  </label>
+                  <select
+                    id={effectHoverOpacitySelectId}
+                    value={styles.effects.hoverOpacity || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        effects: { ...styles.effects, hoverOpacity: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">No Opacity Shift</option>
+                    <option value="hover:opacity-100 transition-opacity">
+                      Force Opaque (100%)
+                    </option>
+                    <option value="hover:opacity-90 transition-opacity">Gentle Fade (90%)</option>
+                    <option value="hover:opacity-80 transition-opacity">
+                      Medium Translucent (80%)
+                    </option>
+                    <option value="hover:opacity-60 transition-opacity">Ghost Subtle (60%)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -3942,6 +4196,57 @@ export function VisualComposerInspector({
                 <option value="drop-shadow-md">High Contrast (md)</option>
                 <option value="drop-shadow-lg">Dramatic Depth (lg)</option>
               </select>
+            </div>
+
+            {/* Font Style & Editorial Text Wrapping */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label
+                  htmlFor={fontStyleSelectId}
+                  className="text-[10px] text-slate-400 mb-1 block"
+                >
+                  Font Posture / Style
+                </label>
+                <select
+                  id={fontStyleSelectId}
+                  value={styles.typography.fontStyle || 'normal'}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      typography: {
+                        ...styles.typography,
+                        fontStyle: e.target.value as 'normal' | 'italic',
+                      },
+                    })
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="normal">Normal Upright</option>
+                  <option value="italic">Italic Emphasis</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor={textWrapSelectId} className="text-[10px] text-slate-400 mb-1 block">
+                  Text Wrapping &amp; Overflow
+                </label>
+                <select
+                  id={textWrapSelectId}
+                  value={styles.typography.textWrap || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      typography: { ...styles.typography, textWrap: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="">Normal Flow</option>
+                  <option value="text-balance">Balanced Headlines (text-balance)</option>
+                  <option value="text-pretty">Editorial Pretty (text-pretty)</option>
+                  <option value="truncate">Single Line Truncate (truncate)</option>
+                  <option value="break-words">Break Words (break-words)</option>
+                </select>
+              </div>
             </div>
           </div>
         )}

@@ -17,6 +17,7 @@ export interface VisualComposerSection {
   containerWidth: string;
   paddingY: string;
   paddingX: string;
+  marginY?: string;
   minHeight: string;
   background: string;
   bgGradient: string;
@@ -25,6 +26,7 @@ export interface VisualComposerSection {
   columns: string;
   columnGap: string;
   verticalAlign: string;
+  justifyContent?: string;
   reverseMobile: boolean;
   radius: string;
   shadow: string;
@@ -34,6 +36,8 @@ export interface VisualComposerSection {
   overlay?: string;
   bgAttachment?: string;
   bgPosition?: string;
+  bgSize?: string;
+  bgRepeat?: string;
   topDivider?: string;
   bottomDivider?: string;
   overflow?: string;
@@ -43,11 +47,13 @@ export interface VisualComposerTypography {
   fontFamily: string;
   fontSize: string;
   fontWeight: string;
+  fontStyle?: 'normal' | 'italic';
   textAlign: 'left' | 'center' | 'right' | 'justify';
   lineHeight: string;
   letterSpacing: string;
   textTransform: 'none' | 'uppercase' | 'capitalize' | 'lowercase';
   textDecoration?: string;
+  textWrap?: string;
   color: string;
   textGradient: string;
   textShadow: string;
@@ -77,6 +83,8 @@ export interface VisualComposerLayout {
   position: string;
   zIndex: string;
   overflow: string;
+  cursor?: string;
+  visibility?: string;
 }
 
 export interface VisualComposerEffects {
@@ -90,6 +98,8 @@ export interface VisualComposerEffects {
   hueRotate?: string;
   blur?: string;
   blendMode?: string;
+  hoverBrightness?: string;
+  hoverOpacity?: string;
 }
 
 export interface VisualComposerMotion {

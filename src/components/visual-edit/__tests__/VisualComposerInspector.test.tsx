@@ -1227,4 +1227,270 @@ describe('VisualComposerInspector', () => {
       importJsonBtn?.click();
     });
   });
+
+  it('configures section vertical margin, column justification, and background sizing/repeating in section mode', async () => {
+    const onSaveBlock = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="section"
+        />
+      );
+    });
+
+    // Verify section mode UI is active
+    expect(document.body.textContent).toContain('Vertical Section Margin');
+
+    // 1. Vertical Section Margin
+    const marginYLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Vertical Section Margin')
+    );
+    const marginYSelect = marginYLabel
+      ? (document.getElementById(marginYLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(marginYSelect).not.toBeNull();
+    if (marginYSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(marginYSelect, 'my-12');
+        marginYSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(marginYSelect.value).toBe('my-12');
+    }
+
+    // 2. Background Scale / Size & Repeat
+    const bgSizeLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Background Scale / Size')
+    );
+    const bgSizeSelect = bgSizeLabel
+      ? (document.getElementById(bgSizeLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(bgSizeSelect).not.toBeNull();
+    if (bgSizeSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(bgSizeSelect, 'bg-contain');
+        bgSizeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(bgSizeSelect.value).toBe('bg-contain');
+    }
+
+    const bgRepeatLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Background Tiling / Repeat')
+    );
+    const bgRepeatSelect = bgRepeatLabel
+      ? (document.getElementById(bgRepeatLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(bgRepeatSelect).not.toBeNull();
+    if (bgRepeatSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(bgRepeatSelect, 'bg-repeat-x');
+        bgRepeatSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(bgRepeatSelect.value).toBe('bg-repeat-x');
+    }
+
+    // 3. Multi-column preset & Column Justification
+    const columnsSelect = Array.from(document.querySelectorAll('select')).find((s) =>
+      Array.from(s.options).some((o) => o.value.includes('grid-cols-2'))
+    );
+    expect(columnsSelect).toBeDefined();
+    if (columnsSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(columnsSelect, 'grid grid-cols-1 md:grid-cols-2');
+        columnsSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
+    const justifyLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Column Justification')
+    );
+    const justifySelect = justifyLabel
+      ? (document.getElementById(justifyLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(justifySelect).not.toBeNull();
+    if (justifySelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(justifySelect, 'justify-between');
+        justifySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(justifySelect.value).toBe('justify-between');
+    }
+
+    // Save Section and verify compiled classes include the new styles
+    const saveButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Section'
+    );
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('my-12'),
+      undefined
+    );
+    const savedClasses = onSaveBlock.mock.calls[0][1];
+    expect(savedClasses).toContain('bg-contain');
+    expect(savedClasses).toContain('bg-repeat-x');
+    expect(savedClasses).toContain('justify-between');
+  });
+
+  it('configures cursor, visibility, hover effects, and typography wrapping in block mode', async () => {
+    const onSaveBlock = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="block"
+        />
+      );
+    });
+
+    // 1. Switch to Box Model / Design tab: Cursor & Visibility & Effects
+    const designTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Box Model')
+    );
+    expect(designTabBtn).toBeDefined();
+    await act(async () => {
+      designTabBtn?.click();
+    });
+
+    const cursorLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Cursor Behavior')
+    );
+    const cursorSelect = cursorLabel
+      ? (document.getElementById(cursorLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(cursorSelect).not.toBeNull();
+    if (cursorSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(cursorSelect, 'cursor-pointer');
+        cursorSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(cursorSelect.value).toBe('cursor-pointer');
+    }
+
+    const visibilityLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('CSS Visibility')
+    );
+    const visibilitySelect = visibilityLabel
+      ? (document.getElementById(visibilityLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(visibilitySelect).not.toBeNull();
+    if (visibilitySelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(visibilitySelect, 'invisible');
+        visibilitySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(visibilitySelect.value).toBe('invisible');
+    }
+
+    // 2. Effects tab: Hover Brightness & Opacity
+    const hoverBrightnessLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Hover Brightness Shift')
+    );
+    const hoverBrightnessSelect = hoverBrightnessLabel
+      ? (document.getElementById(hoverBrightnessLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(hoverBrightnessSelect).not.toBeNull();
+    if (hoverBrightnessSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(hoverBrightnessSelect, 'hover:brightness-110 transition-all');
+        hoverBrightnessSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(hoverBrightnessSelect.value).toBe('hover:brightness-110 transition-all');
+    }
+
+    const hoverOpacityLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Hover Opacity Shift')
+    );
+    const hoverOpacitySelect = hoverOpacityLabel
+      ? (document.getElementById(hoverOpacityLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(hoverOpacitySelect).not.toBeNull();
+    if (hoverOpacitySelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(hoverOpacitySelect, 'hover:opacity-80 transition-opacity');
+        hoverOpacitySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(hoverOpacitySelect.value).toBe('hover:opacity-80 transition-opacity');
+    }
+
+    // 3. Switch to Typography tab: Font Posture & Text Wrapping
+    const typeTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Type')
+    );
+    expect(typeTabBtn).toBeDefined();
+    await act(async () => {
+      typeTabBtn?.click();
+    });
+
+    const fontStyleLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Font Posture / Style')
+    );
+    const fontStyleSelect = fontStyleLabel
+      ? (document.getElementById(fontStyleLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(fontStyleSelect).not.toBeNull();
+    if (fontStyleSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(fontStyleSelect, 'italic');
+        fontStyleSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(fontStyleSelect.value).toBe('italic');
+    }
+
+    const textWrapLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Text Wrapping & Overflow')
+    );
+    const textWrapSelect = textWrapLabel
+      ? (document.getElementById(textWrapLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(textWrapSelect).not.toBeNull();
+    if (textWrapSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(textWrapSelect, 'text-balance');
+        textWrapSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(textWrapSelect.value).toBe('text-balance');
+    }
+
+    // Save Block and verify compiled classes contain all applied block attributes
+    const saveButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Block'
+    );
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    const savedClasses = onSaveBlock.mock.calls[0][1];
+    expect(savedClasses).toContain('cursor-pointer');
+    expect(savedClasses).toContain('invisible');
+    expect(savedClasses).toContain('hover:brightness-110');
+    expect(savedClasses).toContain('hover:opacity-80');
+    expect(savedClasses).toContain('italic');
+    expect(savedClasses).toContain('text-balance');
+  });
 });
