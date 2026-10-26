@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
-import type { Block, HeadingLevel } from '@/lib/blocks';
+import { type Block, type ContentBlockType, convertBlock, type HeadingLevel } from '@/lib/blocks';
 
 export interface VisualComposerStyles {
   margin: {
@@ -58,6 +58,11 @@ export interface VisualComposerStyles {
     radius: string;
     shadow: string;
     sticky: boolean;
+    border?: string;
+    borderColor?: string;
+    overlay?: string;
+    bgAttachment?: string;
+    bgPosition?: string;
   };
   typography: {
     fontFamily: string;
@@ -67,6 +72,7 @@ export interface VisualComposerStyles {
     lineHeight: string;
     letterSpacing: string;
     textTransform: 'none' | 'uppercase' | 'capitalize' | 'lowercase';
+    textDecoration?: string;
     color: string;
     textGradient: string;
     textShadow: string;
@@ -150,6 +156,11 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     radius: 'rounded-none',
     shadow: 'shadow-none',
     sticky: false,
+    border: '',
+    borderColor: 'border-border',
+    overlay: '',
+    bgAttachment: '',
+    bgPosition: '',
   },
   typography: {
     fontFamily: '',
@@ -159,6 +170,7 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     lineHeight: 'leading-relaxed',
     letterSpacing: 'tracking-normal',
     textTransform: 'none',
+    textDecoration: '',
     color: 'text-foreground',
     textGradient: '',
     textShadow: '',
@@ -728,6 +740,11 @@ export function VisualComposerInspector({
   const sectionAlignSelectId = useId();
   const sectionRadiusSelectId = useId();
   const sectionShadowSelectId = useId();
+  const sectionBorderSelectId = useId();
+  const sectionBorderColorSelectId = useId();
+  const sectionOverlaySelectId = useId();
+  const sectionBgAttachmentSelectId = useId();
+  const sectionBgPositionSelectId = useId();
   const sectionAnchorIdInputId = useId();
   const sectionCustomClassesInputId = useId();
   const sectionBackdropBlurSelectId = useId();
@@ -758,6 +775,7 @@ export function VisualComposerInspector({
   const textShadowSelectId = useId();
   const letterSpacingSelectId = useId();
   const textTransformSelectId = useId();
+  const textDecorationSelectId = useId();
   const motionEntranceSelectId = useId();
   const motionHoverSelectId = useId();
   const motionHoverScaleSelectId = useId();
@@ -830,7 +848,12 @@ export function VisualComposerInspector({
           styles.section.minHeight,
           styles.section.pattern || styles.section.bgGradient || styles.section.background,
           styles.effects.backdropBlur,
+          styles.section.overlay,
           styles.section.divider,
+          styles.section.border,
+          styles.section.border && styles.section.borderColor ? styles.section.borderColor : '',
+          styles.section.bgPosition,
+          styles.section.bgAttachment,
           styles.section.columns,
           styles.section.columns ? styles.section.columnGap : '',
           styles.section.columns ? styles.section.verticalAlign : '',
@@ -880,6 +903,7 @@ export function VisualComposerInspector({
           styles.typography.lineHeight,
           styles.typography.letterSpacing,
           styles.typography.textTransform !== 'none' ? styles.typography.textTransform : '',
+          styles.typography.textDecoration,
           styles.typography.textShadow,
           compiledBorderClasses,
           styles.background.gradient || styles.background.preset,
@@ -1676,6 +1700,141 @@ export function VisualComposerInspector({
               </select>
             </div>
 
+            {/* Section Frame Border & Border Color */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label
+                  htmlFor={sectionBorderSelectId}
+                  className="text-[10px] text-slate-400 mb-1 block"
+                >
+                  Section Border Frame
+                </label>
+                <select
+                  id={sectionBorderSelectId}
+                  value={styles.section.border || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, border: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="">None (No Border)</option>
+                  <option value="border">Thin Hairline (1px)</option>
+                  <option value="border-2">Medium Border (2px)</option>
+                  <option value="border-4">Heavy Frame (4px)</option>
+                  <option value="border-y-2">Top &amp; Bottom Frame</option>
+                  <option value="border-t-4">Top Accent Bar</option>
+                  <option value="border-b-4">Bottom Accent Bar</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor={sectionBorderColorSelectId}
+                  className="text-[10px] text-slate-400 mb-1 block"
+                >
+                  Section Border Color
+                </label>
+                <select
+                  id={sectionBorderColorSelectId}
+                  value={styles.section.borderColor || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, borderColor: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="border-border">Default Frame Color</option>
+                  <option value="border-amber-500/50">Civic Gold Outline</option>
+                  <option value="border-blue-900/60">Patriotic Navy Outline</option>
+                  <option value="border-white/20">Frost Glass Outline</option>
+                  <option value="border-rose-500/50">Alert Crimson Outline</option>
+                  <option value="border-emerald-500/50">Grassroots Emerald Outline</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Section Atmosphere & Overlay Tint */}
+            <div>
+              <label
+                htmlFor={sectionOverlaySelectId}
+                className="text-[10px] text-slate-400 mb-1 block"
+              >
+                Section Atmosphere &amp; Overlay Tint
+              </label>
+              <select
+                id={sectionOverlaySelectId}
+                value={styles.section.overlay || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    section: { ...styles.section, overlay: e.target.value },
+                  })
+                }
+                className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
+              >
+                <option value="">None (Clear Atmosphere)</option>
+                <option value="bg-black/40">Dark Dramatic Vignette (bg-black/40)</option>
+                <option value="bg-blue-950/60">Midnight Navy Cast (bg-blue-950/60)</option>
+                <option value="bg-amber-950/25">Warm Civic Gold Dust (bg-amber-950/25)</option>
+                <option value="backdrop-blur-sm bg-slate-900/40">Frosted Mist Overlay</option>
+                <option value="bg-rose-950/30">Alert Crimson Aura (bg-rose-950/30)</option>
+              </select>
+            </div>
+
+            {/* Section Parallax & Background Fit */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label
+                  htmlFor={sectionBgAttachmentSelectId}
+                  className="text-[10px] text-slate-400 mb-1 block"
+                >
+                  Scroll Parallax Effect
+                </label>
+                <select
+                  id={sectionBgAttachmentSelectId}
+                  value={styles.section.bgAttachment || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, bgAttachment: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="">Normal Scroll</option>
+                  <option value="bg-fixed">Fixed Scroll Parallax (bg-fixed)</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor={sectionBgPositionSelectId}
+                  className="text-[10px] text-slate-400 mb-1 block"
+                >
+                  Background Image Fit
+                </label>
+                <select
+                  id={sectionBgPositionSelectId}
+                  value={styles.section.bgPosition || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, bgPosition: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="">Default Fit</option>
+                  <option value="bg-cover bg-center">Cover Center</option>
+                  <option value="bg-contain bg-center">Contain Center</option>
+                  <option value="bg-cover bg-top">Cover Top</option>
+                </select>
+              </div>
+            </div>
+
             {/* Section Anchor ID & Custom Classes */}
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -1818,6 +1977,50 @@ export function VisualComposerInspector({
         {/* ── Content Tab ──────────────────────────────────────────────── */}
         {inspectorMode === 'block' && activeTab === 'content' && (
           <div className="space-y-4">
+            {/* Element Type Morphing / Converter */}
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles size={12} className="text-accent-gold" />
+                  <span>
+                    Element Type:{' '}
+                    <strong className="text-accent-gold uppercase font-mono">
+                      {currentBlock.type}
+                    </strong>
+                  </span>
+                </span>
+                <span className="text-slate-400 text-[10px] font-normal">Convert element copy</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { type: 'heading', label: 'Heading' },
+                  { type: 'paragraph', label: 'Paragraph' },
+                  { type: 'callout', label: 'Callout' },
+                  { type: 'quote', label: 'Quote' },
+                  { type: 'bulletList', label: 'Bullet List' },
+                  { type: 'button', label: 'Button' },
+                  { type: 'code', label: 'Code' },
+                ].map((t) => (
+                  <button
+                    key={t.type}
+                    type="button"
+                    disabled={currentBlock.type === t.type}
+                    onClick={() => {
+                      const converted = convertBlock(currentBlock, t.type as ContentBlockType);
+                      setCurrentBlock(converted);
+                      toast.success(`Converted to ${t.label}`);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                      currentBlock.type === t.type
+                        ? 'bg-accent-gold text-ink-strong font-black shadow-xs'
+                        : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {currentBlock.type === 'heading' && (
               <div className="space-y-3">
                 <span className="block text-slate-300 font-bold">Heading Level</span>
@@ -3542,6 +3745,39 @@ export function VisualComposerInspector({
                   </select>
                 </div>
               </div>
+            </div>
+
+            {/* Text Decoration & Accents */}
+            <div>
+              <label
+                htmlFor={textDecorationSelectId}
+                className="text-[10px] text-slate-400 mb-1 block"
+              >
+                Text Decoration &amp; Accents
+              </label>
+              <select
+                id={textDecorationSelectId}
+                value={styles.typography.textDecoration || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    typography: { ...styles.typography, textDecoration: e.target.value },
+                  })
+                }
+                className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+              >
+                <option value="">None (Standard)</option>
+                <option value="underline underline-offset-4 decoration-border">
+                  Subtle Underline
+                </option>
+                <option value="underline underline-offset-4 decoration-amber-500/60 decoration-2">
+                  Civic Gold Underline
+                </option>
+                <option value="underline underline-offset-4 decoration-blue-500/60 decoration-2">
+                  Navy Accent Underline
+                </option>
+                <option value="line-through decoration-rose-500/70">Strikethrough</option>
+              </select>
             </div>
 
             <div>

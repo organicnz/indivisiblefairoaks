@@ -897,4 +897,124 @@ describe('VisualComposerInspector', () => {
       expect(delaySelect.value).toBe('delay-100');
     }
   });
+
+  it('morphs element type cleanly in content tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('Element Type:');
+    const quoteButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Quote'
+    );
+    expect(quoteButton).toBeDefined();
+
+    await act(async () => {
+      quoteButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Block #1 · quote');
+    expect(document.body.textContent).toContain('Quote Content');
+  });
+
+  it('configures text decoration in typography tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const typeTabButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Type'
+    );
+    await act(async () => {
+      typeTabButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Text Decoration & Accents');
+    const decorationLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Text Decoration & Accents')
+    );
+    const decorationSelect = decorationLabel
+      ? (document.getElementById(decorationLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(decorationSelect).not.toBeNull();
+    if (decorationSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(
+          decorationSelect,
+          'underline underline-offset-4 decoration-amber-500/60 decoration-2'
+        );
+        decorationSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(decorationSelect.value).toBe(
+        'underline underline-offset-4 decoration-amber-500/60 decoration-2'
+      );
+    }
+  });
+
+  it('configures section frame border and overlay tint in section mode', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          initialMode="section"
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('Section Border Frame');
+    expect(document.body.textContent).toContain('Section Atmosphere & Overlay Tint');
+
+    const borderLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Section Border Frame')
+    );
+    const borderSelect = borderLabel
+      ? (document.getElementById(borderLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(borderSelect).not.toBeNull();
+    if (borderSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(borderSelect, 'border-2');
+        borderSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(borderSelect.value).toBe('border-2');
+    }
+
+    const overlayLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Section Atmosphere & Overlay Tint')
+    );
+    const overlaySelect = overlayLabel
+      ? (document.getElementById(overlayLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(overlaySelect).not.toBeNull();
+    if (overlaySelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(overlaySelect, 'bg-black/40');
+        overlaySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(overlaySelect.value).toBe('bg-black/40');
+    }
+  });
 });

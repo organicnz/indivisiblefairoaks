@@ -3104,6 +3104,23 @@ export function VisualEditOverlay() {
                   </ConfirmAction>
                 </div>
               </div>
+
+              {/* On-Canvas Section Inserter Divider */}
+              <div className="pointer-events-auto absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity z-10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLibraryTargetIndex(item.blockIndex + 1);
+                    setIsBlockLibraryOpen(true);
+                  }}
+                  title={`Insert element after ${item.label}`}
+                  aria-label={`Insert element after ${item.label}`}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-accent-gold/60 bg-secondary/95 text-[10px] font-bold text-accent-gold shadow-md backdrop-blur-md hover:bg-accent-gold hover:text-ink-strong transition-all transform hover:scale-105"
+                >
+                  <Plus size={11} />
+                  <span>Insert Element</span>
+                </button>
+              </div>
             </div>
           ))}
         </div>
