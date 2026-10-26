@@ -256,11 +256,11 @@ jobs:
       # it — restoring a stale tsbuildinfo could only ever have been a
       # wrong-green waiting to happen.
       #
-      # `bun check` does not write incremental state, so there is no artifact
+      # `tsrs` does not write incremental state, so there is no artifact
       # to cache: the job is now a fraction of a second of work.
       - name: TypeScript — tsrs
         # `tsrs` is the Rust port of the TypeScript 7 compiler (Cloudflare +
-        # VoidZero), and it is this project's type checker. It reads the same
+        # VoidZero), and it is this project's exclusive type checker. It reads the same
         # `tsconfig.json` and reports the same diagnostics as `tsc` — verified
         # against TypeScript 7.1.0-beta's native `tsc` on the clean tree and
         # on five injected type errors (TS2345, TS2339, TS2322, TS7006,
@@ -270,18 +270,6 @@ jobs:
         # executables), so the type check needs no JavaScript runtime at all
         # beyond the launcher Bun runs it with.
         run: bun --bun tsrs --noEmit
-
-      - name: TypeScript — bun check (second implementation)
-        # A second opinion, not a second gate. `bun check` is Bun's own
-        # typescript-go port of TypeScript 7; `tsrs` is a Rust port of the
-        # same compiler. Two independent implementations of the same
-        # language agreeing on a clean tree is worth something that a single
-        # implementation cannot tell you, and it costs about a second.
-        #
-        # This is also the check that would notice if the two ports diverged
-        # on a language feature — the thing the Cloudflare and VoidZero teams
-        # say they are actively working to minimise.
-        run: bun check
 
       # The no-Node-runtime guard, over the WHOLE tree rather than the staged
       # subset.

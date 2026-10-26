@@ -822,6 +822,20 @@ body[data-editorial-mode='active'] [data-data-point] *:not(.contents):hover {
   transition: all 0.15s ease-out !important;
 }
 
+body[data-editorial-mode='active'] main img:hover {
+  cursor: pointer;
+  outline: 2px dashed #c084fc !important;
+  outline-offset: 3px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 16px rgba(192, 132, 252, 0.35) !important;
+}
+
+body[data-editorial-mode='active'] main [data-data-point],
+body[data-editorial-mode='active'] main [data-copy-region],
+body[data-editorial-mode='active'] main img {
+  transition: outline 0.15s ease, box-shadow 0.15s ease;
+}
+
 /* Reduced-motion safety net. Covers CSS animations and transitions *and* the
    enter/exit layer above, because those animations run through the same
    `animation-duration` property.

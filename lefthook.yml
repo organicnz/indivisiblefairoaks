@@ -230,12 +230,12 @@ pre-commit:
       run: bun --bun oxlint {staged_files}
 
     # ── 26. TypeScript – type-check without full build ────────────────────────
-    # `bun check` is Bun's built-in type checker (a typescript-go port). It reads
+    # `tsrs` is the TypeScript 7 compiler in Rust (Cloudflare + VoidZero). It reads
     # this repo's tsconfig and reports the same errors as tsc — verified against
     # tsc on the clean tree and on seven injected type errors (TS2554, TS2339,
     # TS7006, TS2322 ×2, TS18047), in .ts, .tsx, a path-aliased import and a
     # spec file, with identical codes, messages and positions. It is ~40x faster
-    # (0.3 s vs 12.1 s) and peaks at 466 MB against tsc's 1.03 GB.
+    # and runs as a native Rust binary with zero JavaScript runtime overhead.
     typecheck:
       priority: 23
       glob: "*.{ts,tsx}"

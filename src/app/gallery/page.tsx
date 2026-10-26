@@ -364,7 +364,7 @@ export default function GalleryPage() {
                 />
 
                 {/* Gradient Scrim */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent opacity-90 group-hover:opacity-80 transition-opacity" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent opacity-90 group-hover:opacity-80 transition-opacity pointer-events-none" />
 
                 {/* Top Tag & Witty Sign Badge */}
                 <div className="absolute top-4 left-4 z-10 flex flex-col items-start gap-1.5 max-w-[85%]">

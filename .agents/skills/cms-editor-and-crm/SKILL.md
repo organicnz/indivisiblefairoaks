@@ -752,7 +752,7 @@ or a computed style is asserted:
 
 ```bash
 bun run lint:check
-bunx tsc --noEmit
+bun run typecheck
 bun run test:coverage
 ```
 

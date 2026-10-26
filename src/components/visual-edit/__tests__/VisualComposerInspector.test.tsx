@@ -1,0 +1,429 @@
+// @vitest-environment jsdom
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { VisualComposerInspector } from '@/components/visual-edit/VisualComposerInspector';
+import type { Block } from '@/lib/blocks';
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+describe('VisualComposerInspector', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  const sampleHeadingBlock: Block = {
+    id: 'b1',
+    type: 'heading',
+    level: 2,
+    html: 'Grassroots Community Action',
+  };
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    vi.restoreAllMocks();
+  });
+
+  it('renders nothing when closed or block is null', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={false}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+    expect(document.body.textContent).not.toContain('Visual Composer Inspector');
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={null}
+          blockIndex={null}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+    expect(document.body.textContent).not.toContain('Visual Composer Inspector');
+  });
+
+  it('renders active block details and tabs when open', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    expect(document.body.textContent).toContain('Block #1 · heading');
+    expect(document.body.textContent).toContain('Box Model');
+    expect(document.body.textContent).toContain('Type');
+    expect(document.body.textContent).toContain('Advanced');
+  });
+
+  it('allows editing content and saves updated block', async () => {
+    const onSaveBlock = vi.fn();
+    const onClose = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={onClose}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+        />
+      );
+    });
+
+    const textarea = document.querySelector('textarea');
+    expect(textarea).not.toBeNull();
+    if (textarea) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+        if (setter) {
+          setter.call(textarea, 'Updated Grassroots Title');
+        }
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        textarea.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
+    const saveButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Block'
+    );
+    expect(saveButton).toBeDefined();
+
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('switches to Box Model and Advanced tabs cleanly', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const boxModelButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Box Model'
+    );
+    await act(async () => {
+      boxModelButton?.click();
+    });
+    expect(document.body.textContent).toContain('Spacing & Padding');
+
+    const advancedButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Advanced'
+    );
+    await act(async () => {
+      advancedButton?.click();
+    });
+    expect(document.body.textContent).toContain('Device Visibility');
+  });
+
+  it('applies 1-click style preset cleanly', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const presetsTabButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Presets'
+    );
+    await act(async () => {
+      presetsTabButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Professional 1-Click Design Presets');
+    expect(document.body.textContent).toContain('Editorial Card');
+    expect(document.body.textContent).toContain('Civic Gold Callout');
+
+    const civicPresetButton = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Civic Gold Callout')
+    );
+    await act(async () => {
+      civicPresetButton?.click();
+    });
+  });
+
+  it('switches to Row / Section mode cleanly and shows section container controls', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          initialMode="section"
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('Section Container Width');
+    expect(document.body.textContent).toContain('Vertical Section Padding');
+    expect(document.body.textContent).toContain('Section Background Theme');
+
+    const saveSectionButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Section'
+    );
+    expect(saveSectionButton).toBeDefined();
+  });
+
+  it('switches to Code tab and displays raw HTML markup', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const codeTabButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Code'
+    );
+    await act(async () => {
+      codeTabButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Raw Block HTML Markup');
+    const textarea = document.querySelector('textarea');
+    expect(textarea?.value).toContain('Grassroots Community Action');
+  });
+
+  it('renders interactive 2D CSS Box Model diagram in Box Model tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const boxModelButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Box Model'
+    );
+    await act(async () => {
+      boxModelButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Interactive CSS Box Model');
+    expect(document.body.textContent).toContain('Margin (Outer)');
+    expect(document.body.textContent).toContain('Padding (Inner)');
+    expect(document.body.textContent).toContain('[ heading ]');
+  });
+
+  it('copies and pastes styles cleanly via clipboard', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const copyButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Copy'
+    );
+    expect(copyButton).toBeDefined();
+
+    await act(async () => {
+      copyButton?.click();
+    });
+
+    const pasteButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Paste'
+    );
+    expect(pasteButton).toBeDefined();
+    expect(pasteButton?.hasAttribute('disabled')).toBe(false);
+
+    await act(async () => {
+      pasteButton?.click();
+    });
+  });
+
+  it('configures typography font family and drop shadow cleanly', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const typeTabButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Type'
+    );
+    await act(async () => {
+      typeTabButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Font Family');
+    expect(document.body.textContent).toContain('Text Drop Shadow');
+    expect(document.body.textContent).toContain('Text Gradient');
+  });
+
+  it('configures layout display mode, max width, and positioning in design tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const boxModelButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Box Model'
+    );
+    await act(async () => {
+      boxModelButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Layout, Display & Sizing');
+    expect(document.body.textContent).toContain('Display Mode');
+    expect(document.body.textContent).toContain('Max Width Container');
+    expect(document.body.textContent).toContain('Position');
+    expect(document.body.textContent).toContain('Z-Index');
+    expect(document.body.textContent).toContain('Overflow');
+  });
+
+  it('configures glassmorphic effects, backdrop blur, and opacity in design tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const boxModelButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Box Model'
+    );
+    await act(async () => {
+      boxModelButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Glassmorphism & Visual Effects');
+    expect(document.body.textContent).toContain('Backdrop Blur');
+    expect(document.body.textContent).toContain('Opacity');
+    expect(document.body.textContent).toContain('Grayscale Filter');
+  });
+
+  it('configures section min-height, civic patterns, and sticky row pinning', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          initialMode="section"
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('Section Viewport & Min Height');
+    expect(document.body.textContent).toContain('Civic Background Texture & Patterns');
+    expect(document.body.textContent).toContain('Sticky Row');
+    expect(document.body.textContent).toContain('Hide on Print');
+
+    const stickyButton = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Sticky Row')
+    );
+    expect(stickyButton).toBeDefined();
+
+    await act(async () => {
+      stickyButton?.click();
+    });
+    expect(document.body.textContent).toContain('ON');
+  });
+
+  it('configures fine-grained hover micro-interactions and print visibility in advanced tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const advancedButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Advanced'
+    );
+    await act(async () => {
+      advancedButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Hover Micro-Interactions & Timing');
+    expect(document.body.textContent).toContain('Scale on Hover');
+    expect(document.body.textContent).toContain('Vertical Lift');
+    expect(document.body.textContent).toContain('Hover Rotation');
+    expect(document.body.textContent).toContain('Transition Speed');
+    expect(document.body.textContent).toContain('Hide on Print / Paper Export');
+  });
+});

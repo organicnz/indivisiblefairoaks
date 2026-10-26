@@ -7,6 +7,7 @@ import {
   ArrowUp,
   Calendar,
   Check,
+  ClipboardCopy,
   ClipboardPaste,
   Code,
   Copy,
@@ -23,8 +24,12 @@ import {
   ImagePlus,
   Keyboard,
   Layers,
+  LayoutTemplate,
   Link as LinkIcon,
+  ListTree,
   Loader2,
+  Maximize2,
+  Minimize2,
   Monitor,
   Moon,
   Newspaper,
@@ -32,7 +37,11 @@ import {
   Plus,
   Redo2,
   RefreshCw,
+  RotateCw,
+  Search,
   Settings,
+  ShieldCheck,
+  SlidersHorizontal,
   Smartphone,
   Sparkles,
   Sun,
@@ -125,14 +134,36 @@ import type {
   VisualPageContext,
   VisualSectionOverlayItem,
 } from '@/types/unified';
+import { BlockLibraryModal, type BlockTemplate } from './BlockLibraryModal';
+import { BreadcrumbBar } from './BreadcrumbBar';
+import { CivicGhostwriter } from './CivicGhostwriter';
+import { CommandPalette } from './CommandPalette';
 import { CRMPanel } from './CRMPanel';
+import { DataPointDrawer } from './DataPointDrawer';
+import { ElementInspectorHud } from './ElementInspectorHud';
 import {
   applyInlineFormatCommand,
   type InlineFormatCommand,
   InlineFormatToolbar,
 } from './InlineFormatToolbar';
+import { PageA11yAuditor } from './PageA11yAuditor';
+import { PageNavigatorDrawer } from './PageNavigatorDrawer';
+import { SlashCommandMenu } from './SlashCommandMenu';
+import { StyleQuickTuner } from './StyleQuickTuner';
 import { runTextareaFormatCommand } from './textareaFormat';
 import { useBlockWriter } from './useBlockWriter';
+import { ViewportDeviceBar } from './ViewportDeviceBar';
+import {
+  DEFAULT_VC_STYLES,
+  getStylesClipboard,
+  setStylesClipboard,
+  VisualComposerInspector,
+} from './VisualComposerInspector';
+import {
+  type ModifiedBlockItem,
+  type ModifiedDataPointItem,
+  VisualDiffModal,
+} from './VisualDiffModal';
 
 /**
  * Visual editing surface for every page across the site.
@@ -241,6 +272,28 @@ const SECTION_MODAL_FORMAT_COMMANDS: readonly InlineFormatCommand[] = [
   'strikethrough',
   'link',
 ];
+
+function wrapSelectionWithTag(tagName: string, className?: string) {
+  if (typeof window === 'undefined') return;
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+  const range = selection.getRangeAt(0);
+  if (tagName === 'hr') {
+    const hr = document.createElement('hr');
+    if (className) hr.className = className;
+    range.deleteContents();
+    range.insertNode(hr);
+    return;
+  }
+  const el = document.createElement(tagName);
+  if (className) el.className = className;
+  try {
+    el.appendChild(range.extractContents());
+    range.insertNode(el);
+  } catch {
+    document.execCommand('formatBlock', false, tagName);
+  }
+}
 
 export function VisualEditOverlay() {
   const router = useRouter();
@@ -415,6 +468,85 @@ export function VisualEditOverlay() {
 
   // Responsive Viewport Simulation Mode
   const [viewportMode, setViewportMode] = useState<ViewportMode>('desktop');
+  const [deviceOrientation, setDeviceOrientation] = useState<'portrait' | 'landscape'>('portrait');
+
+  // Command Palette & Pro HUD States
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isDataPointDrawerOpen, setIsDataPointDrawerOpen] = useState(false);
+  const [isA11yAuditorOpen, setIsA11yAuditorOpen] = useState(false);
+  const [isDiffModalOpen, setIsDiffModalOpen] = useState(false);
+  const [isSlashMenuOpen, setIsSlashMenuOpen] = useState(false);
+  const [isVisualComposerOpen, setIsVisualComposerOpen] = useState(false);
+  const [vcBlockIndex, setVcBlockIndex] = useState<number | null>(null);
+  const [vcMode, setVcMode] = useState<'block' | 'section'>('block');
+  const [isBlockLibraryOpen, setIsBlockLibraryOpen] = useState(false);
+  const [libraryTargetIndex, setLibraryTargetIndex] = useState<number | null>(null);
+  const [isPageNavigatorOpen, setIsPageNavigatorOpen] = useState(false);
+  const [showInspector, setShowInspector] = useState(() => {
+    try {
+      return (
+        typeof window !== 'undefined' &&
+        window.localStorage?.getItem('visual_edit_inspector') !== 'false'
+      );
+    } catch {
+      return true;
+    }
+  });
+  const [dockCollapsed, setDockCollapsed] = useState(() => {
+    try {
+      return (
+        typeof window !== 'undefined' &&
+        window.localStorage?.getItem('visual_edit_dock_collapsed') === 'true'
+      );
+    } catch {
+      return false;
+    }
+  });
+  const [dockPosition, setDockPosition] = useState<'bottom' | 'top'>(() => {
+    try {
+      const pos =
+        typeof window !== 'undefined' ? window.localStorage?.getItem('visual_edit_dock_pos') : null;
+      return pos === 'top' ? 'top' : 'bottom';
+    } catch {
+      return 'bottom';
+    }
+  });
+
+  const toggleInspector = useCallback(() => {
+    setShowInspector((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage?.setItem('visual_edit_inspector', String(next));
+      } catch {}
+      toast.info(`Inspector HUD ${next ? 'enabled' : 'disabled'}`);
+      return next;
+    });
+  }, []);
+
+  const toggleDockPosition = useCallback(() => {
+    setDockPosition((prev) => {
+      const next = prev === 'bottom' ? 'top' : 'bottom';
+      try {
+        window.localStorage?.setItem('visual_edit_dock_pos', next);
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const toggleDockCollapsed = useCallback(() => {
+    setDockCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage?.setItem('visual_edit_dock_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleRotateOrientation = useCallback(() => {
+    setDeviceOrientation((prev) => (prev === 'portrait' ? 'landscape' : 'portrait'));
+    toast.info(`Orientation: ${deviceOrientation === 'portrait' ? 'Landscape' : 'Portrait'}`);
+  }, [deviceOrientation]);
 
   const titleId = useId();
   const slugId = useId();
@@ -992,6 +1124,107 @@ export function VisualEditOverlay() {
   const body = useMemo(() => serializeBlocks(blocks), [blocks]);
   const dirty = body !== savedBody;
 
+  const modifiedBlocks = useMemo<ModifiedBlockItem[]>(() => {
+    if (!dirty) return [];
+    const initialBlocks = savedBody ? parseHtml(savedBody) : [];
+    const initialMap = new Map(initialBlocks.map((b) => [b.id, serializeBlocks([b])]));
+    const currentMap = new Map(blocks.map((b) => [b.id, serializeBlocks([b])]));
+
+    const list: ModifiedBlockItem[] = [];
+    for (const b of blocks) {
+      const initSerialized = initialMap.get(b.id);
+      if (!initSerialized) {
+        list.push({
+          blockId: b.id,
+          type: b.type,
+          label: `Added: ${sectionLabelForBlock(b)}`,
+        });
+      } else if (initSerialized !== serializeBlocks([b])) {
+        list.push({
+          blockId: b.id,
+          type: b.type,
+          label: sectionLabelForBlock(b),
+        });
+      }
+    }
+
+    for (const initB of initialBlocks) {
+      if (!currentMap.has(initB.id)) {
+        list.push({
+          blockId: initB.id,
+          type: initB.type,
+          label: `Deleted: ${sectionLabelForBlock(initB)}`,
+        });
+      }
+    }
+
+    return list;
+  }, [blocks, dirty, savedBody]);
+
+  const initialDataPointsRef = useRef<Map<string, string>>(new Map());
+  const [modifiedDataPoints, setModifiedDataPoints] = useState<ModifiedDataPointItem[]>([]);
+
+  // Capture baseline snapshot of all in-page data points once discovered
+  useEffect(() => {
+    if (!enabled || !isAdmin || typeof document === 'undefined') return;
+    const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-data-point]'));
+    for (const el of elements) {
+      const key = el.getAttribute('data-data-point')?.trim();
+      if (key && !initialDataPointsRef.current.has(key)) {
+        initialDataPointsRef.current.set(key, el.textContent?.trim() || '');
+      }
+    }
+  }, [enabled, isAdmin]);
+
+  const getModifiedDataPoints = useCallback((): ModifiedDataPointItem[] => {
+    if (typeof document === 'undefined') return [];
+    const items: ModifiedDataPointItem[] = [];
+    const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-data-point]'));
+    const seen = new Set<string>();
+    for (const el of elements) {
+      const key = el.getAttribute('data-data-point')?.trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const initial = initialDataPointsRef.current.get(key) ?? '';
+      const current = el.textContent?.trim() || '';
+      if (initial !== current) {
+        items.push({
+          key,
+          initialValue: initial,
+          currentValue: current,
+        });
+      }
+    }
+    return items;
+  }, []);
+
+  const refreshModifiedDataPoints = useCallback(() => {
+    setModifiedDataPoints(getModifiedDataPoints());
+  }, [getModifiedDataPoints]);
+
+  useEffect(() => {
+    if (isDiffModalOpen) {
+      refreshModifiedDataPoints();
+    }
+  }, [isDiffModalOpen, refreshModifiedDataPoints]);
+
+  const handleRevertDataPoint = useCallback(
+    (key: string) => {
+      if (typeof document === 'undefined') return;
+      const initial = initialDataPointsRef.current.get(key);
+      if (initial === undefined) return;
+      const elements = Array.from(
+        document.querySelectorAll<HTMLElement>(`[data-data-point="${key}"]`)
+      );
+      for (const el of elements) {
+        el.textContent = initial;
+      }
+      toast.info(`Reverted "${key}" to published baseline`);
+      refreshModifiedDataPoints();
+    },
+    [refreshModifiedDataPoints]
+  );
+
   /**
    * The one way blocks change in this component.
    *
@@ -1384,6 +1617,63 @@ export function VisualEditOverlay() {
     await handlePersistBlocks(nextBlocks, 'Section updated in Supabase');
   };
 
+  const handleSaveVcBlock = useCallback(
+    (updatedBlock: Block, customClasses?: string, anchorId?: string) => {
+      if (vcBlockIndex === null) return;
+      const nextBlocks = [...blocksRef.current];
+      if (customClasses || anchorId) {
+        const idAttr = anchorId ? ` id="${anchorId}"` : '';
+        const classAttr = customClasses ? ` class="${customClasses}"` : '';
+        if ('html' in updatedBlock && typeof updatedBlock.html === 'string') {
+          const trimmed = updatedBlock.html.trim();
+          if (trimmed.startsWith('<div') && trimmed.endsWith('</div>')) {
+            const closingTag = trimmed.indexOf('>');
+            if (closingTag !== -1) {
+              const inner = trimmed.slice(closingTag + 1, -6);
+              updatedBlock.html = `<div${idAttr}${classAttr}>${inner}</div>`;
+            }
+          } else {
+            updatedBlock.html = `<div${idAttr}${classAttr}>${trimmed}</div>`;
+          }
+        } else {
+          const serialized = serializeBlocks([updatedBlock]);
+          const wrappedHtml = `<div${idAttr}${classAttr}>${serialized}</div>`;
+          updatedBlock = {
+            id: updatedBlock.id,
+            type: 'unsupported',
+            html: wrappedHtml,
+          };
+        }
+      }
+      nextBlocks[vcBlockIndex] = updatedBlock;
+      setBlocks(nextBlocks);
+      commitBlocks(nextBlocks, `vc-edit:${vcBlockIndex}`);
+      toast.success(`Block #${vcBlockIndex + 1} customized`);
+    },
+    [commitBlocks, vcBlockIndex]
+  );
+
+  const handleInsertBlockFromLibrary = useCallback(
+    (template: BlockTemplate, targetIndex?: number) => {
+      const newBlock: Block = {
+        id: nextBlockId(),
+        ...template.createBlock(),
+      } as Block;
+
+      const nextBlocks = [...blocksRef.current];
+      if (typeof targetIndex === 'number' && targetIndex >= 0 && targetIndex <= nextBlocks.length) {
+        nextBlocks.splice(targetIndex, 0, newBlock);
+      } else {
+        nextBlocks.push(newBlock);
+      }
+
+      setBlocks(nextBlocks);
+      commitBlocks(nextBlocks, `insert-library:${template.id}`);
+      toast.success(`Inserted ${template.title} into layout`);
+    },
+    [commitBlocks]
+  );
+
   const cancelInlineEdit = useCallback((session: InlineEditSession) => {
     session.element.contentEditable = 'false';
     session.element.classList.remove('visual-inline-active');
@@ -1565,7 +1855,7 @@ export function VisualEditOverlay() {
       main.style.borderRight = '';
       main.style.transition = 'max-width 300ms ease-out';
     } else if (viewportMode === 'mobile') {
-      main.style.maxWidth = '390px';
+      main.style.maxWidth = deviceOrientation === 'portrait' ? '390px' : '844px';
       main.style.marginLeft = 'auto';
       main.style.marginRight = 'auto';
       main.style.boxShadow = '0 25px 60px -15px rgba(0, 0, 0, 0.7)';
@@ -1573,7 +1863,7 @@ export function VisualEditOverlay() {
       main.style.borderRight = '1px solid rgba(255, 255, 255, 0.15)';
       main.style.transition = 'max-width 300ms ease-out';
     } else if (viewportMode === 'tablet') {
-      main.style.maxWidth = '768px';
+      main.style.maxWidth = deviceOrientation === 'portrait' ? '768px' : '1024px';
       main.style.marginLeft = 'auto';
       main.style.marginRight = 'auto';
       main.style.boxShadow = '0 25px 60px -15px rgba(0, 0, 0, 0.5)';
@@ -1589,7 +1879,7 @@ export function VisualEditOverlay() {
     return () => {
       clearTimeout(timer);
     };
-  }, [enabled, isAdmin, viewportMode]);
+  }, [enabled, isAdmin, viewportMode, deviceOrientation]);
 
   // Clean up viewport simulation styles on unmount
   useEffect(() => {
@@ -1677,18 +1967,35 @@ export function VisualEditOverlay() {
         void commitInlineEdit(inlineSessionRef.current);
       }
 
-      // Check if clicking an image directly
+      const dataPointContainer = target.closest<HTMLElement>('[data-data-point]');
+      const dataPointKey = dataPointContainer?.getAttribute('data-data-point') || null;
+
+      const copyRegionContainer = target.closest<HTMLElement>('[data-copy-region]');
+      const copyRegionId = copyRegionContainer?.getAttribute('data-copy-region') || null;
+
+      const textTarget = target.closest<HTMLElement>(
+        'h1, h2, h3, h4, h5, h6, p, blockquote, li, dt, dd, [data-copy-region] span, a, button, [data-data-point]'
+      );
+
+      // Check if clicking an image directly or an image wrapper without text
       const clickedImg =
         target.tagName === 'IMG'
           ? (target as HTMLImageElement)
-          : target.querySelector<HTMLImageElement>('img');
+          : !dataPointContainer &&
+              !textTarget &&
+              (target.classList.contains('group') ||
+                target.tagName === 'FIGURE' ||
+                Boolean(target.getAttribute('data-gallery-photo')))
+            ? target.querySelector<HTMLImageElement>('img')
+            : null;
 
       if (clickedImg && clickedImg instanceof HTMLImageElement) {
         e.preventDefault();
         e.stopPropagation();
 
-        const copyRegionContainer = clickedImg.closest<HTMLElement>('[data-copy-region]');
-        const copyRegionId = copyRegionContainer?.getAttribute('data-copy-region') || null;
+        const imageCopyRegionContainer = clickedImg.closest<HTMLElement>('[data-copy-region]');
+        const imageCopyRegionId =
+          imageCopyRegionContainer?.getAttribute('data-copy-region') || null;
 
         let matchedBlockIdx: number | null = null;
         for (const sec of sectionsRef.current) {
@@ -1704,7 +2011,7 @@ export function VisualEditOverlay() {
           element: clickedImg,
           initialSrc: clickedImg.src,
           initialAlt: clickedImg.alt || '',
-          copyRegionId,
+          copyRegionId: imageCopyRegionId,
           blockIndex: matchedBlockIdx,
           top: Math.max(12, r.top - 46),
           left: Math.max(12, Math.min(window.innerWidth - 380, r.left)),
@@ -1714,18 +2021,7 @@ export function VisualEditOverlay() {
         return;
       }
 
-      const dataPointContainer = target.closest<HTMLElement>('[data-data-point]');
-      const dataPointKey = dataPointContainer?.getAttribute('data-data-point') || null;
-
-      const copyRegionContainer = target.closest<HTMLElement>('[data-copy-region]');
-      const copyRegionId = copyRegionContainer?.getAttribute('data-copy-region') || null;
-
-      const editable =
-        dataPointContainer ||
-        target.closest<HTMLElement>(
-          'h1, h2, h3, h4, h5, h6, p, blockquote, li, dt, dd, [data-copy-region] span, a, button, [data-data-point]'
-        ) ||
-        target;
+      const editable = dataPointContainer || textTarget || target;
 
       e.preventDefault();
       e.stopPropagation();
@@ -1789,6 +2085,13 @@ export function VisualEditOverlay() {
         } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
           void commitInlineEdit(inlineSession);
+        } else if (e.key.toLowerCase() === 's' && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          void commitInlineEdit(inlineSession);
+          void handlePersistBlocks(
+            blocksRef.current,
+            contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
+          );
         } else if (command) {
           e.preventDefault();
           if (command === 'link') {
@@ -1869,7 +2172,14 @@ export function VisualEditOverlay() {
       window.removeEventListener('scroll', updatePos);
       window.removeEventListener('resize', updatePos);
     };
-  }, [inlineSession, imageSession, cancelInlineEdit, commitInlineEdit]);
+  }, [
+    inlineSession,
+    imageSession,
+    cancelInlineEdit,
+    commitInlineEdit,
+    handlePersistBlocks,
+    contentRow,
+  ]);
 
   const handleDeleteSection = useCallback(
     async (blockIndex: number) => {
@@ -1944,9 +2254,25 @@ export function VisualEditOverlay() {
       }
       if (!(event.metaKey || event.ctrlKey)) return;
       const key = event.key.toLowerCase();
+      // Command palette spotlight (⌘K / Ctrl+K)
+      if (key === 'k') {
+        const sel = window.getSelection();
+        if (inlineSessionRef.current && sel && !sel.isCollapsed && sel.toString().trim()) {
+          return;
+        }
+        event.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+        return;
+      }
       if (key === 's') {
         event.preventDefault();
-        void handlePersistBlocks(blocksRef.current);
+        if (inlineSessionRef.current) {
+          void commitInlineEdit(inlineSessionRef.current);
+        }
+        void handlePersistBlocks(
+          blocksRef.current,
+          contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
+        );
         return;
       }
       if (key === 'z') {
@@ -1971,7 +2297,7 @@ export function VisualEditOverlay() {
         return;
       }
       // Duplicate section (⌘D)
-      if (key === 'd' && activeBlockIndex !== null) {
+      if (key === 'd' && !event.shiftKey && activeBlockIndex !== null) {
         event.preventDefault();
         handleDuplicateSection(activeBlockIndex);
         return;
@@ -1992,6 +2318,54 @@ export function VisualEditOverlay() {
         setIsShortcutsOpen((prev) => !prev);
         return;
       }
+      // Visual Diff Review (⌘⇧V or ⌘⇧R)
+      if ((key === 'v' || key === 'r') && event.shiftKey) {
+        event.preventDefault();
+        setIsDiffModalOpen((prev) => !prev);
+        return;
+      }
+      // Visual Composer Inspector (⌘E)
+      if (key === 'e' && !event.shiftKey) {
+        event.preventDefault();
+        setVcBlockIndex(activeBlockIndex ?? 0);
+        setIsVisualComposerOpen((prev) => !prev);
+        return;
+      }
+      // Visual Composer Block Library (⌘⇧E)
+      if (key === 'e' && event.shiftKey) {
+        event.preventDefault();
+        setLibraryTargetIndex(activeBlockIndex);
+        setIsBlockLibraryOpen((prev) => !prev);
+        return;
+      }
+      // Visual Composer Structure Navigator & Tree (⌘7)
+      if (key === '7' || (key === 'n' && event.shiftKey)) {
+        event.preventDefault();
+        setIsPageNavigatorOpen((prev) => !prev);
+        return;
+      }
+      // DataPoints Matrix Drawer (⌘⇧D)
+      if (key === 'd' && event.shiftKey) {
+        event.preventDefault();
+        setIsDataPointDrawerOpen((prev) => !prev);
+        return;
+      }
+      // Civic A11y & Health Audit (⌘⇧A)
+      if (key === 'a' && event.shiftKey) {
+        event.preventDefault();
+        setIsA11yAuditorOpen((prev) => !prev);
+        return;
+      }
+      // Inspector HUD Toggle (⌘I without shift, outside editable target)
+      if (key === 'i' && !event.shiftKey) {
+        const isEditable =
+          target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+        if (!isEditable) {
+          event.preventDefault();
+          toggleInspector();
+          return;
+        }
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -2005,6 +2379,9 @@ export function VisualEditOverlay() {
     handleMoveSection,
     handleDuplicateSection,
     handleDeleteSection,
+    commitInlineEdit,
+    contentRow,
+    toggleInspector,
   ]);
 
   // Revisions management — restore is destructive; the confirm step lives at the
@@ -2380,6 +2757,74 @@ export function VisualEditOverlay() {
                     </button>
                   )}
 
+                  {/* Visual Composer: Element Design & Box Model Inspector */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveBlockIndex(item.blockIndex);
+                      setVcBlockIndex(item.blockIndex);
+                      setVcMode('block');
+                      setIsVisualComposerOpen(true);
+                    }}
+                    title="Visual Composer: Element Design &amp; Box Model Inspector (⌘E)"
+                    aria-label="Visual Composer Inspector"
+                    className="rounded p-1 text-accent-gold hover:bg-white/15 hover:text-white transition-colors"
+                  >
+                    <SlidersHorizontal size={13} />
+                  </button>
+
+                  {/* Visual Composer: Section / Row Customizer */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveBlockIndex(item.blockIndex);
+                      setVcBlockIndex(item.blockIndex);
+                      setVcMode('section');
+                      setIsVisualComposerOpen(true);
+                    }}
+                    title="Visual Composer: Row / Section Settings (Containers, Dividers &amp; Grid)"
+                    aria-label="Section Row Settings"
+                    className="rounded p-1 text-sky-400 hover:bg-white/15 hover:text-white transition-colors"
+                  >
+                    <LayoutTemplate size={13} />
+                  </button>
+
+                  {/* Visual Composer: 1-Click Copy Styles */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const blk = blocks[item.blockIndex];
+                      if (!blk) return;
+                      const existingStyles = getStylesClipboard() ?? DEFAULT_VC_STYLES;
+                      setStylesClipboard(existingStyles);
+                      toast.success(`Copied styles from ${item.label}`);
+                    }}
+                    title="Copy block styles to clipboard"
+                    aria-label="Copy block styles"
+                    className="rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
+                  >
+                    <ClipboardCopy size={13} />
+                  </button>
+
+                  {/* Visual Composer: 1-Click Paste Styles (if clipboard has styles) */}
+                  {getStylesClipboard() && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cb = getStylesClipboard();
+                        const blk = blocks[item.blockIndex];
+                        if (!cb || !blk) return;
+                        handleSaveVcBlock(blk, undefined, cb.anchorId || undefined);
+                        toast.success(`Pasted styles onto ${item.label}`);
+                      }}
+                      title="Paste styles from clipboard"
+                      aria-label="Paste styles"
+                      className="rounded p-1 text-emerald-400 hover:bg-white/15 hover:text-white transition-colors"
+                    >
+                      <ClipboardPaste size={13} />
+                    </button>
+                  )}
+
                   {/* Duplicate section */}
                   <button
                     type="button"
@@ -2557,6 +3002,17 @@ export function VisualEditOverlay() {
                             {option.label}
                           </DropdownMenu.Item>
                         ))}
+                        <div className="my-1 h-px bg-white/10" />
+                        <DropdownMenu.Item
+                          onSelect={() => {
+                            setLibraryTargetIndex(item.blockIndex);
+                            setIsBlockLibraryOpen(true);
+                          }}
+                          className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-accent-gold hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                        >
+                          <Layers size={13} />
+                          <span>Element Library...</span>
+                        </DropdownMenu.Item>
                       </DropdownMenu.Content>
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
@@ -2632,13 +3088,29 @@ export function VisualEditOverlay() {
           </button>
 
           {inlineSession.dataPointKey && (
-            <span
-              className="inline-flex items-center gap-1 rounded bg-sky-500/20 border border-sky-400/40 px-2 py-0.5 text-[10px] font-mono font-bold text-sky-300 select-none shadow-xs"
-              title="Connected directly to Supabase DB public.data_points table"
-            >
-              <Database size={11} className="text-sky-400" />
-              <span>{inlineSession.dataPointKey}</span>
-            </span>
+            <div className="flex items-center gap-1">
+              <span
+                className="inline-flex items-center gap-1 rounded bg-sky-500/20 border border-sky-400/40 px-2 py-0.5 text-[10px] font-mono font-bold text-sky-300 select-none shadow-xs"
+                title="Connected directly to Supabase DB public.data_points table"
+              >
+                <Database size={11} className="text-sky-400" />
+                <span>{inlineSession.dataPointKey}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (inlineSession.dataPointKey) {
+                    void navigator.clipboard?.writeText(inlineSession.dataPointKey);
+                    toast.success(`Copied "${inlineSession.dataPointKey}" to clipboard`);
+                  }
+                }}
+                className="rounded p-1 text-sky-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                title="Copy DataPoint key"
+                aria-label="Copy DataPoint key"
+              >
+                <Copy size={11} />
+              </button>
+            </div>
           )}
 
           <div className="mx-0.5 h-3.5 w-px bg-white/20" />
@@ -2655,10 +3127,42 @@ export function VisualEditOverlay() {
             }}
           />
 
+          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
+
+          {/* Real-time Typography & Accent Styler */}
+          <StyleQuickTuner element={inlineSession.element} />
+
+          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
+
+          {/* Civic AI Ghostwriter & Polish */}
+          <CivicGhostwriter
+            element={inlineSession.element}
+            onTextUpdated={(t) =>
+              setInlineCounts({
+                chars: t.length,
+                words: t.trim() ? t.trim().split(/\s+/).length : 0,
+              })
+            }
+          />
+
           {/* Word and Char Counter Badge */}
           <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono text-ink-muted-on-dark select-none ml-0.5">
             {inlineCounts.words}w · {inlineCounts.chars}c
           </span>
+
+          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
+
+          {/* Quick Slash Commands Palette Trigger */}
+          <button
+            type="button"
+            onClick={() => setIsSlashMenuOpen((prev) => !prev)}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-accent-gold hover:bg-accent-gold/20 text-[11px] transition-colors cursor-pointer"
+            title="Open Slash Commands (or type /)"
+            aria-label="Open Slash Commands"
+          >
+            <span className="font-mono text-xs">/</span>
+            <span className="hidden md:inline">Slash</span>
+          </button>
 
           {inlineSession.blockIndex !== null && (
             <>
@@ -2680,6 +3184,46 @@ export function VisualEditOverlay() {
             </>
           )}
         </div>
+      )}
+
+      {/* ── Inline Slash Commands Floating Palette ──────────────────────── */}
+      {inlineSession && (
+        <SlashCommandMenu
+          open={isSlashMenuOpen}
+          onClose={() => setIsSlashMenuOpen(false)}
+          position={{
+            top: inlineSession.top + 42,
+            left: Math.max(12, inlineSession.left),
+          }}
+          onExecuteCommand={(cmdId) => {
+            if (
+              cmdId === 'h2' ||
+              cmdId === 'h3' ||
+              cmdId === 'paragraph' ||
+              cmdId === 'bulletList' ||
+              cmdId === 'orderedList' ||
+              cmdId === 'code' ||
+              cmdId === 'clear'
+            ) {
+              applyInlineFormatCommand(cmdId as InlineFormatCommand);
+            } else if (cmdId === 'quote') {
+              wrapSelectionWithTag('blockquote', 'border-l-4 border-accent-gold pl-3 italic my-2');
+            } else if (cmdId === 'divider') {
+              wrapSelectionWithTag('hr', 'my-4 border-t border-border');
+            } else if (cmdId === 'callout') {
+              wrapSelectionWithTag(
+                'aside',
+                'my-2 rounded-xl border border-primary/30 bg-primary/10 p-3 text-sm'
+              );
+            }
+          }}
+          onOpenGhostwriter={() => {
+            toast.info('Civic Ghostwriter AI ready — select text or click Ghostwriter');
+          }}
+          onInsertLink={() => {
+            setLinkModal({ textareaId: null, url: '', text: '' });
+          }}
+        />
       )}
 
       {/* ── Direct Click-To-Replace Image Floating Action Pill ─────────────── */}
@@ -2772,74 +3316,168 @@ export function VisualEditOverlay() {
         </div>
       )}
 
-      {/* ── Fixed Bottom Control Dock ─────────────────────────────────── */}
-      <aside
-        aria-label="Visual Editor Toolbar"
-        data-testid="visual-edit-overlay"
-        className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-5xl rounded-2xl border border-white/20 bg-secondary/95 p-3.5 text-ink-on-dark shadow-float backdrop-blur-md"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Document Info & Status */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="size-2.5 rounded-full bg-accent-gold animate-pulse" />
-              <PenLine size={16} className="text-accent-gold" aria-hidden="true" />
-            </div>
-            <div className="min-w-0">
-              {/*
+      {/* ── Control Dock (Mini Capsule or Expanded Bar) ─────────────── */}
+      {dockCollapsed ? (
+        <aside
+          aria-label="Visual Editor Toolbar"
+          data-testid="visual-edit-overlay"
+          className={`fixed inset-x-3 ${dockPosition === 'top' ? 'top-3' : 'bottom-3'} z-50 mx-auto w-fit flex items-center gap-2.5 rounded-full border border-white/20 bg-secondary/95 px-4 py-2 text-ink-on-dark shadow-float backdrop-blur-md transition-all`}
+        >
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="size-2 rounded-full bg-accent-gold animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-wider text-white truncate max-w-[140px] sm:max-w-[200px]">
+              {contentRow?.title || pageTitle || target?.label || pathname}
+            </span>
+          </div>
+
+          <span className="text-white/20">|</span>
+
+          <span
+            className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+              dirty ? 'bg-amber-500/20 text-accent-gold' : 'bg-emerald-500/20 text-emerald-400'
+            }`}
+          >
+            {dirty ? 'Unsaved' : 'Saved'}
+          </span>
+
+          {dirty && (
+            <button
+              type="button"
+              onClick={() =>
+                void handlePersistBlocks(
+                  blocks,
+                  contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
+                )
+              }
+              disabled={savingBackend}
+              title="Save changes to Supabase (⌘S)"
+              className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-black text-ink-strong uppercase hover:bg-accent-gold shadow-xs cursor-pointer"
+            >
+              {savingBackend ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Sparkles size={12} />
+              )}
+              <span>Save</span>
+              <kbd className="text-[9px] font-mono opacity-60">⌘S</kbd>
+            </button>
+          )}
+
+          {(dirty || modifiedDataPoints.length > 0) && (
+            <button
+              type="button"
+              onClick={() => setIsDiffModalOpen(true)}
+              title="Review visual changes diff (⌘⇧V)"
+              aria-label="Review visual changes diff"
+              className="inline-flex items-center gap-1 rounded-md bg-accent-gold/20 px-2 py-1 text-xs font-bold text-accent-gold hover:bg-accent-gold/30 cursor-pointer"
+            >
+              <Activity size={12} />
+              <span>Diff</span>
+              <span className="rounded-full bg-accent-gold/30 px-1 text-[9px] font-mono">
+                {modifiedBlocks.length + modifiedDataPoints.length}
+              </span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsCommandPaletteOpen(true)}
+            title="Open Command Palette (⌘K)"
+            aria-label="Open Command Palette"
+            className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-xs font-bold text-white hover:bg-white/20 cursor-pointer"
+          >
+            <Search size={12} className="text-accent-gold" />
+            <kbd className="text-[9px] font-mono opacity-70">⌘K</kbd>
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleDockPosition}
+            title={`Move dock to ${dockPosition === 'bottom' ? 'top' : 'bottom'}`}
+            aria-label={`Move dock to ${dockPosition === 'bottom' ? 'top' : 'bottom'}`}
+            className="rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
+          >
+            {dockPosition === 'bottom' ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleDockCollapsed}
+            title="Expand Visual Editor Dock"
+            aria-label="Expand Visual Editor Dock"
+            className="rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
+          >
+            <Maximize2 size={12} />
+          </button>
+        </aside>
+      ) : (
+        <aside
+          aria-label="Visual Editor Toolbar"
+          data-testid="visual-edit-overlay"
+          className={`fixed inset-x-3 ${dockPosition === 'top' ? 'top-3' : 'bottom-3'} z-50 mx-auto max-w-5xl rounded-2xl border border-white/20 bg-secondary/95 p-3.5 text-ink-on-dark shadow-float backdrop-blur-md transition-all`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Document Info & Status */}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="size-2.5 rounded-full bg-accent-gold animate-pulse" />
+                <PenLine size={16} className="text-accent-gold" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                {/*
                 Which document is being edited.
 
                 `contentRow?.title` is what the row is *called* in the CMS, which
                 for a region is the region's label; the region label is the
                 fallback so a region with no row yet still names itself.
               */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-[0.15em] text-white truncate max-w-[200px] sm:max-w-[280px]">
-                  {contentRow?.title || pageTitle || target?.label || pathname}
-                </span>
-                {contentRow ? (
-                  <button
-                    type="button"
-                    onClick={handleTogglePageStatus}
-                    disabled={savingBackend}
-                    title="Click to toggle between Published and Draft"
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
-                      contentRow.status === 'publish'
-                        ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                        : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                    }`}
-                  >
-                    {contentRow.status === 'publish' ? 'Published' : 'Draft'}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleInitializeCMSPage}
-                    disabled={savingBackend}
-                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-accent/20 text-accent-gold hover:bg-accent/30"
-                    title={
-                      activeRegion
-                        ? `Create the CMS row for the ${activeRegion.label} region`
-                        : 'Click to sync page into Supabase content table'
-                    }
-                  >
-                    Connect to Supabase
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-[0.15em] text-white truncate max-w-[200px] sm:max-w-[280px]">
+                    {contentRow?.title || pageTitle || target?.label || pathname}
+                  </span>
+                  {contentRow ? (
+                    <button
+                      type="button"
+                      onClick={handleTogglePageStatus}
+                      disabled={savingBackend}
+                      title="Click to toggle between Published and Draft"
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
+                        contentRow.status === 'publish'
+                          ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                          : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                      }`}
+                    >
+                      {contentRow.status === 'publish' ? 'Published' : 'Draft'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleInitializeCMSPage}
+                      disabled={savingBackend}
+                      className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-accent/20 text-accent-gold hover:bg-accent/30"
+                      title={
+                        activeRegion
+                          ? `Create the CMS row for the ${activeRegion.label} region`
+                          : 'Click to sync page into Supabase content table'
+                      }
+                    >
+                      Connect to Supabase
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-ink-muted-on-dark truncate">
+                  {sections.length} {sections.length === 1 ? 'block' : 'blocks'} in the document (
+                  {enabledSectionKeys.size} framed) ·{' '}
+                  {dirty ? (
+                    <span className="font-bold text-accent-gold">unsaved changes</span>
+                  ) : (
+                    <span>saved</span>
+                  )}
+                </p>
               </div>
-              <p className="text-[11px] text-ink-muted-on-dark truncate">
-                {sections.length} {sections.length === 1 ? 'block' : 'blocks'} in the document (
-                {enabledSectionKeys.size} framed) ·{' '}
-                {dirty ? (
-                  <span className="font-bold text-accent-gold">unsaved changes</span>
-                ) : (
-                  <span>saved</span>
-                )}
-              </p>
             </div>
-          </div>
 
-          {/*
+            {/*
             Which copy region is being edited.
 
             A coded page cannot own a `content` row — a slug matching a route
@@ -2848,79 +3486,79 @@ export function VisualEditOverlay() {
             loaded at a time. The "Whole page" entry is the pre-region behaviour
             and is what `[slug]` routes use.
           */}
-          {pageRegions.length > 0 && (
-            // A fieldset, not a `role="group"`: the same set of controls is a
-            // native fieldset everywhere else in this file, and Biome's
-            // `useSemanticElements` is right that the role adds nothing a
-            // `<fieldset>` with a `<legend>` does not already say.
-            <fieldset className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/5 p-1">
-              <legend className="sr-only">Editable copy region</legend>
-              <button
-                type="button"
-                onClick={() => setActiveRegionId(null)}
-                aria-pressed={activeRegionId === null}
-                className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                  activeRegionId === null
-                    ? 'bg-accent-gold/20 text-accent-gold'
-                    : 'text-ink-muted-on-dark hover:text-white'
-                }`}
-              >
-                Whole page
-              </button>
-              {pageRegions.map((region) => (
+            {pageRegions.length > 0 && (
+              // A fieldset, not a `role="group"`: the same set of controls is a
+              // native fieldset everywhere else in this file, and Biome's
+              // `useSemanticElements` is right that the role adds nothing a
+              // `<fieldset>` with a `<legend>` does not already say.
+              <fieldset className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/5 p-1">
+                <legend className="sr-only">Editable copy region</legend>
                 <button
-                  key={region.id}
                   type="button"
-                  onClick={() => setActiveRegionId(region.id)}
-                  aria-pressed={region.id === activeRegionId}
+                  onClick={() => setActiveRegionId(null)}
+                  aria-pressed={activeRegionId === null}
                   className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                    region.id === activeRegionId
+                    activeRegionId === null
                       ? 'bg-accent-gold/20 text-accent-gold'
                       : 'text-ink-muted-on-dark hover:text-white'
                   }`}
                 >
-                  {region.label}
+                  Whole page
                 </button>
-              ))}
-            </fieldset>
-          )}
+                {pageRegions.map((region) => (
+                  <button
+                    key={region.id}
+                    type="button"
+                    onClick={() => setActiveRegionId(region.id)}
+                    aria-pressed={region.id === activeRegionId}
+                    className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+                      region.id === activeRegionId
+                        ? 'bg-accent-gold/20 text-accent-gold'
+                        : 'text-ink-muted-on-dark hover:text-white'
+                    }`}
+                  >
+                    {region.label}
+                  </button>
+                ))}
+              </fieldset>
+            )}
 
-          {/* Quick Actions */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Undo / Redo — the operations a visual editor needs most and the
+            {/* Quick Actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Undo / Redo — the operations a visual editor needs most and the
                 ones this dock was missing entirely. */}
-            <button
-              type="button"
-              onClick={handleUndo}
-              disabled={!canUndo(history)}
-              title="Undo the last change (⌘Z)"
-              aria-label="Undo the last change"
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
-                canUndo(history)
-                  ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
-                  : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
-              }`}
-            >
-              <Undo2 size={13} />
-              <span className="hidden lg:inline">Undo</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleRedo}
-              disabled={!canRedo(history)}
-              title="Redo (⌘⇧Z)"
-              aria-label="Redo the last undone change"
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
-                canRedo(history)
-                  ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
-                  : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
-              }`}
-            >
-              <Redo2 size={13} />
-              <span className="hidden lg:inline">Redo</span>
-            </button>
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={!canUndo(history)}
+                title="Undo the last change (⌘Z)"
+                aria-label="Undo the last change"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
+                  canUndo(history)
+                    ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
+                    : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
+                }`}
+              >
+                <Undo2 size={13} />
+                <span className="hidden lg:inline">Undo</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleRedo}
+                disabled={!canRedo(history)}
+                title="Redo (⌘⇧Z)"
+                aria-label="Redo the last undone change"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
+                  canRedo(history)
+                    ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
+                    : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
+                }`}
+              >
+                <Redo2 size={13} />
+                <span className="hidden lg:inline">Redo</span>
+              </button>
 
-            {/*
+              {/*
               The primary action is now "Save", not "Save to Supabase CMS".
 
               Connecting a page to the CMS is a one-time act and it happens the
@@ -2928,607 +3566,823 @@ export function VisualEditOverlay() {
               every later edit look like an initialisation, and it hid the fact
               that the document had unsaved changes at all.
             */}
-            <button
-              type="button"
-              onClick={() =>
-                handlePersistBlocks(
-                  blocks,
-                  contentRow ? 'Page saved' : 'Page connected to Supabase CMS'
-                )
-              }
-              disabled={savingBackend || !dirty}
-              title={
-                contentRow
-                  ? 'Write this document to Supabase'
-                  : 'Create the Supabase CMS row for this page from what is on screen'
-              }
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider shadow-raised transition-all disabled:opacity-50 ${
-                dirty
-                  ? 'bg-accent text-ink-strong hover:bg-accent-gold'
-                  : 'bg-white/10 text-ink-muted-on-dark'
-              }`}
-            >
-              {savingBackend ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <Sparkles size={13} />
-              )}
-              <span>{contentRow ? (dirty ? 'Save' : 'Saved') : 'Connect'}</span>
-            </button>
+              <button
+                type="button"
+                onClick={() =>
+                  handlePersistBlocks(
+                    blocks,
+                    contentRow ? 'Page saved' : 'Page connected to Supabase CMS'
+                  )
+                }
+                disabled={savingBackend || !dirty}
+                title={
+                  contentRow
+                    ? 'Write this document to Supabase'
+                    : 'Create the Supabase CMS row for this page from what is on screen'
+                }
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider shadow-raised transition-all disabled:opacity-50 ${
+                  dirty
+                    ? 'bg-accent text-ink-strong hover:bg-accent-gold'
+                    : 'bg-white/10 text-ink-muted-on-dark'
+                }`}
+              >
+                {savingBackend ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : (
+                  <Sparkles size={13} />
+                )}
+                <span>{contentRow ? (dirty ? 'Save' : 'Saved') : 'Connect'}</span>
+                <kbd className="hidden sm:inline-block text-[9px] font-mono opacity-70 ml-0.5">
+                  ⌘S
+                </kbd>
+              </button>
 
-            {/* Badges Toggle */}
-            <button
-              type="button"
-              onClick={() => setShowSectionBadges((p) => !p)}
-              title={
-                showSectionBadges ? 'Hide in-page section badges' : 'Show in-page section badges'
-              }
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
-                showSectionBadges
-                  ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
-                  : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
-              }`}
-            >
-              <Layers size={13} />
-              <span className="hidden sm:inline">Badges: {showSectionBadges ? 'ON' : 'OFF'}</span>
-            </button>
+              {/* Command Palette Trigger */}
+              <button
+                type="button"
+                onClick={() => setIsCommandPaletteOpen(true)}
+                title="Open Command Palette & Jump to Block/DataPoint (⌘K)"
+                aria-label="Open Command Palette"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-accent-gold/40 bg-accent-gold/10 px-2.5 py-1.5 text-xs font-bold text-accent-gold transition-colors hover:bg-accent-gold/20 cursor-pointer"
+              >
+                <Search size={13} className="text-accent-gold" />
+                <span className="hidden sm:inline">Command</span>
+                <kbd className="rounded bg-black/30 px-1 py-0.5 text-[9px] font-mono">⌘K</kbd>
+              </button>
 
-            {/* Frames Toggle */}
-            <button
-              type="button"
-              onClick={() => setShowAllSectionBorders((p) => !p)}
-              title={showAllSectionBorders ? 'Hide section frames' : 'Show section frames'}
-              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
-                showAllSectionBorders
-                  ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
-                  : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
-              }`}
-            >
-              <Eye size={13} />
-              <span className="hidden md:inline">
-                Frames: {showAllSectionBorders ? 'ON' : 'OFF'}
-              </span>
-            </button>
+              {/* DataPoints Matrix Drawer Trigger */}
+              <button
+                type="button"
+                onClick={() => setIsDataPointDrawerOpen(true)}
+                title="Open Page DataPoints Matrix (⌘K -> DataPoints)"
+                aria-label="Open DataPoints Matrix"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-500/10 px-2.5 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/20 cursor-pointer"
+              >
+                <Database size={13} className="text-sky-400" />
+                <span className="hidden sm:inline">DataPoints</span>
+              </button>
 
-            {/* Theme Mode Preview Toggle */}
-            <button
-              type="button"
-              onClick={cycleTheme}
-              title={`Preview theme: ${themeModeLabel(themeMode)}${themeMode === 'system' ? ` (${effectiveTheme})` : ''} (click to cycle)`}
-              aria-label="Cycle theme mode preview"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-all duration-300 hover:bg-white/10 hover:text-white active:scale-95 cursor-pointer"
-            >
-              {themeMode === 'light' ? (
-                <Sun
-                  size={13}
-                  className="text-amber-300 animate-in fade-in zoom-in-75 duration-200"
-                />
-              ) : themeMode === 'dark' ? (
-                <Moon
-                  size={13}
-                  className="text-blue-300 animate-in fade-in zoom-in-75 duration-200"
-                />
-              ) : (
-                <span className="relative flex items-center justify-center">
-                  <Monitor
-                    size={13}
-                    className="text-emerald-300 animate-in fade-in zoom-in-75 duration-200"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className={`absolute -top-0.5 -right-0.5 size-1.5 rounded-full ring-1 ring-secondary ${
-                      effectiveTheme === 'dark' ? 'bg-sky-400' : 'bg-amber-400'
-                    }`}
-                  />
-                </span>
-              )}
-              <span className="hidden lg:inline capitalize">
-                {themeModeLabel(themeMode)}
-                {themeMode === 'system' ? (
-                  <span className="ml-1 text-[10px] text-ink-muted-on-dark font-medium lowercase">
-                    ({effectiveTheme})
+              {/* Civic A11y & SEO Health Auditor */}
+              <button
+                type="button"
+                onClick={() => setIsA11yAuditorOpen(true)}
+                title="Run in-page Accessibility, SEO, and DataPoint audit (⌘⇧A)"
+                aria-label="Run Civic A11y and Health Audit"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/10 cursor-pointer"
+              >
+                <ShieldCheck size={13} className="text-emerald-400" />
+                <span className="hidden md:inline">Audit</span>
+              </button>
+
+              {/* Visual Diff & Change Review Trigger */}
+              <button
+                type="button"
+                onClick={() => setIsDiffModalOpen(true)}
+                title="Review visual changes and draft diff against published version (⌘⇧V)"
+                aria-label="Review visual changes diff"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                  dirty || modifiedDataPoints.length > 0
+                    ? 'border-accent-gold/40 bg-accent-gold/15 text-accent-gold hover:bg-accent-gold/25'
+                    : 'border-white/10 bg-white/5 text-ink-on-dark hover:bg-white/10'
+                }`}
+              >
+                <Activity size={13} className="text-accent-gold" />
+                <span className="hidden md:inline">Diff</span>
+                {(dirty || modifiedDataPoints.length > 0) && (
+                  <span className="rounded-full bg-accent-gold/20 px-1.5 py-0.2 text-[9px] font-mono text-accent-gold font-bold">
+                    {modifiedBlocks.length + modifiedDataPoints.length}
                   </span>
-                ) : null}
-              </span>
-            </button>
+                )}
+              </button>
 
-            {/* Responsive Viewport Mode Simulator */}
-            <fieldset
-              aria-label="Responsive viewport preview"
-              className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 p-0.5"
-            >
-              <legend className="sr-only">Responsive viewport preview</legend>
+              {/* Inspector HUD Toggle */}
               <button
                 type="button"
-                onClick={() => setViewportMode('desktop')}
-                title="Desktop full viewport (100% width)"
-                aria-label="Desktop viewport"
-                aria-pressed={viewportMode === 'desktop'}
-                className={`rounded-md p-1.5 text-xs font-bold transition-colors ${
-                  viewportMode === 'desktop'
-                    ? 'bg-accent-gold/20 text-accent-gold'
-                    : 'text-ink-muted-on-dark hover:text-white'
+                onClick={toggleInspector}
+                title={
+                  showInspector
+                    ? 'Disable live element hover inspector HUD'
+                    : 'Enable live element hover inspector HUD'
+                }
+                aria-label="Toggle Inspector HUD"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                  showInspector
+                    ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
+                    : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
                 }`}
               >
-                <Monitor size={13} />
+                <Eye size={13} />
+                <span className="hidden lg:inline">Inspector: {showInspector ? 'ON' : 'OFF'}</span>
               </button>
+
+              {/* Badges Toggle */}
               <button
                 type="button"
-                onClick={() => setViewportMode('tablet')}
-                title="Tablet viewport preview (768px width)"
-                aria-label="Tablet viewport"
-                aria-pressed={viewportMode === 'tablet'}
-                className={`rounded-md p-1.5 text-xs font-bold transition-colors ${
-                  viewportMode === 'tablet'
-                    ? 'bg-accent-gold/20 text-accent-gold'
-                    : 'text-ink-muted-on-dark hover:text-white'
+                onClick={() => setShowSectionBadges((p) => !p)}
+                title={
+                  showSectionBadges ? 'Hide in-page section badges' : 'Show in-page section badges'
+                }
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
+                  showSectionBadges
+                    ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
+                    : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
                 }`}
               >
-                <Tablet size={13} />
+                <Layers size={13} />
+                <span className="hidden sm:inline">Badges: {showSectionBadges ? 'ON' : 'OFF'}</span>
               </button>
+
+              {/* Frames Toggle */}
               <button
                 type="button"
-                onClick={() => setViewportMode('mobile')}
-                title="Mobile viewport preview (390px iPhone width)"
-                aria-label="Mobile viewport"
-                aria-pressed={viewportMode === 'mobile'}
-                className={`rounded-md p-1.5 text-xs font-bold transition-colors ${
-                  viewportMode === 'mobile'
-                    ? 'bg-accent-gold/20 text-accent-gold'
-                    : 'text-ink-muted-on-dark hover:text-white'
+                onClick={() => setShowAllSectionBorders((p) => !p)}
+                title={showAllSectionBorders ? 'Hide section frames' : 'Show section frames'}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
+                  showAllSectionBorders
+                    ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
+                    : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
                 }`}
               >
-                <Smartphone size={13} />
-              </button>
-              {viewportMode !== 'desktop' && (
-                <span className="px-1.5 text-[10px] font-mono font-bold text-accent-gold hidden xl:inline">
-                  {viewportMode === 'mobile' ? '390px' : '768px'}
+                <Eye size={13} />
+                <span className="hidden md:inline">
+                  Frames: {showAllSectionBorders ? 'ON' : 'OFF'}
                 </span>
-              )}
-            </fieldset>
+              </button>
 
-            {/* Section Navigator */}
-            {sections.length > 0 && (
-              <div className="relative">
-                <select
-                  aria-label="Jump to block"
-                  onChange={(e) => {
-                    const blockIndex = Number.parseInt(e.target.value, 10);
-                    if (Number.isInteger(blockIndex)) jumpTo(blockIndex);
-                  }}
-                  className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-accent-gold"
-                  value=""
+              {/* Theme Mode Preview Toggle */}
+              <button
+                type="button"
+                onClick={cycleTheme}
+                title={`Preview theme: ${themeModeLabel(themeMode)}${themeMode === 'system' ? ` (${effectiveTheme})` : ''} (click to cycle)`}
+                aria-label="Cycle theme mode preview"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-all duration-300 hover:bg-white/10 hover:text-white active:scale-95 cursor-pointer"
+              >
+                {themeMode === 'light' ? (
+                  <Sun
+                    size={13}
+                    className="text-amber-300 animate-in fade-in zoom-in-75 duration-200"
+                  />
+                ) : themeMode === 'dark' ? (
+                  <Moon
+                    size={13}
+                    className="text-blue-300 animate-in fade-in zoom-in-75 duration-200"
+                  />
+                ) : (
+                  <span className="relative flex items-center justify-center">
+                    <Monitor
+                      size={13}
+                      className="text-emerald-300 animate-in fade-in zoom-in-75 duration-200"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className={`absolute -top-0.5 -right-0.5 size-1.5 rounded-full ring-1 ring-secondary ${
+                        effectiveTheme === 'dark' ? 'bg-sky-400' : 'bg-amber-400'
+                      }`}
+                    />
+                  </span>
+                )}
+                <span className="hidden lg:inline capitalize">
+                  {themeModeLabel(themeMode)}
+                  {themeMode === 'system' ? (
+                    <span className="ml-1 text-[10px] text-ink-muted-on-dark font-medium lowercase">
+                      ({effectiveTheme})
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+
+              {/* Responsive Viewport Mode Simulator */}
+              <fieldset
+                aria-label="Responsive viewport preview"
+                className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 p-0.5"
+              >
+                <legend className="sr-only">Responsive viewport preview</legend>
+                <button
+                  type="button"
+                  onClick={() => setViewportMode('desktop')}
+                  title="Desktop full viewport (100% width)"
+                  aria-label="Desktop viewport"
+                  aria-pressed={viewportMode === 'desktop'}
+                  className={`rounded-md p-1.5 text-xs font-bold transition-colors ${
+                    viewportMode === 'desktop'
+                      ? 'bg-accent-gold/20 text-accent-gold'
+                      : 'text-ink-muted-on-dark hover:text-white'
+                  }`}
                 >
-                  <option value="" disabled className="bg-secondary text-ink-on-dark">
-                    Jump to block…
-                  </option>
-                  {sections.map((sec) => (
-                    <option
-                      key={sec.key}
-                      value={sec.blockIndex}
-                      className="bg-secondary text-ink-on-dark"
+                  <Monitor size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewportMode('tablet')}
+                  title="Tablet viewport preview (768px width)"
+                  aria-label="Tablet viewport"
+                  aria-pressed={viewportMode === 'tablet'}
+                  className={`rounded-md p-1.5 text-xs font-bold transition-colors ${
+                    viewportMode === 'tablet'
+                      ? 'bg-accent-gold/20 text-accent-gold'
+                      : 'text-ink-muted-on-dark hover:text-white'
+                  }`}
+                >
+                  <Tablet size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewportMode('mobile')}
+                  title="Mobile viewport preview (390px iPhone width)"
+                  aria-label="Mobile viewport"
+                  aria-pressed={viewportMode === 'mobile'}
+                  className={`rounded-md p-1.5 text-xs font-bold transition-colors ${
+                    viewportMode === 'mobile'
+                      ? 'bg-accent-gold/20 text-accent-gold'
+                      : 'text-ink-muted-on-dark hover:text-white'
+                  }`}
+                >
+                  <Smartphone size={13} />
+                </button>
+                {viewportMode !== 'desktop' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleRotateOrientation}
+                      title={`Rotate device orientation (${deviceOrientation === 'portrait' ? 'Landscape' : 'Portrait'})`}
+                      aria-label="Rotate device orientation"
+                      className="rounded-md p-1.5 text-xs font-bold text-accent-gold hover:bg-white/10 transition-colors"
                     >
-                      {sec.ordinal}. {sec.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+                      <RotateCw size={13} />
+                    </button>
+                    <span className="px-1.5 text-[10px] font-mono font-bold text-accent-gold hidden xl:inline">
+                      {viewportMode === 'mobile'
+                        ? deviceOrientation === 'portrait'
+                          ? '390px'
+                          : '844px'
+                        : deviceOrientation === 'portrait'
+                          ? '768px'
+                          : '1024px'}
+                    </span>
+                  </>
+                )}
+              </fieldset>
 
-            {/* Add Block — a Radix menu, never hover.
+              {/* Section Navigator */}
+              {sections.length > 0 && (
+                <div className="relative">
+                  <select
+                    aria-label="Jump to block"
+                    onChange={(e) => {
+                      const blockIndex = Number.parseInt(e.target.value, 10);
+                      if (Number.isInteger(blockIndex)) jumpTo(blockIndex);
+                    }}
+                    className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-accent-gold"
+                    value=""
+                  >
+                    <option value="" disabled className="bg-secondary text-ink-on-dark">
+                      Jump to block…
+                    </option>
+                    {sections.map((sec) => (
+                      <option
+                        key={sec.key}
+                        value={sec.blockIndex}
+                        className="bg-secondary text-ink-on-dark"
+                      >
+                        {sec.ordinal}. {sec.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Add Block — a Radix menu, never hover.
                 `group-hover:block` hid this menu from every keyboard and touch
                 user, and left it in no tab order at all. Click-to-open keeps
                 touch first-class and hands keyboard users Enter/arrows/Escape
                 by construction — the same primitive and rationale as
                 NavDropdown. It opens upward because the dock sits at the
                 viewport bottom. */}
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold"
-                >
-                  <Plus size={14} />
-                  <span>Add Block</span>
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                  align="end"
-                  side="top"
-                  sideOffset={8}
-                  aria-label="Add block"
-                  className="z-50 w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
-                >
-                  {BLOCK_TYPE_OPTIONS.map((option) => (
-                    <DropdownMenu.Item
-                      key={option.type}
-                      onSelect={() => handleAddNewSection(option.type)}
-                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                    >
-                      {option.label}
-                    </DropdownMenu.Item>
-                  ))}
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-
-            {/* S3 Storage Media Library */}
-            <button
-              type="button"
-              onClick={() => {
-                setMediaTarget('section');
-                setMediaModalOpen(true);
-              }}
-              title="Open Supabase S3 Media Library"
-              aria-label="Open Supabase S3 Media Library"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-            >
-              <FolderOpen size={14} className="text-accent-gold" />
-              <span className="hidden lg:inline">Media</span>
-            </button>
-
-            {/* Page Settings */}
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(true)}
-              title="Edit page title, slug, and featured image"
-              aria-label="Edit page title, slug, and featured image"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-            >
-              <Settings size={14} />
-              <span className="hidden sm:inline">Settings</span>
-            </button>
-
-            {/* Revisions History */}
-            {contentRow && (
-              <button
-                type="button"
-                onClick={handleOpenRevisions}
-                title="View page revision history and restore previous snapshots"
-                aria-label="View page revision history and restore previous snapshots"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                <History size={14} />
-                <span className="hidden sm:inline">Revisions</span>
-              </button>
-            )}
-
-            {/* Quick Civic Publish & Creation Dropdown */}
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <button
-                  type="button"
-                  title="Create or manage: Posts, Events, Bulletins, or Links"
-                  aria-label="Create or manage: Posts, Events, Bulletins, or Links"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-primary-bright/40 bg-primary/20 px-2.5 py-1.5 text-xs font-bold text-primary-on-dark transition-colors hover:bg-primary/30 focus-visible:ring-2 focus-visible:ring-accent-gold"
-                >
-                  <Plus size={14} className="text-accent-gold" />
-                  <span className="hidden sm:inline">Publish</span>
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                  side="top"
-                  align="start"
-                  sideOffset={8}
-                  className="z-50 min-w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
-                >
-                  <DropdownMenu.Item
-                    onSelect={() => router.push('/admin/content/new?type=post')}
-                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                  >
-                    <FilePlus2 size={14} className="text-primary-on-dark" />
-                    <span>New Post</span>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    onSelect={() => openCrmWithTab('events')}
-                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                  >
-                    <Calendar size={14} className="text-purple-400" />
-                    <span>Manage Events</span>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    onSelect={() => openCrmWithTab('news')}
-                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                  >
-                    <Newspaper size={14} className="text-accent-gold" />
-                    <span>Manage Bulletins</span>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    onSelect={() => openCrmWithTab('links')}
-                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                  >
-                    <LinkIcon size={14} className="text-emerald-400" />
-                    <span>Manage Action Links</span>
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-
-            {/* CRM Panel */}
-            <button
-              type="button"
-              onClick={() => openCrmWithTab()}
-              title="Open Civic CRM (Constituents, Events, News, Links)"
-              aria-label="Open Civic CRM (Constituents, Events, News, Links)"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-            >
-              <UsersRound size={14} className="text-emerald-400" />
-              <span className="hidden sm:inline">Civic CRM</span>
-            </button>
-
-            {/* Quick CRM Studio Link */}
-            <a
-              href="/admin/crm/broadcasts"
-              target="_blank"
-              rel="noreferrer"
-              title="Open CRM Studio (Broadcasts & Constituents)"
-              aria-label="Open CRM Studio (Broadcasts & Constituents)"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-            >
-              <ExternalLink size={14} className="text-primary-on-dark" />
-              <span className="hidden lg:inline">CRM Studio</span>
-            </a>
-
-            {/* Keyboard Shortcuts Help */}
-            <button
-              type="button"
-              onClick={() => setIsShortcutsOpen(true)}
-              title="Keyboard shortcuts cheat sheet (⌘/)"
-              aria-label="Keyboard shortcuts cheat sheet"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-            >
-              <Keyboard size={14} className="text-accent-gold" />
-              <span className="hidden xl:inline">Shortcuts</span>
-            </button>
-
-            {/* Backend Health Badge */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowHealthDetails((p) => !p)}
-                title="Supabase Backend & Edge Function Health"
-                aria-label="Supabase Backend & Edge Function Health"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:bg-white/10"
-              >
-                <Activity
-                  size={13}
-                  className={
-                    backendStatus?.database && backendStatus?.storage && backendStatus?.edgeFunction
-                      ? 'text-emerald-400'
-                      : 'text-amber-400'
-                  }
-                />
-                <span
-                  className={`size-2 rounded-full ${
-                    backendStatus?.database && backendStatus?.storage && backendStatus?.edgeFunction
-                      ? 'bg-emerald-400'
-                      : !backendStatus?.database || !backendStatus?.storage
-                        ? 'bg-rose-400'
-                        : 'bg-amber-400'
-                  }`}
-                />
-              </button>
-              {showHealthDetails && backendStatus && (
-                <div className="absolute bottom-full right-0 mb-2 w-64 rounded-xl border border-white/15 bg-secondary p-3 shadow-float z-50 text-xs space-y-2">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
-                    <span className="font-black uppercase tracking-wider text-white">
-                      Backend Health
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => probeBackendHealth()}
-                      disabled={statusLoading}
-                      className="p-1 text-slate-400 hover:text-white"
-                      aria-label="Refresh health probe"
-                    >
-                      <RefreshCw size={12} className={statusLoading ? 'animate-spin' : ''} />
-                    </button>
-                  </div>
-                  <div className="flex justify-between items-center text-ink-on-dark">
-                    <span>Database (Postgres)</span>
-                    <span
-                      className={
-                        backendStatus.database
-                          ? 'text-emerald-400 font-bold'
-                          : 'text-rose-400 font-bold'
-                      }
-                    >
-                      {backendStatus.database ? 'Connected' : 'Offline'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-ink-on-dark">
-                    <span>Supabase S3 Storage</span>
-                    <span
-                      className={
-                        backendStatus.storage
-                          ? 'text-emerald-400 font-bold'
-                          : 'text-rose-400 font-bold'
-                      }
-                    >
-                      {backendStatus.storage ? 'media bucket ready' : 'Error'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-ink-on-dark">
-                    <span>Edge Functions</span>
-                    <span
-                      className={
-                        backendStatus.edgeFunction
-                          ? 'text-emerald-400 font-bold'
-                          : 'text-amber-400 font-bold'
-                      }
-                    >
-                      {backendStatus.edgeFunction ? 'Healthy' : 'Fallback'}
-                    </span>
-                  </div>
-                  {backendStatus.edgeFunctionDetails?.latencyMs !== undefined && (
-                    <div className="text-[10px] text-ink-muted-on-dark text-right">
-                      Latency: {backendStatus.edgeFunctionDetails.latencyMs}ms
-                    </div>
-                  )}
-                  {backendSummary && (
-                    <div className="border-t border-white/10 pt-2 space-y-1.5">
-                      <div className="flex justify-between items-center text-ink-on-dark">
-                        <span>Constituents</span>
-                        <span className="font-bold">
-                          {backendSummary.crmTotal ?? '—'}
-                          <span className="text-ink-muted-on-dark font-medium">
-                            {' '}
-                            · {backendSummary.segments} segments
-                            {backendSummary.segmentsTruncated ? '+' : ''}
-                          </span>
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-ink-on-dark">
-                        <span>Catalog</span>
-                        <span className="font-bold">
-                          {backendSummary.products} products · {backendSummary.gallery} photos ·{' '}
-                          {backendSummary.events} events
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-ink-on-dark">
-                        <span>Media library</span>
-                        <span className="font-bold">
-                          {backendSummary.mediaItems} recent files
-                          {backendSummary.mediaTruncated ? '+' : ''}
-                        </span>
-                      </div>
-                      {(backendSummary.mediaTruncated ||
-                        backendSummary.segmentsTruncated ||
-                        backendSummary.revisionsTruncated) && (
-                        <p className="text-[10px] text-ink-muted-on-dark">
-                          Capped window — open the picker for the full list.
-                        </p>
-                      )}
-                    </div>
-                  )}
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowHealthDetails(false);
-                      setIsDiagnosticsModalOpen(true);
-                    }}
-                    className="w-full text-center py-1 mt-1 text-[11px] font-bold text-accent-gold hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold"
                   >
-                    System Diagnostics →
+                    <Plus size={14} />
+                    <span>Add Block</span>
                   </button>
-                </div>
-              )}
-            </div>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    side="top"
+                    sideOffset={8}
+                    aria-label="Add block"
+                    className="z-50 w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                  >
+                    {BLOCK_TYPE_OPTIONS.map((option) => (
+                      <DropdownMenu.Item
+                        key={option.type}
+                        onSelect={() => handleAddNewSection(option.type)}
+                        className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                      >
+                        {option.label}
+                      </DropdownMenu.Item>
+                    ))}
+                    <div className="my-1 h-px bg-white/10" />
+                    <DropdownMenu.Item
+                      onSelect={() => {
+                        setLibraryTargetIndex(null);
+                        setIsBlockLibraryOpen(true);
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-accent-gold hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                    >
+                      <Layers size={13} />
+                      <span>Element Library &amp; Templates...</span>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
 
-            {/* Open in full admin if target known */}
-            {target?.editUrl && (
+              {/* Visual Composer Inspector Trigger Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setVcBlockIndex(activeBlockIndex ?? 0);
+                  setIsVisualComposerOpen(true);
+                }}
+                title="Visual Composer: Full Design &amp; Box Model Inspector (⌘E)"
+                aria-label="Visual Composer Inspector"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-accent-gold/30 bg-accent-gold/15 px-2.5 py-1.5 text-xs font-bold text-accent-gold transition-colors hover:bg-accent-gold/25 focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                <SlidersHorizontal size={14} />
+                <span className="hidden xl:inline">Composer</span>
+              </button>
+
+              {/* Structure Navigator Tree Button */}
+              <button
+                type="button"
+                onClick={() => setIsPageNavigatorOpen((prev) => !prev)}
+                title="Page Structure Navigator &amp; Tree (⌘7)"
+                aria-label="Page Structure Navigator"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/15 px-2.5 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-400/25 focus-visible:ring-2 focus-visible:ring-sky-400"
+              >
+                <ListTree size={14} />
+                <span className="hidden xl:inline">Tree</span>
+              </button>
+
+              {/* S3 Storage Media Library */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMediaTarget('section');
+                  setMediaModalOpen(true);
+                }}
+                title="Open Supabase S3 Media Library"
+                aria-label="Open Supabase S3 Media Library"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                <FolderOpen size={14} className="text-accent-gold" />
+                <span className="hidden lg:inline">Media</span>
+              </button>
+
+              {/* Page Settings */}
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(true)}
+                title="Edit page title, slug, and featured image"
+                aria-label="Edit page title, slug, and featured image"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                <Settings size={14} />
+                <span className="hidden sm:inline">Settings</span>
+              </button>
+
+              {/* Revisions History */}
+              {contentRow && (
+                <button
+                  type="button"
+                  onClick={handleOpenRevisions}
+                  title="View page revision history and restore previous snapshots"
+                  aria-label="View page revision history and restore previous snapshots"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+                >
+                  <History size={14} />
+                  <span className="hidden sm:inline">Revisions</span>
+                </button>
+              )}
+
+              {/* Quick Civic Publish & Creation Dropdown */}
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    title="Create or manage: Posts, Events, Bulletins, or Links"
+                    aria-label="Create or manage: Posts, Events, Bulletins, or Links"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary-bright/40 bg-primary/20 px-2.5 py-1.5 text-xs font-bold text-primary-on-dark transition-colors hover:bg-primary/30 focus-visible:ring-2 focus-visible:ring-accent-gold"
+                  >
+                    <Plus size={14} className="text-accent-gold" />
+                    <span className="hidden sm:inline">Publish</span>
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    side="top"
+                    align="start"
+                    sideOffset={8}
+                    className="z-50 min-w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                  >
+                    <DropdownMenu.Item
+                      onSelect={() => router.push('/admin/content/new?type=post')}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                    >
+                      <FilePlus2 size={14} className="text-primary-on-dark" />
+                      <span>New Post</span>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={() => openCrmWithTab('events')}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                    >
+                      <Calendar size={14} className="text-purple-400" />
+                      <span>Manage Events</span>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={() => openCrmWithTab('news')}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                    >
+                      <Newspaper size={14} className="text-accent-gold" />
+                      <span>Manage Bulletins</span>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={() => openCrmWithTab('links')}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                    >
+                      <LinkIcon size={14} className="text-emerald-400" />
+                      <span>Manage Action Links</span>
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+
+              {/* CRM Panel */}
+              <button
+                type="button"
+                onClick={() => openCrmWithTab()}
+                title="Open Civic CRM (Constituents, Events, News, Links)"
+                aria-label="Open Civic CRM (Constituents, Events, News, Links)"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                <UsersRound size={14} className="text-emerald-400" />
+                <span className="hidden sm:inline">Civic CRM</span>
+              </button>
+
+              {/* Quick CRM Studio Link */}
               <a
-                href={target.editUrl}
+                href="/admin/crm/broadcasts"
                 target="_blank"
                 rel="noreferrer"
-                title="Open full admin page editor in new tab"
-                aria-label="Open full admin page editor in new tab"
-                className="hidden md:inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:text-white hover:bg-white/10"
+                title="Open CRM Studio (Broadcasts & Constituents)"
+                aria-label="Open CRM Studio (Broadcasts & Constituents)"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
-                <span>Admin</span>
-                <ExternalLink size={12} />
+                <ExternalLink size={14} className="text-primary-on-dark" />
+                <span className="hidden lg:inline">CRM Studio</span>
               </a>
-            )}
 
-            {/* Exit visual editing */}
-            <button
-              type="button"
-              onClick={toggle}
-              className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-accent-gold"
-            >
-              <X size={14} />
-              <span>Done</span>
-            </button>
+              {/* Keyboard Shortcuts Help */}
+              <button
+                type="button"
+                onClick={() => setIsShortcutsOpen(true)}
+                title="Keyboard shortcuts cheat sheet (⌘/)"
+                aria-label="Keyboard shortcuts cheat sheet"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                <Keyboard size={14} className="text-accent-gold" />
+                <span className="hidden xl:inline">Shortcuts</span>
+              </button>
+
+              {/* Backend Health Badge */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowHealthDetails((p) => !p)}
+                  title="Supabase Backend & Edge Function Health"
+                  aria-label="Supabase Backend & Edge Function Health"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:bg-white/10"
+                >
+                  <Activity
+                    size={13}
+                    className={
+                      backendStatus?.database &&
+                      backendStatus?.storage &&
+                      backendStatus?.edgeFunction
+                        ? 'text-emerald-400'
+                        : 'text-amber-400'
+                    }
+                  />
+                  <span
+                    className={`size-2 rounded-full ${
+                      backendStatus?.database &&
+                      backendStatus?.storage &&
+                      backendStatus?.edgeFunction
+                        ? 'bg-emerald-400'
+                        : !backendStatus?.database || !backendStatus?.storage
+                          ? 'bg-rose-400'
+                          : 'bg-amber-400'
+                    }`}
+                  />
+                </button>
+                {showHealthDetails && backendStatus && (
+                  <div className="absolute bottom-full right-0 mb-2 w-64 rounded-xl border border-white/15 bg-secondary p-3 shadow-float z-50 text-xs space-y-2">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+                      <span className="font-black uppercase tracking-wider text-white">
+                        Backend Health
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => probeBackendHealth()}
+                        disabled={statusLoading}
+                        className="p-1 text-slate-400 hover:text-white"
+                        aria-label="Refresh health probe"
+                      >
+                        <RefreshCw size={12} className={statusLoading ? 'animate-spin' : ''} />
+                      </button>
+                    </div>
+                    <div className="flex justify-between items-center text-ink-on-dark">
+                      <span>Database (Postgres)</span>
+                      <span
+                        className={
+                          backendStatus.database
+                            ? 'text-emerald-400 font-bold'
+                            : 'text-rose-400 font-bold'
+                        }
+                      >
+                        {backendStatus.database ? 'Connected' : 'Offline'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-ink-on-dark">
+                      <span>Supabase S3 Storage</span>
+                      <span
+                        className={
+                          backendStatus.storage
+                            ? 'text-emerald-400 font-bold'
+                            : 'text-rose-400 font-bold'
+                        }
+                      >
+                        {backendStatus.storage ? 'media bucket ready' : 'Error'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-ink-on-dark">
+                      <span>Edge Functions</span>
+                      <span
+                        className={
+                          backendStatus.edgeFunction
+                            ? 'text-emerald-400 font-bold'
+                            : 'text-amber-400 font-bold'
+                        }
+                      >
+                        {backendStatus.edgeFunction ? 'Healthy' : 'Fallback'}
+                      </span>
+                    </div>
+                    {backendStatus.edgeFunctionDetails?.latencyMs !== undefined && (
+                      <div className="text-[10px] text-ink-muted-on-dark text-right">
+                        Latency: {backendStatus.edgeFunctionDetails.latencyMs}ms
+                      </div>
+                    )}
+                    {backendSummary && (
+                      <div className="border-t border-white/10 pt-2 space-y-1.5">
+                        <div className="flex justify-between items-center text-ink-on-dark">
+                          <span>Constituents</span>
+                          <span className="font-bold">
+                            {backendSummary.crmTotal ?? '—'}
+                            <span className="text-ink-muted-on-dark font-medium">
+                              {' '}
+                              · {backendSummary.segments} segments
+                              {backendSummary.segmentsTruncated ? '+' : ''}
+                            </span>
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-ink-on-dark">
+                          <span>Catalog</span>
+                          <span className="font-bold">
+                            {backendSummary.products} products · {backendSummary.gallery} photos ·{' '}
+                            {backendSummary.events} events
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-ink-on-dark">
+                          <span>Media library</span>
+                          <span className="font-bold">
+                            {backendSummary.mediaItems} recent files
+                            {backendSummary.mediaTruncated ? '+' : ''}
+                          </span>
+                        </div>
+                        {(backendSummary.mediaTruncated ||
+                          backendSummary.segmentsTruncated ||
+                          backendSummary.revisionsTruncated) && (
+                          <p className="text-[10px] text-ink-muted-on-dark">
+                            Capped window — open the picker for the full list.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHealthDetails(false);
+                        setIsDiagnosticsModalOpen(true);
+                      }}
+                      className="w-full text-center py-1 mt-1 text-[11px] font-bold text-accent-gold hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-colors"
+                    >
+                      System Diagnostics →
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Open in full admin if target known */}
+              {target?.editUrl && (
+                <a
+                  href={target.editUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open full admin page editor in new tab"
+                  aria-label="Open full admin page editor in new tab"
+                  className="hidden md:inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:text-white hover:bg-white/10"
+                >
+                  <span>Admin</span>
+                  <ExternalLink size={12} />
+                </a>
+              )}
+
+              {/* Dock Position Switcher */}
+              <button
+                type="button"
+                onClick={toggleDockPosition}
+                title={`Dock position: ${dockPosition} (click to flip to ${dockPosition === 'bottom' ? 'top' : 'bottom'})`}
+                aria-label={`Move dock to ${dockPosition === 'bottom' ? 'top' : 'bottom'}`}
+                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1.5 text-xs text-ink-muted-on-dark hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+              >
+                {dockPosition === 'bottom' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
+              </button>
+
+              {/* Minimize Dock Button */}
+              <button
+                type="button"
+                onClick={toggleDockCollapsed}
+                title="Minimize dock to floating status pill"
+                aria-label="Minimize Visual Editor Dock"
+                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1.5 text-xs text-ink-muted-on-dark hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+              >
+                <Minimize2 size={13} />
+              </button>
+
+              {/* Exit visual editing */}
+              <button
+                type="button"
+                onClick={toggle}
+                className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-accent-gold"
+              >
+                <X size={14} />
+                <span>Done</span>
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Section List Quick Links bar.
+          {/* Section List Quick Links bar.
             Every block carries its own frame switch here, because the
             in-page pill's EyeOff only hides: once hidden, the pill is gone
             and nothing on the page can bring that one frame back. Without a
             switch here the only recovery is the drawer's "Frame all", which
             reframes every section to recover one. */}
-        {blocks.length > 0 && (
-          <div className="mt-2.5 flex items-center gap-2 overflow-x-auto border-t border-white/10 pt-2 text-xs no-scrollbar">
-            <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-ink-muted-on-dark">
-              Blocks:
-            </span>
-            {blocks.map((block, idx) => {
-              const label = sectionLabelForBlock(block);
-              const section = sections.find((item) => item.blockIndex === idx);
-              const framed = section ? enabledSectionKeys.has(section.key) : false;
-              return (
-                <div
-                  key={block.id}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[11px] text-ink-on-dark"
-                >
-                  <span className="font-semibold truncate max-w-[90px]" title={label}>
-                    {label}
-                  </span>
-                  {section && (
+          {blocks.length > 0 && (
+            <div className="mt-2.5 flex items-center gap-2 overflow-x-auto border-t border-white/10 pt-2 text-xs no-scrollbar">
+              <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-ink-muted-on-dark">
+                Blocks:
+              </span>
+              {blocks.map((block, idx) => {
+                const label = sectionLabelForBlock(block);
+                const section = sections.find((item) => item.blockIndex === idx);
+                const framed = section ? enabledSectionKeys.has(section.key) : false;
+                return (
+                  <div
+                    key={block.id}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[11px] text-ink-on-dark"
+                  >
+                    <span className="font-semibold truncate max-w-[90px]" title={label}>
+                      {label}
+                    </span>
+                    {section && (
+                      <button
+                        type="button"
+                        onClick={() => toggleSectionFrame(idx)}
+                        aria-pressed={framed}
+                        aria-label={framed ? `Hide frame for ${label}` : `Show frame for ${label}`}
+                        title={framed ? 'Hide visual frame' : 'Show visual frame'}
+                        className={`p-0.5 transition-colors ${
+                          framed
+                            ? 'text-accent-gold hover:text-white'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {framed ? <Eye size={11} /> : <EyeOff size={11} />}
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => toggleSectionFrame(idx)}
-                      aria-pressed={framed}
-                      aria-label={framed ? `Hide frame for ${label}` : `Show frame for ${label}`}
-                      title={framed ? 'Hide visual frame' : 'Show visual frame'}
-                      className={`p-0.5 transition-colors ${
-                        framed
-                          ? 'text-accent-gold hover:text-white'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
+                      onClick={() => handleOpenEditSection(idx)}
+                      title="Edit block"
+                      aria-label={`Edit block ${label}`}
+                      className="text-accent-gold hover:text-white p-0.5"
                     >
-                      {framed ? <Eye size={11} /> : <EyeOff size={11} />}
+                      <PenLine size={11} />
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditSection(idx)}
-                    title="Edit block"
-                    aria-label={`Edit block ${label}`}
-                    className="text-accent-gold hover:text-white p-0.5"
-                  >
-                    <PenLine size={11} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDuplicateSection(idx)}
-                    title="Duplicate block"
-                    aria-label={`Duplicate block ${label}`}
-                    className="text-slate-400 hover:text-white p-0.5"
-                  >
-                    <Copy size={11} />
-                  </button>
-                  {idx > 0 && (
+                    {/* Visual Composer: Element Design & Box Model */}
                     <button
                       type="button"
-                      onClick={() => handleMoveSection(idx, 'up')}
-                      title="Move up"
-                      aria-label={`Move block ${label} up`}
+                      onClick={() => {
+                        setActiveBlockIndex(idx);
+                        setVcBlockIndex(idx);
+                        setVcMode('block');
+                        setIsVisualComposerOpen(true);
+                      }}
+                      title="Visual Composer: Element Design & Box Model (⌘E)"
+                      aria-label={`Visual Composer for ${label}`}
+                      className="text-accent-gold hover:text-white p-0.5"
+                    >
+                      <SlidersHorizontal size={11} />
+                    </button>
+                    {/* Visual Composer: Row / Section Settings */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveBlockIndex(idx);
+                        setVcBlockIndex(idx);
+                        setVcMode('section');
+                        setIsVisualComposerOpen(true);
+                      }}
+                      title="Row / Section Settings (Containers, Dividers & Grid)"
+                      aria-label={`Row settings for ${label}`}
+                      className="text-sky-400 hover:text-white p-0.5"
+                    >
+                      <LayoutTemplate size={11} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDuplicateSection(idx)}
+                      title="Duplicate block"
+                      aria-label={`Duplicate block ${label}`}
                       className="text-slate-400 hover:text-white p-0.5"
                     >
-                      <ArrowUp size={11} />
+                      <Copy size={11} />
                     </button>
-                  )}
-                  {idx < blocks.length - 1 && (
-                    <button
-                      type="button"
-                      onClick={() => handleMoveSection(idx, 'down')}
-                      title="Move down"
-                      aria-label={`Move block ${label} down`}
-                      className="text-slate-400 hover:text-white p-0.5"
-                    >
-                      <ArrowDown size={11} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </aside>
+                    {idx > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSection(idx, 'up')}
+                        title="Move up"
+                        aria-label={`Move block ${label} up`}
+                        className="text-slate-400 hover:text-white p-0.5"
+                      >
+                        <ArrowUp size={11} />
+                      </button>
+                    )}
+                    {idx < blocks.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSection(idx, 'down')}
+                        title="Move down"
+                        aria-label={`Move block ${label} down`}
+                        className="text-slate-400 hover:text-white p-0.5"
+                      >
+                        <ArrowDown size={11} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {blocks.length === 0 && (
+            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-accent-gold flex items-center gap-1">
+                  <Database size={11} className="text-sky-400" />
+                  <span>Coded Route DataPoints:</span>
+                </span>
+                <span className="text-ink-muted-on-dark text-[11px] hidden sm:inline">
+                  This page renders dynamic database fields. Click any element on page or open the
+                  matrix to edit live copy.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDataPointDrawerOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-sky-500/20 border border-sky-400/40 px-2.5 py-1 text-xs font-bold text-sky-300 hover:bg-sky-500/30 transition-colors cursor-pointer"
+              >
+                <Database size={12} />
+                <span>Open DataPoints Matrix</span>
+              </button>
+            </div>
+          )}
+        </aside>
+      )}
 
       {/* ── Section Edit Modal ────────────────────────────────────────── */}
       {isSectionModalOpen && editingBlock && (
@@ -3549,6 +4403,36 @@ export function VisualEditOverlay() {
                 backend, and undo brings this one back if you change your mind.
               </DialogDescription>
             </DialogHeader>
+
+            {/* Quick 1-Click Access to Visual Composer Pro Suite */}
+            <div className="flex gap-2 my-2 p-2 rounded-2xl bg-surface-muted border border-border">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSectionModalOpen(false);
+                  setVcBlockIndex(editingBlockIndex);
+                  setVcMode('block');
+                  setIsVisualComposerOpen(true);
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-accent-gold/15 text-accent-gold border border-accent-gold/30 text-xs font-bold hover:bg-accent-gold/25 transition-colors"
+              >
+                <SlidersHorizontal size={14} />
+                <span>Visual Composer (Block)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSectionModalOpen(false);
+                  setVcBlockIndex(editingBlockIndex);
+                  setVcMode('section');
+                  setIsVisualComposerOpen(true);
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-sky-400/15 text-sky-400 border border-sky-400/30 text-xs font-bold hover:bg-sky-400/25 transition-colors"
+              >
+                <LayoutTemplate size={14} />
+                <span>Row / Section Settings</span>
+              </button>
+            </div>
 
             <div className="space-y-4 my-2 max-h-[60vh] overflow-y-auto pr-1">
               {/* Block Type Selector */}
@@ -4611,6 +5495,18 @@ export function VisualEditOverlay() {
                 </h4>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Command Palette & Spotlight Search</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ K
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Save Changes to Supabase</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ S
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
                     <span className="text-foreground">Toggle Shortcuts Cheat Sheet</span>
                     <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
                       ⌘ /
@@ -4681,6 +5577,38 @@ export function VisualEditOverlay() {
                     <span className="text-[11px] font-mono text-muted-foreground">
                       Settings Modal
                     </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                  Pro Editing & Audit Tools
+                </h4>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Page DataPoints Matrix Drawer</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ ⇧ D
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Visual Change Review & Diff</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ ⇧ V
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Civic A11y & SEO Health Auditor</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ ⇧ A
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Toggle Live Inspector HUD</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ I
+                    </kbd>
                   </div>
                 </div>
               </div>
@@ -4957,6 +5885,38 @@ export function VisualEditOverlay() {
                   placeholder="https://example.com or /about"
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
                 />
+                <div className="pt-1.5 space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                    Quick route shortcuts:
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {[
+                      { label: 'Home', path: '/' },
+                      { label: 'Events', path: '/events' },
+                      { label: 'News', path: '/news' },
+                      { label: 'Gallery', path: '/gallery' },
+                      { label: 'About', path: '/about' },
+                      { label: 'Donate', path: '/donate' },
+                      { label: 'Voter Info', path: '/voter-info' },
+                      { label: 'Contact', path: '/contact' },
+                    ].map((route) => (
+                      <button
+                        key={route.path}
+                        type="button"
+                        onClick={() =>
+                          setLinkModal((prev) => (prev ? { ...prev, url: route.path } : null))
+                        }
+                        className={`rounded-md px-2 py-0.5 text-[11px] font-mono transition-colors cursor-pointer ${
+                          linkModal.url === route.path
+                            ? 'bg-primary text-white font-bold'
+                            : 'bg-surface-muted text-foreground hover:bg-border'
+                        }`}
+                      >
+                        {route.path}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               {linkModal.textareaId && (
                 <div>
@@ -5103,6 +6063,177 @@ export function VisualEditOverlay() {
         isOpen={isCRMPanelOpen}
         onClose={() => setIsCRMPanelOpen(false)}
         initialTab={crmTab}
+      />
+
+      {/* ── Interactive DOM Hierarchy Breadcrumb Bar ──────────────────────── */}
+      <BreadcrumbBar
+        visible={
+          enabled &&
+          isAdmin &&
+          !dockCollapsed &&
+          Boolean(inlineSession || activeBlockIndex !== null)
+        }
+        pageTitle={contentRow?.title || pageTitle || target?.label || pathname}
+        pathname={pathname}
+        activeRegionLabel={inlineSession?.copyRegionId || activeRegion?.label || null}
+        activeSectionLabel={
+          inlineSession?.blockIndex !== null && inlineSession?.blockIndex !== undefined
+            ? sections.find((s) => s.blockIndex === inlineSession.blockIndex)?.label || null
+            : activeBlockIndex !== null
+              ? sections.find((s) => s.blockIndex === activeBlockIndex)?.label || null
+              : null
+        }
+        activeTag={inlineSession?.element?.tagName?.toLowerCase() || null}
+        activeDataPointKey={inlineSession?.dataPointKey || null}
+        onFocusSection={
+          activeBlockIndex !== null ? () => handleOpenEditSection(activeBlockIndex) : undefined
+        }
+        onOpenDataPoints={() => setIsDataPointDrawerOpen(true)}
+      />
+
+      {/* ── Viewport Device Simulator Bar ──────────────────────────────────── */}
+      <ViewportDeviceBar
+        viewportMode={viewportMode}
+        deviceOrientation={deviceOrientation}
+        onRotate={handleRotateOrientation}
+        onReset={() => setViewportMode('desktop')}
+      />
+
+      {/* ── Live Element Inspector HUD ─────────────────────────────────────── */}
+      <ElementInspectorHud
+        enabled={enabled && isAdmin && showInspector}
+        inlineActive={Boolean(inlineSession || imageSession)}
+      />
+
+      {/* ── Pro Command Palette (⌘K) ───────────────────────────────────────── */}
+      <CommandPalette
+        open={isCommandPaletteOpen}
+        onOpenChange={setIsCommandPaletteOpen}
+        sections={sections}
+        onSelectSection={(idx) => {
+          jumpTo(idx);
+          handleOpenEditSection(idx);
+        }}
+        onAddNewBlock={handleAddNewSection}
+        onSave={() => {
+          if (inlineSessionRef.current) {
+            void commitInlineEdit(inlineSessionRef.current);
+          }
+          void handlePersistBlocks(
+            blocksRef.current,
+            contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
+          );
+        }}
+        canSave={dirty}
+        onUndo={handleUndo}
+        canUndo={canUndo(history)}
+        onRedo={handleRedo}
+        canRedo={canRedo(history)}
+        viewportMode={viewportMode}
+        onSetViewportMode={setViewportMode}
+        onRotateOrientation={handleRotateOrientation}
+        deviceOrientation={deviceOrientation}
+        themeMode={themeMode}
+        onCycleTheme={cycleTheme}
+        showBadges={showSectionBadges}
+        onToggleBadges={() => setShowSectionBadges((p) => !p)}
+        showFrames={showAllSectionBorders}
+        onToggleFrames={() => setShowAllSectionBorders((p) => !p)}
+        showInspector={showInspector}
+        onToggleInspector={toggleInspector}
+        onOpenMedia={() => {
+          setMediaTarget('section');
+          setMediaModalOpen(true);
+        }}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenRevisions={handleOpenRevisions}
+        onOpenCrm={openCrmWithTab}
+        onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        onOpenDiagnostics={() => setIsDiagnosticsModalOpen(true)}
+        onOpenDataPoints={() => setIsDataPointDrawerOpen(true)}
+        onOpenA11yAuditor={() => setIsA11yAuditorOpen(true)}
+        onOpenDiff={() => setIsDiffModalOpen(true)}
+        onOpenVisualComposer={() => {
+          setVcBlockIndex(activeBlockIndex ?? 0);
+          setIsVisualComposerOpen(true);
+        }}
+        onOpenBlockLibrary={() => {
+          setLibraryTargetIndex(activeBlockIndex);
+          setIsBlockLibraryOpen(true);
+        }}
+        onOpenNavigator={() => setIsPageNavigatorOpen(true)}
+        onExportJson={handleExportPageJson}
+        onExit={toggle}
+      />
+
+      {/* ── Page DataPoints Matrix Drawer ──────────────────────────────────── */}
+      <DataPointDrawer
+        isOpen={isDataPointDrawerOpen}
+        onClose={() => setIsDataPointDrawerOpen(false)}
+      />
+
+      {/* ── Civic A11y & Page Health Auditor ─────────────────────────────────── */}
+      <PageA11yAuditor isOpen={isA11yAuditorOpen} onClose={() => setIsA11yAuditorOpen(false)} />
+
+      {/* ── Visual Change Review & Diff Modal (⌘⇧V) ─────────────────────────── */}
+      <VisualDiffModal
+        open={isDiffModalOpen}
+        onOpenChange={setIsDiffModalOpen}
+        modifiedDataPoints={modifiedDataPoints}
+        modifiedBlocks={modifiedBlocks}
+        onRevertDataPoint={handleRevertDataPoint}
+        onSaveAll={() => {
+          if (inlineSessionRef.current) {
+            void commitInlineEdit(inlineSessionRef.current);
+          }
+          void handlePersistBlocks(
+            blocksRef.current,
+            contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
+          );
+          setIsDiffModalOpen(false);
+        }}
+        isSaving={savingBackend}
+      />
+
+      {/* ── Visual Composer Full Block & Design Inspector (⌘E) ─────────────── */}
+      <VisualComposerInspector
+        open={isVisualComposerOpen}
+        onClose={() => setIsVisualComposerOpen(false)}
+        block={vcBlockIndex !== null ? (blocks[vcBlockIndex] ?? null) : null}
+        blockIndex={vcBlockIndex}
+        onSaveBlock={handleSaveVcBlock}
+        initialMode={vcMode}
+      />
+
+      {/* ── Visual Composer Element Library & Templates Modal (⌘⇧E) ─────────── */}
+      <BlockLibraryModal
+        open={isBlockLibraryOpen}
+        onClose={() => setIsBlockLibraryOpen(false)}
+        insertTargetIndex={libraryTargetIndex}
+        onInsertBlock={handleInsertBlockFromLibrary}
+      />
+
+      {/* ── Visual Composer Structure Navigator & Tree (⌘7) ────────────────── */}
+      <PageNavigatorDrawer
+        open={isPageNavigatorOpen}
+        onClose={() => setIsPageNavigatorOpen(false)}
+        sections={sections}
+        blocks={blocks}
+        activeBlockIndex={activeBlockIndex}
+        onSelectBlock={(idx) => {
+          jumpTo(idx);
+        }}
+        onMoveBlock={(idx, dir) => handleMoveSection(idx, dir)}
+        onDuplicateBlock={(idx) => handleDuplicateSection(idx)}
+        onDeleteBlock={(idx) => handleDeleteSection(idx)}
+        onOpenComposer={(idx) => {
+          setVcBlockIndex(idx);
+          setIsVisualComposerOpen(true);
+        }}
+        onOpenLibrary={(targetIndex) => {
+          setLibraryTargetIndex(targetIndex ?? null);
+          setIsBlockLibraryOpen(true);
+        }}
       />
     </>
   );

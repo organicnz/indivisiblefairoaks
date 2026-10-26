@@ -18,7 +18,6 @@ checker, not for Playwright, not for the scripts.
 | Package manager | Bun | `bun install --frozen-lockfile` |
 | Next.js dev/build/start | Bun | `bun --bun next dev\|build\|start` |
 | Type checking | `tsrs` — TypeScript 7 in Rust | `bun tsrs --noEmit` |
-| Type check, second opinion | `bun check` — TypeScript 7 in Go | `bun check` |
 | Build's own type check | `tsrs`, via Next's CLI mode — through `tools/typescript-shim/` | part of `bun --bun next build` |
 | Unit tests | Vitest **on Bun's runtime** | `bun vitest run --coverage` |
 | E2E tests | Playwright **on Bun's runtime** | `bun node_modules/@playwright/test/cli.js test` |
@@ -60,14 +59,11 @@ native `tsc` on the clean tree and on five injected type errors (TS2345,
 TS2339, TS2322, TS7006, TS2554), with identical codes, messages and
 positions.
 
-**`bun check` is the second implementation, and that is the point.** `tsrs` is
-a Rust port; `bun check` is Bun's own typescript-go port. Two independent
-implementations of the same language agreeing on a clean tree is a claim a
-single implementation cannot make, and it costs about a second. CI runs both:
-`bun run typecheck` (tsrs) is the gate, `bun run typecheck:bun` is the
-cross-check. The Cloudflare and VoidZero teams say they are actively working
-to minimise divergence between the ports, which is exactly the divergence this
-second check would notice.
+**`tsrs` is the sole type checker across the entire project.** Builds, CI
+workflows, pre-commit hooks, and npm scripts exclusively run `tsrs`
+(`bun tsrs --noEmit`). Cloudflare and VoidZero's native Rust port eliminates
+compiler divergence, provides sub-second diagnostics with 70% lower memory,
+and runs identically in local development and CI runners.
 
 **`tsrs` is pinned exactly, and it is the newest release.** `0.18.0` was
 verified three ways — the npm `latest` dist-tag, the publish-time-sorted
@@ -832,13 +828,13 @@ whatever happens to be in `node_modules/@types`. `bun-types` is Bun's own type
 package; it is what makes `Bun.file`, `Bun.spawn` and the `bun:*` modules
 type-checked here.
 
-**`typescript` is now TypeScript 7.1.0-beta**, and it is the native
-compiler — a Go binary per platform, not the JavaScript implementation. It
-ships a `tsc` binary and no `lib/typescript.js`, which is why the project
-needs `experimental.useTypeScriptCli` (see "Deferred Upgrades"). The
-`typescript` dependency is what Next's build runs, and `tsrs` is what the
-project's own gate runs; both are TypeScript 7 compilers, and both are
-native binaries that need no JavaScript runtime at all.
+**The `typescript` package is backed exclusively by `tsrs`**, the native
+Rust compiler port of TypeScript 7 (Cloudflare + VoidZero). It is provided
+via `tools/typescript-shim/`, which Next.js resolves under
+`experimental.useTypeScriptCli` (see "The `typescript` package is a shim").
+Both the build's internal type check and the project's `bun run typecheck`
+gate run the identical native `tsrs` compiler binary, with zero JavaScript
+runtime overhead and zero Node.js.
 
 **`@types/node` is still present, and it cannot be removed.** `bun-types`
 *extends* Node's compatibility layer rather than replacing it — its
@@ -1865,25 +1861,24 @@ TypeScript through the JS compiler API (`lib/typescript.js`), and TypeScript 7
 removed that file — TS 7 is the native (Go) compiler and ships a `tsc`
 **binary**, not an API. Tracking: [vercel/next.js#95633](https://github.com/vercel/next.js/issues/95633).
 
-**Next.js 16.4 removed the block.** It ships `experimental.useTypeScriptCli`,
-which runs the `tsc` binary instead of the API, and resolves that binary from
-the `typescript` package's `bin` metadata. So TypeScript 7's native `tsc` is
-exactly what Next runs — no JS API required, no shim, no second compiler.
-`next.config.ts` sets it, with the reasoning inline.
+**Next.js 16.4 enabled the shim architecture.** It ships `experimental.useTypeScriptCli`,
+which runs the `tsc` binary instead of the API, resolving that binary from
+the `typescript` package's `bin` metadata. Through `tools/typescript-shim/`,
+this `tsc` binary delegates directly to native `tsrs` (the Rust port of TypeScript 7)
+while answering `--showConfig` locally. `next.config.ts` sets it, with the
+reasoning inline.
 
-The spawn is `process.execPath`, which under `bun --bun next build` is the bun
-binary. So the type check that runs inside the build runs on **Bun**, against
-TypeScript 7.1.0-beta's native compiler, in a project with no Node.js.
+The spawn uses `process.execPath`, which under `bun --bun next build` is the bun
+binary. So the type check that runs inside the build runs on **Bun** through
+`tsrs`, in a project with no Node.js and no secondary compiler.
 
 **The `tsconfig.json` needed no changes.** It was already shaped for TS 7
 (`moduleResolution: bundler`), and the build does not rewrite it —
 verified by diffing before and after a full build.
 
-**The project now runs two TypeScript 7 compilers, on purpose.** `tsrs` (a Rust
-port) is the type-check gate; `bun check` (Bun's typescript-go port) is the
-cross-check. They are independent implementations of the same language, and
-their agreement is worth more than either alone. See "The runtime is Bun" for
-the details.
+**The project exclusively runs `tsrs` for TypeScript 7.** `tsrs` (the native
+Rust compiler port) is the sole type-check gate in CI, pre-commit, and the
+Next.js build shim. See "The runtime is Bun" for the details.
 
 **TypeScript 6 was never worth having** — a bridge release of deprecations
 only — and it is now moot.

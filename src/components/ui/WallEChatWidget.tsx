@@ -245,8 +245,11 @@ export function WallEChatWidget() {
               </DataPoint>
             </header>
             <div
-              className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-surface-muted to-surface-card dark:from-secondary dark:to-slate-950 p-4"
+              role="log"
               aria-live="polite"
+              aria-relevant="additions"
+              aria-label="Chat messages"
+              className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-surface-muted to-surface-card dark:from-secondary dark:to-slate-950 p-4"
             >
               {messages.map((message) => (
                 <div

@@ -132,7 +132,7 @@ const nextConfig: NextConfig = {
   // built on a 1024 MiB runner where Next's own phases measured 8.4 min
   // (Sentry runAfterProductionCompile) and 54+ min without finishing
   // (the built-in TypeScript check) on 2026-10-08. CI gates types separately
-  // (`bun check` in the lint job, which build-e2e `needs`), and the
+  // (`tsrs` in the lint job, which build-e2e `needs`), and the
   // Sentry upload is already skipped without a token — so for e2e builds only:
   // skip the redundant type check, skip the Sentry wrapper entirely, and cap
   // build workers to fit the container (`experimental.cpus` is what
