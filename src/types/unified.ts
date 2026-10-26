@@ -68,7 +68,29 @@ export interface CopyRegionDefinition {
   label: string;
 }
 
+export type { BlockTemplate } from '@/components/visual-edit/BlockLibraryModal';
 export type { PublishedSection } from '@/lib/visual-sections';
+export type {
+  VisualComposerBackground,
+  VisualComposerBorder,
+  VisualComposerBoxModel,
+  VisualComposerCivicPreset,
+  VisualComposerColumnPreset,
+  VisualComposerColumnSlot,
+  VisualComposerDevice,
+  VisualComposerEffects,
+  VisualComposerLayout,
+  VisualComposerMode,
+  VisualComposerMotion,
+  VisualComposerPreset,
+  VisualComposerPresetCategory,
+  VisualComposerResponsive,
+  VisualComposerSection,
+  VisualComposerStyles,
+  VisualComposerTab,
+  VisualComposerTransform,
+  VisualComposerTypography,
+} from './visual-composer';
 
 // ==========================================
 // 2. CRM Domain — fully unified

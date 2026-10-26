@@ -29,113 +29,29 @@ import { useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 import { type Block, type ContentBlockType, convertBlock, type HeadingLevel } from '@/lib/blocks';
 
-export interface VisualComposerStyles {
-  margin: {
-    top: string;
-    bottom: string;
-    left: string;
-    right: string;
-  };
-  padding: {
-    top: string;
-    bottom: string;
-    left: string;
-    right: string;
-  };
-  section: {
-    containerWidth: string;
-    paddingY: string;
-    paddingX: string;
-    minHeight: string;
-    background: string;
-    bgGradient: string;
-    pattern: string;
-    divider: string;
-    columns: string;
-    columnGap: string;
-    verticalAlign: string;
-    reverseMobile: boolean;
-    radius: string;
-    shadow: string;
-    sticky: boolean;
-    border?: string;
-    borderColor?: string;
-    overlay?: string;
-    bgAttachment?: string;
-    bgPosition?: string;
-  };
-  typography: {
-    fontFamily: string;
-    fontSize: string;
-    fontWeight: string;
-    textAlign: 'left' | 'center' | 'right' | 'justify';
-    lineHeight: string;
-    letterSpacing: string;
-    textTransform: 'none' | 'uppercase' | 'capitalize' | 'lowercase';
-    textDecoration?: string;
-    color: string;
-    textGradient: string;
-    textShadow: string;
-  };
-  border: {
-    side: 'all' | 'top' | 'bottom' | 'left' | 'right' | 'y';
-    width: string;
-    style: 'none' | 'solid' | 'dashed' | 'dotted' | 'double';
-    color: string;
-    radius: string;
-  };
-  background: {
-    preset: string;
-    blur: boolean;
-    gradient: string;
-  };
-  shadow: string;
-  layout: {
-    display: string;
-    flexDirection: string;
-    justifyContent: string;
-    alignItems: string;
-    columns: string;
-    maxWidth: string;
-    position: string;
-    zIndex: string;
-    overflow: string;
-  };
-  effects: {
-    opacity: string;
-    backdropBlur: string;
-    grayscale: string;
-    brightness?: string;
-    contrast?: string;
-    saturate?: string;
-    sepia?: string;
-    hueRotate?: string;
-    blur?: string;
-  };
-  motion: {
-    entrance: string;
-    hover: string;
-    hoverScale?: string;
-    hoverLift?: string;
-    hoverRotate?: string;
-    duration?: string;
-    delay?: string;
-  };
-  transform?: {
-    rotate?: string;
-    scale?: string;
-    skew?: string;
-  };
-  anchorId: string;
-  responsive: {
-    hideMobile: boolean;
-    hideTablet: boolean;
-    hideDesktop: boolean;
-    hidePrint: boolean;
-  };
-  animation: string;
-  customClasses: string;
-}
+import type { VisualComposerStyles } from '@/types/unified';
+
+export type {
+  VisualComposerBackground,
+  VisualComposerBorder,
+  VisualComposerBoxModel,
+  VisualComposerCivicPreset,
+  VisualComposerColumnPreset,
+  VisualComposerColumnSlot,
+  VisualComposerDevice,
+  VisualComposerEffects,
+  VisualComposerLayout,
+  VisualComposerMode,
+  VisualComposerMotion,
+  VisualComposerPreset,
+  VisualComposerPresetCategory,
+  VisualComposerResponsive,
+  VisualComposerSection,
+  VisualComposerStyles,
+  VisualComposerTab,
+  VisualComposerTransform,
+  VisualComposerTypography,
+} from '@/types/unified';
 
 export const DEFAULT_VC_STYLES: VisualComposerStyles = {
   margin: { top: 'my-2', bottom: '', left: '', right: '' },

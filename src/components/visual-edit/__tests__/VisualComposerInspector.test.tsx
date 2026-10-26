@@ -2,8 +2,12 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { VisualComposerInspector } from '@/components/visual-edit/VisualComposerInspector';
+import {
+  DEFAULT_VC_STYLES,
+  VisualComposerInspector,
+} from '@/components/visual-edit/VisualComposerInspector';
 import type { Block } from '@/lib/blocks';
+import type { VisualComposerStyles } from '@/types/unified';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -1016,5 +1020,18 @@ describe('VisualComposerInspector', () => {
       });
       expect(overlaySelect.value).toBe('bg-black/40');
     }
+  });
+
+  it('unifies domain types with @/types/unified exports', () => {
+    const customConfig: Partial<VisualComposerStyles> = {
+      section: { ...DEFAULT_VC_STYLES.section, border: 'border-2' },
+      typography: { ...DEFAULT_VC_STYLES.typography, textDecoration: 'underline' },
+    };
+    expect(customConfig.section?.border).toBe('border-2');
+    expect(customConfig.typography?.textDecoration).toBe('underline');
+    expect(DEFAULT_VC_STYLES.section).toBeDefined();
+    expect(DEFAULT_VC_STYLES.typography).toBeDefined();
+    expect(DEFAULT_VC_STYLES.border).toBeDefined();
+    expect(DEFAULT_VC_STYLES.effects).toBeDefined();
   });
 });
