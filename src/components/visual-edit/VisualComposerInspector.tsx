@@ -605,6 +605,7 @@ export function VisualComposerInspector({
   const paddingSelectId = useId();
   const radiusSelectId = useId();
   const borderWidthSelectId = useId();
+  const borderStyleSelectId = useId();
   const borderSideSelectId = useId();
   const bgThemeSelectId = useId();
   const bgGradientSelectId = useId();
@@ -624,6 +625,9 @@ export function VisualComposerInspector({
   const sectionAlignSelectId = useId();
   const sectionRadiusSelectId = useId();
   const sectionShadowSelectId = useId();
+  const sectionAnchorIdInputId = useId();
+  const sectionCustomClassesInputId = useId();
+  const sectionBackdropBlurSelectId = useId();
 
   const layoutDisplaySelectId = useId();
   const layoutFlexDirSelectId = useId();
@@ -640,6 +644,7 @@ export function VisualComposerInspector({
   const fontFamilySelectId = useId();
   const fontSizeSelectId = useId();
   const fontWeightSelectId = useId();
+  const lineHeightSelectId = useId();
   const textGradientSelectId = useId();
   const textShadowSelectId = useId();
   const letterSpacingSelectId = useId();
@@ -657,6 +662,24 @@ export function VisualComposerInspector({
   // Sync block state when props change
   useEffect(() => {
     setCurrentBlock(block);
+    if (block && 'html' in block && typeof block.html === 'string') {
+      const trimmed = block.html.trim();
+      const divMatch = trimmed.match(/^<div\s+([^>]*?)>/i);
+      if (divMatch) {
+        const attrs = divMatch[1] || '';
+        const idMatch = attrs.match(/id=["']([^"']+)["']/i);
+        const classMatch = attrs.match(/class=["']([^"']+)["']/i);
+        if (idMatch?.[1]) {
+          setStyles((prev) => ({ ...prev, anchorId: idMatch[1] }));
+        }
+        if (classMatch?.[1]) {
+          setStyles((prev) => ({
+            ...prev,
+            customClasses: prev.customClasses || classMatch[1],
+          }));
+        }
+      }
+    }
   }, [block]);
 
   // Sync mode if initialMode prop updates
@@ -696,6 +719,7 @@ export function VisualComposerInspector({
           styles.section.paddingX !== 'px-4' ? styles.section.paddingX : '',
           styles.section.minHeight,
           styles.section.pattern || styles.section.bgGradient || styles.section.background,
+          styles.effects.backdropBlur,
           styles.section.divider,
           styles.section.columns,
           styles.section.columns ? styles.section.columnGap : '',
@@ -802,15 +826,27 @@ export function VisualComposerInspector({
   };
 
   // Helper to cycle margin values
-  const cycleMarginValue = (current: string): string => {
-    const sequence = ['', 'my-2', 'my-4', 'my-6', 'my-8', 'my-12'];
+  const cycleMarginValue = (
+    current: string,
+    axis: 'vertical' | 'horizontal' = 'vertical'
+  ): string => {
+    const sequence =
+      axis === 'horizontal'
+        ? ['', 'mx-2', 'mx-4', 'mx-6', 'mx-auto']
+        : ['', 'my-2', 'my-4', 'my-6', 'my-8', 'my-12'];
     const idx = sequence.indexOf(current);
     return sequence[(idx + 1) % sequence.length] || '';
   };
 
   // Helper to cycle padding values
-  const cyclePaddingValue = (current: string): string => {
-    const sequence = ['', 'p-2', 'p-4', 'p-6', 'p-8', 'p-12'];
+  const cyclePaddingValue = (
+    current: string,
+    axis: 'vertical' | 'horizontal' = 'vertical'
+  ): string => {
+    const sequence =
+      axis === 'horizontal'
+        ? ['', 'px-2', 'px-4', 'px-6', 'px-8', 'px-12']
+        : ['', 'p-2', 'p-4', 'p-6', 'p-8', 'p-12'];
     const idx = sequence.indexOf(current);
     return sequence[(idx + 1) % sequence.length] || '';
   };
@@ -1412,6 +1448,127 @@ export function VisualComposerInspector({
                 </span>
               </button>
             </div>
+
+            {/* Section Backdrop Blur & Glassmorphism */}
+            <div>
+              <span className="block text-slate-300 font-bold mb-2">
+                Section Backdrop Glass Effect
+              </span>
+              <label htmlFor={sectionBackdropBlurSelectId} className="sr-only">
+                Section Backdrop Blur
+              </label>
+              <select
+                id={sectionBackdropBlurSelectId}
+                value={styles.effects.backdropBlur}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    effects: { ...styles.effects, backdropBlur: e.target.value },
+                  })
+                }
+                className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
+              >
+                <option value="">None (Standard Clear)</option>
+                <option value="backdrop-blur-sm">Subtle Frosted (blur-sm)</option>
+                <option value="backdrop-blur-md">Medium Frosted Glass (blur-md)</option>
+                <option value="backdrop-blur-lg">Deep Glass Surface (blur-lg)</option>
+                <option value="backdrop-blur-xl">Ultra Liquid Glass (blur-xl)</option>
+              </select>
+            </div>
+
+            {/* Section Anchor ID & Custom Classes */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="block text-slate-300 font-bold mb-1">Section Anchor ID</span>
+                <label htmlFor={sectionAnchorIdInputId} className="sr-only">
+                  Section Anchor ID
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-xs font-mono text-slate-400">
+                    #
+                  </span>
+                  <input
+                    id={sectionAnchorIdInputId}
+                    type="text"
+                    value={styles.anchorId}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        anchorId: e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''),
+                      })
+                    }
+                    placeholder="e.g. speakers, rsvp"
+                    className="w-full rounded-xl border border-white/10 bg-slate-900 py-1.5 pl-6 pr-2.5 text-xs text-white placeholder:text-white/40 focus:border-accent-gold focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <span className="block text-slate-300 font-bold mb-1">Section Custom Classes</span>
+                <label htmlFor={sectionCustomClassesInputId} className="sr-only">
+                  Section Custom Classes
+                </label>
+                <input
+                  id={sectionCustomClassesInputId}
+                  type="text"
+                  value={styles.customClasses}
+                  onChange={(e) => setStyles({ ...styles, customClasses: e.target.value })}
+                  placeholder="e.g. border-t border-white/10"
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 py-1.5 px-2.5 text-xs text-white placeholder:text-white/40 focus:border-accent-gold focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Section Responsive Device Visibility */}
+            <div>
+              <span className="block text-slate-300 font-bold mb-1.5">
+                Section Responsive Device Visibility
+              </span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {[
+                  {
+                    key: 'hideMobile' as const,
+                    label: 'Mobile',
+                    active: styles.responsive.hideMobile,
+                  },
+                  {
+                    key: 'hideTablet' as const,
+                    label: 'Tablet',
+                    active: styles.responsive.hideTablet,
+                  },
+                  {
+                    key: 'hideDesktop' as const,
+                    label: 'Desktop',
+                    active: styles.responsive.hideDesktop,
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() =>
+                      setStyles({
+                        ...styles,
+                        responsive: {
+                          ...styles.responsive,
+                          [item.key]: !styles.responsive[item.key],
+                        },
+                      })
+                    }
+                    className={`flex items-center justify-between p-2 rounded-xl border text-[11px] font-bold transition-colors ${
+                      item.active
+                        ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                        : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    {item.active ? (
+                      <EyeOff size={12} />
+                    ) : (
+                      <Eye size={12} className="text-slate-400" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -1725,7 +1882,7 @@ export function VisualComposerInspector({
             <div className="rounded-2xl border border-white/10 bg-slate-900/90 p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-bold text-accent-gold uppercase tracking-wider">
-                  Interactive CSS Box Model
+                  Interactive CSS Box Model (4-Sided)
                 </span>
                 <button
                   type="button"
@@ -1742,7 +1899,33 @@ export function VisualComposerInspector({
                 </button>
               </div>
 
-              {/* Nested Box Model Canvas with Clickable Sides */}
+              {/* Quick Spacing Presets */}
+              <div className="flex flex-wrap gap-1 mb-2.5">
+                {[
+                  { label: 'Default', margin: 'my-2', padding: 'p-4' },
+                  { label: 'Card', margin: 'my-4', padding: 'p-6' },
+                  { label: 'Spacious', margin: 'my-8', padding: 'p-8' },
+                  { label: 'Compact', margin: 'my-1', padding: 'p-2' },
+                  { label: 'Flush', margin: '', padding: '' },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() =>
+                      setStyles({
+                        ...styles,
+                        margin: { top: preset.margin, bottom: '', left: '', right: '' },
+                        padding: { top: preset.padding, bottom: '', left: '', right: '' },
+                      })
+                    }
+                    className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-bold text-slate-300 hover:bg-white/15 hover:text-white transition-colors"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Nested Box Model Canvas with Clickable 4 Sides */}
               <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-2 text-center relative transition-colors">
                 <span className="absolute top-1 left-2 text-[8px] font-mono font-bold text-amber-400/90 tracking-widest uppercase">
                   Margin (Outer)
@@ -1753,7 +1936,7 @@ export function VisualComposerInspector({
                   <button
                     type="button"
                     onClick={() => {
-                      const next = cycleMarginValue(styles.margin.top);
+                      const next = cycleMarginValue(styles.margin.top, 'vertical');
                       setStyles({
                         ...styles,
                         margin: {
@@ -1766,75 +1949,165 @@ export function VisualComposerInspector({
                     title="Click to cycle top margin"
                     className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors"
                   >
-                    {styles.margin.top || '0'}
+                    T: {styles.margin.top || '0'}
                   </button>
                 </div>
 
-                <div className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-2 my-1 relative transition-colors">
-                  <span className="absolute top-1 left-2 text-[8px] font-mono font-bold text-sky-400/90 tracking-widest uppercase">
-                    Border ({styles.border.width})
-                  </span>
+                {/* Middle Row: Left Margin, Border & Padding, Right Margin */}
+                <div className="flex items-center gap-1 my-0.5">
+                  {/* Left Margin Clickable Pill */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = cycleMarginValue(styles.margin.left, 'horizontal');
+                      setStyles({
+                        ...styles,
+                        margin: {
+                          ...styles.margin,
+                          left: next,
+                          right: isSidesLinked ? next : styles.margin.right,
+                        },
+                      });
+                    }}
+                    title="Click to cycle left margin"
+                    className="px-1.5 py-1 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors shrink-0"
+                  >
+                    L: {styles.margin.left || '0'}
+                  </button>
 
-                  <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-2.5 my-1 relative transition-colors">
-                    <span className="absolute top-1 left-2 text-[8px] font-mono font-bold text-emerald-400/90 tracking-widest uppercase">
-                      Padding (Inner)
+                  <div className="flex-1 rounded-lg border border-sky-500/40 bg-sky-500/5 p-1.5 relative transition-colors">
+                    <span className="absolute top-1 left-2 text-[8px] font-mono font-bold text-sky-400/90 tracking-widest uppercase">
+                      Border ({styles.border.width}{' '}
+                      {styles.border.style !== 'none' ? styles.border.style : ''})
                     </span>
 
-                    {/* Top Padding Clickable Pill */}
-                    <div className="flex justify-center my-0.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = cyclePaddingValue(styles.padding.top);
-                          setStyles({
-                            ...styles,
-                            padding: {
-                              ...styles.padding,
-                              top: next,
-                              bottom: isSidesLinked ? next : styles.padding.bottom,
-                              left: isSidesLinked ? next : styles.padding.left,
-                              right: isSidesLinked ? next : styles.padding.right,
-                            },
-                          });
-                        }}
-                        title="Click to cycle top padding"
-                        className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors"
-                      >
-                        {styles.padding.top || '0'}
-                      </button>
-                    </div>
-
-                    {/* Content Center */}
-                    <div className="rounded bg-slate-950 border border-white/20 p-2 text-center my-1 shadow-inner">
-                      <span className="text-[10px] font-mono font-black text-accent-gold tracking-wide uppercase">
-                        [ {currentBlock.type} ]
+                    <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-1.5 relative transition-colors mt-2">
+                      <span className="absolute top-1 left-2 text-[8px] font-mono font-bold text-emerald-400/90 tracking-widest uppercase">
+                        Padding (Inner)
                       </span>
-                    </div>
 
-                    {/* Bottom Padding Clickable Pill */}
-                    <div className="flex justify-center my-0.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = cyclePaddingValue(
-                            styles.padding.bottom || styles.padding.top
-                          );
-                          setStyles({
-                            ...styles,
-                            padding: {
-                              ...styles.padding,
-                              bottom: next,
-                              top: isSidesLinked ? next : styles.padding.top,
-                            },
-                          });
-                        }}
-                        title="Click to cycle bottom padding"
-                        className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors"
-                      >
-                        {styles.padding.bottom || styles.padding.top || '0'}
-                      </button>
+                      {/* Top Padding Clickable Pill */}
+                      <div className="flex justify-center my-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = cyclePaddingValue(styles.padding.top, 'vertical');
+                            setStyles({
+                              ...styles,
+                              padding: {
+                                ...styles.padding,
+                                top: next,
+                                bottom: isSidesLinked ? next : styles.padding.bottom,
+                                left: isSidesLinked ? next : styles.padding.left,
+                                right: isSidesLinked ? next : styles.padding.right,
+                              },
+                            });
+                          }}
+                          title="Click to cycle top padding"
+                          className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors"
+                        >
+                          T: {styles.padding.top || '0'}
+                        </button>
+                      </div>
+
+                      {/* Middle Row: Left Padding, Content, Right Padding */}
+                      <div className="flex items-center gap-1 my-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = cyclePaddingValue(styles.padding.left, 'horizontal');
+                            setStyles({
+                              ...styles,
+                              padding: {
+                                ...styles.padding,
+                                left: next,
+                                right: isSidesLinked ? next : styles.padding.right,
+                                top: isSidesLinked ? next : styles.padding.top,
+                                bottom: isSidesLinked ? next : styles.padding.bottom,
+                              },
+                            });
+                          }}
+                          title="Click to cycle left padding"
+                          className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors shrink-0"
+                        >
+                          L: {styles.padding.left || '0'}
+                        </button>
+
+                        {/* Content Center */}
+                        <div className="flex-1 rounded bg-slate-950 border border-white/20 py-1.5 px-2 text-center shadow-inner">
+                          <span className="text-[10px] font-mono font-black text-accent-gold tracking-wide uppercase">
+                            [ {currentBlock.type} ]
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = cyclePaddingValue(styles.padding.right, 'horizontal');
+                            setStyles({
+                              ...styles,
+                              padding: {
+                                ...styles.padding,
+                                right: next,
+                                left: isSidesLinked ? next : styles.padding.left,
+                                top: isSidesLinked ? next : styles.padding.top,
+                                bottom: isSidesLinked ? next : styles.padding.bottom,
+                              },
+                            });
+                          }}
+                          title="Click to cycle right padding"
+                          className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors shrink-0"
+                        >
+                          R: {styles.padding.right || '0'}
+                        </button>
+                      </div>
+
+                      {/* Bottom Padding Clickable Pill */}
+                      <div className="flex justify-center my-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = cyclePaddingValue(
+                              styles.padding.bottom || styles.padding.top,
+                              'vertical'
+                            );
+                            setStyles({
+                              ...styles,
+                              padding: {
+                                ...styles.padding,
+                                bottom: next,
+                                top: isSidesLinked ? next : styles.padding.top,
+                              },
+                            });
+                          }}
+                          title="Click to cycle bottom padding"
+                          className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors"
+                        >
+                          B: {styles.padding.bottom || styles.padding.top || '0'}
+                        </button>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Right Margin Clickable Pill */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = cycleMarginValue(styles.margin.right, 'horizontal');
+                      setStyles({
+                        ...styles,
+                        margin: {
+                          ...styles.margin,
+                          right: next,
+                          left: isSidesLinked ? next : styles.margin.left,
+                        },
+                      });
+                    }}
+                    title="Click to cycle right margin"
+                    className="px-1.5 py-1 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors shrink-0"
+                  >
+                    R: {styles.margin.right || '0'}
+                  </button>
                 </div>
 
                 {/* Bottom Margin Clickable Pill */}
@@ -1842,7 +2115,10 @@ export function VisualComposerInspector({
                   <button
                     type="button"
                     onClick={() => {
-                      const next = cycleMarginValue(styles.margin.bottom || styles.margin.top);
+                      const next = cycleMarginValue(
+                        styles.margin.bottom || styles.margin.top,
+                        'vertical'
+                      );
                       setStyles({
                         ...styles,
                         margin: {
@@ -1855,7 +2131,7 @@ export function VisualComposerInspector({
                     title="Click to cycle bottom margin"
                     className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors"
                   >
-                    {styles.margin.bottom || styles.margin.top || '0'}
+                    B: {styles.margin.bottom || styles.margin.top || '0'}
                   </button>
                 </div>
               </div>
@@ -1935,7 +2211,7 @@ export function VisualComposerInspector({
               <span className="block text-slate-300 font-bold mb-2">
                 Border &amp; Corner Radius
               </span>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
                   <label htmlFor={radiusSelectId} className="text-[10px] text-slate-400 mb-1 block">
                     Corner Radius
@@ -1957,6 +2233,8 @@ export function VisualComposerInspector({
                     <option value="rounded-2xl">Modern Card (16px)</option>
                     <option value="rounded-3xl">Pill Smooth (24px)</option>
                     <option value="rounded-full">Full Capsule</option>
+                    <option value="rounded-t-2xl">Top Rounded</option>
+                    <option value="rounded-b-2xl">Bottom Rounded</option>
                   </select>
                 </div>
                 <div>
@@ -1981,6 +2259,35 @@ export function VisualComposerInspector({
                     <option value="border">Thin (1px)</option>
                     <option value="border-2">Medium (2px)</option>
                     <option value="border-4">Heavy (4px)</option>
+                    <option value="border-8">Thick Accent (8px)</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={borderStyleSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Border Style
+                  </label>
+                  <select
+                    id={borderStyleSelectId}
+                    value={styles.border.style}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        border: {
+                          ...styles.border,
+                          style: e.target.value as typeof styles.border.style,
+                        },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="solid">Solid Line</option>
+                    <option value="dashed">Dashed Line</option>
+                    <option value="dotted">Dotted Line</option>
+                    <option value="double">Double Line</option>
+                    <option value="none">None</option>
                   </select>
                 </div>
                 <div>
@@ -2008,6 +2315,7 @@ export function VisualComposerInspector({
                     <option value="left">Left Accent Bar</option>
                     <option value="top">Top Accent Bar</option>
                     <option value="bottom">Bottom Accent Bar</option>
+                    <option value="right">Right Accent Bar</option>
                     <option value="y">Top &amp; Bottom</option>
                   </select>
                 </div>
@@ -2099,11 +2407,15 @@ export function VisualComposerInspector({
                     className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
                   >
                     <option value="shadow-none">Flat (None)</option>
-                    <option value="shadow-sm">Subtle</option>
-                    <option value="shadow-md">Medium</option>
+                    <option value="shadow-sm">Subtle Soft</option>
+                    <option value="shadow-md">Medium Card</option>
+                    <option value="shadow-lg">Elevated Surface</option>
                     <option value="shadow-xl">High Elevation</option>
                     <option value="shadow-2xl">Maximum Depth</option>
-                    <option value="shadow-lg shadow-amber-500/20">Civic Gold Glow</option>
+                    <option value="shadow-inner">Inset Recessed</option>
+                    <option value="shadow-lg shadow-amber-500/25">Civic Gold Glow</option>
+                    <option value="shadow-lg shadow-sky-500/25">Cyan Tech Glow</option>
+                    <option value="shadow-2xl shadow-blue-950/60">Patriotic Navy Shadow</option>
                   </select>
                 </div>
               </div>
@@ -2565,6 +2877,31 @@ export function VisualComposerInspector({
                   </option>
                 </select>
               </div>
+            </div>
+
+            {/* Line Height */}
+            <div>
+              <label htmlFor={lineHeightSelectId} className="text-[10px] text-slate-400 mb-1 block">
+                Line Height
+              </label>
+              <select
+                id={lineHeightSelectId}
+                value={styles.typography.lineHeight}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    typography: { ...styles.typography, lineHeight: e.target.value },
+                  })
+                }
+                className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+              >
+                <option value="leading-relaxed">Relaxed Body (1.625)</option>
+                <option value="leading-normal">Normal (1.5)</option>
+                <option value="leading-snug">Snug (1.375)</option>
+                <option value="leading-tight">Tight Headline (1.25)</option>
+                <option value="leading-none">Flush None (1.0)</option>
+                <option value="leading-loose">Loose Breathing (2.0)</option>
+              </select>
             </div>
 
             {/* Text Color Swatches */}

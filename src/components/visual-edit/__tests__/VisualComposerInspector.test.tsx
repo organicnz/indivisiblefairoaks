@@ -426,4 +426,139 @@ describe('VisualComposerInspector', () => {
     expect(document.body.textContent).toContain('Transition Speed');
     expect(document.body.textContent).toContain('Hide on Print / Paper Export');
   });
+
+  it('renders 4-sided CSS Box Model diagram with directional indicators and quick spacing presets', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const boxModelButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Box Model'
+    );
+    await act(async () => {
+      boxModelButton?.click();
+    });
+
+    // Check 4-sided directional labels
+    expect(document.body.textContent).toContain('T:');
+    expect(document.body.textContent).toContain('B:');
+    expect(document.body.textContent).toContain('L:');
+    expect(document.body.textContent).toContain('R:');
+
+    // Quick spacing presets
+    expect(document.body.textContent).toContain('Default');
+    expect(document.body.textContent).toContain('Card');
+    expect(document.body.textContent).toContain('Spacious');
+    expect(document.body.textContent).toContain('Flush');
+
+    // Click Spacious preset
+    const spaciousBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Spacious'
+    );
+    expect(spaciousBtn).toBeDefined();
+    await act(async () => {
+      spaciousBtn?.click();
+    });
+
+    // Border style selector
+    expect(document.body.textContent).toContain('Border Style');
+    const borderStyleLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Border Style')
+    );
+    const borderStyleSelect = borderStyleLabel
+      ? (document.getElementById(borderStyleLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(borderStyleSelect).not.toBeNull();
+  });
+
+  it('allows configuring line height in Typography tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const typeTabButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Type'
+    );
+    await act(async () => {
+      typeTabButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Line Height');
+    const lineHeightLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Line Height')
+    );
+    const lineHeightSelect = lineHeightLabel
+      ? (document.getElementById(lineHeightLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(lineHeightSelect).not.toBeNull();
+  });
+
+  it('configures section anchor ID, custom classes, and backdrop blur in section mode', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          initialMode="section"
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('Backdrop Glass Effect');
+    expect(document.body.textContent).toContain('Section Anchor ID');
+    expect(document.body.textContent).toContain('Section Custom Classes');
+
+    const anchorLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Section Anchor ID')
+    );
+    const anchorInput = anchorLabel
+      ? (document.getElementById(anchorLabel.htmlFor) as HTMLInputElement)
+      : null;
+    expect(anchorInput).not.toBeNull();
+    if (anchorInput) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        setter?.call(anchorInput, 'rsvp-section');
+        anchorInput.dispatchEvent(new Event('input', { bubbles: true }));
+        anchorInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(anchorInput.value).toBe('rsvp-section');
+    }
+
+    const customClassLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Section Custom Classes')
+    );
+    const customClassInput = customClassLabel
+      ? (document.getElementById(customClassLabel.htmlFor) as HTMLInputElement)
+      : null;
+    expect(customClassInput).not.toBeNull();
+    if (customClassInput) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        setter?.call(customClassInput, 'civic-featured-banner');
+        customClassInput.dispatchEvent(new Event('input', { bubbles: true }));
+        customClassInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(customClassInput.value).toBe('civic-featured-banner');
+    }
+  });
 });

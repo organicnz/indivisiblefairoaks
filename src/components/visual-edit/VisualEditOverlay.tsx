@@ -3164,9 +3164,41 @@ export function VisualEditOverlay() {
             <span className="hidden md:inline">Slash</span>
           </button>
 
-          {inlineSession.blockIndex !== null && (
+          {(inlineSession.blockIndex !== null || blocks.length > 0) && (
             <>
               <div className="mx-0.5 h-3.5 w-px bg-white/20" />
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = inlineSession.blockIndex ?? activeBlockIndex ?? 0;
+                  setActiveBlockIndex(idx);
+                  setVcBlockIndex(idx);
+                  setVcMode('block');
+                  setIsVisualComposerOpen(true);
+                }}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-accent-gold bg-accent-gold/15 hover:bg-accent-gold/25 border border-accent-gold/30 text-[11px] transition-colors cursor-pointer"
+                title="Visual Composer: Element Box Model, Effects, Motion & Typography (⌘E)"
+                aria-label="Open Visual Composer for block"
+              >
+                <SlidersHorizontal size={12} />
+                <span className="hidden md:inline">Composer</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const idx = inlineSession.blockIndex ?? activeBlockIndex ?? 0;
+                  setActiveBlockIndex(idx);
+                  setVcBlockIndex(idx);
+                  setVcMode('section');
+                  setIsVisualComposerOpen(true);
+                }}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-sky-400 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-[11px] transition-colors cursor-pointer"
+                title="Section Settings: Viewport Min-Height, Cutout Dividers & Grid Columns"
+                aria-label="Open Visual Composer for section"
+              >
+                <LayoutTemplate size={12} />
+                <span className="hidden md:inline">Section</span>
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -3175,7 +3207,7 @@ export function VisualEditOverlay() {
                     handleOpenEditSection(idx);
                   }
                 }}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-accent-gold hover:bg-accent-gold/20 text-[11px] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-slate-300 hover:bg-white/10 text-[11px] transition-colors cursor-pointer"
                 title="Open comprehensive block editor modal"
               >
                 <Settings size={12} />
@@ -3297,6 +3329,27 @@ export function VisualEditOverlay() {
             <Settings size={12} />
             <span className="hidden sm:inline">Alt Text</span>
           </button>
+
+          {imageSession.blockIndex !== null && (
+            <button
+              type="button"
+              onClick={() => {
+                const idx = imageSession.blockIndex;
+                if (idx !== null) {
+                  setActiveBlockIndex(idx);
+                  setVcBlockIndex(idx);
+                  setVcMode('block');
+                  setIsVisualComposerOpen(true);
+                }
+              }}
+              className="inline-flex items-center gap-1 rounded-md bg-accent-gold/20 border border-accent-gold/40 px-2 py-1 font-bold text-accent-gold text-[11px] hover:bg-accent-gold/30 transition-colors cursor-pointer"
+              title="Customize Image Box Model, Corners, Borders & Hover in Visual Composer (⌘E)"
+              aria-label="Image Visual Composer"
+            >
+              <SlidersHorizontal size={12} />
+              <span className="hidden sm:inline">Styles</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -6226,8 +6279,10 @@ export function VisualEditOverlay() {
         onMoveBlock={(idx, dir) => handleMoveSection(idx, dir)}
         onDuplicateBlock={(idx) => handleDuplicateSection(idx)}
         onDeleteBlock={(idx) => handleDeleteSection(idx)}
-        onOpenComposer={(idx) => {
+        onOpenComposer={(idx, mode = 'block') => {
+          setActiveBlockIndex(idx);
           setVcBlockIndex(idx);
+          setVcMode(mode);
           setIsVisualComposerOpen(true);
         }}
         onOpenLibrary={(targetIndex) => {

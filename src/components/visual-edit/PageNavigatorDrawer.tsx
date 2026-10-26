@@ -8,6 +8,7 @@ import {
   FolderTree,
   Image as ImageIcon,
   Layers,
+  LayoutTemplate,
   List,
   ListTree,
   Megaphone,
@@ -37,7 +38,7 @@ export interface PageNavigatorDrawerProps {
   onMoveBlock: (index: number, direction: 'up' | 'down') => void;
   onDuplicateBlock: (index: number) => void;
   onDeleteBlock: (index: number) => void;
-  onOpenComposer: (index: number) => void;
+  onOpenComposer: (index: number, mode?: 'block' | 'section') => void;
   onOpenLibrary: (targetIndex?: number) => void;
 }
 
@@ -234,12 +235,21 @@ export function PageNavigatorDrawer({
                   )}
                   <button
                     type="button"
-                    onClick={() => onOpenComposer(sec.blockIndex)}
-                    title="Customize in Visual Composer"
+                    onClick={() => onOpenComposer(sec.blockIndex, 'block')}
+                    title="Customize Block Styles & Box Model in Visual Composer"
                     aria-label={`Customize block #${sec.ordinal} in Visual Composer`}
                     className="rounded p-1 text-accent-gold hover:bg-white/15 hover:text-white transition-colors"
                   >
                     <SlidersHorizontal size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpenComposer(sec.blockIndex, 'section')}
+                    title="Customize Section / Row Settings (Containers, Dividers & Columns)"
+                    aria-label={`Customize section #${sec.ordinal} settings`}
+                    className="rounded p-1 text-sky-400 hover:bg-white/15 hover:text-white transition-colors"
+                  >
+                    <LayoutTemplate size={12} />
                   </button>
                   <button
                     type="button"

@@ -174,7 +174,17 @@ describe('PageNavigatorDrawer', () => {
     await act(async () => {
       composerButton?.click();
     });
-    expect(onOpenComposer).toHaveBeenCalledWith(0);
+    expect(onOpenComposer).toHaveBeenCalledWith(0, 'block');
+
+    // Click section composer button
+    const sectionComposerButton = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Customize section #1 settings"]'
+    );
+    expect(sectionComposerButton).not.toBeNull();
+    await act(async () => {
+      sectionComposerButton?.click();
+    });
+    expect(onOpenComposer).toHaveBeenCalledWith(0, 'section');
 
     // Click duplicate button
     const duplicateButton = document.querySelector<HTMLButtonElement>(

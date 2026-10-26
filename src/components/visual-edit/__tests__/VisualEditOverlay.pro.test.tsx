@@ -339,4 +339,38 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     expect(slashMenu?.textContent).toContain('Heading 2');
     expect(slashMenu?.textContent).toContain('Callout Box');
   });
+
+  it('renders direct Composer and Section buttons in floating inline toolbar and opens inspector', async () => {
+    const main = document.createElement('main');
+    const p = document.createElement('p');
+    p.textContent = 'Customizable grassroots block';
+    main.appendChild(p);
+    document.body.appendChild(main);
+
+    await mount();
+
+    await act(async () => {
+      p.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const composerBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open Visual Composer for block"]'
+    );
+    expect(composerBtn).not.toBeNull();
+    expect(composerBtn?.textContent).toContain('Composer');
+
+    const sectionBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open Visual Composer for section"]'
+    );
+    expect(sectionBtn).not.toBeNull();
+    expect(sectionBtn?.textContent).toContain('Section');
+
+    // Click Composer button opens Visual Composer Inspector
+    await act(async () => {
+      composerBtn?.click();
+    });
+
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    expect(document.body.textContent).toContain('Box Model');
+  });
 });
