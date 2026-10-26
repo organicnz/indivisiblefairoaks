@@ -14,7 +14,7 @@ Platform for [Indivisible Fair Oaks-Carmichael](https://indivisiblefairoaks.org)
 | Layer | Technology |
 |---|---|
 | Runtime | Bun ≥1.4.3 — **no Node.js anywhere** (server, build, type check, tests, scripts) |
-| Frontend | Next.js 16.3 · App Router · React 19 · TypeScript 5.9 |
+| Frontend | Next.js 16.4 · App Router · React 19 · tsrs (TypeScript 7 in Rust) |
 | Backend | Supabase (PostgreSQL · Auth · Storage · Edge Functions) |
 | Payments | Stripe Checkout + Webhooks |
 | Styling | Tailwind CSS 4 (native `@theme`, no config file) |
