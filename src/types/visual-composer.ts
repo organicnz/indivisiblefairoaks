@@ -34,6 +34,9 @@ export interface VisualComposerSection {
   overlay?: string;
   bgAttachment?: string;
   bgPosition?: string;
+  topDivider?: string;
+  bottomDivider?: string;
+  overflow?: string;
 }
 
 export interface VisualComposerTypography {
@@ -86,6 +89,7 @@ export interface VisualComposerEffects {
   sepia?: string;
   hueRotate?: string;
   blur?: string;
+  blendMode?: string;
 }
 
 export interface VisualComposerMotion {
@@ -94,6 +98,7 @@ export interface VisualComposerMotion {
   hoverScale?: string;
   hoverLift?: string;
   hoverRotate?: string;
+  hoverGlow?: string;
   duration?: string;
   delay?: string;
 }

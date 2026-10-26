@@ -10,6 +10,7 @@ import {
   ClipboardPaste,
   Code,
   Columns3,
+  Download,
   Eye,
   EyeOff,
   Layers,
@@ -22,6 +23,7 @@ import {
   Sparkles,
   Type,
   Unlink2,
+  Upload,
   Wand2,
   X,
 } from 'lucide-react';
@@ -63,6 +65,9 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     minHeight: '',
     background: 'bg-transparent',
     divider: '',
+    topDivider: '',
+    bottomDivider: '',
+    overflow: '',
     columns: '',
     columnGap: 'gap-8',
     verticalAlign: 'items-start',
@@ -125,6 +130,7 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     sepia: '',
     hueRotate: '',
     blur: '',
+    blendMode: '',
   },
   motion: {
     entrance: '',
@@ -132,6 +138,7 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     hoverScale: '',
     hoverLift: '',
     hoverRotate: '',
+    hoverGlow: '',
     duration: '',
     delay: '',
   },
@@ -609,6 +616,7 @@ export function VisualComposerInspector({
   const [hasCopiedStyles, setHasCopiedStyles] = useState<boolean>(Boolean(stylesClipboard));
   const [isSidesLinked, setIsSidesLinked] = useState<boolean>(true);
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [jsonConfigDraft, setJsonConfigDraft] = useState<string>('');
 
   const titleId = useId();
   const descId = useId();
@@ -651,6 +659,9 @@ export function VisualComposerInspector({
   const sectionPatternSelectId = useId();
   const sectionBgSelectId = useId();
   const sectionDividerSelectId = useId();
+  const sectionTopDividerSelectId = useId();
+  const sectionBottomDividerSelectId = useId();
+  const sectionOverflowSelectId = useId();
   const sectionColumnsSelectId = useId();
   const sectionGapSelectId = useId();
   const sectionAlignSelectId = useId();
@@ -682,6 +693,7 @@ export function VisualComposerInspector({
   const effectSepiaSelectId = useId();
   const effectHueRotateSelectId = useId();
   const effectBlurSelectId = useId();
+  const effectBlendModeSelectId = useId();
 
   const fontFamilySelectId = useId();
   const fontSizeSelectId = useId();
@@ -697,11 +709,13 @@ export function VisualComposerInspector({
   const motionHoverScaleSelectId = useId();
   const motionHoverLiftSelectId = useId();
   const motionHoverRotateSelectId = useId();
+  const motionHoverGlowSelectId = useId();
   const motionDurationSelectId = useId();
   const motionDelaySelectId = useId();
   const anchorIdInputId = useId();
   const customClassesInputId = useId();
   const rawHtmlInputId = useId();
+  const designJsonInputId = useId();
 
   // Sync block state when props change
   useEffect(() => {
@@ -766,6 +780,9 @@ export function VisualComposerInspector({
           styles.effects.backdropBlur,
           styles.section.overlay,
           styles.section.divider,
+          styles.section.topDivider,
+          styles.section.bottomDivider,
+          styles.section.overflow,
           styles.section.border,
           styles.section.border && styles.section.borderColor ? styles.section.borderColor : '',
           styles.section.bgPosition,
@@ -832,6 +849,7 @@ export function VisualComposerInspector({
           styles.effects.sepia,
           styles.effects.hueRotate,
           styles.effects.blur,
+          styles.effects.blendMode,
           styles.shadow !== 'shadow-none' ? styles.shadow : '',
           styles.transform?.rotate,
           styles.transform?.scale,
@@ -842,6 +860,7 @@ export function VisualComposerInspector({
           styles.motion.hoverScale,
           styles.motion.hoverLift,
           styles.motion.hoverRotate,
+          styles.motion.hoverGlow,
           styles.motion.duration,
           styles.responsive.hideMobile ? 'max-sm:hidden' : '',
           styles.responsive.hideTablet ? 'sm:max-md:hidden' : '',
@@ -883,6 +902,57 @@ export function VisualComposerInspector({
     }
     setStyles({ ...stylesClipboard });
     toast.success('Styles pasted to active block');
+  };
+
+  const handleResetStyles = () => {
+    setStyles(DEFAULT_VC_STYLES);
+    toast.success('Styles reset to defaults');
+  };
+
+  const handleExportJson = () => {
+    const jsonStr = JSON.stringify(styles, null, 2);
+    setJsonConfigDraft(jsonStr);
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(jsonStr)
+        .then(() => {
+          toast.success('Design configuration copied to clipboard as JSON');
+        })
+        .catch(() => {
+          toast.success('Design configuration generated in Code tab');
+        });
+    } else {
+      toast.success('Design configuration generated in Code tab');
+    }
+  };
+
+  const handleImportJson = (rawJson?: string) => {
+    const toParse = rawJson !== undefined ? rawJson : jsonConfigDraft;
+    if (!toParse.trim()) {
+      toast.error('Please paste valid JSON configuration first');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(toParse);
+      if (typeof parsed === 'object' && parsed !== null) {
+        setStyles((prev) => ({
+          ...prev,
+          ...parsed,
+          section: { ...prev.section, ...parsed.section },
+          typography: { ...prev.typography, ...parsed.typography },
+          border: { ...prev.border, ...parsed.border },
+          background: { ...prev.background, ...parsed.background },
+          layout: { ...prev.layout, ...parsed.layout },
+          effects: { ...prev.effects, ...parsed.effects },
+          motion: { ...prev.motion, ...parsed.motion },
+          transform: { ...prev.transform, ...parsed.transform },
+          responsive: { ...prev.responsive, ...parsed.responsive },
+        }));
+        toast.success('Design configuration imported successfully');
+      }
+    } catch {
+      toast.error('Invalid JSON design format');
+    }
   };
 
   // Helper to cycle margin values
@@ -959,6 +1029,18 @@ export function VisualComposerInspector({
           >
             <ClipboardPaste size={12} />
             <span>Paste</span>
+          </button>
+
+          {/* Quick Reset Styles Button */}
+          <button
+            type="button"
+            onClick={handleResetStyles}
+            title="Reset styles to defaults"
+            aria-label="Reset styles to defaults"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-accent-gold hover:bg-white/10 transition-colors"
+          >
+            <RotateCcw size={12} />
+            <span>Reset</span>
           </button>
 
           <button
@@ -1358,6 +1440,116 @@ export function VisualComposerInspector({
                 <option value="shadow-[0_8px_24px_-6px_rgba(245,158,11,0.25)] border-b border-amber-500/40">
                   Bottom Civic Gold Horizon Glow
                 </option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label
+                  htmlFor={sectionTopDividerSelectId}
+                  className="block text-slate-300 font-bold mb-1 text-[11px]"
+                >
+                  Top Shape Divider (Pro)
+                </label>
+                <select
+                  id={sectionTopDividerSelectId}
+                  value={styles.section.topDivider || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, topDivider: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="">None (Flush Top)</option>
+                  <option value="border-t border-border/80">Hairline Border Top</option>
+                  <option value="border-t-2 border-accent-gold">Gold Accent Bar (2px)</option>
+                  <option value="border-t-4 border-amber-500">Bold Gold Banner (4px)</option>
+                  <option value="border-t-4 border-blue-900">Navy Accent Header (4px)</option>
+                  <option value="rounded-t-[2.5rem] border-t-2 border-border">
+                    Curved Arch Top
+                  </option>
+                  <option value="rounded-t-[4rem] border-t-2 border-border">
+                    Deep Arch Dome Top
+                  </option>
+                  <option value="[clip-path:polygon(0_3vw,100%_0,100%_100%,0_100%)]">
+                    Slanted Slope (-3vw)
+                  </option>
+                  <option value="[clip-path:polygon(0_0,100%_3vw,100%_100%,0_100%)]">
+                    Inverse Slope (+3vw)
+                  </option>
+                  <option value="shadow-[0_-12px_32px_-8px_rgba(245,158,11,0.3)] border-t border-amber-500/50">
+                    Top Radiant Gold Glow
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor={sectionBottomDividerSelectId}
+                  className="block text-slate-300 font-bold mb-1 text-[11px]"
+                >
+                  Bottom Shape Divider (Pro)
+                </label>
+                <select
+                  id={sectionBottomDividerSelectId}
+                  value={styles.section.bottomDivider || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      section: { ...styles.section, bottomDivider: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="">None (Flush Bottom)</option>
+                  <option value="border-b border-border/80">Hairline Border Bottom</option>
+                  <option value="border-b-2 border-accent-gold">Gold Accent Bar (2px)</option>
+                  <option value="border-b-4 border-amber-500">Bold Gold Banner (4px)</option>
+                  <option value="border-b-4 border-blue-900">Navy Accent Footer (4px)</option>
+                  <option value="rounded-b-[2.5rem] border-b-2 border-border">
+                    Pill Arch Footer
+                  </option>
+                  <option value="rounded-b-[4rem] border-b-2 border-border">
+                    Deep Arch Cradle
+                  </option>
+                  <option value="[clip-path:polygon(0_0,100%_0,100%_calc(100%-3vw),0_100%)]">
+                    Slanted Slant (3vw)
+                  </option>
+                  <option value="[clip-path:polygon(0_0,100%_0,100%_100%,0_calc(100%-3vw))]">
+                    Inverse Slant (-3vw)
+                  </option>
+                  <option value="shadow-[0_12px_32px_-8px_rgba(245,158,11,0.3)] border-b border-amber-500/50">
+                    Bottom Radiant Gold Glow
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor={sectionOverflowSelectId}
+                className="block text-slate-300 font-bold mb-1.5 text-xs"
+              >
+                Section Overflow &amp; Shape Boundary Clipping
+              </label>
+              <select
+                id={sectionOverflowSelectId}
+                value={styles.section.overflow || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    section: { ...styles.section, overflow: e.target.value },
+                  })
+                }
+                className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
+              >
+                <option value="">Visible (Default)</option>
+                <option value="overflow-hidden">Hidden (Clip Bleeds &amp; Slants)</option>
+                <option value="overflow-clip">Clip (Strict Boundary Clip)</option>
+                <option value="overflow-x-hidden">Horizontal Hidden Only</option>
+                <option value="overflow-y-auto">Vertical Scrollable (Auto)</option>
               </select>
             </div>
 
@@ -3293,6 +3485,40 @@ export function VisualComposerInspector({
                   </select>
                 </div>
               </div>
+
+              <div className="mt-1.5">
+                <label
+                  htmlFor={effectBlendModeSelectId}
+                  className="text-[10px] text-slate-400 mb-1 block"
+                >
+                  Mix Blend Mode (Layer Blending)
+                </label>
+                <select
+                  id={effectBlendModeSelectId}
+                  value={styles.effects.blendMode || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      effects: { ...styles.effects, blendMode: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                >
+                  <option value="">Normal (Default)</option>
+                  <option value="mix-blend-multiply">Multiply (Darken / Shadow)</option>
+                  <option value="mix-blend-screen">Screen (Lighten / Glow)</option>
+                  <option value="mix-blend-overlay">Overlay (High Contrast)</option>
+                  <option value="mix-blend-darken">Darken</option>
+                  <option value="mix-blend-lighten">Lighten</option>
+                  <option value="mix-blend-color-dodge">Color Dodge (Intense Glow)</option>
+                  <option value="mix-blend-color-burn">Color Burn (Deep Shadow)</option>
+                  <option value="mix-blend-hard-light">Hard Light</option>
+                  <option value="mix-blend-soft-light">Soft Light</option>
+                  <option value="mix-blend-difference">Difference (Inversion Effect)</option>
+                  <option value="mix-blend-exclusion">Exclusion</option>
+                  <option value="mix-blend-luminosity">Luminosity (Luma Blend)</option>
+                </select>
+              </div>
             </div>
 
             {/* Transforms & 3D Tilt Studio */}
@@ -3789,6 +4015,49 @@ export function VisualComposerInspector({
                 </div>
               </div>
             </div>
+
+            {/* 1-Click Design Config JSON Exchange Studio */}
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <SlidersHorizontal size={13} className="text-accent-gold" />
+                  <span>Design Config JSON Studio</span>
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleExportJson}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    <Download size={11} />
+                    <span>Export JSON</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleImportJson()}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-accent-gold/40 bg-accent-gold/20 text-accent-gold hover:bg-accent-gold/30 transition-colors"
+                  >
+                    <Upload size={11} />
+                    <span>Import JSON</span>
+                  </button>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Export full design token styles as portable JSON to share across blocks or import
+                external presets.
+              </p>
+              <label htmlFor={designJsonInputId} className="sr-only">
+                Design Configuration JSON
+              </label>
+              <textarea
+                id={designJsonInputId}
+                rows={5}
+                value={jsonConfigDraft}
+                onChange={(e) => setJsonConfigDraft(e.target.value)}
+                placeholder='Click "Export JSON" to inspect token state, or paste JSON here and click "Import JSON"...'
+                className="w-full rounded-lg border border-white/10 bg-slate-950 p-2.5 text-white font-mono text-[10px] focus:border-accent-gold/50 focus:outline-none placeholder:text-white/40"
+              />
+            </div>
           </div>
         )}
 
@@ -4006,6 +4275,49 @@ export function VisualComposerInspector({
                       <option value="delay-500">+500ms</option>
                       <option value="delay-700">+700ms</option>
                       <option value="delay-1000">+1000ms</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor={motionHoverGlowSelectId}
+                      className="text-[9px] text-slate-400 mb-0.5 block"
+                    >
+                      Hover Glow Ring
+                    </label>
+                    <select
+                      id={motionHoverGlowSelectId}
+                      value={styles.motion.hoverGlow || ''}
+                      onChange={(e) =>
+                        setStyles({
+                          ...styles,
+                          motion: { ...styles.motion, hoverGlow: e.target.value },
+                        })
+                      }
+                      className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+                    >
+                      <option value="">None</option>
+                      <option value="hover:ring-2 hover:ring-accent-gold/60">
+                        Gold Civic Ring (2px)
+                      </option>
+                      <option value="hover:ring-4 hover:ring-accent-gold/40">
+                        Gold Civic Halo (4px)
+                      </option>
+                      <option value="hover:ring-2 hover:ring-blue-500/60">
+                        Navy Blue Focus (2px)
+                      </option>
+                      <option value="hover:ring-2 hover:ring-emerald-500/60">
+                        Emerald Civic Glow (2px)
+                      </option>
+                      <option value="hover:ring-2 hover:ring-white/40">
+                        Subtle White Halo (2px)
+                      </option>
+                      <option value="hover:shadow-[0_0_24px_rgba(245,158,11,0.35)]">
+                        Radial Amber Glow
+                      </option>
+                      <option value="hover:shadow-[0_0_30px_rgba(59,130,246,0.35)]">
+                        Radial Blue Glow
+                      </option>
                     </select>
                   </div>
                 </div>

@@ -1024,14 +1024,207 @@ describe('VisualComposerInspector', () => {
 
   it('unifies domain types with @/types/unified exports', () => {
     const customConfig: Partial<VisualComposerStyles> = {
-      section: { ...DEFAULT_VC_STYLES.section, border: 'border-2' },
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        border: 'border-2',
+        topDivider: 'border-t-2 border-accent-gold',
+        bottomDivider: 'border-b-2 border-accent-gold',
+        overflow: 'overflow-hidden',
+      },
       typography: { ...DEFAULT_VC_STYLES.typography, textDecoration: 'underline' },
+      effects: { ...DEFAULT_VC_STYLES.effects, blendMode: 'mix-blend-multiply' },
+      motion: { ...DEFAULT_VC_STYLES.motion, hoverGlow: 'hover:ring-2 hover:ring-accent-gold/60' },
     };
     expect(customConfig.section?.border).toBe('border-2');
+    expect(customConfig.section?.topDivider).toBe('border-t-2 border-accent-gold');
+    expect(customConfig.section?.bottomDivider).toBe('border-b-2 border-accent-gold');
+    expect(customConfig.section?.overflow).toBe('overflow-hidden');
     expect(customConfig.typography?.textDecoration).toBe('underline');
-    expect(DEFAULT_VC_STYLES.section).toBeDefined();
-    expect(DEFAULT_VC_STYLES.typography).toBeDefined();
-    expect(DEFAULT_VC_STYLES.border).toBeDefined();
-    expect(DEFAULT_VC_STYLES.effects).toBeDefined();
+    expect(customConfig.effects?.blendMode).toBe('mix-blend-multiply');
+    expect(customConfig.motion?.hoverGlow).toBe('hover:ring-2 hover:ring-accent-gold/60');
+    expect(DEFAULT_VC_STYLES.section.topDivider).toBe('');
+    expect(DEFAULT_VC_STYLES.section.bottomDivider).toBe('');
+    expect(DEFAULT_VC_STYLES.section.overflow).toBe('');
+    expect(DEFAULT_VC_STYLES.effects.blendMode).toBe('');
+    expect(DEFAULT_VC_STYLES.motion.hoverGlow).toBe('');
+  });
+
+  it('configures top and bottom shape dividers and overflow in section mode', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          initialMode="section"
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('Top Shape Divider (Pro)');
+    expect(document.body.textContent).toContain('Bottom Shape Divider (Pro)');
+    expect(document.body.textContent).toContain('Section Overflow & Shape Boundary Clipping');
+
+    const topDividerLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Top Shape Divider (Pro)')
+    );
+    const topDividerSelect = topDividerLabel
+      ? (document.getElementById(topDividerLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(topDividerSelect).not.toBeNull();
+    if (topDividerSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(topDividerSelect, 'border-t-2 border-accent-gold');
+        topDividerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(topDividerSelect.value).toBe('border-t-2 border-accent-gold');
+    }
+
+    const overflowLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Section Overflow & Shape Boundary Clipping')
+    );
+    const overflowSelect = overflowLabel
+      ? (document.getElementById(overflowLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(overflowSelect).not.toBeNull();
+    if (overflowSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(overflowSelect, 'overflow-hidden');
+        overflowSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(overflowSelect.value).toBe('overflow-hidden');
+    }
+  });
+
+  it('configures mix blend mode in effects tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          initialMode="block"
+        />
+      );
+    });
+
+    // Switch to Box Model / Design tab
+    const designTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Box Model')
+    );
+    expect(designTabBtn).toBeDefined();
+    await act(async () => {
+      designTabBtn?.click();
+    });
+
+    const blendModeLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Mix Blend Mode (Layer Blending)')
+    );
+    const blendModeSelect = blendModeLabel
+      ? (document.getElementById(blendModeLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(blendModeSelect).not.toBeNull();
+    if (blendModeSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(blendModeSelect, 'mix-blend-multiply');
+        blendModeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(blendModeSelect.value).toBe('mix-blend-multiply');
+    }
+  });
+
+  it('configures hover glow ring in advanced tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          initialMode="block"
+        />
+      );
+    });
+
+    // Switch to Advanced tab
+    const advancedTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Advanced')
+    );
+    expect(advancedTabBtn).toBeDefined();
+    await act(async () => {
+      advancedTabBtn?.click();
+    });
+
+    const hoverGlowLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Hover Glow Ring')
+    );
+    const hoverGlowSelect = hoverGlowLabel
+      ? (document.getElementById(hoverGlowLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(hoverGlowSelect).not.toBeNull();
+    if (hoverGlowSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(hoverGlowSelect, 'hover:ring-2 hover:ring-accent-gold/60');
+        hoverGlowSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(hoverGlowSelect.value).toBe('hover:ring-2 hover:ring-accent-gold/60');
+    }
+  });
+
+  it('resets styles and exchanges design configuration JSON in Code tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          initialMode="block"
+        />
+      );
+    });
+
+    // Quick Reset button in drawer header
+    const resetBtn = document.querySelector('button[aria-label="Reset styles to defaults"]');
+    expect(resetBtn).not.toBeNull();
+    await act(async () => {
+      (resetBtn as HTMLButtonElement).click();
+    });
+
+    // Switch to Code tab
+    const codeTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Code')
+    );
+    expect(codeTabBtn).toBeDefined();
+    await act(async () => {
+      codeTabBtn?.click();
+    });
+
+    expect(document.body.textContent).toContain('Design Config JSON Studio');
+    const exportJsonBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Export JSON')
+    );
+    expect(exportJsonBtn).toBeDefined();
+    await act(async () => {
+      exportJsonBtn?.click();
+    });
+
+    const importJsonBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Import JSON')
+    );
+    expect(importJsonBtn).toBeDefined();
+    await act(async () => {
+      importJsonBtn?.click();
+    });
   });
 });
