@@ -3,7 +3,7 @@
 import { Code, Layers, Move, Palette, RotateCcw, Type, Wand2 } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
-import type { Block } from '@/lib/blocks';
+import { type Block, serializeBlocks } from '@/lib/blocks';
 import type { ThemeMode } from '@/lib/theme';
 
 import type {
@@ -19,6 +19,7 @@ import {
   BoxModelStudio,
   CIVIC_CLASS_PRESETS,
   CodeStudio,
+  compileBadgeHtml,
   compileClassNames,
   DEFAULT_VC_STYLES,
   DevicePreviewFrame,
@@ -64,7 +65,7 @@ export {
   VC_STYLE_PRESETS,
 };
 
-interface VisualComposerInspectorProps {
+export interface VisualComposerInspectorProps {
   open: boolean;
   onClose: () => void;
   block: Block | null;
@@ -279,6 +280,24 @@ export function VisualComposerInspector({
           }));
         }
       }
+
+      // Restore decorative badge ribbon if present in the block HTML
+      const badgeMatch = trimmed.match(/<span\s+data-vc-badge(?:[^>]*)>(.*?)<\/span>/i);
+      if (badgeMatch) {
+        const text = badgeMatch[1].trim();
+        const toneMatch = badgeMatch[0].match(/data-tone=["']([^"']+)["']/);
+        const posMatch = badgeMatch[0].match(/data-pos=["']([^"']+)["']/);
+        setStyles((prev) => ({
+          ...prev,
+          badgeText: text,
+          badgeTone:
+            (toneMatch?.[1] as VisualComposerStyles['badgeTone']) || prev.badgeTone || 'gold',
+          badgePosition:
+            (posMatch?.[1] as VisualComposerStyles['badgePosition']) ||
+            prev.badgePosition ||
+            'top-right',
+        }));
+      }
     }
   }, [block]);
 
@@ -294,8 +313,28 @@ export function VisualComposerInspector({
 
   const handleApply = () => {
     if (!currentBlock) return;
+    let finalBlock: Block = { ...currentBlock };
+    const badgeHtml = compileBadgeHtml(styles);
+    if ('html' in finalBlock && typeof finalBlock.html === 'string') {
+      let content = finalBlock.html.replace(/<span\s+data-vc-badge[^>]*>.*?<\/span>/gi, '');
+      if (badgeHtml) {
+        content = `${badgeHtml}${content}`;
+      }
+      finalBlock = {
+        ...finalBlock,
+        html: content,
+      };
+    } else if (badgeHtml) {
+      const serialized = serializeBlocks([finalBlock]);
+      finalBlock = {
+        id: finalBlock.id,
+        type: 'unsupported',
+        html: `${badgeHtml}${serialized}`,
+      };
+    }
+
     onSaveBlock(
-      currentBlock,
+      finalBlock,
       compiledClassNames,
       styles.anchorId.trim() || undefined,
       styles.customStyle?.trim() || undefined
@@ -467,6 +506,7 @@ export function VisualComposerInspector({
         setPreviewTheme={setPreviewTheme}
         compiledClassNames={compiledClassNames}
         currentBlock={currentBlock}
+        styles={styles}
       />
 
       {/* Tab Content Panels */}

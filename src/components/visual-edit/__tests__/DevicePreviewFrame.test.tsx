@@ -83,4 +83,33 @@ describe('DevicePreviewFrame', () => {
     const themedContainer = container.querySelector('[data-theme="light"]');
     expect(themedContainer).not.toBeNull();
   });
+
+  it('renders decorative badge ribbon and tone lock indicator when styles are provided', async () => {
+    await act(async () => {
+      root.render(
+        <DevicePreviewFrame
+          inspectorMode="block"
+          previewDevice="desktop"
+          setPreviewDevice={vi.fn()}
+          previewTheme="system"
+          setPreviewTheme={vi.fn()}
+          compiledClassNames="p-4"
+          currentBlock={mockBlock}
+          styles={
+            {
+              themeMode: 'dark',
+              badgeText: 'HOT UPDATE',
+              badgeTone: 'emerald',
+              badgePosition: 'top-right',
+            } as unknown as import('@/types/unified').VisualComposerStyles
+          }
+        />
+      );
+    });
+
+    expect(container.textContent).toContain('Tone: dark');
+    const badgeRibbon = container.querySelector('[data-testid="preview-badge-ribbon"]');
+    expect(badgeRibbon).not.toBeNull();
+    expect(badgeRibbon?.textContent).toBe('HOT UPDATE');
+  });
 });

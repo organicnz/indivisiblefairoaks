@@ -2,6 +2,7 @@
 
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight } from 'lucide-react';
 import type { VisualComposerStyles } from '@/types/unified';
+import { StudioSelect } from './ui';
 
 export interface TypographyStudioProps {
   styles: VisualComposerStyles;
@@ -21,6 +22,142 @@ export interface TypographyStudioProps {
   textColumnsSelectId?: string;
   fontSmoothingSelectId?: string;
 }
+
+const FONT_FAMILY_OPTIONS = [
+  { value: '', label: 'Default Clean Sans' },
+  { value: 'font-serif', label: 'Civic Editorial Serif' },
+  { value: 'font-mono', label: 'Technical Monospace' },
+] as const;
+
+const FONT_SIZE_OPTIONS = [
+  { value: 'text-xs', label: 'Compact (xs)' },
+  { value: 'text-sm', label: 'Small (sm)' },
+  { value: 'text-base', label: 'Body (base)' },
+  { value: 'text-lg', label: 'Large (lg)' },
+  { value: 'text-xl', label: 'XL (xl)' },
+  { value: 'text-2xl', label: 'Hero (2xl)' },
+  { value: 'text-3xl', label: 'Display (3xl)' },
+  { value: 'text-4xl', label: 'Title (4xl)' },
+  { value: 'text-5xl', label: 'Heroic (5xl)' },
+  { value: 'text-6xl', label: 'Billboard (6xl)' },
+  { value: 'text-7xl', label: 'Monumental (7xl)' },
+] as const;
+
+const FONT_WEIGHT_OPTIONS = [
+  { value: 'font-thin', label: 'Thin (100)' },
+  { value: 'font-light', label: 'Light (300)' },
+  { value: 'font-normal', label: 'Regular (400)' },
+  { value: 'font-medium', label: 'Medium (500)' },
+  { value: 'font-semibold', label: 'Semi-Bold (600)' },
+  { value: 'font-bold', label: 'Bold (700)' },
+  { value: 'font-extrabold', label: 'Extra Bold (800)' },
+  { value: 'font-black', label: 'Black (900)' },
+] as const;
+
+const TEXT_GRADIENT_OPTIONS = [
+  { value: '', label: 'None (Solid Color)' },
+  {
+    value:
+      'bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500 bg-clip-text text-transparent',
+    label: 'Brand Gold Shine',
+  },
+  {
+    value: 'bg-gradient-to-r from-blue-400 via-slate-100 to-rose-400 bg-clip-text text-transparent',
+    label: 'Patriotic Tristate',
+  },
+  {
+    value:
+      'bg-gradient-to-r from-emerald-400 via-teal-200 to-emerald-500 bg-clip-text text-transparent',
+    label: 'Grassroots Emerald',
+  },
+] as const;
+
+const LINE_HEIGHT_OPTIONS = [
+  { value: 'leading-relaxed', label: 'Relaxed Body (1.625)' },
+  { value: 'leading-normal', label: 'Normal (1.5)' },
+  { value: 'leading-snug', label: 'Snug (1.375)' },
+  { value: 'leading-tight', label: 'Tight Headline (1.25)' },
+  { value: 'leading-none', label: 'Flush None (1.0)' },
+  { value: 'leading-loose', label: 'Loose Breathing (2.0)' },
+] as const;
+
+const LETTER_SPACING_OPTIONS = [
+  { value: 'tracking-normal', label: 'Normal' },
+  { value: 'tracking-wide', label: 'Wide (+0.025em)' },
+  { value: 'tracking-wider', label: 'Wider (+0.05em)' },
+  { value: 'tracking-tight', label: 'Tight (-0.025em)' },
+] as const;
+
+const TEXT_TRANSFORM_OPTIONS = [
+  { value: 'none', label: 'Normal Casing' },
+  { value: 'uppercase', label: 'ALL CAPS' },
+  { value: 'capitalize', label: 'Capitalize Words' },
+  { value: 'lowercase', label: 'all lowercase' },
+] as const;
+
+const TEXT_DECORATION_OPTIONS = [
+  { value: '', label: 'None (Standard)' },
+  { value: 'underline underline-offset-4 decoration-border', label: 'Subtle Underline' },
+  {
+    value: 'underline underline-offset-4 decoration-amber-500/60 decoration-2',
+    label: 'Civic Gold Underline',
+  },
+  {
+    value: 'underline underline-offset-4 decoration-blue-500/60 decoration-2',
+    label: 'Navy Accent Underline',
+  },
+  { value: 'line-through decoration-rose-500/70', label: 'Strikethrough' },
+] as const;
+
+const TEXT_SHADOW_OPTIONS = [
+  { value: '', label: 'None (Crisp Flat)' },
+  { value: 'drop-shadow-sm', label: 'Subtle Soft (sm)' },
+  { value: 'drop-shadow-md', label: 'High Contrast (md)' },
+  { value: 'drop-shadow-lg', label: 'Dramatic Depth (lg)' },
+] as const;
+
+const FONT_STYLE_OPTIONS = [
+  { value: 'normal', label: 'Normal Upright' },
+  { value: 'italic', label: 'Italic Emphasis' },
+] as const;
+
+const TEXT_WRAP_OPTIONS = [
+  { value: '', label: 'Normal Flow' },
+  { value: 'text-balance', label: 'Balanced Headlines (text-balance)' },
+  { value: 'text-pretty', label: 'Editorial Pretty (text-pretty)' },
+  { value: 'truncate', label: 'Single Line Truncate (truncate)' },
+  { value: 'break-words', label: 'Break Words (break-words)' },
+] as const;
+
+const WORD_BREAK_OPTIONS = [
+  { value: '', label: 'Default (Browser)' },
+  { value: 'break-normal', label: 'Normal (break-normal)' },
+  { value: 'break-words', label: 'Wrap Long Words (break-words)' },
+  { value: 'break-all', label: 'Force Break Anywhere (break-all)' },
+  { value: 'break-keep', label: 'Keep Words Whole (break-keep)' },
+] as const;
+
+const TEXT_COLUMNS_OPTIONS = [
+  { value: '', label: 'Single Column (Standard)' },
+  { value: 'columns-1 md:columns-2 gap-8', label: '2 Newspaper Columns' },
+  { value: 'columns-1 md:columns-3 gap-8', label: '3 Editorial Columns' },
+  { value: 'columns-1 sm:columns-2 lg:columns-4 gap-6', label: '4 Magazine Columns' },
+] as const;
+
+const FONT_SMOOTHING_OPTIONS = [
+  { value: '', label: 'Default (Subpixel)' },
+  { value: 'antialiased', label: 'Antialiased (Crisp High-DPI)' },
+  { value: 'subpixel-antialiased', label: 'Subpixel Antialiased' },
+] as const;
+
+const COLOR_SWATCHES = [
+  { color: 'text-foreground', label: 'Default Ink', dot: 'bg-white/40' },
+  { color: 'text-accent-gold', label: 'Civic Gold', dot: 'bg-amber-400' },
+  { color: 'text-white', label: 'Bright White', dot: 'bg-white/95' },
+  { color: 'text-sky-300', label: 'Patriotic Sky', dot: 'bg-sky-400' },
+  { color: 'text-rose-400', label: 'Alert Crimson', dot: 'bg-rose-400' },
+  { color: 'text-emerald-400', label: 'Success Green', dot: 'bg-emerald-500' },
+] as const;
 
 export function TypographyStudio({
   styles,
@@ -42,6 +179,7 @@ export function TypographyStudio({
 }: TypographyStudioProps) {
   return (
     <div className="space-y-4">
+      {/* Alignment Buttons */}
       <div>
         <span className="block text-slate-300 font-bold mb-2">Alignment</span>
         <div className="flex gap-2">
@@ -66,7 +204,7 @@ export function TypographyStudio({
                     },
                   })
                 }
-                className={`flex-1 flex items-center justify-center p-2 rounded-lg border transition-colors ${
+                className={`flex-1 flex items-center justify-center p-2 rounded-lg border transition-colors cursor-pointer ${
                   isActive
                     ? 'bg-accent-gold text-ink-strong border-accent-gold'
                     : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
@@ -81,166 +219,79 @@ export function TypographyStudio({
 
       {/* Font Family & Size */}
       <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label htmlFor={fontFamilySelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Font Family
-          </label>
-          <select
-            id={fontFamilySelectId}
-            value={styles.typography.fontFamily}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                typography: { ...styles.typography, fontFamily: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white"
-          >
-            <option value="">Default Clean Sans</option>
-            <option value="font-serif">Civic Editorial Serif</option>
-            <option value="font-mono">Technical Monospace</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor={fontSizeSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Font Size
-          </label>
-          <select
-            id={fontSizeSelectId}
-            value={styles.typography.fontSize}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                typography: { ...styles.typography, fontSize: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white"
-          >
-            <option value="text-xs">Compact (xs)</option>
-            <option value="text-sm">Small (sm)</option>
-            <option value="text-base">Body (base)</option>
-            <option value="text-lg">Large (lg)</option>
-            <option value="text-xl">XL (xl)</option>
-            <option value="text-2xl">Hero (2xl)</option>
-            <option value="text-3xl">Display (3xl)</option>
-            <option value="text-4xl">Title (4xl)</option>
-            <option value="text-5xl">Heroic (5xl)</option>
-            <option value="text-6xl">Billboard (6xl)</option>
-            <option value="text-7xl">Monumental (7xl)</option>
-          </select>
-        </div>
+        <StudioSelect
+          id={fontFamilySelectId}
+          label="Font Family"
+          value={styles.typography.fontFamily}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              typography: { ...styles.typography, fontFamily: val },
+            })
+          }
+          options={FONT_FAMILY_OPTIONS}
+        />
+        <StudioSelect
+          id={fontSizeSelectId}
+          label="Font Size"
+          value={styles.typography.fontSize}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              typography: { ...styles.typography, fontSize: val },
+            })
+          }
+          options={FONT_SIZE_OPTIONS}
+        />
       </div>
 
       {/* Weight & Text Gradient */}
       <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label htmlFor={fontWeightSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Weight
-          </label>
-          <select
-            id={fontWeightSelectId}
-            value={styles.typography.fontWeight}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                typography: { ...styles.typography, fontWeight: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white"
-          >
-            <option value="font-thin">Thin (100)</option>
-            <option value="font-light">Light (300)</option>
-            <option value="font-normal">Regular (400)</option>
-            <option value="font-medium">Medium (500)</option>
-            <option value="font-semibold">Semi-Bold (600)</option>
-            <option value="font-bold">Bold (700)</option>
-            <option value="font-extrabold">Extra Bold (800)</option>
-            <option value="font-black">Black (900)</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor={textGradientSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Text Gradient
-          </label>
-          <select
-            id={textGradientSelectId}
-            value={styles.typography.textGradient}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                typography: { ...styles.typography, textGradient: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">None (Solid Color)</option>
-            <option value="bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500 bg-clip-text text-transparent">
-              Brand Gold Shine
-            </option>
-            <option value="bg-gradient-to-r from-blue-400 via-slate-100 to-rose-400 bg-clip-text text-transparent">
-              Patriotic Tristate
-            </option>
-            <option value="bg-gradient-to-r from-emerald-400 via-teal-200 to-emerald-500 bg-clip-text text-transparent">
-              Grassroots Emerald
-            </option>
-          </select>
-        </div>
+        <StudioSelect
+          id={fontWeightSelectId}
+          label="Weight"
+          value={styles.typography.fontWeight}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              typography: { ...styles.typography, fontWeight: val },
+            })
+          }
+          options={FONT_WEIGHT_OPTIONS}
+        />
+        <StudioSelect
+          id={textGradientSelectId}
+          label="Text Gradient"
+          value={styles.typography.textGradient}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              typography: { ...styles.typography, textGradient: val },
+            })
+          }
+          options={TEXT_GRADIENT_OPTIONS}
+        />
       </div>
 
       {/* Line Height */}
-      <div>
-        <label htmlFor={lineHeightSelectId} className="text-[10px] text-slate-400 mb-1 block">
-          Line Height
-        </label>
-        <select
-          id={lineHeightSelectId}
-          value={styles.typography.lineHeight}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, lineHeight: e.target.value },
-            })
-          }
-          className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-        >
-          <option value="leading-relaxed">Relaxed Body (1.625)</option>
-          <option value="leading-normal">Normal (1.5)</option>
-          <option value="leading-snug">Snug (1.375)</option>
-          <option value="leading-tight">Tight Headline (1.25)</option>
-          <option value="leading-none">Flush None (1.0)</option>
-          <option value="leading-loose">Loose Breathing (2.0)</option>
-        </select>
-      </div>
+      <StudioSelect
+        id={lineHeightSelectId}
+        label="Line Height"
+        value={styles.typography.lineHeight}
+        onChange={(val) =>
+          setStyles({
+            ...styles,
+            typography: { ...styles.typography, lineHeight: val },
+          })
+        }
+        options={LINE_HEIGHT_OPTIONS}
+      />
 
       {/* Text Color Swatches */}
       <div>
         <span className="block text-slate-300 font-bold mb-2">Typography Color</span>
         <div className="grid grid-cols-3 gap-1.5">
-          {[
-            { color: 'text-foreground', label: 'Default Ink', dot: 'bg-white/40' },
-            {
-              color: 'text-navy-900 dark:text-navy-100',
-              label: 'Civic Navy',
-              dot: 'bg-blue-600',
-            },
-            {
-              color: 'text-amber-600 dark:text-amber-400',
-              label: 'Brand Gold',
-              dot: 'bg-amber-500',
-            },
-            { color: 'text-muted-foreground', label: 'Subtle Muted', dot: 'bg-slate-500/80' },
-            { color: 'text-white', label: 'High White', dot: 'bg-white/95' },
-            {
-              color: 'text-rose-600 dark:text-rose-400',
-              label: 'Urgent Red',
-              dot: 'bg-rose-500',
-            },
-            {
-              color: 'text-emerald-700 dark:text-emerald-400',
-              label: 'Success Green',
-              dot: 'bg-emerald-500',
-            },
-          ].map((item) => {
+          {COLOR_SWATCHES.map((item) => {
             const isSelected = styles.typography.color === item.color;
             return (
               <button
@@ -252,7 +303,7 @@ export function TypographyStudio({
                     typography: { ...styles.typography, color: item.color, textGradient: '' },
                   })
                 }
-                className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] transition-colors ${
+                className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] transition-colors cursor-pointer ${
                   isSelected
                     ? 'border-accent-gold bg-accent-gold/15 text-accent-gold font-bold'
                     : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
@@ -266,216 +317,136 @@ export function TypographyStudio({
         </div>
       </div>
 
+      {/* Letter Spacing & Casing */}
       <div>
         <span className="text-[10px] text-slate-400 mb-1 block">Letter Spacing &amp; Casing</span>
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label htmlFor={letterSpacingSelectId} className="sr-only">
-              Letter Spacing
-            </label>
-            <select
-              id={letterSpacingSelectId}
-              value={styles.typography.letterSpacing}
-              onChange={(e) =>
-                setStyles({
-                  ...styles,
-                  typography: { ...styles.typography, letterSpacing: e.target.value },
-                })
-              }
-              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white"
-            >
-              <option value="tracking-normal">Normal</option>
-              <option value="tracking-wide">Wide (+0.025em)</option>
-              <option value="tracking-wider">Wider (+0.05em)</option>
-              <option value="tracking-tight">Tight (-0.025em)</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor={textTransformSelectId} className="sr-only">
-              Text Transform
-            </label>
-            <select
-              id={textTransformSelectId}
-              value={styles.typography.textTransform}
-              onChange={(e) =>
-                setStyles({
-                  ...styles,
-                  typography: {
-                    ...styles.typography,
-                    textTransform: e.target.value as typeof styles.typography.textTransform,
-                  },
-                })
-              }
-              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white"
-            >
-              <option value="none">Normal Casing</option>
-              <option value="uppercase">ALL CAPS</option>
-              <option value="capitalize">Capitalize Words</option>
-              <option value="lowercase">all lowercase</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Text Decoration & Accents */}
-      <div>
-        <label htmlFor={textDecorationSelectId} className="text-[10px] text-slate-400 mb-1 block">
-          Text Decoration &amp; Accents
-        </label>
-        <select
-          id={textDecorationSelectId}
-          value={styles.typography.textDecoration || ''}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, textDecoration: e.target.value },
-            })
-          }
-          className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-        >
-          <option value="">None (Standard)</option>
-          <option value="underline underline-offset-4 decoration-border">Subtle Underline</option>
-          <option value="underline underline-offset-4 decoration-amber-500/60 decoration-2">
-            Civic Gold Underline
-          </option>
-          <option value="underline underline-offset-4 decoration-blue-500/60 decoration-2">
-            Navy Accent Underline
-          </option>
-          <option value="line-through decoration-rose-500/70">Strikethrough</option>
-        </select>
-      </div>
-
-      <div>
-        <label htmlFor={textShadowSelectId} className="text-[10px] text-slate-400 mb-1 block">
-          Text Drop Shadow
-        </label>
-        <select
-          id={textShadowSelectId}
-          value={styles.typography.textShadow}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, textShadow: e.target.value },
-            })
-          }
-          className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-        >
-          <option value="">None (Crisp Flat)</option>
-          <option value="drop-shadow-sm">Subtle Soft (sm)</option>
-          <option value="drop-shadow-md">High Contrast (md)</option>
-          <option value="drop-shadow-lg">Dramatic Depth (lg)</option>
-        </select>
-      </div>
-
-      {/* Font Style, Editorial Text Wrapping & Word Breaking */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <div>
-          <label htmlFor={fontStyleSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Font Posture / Style
-          </label>
-          <select
-            id={fontStyleSelectId}
-            value={styles.typography.fontStyle || 'normal'}
-            onChange={(e) =>
+          <StudioSelect
+            id={letterSpacingSelectId}
+            value={styles.typography.letterSpacing}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, letterSpacing: val },
+              })
+            }
+            options={LETTER_SPACING_OPTIONS}
+          />
+          <StudioSelect
+            id={textTransformSelectId}
+            value={styles.typography.textTransform}
+            onChange={(val) =>
               setStyles({
                 ...styles,
                 typography: {
                   ...styles.typography,
-                  fontStyle: e.target.value as 'normal' | 'italic',
+                  textTransform: val as typeof styles.typography.textTransform,
                 },
               })
             }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="normal">Normal Upright</option>
-            <option value="italic">Italic Emphasis</option>
-          </select>
+            options={TEXT_TRANSFORM_OPTIONS}
+          />
         </div>
-        <div>
-          <label htmlFor={textWrapSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Text Wrapping &amp; Overflow
-          </label>
-          <select
-            id={textWrapSelectId}
-            value={styles.typography.textWrap || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                typography: { ...styles.typography, textWrap: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">Normal Flow</option>
-            <option value="text-balance">Balanced Headlines (text-balance)</option>
-            <option value="text-pretty">Editorial Pretty (text-pretty)</option>
-            <option value="truncate">Single Line Truncate (truncate)</option>
-            <option value="break-words">Break Words (break-words)</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor={wordBreakSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Word Break Behavior
-          </label>
-          <select
-            id={wordBreakSelectId}
-            value={styles.typography.wordBreak || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                typography: { ...styles.typography, wordBreak: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">Default (Browser)</option>
-            <option value="break-normal">Normal (break-normal)</option>
-            <option value="break-words">Wrap Long Words (break-words)</option>
-            <option value="break-all">Force Break Anywhere (break-all)</option>
-            <option value="break-keep">Keep Words Whole (break-keep)</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor={textColumnsSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Editorial Multi-Columns
-          </label>
-          <select
-            id={textColumnsSelectId}
-            value={styles.typography.textColumns || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                typography: { ...styles.typography, textColumns: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">Single Column (Standard)</option>
-            <option value="columns-1 md:columns-2 gap-8">2 Newspaper Columns</option>
-            <option value="columns-1 md:columns-3 gap-8">3 Editorial Columns</option>
-            <option value="columns-1 sm:columns-2 lg:columns-4 gap-6">4 Magazine Columns</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor={fontSmoothingSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Font Smoothing (Rendering)
-          </label>
-          <select
-            id={fontSmoothingSelectId}
-            value={styles.typography.fontSmoothing || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                typography: { ...styles.typography, fontSmoothing: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">Default (Subpixel)</option>
-            <option value="antialiased">Antialiased (Crisp High-DPI)</option>
-            <option value="subpixel-antialiased">Subpixel Antialiased</option>
-          </select>
-        </div>
+      </div>
+
+      {/* Text Decoration & Accents */}
+      <StudioSelect
+        id={textDecorationSelectId}
+        label="Text Decoration & Accents"
+        value={styles.typography.textDecoration || ''}
+        onChange={(val) =>
+          setStyles({
+            ...styles,
+            typography: { ...styles.typography, textDecoration: val },
+          })
+        }
+        options={TEXT_DECORATION_OPTIONS}
+      />
+
+      {/* Text Drop Shadow */}
+      <StudioSelect
+        id={textShadowSelectId}
+        label="Text Drop Shadow"
+        value={styles.typography.textShadow}
+        onChange={(val) =>
+          setStyles({
+            ...styles,
+            typography: { ...styles.typography, textShadow: val },
+          })
+        }
+        options={TEXT_SHADOW_OPTIONS}
+      />
+
+      {/* Font Style, Editorial Text Wrapping & Multi-Columns */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <StudioSelect
+          id={fontStyleSelectId}
+          label="Font Posture / Style"
+          value={styles.typography.fontStyle || 'normal'}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              typography: {
+                ...styles.typography,
+                fontStyle: val as 'normal' | 'italic',
+              },
+            })
+          }
+          options={FONT_STYLE_OPTIONS}
+          size="xs"
+        />
+        <StudioSelect
+          id={textWrapSelectId}
+          label="Text Wrapping & Overflow"
+          value={styles.typography.textWrap || ''}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              typography: { ...styles.typography, textWrap: val },
+            })
+          }
+          options={TEXT_WRAP_OPTIONS}
+          size="xs"
+        />
+        <StudioSelect
+          id={wordBreakSelectId}
+          label="Word Break Behavior"
+          value={styles.typography.wordBreak || ''}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              typography: { ...styles.typography, wordBreak: val },
+            })
+          }
+          options={WORD_BREAK_OPTIONS}
+          size="xs"
+        />
+        <StudioSelect
+          id={textColumnsSelectId}
+          label="Editorial Multi-Columns"
+          value={styles.typography.textColumns || ''}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              typography: { ...styles.typography, textColumns: val },
+            })
+          }
+          options={TEXT_COLUMNS_OPTIONS}
+          size="xs"
+        />
+        <StudioSelect
+          id={fontSmoothingSelectId}
+          label="Font Smoothing (Rendering)"
+          value={styles.typography.fontSmoothing || ''}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              typography: { ...styles.typography, fontSmoothing: val },
+            })
+          }
+          options={FONT_SMOOTHING_OPTIONS}
+          size="xs"
+        />
       </div>
     </div>
   );

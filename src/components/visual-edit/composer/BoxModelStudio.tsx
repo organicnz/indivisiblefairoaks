@@ -3,6 +3,7 @@
 import { Columns3, Link2, Unlink2 } from 'lucide-react';
 import type { Block } from '@/lib/blocks';
 import type { VisualComposerStyles } from '@/types/unified';
+import { StudioInput, StudioSelect } from './ui';
 
 export interface BoxModelStudioProps {
   styles: VisualComposerStyles;
@@ -873,29 +874,23 @@ export function BoxModelStudio({
               <option value="shadow-2xl shadow-blue-950/60">Patriotic Navy Shadow</option>
             </select>
           </div>
-          <div>
-            <label
-              htmlFor="block-theme-mode-select"
-              className="text-[10px] text-slate-400 mb-1 block"
-            >
-              Element Theme Mode
-            </label>
-            <select
-              id="block-theme-mode-select"
-              value={styles.themeMode || 'inherit'}
-              onChange={(e) =>
-                setStyles({
-                  ...styles,
-                  themeMode: e.target.value as 'inherit' | 'light' | 'dark',
-                })
-              }
-              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-            >
-              <option value="inherit">Inherit Section Theme</option>
-              <option value="dark">Force Dark Tone Mode</option>
-              <option value="light">Force Light Tone Mode</option>
-            </select>
-          </div>
+          <StudioSelect
+            id="block-theme-mode-select"
+            label="Element Theme Mode"
+            value={styles.themeMode || 'inherit'}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                themeMode: val as VisualComposerStyles['themeMode'],
+              })
+            }
+            options={[
+              { value: 'inherit', label: 'Inherit Section Theme' },
+              { value: 'dark', label: 'Force Dark Tone Mode' },
+              { value: 'light', label: 'Force Light Tone Mode' },
+            ]}
+            size="xs"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-2 mt-2">
@@ -963,74 +958,46 @@ export function BoxModelStudio({
           Decorative Badge / Ribbon Accent (Pro)
         </span>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <div>
-            <label
-              htmlFor="block-badge-text-input"
-              className="text-[10px] text-slate-400 mb-1 block"
-            >
-              Badge Label Text
-            </label>
-            <input
-              id="block-badge-text-input"
-              type="text"
-              value={styles.badgeText || ''}
-              onChange={(e) =>
-                setStyles({
-                  ...styles,
-                  badgeText: e.target.value,
-                })
-              }
-              placeholder="e.g. NEW, FEATURED"
-              className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white placeholder:text-white/30"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="block-badge-tone-select"
-              className="text-[10px] text-slate-400 mb-1 block"
-            >
-              Badge Tone
-            </label>
-            <select
-              id="block-badge-tone-select"
-              value={styles.badgeTone || 'gold'}
-              onChange={(e) =>
-                setStyles({
-                  ...styles,
-                  badgeTone: e.target.value as VisualComposerStyles['badgeTone'],
-                })
-              }
-              className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white"
-            >
-              <option value="gold">Civic Gold</option>
-              <option value="navy">Patriotic Navy</option>
-              <option value="emerald">Grassroots Emerald</option>
-              <option value="crimson">Alert Crimson</option>
-              <option value="slate">Subtle Charcoal</option>
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="block-badge-pos-select"
-              className="text-[10px] text-slate-400 mb-1 block"
-            >
-              Badge Position
-            </label>
-            <select
-              id="block-badge-pos-select"
-              value={styles.badgePosition || 'top-right'}
-              onChange={(e) =>
-                setStyles({
-                  ...styles,
-                  badgePosition: e.target.value as VisualComposerStyles['badgePosition'],
-                })
-              }
-              className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white"
-            >
-              <option value="top-right">Top Right Corner</option>
-              <option value="top-left">Top Left Corner</option>
-            </select>
-          </div>
+          <StudioInput
+            id="block-badge-text-input"
+            label="Badge Label Text"
+            value={styles.badgeText || ''}
+            onChange={(val) => setStyles({ ...styles, badgeText: val })}
+            placeholder="e.g. NEW, FEATURED"
+          />
+          <StudioSelect
+            id="block-badge-tone-select"
+            label="Badge Tone"
+            value={styles.badgeTone || 'gold'}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                badgeTone: val as VisualComposerStyles['badgeTone'],
+              })
+            }
+            options={[
+              { value: 'gold', label: 'Civic Gold' },
+              { value: 'navy', label: 'Patriotic Navy' },
+              { value: 'emerald', label: 'Grassroots Emerald' },
+              { value: 'crimson', label: 'Action Alert Crimson' },
+              { value: 'slate', label: 'Subtle Charcoal' },
+            ]}
+          />
+          <StudioSelect
+            id="block-badge-pos-select"
+            label="Badge Position"
+            value={styles.badgePosition || 'top-right'}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                badgePosition: val as VisualComposerStyles['badgePosition'],
+              })
+            }
+            options={[
+              { value: 'top-right', label: 'Top Right Corner' },
+              { value: 'top-left', label: 'Top Left Corner' },
+            ]}
+          />
         </div>
       </div>
 

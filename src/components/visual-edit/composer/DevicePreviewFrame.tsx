@@ -4,7 +4,11 @@ import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import type { Block } from '@/lib/blocks';
 import type { ThemeMode } from '@/lib/theme';
-import type { VisualComposerDevice, VisualComposerMode } from '@/types/unified';
+import type {
+  VisualComposerDevice,
+  VisualComposerMode,
+  VisualComposerStyles,
+} from '@/types/unified';
 import { ThemePreviewToggle } from './ui/ThemePreviewToggle';
 
 export interface DevicePreviewFrameProps {
@@ -15,6 +19,7 @@ export interface DevicePreviewFrameProps {
   currentBlock: Block;
   previewTheme?: ThemeMode;
   setPreviewTheme?: (theme: ThemeMode) => void;
+  styles?: VisualComposerStyles;
 }
 
 export function DevicePreviewFrame({
@@ -25,10 +30,22 @@ export function DevicePreviewFrame({
   currentBlock,
   previewTheme: propTheme,
   setPreviewTheme: propSetTheme,
+  styles,
 }: DevicePreviewFrameProps) {
   const [internalTheme, setInternalTheme] = useState<ThemeMode>('system');
   const activeTheme = propTheme ?? internalTheme;
   const handleSetTheme = propSetTheme ?? setInternalTheme;
+
+  const isOsDark =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const effectiveTheme = activeTheme === 'system' ? (isOsDark ? 'dark' : 'light') : activeTheme;
+
+  const hasThemeOverride =
+    (styles?.themeMode && styles.themeMode !== 'inherit') ||
+    (styles?.section?.themeMode && styles.section.themeMode !== 'inherit');
+  const themeOverrideTone = styles?.themeMode || styles?.section?.themeMode;
 
   return (
     <div className="border-b border-white/10 bg-slate-900/40 px-5 py-2.5">
@@ -37,6 +54,11 @@ export function DevicePreviewFrame({
           <Sparkles size={11} className="text-accent-gold" />
           <span>Live Mini-Preview ({inspectorMode})</span>
           <span className="text-[9px] text-accent-gold/90 font-mono ml-1">Real-time</span>
+          {hasThemeOverride && (
+            <span className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-accent-gold font-mono border border-accent-gold/30">
+              Tone: {themeOverrideTone}
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-2">
           {/* Theme Mode Selector (System / Light / Dark) */}
@@ -66,15 +88,35 @@ export function DevicePreviewFrame({
         </div>
       </div>
       <div
-        data-theme={activeTheme !== 'system' ? activeTheme : undefined}
-        className={`rounded-xl border transition-all duration-300 p-2.5 overflow-hidden ${
-          activeTheme === 'light'
-            ? 'bg-white/95 text-ink-strong border-white/20'
-            : activeTheme === 'dark'
-              ? 'bg-slate-950 text-white border-white/10'
-              : 'bg-black/40 text-white border-white/10'
+        data-theme={effectiveTheme}
+        className={`rounded-xl border transition-all duration-300 p-2.5 overflow-hidden relative ${
+          effectiveTheme === 'light'
+            ? 'bg-white/95 text-ink-strong border-white/20 shadow-xs'
+            : 'bg-slate-950 text-white border-white/10 shadow-inner'
         }`}
       >
+        {/* Real-time Badge Ribbon Preview */}
+        {styles?.badgeText?.trim() && (
+          <span
+            data-testid="preview-badge-ribbon"
+            className={`pointer-events-none absolute z-10 ${
+              styles.badgePosition === 'top-left' ? 'top-1.5 left-1.5' : 'top-1.5 right-1.5'
+            } text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+              styles.badgeTone === 'navy'
+                ? 'bg-sky-950 text-sky-200 border border-sky-400/30'
+                : styles.badgeTone === 'emerald'
+                  ? 'bg-emerald-950 text-emerald-200 border border-emerald-400/30'
+                  : styles.badgeTone === 'crimson'
+                    ? 'bg-rose-950 text-rose-200 border border-rose-400/30'
+                    : styles.badgeTone === 'slate'
+                      ? 'bg-slate-800 text-slate-300 border border-white/10'
+                      : 'bg-accent-gold text-ink-strong shadow-xs'
+            }`}
+          >
+            {styles.badgeText.trim()}
+          </span>
+        )}
+
         <div
           className={`transition-all duration-300 ${
             previewDevice === 'mobile'
@@ -87,7 +129,9 @@ export function DevicePreviewFrame({
           <div
             className={`${
               compiledClassNames ||
-              (activeTheme === 'light' ? 'p-2 text-ink-strong text-xs' : 'p-2 text-white text-xs')
+              (effectiveTheme === 'light'
+                ? 'p-2 text-ink-strong text-xs'
+                : 'p-2 text-white text-xs')
             }`}
           >
             <p className="line-clamp-2 text-xs">

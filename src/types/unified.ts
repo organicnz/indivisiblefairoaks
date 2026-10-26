@@ -71,6 +71,15 @@ export interface CopyRegionDefinition {
 export type { BlockTemplate } from '@/components/visual-edit/BlockLibraryModal';
 export type { BreadcrumbBarProps } from '@/components/visual-edit/BreadcrumbBar';
 export type { CommandPaletteProps } from '@/components/visual-edit/CommandPalette';
+export type { DevicePreviewFrameProps } from '@/components/visual-edit/composer/DevicePreviewFrame';
+export type {
+  StudioInputProps,
+  StudioOption,
+  StudioSectionProps,
+  StudioSelectProps,
+  StudioToggleProps,
+  ThemePreviewToggleProps,
+} from '@/components/visual-edit/composer/ui';
 export type { ScannedDataPoint } from '@/components/visual-edit/DataPointDrawer';
 export type { ElementInspectorHudProps } from '@/components/visual-edit/ElementInspectorHud';
 export type { AuditIssue } from '@/components/visual-edit/PageA11yAuditor';
@@ -86,6 +95,7 @@ export type {
   WriteToCopyRegionArgs,
 } from '@/components/visual-edit/useBlockWriter';
 export type { ViewportDeviceBarProps } from '@/components/visual-edit/ViewportDeviceBar';
+export type { VisualComposerInspectorProps } from '@/components/visual-edit/VisualComposerInspector';
 export type {
   ModifiedBlockItem,
   ModifiedDataPointItem,

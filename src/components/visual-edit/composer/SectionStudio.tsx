@@ -3,6 +3,7 @@
 import { Eye, EyeOff } from 'lucide-react';
 import type { VisualComposerStyles } from '@/types/unified';
 import { VC_COLUMN_PRESETS } from './constants';
+import { StudioSelect } from './ui';
 
 export interface SectionStudioProps {
   styles: VisualComposerStyles;
@@ -307,35 +308,26 @@ export function SectionStudio({
       </div>
 
       {/* Section Theme Mode Override (Pro) */}
-      <div>
-        <label
-          htmlFor="section-theme-mode-select"
-          className="text-[10px] text-slate-400 mb-1 block"
-        >
-          Section Theme Tone Mode
-        </label>
-        <select
-          id="section-theme-mode-select"
-          value={styles.section.themeMode || 'inherit'}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              section: {
-                ...styles.section,
-                themeMode: e.target.value as 'inherit' | 'light' | 'dark',
-              },
-            })
-          }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2 text-white text-xs"
-        >
-          <option value="inherit">Inherit Global Site Theme (Default)</option>
-          <option value="dark">Force Dark Tone Mode ([data-theme=dark])</option>
-          <option value="light">Force Light Tone Mode ([data-theme=light])</option>
-        </select>
-        <p className="mt-1 text-[10px] text-slate-400">
-          Locks this section to light or dark mode regardless of the reader&apos;s OS theme.
-        </p>
-      </div>
+      <StudioSelect
+        id="section-theme-mode-select"
+        label="Section Theme Tone Mode"
+        value={styles.section.themeMode || 'inherit'}
+        onChange={(val) =>
+          setStyles({
+            ...styles,
+            section: {
+              ...styles.section,
+              themeMode: val as 'inherit' | 'light' | 'dark',
+            },
+          })
+        }
+        options={[
+          { value: 'inherit', label: 'Inherit Global Site Theme (Default)' },
+          { value: 'dark', label: 'Force Dark Tone Mode ([data-theme=dark])' },
+          { value: 'light', label: 'Force Light Tone Mode ([data-theme=light])' },
+        ]}
+        description="Locks this section to light or dark mode regardless of the reader's OS theme."
+      />
 
       {/* Civic Gradient Backgrounds */}
       <div>

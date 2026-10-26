@@ -237,11 +237,35 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
       : styles.themeMode === 'light'
         ? '[data-theme=light] [color-scheme:light]'
         : '',
+    styles.badgeText?.trim() && !styles.layout.position ? 'relative' : '',
     styles.customClasses,
   ]
     .filter(Boolean)
     .join(' ')
     .trim();
+}
+
+/**
+ * Compiles decorative corner ribbon or badge HTML for a customized block.
+ */
+export function compileBadgeHtml(styles: VisualComposerStyles): string {
+  if (!styles.badgeText?.trim()) return '';
+  const pos = styles.badgePosition === 'top-left' ? 'top-2 left-2' : 'top-2 right-2';
+  const tone = styles.badgeTone || 'gold';
+  const toneClasses =
+    tone === 'navy'
+      ? 'bg-sky-950 text-sky-200 border border-sky-400/30'
+      : tone === 'emerald'
+        ? 'bg-emerald-950 text-emerald-200 border border-emerald-400/30'
+        : tone === 'crimson'
+          ? 'bg-rose-950 text-rose-200 border border-rose-400/30'
+          : tone === 'slate'
+            ? 'bg-slate-800 text-slate-300 border border-white/10'
+            : 'bg-accent-gold text-ink-strong shadow-sm';
+
+  const position = styles.badgePosition || 'top-right';
+
+  return `<span data-vc-badge data-tone="${tone}" data-pos="${position}" class="pointer-events-none absolute ${pos} text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${toneClasses}">${styles.badgeText.trim()}</span>`;
 }
 
 /**
