@@ -37,6 +37,8 @@ export interface SectionStudioProps {
   sectionBgRepeatSelectId: string;
   sectionAnchorIdInputId: string;
   sectionCustomClassesInputId: string;
+  sectionBgBlendModeSelectId?: string;
+  sectionInnerShadowSelectId?: string;
   compiledClassNames?: string;
 }
 
@@ -73,6 +75,8 @@ export function SectionStudio({
   sectionBgRepeatSelectId,
   sectionAnchorIdInputId,
   sectionCustomClassesInputId,
+  sectionBgBlendModeSelectId = 'section-bg-blend-mode',
+  sectionInnerShadowSelectId = 'section-inner-shadow',
   compiledClassNames,
 }: SectionStudioProps) {
   return (
@@ -598,77 +602,131 @@ export function SectionStudio({
       </div>
 
       {styles.section.columns && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-          <div>
-            <label htmlFor={sectionGapSelectId} className="text-[10px] text-slate-400 mb-1 block">
-              Column Gap
-            </label>
-            <select
-              id={sectionGapSelectId}
-              value={styles.section.columnGap}
-              onChange={(e) =>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div>
+              <label htmlFor={sectionGapSelectId} className="text-[10px] text-slate-400 mb-1 block">
+                Column Gap
+              </label>
+              <select
+                id={sectionGapSelectId}
+                value={styles.section.columnGap}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    section: { ...styles.section, columnGap: e.target.value },
+                  })
+                }
+                className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+              >
+                <option value="gap-0">Flush (gap-0)</option>
+                <option value="gap-4">Compact (gap-4)</option>
+                <option value="gap-8">Standard (gap-8)</option>
+                <option value="gap-12">Generous (gap-12)</option>
+                <option value="gap-16">Spacious (gap-16)</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor={sectionAlignSelectId}
+                className="text-[10px] text-slate-400 mb-1 block"
+              >
+                Vertical Alignment
+              </label>
+              <select
+                id={sectionAlignSelectId}
+                value={styles.section.verticalAlign}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    section: { ...styles.section, verticalAlign: e.target.value },
+                  })
+                }
+                className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+              >
+                <option value="items-start">Top Aligned</option>
+                <option value="items-center">Middle Centered</option>
+                <option value="items-end">Bottom Aligned</option>
+                <option value="items-stretch">Stretch Equal Height</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor={sectionJustifyContentSelectId}
+                className="text-[10px] text-slate-400 mb-1 block"
+              >
+                Column Justification
+              </label>
+              <select
+                id={sectionJustifyContentSelectId}
+                value={styles.section.justifyContent || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    section: { ...styles.section, justifyContent: e.target.value },
+                  })
+                }
+                className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+              >
+                <option value="">Default (Start)</option>
+                <option value="justify-start">Left / Start</option>
+                <option value="justify-center">Center Distribution</option>
+                <option value="justify-between">Space Between Columns</option>
+                <option value="justify-around">Space Around</option>
+                <option value="justify-end">Right / End</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Equal Height and Reverse Mobile Toggles */}
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() =>
                 setStyles({
                   ...styles,
-                  section: { ...styles.section, columnGap: e.target.value },
+                  section: { ...styles.section, equalHeight: !styles.section.equalHeight },
                 })
               }
-              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+              className={`p-2 rounded-lg border text-left transition-colors flex items-center justify-between ${
+                styles.section.equalHeight
+                  ? 'border-accent-gold bg-accent-gold/20 text-accent-gold font-bold'
+                  : 'border-white/10 bg-slate-900 text-slate-300 hover:bg-white/5 hover:text-white'
+              }`}
             >
-              <option value="gap-0">Flush (gap-0)</option>
-              <option value="gap-4">Compact (gap-4)</option>
-              <option value="gap-8">Standard (gap-8)</option>
-              <option value="gap-12">Generous (gap-12)</option>
-              <option value="gap-16">Spacious (gap-16)</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor={sectionAlignSelectId} className="text-[10px] text-slate-400 mb-1 block">
-              Vertical Alignment
-            </label>
-            <select
-              id={sectionAlignSelectId}
-              value={styles.section.verticalAlign}
-              onChange={(e) =>
+              <div>
+                <span className="block text-[11px]">Equal Height</span>
+                <span className="text-[9px] text-slate-400">Stretch column heights</span>
+              </div>
+              <span className="text-[10px] font-mono">
+                {styles.section.equalHeight ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
                 setStyles({
                   ...styles,
-                  section: { ...styles.section, verticalAlign: e.target.value },
+                  section: { ...styles.section, reverseMobile: !styles.section.reverseMobile },
                 })
               }
-              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+              className={`p-2 rounded-lg border text-left transition-colors flex items-center justify-between ${
+                styles.section.reverseMobile
+                  ? 'border-amber-500/40 bg-amber-500/20 text-amber-300 font-bold'
+                  : 'border-white/10 bg-slate-900 text-slate-300 hover:bg-white/5 hover:text-white'
+              }`}
             >
-              <option value="items-start">Top Aligned</option>
-              <option value="items-center">Middle Centered</option>
-              <option value="items-end">Bottom Aligned</option>
-              <option value="items-stretch">Stretch Equal Height</option>
-            </select>
+              <div>
+                <span className="block text-[11px]">Reverse Mobile</span>
+                <span className="text-[9px] text-slate-400">Invert column order</span>
+              </div>
+              <span className="text-[10px] font-mono">
+                {styles.section.reverseMobile ? 'ON' : 'OFF'}
+              </span>
+            </button>
           </div>
-          <div>
-            <label
-              htmlFor={sectionJustifyContentSelectId}
-              className="text-[10px] text-slate-400 mb-1 block"
-            >
-              Column Justification
-            </label>
-            <select
-              id={sectionJustifyContentSelectId}
-              value={styles.section.justifyContent || ''}
-              onChange={(e) =>
-                setStyles({
-                  ...styles,
-                  section: { ...styles.section, justifyContent: e.target.value },
-                })
-              }
-              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-            >
-              <option value="">Default (Start)</option>
-              <option value="justify-start">Left / Start</option>
-              <option value="justify-center">Center Distribution</option>
-              <option value="justify-between">Space Between Columns</option>
-              <option value="justify-around">Space Around</option>
-              <option value="justify-end">Right / End</option>
-            </select>
-          </div>
-        </div>
+        </>
       )}
 
       {/* Section Radius & Shadow */}
@@ -868,6 +926,69 @@ export function SectionStudio({
           <option value="backdrop-blur-sm bg-slate-900/40">Frosted Mist Overlay</option>
           <option value="bg-rose-950/30">Alert Crimson Aura (bg-rose-950/30)</option>
         </select>
+      </div>
+
+      {/* Section Background Blend Mode & Inner Box Shadow */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label
+            htmlFor={sectionBgBlendModeSelectId}
+            className="text-[10px] text-slate-400 mb-1 block"
+          >
+            Background Blend Mode
+          </label>
+          <select
+            id={sectionBgBlendModeSelectId}
+            value={styles.section.bgBlendMode || ''}
+            onChange={(e) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, bgBlendMode: e.target.value },
+              })
+            }
+            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+          >
+            <option value="">Normal (Default)</option>
+            <option value="bg-blend-multiply">Multiply</option>
+            <option value="bg-blend-screen">Screen</option>
+            <option value="bg-blend-overlay">Overlay</option>
+            <option value="bg-blend-darken">Darken</option>
+            <option value="bg-blend-lighten">Lighten</option>
+            <option value="bg-blend-color-dodge">Color Dodge</option>
+            <option value="bg-blend-soft-light">Soft Light</option>
+            <option value="bg-blend-difference">Difference</option>
+            <option value="bg-blend-luminosity">Luminosity</option>
+          </select>
+        </div>
+        <div>
+          <label
+            htmlFor={sectionInnerShadowSelectId}
+            className="text-[10px] text-slate-400 mb-1 block"
+          >
+            Inner Recessed Shadow
+          </label>
+          <select
+            id={sectionInnerShadowSelectId}
+            value={styles.section.innerShadow || ''}
+            onChange={(e) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, innerShadow: e.target.value },
+              })
+            }
+            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+          >
+            <option value="">None (Flat Surface)</option>
+            <option value="shadow-inner">Subtle Inset Well (shadow-inner)</option>
+            <option value="shadow-[inset_0_4px_16px_rgba(0,0,0,0.6)]">Deep Recessed Well</option>
+            <option value="shadow-[inset_0_2px_16px_rgba(245,158,11,0.25)]">
+              Civic Gold Horizon
+            </option>
+            <option value="shadow-[inset_0_2px_16px_rgba(30,58,138,0.35)]">
+              Navy Horizon Inset
+            </option>
+          </select>
+        </div>
       </div>
 
       {/* Section Parallax & Background Fit */}

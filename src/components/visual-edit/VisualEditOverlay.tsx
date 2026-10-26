@@ -3205,7 +3205,10 @@ export function VisualEditOverlay() {
           <div className="mx-0.5 h-3.5 w-px bg-white/20" />
 
           {/* Real-time Typography & Accent Styler */}
-          <StyleQuickTuner element={inlineSession.element} />
+          <StyleQuickTuner
+            element={inlineSession.element}
+            onOpenVisualComposer={() => setIsVisualComposerOpen(true)}
+          />
 
           <div className="mx-0.5 h-3.5 w-px bg-white/20" />
 

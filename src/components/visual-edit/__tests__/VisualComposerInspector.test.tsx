@@ -1731,4 +1731,379 @@ describe('VisualComposerInspector', () => {
     expect(savedClasses).toContain('object-cover');
     expect(savedClasses).toContain('ease-out');
   });
+
+  it('configures advanced row/section controls including asymmetric columns, equal height, mobile reverse, blend mode, and inner shadow', async () => {
+    const onSaveBlock = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="section"
+        />
+      );
+    });
+
+    // 1. Multi-column preset (3/4 + 1/4)
+    const colPresetBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.getAttribute('aria-label') === 'Column layout 3/4 + 1/4'
+    );
+    expect(colPresetBtn).toBeDefined();
+    await act(async () => {
+      colPresetBtn?.click();
+    });
+
+    // 2. Toggle Equal Height Columns
+    const equalHeightBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Equal Height')
+    );
+    expect(equalHeightBtn).toBeDefined();
+    await act(async () => {
+      equalHeightBtn?.click();
+    });
+
+    // 3. Toggle Reverse on Mobile
+    const reverseMobileBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Reverse Mobile')
+    );
+    expect(reverseMobileBtn).toBeDefined();
+    await act(async () => {
+      reverseMobileBtn?.click();
+    });
+
+    // 4. Background Blend Mode
+    const blendLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Background Blend Mode')
+    );
+    const blendSelect = blendLabel
+      ? (document.getElementById(blendLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(blendSelect).not.toBeNull();
+    if (blendSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(blendSelect, 'bg-blend-multiply');
+        blendSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(blendSelect.value).toBe('bg-blend-multiply');
+    }
+
+    // 5. Inner Recessed Shadow
+    const innerShadowLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Inner Recessed Shadow')
+    );
+    const innerShadowSelect = innerShadowLabel
+      ? (document.getElementById(innerShadowLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(innerShadowSelect).not.toBeNull();
+    if (innerShadowSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(innerShadowSelect, 'shadow-inner');
+        innerShadowSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(innerShadowSelect.value).toBe('shadow-inner');
+    }
+
+    // Save Section and verify compiled classes
+    const saveSectionButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Section'
+    );
+    expect(saveSectionButton).toBeDefined();
+    await act(async () => {
+      saveSectionButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    const savedClasses = onSaveBlock.mock.calls[0][1];
+    expect(savedClasses).toContain('grid grid-cols-1 md:grid-cols-4');
+    expect(savedClasses).toContain('items-stretch');
+    expect(savedClasses).toContain('flex-col-reverse md:flex-row');
+    expect(savedClasses).toContain('bg-blend-multiply');
+    expect(savedClasses).toContain('shadow-inner');
+  });
+
+  it('configures pro visual composer block controls across box model, typography, and motion', async () => {
+    const onSaveBlock = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+        />
+      );
+    });
+
+    // 1. Box Model Tab: Width, Min/Max dimensions, Flex, Pointer Events, Filters, 2D Transforms
+    const boxModelTabBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Box Model'
+    );
+    await act(async () => {
+      boxModelTabBtn?.click();
+    });
+
+    // Width
+    const widthLabel = Array.from(document.querySelectorAll('label')).find(
+      (l) => l.textContent?.trim() === 'Element Width'
+    );
+    const widthSelect = widthLabel
+      ? (document.getElementById(widthLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(widthSelect).not.toBeNull();
+    if (widthSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(widthSelect, 'w-full');
+        widthSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(widthSelect.value).toBe('w-full');
+    }
+
+    // Min Width
+    const minWidthLabel = Array.from(document.querySelectorAll('label')).find(
+      (l) => l.textContent?.trim() === 'Min Width'
+    );
+    const minWidthSelect = minWidthLabel
+      ? (document.getElementById(minWidthLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(minWidthSelect).not.toBeNull();
+    if (minWidthSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(minWidthSelect, 'min-w-[300px]');
+        minWidthSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(minWidthSelect.value).toBe('min-w-[300px]');
+    }
+
+    // Height
+    const heightLabel = Array.from(document.querySelectorAll('label')).find(
+      (l) => l.textContent?.trim() === 'Height'
+    );
+    const heightSelect = heightLabel
+      ? (document.getElementById(heightLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(heightSelect).not.toBeNull();
+    if (heightSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(heightSelect, 'h-64');
+        heightSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(heightSelect.value).toBe('h-64');
+    }
+
+    // Pointer Events
+    const pointerEventsLabel = Array.from(document.querySelectorAll('label')).find(
+      (l) => l.textContent?.trim() === 'Pointer Events'
+    );
+    const pointerEventsSelect = pointerEventsLabel
+      ? (document.getElementById(pointerEventsLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(pointerEventsSelect).not.toBeNull();
+    if (pointerEventsSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(pointerEventsSelect, 'pointer-events-none');
+        pointerEventsSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(pointerEventsSelect.value).toBe('pointer-events-none');
+    }
+
+    // User Selection
+    const userSelectLabel = Array.from(document.querySelectorAll('label')).find(
+      (l) => l.textContent?.trim() === 'User Selection'
+    );
+    const userSelectSelect = userSelectLabel
+      ? (document.getElementById(userSelectLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(userSelectSelect).not.toBeNull();
+    if (userSelectSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(userSelectSelect, 'select-none');
+        userSelectSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(userSelectSelect.value).toBe('select-none');
+    }
+
+    // Invert Filter
+    const invertLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('CSS Invert Filter')
+    );
+    const invertSelect = invertLabel
+      ? (document.getElementById(invertLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(invertSelect).not.toBeNull();
+    if (invertSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(invertSelect, 'invert');
+        invertSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(invertSelect.value).toBe('invert');
+    }
+
+    // Drop Shadow
+    const dropShadowLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('CSS Drop Shadow')
+    );
+    const dropShadowSelect = dropShadowLabel
+      ? (document.getElementById(dropShadowLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(dropShadowSelect).not.toBeNull();
+    if (dropShadowSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(dropShadowSelect, 'drop-shadow-xl');
+        dropShadowSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(dropShadowSelect.value).toBe('drop-shadow-xl');
+    }
+
+    // Translate X & Y & Origin
+    const transXLabel = Array.from(document.querySelectorAll('label')).find(
+      (l) => l.textContent?.trim() === 'Translate X'
+    );
+    const transXSelect = transXLabel
+      ? (document.getElementById(transXLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(transXSelect).not.toBeNull();
+    if (transXSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(transXSelect, 'translate-x-4');
+        transXSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(transXSelect.value).toBe('translate-x-4');
+    }
+
+    const transYLabel = Array.from(document.querySelectorAll('label')).find(
+      (l) => l.textContent?.trim() === 'Translate Y'
+    );
+    const transYSelect = transYLabel
+      ? (document.getElementById(transYLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(transYSelect).not.toBeNull();
+    if (transYSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(transYSelect, '-translate-y-2');
+        transYSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(transYSelect.value).toBe('-translate-y-2');
+    }
+
+    const originLabel = Array.from(document.querySelectorAll('label')).find(
+      (l) => l.textContent?.trim() === 'Transform Origin'
+    );
+    const originSelect = originLabel
+      ? (document.getElementById(originLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(originSelect).not.toBeNull();
+    if (originSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(originSelect, 'origin-top-left');
+        originSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(originSelect.value).toBe('origin-top-left');
+    }
+
+    // 2. Type Tab: Word Break, 4xl, Font Weight
+    const typeTabBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Type'
+    );
+    await act(async () => {
+      typeTabBtn?.click();
+    });
+
+    const wordBreakLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Word Break Behavior')
+    );
+    const wordBreakSelect = wordBreakLabel
+      ? (document.getElementById(wordBreakLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(wordBreakSelect).not.toBeNull();
+    if (wordBreakSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(wordBreakSelect, 'break-words');
+        wordBreakSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(wordBreakSelect.value).toBe('break-words');
+    }
+
+    // 3. Advanced Tab: Hover Border, Hover Shadow
+    const advancedTabBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Advanced'
+    );
+    await act(async () => {
+      advancedTabBtn?.click();
+    });
+
+    const hoverBorderLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Hover Border Accent')
+    );
+    const hoverBorderSelect = hoverBorderLabel
+      ? (document.getElementById(hoverBorderLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(hoverBorderSelect).not.toBeNull();
+    if (hoverBorderSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(hoverBorderSelect, 'hover:border-amber-500');
+        hoverBorderSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(hoverBorderSelect.value).toBe('hover:border-amber-500');
+    }
+
+    const hoverShadowLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Hover Elevation Shadow')
+    );
+    const hoverShadowSelect = hoverShadowLabel
+      ? (document.getElementById(hoverShadowLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(hoverShadowSelect).not.toBeNull();
+    if (hoverShadowSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(hoverShadowSelect, 'hover:shadow-2xl');
+        hoverShadowSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(hoverShadowSelect.value).toBe('hover:shadow-2xl');
+    }
+
+    // Save Block
+    const saveButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Block'
+    );
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    const savedClasses = onSaveBlock.mock.calls[0][1];
+    expect(savedClasses).toContain('w-full');
+    expect(savedClasses).toContain('min-w-[300px]');
+    expect(savedClasses).toContain('h-64');
+    expect(savedClasses).toContain('pointer-events-none');
+    expect(savedClasses).toContain('select-none');
+    expect(savedClasses).toContain('invert');
+    expect(savedClasses).toContain('drop-shadow-xl');
+    expect(savedClasses).toContain('translate-x-4');
+    expect(savedClasses).toContain('-translate-y-2');
+    expect(savedClasses).toContain('origin-top-left');
+    expect(savedClasses).toContain('break-words');
+    expect(savedClasses).toContain('hover:border-amber-500');
+    expect(savedClasses).toContain('hover:shadow-2xl');
+  });
 });

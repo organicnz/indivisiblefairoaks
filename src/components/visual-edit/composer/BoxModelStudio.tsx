@@ -51,6 +51,20 @@ export interface BoxModelStudioProps {
   transformRotateSelectId: string;
   transformScaleSelectId: string;
   transformSkewSelectId: string;
+  layoutWidthSelectId?: string;
+  layoutMinWidthSelectId?: string;
+  layoutHeightSelectId?: string;
+  layoutMinHeightSelectId?: string;
+  layoutMaxHeightSelectId?: string;
+  layoutFlexWrapSelectId?: string;
+  layoutFlexShrinkSelectId?: string;
+  layoutPointerEventsSelectId?: string;
+  layoutUserSelectSelectId?: string;
+  effectInvertSelectId?: string;
+  effectDropShadowSelectId?: string;
+  transformTranslateXSelectId?: string;
+  transformTranslateYSelectId?: string;
+  transformOriginSelectId?: string;
 }
 
 export function BoxModelStudio({
@@ -100,6 +114,20 @@ export function BoxModelStudio({
   transformRotateSelectId,
   transformScaleSelectId,
   transformSkewSelectId,
+  layoutWidthSelectId = 'layout-width-select',
+  layoutMinWidthSelectId = 'layout-min-width-select',
+  layoutHeightSelectId = 'layout-height-select',
+  layoutMinHeightSelectId = 'layout-min-height-select',
+  layoutMaxHeightSelectId = 'layout-max-height-select',
+  layoutFlexWrapSelectId = 'layout-flex-wrap-select',
+  layoutFlexShrinkSelectId = 'layout-flex-shrink-select',
+  layoutPointerEventsSelectId = 'layout-pointer-events-select',
+  layoutUserSelectSelectId = 'layout-user-select-select',
+  effectInvertSelectId = 'effect-invert-select',
+  effectDropShadowSelectId = 'effect-drop-shadow-select',
+  transformTranslateXSelectId = 'transform-translate-x-select',
+  transformTranslateYSelectId = 'transform-translate-y-select',
+  transformOriginSelectId = 'transform-origin-select',
 }: BoxModelStudioProps) {
   return (
     <div className="space-y-4">
@@ -744,9 +772,146 @@ export function BoxModelStudio({
           </div>
         </div>
 
+        {/* Width & Min-Width Grid */}
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <div>
+            <label htmlFor={layoutWidthSelectId} className="text-[10px] text-slate-400 mb-1 block">
+              Element Width
+            </label>
+            <select
+              id={layoutWidthSelectId}
+              value={styles.layout.width || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  layout: { ...styles.layout, width: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">Auto (Default)</option>
+              <option value="w-full">Full Width (100%)</option>
+              <option value="w-1/2">Half Width (50%)</option>
+              <option value="w-1/3">One Third (33%)</option>
+              <option value="w-2/3">Two Thirds (66%)</option>
+              <option value="w-3/4">Three Fourths (75%)</option>
+              <option value="w-1/4">One Fourth (25%)</option>
+              <option value="w-fit">Fit Content (w-fit)</option>
+              <option value="w-max">Max Content (w-max)</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor={layoutMinWidthSelectId}
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Min Width
+            </label>
+            <select
+              id={layoutMinWidthSelectId}
+              value={styles.layout.minWidth || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  layout: { ...styles.layout, minWidth: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">None (0)</option>
+              <option value="min-w-0">Allow Shrink (min-w-0)</option>
+              <option value="min-w-full">Full Canvas (100%)</option>
+              <option value="min-w-[200px]">200px Minimum</option>
+              <option value="min-w-[300px]">300px Minimum</option>
+              <option value="min-w-min">Min Content</option>
+              <option value="min-w-max">Max Content</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Height, Min-Height & Max-Height Grid */}
+        <div className="grid grid-cols-3 gap-1.5 mb-2">
+          <div>
+            <label htmlFor={layoutHeightSelectId} className="text-[10px] text-slate-400 mb-1 block">
+              Height
+            </label>
+            <select
+              id={layoutHeightSelectId}
+              value={styles.layout.height || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  layout: { ...styles.layout, height: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">Auto (Content)</option>
+              <option value="h-full">Full Height (100%)</option>
+              <option value="h-24">96px (h-24)</option>
+              <option value="h-32">128px (h-32)</option>
+              <option value="h-48">192px (h-48)</option>
+              <option value="h-64">256px (h-64)</option>
+              <option value="h-96">384px (h-96)</option>
+              <option value="h-screen">Screen (100vh)</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor={layoutMinHeightSelectId}
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Min Height
+            </label>
+            <select
+              id={layoutMinHeightSelectId}
+              value={styles.layout.minHeight || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  layout: { ...styles.layout, minHeight: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">None (0)</option>
+              <option value="min-h-[100px]">100px</option>
+              <option value="min-h-[200px]">200px</option>
+              <option value="min-h-[300px]">300px</option>
+              <option value="min-h-full">Full (100%)</option>
+              <option value="min-h-screen">Screen (100vh)</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor={layoutMaxHeightSelectId}
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Max Height
+            </label>
+            <select
+              id={layoutMaxHeightSelectId}
+              value={styles.layout.maxHeight || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  layout: { ...styles.layout, maxHeight: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">None (Unlimited)</option>
+              <option value="max-h-full">Full (100%)</option>
+              <option value="max-h-96">384px (max-h-96)</option>
+              <option value="max-h-[500px]">500px</option>
+              <option value="max-h-screen">Screen (100vh)</option>
+            </select>
+          </div>
+        </div>
+
         {/* Flex Options if display is flex */}
         {(styles.layout.display === 'flex' || styles.layout.display === 'inline-flex') && (
-          <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-white/5 border border-white/10 mb-2">
+          <div className="grid grid-cols-4 gap-1.5 p-2 rounded-xl bg-white/5 border border-white/10 mb-2">
             <div>
               <label
                 htmlFor={layoutFlexDirSelectId}
@@ -820,11 +985,34 @@ export function BoxModelStudio({
                 <option value="items-stretch">Stretch</option>
               </select>
             </div>
+            <div>
+              <label
+                htmlFor={layoutFlexWrapSelectId}
+                className="text-[9px] text-slate-400 mb-0.5 block"
+              >
+                Wrap
+              </label>
+              <select
+                id={layoutFlexWrapSelectId}
+                value={styles.layout.flexWrap || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    layout: { ...styles.layout, flexWrap: e.target.value },
+                  })
+                }
+                className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+              >
+                <option value="">No Wrap</option>
+                <option value="flex-wrap">Wrap</option>
+                <option value="flex-wrap-reverse">Reverse</option>
+              </select>
+            </div>
           </div>
         )}
 
         {/* Flex Child & Self-Alignment */}
-        <div className="grid grid-cols-3 gap-1.5 mb-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2">
           <div>
             <label
               htmlFor={layoutAlignSelfSelectId}
@@ -896,6 +1084,29 @@ export function BoxModelStudio({
               <option value="">Default Sizing</option>
               <option value="grow">Grow to Fill (grow)</option>
               <option value="grow-0">Fixed Scale (grow-0)</option>
+              <option value="shrink">Allow Shrink (shrink)</option>
+              <option value="shrink-0">Prevent Shrink (shrink-0)</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor={layoutFlexShrinkSelectId}
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Flex Shrink
+            </label>
+            <select
+              id={layoutFlexShrinkSelectId}
+              value={styles.layout.flexShrink || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  layout: { ...styles.layout, flexShrink: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">Default Shrink</option>
               <option value="shrink">Allow Shrink (shrink)</option>
               <option value="shrink-0">Prevent Shrink (shrink-0)</option>
             </select>
@@ -1082,6 +1293,57 @@ export function BoxModelStudio({
               <option value="">Default (visible)</option>
               <option value="visible">Force Visible (visible)</option>
               <option value="invisible">Hidden in DOM Space (invisible)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Pointer Events & User Selection */}
+        <div className="grid grid-cols-2 gap-1.5 mt-2">
+          <div>
+            <label
+              htmlFor={layoutPointerEventsSelectId}
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Pointer Events
+            </label>
+            <select
+              id={layoutPointerEventsSelectId}
+              value={styles.layout.pointerEvents || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  layout: { ...styles.layout, pointerEvents: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">Default (Auto)</option>
+              <option value="pointer-events-auto">Interactive (pointer-events-auto)</option>
+              <option value="pointer-events-none">Pass Through (pointer-events-none)</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor={layoutUserSelectSelectId}
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              User Selection
+            </label>
+            <select
+              id={layoutUserSelectSelectId}
+              value={styles.layout.userSelect || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  layout: { ...styles.layout, userSelect: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">Default (Selectable)</option>
+              <option value="select-none">Prevent Selection (select-none)</option>
+              <option value="select-text">Select Text (select-text)</option>
+              <option value="select-all">Select All on Click (select-all)</option>
             </select>
           </div>
         </div>
@@ -1413,6 +1675,55 @@ export function BoxModelStudio({
             </select>
           </div>
         </div>
+
+        {/* CSS Invert & Drop Shadow */}
+        <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+          <div>
+            <label htmlFor={effectInvertSelectId} className="text-[10px] text-slate-400 mb-1 block">
+              CSS Invert Filter
+            </label>
+            <select
+              id={effectInvertSelectId}
+              value={styles.effects.invert || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  effects: { ...styles.effects, invert: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">Normal (0% Invert)</option>
+              <option value="invert">Full Invert (100%)</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor={effectDropShadowSelectId}
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              CSS Drop Shadow (Alpha)
+            </label>
+            <select
+              id={effectDropShadowSelectId}
+              value={styles.effects.dropShadow || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  effects: { ...styles.effects, dropShadow: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">None (No Drop Shadow)</option>
+              <option value="drop-shadow-sm">Subtle Soft (sm)</option>
+              <option value="drop-shadow-md">Medium Silhouette (md)</option>
+              <option value="drop-shadow-lg">Elevated Alpha (lg)</option>
+              <option value="drop-shadow-xl">High Silhouette (xl)</option>
+              <option value="drop-shadow-2xl">Maximum Depth (2xl)</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Transforms & 3D Tilt Studio */}
@@ -1494,6 +1805,98 @@ export function BoxModelStudio({
               <option value="skew-x-1">1° Civic Slant</option>
               <option value="-skew-x-1">-1° Reverse Slant</option>
               <option value="skew-y-1">1° Vertical Slant</option>
+            </select>
+          </div>
+        </div>
+
+        {/* 2D Translation & Origin */}
+        <div className="grid grid-cols-3 gap-1.5 mt-2">
+          <div>
+            <label
+              htmlFor={transformTranslateXSelectId}
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Translate X
+            </label>
+            <select
+              id={transformTranslateXSelectId}
+              value={styles.transform?.translateX || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  transform: { ...styles.transform, translateX: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">0 (None)</option>
+              <option value="translate-x-1">+4px (translate-x-1)</option>
+              <option value="-translate-x-1">-4px (-translate-x-1)</option>
+              <option value="translate-x-2">+8px (translate-x-2)</option>
+              <option value="-translate-x-2">-8px (-translate-x-2)</option>
+              <option value="translate-x-4">+16px (translate-x-4)</option>
+              <option value="-translate-x-4">-16px (-translate-x-4)</option>
+              <option value="translate-x-full">+100% (+full)</option>
+              <option value="-translate-x-full">-100% (-full)</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor={transformTranslateYSelectId}
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Translate Y
+            </label>
+            <select
+              id={transformTranslateYSelectId}
+              value={styles.transform?.translateY || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  transform: { ...styles.transform, translateY: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">0 (None)</option>
+              <option value="translate-y-1">+4px (translate-y-1)</option>
+              <option value="-translate-y-1">-4px (-translate-y-1)</option>
+              <option value="translate-y-2">+8px (translate-y-2)</option>
+              <option value="-translate-y-2">-8px (-translate-y-2)</option>
+              <option value="translate-y-4">+16px (translate-y-4)</option>
+              <option value="-translate-y-4">-16px (-translate-y-4)</option>
+              <option value="-translate-y-1/2">-50% (Center Offset)</option>
+              <option value="translate-y-full">+100% (+full)</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor={transformOriginSelectId}
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Transform Origin
+            </label>
+            <select
+              id={transformOriginSelectId}
+              value={styles.transform?.transformOrigin || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  transform: { ...styles.transform, transformOrigin: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">Default (Center)</option>
+              <option value="origin-center">Center</option>
+              <option value="origin-top">Top</option>
+              <option value="origin-top-right">Top Right</option>
+              <option value="origin-right">Right</option>
+              <option value="origin-bottom-right">Bottom Right</option>
+              <option value="origin-bottom">Bottom</option>
+              <option value="origin-bottom-left">Bottom Left</option>
+              <option value="origin-left">Left</option>
+              <option value="origin-top-left">Top Left</option>
             </select>
           </div>
         </div>

@@ -71,4 +71,24 @@ describe('StyleQuickTuner', () => {
 
     expect(targetEl.classList.contains('text-center')).toBe(true);
   });
+
+  it('triggers onOpenVisualComposer when launcher button is clicked', () => {
+    const onOpen = vi.fn();
+    act(() => {
+      root.render(
+        <StyleQuickTuner element={targetEl} defaultOpen={true} onOpenVisualComposer={onOpen} />
+      );
+    });
+
+    const studioBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Open Visual Composer Studio')
+    );
+    expect(studioBtn).toBeDefined();
+
+    act(() => {
+      studioBtn?.click();
+    });
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
 });

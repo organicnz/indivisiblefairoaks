@@ -5,9 +5,10 @@ import { AlignCenter, AlignLeft, AlignRight, Palette, SlidersHorizontal, Type } 
 import type React from 'react';
 import { toast } from 'sonner';
 
-interface StyleQuickTunerProps {
+export interface StyleQuickTunerProps {
   element: HTMLElement;
   defaultOpen?: boolean;
+  onOpenVisualComposer?: () => void;
 }
 
 const FONT_SIZES = [
@@ -37,7 +38,11 @@ const COLOR_PRESETS = [
   { label: 'Default', class: 'text-foreground', bg: 'bg-white/90' },
 ];
 
-export const StyleQuickTuner: React.FC<StyleQuickTunerProps> = ({ element, defaultOpen }) => {
+export const StyleQuickTuner: React.FC<StyleQuickTunerProps> = ({
+  element,
+  defaultOpen,
+  onOpenVisualComposer,
+}) => {
   const toggleClass = (classesToRemove: string[], classToAdd: string) => {
     for (const c of classesToRemove) {
       element.classList.remove(c);
@@ -228,6 +233,19 @@ export const StyleQuickTuner: React.FC<StyleQuickTunerProps> = ({ element, defau
               ))}
             </div>
           </div>
+
+          {onOpenVisualComposer && (
+            <div className="pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => onOpenVisualComposer()}
+                className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-accent-gold/40 bg-accent-gold/15 py-1.5 px-2 text-[11px] font-bold text-accent-gold hover:bg-accent-gold/25 transition-colors cursor-pointer"
+              >
+                <SlidersHorizontal size={12} />
+                <span>Open Visual Composer Studio</span>
+              </button>
+            </div>
+          )}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

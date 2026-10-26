@@ -15,6 +15,8 @@ export interface AdvancedMotionStudioProps {
   motionDelaySelectId: string;
   motionHoverGlowSelectId: string;
   motionTimingSelectId: string;
+  motionHoverBorderSelectId?: string;
+  motionHoverShadowSelectId?: string;
   anchorIdInputId?: string;
   compiledClassNames?: string;
 }
@@ -31,6 +33,8 @@ export function AdvancedMotionStudio({
   motionDelaySelectId,
   motionHoverGlowSelectId,
   motionTimingSelectId,
+  motionHoverBorderSelectId = 'motion-hover-border-select',
+  motionHoverShadowSelectId = 'motion-hover-shadow-select',
   anchorIdInputId,
   compiledClassNames,
 }: AdvancedMotionStudioProps) {
@@ -281,6 +285,62 @@ export function AdvancedMotionStudio({
                 <option value="hover:shadow-[0_0_30px_rgba(59,130,246,0.35)]">
                   Radial Blue Glow
                 </option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div>
+              <label
+                htmlFor={motionHoverBorderSelectId}
+                className="text-[9px] text-slate-400 mb-0.5 block"
+              >
+                Hover Border Accent
+              </label>
+              <select
+                id={motionHoverBorderSelectId}
+                value={styles.motion.hoverBorder || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverBorder: e.target.value },
+                  })
+                }
+                className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+              >
+                <option value="">None</option>
+                <option value="hover:border-amber-500">Gold Accent (amber-500)</option>
+                <option value="hover:border-blue-500">Navy Accent (blue-500)</option>
+                <option value="hover:border-white/40">Frost Glass (white/40)</option>
+                <option value="hover:border-rose-500">Alert Crimson (rose-500)</option>
+                <option value="hover:border-emerald-500">Grassroots Emerald (emerald-500)</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor={motionHoverShadowSelectId}
+                className="text-[9px] text-slate-400 mb-0.5 block"
+              >
+                Hover Elevation Shadow
+              </label>
+              <select
+                id={motionHoverShadowSelectId}
+                value={styles.motion.hoverShadow || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverShadow: e.target.value },
+                  })
+                }
+                className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+              >
+                <option value="">None</option>
+                <option value="hover:shadow-md">Medium Elevation (md)</option>
+                <option value="hover:shadow-lg">High Elevation (lg)</option>
+                <option value="hover:shadow-xl">Dramatic Depth (xl)</option>
+                <option value="hover:shadow-2xl">Ultra Deep (2xl)</option>
+                <option value="hover:shadow-xl hover:shadow-amber-500/20">Gold Aura Lift</option>
+                <option value="hover:shadow-xl hover:shadow-blue-500/20">Navy Aura Lift</option>
               </select>
             </div>
           </div>

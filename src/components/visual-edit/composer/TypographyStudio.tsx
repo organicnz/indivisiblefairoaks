@@ -17,6 +17,7 @@ export interface TypographyStudioProps {
   textShadowSelectId: string;
   fontStyleSelectId: string;
   textWrapSelectId: string;
+  wordBreakSelectId?: string;
 }
 
 export function TypographyStudio({
@@ -33,6 +34,7 @@ export function TypographyStudio({
   textShadowSelectId,
   fontStyleSelectId,
   textWrapSelectId,
+  wordBreakSelectId = 'typography-word-break-select',
 }: TypographyStudioProps) {
   return (
     <div className="space-y-4">
@@ -117,6 +119,10 @@ export function TypographyStudio({
             <option value="text-xl">XL (xl)</option>
             <option value="text-2xl">Hero (2xl)</option>
             <option value="text-3xl">Display (3xl)</option>
+            <option value="text-4xl">Title (4xl)</option>
+            <option value="text-5xl">Heroic (5xl)</option>
+            <option value="text-6xl">Billboard (6xl)</option>
+            <option value="text-7xl">Monumental (7xl)</option>
           </select>
         </div>
       </div>
@@ -138,10 +144,13 @@ export function TypographyStudio({
             }
             className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white"
           >
+            <option value="font-thin">Thin (100)</option>
+            <option value="font-light">Light (300)</option>
             <option value="font-normal">Regular (400)</option>
             <option value="font-medium">Medium (500)</option>
             <option value="font-semibold">Semi-Bold (600)</option>
             <option value="font-bold">Bold (700)</option>
+            <option value="font-extrabold">Extra Bold (800)</option>
             <option value="font-black">Black (900)</option>
           </select>
         </div>
@@ -354,8 +363,8 @@ export function TypographyStudio({
         </select>
       </div>
 
-      {/* Font Style & Editorial Text Wrapping */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Font Style, Editorial Text Wrapping & Word Breaking */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div>
           <label htmlFor={fontStyleSelectId} className="text-[10px] text-slate-400 mb-1 block">
             Font Posture / Style
@@ -398,6 +407,28 @@ export function TypographyStudio({
             <option value="text-pretty">Editorial Pretty (text-pretty)</option>
             <option value="truncate">Single Line Truncate (truncate)</option>
             <option value="break-words">Break Words (break-words)</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor={wordBreakSelectId} className="text-[10px] text-slate-400 mb-1 block">
+            Word Break Behavior
+          </label>
+          <select
+            id={wordBreakSelectId}
+            value={styles.typography.wordBreak || ''}
+            onChange={(e) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, wordBreak: e.target.value },
+              })
+            }
+            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+          >
+            <option value="">Default (Browser)</option>
+            <option value="break-normal">Normal (break-normal)</option>
+            <option value="break-words">Wrap Long Words (break-words)</option>
+            <option value="break-all">Force Break Anywhere (break-all)</option>
+            <option value="break-keep">Keep Words Whole (break-keep)</option>
           </select>
         </div>
       </div>
