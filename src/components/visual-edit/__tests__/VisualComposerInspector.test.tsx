@@ -747,4 +747,154 @@ describe('VisualComposerInspector', () => {
       expect(rotateSelect.value).toBe('rotate-2');
     }
   });
+
+  it('selects multi-column ratio presets in section mode', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          initialMode="section"
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('Row Multi-Column Layout');
+    const colPresetButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.getAttribute('aria-label') === 'Column layout 1/2 + 1/2'
+    );
+    expect(colPresetButton).toBeDefined();
+
+    await act(async () => {
+      colPresetButton?.click();
+    });
+
+    const colSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) => s.value === 'grid grid-cols-1 md:grid-cols-2'
+    );
+    expect(colSelect).toBeDefined();
+  });
+
+  it('configures CSS filter studio controls in design tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const boxModelButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Box Model'
+    );
+    await act(async () => {
+      boxModelButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Brightness');
+    expect(document.body.textContent).toContain('Contrast');
+    expect(document.body.textContent).toContain('Saturation');
+    expect(document.body.textContent).toContain('Hue Shift (Color Shift)');
+    expect(document.body.textContent).toContain('Sepia Vintage');
+    expect(document.body.textContent).toContain('Element Blur Filter');
+
+    const brightnessLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Brightness')
+    );
+    const brightnessSelect = brightnessLabel
+      ? (document.getElementById(brightnessLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(brightnessSelect).not.toBeNull();
+    if (brightnessSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(brightnessSelect, 'brightness-110');
+        brightnessSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(brightnessSelect.value).toBe('brightness-110');
+    }
+  });
+
+  it('applies quick civic design tokens in code tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const codeTabButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Code'
+    );
+    await act(async () => {
+      codeTabButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Quick Design Tokens');
+    expect(document.body.textContent).toContain('+Glass Frost');
+    expect(document.body.textContent).toContain('+Amber Glow');
+
+    const glassFrostButton = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Glass Frost')
+    );
+    expect(glassFrostButton).toBeDefined();
+    await act(async () => {
+      glassFrostButton?.click();
+    });
+
+    const customClassInput = Array.from(document.querySelectorAll('input')).find((input) =>
+      input.value?.includes('backdrop-blur-md bg-white/10')
+    );
+    expect(customClassInput).toBeDefined();
+  });
+
+  it('configures entrance stagger delay in advanced tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const advancedButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Advanced'
+    );
+    await act(async () => {
+      advancedButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Entrance Stagger Delay');
+    const delayLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Entrance Stagger Delay')
+    );
+    const delaySelect = delayLabel
+      ? (document.getElementById(delayLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(delaySelect).not.toBeNull();
+    if (delaySelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(delaySelect, 'delay-100');
+        delaySelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(delaySelect.value).toBe('delay-100');
+    }
+  });
 });

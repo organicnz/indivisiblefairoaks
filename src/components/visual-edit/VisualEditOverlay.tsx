@@ -2014,6 +2014,10 @@ export function VisualEditOverlay() {
           }
         }
 
+        if (matchedBlockIdx !== null) {
+          setActiveBlockIndex(matchedBlockIdx);
+        }
+
         const r = clickedImg.getBoundingClientRect();
         const session: ImageEditSession = {
           element: clickedImg,
@@ -2041,6 +2045,10 @@ export function VisualEditOverlay() {
           matchedBlockIdx = sec.blockIndex;
           break;
         }
+      }
+
+      if (matchedBlockIdx !== null) {
+        setActiveBlockIndex(matchedBlockIdx);
       }
 
       const initialHtml = editable.innerHTML;

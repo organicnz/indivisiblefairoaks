@@ -99,6 +99,12 @@ export interface VisualComposerStyles {
     opacity: string;
     backdropBlur: string;
     grayscale: string;
+    brightness?: string;
+    contrast?: string;
+    saturate?: string;
+    sepia?: string;
+    hueRotate?: string;
+    blur?: string;
   };
   motion: {
     entrance: string;
@@ -107,6 +113,7 @@ export interface VisualComposerStyles {
     hoverLift?: string;
     hoverRotate?: string;
     duration?: string;
+    delay?: string;
   };
   transform?: {
     rotate?: string;
@@ -184,6 +191,12 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     opacity: '',
     backdropBlur: '',
     grayscale: '',
+    brightness: '',
+    contrast: '',
+    saturate: '',
+    sepia: '',
+    hueRotate: '',
+    blur: '',
   },
   motion: {
     entrance: '',
@@ -192,6 +205,7 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     hoverLift: '',
     hoverRotate: '',
     duration: '',
+    delay: '',
   },
   transform: {
     rotate: '',
@@ -559,6 +573,77 @@ export const VC_STYLE_PRESETS: StylePreset[] = [
   },
 ];
 
+export const VC_COLUMN_PRESETS = [
+  { id: '1-col', label: '1/1', value: '', cols: [{ id: 'c1', width: '100%' }] },
+  {
+    id: '2-col',
+    label: '1/2 + 1/2',
+    value: 'grid grid-cols-1 md:grid-cols-2',
+    cols: [
+      { id: 'c1', width: '50%' },
+      { id: 'c2', width: '50%' },
+    ],
+  },
+  {
+    id: '3-col',
+    label: '1/3 × 3',
+    value: 'grid grid-cols-1 md:grid-cols-3',
+    cols: [
+      { id: 'c1', width: '33%' },
+      { id: 'c2', width: '33%' },
+      { id: 'c3', width: '33%' },
+    ],
+  },
+  {
+    id: '4-col',
+    label: '1/4 × 4',
+    value: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+    cols: [
+      { id: 'c1', width: '25%' },
+      { id: 'c2', width: '25%' },
+      { id: 'c3', width: '25%' },
+      { id: 'c4', width: '25%' },
+    ],
+  },
+  {
+    id: '2-1-col',
+    label: '2/3 + 1/3',
+    value: 'grid grid-cols-1 md:grid-cols-3 [&>*:first-child]:md:col-span-2',
+    cols: [
+      { id: 'c1', width: '66%' },
+      { id: 'c2', width: '33%' },
+    ],
+  },
+  {
+    id: '1-2-col',
+    label: '1/3 + 2/3',
+    value: 'grid grid-cols-1 md:grid-cols-3 [&>*:last-child]:md:col-span-2',
+    cols: [
+      { id: 'c1', width: '33%' },
+      { id: 'c2', width: '66%' },
+    ],
+  },
+  {
+    id: '1-2-1-col',
+    label: '1/4 + 1/2 + 1/4',
+    value: 'grid grid-cols-1 md:grid-cols-4 [&>*:nth-child(2)]:md:col-span-2',
+    cols: [
+      { id: 'c1', width: '25%' },
+      { id: 'c2', width: '50%' },
+      { id: 'c3', width: '25%' },
+    ],
+  },
+] as const;
+
+export const CIVIC_CLASS_PRESETS = [
+  { label: 'Glass Frost', value: 'backdrop-blur-md bg-white/10 border border-white/20 text-white' },
+  { label: 'Amber Glow', value: 'shadow-lg shadow-amber-500/20 ring-1 ring-amber-500/50' },
+  { label: 'Gold Border', value: 'border border-accent-gold/40' },
+  { label: 'Tilt 3D', value: 'rotate-1 hover:rotate-0 transition-transform duration-200' },
+  { label: 'Card Lift', value: 'hover:-translate-y-1 hover:shadow-xl transition-all duration-200' },
+  { label: 'Subtle Pulse', value: 'animate-pulse duration-1000' },
+] as const;
+
 // Module-level clipboard for copying & pasting styles across blocks
 let stylesClipboard: VisualComposerStyles | null = null;
 
@@ -658,6 +743,12 @@ export function VisualComposerInspector({
   const effectOpacitySelectId = useId();
   const effectBackdropBlurSelectId = useId();
   const effectGrayscaleSelectId = useId();
+  const effectBrightnessSelectId = useId();
+  const effectContrastSelectId = useId();
+  const effectSaturateSelectId = useId();
+  const effectSepiaSelectId = useId();
+  const effectHueRotateSelectId = useId();
+  const effectBlurSelectId = useId();
 
   const fontFamilySelectId = useId();
   const fontSizeSelectId = useId();
@@ -673,6 +764,7 @@ export function VisualComposerInspector({
   const motionHoverLiftSelectId = useId();
   const motionHoverRotateSelectId = useId();
   const motionDurationSelectId = useId();
+  const motionDelaySelectId = useId();
   const anchorIdInputId = useId();
   const customClassesInputId = useId();
   const rawHtmlInputId = useId();
@@ -794,11 +886,18 @@ export function VisualComposerInspector({
           styles.effects.backdropBlur || (styles.background.blur ? 'backdrop-blur-md' : ''),
           styles.effects.opacity,
           styles.effects.grayscale,
+          styles.effects.brightness,
+          styles.effects.contrast,
+          styles.effects.saturate,
+          styles.effects.sepia,
+          styles.effects.hueRotate,
+          styles.effects.blur,
           styles.shadow !== 'shadow-none' ? styles.shadow : '',
           styles.transform?.rotate,
           styles.transform?.scale,
           styles.transform?.skew,
           styles.motion.entrance,
+          styles.motion.delay,
           styles.motion.hover,
           styles.motion.hoverScale,
           styles.motion.hoverLift,
@@ -1298,6 +1397,12 @@ export function VisualComposerInspector({
                 <option value="[clip-path:polygon(0_0,100%_3vw,100%_100%,0_100%)]">
                   Diagonal Slant Cutout (3vw)
                 </option>
+                <option value="[clip-path:polygon(0_3vw,100%_0,100%_100%,0_100%)]">
+                  Reverse Diagonal Slant (-3vw)
+                </option>
+                <option value="[clip-path:polygon(0_0,100%_0,100%_calc(100%-3vw),0_100%)]">
+                  Bottom Diagonal Slant (3vw)
+                </option>
                 <option value="[clip-path:polygon(0_0,50%_3vw,100%_0,100%_100%,0_100%)]">
                   Triangle Arrow Transition
                 </option>
@@ -1307,11 +1412,57 @@ export function VisualComposerInspector({
                 <option value="rounded-b-[3rem] border-b-2 border-border">
                   Pill Arch Footer (3rem)
                 </option>
+                <option value="shadow-[0_-8px_24px_-6px_rgba(245,158,11,0.25)] border-t border-amber-500/40">
+                  Top Civic Gold Horizon Glow
+                </option>
+                <option value="shadow-[0_8px_24px_-6px_rgba(245,158,11,0.25)] border-b border-amber-500/40">
+                  Bottom Civic Gold Horizon Glow
+                </option>
               </select>
             </div>
 
             <div>
-              <span className="block text-slate-300 font-bold mb-2">Row Multi-Column Layout</span>
+              <span className="block text-slate-300 font-bold mb-1.5">Row Multi-Column Layout</span>
+
+              {/* 1-Click Column Ratio Presets */}
+              <div className="grid grid-cols-4 gap-1.5 mb-2">
+                {VC_COLUMN_PRESETS.map((preset) => {
+                  const isSelected = styles.section.columns === preset.value;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() =>
+                        setStyles({
+                          ...styles,
+                          section: { ...styles.section, columns: preset.value },
+                        })
+                      }
+                      className={`flex flex-col items-center justify-between p-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+                        isSelected
+                          ? 'border-accent-gold bg-accent-gold/20 text-accent-gold shadow-xs'
+                          : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+                      }`}
+                      title={`Set columns to ${preset.label}`}
+                      aria-label={`Column layout ${preset.label}`}
+                    >
+                      <div className="w-full flex gap-0.5 h-2.5 mb-1">
+                        {preset.cols.map((col) => (
+                          <div
+                            key={`${preset.id}-${col.id}`}
+                            style={{ width: col.width }}
+                            className={`h-full rounded-2xs ${
+                              isSelected ? 'bg-accent-gold' : 'bg-white/30'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="truncate w-full text-center text-[9px]">{preset.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
               <label htmlFor={sectionColumnsSelectId} className="sr-only">
                 Column Grid
               </label>
@@ -2864,6 +3015,165 @@ export function VisualComposerInspector({
                   </select>
                 </div>
               </div>
+
+              {/* CSS Filters & Color Grading */}
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                <div>
+                  <label
+                    htmlFor={effectBrightnessSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Brightness
+                  </label>
+                  <select
+                    id={effectBrightnessSelectId}
+                    value={styles.effects.brightness || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        effects: { ...styles.effects, brightness: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">100% Normal</option>
+                    <option value="brightness-50">50% Dim</option>
+                    <option value="brightness-75">75% Muted</option>
+                    <option value="brightness-90">90% Subtle Soft</option>
+                    <option value="brightness-110">110% Vivid Boost</option>
+                    <option value="brightness-125">125% High Key</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={effectContrastSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Contrast
+                  </label>
+                  <select
+                    id={effectContrastSelectId}
+                    value={styles.effects.contrast || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        effects: { ...styles.effects, contrast: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">100% Normal</option>
+                    <option value="contrast-75">75% Low Contrast</option>
+                    <option value="contrast-125">125% Punchy Contrast</option>
+                    <option value="contrast-150">150% High Dynamic</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                <div>
+                  <label
+                    htmlFor={effectSaturateSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Saturation
+                  </label>
+                  <select
+                    id={effectSaturateSelectId}
+                    value={styles.effects.saturate || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        effects: { ...styles.effects, saturate: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">100% Normal</option>
+                    <option value="saturate-50">50% Desaturated</option>
+                    <option value="saturate-150">150% Vibrant Rich</option>
+                    <option value="saturate-200">200% Super Saturated</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={effectHueRotateSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Hue Shift (Color Shift)
+                  </label>
+                  <select
+                    id={effectHueRotateSelectId}
+                    value={styles.effects.hueRotate || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        effects: { ...styles.effects, hueRotate: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">0° Normal</option>
+                    <option value="hue-rotate-15">15° Warm Shift</option>
+                    <option value="hue-rotate-30">30° Golden Amber</option>
+                    <option value="hue-rotate-60">60° Emerald Green</option>
+                    <option value="hue-rotate-90">90° Cyan Accent</option>
+                    <option value="hue-rotate-180">180° Inverted Spectrum</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                <div>
+                  <label
+                    htmlFor={effectSepiaSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Sepia Vintage
+                  </label>
+                  <select
+                    id={effectSepiaSelectId}
+                    value={styles.effects.sepia || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        effects: { ...styles.effects, sepia: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">None (Modern Color)</option>
+                    <option value="sepia">Warm Sepia Tone</option>
+                    <option value="sepia hover:sepia-0 transition-all duration-300">
+                      Hover Reveal Modern
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={effectBlurSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Element Blur Filter
+                  </label>
+                  <select
+                    id={effectBlurSelectId}
+                    value={styles.effects.blur || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        effects: { ...styles.effects, blur: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">Sharp (No Blur)</option>
+                    <option value="blur-xs">Soft Focus (xs)</option>
+                    <option value="blur-sm">Light Blur (sm)</option>
+                    <option value="blur-md">Medium Bokeh (md)</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             {/* Transforms & 3D Tilt Studio */}
@@ -3300,6 +3610,32 @@ export function VisualComposerInspector({
                 placeholder="e.g. shadow-2xl backdrop-blur-lg hover:rotate-1"
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono text-[11px]"
               />
+
+              {/* Quick Civic Class Tokens */}
+              <div className="mt-2.5">
+                <span className="text-[10px] text-slate-400 block mb-1">Quick Design Tokens:</span>
+                <div className="flex flex-wrap gap-1">
+                  {CIVIC_CLASS_PRESETS.map((token) => (
+                    <button
+                      key={token.label}
+                      type="button"
+                      onClick={() => {
+                        const existing = styles.customClasses.split(/\s+/).filter(Boolean);
+                        if (!existing.includes(token.value)) {
+                          setStyles({
+                            ...styles,
+                            customClasses: [...existing, token.value].join(' '),
+                          });
+                          toast.success(`Appended ${token.label}`);
+                        }
+                      }}
+                      className="px-2 py-0.5 rounded-md border border-white/10 bg-white/5 text-[10px] text-slate-300 hover:border-accent-gold/50 hover:bg-white/10 hover:text-accent-gold transition-colors"
+                    >
+                      +{token.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -3490,6 +3826,37 @@ export function VisualComposerInspector({
                     </select>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <label
+                      htmlFor={motionDelaySelectId}
+                      className="text-[9px] text-slate-400 mb-0.5 block"
+                    >
+                      Entrance Stagger Delay
+                    </label>
+                    <select
+                      id={motionDelaySelectId}
+                      value={styles.motion.delay || ''}
+                      onChange={(e) =>
+                        setStyles({
+                          ...styles,
+                          motion: { ...styles.motion, delay: e.target.value },
+                        })
+                      }
+                      className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+                    >
+                      <option value="">None (0ms)</option>
+                      <option value="delay-100">+100ms Stagger</option>
+                      <option value="delay-150">+150ms</option>
+                      <option value="delay-200">+200ms</option>
+                      <option value="delay-300">+300ms</option>
+                      <option value="delay-500">+500ms</option>
+                      <option value="delay-700">+700ms</option>
+                      <option value="delay-1000">+1000ms</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -3589,7 +3956,10 @@ export function VisualComposerInspector({
       <div className="flex items-center justify-between border-t border-white/10 bg-slate-900/80 px-5 py-3">
         <button
           type="button"
-          onClick={() => setStyles(DEFAULT_VC_STYLES)}
+          onClick={() => {
+            setStyles(DEFAULT_VC_STYLES);
+            toast.info('Reset styles to defaults');
+          }}
           className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
         >
           <RotateCcw size={13} />
