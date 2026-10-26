@@ -3,7 +3,7 @@
 import { Eye, EyeOff } from 'lucide-react';
 import type { VisualComposerStyles } from '@/types/unified';
 import { VC_COLUMN_PRESETS } from './constants';
-import { StudioSelect } from './ui';
+import { StudioInput, StudioSection, StudioSelect, StudioToggle } from './ui';
 
 export interface SectionStudioProps {
   styles: VisualComposerStyles;
@@ -85,536 +85,182 @@ export function SectionStudio({
   compiledClassNames,
 }: SectionStudioProps) {
   return (
-    <div className="space-y-4">
-      {/* Row Canvas Mode & Container Width */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <span className="block text-slate-300 font-bold mb-2">Row Canvas Mode</span>
-          <label htmlFor={sectionRowLayoutSelectId} className="sr-only">
-            Row Canvas Mode
-          </label>
-          <select
+    <div className="space-y-5">
+      {/* ── 1. Canvas & Sizing ─────────────────────────────────────────── */}
+      <StudioSection
+        title="Canvas & Container Structure"
+        badge="Layout"
+        description="Configure row layout stretching, maximum responsive width, and min-height behavior."
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
             id={sectionRowLayoutSelectId}
+            label="Row Canvas Mode"
             value={styles.section.rowLayout || ''}
-            onChange={(e) =>
+            onChange={(val) =>
               setStyles({
                 ...styles,
-                section: { ...styles.section, rowLayout: e.target.value },
+                section: { ...styles.section, rowLayout: val },
               })
             }
-            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-          >
-            <option value="">Boxed Container (Default)</option>
-            <option value="full-width-bg">Full Width Background</option>
-            <option value="full-width-content">Stretched Full Canvas (Edge-to-Edge)</option>
-            <option value="screen-height">Screen Height Hero (100vh)</option>
-          </select>
-        </div>
-        <div>
-          <span className="block text-slate-300 font-bold mb-2">Section Container Width</span>
-          <label htmlFor={sectionWidthSelectId} className="sr-only">
-            Container Width
-          </label>
-          <select
+            options={[
+              { value: '', label: 'Boxed Container (Default)' },
+              { value: 'full-width-bg', label: 'Full Width Background' },
+              { value: 'full-width-content', label: 'Stretched Full Canvas (Edge-to-Edge)' },
+              { value: 'screen-height', label: 'Screen Height Hero (100vh)' },
+            ]}
+          />
+          <StudioSelect
             id={sectionWidthSelectId}
+            label="Section Container Width"
             value={styles.section.containerWidth}
-            onChange={(e) =>
+            onChange={(val) =>
               setStyles({
                 ...styles,
-                section: { ...styles.section, containerWidth: e.target.value },
+                section: { ...styles.section, containerWidth: val },
               })
             }
-            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-          >
-            <option value="max-w-4xl mx-auto px-4">Standard Editorial (4XL - 896px)</option>
-            <option value="max-w-5xl mx-auto px-4">Wide Content (5XL - 1024px)</option>
-            <option value="max-w-7xl mx-auto px-6">Ultra Wide Showcase (7XL - 1280px)</option>
-            <option value="max-w-2xl mx-auto px-4">Compact Focused Reader (2XL - 672px)</option>
-            <option value="w-full px-4">Full Bleed Fluid (100% Width)</option>
-          </select>
+            options={[
+              { value: 'max-w-4xl mx-auto px-4', label: 'Standard Editorial (4XL - 896px)' },
+              { value: 'max-w-5xl mx-auto px-4', label: 'Wide Content (5XL - 1024px)' },
+              { value: 'max-w-7xl mx-auto px-6', label: 'Ultra Wide Showcase (7XL - 1280px)' },
+              { value: 'max-w-2xl mx-auto px-4', label: 'Compact Focused Reader (2XL - 672px)' },
+              { value: 'w-full px-4', label: 'Full Bleed Fluid (100% Width)' },
+            ]}
+          />
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <span className="block text-slate-300 font-bold mb-2">Vertical Section Padding</span>
-          <label htmlFor={sectionPaddingYSelectId} className="sr-only">
-            Vertical Padding
-          </label>
-          <select
-            id={sectionPaddingYSelectId}
-            value={styles.section.paddingY}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, paddingY: e.target.value },
-              })
-            }
-            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-          >
-            <option value="py-8">Standard Breathing Room (py-8 / 32px)</option>
-            <option value="py-16">Generous Space (py-16 / 64px)</option>
-            <option value="py-24">Hero Spotlight (py-24 / 96px)</option>
-            <option value="py-4">Compact Spacing (py-4 / 16px)</option>
-            <option value="py-0">Flush Edge (py-0 / 0px)</option>
-          </select>
-        </div>
-        <div>
-          <span className="block text-slate-300 font-bold mb-2">Horizontal Padding</span>
-          <label htmlFor={sectionPaddingXSelectId} className="sr-only">
-            Horizontal Padding
-          </label>
-          <select
-            id={sectionPaddingXSelectId}
-            value={styles.section.paddingX}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, paddingX: e.target.value },
-              })
-            }
-            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-          >
-            <option value="px-4">Standard (px-4 / 16px)</option>
-            <option value="px-6">Spacious (px-6 / 24px)</option>
-            <option value="px-8">Generous (px-8 / 32px)</option>
-            <option value="px-12">Deep Inset (px-12 / 48px)</option>
-            <option value="px-0">Edge to Edge (px-0)</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Section Outer Margin Studio (Vertical & Horizontal) */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <span className="block text-slate-300 font-bold mb-2">Vertical Section Margin</span>
-          <label htmlFor={sectionMarginYSelectId} className="sr-only">
-            Vertical Section Margin
-          </label>
-          <select
-            id={sectionMarginYSelectId}
-            value={styles.section.marginY || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, marginY: e.target.value },
-              })
-            }
-            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-          >
-            <option value="">Default (Flush / None)</option>
-            <option value="my-4">Compact (my-4 / 16px)</option>
-            <option value="my-8">Standard Rhythm (my-8 / 32px)</option>
-            <option value="my-12">Spacious Rhythm (my-12 / 48px)</option>
-            <option value="my-16">Deep Separation (my-16 / 64px)</option>
-            <option value="my-24">Dramatic Separation (my-24 / 96px)</option>
-          </select>
-        </div>
-        <div>
-          <span className="block text-slate-300 font-bold mb-2">Horizontal Margin / Float</span>
-          <label htmlFor={sectionMarginXSelectId} className="sr-only">
-            Horizontal Margin
-          </label>
-          <select
-            id={sectionMarginXSelectId}
-            value={styles.section.marginX || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, marginX: e.target.value },
-              })
-            }
-            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-          >
-            <option value="">Default (None / Edge)</option>
-            <option value="mx-auto">Auto Center (mx-auto)</option>
-            <option value="mx-4">Compact Inset (mx-4 / 16px)</option>
-            <option value="mx-8">Medium Floating (mx-8 / 32px)</option>
-            <option value="mx-12">Spacious Floating (mx-12 / 48px)</option>
-            <option value="mx-16">Island Card (mx-16 / 64px)</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Section Min-Height & Viewport Sizing */}
-      <div>
-        <span className="block text-slate-300 font-bold mb-2">
-          Section Viewport &amp; Min Height
-        </span>
-        <label htmlFor={sectionMinHeightSelectId} className="sr-only">
-          Section Min Height
-        </label>
-        <select
+        <StudioSelect
           id={sectionMinHeightSelectId}
+          label="Section Viewport & Min Height"
           value={styles.section.minHeight}
-          onChange={(e) =>
+          onChange={(val) =>
             setStyles({
               ...styles,
-              section: { ...styles.section, minHeight: e.target.value },
+              section: { ...styles.section, minHeight: val },
             })
           }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-        >
-          <option value="">Auto (Content Derived)</option>
-          <option value="min-h-[250px] flex flex-col justify-center">
-            Compact Band (min-h-[250px])
-          </option>
-          <option value="min-h-[400px] flex flex-col justify-center">
-            Medium Section (min-h-[400px])
-          </option>
-          <option value="min-h-[50vh] flex flex-col justify-center">
-            Half Viewport (min-h-[50vh])
-          </option>
-          <option value="min-h-[75vh] flex flex-col justify-center">
-            Hero Prominence (min-h-[75vh])
-          </option>
-          <option value="min-h-screen flex flex-col justify-center">
-            Full Viewport Screen (min-h-screen)
-          </option>
-        </select>
-      </div>
-
-      <div>
-        <span className="block text-slate-300 font-bold mb-2">Section Background Theme</span>
-        <label htmlFor={sectionBgSelectId} className="sr-only">
-          Section Background
-        </label>
-        <select
-          id={sectionBgSelectId}
-          value={styles.section.background}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              section: {
-                ...styles.section,
-                background: e.target.value,
-                bgGradient: '',
-                pattern: '',
-              },
-            })
-          }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-        >
-          <option value="bg-transparent">Transparent (Default)</option>
-          <option value="bg-card text-foreground">Clean Card Surface</option>
-          <option value="bg-navy-950 text-white">Patriotic Navy Deep</option>
-          <option value="bg-amber-500/10 text-foreground">Civic Gold Warmth</option>
-          <option value="bg-white/10 backdrop-blur-md border border-white/20 text-white">
-            Frost Liquid Glass
-          </option>
-          <option value="bg-rose-500/10 text-foreground">Alert Crimson Tint</option>
-          <option value="bg-emerald-500/10 text-foreground">Grassroots Forest Green</option>
-        </select>
-      </div>
-
-      {/* Section Theme Mode Override (Pro) */}
-      <StudioSelect
-        id="section-theme-mode-select"
-        label="Section Theme Tone Mode"
-        value={styles.section.themeMode || 'inherit'}
-        onChange={(val) =>
-          setStyles({
-            ...styles,
-            section: {
-              ...styles.section,
-              themeMode: val as 'inherit' | 'light' | 'dark',
+          options={[
+            { value: '', label: 'Auto (Content Derived)' },
+            {
+              value: 'min-h-[250px] flex flex-col justify-center',
+              label: 'Compact Band (min-h-[250px])',
             },
-          })
-        }
-        options={[
-          { value: 'inherit', label: 'Inherit Global Site Theme (Default)' },
-          { value: 'dark', label: 'Force Dark Tone Mode ([data-theme=dark])' },
-          { value: 'light', label: 'Force Light Tone Mode ([data-theme=light])' },
-        ]}
-        description="Locks this section to light or dark mode regardless of the reader's OS theme."
-      />
+            {
+              value: 'min-h-[400px] flex flex-col justify-center',
+              label: 'Medium Section (min-h-[400px])',
+            },
+            {
+              value: 'min-h-[50vh] flex flex-col justify-center',
+              label: 'Half Viewport (min-h-[50vh])',
+            },
+            {
+              value: 'min-h-[75vh] flex flex-col justify-center',
+              label: 'Hero Prominence (min-h-[75vh])',
+            },
+            {
+              value: 'min-h-screen flex flex-col justify-center',
+              label: 'Full Viewport Screen (min-h-screen)',
+            },
+          ]}
+        />
+      </StudioSection>
 
-      {/* Civic Gradient Backgrounds */}
-      <div>
-        <span className="block text-slate-300 font-bold mb-2">
-          Civic Gradient Background (Optional)
-        </span>
-        <label htmlFor={bgGradientSelectId} className="sr-only">
-          Section Gradient
-        </label>
-        <select
-          id={bgGradientSelectId}
-          value={styles.section.bgGradient}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              section: { ...styles.section, bgGradient: e.target.value, pattern: '' },
-            })
-          }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-        >
-          <option value="">None (Use Solid Theme Above)</option>
-          <option value="bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
-            Patriotic Midnight Navy
-          </option>
-          <option value="bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-transparent text-foreground">
-            Civic Gold Glow
-          </option>
-          <option value="bg-gradient-to-br from-rose-950/80 via-slate-900 to-black text-white">
-            Alert Crimson Stand
-          </option>
-          <option value="bg-gradient-to-br from-emerald-950/80 via-slate-900 to-slate-950 text-white">
-            Grassroots Forest Emerald
-          </option>
-          <option value="bg-gradient-to-br from-white/15 via-white/5 to-white/10 backdrop-blur-lg border border-white/20 text-white">
-            Iridescent Liquid Frost Glass
-          </option>
-        </select>
-      </div>
-
-      {/* Civic Background Texture & Patterns */}
-      <div>
-        <span className="block text-slate-300 font-bold mb-2">
-          Civic Background Texture &amp; Patterns
-        </span>
-        <label htmlFor={sectionPatternSelectId} className="sr-only">
-          Section Pattern
-        </label>
-        <select
-          id={sectionPatternSelectId}
-          value={styles.section.pattern}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              section: { ...styles.section, pattern: e.target.value },
-            })
-          }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-        >
-          <option value="">None (Solid / Plain)</option>
-          <option value="bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.12)_1.5px,transparent_1.5px)] [background-size:24px_24px]">
-            Civic Dot Matrix (24px Grid)
-          </option>
-          <option value="bg-[linear-gradient(45deg,rgba(255,255,255,0.04)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.04)_50%,rgba(255,255,255,0.04)_75%,transparent_75%,transparent)] [background-size:24px_24px]">
-            Architectural Diagonal Hatch
-          </option>
-          <option value="bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/15 via-slate-950 to-slate-950 text-white">
-            Radiant Golden Civic Aura
-          </option>
-          <option value="bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/30 via-slate-900 to-slate-950 text-white">
-            Midnight Deep Blue Mesh
-          </option>
-        </select>
-      </div>
-
-      <div>
-        <span className="block text-slate-300 font-bold mb-2">
-          Section Separator Dividers &amp; Cutouts
-        </span>
-        <label htmlFor={sectionDividerSelectId} className="sr-only">
-          Section Divider
-        </label>
-        <select
-          id={sectionDividerSelectId}
-          value={styles.section.divider}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              section: { ...styles.section, divider: e.target.value },
-            })
-          }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-        >
-          <option value="">No Divider (None)</option>
-          <option value="border-t border-border">Top Hairline Separator</option>
-          <option value="border-b border-border">Bottom Hairline Separator</option>
-          <option value="border-y border-border">Top &amp; Bottom Separators</option>
-          <option value="border-t-4 border-amber-500">Gold Accent Header Bar</option>
-          <option value="border-t-4 border-blue-900">Navy Accent Header Bar</option>
-          <option value="[clip-path:polygon(0_0,100%_3vw,100%_100%,0_100%)]">
-            Diagonal Slant Cutout (3vw)
-          </option>
-          <option value="[clip-path:polygon(0_3vw,100%_0,100%_100%,0_100%)]">
-            Reverse Diagonal Slant (-3vw)
-          </option>
-          <option value="[clip-path:polygon(0_0,100%_0,100%_calc(100%-3vw),0_100%)]">
-            Bottom Diagonal Slant (3vw)
-          </option>
-          <option value="[clip-path:polygon(0_0,50%_3vw,100%_0,100%_100%,0_100%)]">
-            Triangle Arrow Transition
-          </option>
-          <option value="rounded-t-[3rem] border-t-2 border-border">
-            Curved Arch Header (3rem)
-          </option>
-          <option value="rounded-b-[3rem] border-b-2 border-border">Pill Arch Footer (3rem)</option>
-          <option value="shadow-[0_-8px_24px_-6px_rgba(245,158,11,0.25)] border-t border-amber-500/40">
-            Top Civic Gold Horizon Glow
-          </option>
-          <option value="shadow-[0_8px_24px_-6px_rgba(245,158,11,0.25)] border-b border-amber-500/40">
-            Bottom Civic Gold Horizon Glow
-          </option>
-        </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label
-            htmlFor={sectionTopDividerSelectId}
-            className="block text-slate-300 font-bold mb-1 text-[11px]"
-          >
-            Top Shape Divider (Pro)
-          </label>
-          <select
-            id={sectionTopDividerSelectId}
-            value={styles.section.topDivider || ''}
-            onChange={(e) =>
+      {/* ── 2. Spacing Rhythm ──────────────────────────────────────────── */}
+      <StudioSection
+        title="Spacing & Geometry"
+        badge="Box"
+        description="Rhythm controls for inner padding and outer section margins."
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
+            id={sectionPaddingYSelectId}
+            label="Vertical Section Padding"
+            value={styles.section.paddingY}
+            onChange={(val) =>
               setStyles({
                 ...styles,
-                section: { ...styles.section, topDivider: e.target.value },
+                section: { ...styles.section, paddingY: val },
               })
             }
-            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">None (Flush Top)</option>
-            <option value="border-t border-border/80">Hairline Border Top</option>
-            <option value="border-t-2 border-accent-gold">Gold Accent Bar (2px)</option>
-            <option value="border-t-4 border-amber-500">Bold Gold Banner (4px)</option>
-            <option value="border-t-4 border-blue-900">Navy Accent Header (4px)</option>
-            <option value="rounded-t-[2.5rem] border-t-2 border-border">Curved Arch Top</option>
-            <option value="rounded-t-[4rem] border-t-2 border-border">Deep Arch Dome Top</option>
-            <option value="[clip-path:polygon(0_3vw,100%_0,100%_100%,0_100%)]">
-              Slanted Slope (-3vw)
-            </option>
-            <option value="[clip-path:polygon(0_0,100%_3vw,100%_100%,0_100%)]">
-              Inverse Slope (+3vw)
-            </option>
-            <option value="shadow-[0_-12px_32px_-8px_rgba(245,158,11,0.3)] border-t border-amber-500/50">
-              Top Radiant Gold Glow
-            </option>
-          </select>
-        </div>
-
-        <div>
-          <label
-            htmlFor={sectionBottomDividerSelectId}
-            className="block text-slate-300 font-bold mb-1 text-[11px]"
-          >
-            Bottom Shape Divider (Pro)
-          </label>
-          <select
-            id={sectionBottomDividerSelectId}
-            value={styles.section.bottomDivider || ''}
-            onChange={(e) =>
+            options={[
+              { value: 'py-8', label: 'Standard Breathing Room (py-8 / 32px)' },
+              { value: 'py-16', label: 'Generous Space (py-16 / 64px)' },
+              { value: 'py-24', label: 'Hero Spotlight (py-24 / 96px)' },
+              { value: 'py-4', label: 'Compact Spacing (py-4 / 16px)' },
+              { value: 'py-0', label: 'Flush Edge (py-0 / 0px)' },
+            ]}
+          />
+          <StudioSelect
+            id={sectionPaddingXSelectId}
+            label="Horizontal Padding"
+            value={styles.section.paddingX}
+            onChange={(val) =>
               setStyles({
                 ...styles,
-                section: { ...styles.section, bottomDivider: e.target.value },
+                section: { ...styles.section, paddingX: val },
               })
             }
-            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">None (Flush Bottom)</option>
-            <option value="border-b border-border/80">Hairline Border Bottom</option>
-            <option value="border-b-2 border-accent-gold">Gold Accent Bar (2px)</option>
-            <option value="border-b-4 border-amber-500">Bold Gold Banner (4px)</option>
-            <option value="border-b-4 border-blue-900">Navy Accent Footer (4px)</option>
-            <option value="rounded-b-[2.5rem] border-b-2 border-border">Pill Arch Footer</option>
-            <option value="rounded-b-[4rem] border-b-2 border-border">Deep Arch Cradle</option>
-            <option value="[clip-path:polygon(0_0,100%_0,100%_calc(100%-3vw),0_100%)]">
-              Slanted Slant (3vw)
-            </option>
-            <option value="[clip-path:polygon(0_0,100%_0,100%_100%,0_calc(100%-3vw))]">
-              Inverse Slant (-3vw)
-            </option>
-            <option value="shadow-[0_12px_32px_-8px_rgba(245,158,11,0.3)] border-b border-amber-500/50">
-              Bottom Radiant Gold Glow
-            </option>
-          </select>
+            options={[
+              { value: 'px-4', label: 'Standard (px-4 / 16px)' },
+              { value: 'px-6', label: 'Spacious (px-6 / 24px)' },
+              { value: 'px-8', label: 'Generous (px-8 / 32px)' },
+              { value: 'px-12', label: 'Deep Inset (px-12 / 48px)' },
+              { value: 'px-0', label: 'Edge to Edge (px-0)' },
+            ]}
+          />
         </div>
-      </div>
 
-      {/* Divider Accent Color */}
-      <div>
-        <label
-          htmlFor={sectionDividerColorSelectId}
-          className="block text-slate-300 font-bold mb-1 text-[11px]"
-        >
-          Divider Accent Color (Pro)
-        </label>
-        <select
-          id={sectionDividerColorSelectId}
-          value={styles.section.dividerColor || ''}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              section: { ...styles.section, dividerColor: e.target.value },
-            })
-          }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-        >
-          <option value="">Default Border Frame</option>
-          <option value="text-amber-500/40">Civic Gold Accent</option>
-          <option value="text-blue-900/50">Patriotic Navy Depth</option>
-          <option value="text-white/20">Frost Glass Accent</option>
-          <option value="text-emerald-500/40">Grassroots Emerald</option>
-          <option value="text-rose-500/40">Alert Crimson</option>
-        </select>
-      </div>
-
-      {/* Section Overflow Clipping & Stacking Z-Index */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label
-            htmlFor={sectionOverflowSelectId}
-            className="block text-slate-300 font-bold mb-1.5 text-xs"
-          >
-            Section Overflow &amp; Shape Boundary Clipping
-          </label>
-          <select
-            id={sectionOverflowSelectId}
-            value={styles.section.overflow || ''}
-            onChange={(e) =>
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
+            id={sectionMarginYSelectId}
+            label="Vertical Section Margin"
+            value={styles.section.marginY || ''}
+            onChange={(val) =>
               setStyles({
                 ...styles,
-                section: { ...styles.section, overflow: e.target.value },
+                section: { ...styles.section, marginY: val },
               })
             }
-            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-          >
-            <option value="">Visible (Default)</option>
-            <option value="overflow-hidden">Hidden (Clip Bleeds)</option>
-            <option value="overflow-clip">Clip (Strict Boundary)</option>
-            <option value="overflow-x-hidden">Horizontal Hidden Only</option>
-            <option value="overflow-y-auto">Vertical Scrollable (Auto)</option>
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor={sectionZIndexSelectId}
-            className="block text-slate-300 font-bold mb-1.5 text-xs"
-          >
-            Stacking Z-Index
-          </label>
-          <select
-            id={sectionZIndexSelectId}
-            value={styles.section.zIndex || ''}
-            onChange={(e) =>
+            options={[
+              { value: '', label: 'Default (Flush / None)' },
+              { value: 'my-4', label: 'Compact (my-4 / 16px)' },
+              { value: 'my-8', label: 'Standard Rhythm (my-8 / 32px)' },
+              { value: 'my-12', label: 'Spacious Rhythm (my-12 / 48px)' },
+              { value: 'my-16', label: 'Deep Separation (my-16 / 64px)' },
+              { value: 'my-24', label: 'Dramatic Separation (my-24 / 96px)' },
+            ]}
+          />
+          <StudioSelect
+            id={sectionMarginXSelectId}
+            label="Horizontal Margin / Float"
+            value={styles.section.marginX || ''}
+            onChange={(val) =>
               setStyles({
                 ...styles,
-                section: { ...styles.section, zIndex: e.target.value },
+                section: { ...styles.section, marginX: val },
               })
             }
-            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-          >
-            <option value="">Auto (Default 0)</option>
-            <option value="relative z-10">Low Float (z-10)</option>
-            <option value="relative z-20">Mid Floating (z-20)</option>
-            <option value="relative z-30">High Elevation (z-30)</option>
-            <option value="relative z-40">Modal / Sticky Layer (z-40)</option>
-            <option value="relative z-50">Topmost Foreground (z-50)</option>
-          </select>
+            options={[
+              { value: '', label: 'Default (None / Edge)' },
+              { value: 'mx-auto', label: 'Auto Center (mx-auto)' },
+              { value: 'mx-4', label: 'Compact Inset (mx-4 / 16px)' },
+              { value: 'mx-8', label: 'Medium Floating (mx-8 / 32px)' },
+              { value: 'mx-12', label: 'Spacious Floating (mx-12 / 48px)' },
+              { value: 'mx-16', label: 'Island Card (mx-16 / 64px)' },
+            ]}
+          />
         </div>
-      </div>
+      </StudioSection>
 
-      <div>
-        <span className="block text-slate-300 font-bold mb-1.5">Row Multi-Column Layout</span>
-
+      {/* ── 3. Multi-Column Grid System ─────────────────────────────────── */}
+      <StudioSection
+        title="Row Multi-Column Layout"
+        badge="Grid"
+        description="Responsive multi-column arrangements, alignment, and column gaps."
+      >
         {/* 1-Click Column Ratio Presets */}
-        <div className="grid grid-cols-4 gap-1.5 mb-2">
+        <div className="grid grid-cols-4 gap-1.5">
           {VC_COLUMN_PRESETS.map((preset) => {
             const isSelected = styles.section.columns === preset.value;
             return (
@@ -627,7 +273,7 @@ export function SectionStudio({
                     section: { ...styles.section, columns: preset.value },
                   })
                 }
-                className={`flex flex-col items-center justify-between p-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+                className={`flex flex-col items-center justify-between p-1.5 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
                   isSelected
                     ? 'border-accent-gold bg-accent-gold/20 text-accent-gold shadow-xs'
                     : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
@@ -652,625 +298,869 @@ export function SectionStudio({
           })}
         </div>
 
-        <label htmlFor={sectionColumnsSelectId} className="sr-only">
-          Column Grid
-        </label>
-        <select
+        <StudioSelect
           id={sectionColumnsSelectId}
+          label="Column Ratio Preset"
           value={styles.section.columns}
-          onChange={(e) =>
+          onChange={(val) =>
             setStyles({
               ...styles,
-              section: { ...styles.section, columns: e.target.value },
+              section: { ...styles.section, columns: val },
             })
           }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-        >
-          <option value="">Single Column (Full Width)</option>
-          <option value="grid grid-cols-1 md:grid-cols-2">2 Equal Columns (50 / 50)</option>
-          <option value="grid grid-cols-1 md:grid-cols-3">3 Columns (33 / 33 / 33)</option>
-          <option value="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            4 Columns (25 / 25 / 25 / 25)
-          </option>
-          <option value="grid grid-cols-1 md:grid-cols-3 [&>*:first-child]:md:col-span-2">
-            Asymmetric Main + Sidebar (66% / 33%)
-          </option>
-          <option value="grid grid-cols-1 md:grid-cols-3 [&>*:last-child]:md:col-span-2">
-            Asymmetric Sidebar + Main (33% / 66%)
-          </option>
-        </select>
-      </div>
+          options={[
+            { value: '', label: 'Single Column (Full Width)' },
+            { value: 'grid grid-cols-1 md:grid-cols-2', label: '2 Equal Columns (50 / 50)' },
+            { value: 'grid grid-cols-1 md:grid-cols-3', label: '3 Columns (33 / 33 / 33)' },
+            {
+              value: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+              label: '4 Columns (25 / 25 / 25 / 25)',
+            },
+            {
+              value: 'grid grid-cols-1 md:grid-cols-3 [&>*:first-child]:md:col-span-2',
+              label: 'Asymmetric Main + Sidebar (66% / 33%)',
+            },
+            {
+              value: 'grid grid-cols-1 md:grid-cols-3 [&>*:last-child]:md:col-span-2',
+              label: 'Asymmetric Sidebar + Main (33% / 66%)',
+            },
+            {
+              value: 'grid grid-cols-1 md:grid-cols-4 [&>*:nth-child(2)]:md:col-span-2',
+              label: 'Three Column Focus (25% / 50% / 25%)',
+            },
+            {
+              value: 'grid grid-cols-1 md:grid-cols-4 [&>*:first-child]:md:col-span-3',
+              label: 'Dominant Feature + Rail (75% / 25%)',
+            },
+            {
+              value: 'grid grid-cols-1 md:grid-cols-4 [&>*:last-child]:md:col-span-3',
+              label: 'Rail + Dominant Feature (25% / 75%)',
+            },
+            {
+              value: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5',
+              label: '5 Gallery Columns (20% x 5)',
+            },
+          ]}
+        />
 
-      {styles.section.columns && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div>
-              <label htmlFor={sectionGapSelectId} className="text-[10px] text-slate-400 mb-1 block">
-                Column Gap
-              </label>
-              <select
+        {styles.section.columns && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <StudioSelect
                 id={sectionGapSelectId}
+                label="Column Gap"
+                size="xs"
                 value={styles.section.columnGap}
-                onChange={(e) =>
+                onChange={(val) =>
                   setStyles({
                     ...styles,
-                    section: { ...styles.section, columnGap: e.target.value },
+                    section: { ...styles.section, columnGap: val },
                   })
                 }
-                className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-              >
-                <option value="gap-0">Flush (gap-0)</option>
-                <option value="gap-4">Compact (gap-4)</option>
-                <option value="gap-8">Standard (gap-8)</option>
-                <option value="gap-12">Generous (gap-12)</option>
-                <option value="gap-16">Spacious (gap-16)</option>
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor={sectionAlignSelectId}
-                className="text-[10px] text-slate-400 mb-1 block"
-              >
-                Vertical Alignment
-              </label>
-              <select
+                options={[
+                  { value: 'gap-0', label: 'Flush (gap-0)' },
+                  { value: 'gap-4', label: 'Compact (gap-4)' },
+                  { value: 'gap-8', label: 'Standard (gap-8)' },
+                  { value: 'gap-12', label: 'Generous (gap-12)' },
+                  { value: 'gap-16', label: 'Spacious (gap-16)' },
+                ]}
+              />
+              <StudioSelect
                 id={sectionAlignSelectId}
+                label="Vertical Alignment"
+                size="xs"
                 value={styles.section.verticalAlign}
-                onChange={(e) =>
+                onChange={(val) =>
                   setStyles({
                     ...styles,
-                    section: { ...styles.section, verticalAlign: e.target.value },
+                    section: { ...styles.section, verticalAlign: val },
                   })
                 }
-                className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-              >
-                <option value="items-start">Top Aligned</option>
-                <option value="items-center">Middle Centered</option>
-                <option value="items-end">Bottom Aligned</option>
-                <option value="items-stretch">Stretch Equal Height</option>
-              </select>
-            </div>
-            <div>
-              <label
-                htmlFor={sectionJustifyContentSelectId}
-                className="text-[10px] text-slate-400 mb-1 block"
-              >
-                Column Justification
-              </label>
-              <select
+                options={[
+                  { value: 'items-start', label: 'Top Aligned' },
+                  { value: 'items-center', label: 'Middle Centered' },
+                  { value: 'items-end', label: 'Bottom Aligned' },
+                  { value: 'items-stretch', label: 'Stretch Equal Height' },
+                ]}
+              />
+              <StudioSelect
                 id={sectionJustifyContentSelectId}
+                label="Column Justification"
+                size="xs"
                 value={styles.section.justifyContent || ''}
-                onChange={(e) =>
+                onChange={(val) =>
                   setStyles({
                     ...styles,
-                    section: { ...styles.section, justifyContent: e.target.value },
+                    section: { ...styles.section, justifyContent: val },
                   })
                 }
-                className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-              >
-                <option value="">Default (Start)</option>
-                <option value="justify-start">Left / Start</option>
-                <option value="justify-center">Center Distribution</option>
-                <option value="justify-between">Space Between Columns</option>
-                <option value="justify-around">Space Around</option>
-                <option value="justify-end">Right / End</option>
-              </select>
+                options={[
+                  { value: '', label: 'Default (Start)' },
+                  { value: 'justify-start', label: 'Left / Start' },
+                  { value: 'justify-center', label: 'Center Distribution' },
+                  { value: 'justify-between', label: 'Space Between Columns' },
+                  { value: 'justify-around', label: 'Space Around' },
+                  { value: 'justify-end', label: 'Right / End' },
+                ]}
+              />
             </div>
-          </div>
 
-          {/* Equal Height and Reverse Mobile Toggles */}
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <button
-              type="button"
-              onClick={() =>
-                setStyles({
-                  ...styles,
-                  section: { ...styles.section, equalHeight: !styles.section.equalHeight },
-                })
-              }
-              className={`p-2 rounded-lg border text-left transition-colors flex items-center justify-between ${
-                styles.section.equalHeight
-                  ? 'border-accent-gold bg-accent-gold/20 text-accent-gold font-bold'
-                  : 'border-white/10 bg-slate-900 text-slate-300 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <div>
-                <span className="block text-[11px]">Equal Height</span>
-                <span className="text-[9px] text-slate-400">Stretch column heights</span>
-              </div>
-              <span className="text-[10px] font-mono">
-                {styles.section.equalHeight ? 'ON' : 'OFF'}
-              </span>
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <StudioToggle
+                label="Equal Height"
+                description="Stretch column heights"
+                active={Boolean(styles.section.equalHeight)}
+                statusLabel={styles.section.equalHeight ? 'ON' : 'OFF'}
+                onToggle={() =>
+                  setStyles({
+                    ...styles,
+                    section: { ...styles.section, equalHeight: !styles.section.equalHeight },
+                  })
+                }
+              />
+              <StudioToggle
+                label="Reverse Mobile"
+                description="Invert column order"
+                active={Boolean(styles.section.reverseMobile)}
+                activeTone="gold"
+                statusLabel={styles.section.reverseMobile ? 'ON' : 'OFF'}
+                onToggle={() =>
+                  setStyles({
+                    ...styles,
+                    section: { ...styles.section, reverseMobile: !styles.section.reverseMobile },
+                  })
+                }
+              />
+            </div>
+          </>
+        )}
+      </StudioSection>
 
-            <button
-              type="button"
-              onClick={() =>
-                setStyles({
-                  ...styles,
-                  section: { ...styles.section, reverseMobile: !styles.section.reverseMobile },
-                })
-              }
-              className={`p-2 rounded-lg border text-left transition-colors flex items-center justify-between ${
-                styles.section.reverseMobile
-                  ? 'border-amber-500/40 bg-amber-500/20 text-amber-300 font-bold'
-                  : 'border-white/10 bg-slate-900 text-slate-300 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <div>
-                <span className="block text-[11px]">Reverse Mobile</span>
-                <span className="text-[9px] text-slate-400">Invert column order</span>
-              </div>
-              <span className="text-[10px] font-mono">
-                {styles.section.reverseMobile ? 'ON' : 'OFF'}
-              </span>
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* Section Radius & Shadow */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label htmlFor={sectionRadiusSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Section Corner Radius
-          </label>
-          <select
-            id={sectionRadiusSelectId}
-            value={styles.section.radius}
-            onChange={(e) =>
+      {/* ── 4. Theme & Atmospheric Overlays ────────────────────────────── */}
+      <StudioSection
+        title="Theme, Atmosphere & Background"
+        badge="Tone"
+        description="Palettes, gradients, textures, and dark/light mode overrides."
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
+            id={sectionBgSelectId}
+            label="Section Background Theme"
+            value={styles.section.background}
+            onChange={(val) =>
               setStyles({
                 ...styles,
-                section: { ...styles.section, radius: e.target.value },
+                section: {
+                  ...styles.section,
+                  background: val,
+                  bgGradient: '',
+                  pattern: '',
+                },
               })
             }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="rounded-none">Square (0)</option>
-            <option value="rounded-xl">Subtle (12px)</option>
-            <option value="rounded-2xl">Modern Card (16px)</option>
-            <option value="rounded-3xl">Pill Smooth (24px)</option>
-            <option value="rounded-[2.5rem]">Deep Dramatic (40px)</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor={sectionShadowSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Section Shadow
-          </label>
-          <select
-            id={sectionShadowSelectId}
-            value={styles.section.shadow}
-            onChange={(e) =>
+            options={[
+              { value: 'bg-transparent', label: 'Transparent (Default)' },
+              { value: 'bg-card text-foreground', label: 'Clean Card Surface' },
+              { value: 'bg-navy-950 text-white', label: 'Patriotic Navy Deep' },
+              { value: 'bg-amber-500/10 text-foreground', label: 'Civic Gold Warmth' },
+              {
+                value: 'bg-white/10 backdrop-blur-md border border-white/20 text-white',
+                label: 'Frost Liquid Glass',
+              },
+              { value: 'bg-rose-500/10 text-foreground', label: 'Alert Crimson Tint' },
+              { value: 'bg-emerald-500/10 text-foreground', label: 'Grassroots Forest Green' },
+            ]}
+          />
+          <StudioSelect
+            id="section-theme-mode-select"
+            label="Tone Mode Override"
+            value={styles.section.themeMode || 'inherit'}
+            onChange={(val) =>
               setStyles({
                 ...styles,
-                section: { ...styles.section, shadow: e.target.value },
+                section: {
+                  ...styles.section,
+                  themeMode: val as 'inherit' | 'light' | 'dark',
+                },
               })
             }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="shadow-none">Flat (None)</option>
-            <option value="shadow-md">Medium</option>
-            <option value="shadow-xl">High Elevation</option>
-            <option value="shadow-2xl">Maximum Depth</option>
-            <option value="shadow-2xl shadow-amber-500/10">Civic Gold Glow</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Sticky Row Pinning & Print Visibility */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() =>
-            setStyles({
-              ...styles,
-              section: { ...styles.section, sticky: !styles.section.sticky },
-            })
-          }
-          className={`p-2.5 rounded-xl border text-left transition-colors flex items-center justify-between ${
-            styles.section.sticky
-              ? 'border-accent-gold bg-accent-gold/20 text-accent-gold font-bold'
-              : 'border-white/10 bg-slate-900 text-slate-300 hover:bg-white/5 hover:text-white'
-          }`}
-        >
-          <div>
-            <span className="block text-xs">Sticky Row</span>
-            <span className="text-[10px] text-slate-400">Pin to top on scroll</span>
-          </div>
-          <span className="text-[10px] font-mono">{styles.section.sticky ? 'ON' : 'OFF'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() =>
-            setStyles({
-              ...styles,
-              responsive: { ...styles.responsive, hidePrint: !styles.responsive.hidePrint },
-            })
-          }
-          className={`p-2.5 rounded-xl border text-left transition-colors flex items-center justify-between ${
-            styles.responsive.hidePrint
-              ? 'border-rose-500/40 bg-rose-500/20 text-rose-300 font-bold'
-              : 'border-white/10 bg-slate-900 text-slate-300 hover:bg-white/5 hover:text-white'
-          }`}
-        >
-          <div>
-            <span className="block text-xs">Hide on Print</span>
-            <span className="text-[10px] text-slate-400">Exclude from print</span>
-          </div>
-          <span className="text-[10px] font-mono">
-            {styles.responsive.hidePrint ? 'HIDDEN' : 'VISIBLE'}
-          </span>
-        </button>
-      </div>
-
-      {/* Section Backdrop Blur & Glassmorphism */}
-      <div>
-        <span className="block text-slate-300 font-bold mb-2">Section Backdrop Glass Effect</span>
-        <label htmlFor={sectionBackdropBlurSelectId} className="sr-only">
-          Section Backdrop Blur
-        </label>
-        <select
-          id={sectionBackdropBlurSelectId}
-          value={styles.effects.backdropBlur}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              effects: { ...styles.effects, backdropBlur: e.target.value },
-            })
-          }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-        >
-          <option value="">None (Standard Clear)</option>
-          <option value="backdrop-blur-sm">Subtle Frosted (blur-sm)</option>
-          <option value="backdrop-blur-md">Medium Frosted Glass (blur-md)</option>
-          <option value="backdrop-blur-lg">Deep Glass Surface (blur-lg)</option>
-          <option value="backdrop-blur-xl">Ultra Liquid Glass (blur-xl)</option>
-        </select>
-      </div>
-
-      {/* Section Frame Border & Border Color */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label htmlFor={sectionBorderSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Section Border Frame
-          </label>
-          <select
-            id={sectionBorderSelectId}
-            value={styles.section.border || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, border: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">None (No Border)</option>
-            <option value="border">Thin Hairline (1px)</option>
-            <option value="border-2">Medium Border (2px)</option>
-            <option value="border-4">Heavy Frame (4px)</option>
-            <option value="border-y-2">Top &amp; Bottom Frame</option>
-            <option value="border-t-4">Top Accent Bar</option>
-            <option value="border-b-4">Bottom Accent Bar</option>
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor={sectionBorderColorSelectId}
-            className="text-[10px] text-slate-400 mb-1 block"
-          >
-            Section Border Color
-          </label>
-          <select
-            id={sectionBorderColorSelectId}
-            value={styles.section.borderColor || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, borderColor: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="border-border">Default Frame Color</option>
-            <option value="border-amber-500/50">Civic Gold Outline</option>
-            <option value="border-blue-900/60">Patriotic Navy Outline</option>
-            <option value="border-white/20">Frost Glass Outline</option>
-            <option value="border-rose-500/50">Alert Crimson Outline</option>
-            <option value="border-emerald-500/50">Grassroots Emerald Outline</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Section Atmosphere & Overlay Tint */}
-      <div>
-        <label htmlFor={sectionOverlaySelectId} className="text-[10px] text-slate-400 mb-1 block">
-          Section Atmosphere &amp; Overlay Tint
-        </label>
-        <select
-          id={sectionOverlaySelectId}
-          value={styles.section.overlay || ''}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              section: { ...styles.section, overlay: e.target.value },
-            })
-          }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-        >
-          <option value="">None (Clear Atmosphere)</option>
-          <option value="bg-black/40">Dark Dramatic Vignette (bg-black/40)</option>
-          <option value="bg-blue-950/60">Midnight Navy Cast (bg-blue-950/60)</option>
-          <option value="bg-amber-950/25">Warm Civic Gold Dust (bg-amber-950/25)</option>
-          <option value="backdrop-blur-sm bg-slate-900/40">Frosted Mist Overlay</option>
-          <option value="bg-rose-950/30">Alert Crimson Aura (bg-rose-950/30)</option>
-        </select>
-      </div>
-
-      {/* Section Background Blend Mode & Inner Box Shadow */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label
-            htmlFor={sectionBgBlendModeSelectId}
-            className="text-[10px] text-slate-400 mb-1 block"
-          >
-            Background Blend Mode
-          </label>
-          <select
-            id={sectionBgBlendModeSelectId}
-            value={styles.section.bgBlendMode || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, bgBlendMode: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">Normal (Default)</option>
-            <option value="bg-blend-multiply">Multiply</option>
-            <option value="bg-blend-screen">Screen</option>
-            <option value="bg-blend-overlay">Overlay</option>
-            <option value="bg-blend-darken">Darken</option>
-            <option value="bg-blend-lighten">Lighten</option>
-            <option value="bg-blend-color-dodge">Color Dodge</option>
-            <option value="bg-blend-soft-light">Soft Light</option>
-            <option value="bg-blend-difference">Difference</option>
-            <option value="bg-blend-luminosity">Luminosity</option>
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor={sectionInnerShadowSelectId}
-            className="text-[10px] text-slate-400 mb-1 block"
-          >
-            Inner Recessed Shadow
-          </label>
-          <select
-            id={sectionInnerShadowSelectId}
-            value={styles.section.innerShadow || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, innerShadow: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">None (Flat Surface)</option>
-            <option value="shadow-inner">Subtle Inset Well (shadow-inner)</option>
-            <option value="shadow-[inset_0_4px_16px_rgba(0,0,0,0.6)]">Deep Recessed Well</option>
-            <option value="shadow-[inset_0_2px_16px_rgba(245,158,11,0.25)]">
-              Civic Gold Horizon
-            </option>
-            <option value="shadow-[inset_0_2px_16px_rgba(30,58,138,0.35)]">
-              Navy Horizon Inset
-            </option>
-          </select>
-        </div>
-      </div>
-
-      {/* Section Parallax & Background Fit */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label
-            htmlFor={sectionBgAttachmentSelectId}
-            className="text-[10px] text-slate-400 mb-1 block"
-          >
-            Scroll Parallax Effect
-          </label>
-          <select
-            id={sectionBgAttachmentSelectId}
-            value={styles.section.bgAttachment || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, bgAttachment: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">Normal Scroll</option>
-            <option value="bg-fixed">Fixed Scroll Parallax (bg-fixed)</option>
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor={sectionBgPositionSelectId}
-            className="text-[10px] text-slate-400 mb-1 block"
-          >
-            Background Image Fit
-          </label>
-          <select
-            id={sectionBgPositionSelectId}
-            value={styles.section.bgPosition || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, bgPosition: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">Default Fit</option>
-            <option value="bg-cover bg-center">Cover Center</option>
-            <option value="bg-contain bg-center">Contain Center</option>
-            <option value="bg-cover bg-top">Cover Top</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Section Background Sizing & Repeat Studio */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label htmlFor={sectionBgSizeSelectId} className="text-[10px] text-slate-400 mb-1 block">
-            Background Scale / Size
-          </label>
-          <select
-            id={sectionBgSizeSelectId}
-            value={styles.section.bgSize || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, bgSize: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">Default Sizing</option>
-            <option value="bg-cover">Cover Canvas (bg-cover)</option>
-            <option value="bg-contain">Contain Proportional (bg-contain)</option>
-            <option value="bg-auto">Original Scale (bg-auto)</option>
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor={sectionBgRepeatSelectId}
-            className="text-[10px] text-slate-400 mb-1 block"
-          >
-            Background Tiling / Repeat
-          </label>
-          <select
-            id={sectionBgRepeatSelectId}
-            value={styles.section.bgRepeat || ''}
-            onChange={(e) =>
-              setStyles({
-                ...styles,
-                section: { ...styles.section, bgRepeat: e.target.value },
-              })
-            }
-            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
-          >
-            <option value="">Default (No Repeat)</option>
-            <option value="bg-no-repeat">Single Image (bg-no-repeat)</option>
-            <option value="bg-repeat">Tile Both Axis (bg-repeat)</option>
-            <option value="bg-repeat-x">Horizontal Strip (bg-repeat-x)</option>
-            <option value="bg-repeat-y">Vertical Column (bg-repeat-y)</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Section Anchor ID & Custom Classes */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label htmlFor={sectionAnchorIdInputId} className="block text-slate-300 font-bold mb-1">
-            Section Anchor ID
-          </label>
-          <div className="relative">
-            <span className="absolute left-2.5 top-2 text-xs font-mono text-slate-400">#</span>
-            <input
-              id={sectionAnchorIdInputId}
-              type="text"
-              value={styles.anchorId}
-              onChange={(e) =>
-                setStyles({
-                  ...styles,
-                  anchorId: e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''),
-                })
-              }
-              placeholder="e.g. speakers, rsvp"
-              className="w-full rounded-xl border border-white/10 bg-slate-900 py-1.5 pl-6 pr-2.5 text-xs text-white placeholder:text-white/40 focus:border-accent-gold focus:outline-none"
-            />
-          </div>
-        </div>
-        <div>
-          <label
-            htmlFor={sectionCustomClassesInputId}
-            className="block text-slate-300 font-bold mb-1"
-          >
-            Section Custom Classes
-          </label>
-          <input
-            id={sectionCustomClassesInputId}
-            type="text"
-            value={styles.customClasses}
-            onChange={(e) => setStyles({ ...styles, customClasses: e.target.value })}
-            placeholder="e.g. border-t border-white/10"
-            className="w-full rounded-xl border border-white/10 bg-slate-900 py-1.5 px-2.5 text-xs text-white placeholder:text-white/40 focus:border-accent-gold focus:outline-none"
+            options={[
+              { value: 'inherit', label: 'Inherit Global Site Theme' },
+              { value: 'dark', label: 'Force Dark Mode ([data-theme=dark])' },
+              { value: 'light', label: 'Force Light Mode ([data-theme=light])' },
+            ]}
+            description="Locks section to light or dark mode regardless of OS preference."
           />
         </div>
-      </div>
 
-      {/* Section Responsive Device Visibility */}
-      <div>
-        <span className="block text-slate-300 font-bold mb-1.5">
-          Section Responsive Device Visibility
-        </span>
-        <div className="grid grid-cols-3 gap-1.5">
-          {[
+        <StudioSelect
+          id={bgGradientSelectId}
+          label="Civic Gradient Background (Optional)"
+          value={styles.section.bgGradient}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              section: { ...styles.section, bgGradient: val, pattern: '' },
+            })
+          }
+          options={[
+            { value: '', label: 'None (Use Solid Theme Above)' },
             {
-              key: 'hideMobile' as const,
-              label: 'Mobile',
-              active: styles.responsive.hideMobile,
+              value: 'bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white',
+              label: 'Patriotic Midnight Navy',
             },
             {
-              key: 'hideTablet' as const,
-              label: 'Tablet',
-              active: styles.responsive.hideTablet,
+              value:
+                'bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-transparent text-foreground',
+              label: 'Civic Gold Glow',
             },
             {
-              key: 'hideDesktop' as const,
-              label: 'Desktop',
-              active: styles.responsive.hideDesktop,
+              value: 'bg-gradient-to-br from-rose-950/80 via-slate-900 to-black text-white',
+              label: 'Alert Crimson Stand',
             },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() =>
-                setStyles({
-                  ...styles,
-                  responsive: {
-                    ...styles.responsive,
-                    [item.key]: !styles.responsive[item.key],
-                  },
-                })
-              }
-              className={`flex items-center justify-between p-2 rounded-xl border text-[11px] font-bold transition-colors ${
-                item.active
-                  ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-              }`}
-            >
-              <span>{item.label}</span>
-              {item.active ? <EyeOff size={12} /> : <Eye size={12} className="text-slate-400" />}
-            </button>
-          ))}
+            {
+              value: 'bg-gradient-to-br from-emerald-950/80 via-slate-900 to-slate-950 text-white',
+              label: 'Grassroots Forest Emerald',
+            },
+            {
+              value:
+                'bg-gradient-to-br from-white/15 via-white/5 to-white/10 backdrop-blur-lg border border-white/20 text-white',
+              label: 'Iridescent Liquid Frost Glass',
+            },
+          ]}
+        />
+
+        <StudioSelect
+          id={sectionPatternSelectId}
+          label="Civic Background Texture & Patterns"
+          value={styles.section.pattern}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              section: { ...styles.section, pattern: val },
+            })
+          }
+          options={[
+            { value: '', label: 'None (Solid / Plain)' },
+            {
+              value:
+                'bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.12)_1.5px,transparent_1.5px)] [background-size:24px_24px]',
+              label: 'Civic Dot Matrix (24px Grid)',
+            },
+            {
+              value:
+                'bg-[linear-gradient(45deg,rgba(255,255,255,0.04)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.04)_50%,rgba(255,255,255,0.04)_75%,transparent_75%,transparent)] [background-size:24px_24px]',
+              label: 'Architectural Diagonal Hatch',
+            },
+            {
+              value:
+                'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/15 via-slate-950 to-slate-950 text-white',
+              label: 'Radiant Golden Civic Aura',
+            },
+            {
+              value:
+                'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/30 via-slate-900 to-slate-950 text-white',
+              label: 'Midnight Deep Blue Mesh',
+            },
+          ]}
+        />
+
+        <StudioSelect
+          id={sectionOverlaySelectId}
+          label="Section Atmosphere & Overlay Tint"
+          value={styles.section.overlay || ''}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              section: { ...styles.section, overlay: val },
+            })
+          }
+          options={[
+            { value: '', label: 'None (Clear Atmosphere)' },
+            { value: 'bg-black/40', label: 'Dark Dramatic Vignette (bg-black/40)' },
+            { value: 'bg-blue-950/60', label: 'Midnight Navy Cast (bg-blue-950/60)' },
+            { value: 'bg-amber-950/25', label: 'Warm Civic Gold Dust (bg-amber-950/25)' },
+            {
+              value: 'backdrop-blur-sm bg-slate-900/40',
+              label: 'Frosted Mist Overlay',
+            },
+            { value: 'bg-rose-950/30', label: 'Alert Crimson Aura (bg-rose-950/30)' },
+          ]}
+        />
+
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
+            id={sectionBgBlendModeSelectId}
+            label="Background Blend Mode"
+            size="xs"
+            value={styles.section.bgBlendMode || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, bgBlendMode: val },
+              })
+            }
+            options={[
+              { value: '', label: 'Normal (Default)' },
+              { value: 'bg-blend-multiply', label: 'Multiply' },
+              { value: 'bg-blend-screen', label: 'Screen' },
+              { value: 'bg-blend-overlay', label: 'Overlay' },
+              { value: 'bg-blend-darken', label: 'Darken' },
+              { value: 'bg-blend-lighten', label: 'Lighten' },
+              { value: 'bg-blend-color-dodge', label: 'Color Dodge' },
+              { value: 'bg-blend-soft-light', label: 'Soft Light' },
+              { value: 'bg-blend-difference', label: 'Difference' },
+              { value: 'bg-blend-luminosity', label: 'Luminosity' },
+            ]}
+          />
+          <StudioSelect
+            id={sectionInnerShadowSelectId}
+            label="Inner Recessed Shadow"
+            size="xs"
+            value={styles.section.innerShadow || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, innerShadow: val },
+              })
+            }
+            options={[
+              { value: '', label: 'None (Flat Surface)' },
+              { value: 'shadow-inner', label: 'Subtle Inset Well (shadow-inner)' },
+              {
+                value: 'shadow-[inset_0_4px_16px_rgba(0,0,0,0.6)]',
+                label: 'Deep Recessed Well',
+              },
+              {
+                value: 'shadow-[inset_0_2px_16px_rgba(245,158,11,0.25)]',
+                label: 'Civic Gold Horizon',
+              },
+              {
+                value: 'shadow-[inset_0_2px_16px_rgba(30,58,138,0.35)]',
+                label: 'Navy Horizon Inset',
+              },
+            ]}
+          />
         </div>
-      </div>
 
-      {/* Generated CSS Classes Preview */}
-      {compiledClassNames !== undefined && (
-        <div className="rounded-xl border border-white/10 bg-slate-900/90 p-3">
-          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-            Compiled Classnames Preview
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
+            id={sectionBgAttachmentSelectId}
+            label="Scroll Parallax Effect"
+            size="xs"
+            value={styles.section.bgAttachment || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, bgAttachment: val },
+              })
+            }
+            options={[
+              { value: '', label: 'Normal Scroll' },
+              { value: 'bg-fixed', label: 'Fixed Scroll Parallax (bg-fixed)' },
+            ]}
+          />
+          <StudioSelect
+            id={sectionBgPositionSelectId}
+            label="Background Image Fit"
+            size="xs"
+            value={styles.section.bgPosition || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, bgPosition: val },
+              })
+            }
+            options={[
+              { value: '', label: 'Default Fit' },
+              { value: 'bg-cover bg-center', label: 'Cover Center' },
+              { value: 'bg-contain bg-center', label: 'Contain Center' },
+              { value: 'bg-cover bg-top', label: 'Cover Top' },
+            ]}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
+            id={sectionBgSizeSelectId}
+            label="Background Scale / Size"
+            size="xs"
+            value={styles.section.bgSize || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, bgSize: val },
+              })
+            }
+            options={[
+              { value: '', label: 'Default Sizing' },
+              { value: 'bg-cover', label: 'Cover Canvas (bg-cover)' },
+              { value: 'bg-contain', label: 'Contain Proportional (bg-contain)' },
+              { value: 'bg-auto', label: 'Original Scale (bg-auto)' },
+            ]}
+          />
+          <StudioSelect
+            id={sectionBgRepeatSelectId}
+            label="Background Tiling / Repeat"
+            size="xs"
+            value={styles.section.bgRepeat || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, bgRepeat: val },
+              })
+            }
+            options={[
+              { value: '', label: 'Default (No Repeat)' },
+              { value: 'bg-no-repeat', label: 'Single Image (bg-no-repeat)' },
+              { value: 'bg-repeat', label: 'Tile Both Axis (bg-repeat)' },
+              { value: 'bg-repeat-x', label: 'Horizontal Strip (bg-repeat-x)' },
+              { value: 'bg-repeat-y', label: 'Vertical Column (bg-repeat-y)' },
+            ]}
+          />
+        </div>
+      </StudioSection>
+
+      {/* ── 5. Borders & Glassmorphism ──────────────────────────────────── */}
+      <StudioSection
+        title="Borders, Radius & Glassmorphism"
+        badge="Style"
+        description="Surface curvature, shadow elevations, hairline framing, and frost blur."
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
+            id={sectionRadiusSelectId}
+            label="Section Corner Radius"
+            size="xs"
+            value={styles.section.radius}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, radius: val },
+              })
+            }
+            options={[
+              { value: 'rounded-none', label: 'Square (0)' },
+              { value: 'rounded-xl', label: 'Subtle (12px)' },
+              { value: 'rounded-2xl', label: 'Modern Card (16px)' },
+              { value: 'rounded-3xl', label: 'Pill Smooth (24px)' },
+              { value: 'rounded-[2.5rem]', label: 'Deep Dramatic (40px)' },
+            ]}
+          />
+          <StudioSelect
+            id={sectionShadowSelectId}
+            label="Section Shadow"
+            size="xs"
+            value={styles.section.shadow}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, shadow: val },
+              })
+            }
+            options={[
+              { value: 'shadow-none', label: 'Flat (None)' },
+              { value: 'shadow-md', label: 'Medium' },
+              { value: 'shadow-xl', label: 'High Elevation' },
+              { value: 'shadow-2xl', label: 'Maximum Depth' },
+              { value: 'shadow-2xl shadow-amber-500/10', label: 'Civic Gold Glow' },
+            ]}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
+            id={sectionBorderSelectId}
+            label="Section Border Frame"
+            size="xs"
+            value={styles.section.border || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, border: val },
+              })
+            }
+            options={[
+              { value: '', label: 'None (No Border)' },
+              { value: 'border', label: 'Thin Hairline (1px)' },
+              { value: 'border-2', label: 'Medium Border (2px)' },
+              { value: 'border-4', label: 'Heavy Frame (4px)' },
+              { value: 'border-y-2', label: 'Top & Bottom Frame' },
+              { value: 'border-t-4', label: 'Top Accent Bar' },
+              { value: 'border-b-4', label: 'Bottom Accent Bar' },
+            ]}
+          />
+          <StudioSelect
+            id={sectionBorderColorSelectId}
+            label="Section Border Color"
+            size="xs"
+            value={styles.section.borderColor || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, borderColor: val },
+              })
+            }
+            options={[
+              { value: 'border-border', label: 'Default Frame Color' },
+              { value: 'border-amber-500/50', label: 'Civic Gold Outline' },
+              { value: 'border-blue-900/60', label: 'Patriotic Navy Outline' },
+              { value: 'border-white/20', label: 'Frost Glass Outline' },
+              { value: 'border-rose-500/50', label: 'Alert Crimson Outline' },
+              { value: 'border-emerald-500/50', label: 'Grassroots Emerald Outline' },
+            ]}
+          />
+        </div>
+
+        <StudioSelect
+          id={sectionBackdropBlurSelectId}
+          label="Section Backdrop Glass Effect"
+          value={styles.effects.backdropBlur}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              effects: { ...styles.effects, backdropBlur: val },
+            })
+          }
+          options={[
+            { value: '', label: 'None (Standard Clear)' },
+            { value: 'backdrop-blur-sm', label: 'Subtle Frosted (blur-sm)' },
+            { value: 'backdrop-blur-md', label: 'Medium Frosted Glass (blur-md)' },
+            { value: 'backdrop-blur-lg', label: 'Deep Glass Surface (blur-lg)' },
+            { value: 'backdrop-blur-xl', label: 'Ultra Liquid Glass (blur-xl)' },
+          ]}
+        />
+      </StudioSection>
+
+      {/* ── 6. Shape Dividers & Separators ─────────────────────────────── */}
+      <StudioSection
+        title="Shape Dividers & Cutouts"
+        badge="Visual"
+        description="Top and bottom geometric slants, curved arches, and glowing horizons."
+      >
+        <StudioSelect
+          id={sectionDividerSelectId}
+          label="Section Separator Dividers & Cutouts"
+          value={styles.section.divider}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              section: { ...styles.section, divider: val },
+            })
+          }
+          options={[
+            { value: '', label: 'No Divider (None)' },
+            { value: 'border-t border-border', label: 'Top Hairline Separator' },
+            { value: 'border-b border-border', label: 'Bottom Hairline Separator' },
+            { value: 'border-y border-border', label: 'Top & Bottom Separators' },
+            { value: 'border-t-4 border-amber-500', label: 'Gold Accent Header Bar' },
+            { value: 'border-t-4 border-blue-900', label: 'Navy Accent Header Bar' },
+            {
+              value: '[clip-path:polygon(0_0,100%_3vw,100%_100%,0_100%)]',
+              label: 'Diagonal Slant Cutout (3vw)',
+            },
+            {
+              value: '[clip-path:polygon(0_3vw,100%_0,100%_100%,0_100%)]',
+              label: 'Reverse Diagonal Slant (-3vw)',
+            },
+            {
+              value: '[clip-path:polygon(0_0,100%_0,100%_calc(100%-3vw),0_100%)]',
+              label: 'Bottom Diagonal Slant (3vw)',
+            },
+            {
+              value: '[clip-path:polygon(0_0,50%_3vw,100%_0,100%_100%,0_100%)]',
+              label: 'Triangle Arrow Transition',
+            },
+            {
+              value: 'rounded-t-[3rem] border-t-2 border-border',
+              label: 'Curved Arch Header (3rem)',
+            },
+            {
+              value: 'rounded-b-[3rem] border-b-2 border-border',
+              label: 'Pill Arch Footer (3rem)',
+            },
+            {
+              value: 'shadow-[0_-8px_24px_-6px_rgba(245,158,11,0.25)] border-t border-amber-500/40',
+              label: 'Top Civic Gold Horizon Glow',
+            },
+            {
+              value: 'shadow-[0_8px_24px_-6px_rgba(245,158,11,0.25)] border-b border-amber-500/40',
+              label: 'Bottom Civic Gold Horizon Glow',
+            },
+          ]}
+        />
+
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
+            id={sectionTopDividerSelectId}
+            label="Top Shape Divider (Pro)"
+            size="xs"
+            value={styles.section.topDivider || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, topDivider: val },
+              })
+            }
+            options={[
+              { value: '', label: 'None (Flush Top)' },
+              { value: 'border-t border-border/80', label: 'Hairline Border Top' },
+              { value: 'border-t-2 border-accent-gold', label: 'Gold Accent Bar (2px)' },
+              { value: 'border-t-4 border-amber-500', label: 'Bold Gold Banner (4px)' },
+              { value: 'border-t-4 border-blue-900', label: 'Navy Accent Header (4px)' },
+              {
+                value: 'rounded-t-[2.5rem] border-t-2 border-border',
+                label: 'Curved Arch Top',
+              },
+              {
+                value: 'rounded-t-[4rem] border-t-2 border-border',
+                label: 'Deep Arch Dome Top',
+              },
+              {
+                value: '[clip-path:polygon(0_3vw,100%_0,100%_100%,0_100%)]',
+                label: 'Slanted Slope (-3vw)',
+              },
+              {
+                value: '[clip-path:polygon(0_0,100%_3vw,100%_100%,0_100%)]',
+                label: 'Inverse Slope (+3vw)',
+              },
+              {
+                value:
+                  'shadow-[0_-12px_32px_-8px_rgba(245,158,11,0.3)] border-t border-amber-500/50',
+                label: 'Top Radiant Gold Glow',
+              },
+            ]}
+          />
+          <StudioSelect
+            id={sectionBottomDividerSelectId}
+            label="Bottom Shape Divider (Pro)"
+            size="xs"
+            value={styles.section.bottomDivider || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, bottomDivider: val },
+              })
+            }
+            options={[
+              { value: '', label: 'None (Flush Bottom)' },
+              { value: 'border-b border-border/80', label: 'Hairline Border Bottom' },
+              { value: 'border-b-2 border-accent-gold', label: 'Gold Accent Bar (2px)' },
+              { value: 'border-b-4 border-amber-500', label: 'Bold Gold Banner (4px)' },
+              { value: 'border-b-4 border-blue-900', label: 'Navy Accent Footer (4px)' },
+              {
+                value: 'rounded-b-[2.5rem] border-b-2 border-border',
+                label: 'Pill Arch Footer',
+              },
+              {
+                value: 'rounded-b-[4rem] border-b-2 border-border',
+                label: 'Deep Arch Cradle',
+              },
+              {
+                value: '[clip-path:polygon(0_0,100%_0,100%_calc(100%-3vw),0_100%)]',
+                label: 'Slanted Slant (3vw)',
+              },
+              {
+                value: '[clip-path:polygon(0_0,100%_0,100%_100%,0_calc(100%-3vw))]',
+                label: 'Inverse Slant (-3vw)',
+              },
+              {
+                value:
+                  'shadow-[0_12px_32px_-8px_rgba(245,158,11,0.3)] border-b border-amber-500/50',
+                label: 'Bottom Radiant Gold Glow',
+              },
+            ]}
+          />
+        </div>
+
+        <StudioSelect
+          id={sectionDividerColorSelectId}
+          label="Divider Accent Color (Pro)"
+          size="xs"
+          value={styles.section.dividerColor || ''}
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              section: { ...styles.section, dividerColor: val },
+            })
+          }
+          options={[
+            { value: '', label: 'Default Border Frame' },
+            { value: 'text-amber-500/40', label: 'Civic Gold Accent' },
+            { value: 'text-blue-900/50', label: 'Patriotic Navy Depth' },
+            { value: 'text-white/20', label: 'Frost Glass Accent' },
+            { value: 'text-emerald-500/40', label: 'Grassroots Emerald' },
+            { value: 'text-rose-500/40', label: 'Alert Crimson' },
+          ]}
+        />
+      </StudioSection>
+
+      {/* ── 7. Overflow & Stacking Z-Index ──────────────────────────────── */}
+      <StudioSection
+        title="Clipping & Stacking Elevation"
+        badge="Z-Index"
+        description="Boundary clipping and layer stacking order."
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <StudioSelect
+            id={sectionOverflowSelectId}
+            label="Section Overflow & Shape Boundary Clipping"
+            value={styles.section.overflow || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, overflow: val },
+              })
+            }
+            options={[
+              { value: '', label: 'Visible (Default)' },
+              { value: 'overflow-hidden', label: 'Hidden (Clip Bleeds)' },
+              { value: 'overflow-clip', label: 'Clip (Strict Boundary)' },
+              { value: 'overflow-x-hidden', label: 'Horizontal Hidden Only' },
+              { value: 'overflow-y-auto', label: 'Vertical Scrollable (Auto)' },
+            ]}
+          />
+          <StudioSelect
+            id={sectionZIndexSelectId}
+            label="Stacking Z-Index"
+            value={styles.section.zIndex || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, zIndex: val },
+              })
+            }
+            options={[
+              { value: '', label: 'Auto (Default 0)' },
+              { value: 'relative z-10', label: 'Low Float (z-10)' },
+              { value: 'relative z-20', label: 'Mid Floating (z-20)' },
+              { value: 'relative z-30', label: 'High Elevation (z-30)' },
+              { value: 'relative z-40', label: 'Modal / Sticky Layer (z-40)' },
+              { value: 'relative z-50', label: 'Topmost Foreground (z-50)' },
+            ]}
+          />
+        </div>
+      </StudioSection>
+
+      {/* ── 8. Developer Controls & Responsive Visibility ───────────────── */}
+      <StudioSection
+        title="Developer Attributes & Visibility"
+        badge="Advanced"
+        description="HTML anchor IDs, extra custom Tailwind classes, and device display controls."
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <StudioInput
+            id={sectionAnchorIdInputId}
+            label="Section Anchor ID"
+            prefix="#"
+            value={styles.anchorId}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                anchorId: val.replace(/[^a-zA-Z0-9_-]/g, ''),
+              })
+            }
+            placeholder="speakers, rsvp"
+          />
+          <StudioInput
+            id={sectionCustomClassesInputId}
+            label="Section Custom Classes"
+            value={styles.customClasses}
+            onChange={(val) => setStyles({ ...styles, customClasses: val })}
+            placeholder="border-t border-white/10"
+          />
+        </div>
+
+        {/* Sticky Row Pinning & Print Visibility */}
+        <div className="grid grid-cols-2 gap-2">
+          <StudioToggle
+            label="Sticky Row"
+            description="Pin to top on scroll"
+            active={Boolean(styles.section.sticky)}
+            statusLabel={styles.section.sticky ? 'ON' : 'OFF'}
+            onToggle={() =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, sticky: !styles.section.sticky },
+              })
+            }
+          />
+          <StudioToggle
+            label="Hide on Print"
+            description="Exclude from print"
+            active={Boolean(styles.responsive.hidePrint)}
+            activeTone="rose"
+            statusLabel={styles.responsive.hidePrint ? 'HIDDEN' : 'VISIBLE'}
+            onToggle={() =>
+              setStyles({
+                ...styles,
+                responsive: { ...styles.responsive, hidePrint: !styles.responsive.hidePrint },
+              })
+            }
+          />
+        </div>
+
+        {/* Section Responsive Device Visibility */}
+        <div>
+          <span className="block text-slate-400 text-[10px] mb-1.5 font-medium">
+            Hide on Devices
           </span>
-          <p className="font-mono text-[10px] text-accent-gold break-all">
-            {compiledClassNames || '(default section styles)'}
-          </p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[
+              {
+                key: 'hideMobile' as const,
+                label: 'Mobile',
+                active: styles.responsive.hideMobile,
+              },
+              {
+                key: 'hideTablet' as const,
+                label: 'Tablet',
+                active: styles.responsive.hideTablet,
+              },
+              {
+                key: 'hideDesktop' as const,
+                label: 'Desktop',
+                active: styles.responsive.hideDesktop,
+              },
+            ].map((item) => (
+              <StudioToggle
+                key={item.key}
+                label={item.label}
+                active={Boolean(item.active)}
+                activeTone="rose"
+                icon={
+                  item.active ? (
+                    <EyeOff size={12} className="text-rose-300" />
+                  ) : (
+                    <Eye size={12} className="text-slate-400" />
+                  )
+                }
+                onToggle={() =>
+                  setStyles({
+                    ...styles,
+                    responsive: {
+                      ...styles.responsive,
+                      [item.key]: !styles.responsive[item.key],
+                    },
+                  })
+                }
+              />
+            ))}
+          </div>
         </div>
-      )}
+
+        {/* Generated CSS Classes Preview */}
+        {compiledClassNames !== undefined && (
+          <div className="rounded-xl border border-white/10 bg-slate-900/90 p-3">
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+              Compiled Classnames Preview
+            </span>
+            <p className="font-mono text-[10px] text-accent-gold break-all">
+              {compiledClassNames || '(default section styles)'}
+            </p>
+          </div>
+        )}
+      </StudioSection>
     </div>
   );
 }

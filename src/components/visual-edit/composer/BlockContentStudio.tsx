@@ -3,6 +3,7 @@
 import { Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { type Block, type ContentBlockType, convertBlock, type HeadingLevel } from '@/lib/blocks';
+import { StudioInput } from './ui';
 
 export interface BlockContentStudioProps {
   currentBlock: Block;
@@ -138,74 +139,45 @@ export function BlockContentStudio({
 
       {currentBlock.type === 'image' && (
         <div className="space-y-3">
-          <div>
-            <label htmlFor={imageSrcId} className="block text-slate-300 font-bold mb-1">
-              Image URL
-            </label>
-            <input
-              id={imageSrcId}
-              type="url"
-              value={currentBlock.src}
-              onChange={(e) => setCurrentBlock({ ...currentBlock, src: e.target.value })}
-              placeholder="https://..."
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label htmlFor={imageAltId} className="block text-slate-300 font-bold mb-1">
-              Alt Text
-            </label>
-            <input
-              id={imageAltId}
-              type="text"
-              value={currentBlock.alt}
-              onChange={(e) => setCurrentBlock({ ...currentBlock, alt: e.target.value })}
-              placeholder="Describe image for accessibility"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label htmlFor={imageCaptionId} className="block text-slate-300 font-bold mb-1">
-              Caption
-            </label>
-            <input
-              id={imageCaptionId}
-              type="text"
-              value={currentBlock.caption}
-              onChange={(e) => setCurrentBlock({ ...currentBlock, caption: e.target.value })}
-              placeholder="Optional image caption"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none"
-            />
-          </div>
+          <StudioInput
+            id={imageSrcId}
+            type="url"
+            label="Image URL"
+            value={currentBlock.src}
+            onChange={(val) => setCurrentBlock({ ...currentBlock, src: val })}
+            placeholder="https://..."
+          />
+          <StudioInput
+            id={imageAltId}
+            label="Alt Text"
+            value={currentBlock.alt}
+            onChange={(val) => setCurrentBlock({ ...currentBlock, alt: val })}
+            placeholder="Describe image for accessibility"
+          />
+          <StudioInput
+            id={imageCaptionId}
+            label="Caption"
+            value={currentBlock.caption}
+            onChange={(val) => setCurrentBlock({ ...currentBlock, caption: val })}
+            placeholder="Optional image caption"
+          />
         </div>
       )}
 
       {currentBlock.type === 'button' && (
         <div className="space-y-3">
-          <div>
-            <label htmlFor={buttonLabelId} className="block text-slate-300 font-bold mb-1">
-              Button Label
-            </label>
-            <input
-              id={buttonLabelId}
-              type="text"
-              value={currentBlock.label}
-              onChange={(e) => setCurrentBlock({ ...currentBlock, label: e.target.value })}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label htmlFor={buttonHrefId} className="block text-slate-300 font-bold mb-1">
-              Destination URL
-            </label>
-            <input
-              id={buttonHrefId}
-              type="text"
-              value={currentBlock.href}
-              onChange={(e) => setCurrentBlock({ ...currentBlock, href: e.target.value })}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none"
-            />
-          </div>
+          <StudioInput
+            id={buttonLabelId}
+            label="Button Label"
+            value={currentBlock.label}
+            onChange={(val) => setCurrentBlock({ ...currentBlock, label: val })}
+          />
+          <StudioInput
+            id={buttonHrefId}
+            label="Destination URL"
+            value={currentBlock.href}
+            onChange={(val) => setCurrentBlock({ ...currentBlock, href: val })}
+          />
         </div>
       )}
 
@@ -293,27 +265,21 @@ export function BlockContentStudio({
 
       {currentBlock.type === 'table' && (
         <div className="space-y-3">
-          <div>
-            <label htmlFor={tableHeadId} className="block text-slate-300 font-bold mb-1">
-              Table Columns (comma-separated headers)
-            </label>
-            <input
-              id={tableHeadId}
-              type="text"
-              value={currentBlock.head.join(', ')}
-              onChange={(e) =>
-                setCurrentBlock({
-                  ...currentBlock,
-                  head: e.target.value
-                    .split(',')
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                })
-              }
-              placeholder="Date, Action, Organizer"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none text-xs"
-            />
-          </div>
+          <StudioInput
+            id={tableHeadId}
+            label="Table Columns (comma-separated headers)"
+            value={currentBlock.head.join(', ')}
+            onChange={(val) =>
+              setCurrentBlock({
+                ...currentBlock,
+                head: val
+                  .split(',')
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              })
+            }
+            placeholder="Date, Action, Organizer"
+          />
           <div>
             <label htmlFor={tableRowsId} className="block text-slate-300 font-bold mb-1">
               Table Data Rows (one row per line, comma-separated cells)

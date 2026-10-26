@@ -1633,20 +1633,25 @@ export function VisualEditOverlay() {
         const idAttr = anchorId ? ` id="${anchorId}"` : '';
         const classAttr = customClasses ? ` class="${customClasses}"` : '';
         const styleAttr = customStyle ? ` style="${customStyle}"` : '';
+        const themeAttr = customClasses?.includes('[data-theme=dark]')
+          ? ' data-theme="dark"'
+          : customClasses?.includes('[data-theme=light]')
+            ? ' data-theme="light"'
+            : '';
         if ('html' in updatedBlock && typeof updatedBlock.html === 'string') {
           const trimmed = updatedBlock.html.trim();
           if (trimmed.startsWith('<div') && trimmed.endsWith('</div>')) {
             const closingTag = trimmed.indexOf('>');
             if (closingTag !== -1) {
               const inner = trimmed.slice(closingTag + 1, -6);
-              updatedBlock.html = `<div${idAttr}${classAttr}${styleAttr}>${inner}</div>`;
+              updatedBlock.html = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${inner}</div>`;
             }
           } else {
-            updatedBlock.html = `<div${idAttr}${classAttr}${styleAttr}>${trimmed}</div>`;
+            updatedBlock.html = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${trimmed}</div>`;
           }
         } else {
           const serialized = serializeBlocks([updatedBlock]);
-          const wrappedHtml = `<div${idAttr}${classAttr}${styleAttr}>${serialized}</div>`;
+          const wrappedHtml = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${serialized}</div>`;
           updatedBlock = {
             id: updatedBlock.id,
             type: 'unsupported',

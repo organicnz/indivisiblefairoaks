@@ -9,7 +9,8 @@ export interface StudioInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   size?: 'xs' | 'sm';
-  type?: 'text' | 'number';
+  type?: 'text' | 'number' | 'url';
+  prefix?: string;
   description?: string;
   className?: string;
   disabled?: boolean;
@@ -23,6 +24,7 @@ export function StudioInput({
   placeholder,
   size = 'sm',
   type = 'text',
+  prefix,
   description,
   className = '',
   disabled = false,
@@ -45,19 +47,26 @@ export function StudioInput({
           {label}
         </label>
       )}
-      <input
-        id={id}
-        type={type}
-        value={value}
-        disabled={disabled}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className={
-          isXs
-            ? 'w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px] placeholder:text-white/30 focus:border-accent-gold/50 focus:outline-none transition-colors'
-            : 'w-full rounded-lg border border-white/10 bg-slate-900 px-2.5 py-1.5 text-xs text-white placeholder:text-white/30 focus:border-accent-gold/50 focus:outline-none transition-colors'
-        }
-      />
+      <div className="relative">
+        {prefix && (
+          <span className="absolute left-2.5 top-2 text-xs font-mono text-slate-400 select-none">
+            {prefix}
+          </span>
+        )}
+        <input
+          id={id}
+          type={type}
+          value={value}
+          disabled={disabled}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className={
+            isXs
+              ? `w-full rounded border border-white/10 bg-slate-900 ${prefix ? 'pl-5 pr-1 py-1' : 'p-1'} text-white text-[10px] placeholder:text-white/30 focus:border-accent-gold/50 focus:outline-none transition-colors`
+              : `w-full rounded-lg border border-white/10 bg-slate-900 ${prefix ? 'pl-6 pr-2.5 py-1.5' : 'px-2.5 py-1.5'} text-xs text-white placeholder:text-white/30 focus:border-accent-gold/50 focus:outline-none transition-colors`
+          }
+        />
+      </div>
       {description && <p className="mt-1 text-[10px] text-slate-400">{description}</p>}
     </div>
   );
