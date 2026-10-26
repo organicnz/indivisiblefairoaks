@@ -997,7 +997,7 @@ export function BoxModelStudio({
               onChange={(e) =>
                 setStyles({
                   ...styles,
-                  badgeTone: e.target.value as any,
+                  badgeTone: e.target.value as VisualComposerStyles['badgeTone'],
                 })
               }
               className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white"
@@ -1022,7 +1022,7 @@ export function BoxModelStudio({
               onChange={(e) =>
                 setStyles({
                   ...styles,
-                  badgePosition: e.target.value as any,
+                  badgePosition: e.target.value as VisualComposerStyles['badgePosition'],
                 })
               }
               className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white"
