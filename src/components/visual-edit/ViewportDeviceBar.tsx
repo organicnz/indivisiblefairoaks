@@ -1,6 +1,9 @@
 'use client';
 
 import { Monitor, RotateCw, Smartphone, Tablet } from 'lucide-react';
+import { useThemeMode } from '@/components/layout/theme-store';
+import type { ThemeMode } from '@/lib/theme';
+import { ThemePreviewToggle } from './composer/ui/ThemePreviewToggle';
 import type { ViewportMode } from './VisualEditOverlay';
 
 export interface ViewportDeviceBarProps {
@@ -8,6 +11,8 @@ export interface ViewportDeviceBarProps {
   deviceOrientation: 'portrait' | 'landscape';
   onRotate: () => void;
   onReset: () => void;
+  themeMode?: ThemeMode;
+  onSetThemeMode?: (mode: ThemeMode) => void;
 }
 
 export function ViewportDeviceBar({
@@ -15,7 +20,12 @@ export function ViewportDeviceBar({
   deviceOrientation,
   onRotate,
   onReset,
+  themeMode: propThemeMode,
+  onSetThemeMode: propSetThemeMode,
 }: ViewportDeviceBarProps) {
+  const storeTheme = useThemeMode();
+  const currentThemeMode = propThemeMode ?? storeTheme.mode;
+  const handleSetTheme = propSetThemeMode ?? storeTheme.setMode;
   if (viewportMode === 'desktop') return null;
 
   const isMobile = viewportMode === 'mobile';
@@ -65,6 +75,10 @@ export function ViewportDeviceBar({
         <RotateCw size={12} className="text-accent-gold" />
         <span className="hidden sm:inline">Rotate</span>
       </button>
+
+      <div className="flex items-center gap-1.5 pl-1 border-l border-white/20">
+        <ThemePreviewToggle currentMode={currentThemeMode} onSelectMode={handleSetTheme} compact />
+      </div>
 
       <button
         type="button"

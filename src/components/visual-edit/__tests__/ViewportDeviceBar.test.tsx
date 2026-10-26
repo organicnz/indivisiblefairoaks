@@ -91,4 +91,29 @@ describe('ViewportDeviceBar', () => {
     expect(container.textContent).toContain('1024 × 768 px');
     expect(container.textContent).toContain('landscape');
   });
+
+  it('renders theme selector buttons and handles mode changes', async () => {
+    const onSetThemeMode = vi.fn();
+    await act(async () => {
+      root.render(
+        <ViewportDeviceBar
+          viewportMode="mobile"
+          deviceOrientation="portrait"
+          onRotate={vi.fn()}
+          onReset={vi.fn()}
+          themeMode="system"
+          onSetThemeMode={onSetThemeMode}
+        />
+      );
+    });
+
+    const lightBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Preview in Light mode"]'
+    );
+    expect(lightBtn).not.toBeNull();
+    await act(async () => {
+      lightBtn?.click();
+    });
+    expect(onSetThemeMode).toHaveBeenCalledWith('light');
+  });
 });

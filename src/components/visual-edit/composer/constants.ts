@@ -45,6 +45,10 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     bgBlendMode: '',
     innerShadow: '',
     equalHeight: false,
+    themeMode: 'inherit',
+    bgTexture: '',
+    rowGap: '',
+    contentWidth: '',
     hideMobile: false,
     hideTablet: false,
     hideDesktop: false,
@@ -169,6 +173,10 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
   animation: 'none',
   customClasses: '',
   customStyle: '',
+  themeMode: 'inherit',
+  badgeText: '',
+  badgeTone: 'gold',
+  badgePosition: 'top-right',
 };
 
 export const VC_STYLE_PRESETS: StylePreset[] = [

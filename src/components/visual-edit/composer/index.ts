@@ -9,3 +9,4 @@ export * from './InspectorHeader';
 export * from './PresetStudio';
 export * from './SectionStudio';
 export * from './TypographyStudio';
+export * from './ui';

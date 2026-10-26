@@ -89,10 +89,17 @@ export function compileSectionClasses(
     section.bgAttachment,
     section.bgSize,
     section.bgRepeat,
+    section.bgTexture,
     section.columns,
-    section.columns ? section.columnGap : '',
+    section.columns ? section.rowGap || section.columnGap : '',
     section.columns ? section.verticalAlign : '',
     section.columns && section.justifyContent ? section.justifyContent : '',
+    section.contentWidth,
+    section.themeMode === 'dark'
+      ? '[data-theme=dark] [color-scheme:dark]'
+      : section.themeMode === 'light'
+        ? '[data-theme=light] [color-scheme:light]'
+        : '',
     section.reverseMobile ? 'flex flex-col-reverse md:flex-row' : '',
     section.radius !== 'rounded-none' ? section.radius : '',
     section.shadow !== 'shadow-none' ? section.shadow : '',
@@ -225,6 +232,11 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
     styles.responsive.hideDesktop ? 'md:hidden' : '',
     styles.responsive.hidePrint ? 'print:hidden' : '',
     styles.animation !== 'none' ? styles.animation : '',
+    styles.themeMode === 'dark'
+      ? '[data-theme=dark] [color-scheme:dark]'
+      : styles.themeMode === 'light'
+        ? '[data-theme=light] [color-scheme:light]'
+        : '',
     styles.customClasses,
   ]
     .filter(Boolean)

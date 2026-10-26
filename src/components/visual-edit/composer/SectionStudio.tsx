@@ -306,6 +306,37 @@ export function SectionStudio({
         </select>
       </div>
 
+      {/* Section Theme Mode Override (Pro) */}
+      <div>
+        <label
+          htmlFor="section-theme-mode-select"
+          className="text-[10px] text-slate-400 mb-1 block"
+        >
+          Section Theme Tone Mode
+        </label>
+        <select
+          id="section-theme-mode-select"
+          value={styles.section.themeMode || 'inherit'}
+          onChange={(e) =>
+            setStyles({
+              ...styles,
+              section: {
+                ...styles.section,
+                themeMode: e.target.value as 'inherit' | 'light' | 'dark',
+              },
+            })
+          }
+          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2 text-white text-xs"
+        >
+          <option value="inherit">Inherit Global Site Theme (Default)</option>
+          <option value="dark">Force Dark Tone Mode ([data-theme=dark])</option>
+          <option value="light">Force Light Tone Mode ([data-theme=light])</option>
+        </select>
+        <p className="mt-1 text-[10px] text-slate-400">
+          Locks this section to light or dark mode regardless of the reader&apos;s OS theme.
+        </p>
+      </div>
+
       {/* Civic Gradient Backgrounds */}
       <div>
         <span className="block text-slate-300 font-bold mb-2">

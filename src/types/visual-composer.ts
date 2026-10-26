@@ -48,6 +48,10 @@ export interface VisualComposerSection {
   bgBlendMode?: string;
   innerShadow?: string;
   equalHeight?: boolean;
+  themeMode?: 'inherit' | 'light' | 'dark';
+  bgTexture?: string;
+  rowGap?: string;
+  contentWidth?: string;
   hideMobile?: boolean;
   hideTablet?: boolean;
   hideDesktop?: boolean;
@@ -193,6 +197,10 @@ export interface VisualComposerStyles {
   animation: string;
   customClasses: string;
   customStyle?: string;
+  themeMode?: 'inherit' | 'light' | 'dark';
+  badgeText?: string;
+  badgeTone?: 'gold' | 'navy' | 'emerald' | 'crimson' | 'slate';
+  badgePosition?: 'top-left' | 'top-right';
 }
 
 export interface StylePreset {

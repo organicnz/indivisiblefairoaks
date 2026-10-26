@@ -4,6 +4,7 @@ import { Code, Layers, Move, Palette, RotateCcw, Type, Wand2 } from 'lucide-reac
 import { useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 import type { Block } from '@/lib/blocks';
+import type { ThemeMode } from '@/lib/theme';
 
 import type {
   VisualComposerDevice,
@@ -92,6 +93,7 @@ export function VisualComposerInspector({
   const [hasCopiedStyles, setHasCopiedStyles] = useState<boolean>(Boolean(getStylesClipboard()));
   const [isSidesLinked, setIsSidesLinked] = useState<boolean>(true);
   const [previewDevice, setPreviewDevice] = useState<VisualComposerDevice>('desktop');
+  const [previewTheme, setPreviewTheme] = useState<ThemeMode>('system');
   const [jsonConfigDraft, setJsonConfigDraft] = useState<string>('');
 
   const titleId = useId();
@@ -461,6 +463,8 @@ export function VisualComposerInspector({
         inspectorMode={inspectorMode}
         previewDevice={previewDevice}
         setPreviewDevice={setPreviewDevice}
+        previewTheme={previewTheme}
+        setPreviewTheme={setPreviewTheme}
         compiledClassNames={compiledClassNames}
         currentBlock={currentBlock}
       />

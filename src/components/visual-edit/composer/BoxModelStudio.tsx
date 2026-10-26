@@ -826,7 +826,7 @@ export function BoxModelStudio({
       {/* Background & Shadow */}
       <div>
         <span className="block text-slate-300 font-bold mb-2">Background &amp; Elevation</span>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <div>
             <label htmlFor={bgThemeSelectId} className="text-[10px] text-slate-400 mb-1 block">
               Background Theme
@@ -871,6 +871,29 @@ export function BoxModelStudio({
               <option value="shadow-lg shadow-amber-500/25">Civic Gold Glow</option>
               <option value="shadow-lg shadow-sky-500/25">Cyan Tech Glow</option>
               <option value="shadow-2xl shadow-blue-950/60">Patriotic Navy Shadow</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor="block-theme-mode-select"
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Element Theme Mode
+            </label>
+            <select
+              id="block-theme-mode-select"
+              value={styles.themeMode || 'inherit'}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  themeMode: e.target.value as 'inherit' | 'light' | 'dark',
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="inherit">Inherit Section Theme</option>
+              <option value="dark">Force Dark Tone Mode</option>
+              <option value="light">Force Light Tone Mode</option>
             </select>
           </div>
         </div>
@@ -929,6 +952,83 @@ export function BoxModelStudio({
                 Hexagon Badge Mask
               </option>
               <option value="[clip-path:ellipse(50%_50%_at_50%_50%)]">Smooth Ellipse</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Decorative Corner Ribbon / Badge (Pro) */}
+      <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+        <span className="block text-slate-300 font-bold text-xs">
+          Decorative Badge / Ribbon Accent (Pro)
+        </span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <label
+              htmlFor="block-badge-text-input"
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Badge Label Text
+            </label>
+            <input
+              id="block-badge-text-input"
+              type="text"
+              value={styles.badgeText || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  badgeText: e.target.value,
+                })
+              }
+              placeholder="e.g. NEW, FEATURED"
+              className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white placeholder:text-white/30"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="block-badge-tone-select"
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Badge Tone
+            </label>
+            <select
+              id="block-badge-tone-select"
+              value={styles.badgeTone || 'gold'}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  badgeTone: e.target.value as any,
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white"
+            >
+              <option value="gold">Civic Gold</option>
+              <option value="navy">Patriotic Navy</option>
+              <option value="emerald">Grassroots Emerald</option>
+              <option value="crimson">Alert Crimson</option>
+              <option value="slate">Subtle Charcoal</option>
+            </select>
+          </div>
+          <div>
+            <label
+              htmlFor="block-badge-pos-select"
+              className="text-[10px] text-slate-400 mb-1 block"
+            >
+              Badge Position
+            </label>
+            <select
+              id="block-badge-pos-select"
+              value={styles.badgePosition || 'top-right'}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  badgePosition: e.target.value as any,
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-xs text-white"
+            >
+              <option value="top-right">Top Right Corner</option>
+              <option value="top-left">Top Left Corner</option>
             </select>
           </div>
         </div>

@@ -2391,4 +2391,120 @@ describe('VisualComposerInspector', () => {
     const passedCustomStyle = onSaveBlock.mock.calls[0][3];
     expect(passedCustomStyle).toBe('letter-spacing: 0.1em; outline: 1px dashed gold;');
   });
+
+  it('supports section and block theme tone mode overrides and decorative badges', async () => {
+    const onSaveBlock = vi.fn();
+    const mockBlock: Block = {
+      id: 'theme-block',
+      type: 'callout',
+      tone: 'action',
+      html: 'Theme tone test callout',
+    };
+
+    // Render in Section Mode first
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={mockBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="section"
+        />
+      );
+    });
+
+    // Find and select Section Theme Tone Mode
+    const sectionThemeSelect = document.getElementById(
+      'section-theme-mode-select'
+    ) as HTMLSelectElement | null;
+    expect(sectionThemeSelect).not.toBeNull();
+    if (sectionThemeSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(sectionThemeSelect, 'dark');
+        sectionThemeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(sectionThemeSelect.value).toBe('dark');
+    }
+
+    // Save Section
+    const saveSectionButton = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Save Section')
+    );
+    await act(async () => {
+      saveSectionButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    const savedSectionClasses = onSaveBlock.mock.calls[0][1];
+    expect(savedSectionClasses).toContain('[data-theme=dark]');
+
+    // Now unmount and re-mount in Block mode
+    await act(async () => {
+      root.unmount();
+    });
+    root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={mockBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="block"
+        />
+      );
+    });
+
+    // Switch to Box Model Tab
+    const designTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Box Model')
+    );
+    await act(async () => {
+      designTabBtn?.click();
+    });
+
+    // Select Block Theme Mode
+    const blockThemeSelect = document.getElementById(
+      'block-theme-mode-select'
+    ) as HTMLSelectElement | null;
+    expect(blockThemeSelect).not.toBeNull();
+    if (blockThemeSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(blockThemeSelect, 'light');
+        blockThemeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(blockThemeSelect.value).toBe('light');
+    }
+
+    // Set Badge Text
+    const badgeInput = document.getElementById('block-badge-text-input') as HTMLInputElement | null;
+    expect(badgeInput).not.toBeNull();
+    if (badgeInput) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        setter?.call(badgeInput, 'ACTION ALERT');
+        badgeInput.dispatchEvent(new Event('input', { bubbles: true }));
+        badgeInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(badgeInput.value).toBe('ACTION ALERT');
+    }
+
+    // Save Block
+    const saveBlockButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Block'
+    );
+    await act(async () => {
+      saveBlockButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(2);
+    const savedBlockClasses = onSaveBlock.mock.calls[1][1];
+    expect(savedBlockClasses).toContain('[data-theme=light]');
+  });
 });
