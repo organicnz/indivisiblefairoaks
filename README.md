@@ -24,6 +24,33 @@ Platform for [Indivisible Fair Oaks-Carmichael](https://indivisiblefairoaks.org)
 
 ---
 
+## Features
+
+### Visual Composer & Pro In-Context Page Builder
+A modern, 10x pro visual editor allowing direct on-canvas editing and deep element customization:
+- **In-Context Direct Editing**: Edit live page text, headings, buttons, and layouts directly on the canvas without leaving the public view.
+- **Visual Composer Inspector (`⌘E`)**:
+  - **Multi-Column Grid Engine**: 1-click responsive row layouts (50/50, 33/33/33, 25/25/25/25, 66/33, 33/66) with custom column gutters, alignment, and mobile order inversion.
+  - **Section Atmosphere & Dividers**: Dynamic top/bottom SVG cutouts (diagonal slants, triangle transitions, arch headers, civic gold horizons), backdrop blur, fixed-scroll parallax (`bg-fixed`), and contrast tint overlays.
+  - **Interactive 2D CSS Box Model**: Visual margin and padding scrubbers with side-linking, live box visualization, and instant feedback.
+  - **Instant Element Morphing**: Convert blocks seamlessly between headings, paragraphs, callouts, quotes, bullet lists, action buttons, and code blocks while preserving content.
+  - **Typography & Effects Studio**: Civic underlines, drop shadows, letter spacing, CSS filter studio (blur, brightness, contrast, saturation, sepia, hue-rotate), and 3D transforms (rotate, scale, skew).
+  - **1-Click Civic Presets**: Instant application of patriotic, civic, and high-contrast design system presets.
+- **Block Library & Templates (`⌘⇧E`)**: Pre-built civic sections (hero banners, action callouts, newsletter signups, coalition showcases, stats grids).
+- **Page Navigator & Tree (`⌘7`)**: Visual hierarchical page outline for instant reordering and block selection.
+- **Auditor & Version Control**: Integrated Page A11y Auditor (WCAG contrast & ARIA checks), Civic Ghostwriter AI assistant, time-machine undo/redo (`⌘Z` / `⌘⇧Z`), and side-by-side visual diff before persisting to Supabase CMS.
+
+### Civic CRM & Engagement Platform
+- **Constituent Management**: Complete contact list, tag segmentation, engagement scoring, and activity history.
+- **Broadcast Composer**: Multi-channel email broadcast builder with responsive device preview frames (desktop, tablet, mobile) powered by Resend.
+- **Task Tracking & Operations**: Volunteer assignment, outreach pipelines, and civic workflow coordination.
+
+### Unified Domain Architecture
+- **Strict Domain Contracts**: Centralized domain interfaces in `src/types/visual-composer.ts`, `src/types/crm.ts`, `src/types/content-media.ts`, and re-exported through `src/types/unified.ts`.
+- **Zero Drift**: Type-safe synchronization between Supabase database schemas, server actions, and frontend visual components.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
