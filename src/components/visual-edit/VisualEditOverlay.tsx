@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  FileEdit,
   FilePlus2,
   FolderOpen,
   Globe,
@@ -449,6 +450,13 @@ export function VisualEditOverlay() {
   imageSessionRef.current = imageSession;
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
+
+  // On-Canvas Right-Click Context Menu State
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    blockIndex: number;
+  } | null>(null);
 
   // ── Link insertion dialog (replaces browser prompt) ─────────────────────
   // `textareaId` is set when the dialog is opened from the section modal's
@@ -2058,14 +2066,50 @@ export function VisualEditOverlay() {
       };
       inlineSessionRef.current = session;
       setInlineSession(session);
+      setContextMenu(null);
+    };
+
+    const handleContextMenuCapture = (e: MouseEvent) => {
+      if (!enabled || !isAdmin) return;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest('[data-visual-edit-ui]')) return;
+
+      let matchedBlockIdx: number | null = null;
+      for (const sec of sectionsRef.current) {
+        const el = locate(sec.blockIndex);
+        if (el && (el === target || el.contains(target))) {
+          matchedBlockIdx = sec.blockIndex;
+          break;
+        }
+      }
+
+      const isTextTarget = Boolean(
+        target.closest<HTMLElement>(
+          'h1, h2, h3, h4, h5, h6, p, blockquote, li, dt, dd, [data-copy-region] span, a, button, [data-data-point], figure, img, table, hr'
+        )
+      );
+
+      if (matchedBlockIdx !== null || isTextTarget) {
+        e.preventDefault();
+        e.stopPropagation();
+        const blockIdx = matchedBlockIdx ?? activeBlockIndex ?? 0;
+        setContextMenu({
+          x: Math.max(12, Math.min(e.clientX, window.innerWidth - 230)),
+          y: Math.max(12, Math.min(e.clientY, window.innerHeight - 360)),
+          blockIndex: blockIdx,
+        });
+      }
     };
 
     window.addEventListener('click', handleClickCapture, { capture: true });
+    window.addEventListener('contextmenu', handleContextMenuCapture, { capture: true });
     return () => {
       window.removeEventListener('click', handleClickCapture, { capture: true });
+      window.removeEventListener('contextmenu', handleContextMenuCapture, { capture: true });
       document.body.removeAttribute('data-editorial-mode');
     };
-  }, [enabled, isAdmin, locate, commitInlineEdit]);
+  }, [enabled, isAdmin, locate, commitInlineEdit, activeBlockIndex]);
 
   useEffect(() => {
     if (!inlineSession && !imageSession) return;
@@ -2246,6 +2290,11 @@ export function VisualEditOverlay() {
   useEffect(() => {
     if (!enabled || !isAdmin) return;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && contextMenu) {
+        event.preventDefault();
+        setContextMenu(null);
+        return;
+      }
       // Don't intercept shortcuts when typing in inputs
       const target = event.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
@@ -2382,6 +2431,7 @@ export function VisualEditOverlay() {
     commitInlineEdit,
     contentRow,
     toggleInspector,
+    contextMenu,
   ]);
 
   // Revisions management — restore is destructive; the confirm step lives at the
@@ -6290,6 +6340,146 @@ export function VisualEditOverlay() {
           setIsBlockLibraryOpen(true);
         }}
       />
+
+      {/* ── Visual Composer On-Canvas Right-Click Context Menu ──────────────── */}
+      {contextMenu && (
+        <div
+          data-visual-edit-ui="context-menu"
+          role="menu"
+          aria-label="Block Context Menu"
+          className="fixed z-[10020] min-w-[210px] rounded-xl border border-white/20 bg-slate-950/95 p-1.5 text-xs text-white shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 pointer-events-auto"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <div className="px-2 py-1 text-[10px] font-bold text-accent-gold uppercase tracking-wider border-b border-white/10 mb-1 flex items-center justify-between">
+            <span>Block #{contextMenu.blockIndex + 1}</span>
+            <span className="text-[9px] text-slate-400 font-normal">Actions</span>
+          </div>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setActiveBlockIndex(contextMenu.blockIndex);
+              setVcBlockIndex(contextMenu.blockIndex);
+              setVcMode('block');
+              setIsVisualComposerOpen(true);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
+          >
+            <SlidersHorizontal size={13} className="text-accent-gold" />
+            <span className="flex-1 font-semibold">Customize Block</span>
+            <span className="font-mono text-[10px] text-slate-400">⌘E</span>
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setActiveBlockIndex(contextMenu.blockIndex);
+              setVcBlockIndex(contextMenu.blockIndex);
+              setVcMode('section');
+              setIsVisualComposerOpen(true);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
+          >
+            <LayoutTemplate size={13} className="text-sky-400" />
+            <span className="flex-1 font-semibold">Row &amp; Section Settings</span>
+            <span className="font-mono text-[10px] text-slate-400">⌘R</span>
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              handleOpenEditSection(contextMenu.blockIndex);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
+          >
+            <FileEdit size={13} className="text-emerald-400" />
+            <span className="flex-1">Edit Content</span>
+          </button>
+
+          <div className="my-1 border-t border-white/10" />
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              handleDuplicateSection(contextMenu.blockIndex);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
+          >
+            <Copy size={13} className="text-amber-400" />
+            <span className="flex-1">Duplicate Block</span>
+            <span className="font-mono text-[10px] text-slate-400">⌘D</span>
+          </button>
+
+          {contextMenu.blockIndex > 0 && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                handleMoveSection(contextMenu.blockIndex, 'up');
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
+            >
+              <ArrowUp size={13} className="text-slate-400" />
+              <span className="flex-1">Move Up</span>
+            </button>
+          )}
+
+          {contextMenu.blockIndex < blocks.length - 1 && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                handleMoveSection(contextMenu.blockIndex, 'down');
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
+            >
+              <ArrowDown size={13} className="text-slate-400" />
+              <span className="flex-1">Move Down</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setLibraryTargetIndex(contextMenu.blockIndex + 1);
+              setIsBlockLibraryOpen(true);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
+          >
+            <Plus size={13} className="text-emerald-400" />
+            <span className="flex-1">Add Block Below</span>
+          </button>
+
+          <div className="my-1 border-t border-white/10" />
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              handleDeleteSection(contextMenu.blockIndex);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-300 hover:bg-rose-500/20 hover:text-rose-200 transition-colors text-left"
+          >
+            <Trash2 size={13} className="text-rose-400" />
+            <span className="flex-1">Delete Block</span>
+          </button>
+        </div>
+      )}
     </>
   );
 }

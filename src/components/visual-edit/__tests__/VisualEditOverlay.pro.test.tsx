@@ -373,4 +373,40 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     expect(document.body.textContent).toContain('Visual Composer Inspector');
     expect(document.body.textContent).toContain('Box Model');
   });
+
+  it('opens on-canvas right-click context menu and handles actions', async () => {
+    const main = document.createElement('main');
+    const p = document.createElement('p');
+    p.textContent = 'Right-click test block';
+    main.appendChild(p);
+    document.body.appendChild(main);
+
+    await mount();
+
+    // Trigger right click (contextmenu) on the editable element
+    await act(async () => {
+      p.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          clientY: 150,
+        })
+      );
+    });
+
+    const menu = document.querySelector('[role="menu"][aria-label="Block Context Menu"]');
+    expect(menu).not.toBeNull();
+    expect(menu?.textContent).toContain('Customize Block');
+    expect(menu?.textContent).toContain('Row & Section Settings');
+    expect(menu?.textContent).toContain('Duplicate Block');
+    expect(menu?.textContent).toContain('Delete Block');
+
+    // Pressing Escape closes the context menu
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+
+    expect(document.querySelector('[role="menu"][aria-label="Block Context Menu"]')).toBeNull();
+  });
 });

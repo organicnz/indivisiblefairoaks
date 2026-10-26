@@ -561,4 +561,190 @@ describe('VisualComposerInspector', () => {
       expect(customClassInput.value).toBe('civic-featured-banner');
     }
   });
+
+  it('switches responsive viewport device in live mini-preview', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const mobBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.getAttribute('aria-label') === 'Preview on mobile'
+    );
+    expect(mobBtn).toBeDefined();
+
+    await act(async () => {
+      mobBtn?.click();
+    });
+
+    const tabBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.getAttribute('aria-label') === 'Preview on tablet'
+    );
+    expect(tabBtn).toBeDefined();
+
+    await act(async () => {
+      tabBtn?.click();
+    });
+
+    const deskBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.getAttribute('aria-label') === 'Preview on desktop'
+    );
+    expect(deskBtn).toBeDefined();
+
+    await act(async () => {
+      deskBtn?.click();
+    });
+  });
+
+  it('edits code, table, divider, and unsupported blocks cleanly', async () => {
+    const codeBlock: Block = {
+      id: 'b-code',
+      type: 'code',
+      text: 'console.log("Civic action");',
+    };
+    const onSaveBlock = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={codeBlock}
+          blockIndex={1}
+          onSaveBlock={onSaveBlock}
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('Code Snippet');
+    const codeTextarea = document.querySelector('textarea');
+    expect(codeTextarea).not.toBeNull();
+    if (codeTextarea) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+        setter?.call(codeTextarea, 'export const action = "rsvp";');
+        codeTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+        codeTextarea.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
+    const saveButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Block'
+    );
+    await act(async () => {
+      saveButton?.click();
+    });
+    expect(onSaveBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'export const action = "rsvp";' }),
+      expect.any(String),
+      undefined
+    );
+
+    // Test Table Block
+    const tableBlock: Block = {
+      id: 'b-table',
+      type: 'table',
+      head: ['Event', 'Location'],
+      rows: [['Meeting', 'Library']],
+    };
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={tableBlock}
+          blockIndex={2}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+    expect(document.body.textContent).toContain('Table Columns');
+    expect(document.body.textContent).toContain('Table Data Rows');
+
+    // Test Divider Block
+    const dividerBlock: Block = {
+      id: 'b-div',
+      type: 'divider',
+    };
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={dividerBlock}
+          blockIndex={3}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+    expect(document.body.textContent).toContain('Horizontal Section Divider');
+
+    // Test Unsupported Block
+    const unsupportedBlock: Block = {
+      id: 'b-raw',
+      type: 'unsupported',
+      html: '<svg><path d="M0 0"/></svg>',
+    };
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={unsupportedBlock}
+          blockIndex={4}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+    expect(document.body.textContent).toContain('Raw HTML Markup');
+  });
+
+  it('configures transforms & 3D tilt controls in design tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={sampleHeadingBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const boxModelButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Box Model'
+    );
+    await act(async () => {
+      boxModelButton?.click();
+    });
+
+    expect(document.body.textContent).toContain('Transforms & 3D Tilt');
+    expect(document.body.textContent).toContain('Rotation Angle');
+    expect(document.body.textContent).toContain('Scale Size');
+    expect(document.body.textContent).toContain('Skew Slant');
+
+    const rotateLabel = Array.from(document.querySelectorAll('label')).find((l) =>
+      l.textContent?.includes('Rotation Angle')
+    );
+    const rotateSelect = rotateLabel
+      ? (document.getElementById(rotateLabel.htmlFor) as HTMLSelectElement)
+      : null;
+    expect(rotateSelect).not.toBeNull();
+    if (rotateSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(rotateSelect, 'rotate-2');
+        rotateSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(rotateSelect.value).toBe('rotate-2');
+    }
+  });
 });

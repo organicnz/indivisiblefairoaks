@@ -108,6 +108,11 @@ export interface VisualComposerStyles {
     hoverRotate?: string;
     duration?: string;
   };
+  transform?: {
+    rotate?: string;
+    scale?: string;
+    skew?: string;
+  };
   anchorId: string;
   responsive: {
     hideMobile: boolean;
@@ -187,6 +192,11 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     hoverLift: '',
     hoverRotate: '',
     duration: '',
+  },
+  transform: {
+    rotate: '',
+    scale: '',
+    skew: '',
   },
   anchorId: '',
   responsive: {
@@ -585,6 +595,7 @@ export function VisualComposerInspector({
   const [currentBlock, setCurrentBlock] = useState<Block | null>(block);
   const [hasCopiedStyles, setHasCopiedStyles] = useState<boolean>(Boolean(stylesClipboard));
   const [isSidesLinked, setIsSidesLinked] = useState<boolean>(true);
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
   const titleId = useId();
   const descId = useId();
@@ -600,6 +611,13 @@ export function VisualComposerInspector({
   const calloutTextId = useId();
   const quoteTextId = useId();
   const listItemsId = useId();
+  const codeTextId = useId();
+  const tableHeadId = useId();
+  const tableRowsId = useId();
+  const unsupportedHtmlId = useId();
+  const transformRotateSelectId = useId();
+  const transformScaleSelectId = useId();
+  const transformSkewSelectId = useId();
 
   const marginSelectId = useId();
   const paddingSelectId = useId();
@@ -777,6 +795,9 @@ export function VisualComposerInspector({
           styles.effects.opacity,
           styles.effects.grayscale,
           styles.shadow !== 'shadow-none' ? styles.shadow : '',
+          styles.transform?.rotate,
+          styles.transform?.scale,
+          styles.transform?.skew,
           styles.motion.entrance,
           styles.motion.hover,
           styles.motion.hoverScale,
@@ -972,28 +993,56 @@ export function VisualComposerInspector({
         </div>
       )}
 
-      {/* Live Mini Preview Box */}
+      {/* Live Mini Preview Box with Responsive Viewport Device Switcher */}
       <div className="border-b border-white/10 bg-slate-900/40 px-5 py-2.5">
-        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
           <span className="flex items-center gap-1">
             <Sparkles size={11} className="text-accent-gold" />
             <span>Live Mini-Preview ({inspectorMode})</span>
+            <span className="text-[9px] text-accent-gold/90 font-mono ml-1">Real-time</span>
           </span>
-          <span className="text-[9px] text-accent-gold/90 font-mono">Real-time</span>
-        </span>
-        <div className="rounded-xl border border-white/10 bg-black/40 p-2.5 overflow-hidden">
-          <div className={`${compiledClassNames || 'p-2 text-white text-xs'}`}>
-            <p className="line-clamp-2 text-xs">
-              {currentBlock.type === 'heading'
-                ? currentBlock.html || 'Heading Preview Text'
-                : currentBlock.type === 'paragraph'
-                  ? currentBlock.html || 'Paragraph preview content goes here.'
-                  : currentBlock.type === 'button'
-                    ? currentBlock.label || 'Action Button'
-                    : currentBlock.type === 'callout'
-                      ? currentBlock.html || 'Callout message box'
-                      : `${currentBlock.type} element`}
-            </p>
+          <div className="flex items-center gap-1">
+            {(['desktop', 'tablet', 'mobile'] as const).map((dev) => (
+              <button
+                key={dev}
+                type="button"
+                onClick={() => setPreviewDevice(dev)}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold capitalize transition-colors ${
+                  previewDevice === dev
+                    ? 'bg-accent-gold text-ink-strong'
+                    : 'bg-white/5 text-slate-400 hover:text-white'
+                }`}
+                title={`Preview on ${dev}`}
+                aria-label={`Preview on ${dev}`}
+              >
+                {dev === 'desktop' ? 'Desk' : dev === 'tablet' ? 'Tab' : 'Mob'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-black/40 p-2.5 overflow-hidden transition-all duration-300">
+          <div
+            className={`transition-all duration-300 ${
+              previewDevice === 'mobile'
+                ? 'max-w-[220px] mx-auto'
+                : previewDevice === 'tablet'
+                  ? 'max-w-[320px] mx-auto'
+                  : 'w-full'
+            }`}
+          >
+            <div className={`${compiledClassNames || 'p-2 text-white text-xs'}`}>
+              <p className="line-clamp-2 text-xs">
+                {currentBlock.type === 'heading'
+                  ? currentBlock.html || 'Heading Preview Text'
+                  : currentBlock.type === 'paragraph'
+                    ? currentBlock.html || 'Paragraph preview content goes here.'
+                    : currentBlock.type === 'button'
+                      ? currentBlock.label || 'Action Button'
+                      : currentBlock.type === 'callout'
+                        ? currentBlock.html || 'Callout message box'
+                        : `${currentBlock.type} element`}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -1803,6 +1852,96 @@ export function VisualComposerInspector({
                     setCurrentBlock({ ...currentBlock, items: e.target.value.split('\n') })
                   }
                   className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono"
+                />
+              </div>
+            )}
+
+            {currentBlock.type === 'code' && (
+              <div className="space-y-2">
+                <label htmlFor={codeTextId} className="block text-slate-300 font-bold">
+                  Code Snippet
+                </label>
+                <textarea
+                  id={codeTextId}
+                  rows={6}
+                  value={currentBlock.text}
+                  onChange={(e) => setCurrentBlock({ ...currentBlock, text: e.target.value })}
+                  placeholder="console.log('Civic action');"
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 p-3 text-emerald-400 placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono text-[11px]"
+                />
+              </div>
+            )}
+
+            {currentBlock.type === 'table' && (
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor={tableHeadId} className="block text-slate-300 font-bold mb-1">
+                    Table Columns (comma-separated headers)
+                  </label>
+                  <input
+                    id={tableHeadId}
+                    type="text"
+                    value={currentBlock.head.join(', ')}
+                    onChange={(e) =>
+                      setCurrentBlock({
+                        ...currentBlock,
+                        head: e.target.value
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    placeholder="Date, Action, Organizer"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none text-xs"
+                  />
+                </div>
+                <div>
+                  <label htmlFor={tableRowsId} className="block text-slate-300 font-bold mb-1">
+                    Table Data Rows (one row per line, comma-separated cells)
+                  </label>
+                  <textarea
+                    id={tableRowsId}
+                    rows={5}
+                    value={currentBlock.rows.map((r) => r.join(', ')).join('\n')}
+                    onChange={(e) =>
+                      setCurrentBlock({
+                        ...currentBlock,
+                        rows: e.target.value
+                          .split('\n')
+                          .filter((line) => line.trim())
+                          .map((line) => line.split(',').map((s) => s.trim())),
+                      })
+                    }
+                    placeholder="Nov 5, General Election, Fair Oaks\nDec 12, Organizing Rally, Carmichael"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono text-xs"
+                  />
+                </div>
+              </div>
+            )}
+
+            {currentBlock.type === 'divider' && (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center space-y-2">
+                <span className="block text-slate-300 font-bold">Horizontal Section Divider</span>
+                <p className="text-xs text-slate-400">
+                  This divider cleanly separates major sections. Customize margins, thickness, and
+                  borders in the Box Model tab.
+                </p>
+                <hr className="my-2 border-t border-accent-gold/40" />
+              </div>
+            )}
+
+            {currentBlock.type === 'unsupported' && (
+              <div className="space-y-2">
+                <label htmlFor={unsupportedHtmlId} className="block text-slate-300 font-bold">
+                  Raw HTML Markup
+                </label>
+                <textarea
+                  id={unsupportedHtmlId}
+                  rows={8}
+                  value={currentBlock.html}
+                  onChange={(e) => setCurrentBlock({ ...currentBlock, html: e.target.value })}
+                  placeholder="<div>...</div>"
+                  className="w-full rounded-xl border border-white/10 bg-slate-900 p-3 text-sky-400 placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono text-[11px]"
                 />
               </div>
             )}
@@ -2722,6 +2861,90 @@ export function VisualComposerInspector({
                     <option value="grayscale hover:grayscale-0 transition-all duration-300">
                       Hover Reveal Color
                     </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Transforms & 3D Tilt Studio */}
+            <div>
+              <span className="block text-slate-300 font-bold mb-2">Transforms &amp; 3D Tilt</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                <div>
+                  <label
+                    htmlFor={transformRotateSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Rotation Angle
+                  </label>
+                  <select
+                    id={transformRotateSelectId}
+                    value={styles.transform?.rotate || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        transform: { ...styles.transform, rotate: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">0° (Flat)</option>
+                    <option value="rotate-1">1° Subtle Right</option>
+                    <option value="-rotate-1">-1° Subtle Left</option>
+                    <option value="rotate-2">2° Dynamic Angle</option>
+                    <option value="-rotate-2">-2° Dynamic Angle</option>
+                    <option value="rotate-3">3° Playful Tilt</option>
+                    <option value="-rotate-3">-3° Playful Tilt</option>
+                    <option value="rotate-6">6° Accent Stamp</option>
+                    <option value="-rotate-6">-6° Accent Stamp</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={transformScaleSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Scale Size
+                  </label>
+                  <select
+                    id={transformScaleSelectId}
+                    value={styles.transform?.scale || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        transform: { ...styles.transform, scale: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">100% Normal</option>
+                    <option value="scale-95">95% Compact</option>
+                    <option value="scale-105">105% Spotlight Pop</option>
+                    <option value="scale-110">110% Heroic Zoom</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor={transformSkewSelectId}
+                    className="text-[10px] text-slate-400 mb-1 block"
+                  >
+                    Skew Slant
+                  </label>
+                  <select
+                    id={transformSkewSelectId}
+                    value={styles.transform?.skew || ''}
+                    onChange={(e) =>
+                      setStyles({
+                        ...styles,
+                        transform: { ...styles.transform, skew: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+                  >
+                    <option value="">None (0°)</option>
+                    <option value="skew-x-1">1° Civic Slant</option>
+                    <option value="-skew-x-1">-1° Reverse Slant</option>
+                    <option value="skew-y-1">1° Vertical Slant</option>
                   </select>
                 </div>
               </div>
