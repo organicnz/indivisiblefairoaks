@@ -14,6 +14,7 @@ export interface CodeStudioProps {
   rawHtmlInputId: string;
   blockAnchorIdInputId: string;
   customClassesInputId: string;
+  customStyleInputId?: string;
   designJsonInputId: string;
   jsonConfigDraft: string;
   setJsonConfigDraft: (draft: string) => void;
@@ -29,6 +30,7 @@ export function CodeStudio({
   rawHtmlInputId,
   blockAnchorIdInputId,
   customClassesInputId,
+  customStyleInputId = 'code-custom-style-input',
   designJsonInputId,
   jsonConfigDraft,
   setJsonConfigDraft,
@@ -129,6 +131,23 @@ export function CodeStudio({
             ))}
           </div>
         </div>
+      </div>
+
+      <div>
+        <label htmlFor={customStyleInputId} className="block text-slate-300 font-bold mb-1">
+          Custom Inline CSS Styles (style="...")
+        </label>
+        <input
+          id={customStyleInputId}
+          type="text"
+          value={styles.customStyle || ''}
+          onChange={(e) => setStyles({ ...styles, customStyle: e.target.value })}
+          placeholder="e.g. background-image: radial-gradient(...); letter-spacing: 0.05em;"
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono text-[11px]"
+        />
+        <p className="text-[10px] text-slate-400 mt-1">
+          Custom inline CSS rules applied directly to the outer block element container.
+        </p>
       </div>
 
       {/* 1-Click Design Config JSON Exchange Studio */}

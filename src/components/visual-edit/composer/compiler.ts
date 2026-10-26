@@ -12,7 +12,22 @@ import type {
  * Builds border utility string based on side, width, style, color, and radius.
  */
 export function compileBorderClasses(border: VisualComposerBorder): string {
-  if (border.width === 'border-0') return '';
+  const radiusClasses =
+    border.radiusLinked === false
+      ? [
+          border.radiusTopLeft,
+          border.radiusTopRight,
+          border.radiusBottomRight,
+          border.radiusBottomLeft,
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : border.radius;
+
+  if (border.width === 'border-0') {
+    return border.radiusLinked === false ? radiusClasses : '';
+  }
+
   const sidePrefix =
     border.side === 'top'
       ? border.width.replace('border', 'border-t')
@@ -26,7 +41,8 @@ export function compileBorderClasses(border: VisualComposerBorder): string {
               ? border.width.replace('border', 'border-y')
               : border.width;
   const styleClass = border.style !== 'none' ? `border-${border.style}` : '';
-  return [sidePrefix, styleClass, border.color, border.radius].filter(Boolean).join(' ');
+
+  return [sidePrefix, styleClass, border.color, radiusClasses].filter(Boolean).join(' ');
 }
 
 /**
@@ -39,8 +55,17 @@ export function compileSectionClasses(
   responsive: VisualComposerResponsive,
   customClasses = ''
 ): string {
+  const rowLayoutClass =
+    section.rowLayout === 'full-width-content'
+      ? 'w-full max-w-none px-0'
+      : section.rowLayout === 'screen-height'
+        ? 'min-h-screen flex items-center'
+        : section.rowLayout === 'full-width-bg'
+          ? 'w-full'
+          : '';
+
   return [
-    section.containerWidth,
+    rowLayoutClass || section.containerWidth,
     section.paddingY,
     section.paddingX !== 'px-4' ? section.paddingX : '',
     section.marginY,
@@ -52,6 +77,7 @@ export function compileSectionClasses(
     section.divider,
     section.topDivider,
     section.bottomDivider,
+    section.dividerColor,
     section.overflow,
     section.zIndex,
     section.innerShadow,
@@ -73,10 +99,10 @@ export function compileSectionClasses(
     section.sticky ? 'sticky top-0 z-40 backdrop-blur-md' : '',
     motion.entrance,
     motion.hover,
-    responsive.hideMobile ? 'max-sm:hidden' : '',
-    responsive.hideTablet ? 'sm:max-md:hidden' : '',
-    responsive.hideDesktop ? 'md:hidden' : '',
-    responsive.hidePrint ? 'print:hidden' : '',
+    responsive.hideMobile || section.hideMobile ? 'max-sm:hidden' : '',
+    responsive.hideTablet || section.hideTablet ? 'sm:max-md:hidden' : '',
+    responsive.hideDesktop || section.hideDesktop ? 'md:hidden' : '',
+    responsive.hidePrint || section.hidePrint ? 'print:hidden' : '',
     customClasses,
   ]
     .filter(Boolean)
@@ -103,6 +129,11 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
           .join(' ')
       : '',
     styles.layout.position,
+    styles.layout.inset,
+    styles.layout.top,
+    styles.layout.bottom,
+    styles.layout.left,
+    styles.layout.right,
     styles.layout.zIndex,
     styles.layout.overflow,
     styles.layout.cursor,
@@ -131,6 +162,7 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
     styles.padding.left,
     styles.padding.right,
     styles.typography.fontFamily,
+    styles.typography.fontSmoothing,
     styles.typography.fontStyle === 'italic' ? 'italic' : '',
     styles.typography.textGradient || styles.typography.color,
     styles.typography.fontSize,
@@ -148,6 +180,7 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
     styles.typography.textDecoration,
     styles.typography.textWrap,
     styles.typography.wordBreak,
+    styles.typography.textColumns,
     styles.typography.textShadow,
     compiledBorder,
     styles.background.gradient || styles.background.preset,
@@ -163,6 +196,8 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
     styles.effects.blendMode,
     styles.effects.invert,
     styles.effects.dropShadow,
+    styles.effects.shadowColor,
+    styles.effects.clipPath,
     styles.effects.hoverBrightness,
     styles.effects.hoverOpacity,
     styles.shadow !== 'shadow-none' ? styles.shadow : '',
@@ -181,6 +216,8 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
     styles.motion.hoverGlow,
     styles.motion.hoverBorder,
     styles.motion.hoverShadow,
+    styles.motion.hoverBg,
+    styles.motion.hoverTextColor,
     styles.motion.duration,
     styles.motion.timing,
     styles.responsive.hideMobile ? 'max-sm:hidden' : '',

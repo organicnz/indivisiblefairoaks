@@ -1,11 +1,12 @@
 'use client';
 
-import { Camera, Database, Layers, Type } from 'lucide-react';
+import { Camera, Database, Layers, SlidersHorizontal, Type } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 export interface ElementInspectorHudProps {
   enabled: boolean;
   inlineActive: boolean;
+  onOpenStudio?: () => void;
 }
 
 interface ContrastResult {
@@ -90,7 +91,11 @@ interface HoveredElementInfo {
   placement: 'top' | 'bottom';
 }
 
-export function ElementInspectorHud({ enabled, inlineActive }: ElementInspectorHudProps) {
+export function ElementInspectorHud({
+  enabled,
+  inlineActive,
+  onOpenStudio,
+}: ElementInspectorHudProps) {
   const [hovered, setHovered] = useState<HoveredElementInfo | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -288,6 +293,24 @@ export function ElementInspectorHud({ enabled, inlineActive }: ElementInspectorH
         <span className="text-[10px] text-amber-300/80 font-sans font-semibold hidden sm:inline">
           Click to edit
         </span>
+        {onOpenStudio && (
+          <>
+            <span className="text-white/40">·</span>
+            <button
+              type="button"
+              data-testid="hud-open-studio-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenStudio();
+              }}
+              className="pointer-events-auto flex items-center gap-1 rounded-full border border-accent-gold/40 bg-accent-gold/20 px-2 py-0.5 text-[10px] font-sans font-bold text-accent-gold hover:bg-accent-gold/30 hover:scale-105 active:scale-95 transition-all"
+              title="Open Visual Composer 10x Studio"
+            >
+              <SlidersHorizontal size={10} />
+              <span>Studio</span>
+            </button>
+          </>
+        )}
       </div>
     </>
   );

@@ -1626,26 +1626,27 @@ export function VisualEditOverlay() {
   };
 
   const handleSaveVcBlock = useCallback(
-    (updatedBlock: Block, customClasses?: string, anchorId?: string) => {
+    (updatedBlock: Block, customClasses?: string, anchorId?: string, customStyle?: string) => {
       if (vcBlockIndex === null) return;
       const nextBlocks = [...blocksRef.current];
-      if (customClasses || anchorId) {
+      if (customClasses || anchorId || customStyle) {
         const idAttr = anchorId ? ` id="${anchorId}"` : '';
         const classAttr = customClasses ? ` class="${customClasses}"` : '';
+        const styleAttr = customStyle ? ` style="${customStyle}"` : '';
         if ('html' in updatedBlock && typeof updatedBlock.html === 'string') {
           const trimmed = updatedBlock.html.trim();
           if (trimmed.startsWith('<div') && trimmed.endsWith('</div>')) {
             const closingTag = trimmed.indexOf('>');
             if (closingTag !== -1) {
               const inner = trimmed.slice(closingTag + 1, -6);
-              updatedBlock.html = `<div${idAttr}${classAttr}>${inner}</div>`;
+              updatedBlock.html = `<div${idAttr}${classAttr}${styleAttr}>${inner}</div>`;
             }
           } else {
-            updatedBlock.html = `<div${idAttr}${classAttr}>${trimmed}</div>`;
+            updatedBlock.html = `<div${idAttr}${classAttr}${styleAttr}>${trimmed}</div>`;
           }
         } else {
           const serialized = serializeBlocks([updatedBlock]);
-          const wrappedHtml = `<div${idAttr}${classAttr}>${serialized}</div>`;
+          const wrappedHtml = `<div${idAttr}${classAttr}${styleAttr}>${serialized}</div>`;
           updatedBlock = {
             id: updatedBlock.id,
             type: 'unsupported',
@@ -2872,7 +2873,12 @@ export function VisualEditOverlay() {
                         const cb = getStylesClipboard();
                         const blk = blocks[item.blockIndex];
                         if (!cb || !blk) return;
-                        handleSaveVcBlock(blk, undefined, cb.anchorId || undefined);
+                        handleSaveVcBlock(
+                          blk,
+                          undefined,
+                          cb.anchorId || undefined,
+                          cb.customStyle || undefined
+                        );
                         toast.success(`Pasted styles onto ${item.label}`);
                       }}
                       title="Paste styles from clipboard"
@@ -6234,6 +6240,15 @@ export function VisualEditOverlay() {
       <ElementInspectorHud
         enabled={enabled && isAdmin && showInspector}
         inlineActive={Boolean(inlineSession || imageSession)}
+        onOpenStudio={() => {
+          if (activeBlockIndex !== null) {
+            setVcBlockIndex(activeBlockIndex);
+            setIsVisualComposerOpen(true);
+          } else if (blocks.length > 0) {
+            setVcBlockIndex(0);
+            setIsVisualComposerOpen(true);
+          }
+        }}
       />
 
       {/* ── Pro Command Palette (⌘K) ───────────────────────────────────────── */}

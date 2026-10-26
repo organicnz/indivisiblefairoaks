@@ -648,6 +648,7 @@ describe('VisualComposerInspector', () => {
     expect(onSaveBlock).toHaveBeenCalledWith(
       expect.objectContaining({ text: 'export const action = "rsvp";' }),
       expect.any(String),
+      undefined,
       undefined
     );
 
@@ -1337,6 +1338,7 @@ describe('VisualComposerInspector', () => {
     expect(onSaveBlock).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('my-12'),
+      undefined,
       undefined
     );
     const savedClasses = onSaveBlock.mock.calls[0][1];
@@ -1722,7 +1724,8 @@ describe('VisualComposerInspector', () => {
     expect(onSaveBlock).toHaveBeenCalledWith(
       expect.anything(),
       expect.stringContaining('self-center'),
-      'cta-banner'
+      'cta-banner',
+      undefined
     );
     const savedClasses = onSaveBlock.mock.calls[0][1];
     expect(savedClasses).toContain('order-first');
@@ -2105,5 +2108,287 @@ describe('VisualComposerInspector', () => {
     expect(savedClasses).toContain('break-words');
     expect(savedClasses).toContain('hover:border-amber-500');
     expect(savedClasses).toContain('hover:shadow-2xl');
+  });
+
+  it('configures 10x pro section controls: row canvas layout, divider accent color, and responsive visibility', async () => {
+    const onSaveBlock = vi.fn();
+    const headingBlock: Block = {
+      id: 'b-section-pro',
+      type: 'heading',
+      level: 2,
+      html: 'Civic Freedom Rally',
+    };
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={headingBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="section"
+        />
+      );
+    });
+
+    // Select Row Canvas Mode: Full-Width Content
+    const rowLayoutSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) =>
+        s.id.includes('section-row-layout') ||
+        s.previousElementSibling?.textContent?.includes('Row Canvas Mode')
+    );
+    if (rowLayoutSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(rowLayoutSelect, 'full-width-content');
+        rowLayoutSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(rowLayoutSelect.value).toBe('full-width-content');
+    }
+
+    // Select Divider Accent Color
+    const dividerColorSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) =>
+        s.id.includes('section-divider-color') ||
+        s.previousElementSibling?.textContent?.includes('Divider Accent Color')
+    );
+    if (dividerColorSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(dividerColorSelect, 'text-amber-500/40');
+        dividerColorSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(dividerColorSelect.value).toBe('text-amber-500/40');
+    }
+
+    // Save Section
+    const saveButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Section'
+    );
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    const savedClasses = onSaveBlock.mock.calls[0][1];
+    expect(savedClasses).toContain('w-full max-w-none px-0');
+    expect(savedClasses).toContain('text-amber-500/40');
+  });
+
+  it('configures 10x pro block controls: 4-corner unlinked radius, directional offsets, shadow aura, clip path, text columns, hover colors, and inline CSS', async () => {
+    const onSaveBlock = vi.fn();
+    const calloutBlock: Block = {
+      id: 'b-callout-10x',
+      type: 'callout',
+      tone: 'action',
+      html: 'Grassroots Action Needed Today',
+    };
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={calloutBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="block"
+        />
+      );
+    });
+
+    // Switch to Box Model Tab
+    const designTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Box Model')
+    );
+    await act(async () => {
+      designTabBtn?.click();
+    });
+
+    // Toggle Linked Corners to Unlinked
+    const unlinkButton = document.querySelector(
+      '[data-testid="corner-radius-link-toggle"]'
+    ) as HTMLButtonElement | null;
+    if (unlinkButton) {
+      await act(async () => {
+        unlinkButton.click();
+      });
+    }
+
+    // Select Top-Left Radius
+    const tlSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) =>
+        s.id.includes('radius-top-left') ||
+        s.previousElementSibling?.textContent?.includes('Top-Left')
+    );
+    if (tlSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(tlSelect, 'rounded-tl-3xl');
+        tlSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(tlSelect.value).toBe('rounded-tl-3xl');
+    }
+
+    // Select Shadow Aura Color
+    const shadowColorSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) =>
+        s.id.includes('shadow-color') ||
+        s.previousElementSibling?.textContent?.includes('Shadow Aura Glow')
+    );
+    if (shadowColorSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(shadowColorSelect, 'shadow-amber-500/20');
+        shadowColorSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(shadowColorSelect.value).toBe('shadow-amber-500/20');
+    }
+
+    // Select Shape Mask / Clip Path
+    const clipPathSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) =>
+        s.id.includes('clip-path') || s.previousElementSibling?.textContent?.includes('Shape Mask')
+    );
+    if (clipPathSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(clipPathSelect, '[clip-path:polygon(0_0,100%_0,100%_85%,0_100%)]');
+        clipPathSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(clipPathSelect.value).toBe('[clip-path:polygon(0_0,100%_0,100%_85%,0_100%)]');
+    }
+
+    // Set Directional Positioning Offsets
+    const topSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) => s.id.includes('layout-top') || s.previousElementSibling?.textContent === 'Top'
+    );
+    if (topSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(topSelect, 'top-4');
+        topSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(topSelect.value).toBe('top-4');
+    }
+
+    // Switch to Type Tab
+    const typoTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Type')
+    );
+    await act(async () => {
+      typoTabBtn?.click();
+    });
+
+    const columnsSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) =>
+        s.id.includes('typography-text-columns') ||
+        s.previousElementSibling?.textContent?.includes('Editorial Multi-Columns')
+    );
+    if (columnsSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(columnsSelect, 'columns-1 md:columns-2 gap-8');
+        columnsSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(columnsSelect.value).toBe('columns-1 md:columns-2 gap-8');
+    }
+
+    const fontSmoothingSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) =>
+        s.id.includes('typography-font-smoothing') ||
+        s.previousElementSibling?.textContent?.includes('Font Smoothing')
+    );
+    if (fontSmoothingSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(fontSmoothingSelect, 'antialiased');
+        fontSmoothingSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(fontSmoothingSelect.value).toBe('antialiased');
+    }
+
+    // Switch to Advanced Tab for Hover Background and Hover Text Color
+    const advancedTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Advanced')
+    );
+    await act(async () => {
+      advancedTabBtn?.click();
+    });
+
+    const hoverBgSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) =>
+        s.id.includes('motion-hover-bg') ||
+        s.previousElementSibling?.textContent?.includes('Hover Background Tint')
+    );
+    if (hoverBgSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(hoverBgSelect, 'hover:bg-amber-500/10');
+        hoverBgSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(hoverBgSelect.value).toBe('hover:bg-amber-500/10');
+    }
+
+    const hoverTextColorSelect = Array.from(document.querySelectorAll('select')).find(
+      (s) =>
+        s.id.includes('motion-hover-text-color') ||
+        s.previousElementSibling?.textContent?.includes('Hover Text Accent')
+    );
+    if (hoverTextColorSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(hoverTextColorSelect, 'hover:text-amber-400');
+        hoverTextColorSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(hoverTextColorSelect.value).toBe('hover:text-amber-400');
+    }
+
+    // Switch to Code Tab for customStyle inline CSS
+    const codeTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Code')
+    );
+    await act(async () => {
+      codeTabBtn?.click();
+    });
+
+    const customStyleInput = Array.from(document.querySelectorAll('input')).find(
+      (inp) =>
+        inp.id.includes('custom-style') ||
+        inp.previousElementSibling?.textContent?.includes('Custom Inline CSS')
+    );
+    if (customStyleInput) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        setter?.call(customStyleInput, 'letter-spacing: 0.1em; outline: 1px dashed gold;');
+        customStyleInput.dispatchEvent(new Event('input', { bubbles: true }));
+        customStyleInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(customStyleInput.value).toBe('letter-spacing: 0.1em; outline: 1px dashed gold;');
+    }
+
+    // Save Block
+    const saveButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Block'
+    );
+    await act(async () => {
+      saveButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    const savedClasses = onSaveBlock.mock.calls[0][1];
+    expect(savedClasses).toContain('rounded-tl-3xl');
+    expect(savedClasses).toContain('shadow-amber-500/20');
+    expect(savedClasses).toContain('[clip-path:polygon(0_0,100%_0,100%_85%,0_100%)]');
+    expect(savedClasses).toContain('top-4');
+    expect(savedClasses).toContain('columns-1 md:columns-2 gap-8');
+    expect(savedClasses).toContain('antialiased');
+    expect(savedClasses).toContain('hover:bg-amber-500/10');
+    expect(savedClasses).toContain('hover:text-amber-400');
+
+    // Assert customStyle was passed as fourth argument
+    const passedCustomStyle = onSaveBlock.mock.calls[0][3];
+    expect(passedCustomStyle).toBe('letter-spacing: 0.1em; outline: 1px dashed gold;');
   });
 });

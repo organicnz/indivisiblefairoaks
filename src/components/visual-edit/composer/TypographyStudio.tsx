@@ -18,6 +18,8 @@ export interface TypographyStudioProps {
   fontStyleSelectId: string;
   textWrapSelectId: string;
   wordBreakSelectId?: string;
+  textColumnsSelectId?: string;
+  fontSmoothingSelectId?: string;
 }
 
 export function TypographyStudio({
@@ -35,6 +37,8 @@ export function TypographyStudio({
   fontStyleSelectId,
   textWrapSelectId,
   wordBreakSelectId = 'typography-word-break-select',
+  textColumnsSelectId = 'typography-text-columns-select',
+  fontSmoothingSelectId = 'typography-font-smoothing-select',
 }: TypographyStudioProps) {
   return (
     <div className="space-y-4">
@@ -429,6 +433,47 @@ export function TypographyStudio({
             <option value="break-words">Wrap Long Words (break-words)</option>
             <option value="break-all">Force Break Anywhere (break-all)</option>
             <option value="break-keep">Keep Words Whole (break-keep)</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor={textColumnsSelectId} className="text-[10px] text-slate-400 mb-1 block">
+            Editorial Multi-Columns
+          </label>
+          <select
+            id={textColumnsSelectId}
+            value={styles.typography.textColumns || ''}
+            onChange={(e) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, textColumns: e.target.value },
+              })
+            }
+            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+          >
+            <option value="">Single Column (Standard)</option>
+            <option value="columns-1 md:columns-2 gap-8">2 Newspaper Columns</option>
+            <option value="columns-1 md:columns-3 gap-8">3 Editorial Columns</option>
+            <option value="columns-1 sm:columns-2 lg:columns-4 gap-6">4 Magazine Columns</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor={fontSmoothingSelectId} className="text-[10px] text-slate-400 mb-1 block">
+            Font Smoothing (Rendering)
+          </label>
+          <select
+            id={fontSmoothingSelectId}
+            value={styles.typography.fontSmoothing || ''}
+            onChange={(e) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, fontSmoothing: e.target.value },
+              })
+            }
+            className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+          >
+            <option value="">Default (Subpixel)</option>
+            <option value="antialiased">Antialiased (Crisp High-DPI)</option>
+            <option value="subpixel-antialiased">Subpixel Antialiased</option>
           </select>
         </div>
       </div>

@@ -17,6 +17,8 @@ export interface AdvancedMotionStudioProps {
   motionTimingSelectId: string;
   motionHoverBorderSelectId?: string;
   motionHoverShadowSelectId?: string;
+  motionHoverBgSelectId?: string;
+  motionHoverTextColorSelectId?: string;
   anchorIdInputId?: string;
   compiledClassNames?: string;
 }
@@ -35,6 +37,8 @@ export function AdvancedMotionStudio({
   motionTimingSelectId,
   motionHoverBorderSelectId = 'motion-hover-border-select',
   motionHoverShadowSelectId = 'motion-hover-shadow-select',
+  motionHoverBgSelectId = 'motion-hover-bg-select',
+  motionHoverTextColorSelectId = 'motion-hover-text-color-select',
   anchorIdInputId,
   compiledClassNames,
 }: AdvancedMotionStudioProps) {
@@ -341,6 +345,63 @@ export function AdvancedMotionStudio({
                 <option value="hover:shadow-2xl">Ultra Deep (2xl)</option>
                 <option value="hover:shadow-xl hover:shadow-amber-500/20">Gold Aura Lift</option>
                 <option value="hover:shadow-xl hover:shadow-blue-500/20">Navy Aura Lift</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div>
+              <label
+                htmlFor={motionHoverBgSelectId}
+                className="text-[9px] text-slate-400 mb-0.5 block"
+              >
+                Hover Background Tint (Pro)
+              </label>
+              <select
+                id={motionHoverBgSelectId}
+                value={styles.motion.hoverBg || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverBg: e.target.value },
+                  })
+                }
+                className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+              >
+                <option value="">None</option>
+                <option value="hover:bg-amber-500/10">Civic Gold Light (10%)</option>
+                <option value="hover:bg-amber-500/20">Civic Gold Rich (20%)</option>
+                <option value="hover:bg-blue-600/20">Navy Highlight (20%)</option>
+                <option value="hover:bg-white/10">Glass Frost Lift (10%)</option>
+                <option value="hover:bg-white/15">Frost Glass Rich (15%)</option>
+                <option value="hover:bg-emerald-500/10">Grassroots Emerald Tint</option>
+                <option value="hover:bg-rose-500/10">Alert Crimson Tint</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor={motionHoverTextColorSelectId}
+                className="text-[9px] text-slate-400 mb-0.5 block"
+              >
+                Hover Text Accent (Pro)
+              </label>
+              <select
+                id={motionHoverTextColorSelectId}
+                value={styles.motion.hoverTextColor || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverTextColor: e.target.value },
+                  })
+                }
+                className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+              >
+                <option value="">None</option>
+                <option value="hover:text-amber-400">Civic Gold Focus (amber-400)</option>
+                <option value="hover:text-blue-400">Navy Sky Focus (blue-400)</option>
+                <option value="hover:text-emerald-400">Emerald Focus (emerald-400)</option>
+                <option value="hover:text-rose-400">Crimson Focus (rose-400)</option>
+                <option value="hover:text-white">Crisp Bright White</option>
               </select>
             </div>
           </div>

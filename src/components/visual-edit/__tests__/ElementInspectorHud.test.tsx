@@ -139,4 +139,46 @@ describe('ElementInspectorHud', () => {
     expect(contrastBadge).not.toBeNull();
     expect(contrastBadge?.textContent).toContain('AAA');
   });
+
+  it('triggers onOpenStudio callback when clicking the Studio HUD button', async () => {
+    const onOpenStudio = vi.fn();
+    const heading = document.createElement('h2');
+    heading.textContent = 'Pro Visual Customizer';
+    heading.getBoundingClientRect = () =>
+      ({
+        top: 100,
+        bottom: 140,
+        left: 50,
+        right: 450,
+        width: 400,
+        height: 40,
+      }) as DOMRect;
+    main.appendChild(heading);
+
+    await act(async () => {
+      root.render(
+        <ElementInspectorHud enabled={true} inlineActive={false} onOpenStudio={onOpenStudio} />
+      );
+    });
+
+    await act(async () => {
+      heading.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }));
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    const studioButton = container.querySelector(
+      '[data-testid="hud-open-studio-button"]'
+    ) as HTMLButtonElement | null;
+    expect(studioButton).not.toBeNull();
+    expect(studioButton?.textContent).toContain('Studio');
+
+    await act(async () => {
+      studioButton?.click();
+    });
+
+    expect(onOpenStudio).toHaveBeenCalledTimes(1);
+  });
 });

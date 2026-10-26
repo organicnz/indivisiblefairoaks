@@ -65,6 +65,17 @@ export interface BoxModelStudioProps {
   transformTranslateXSelectId?: string;
   transformTranslateYSelectId?: string;
   transformOriginSelectId?: string;
+  shadowColorSelectId?: string;
+  clipPathSelectId?: string;
+  layoutInsetSelectId?: string;
+  layoutTopSelectId?: string;
+  layoutBottomSelectId?: string;
+  layoutLeftSelectId?: string;
+  layoutRightSelectId?: string;
+  radiusTopLeftSelectId?: string;
+  radiusTopRightSelectId?: string;
+  radiusBottomRightSelectId?: string;
+  radiusBottomLeftSelectId?: string;
 }
 
 export function BoxModelStudio({
@@ -128,6 +139,17 @@ export function BoxModelStudio({
   transformTranslateXSelectId = 'transform-translate-x-select',
   transformTranslateYSelectId = 'transform-translate-y-select',
   transformOriginSelectId = 'transform-origin-select',
+  shadowColorSelectId = 'shadow-color-select',
+  clipPathSelectId = 'clip-path-select',
+  layoutInsetSelectId = 'layout-inset-select',
+  layoutTopSelectId = 'layout-top-select',
+  layoutBottomSelectId = 'layout-bottom-select',
+  layoutLeftSelectId = 'layout-left-select',
+  layoutRightSelectId = 'layout-right-select',
+  radiusTopLeftSelectId = 'radius-top-left-select',
+  radiusTopRightSelectId = 'radius-top-right-select',
+  radiusBottomRightSelectId = 'radius-bottom-right-select',
+  radiusBottomLeftSelectId = 'radius-bottom-left-select',
 }: BoxModelStudioProps) {
   return (
     <div className="space-y-4">
@@ -522,9 +544,33 @@ export function BoxModelStudio({
         <span className="block text-slate-300 font-bold mb-2">Border &amp; Corner Radius</span>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div>
-            <label htmlFor={radiusSelectId} className="text-[10px] text-slate-400 mb-1 block">
-              Corner Radius
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor={radiusSelectId} className="text-[10px] text-slate-400 block">
+                Corner Radius
+              </label>
+              <button
+                type="button"
+                data-testid="corner-radius-link-toggle"
+                onClick={() =>
+                  setStyles({
+                    ...styles,
+                    border: {
+                      ...styles.border,
+                      radiusLinked: styles.border.radiusLinked === false,
+                    },
+                  })
+                }
+                title={
+                  styles.border.radiusLinked === false
+                    ? 'Link corners together'
+                    : 'Unlink individual 4 corners'
+                }
+                className="text-[9px] text-accent-gold flex items-center gap-0.5 hover:underline"
+              >
+                {styles.border.radiusLinked === false ? <Unlink2 size={10} /> : <Link2 size={10} />}
+                <span>{styles.border.radiusLinked === false ? 'Unlinked' : 'Linked'}</span>
+              </button>
+            </div>
             <select
               id={radiusSelectId}
               value={styles.border.radius}
@@ -621,6 +667,124 @@ export function BoxModelStudio({
           </div>
         </div>
 
+        {styles.border.radiusLinked === false && (
+          <div className="mt-2 p-2 rounded-lg border border-white/10 bg-white/5 space-y-1.5">
+            <span className="text-[10px] text-slate-300 font-bold block">
+              4-Corner Radius Controls (Pro)
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              <div>
+                <label
+                  htmlFor={radiusTopLeftSelectId}
+                  className="text-[9px] text-slate-400 block mb-0.5"
+                >
+                  Top-Left
+                </label>
+                <select
+                  id={radiusTopLeftSelectId}
+                  value={styles.border.radiusTopLeft || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      border: { ...styles.border, radiusTopLeft: e.target.value },
+                    })
+                  }
+                  className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+                >
+                  <option value="">Default (0)</option>
+                  <option value="rounded-tl-none">Square (0)</option>
+                  <option value="rounded-tl-md">Subtle (6px)</option>
+                  <option value="rounded-tl-xl">Medium (12px)</option>
+                  <option value="rounded-tl-2xl">Modern (16px)</option>
+                  <option value="rounded-tl-3xl">Pill (24px)</option>
+                  <option value="rounded-tl-full">Full</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor={radiusTopRightSelectId}
+                  className="text-[9px] text-slate-400 block mb-0.5"
+                >
+                  Top-Right
+                </label>
+                <select
+                  id={radiusTopRightSelectId}
+                  value={styles.border.radiusTopRight || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      border: { ...styles.border, radiusTopRight: e.target.value },
+                    })
+                  }
+                  className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+                >
+                  <option value="">Default (0)</option>
+                  <option value="rounded-tr-none">Square (0)</option>
+                  <option value="rounded-tr-md">Subtle (6px)</option>
+                  <option value="rounded-tr-xl">Medium (12px)</option>
+                  <option value="rounded-tr-2xl">Modern (16px)</option>
+                  <option value="rounded-tr-3xl">Pill (24px)</option>
+                  <option value="rounded-tr-full">Full</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor={radiusBottomRightSelectId}
+                  className="text-[9px] text-slate-400 block mb-0.5"
+                >
+                  Bottom-Right
+                </label>
+                <select
+                  id={radiusBottomRightSelectId}
+                  value={styles.border.radiusBottomRight || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      border: { ...styles.border, radiusBottomRight: e.target.value },
+                    })
+                  }
+                  className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+                >
+                  <option value="">Default (0)</option>
+                  <option value="rounded-br-none">Square (0)</option>
+                  <option value="rounded-br-md">Subtle (6px)</option>
+                  <option value="rounded-br-xl">Medium (12px)</option>
+                  <option value="rounded-br-2xl">Modern (16px)</option>
+                  <option value="rounded-br-3xl">Pill (24px)</option>
+                  <option value="rounded-br-full">Full</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor={radiusBottomLeftSelectId}
+                  className="text-[9px] text-slate-400 block mb-0.5"
+                >
+                  Bottom-Left
+                </label>
+                <select
+                  id={radiusBottomLeftSelectId}
+                  value={styles.border.radiusBottomLeft || ''}
+                  onChange={(e) =>
+                    setStyles({
+                      ...styles,
+                      border: { ...styles.border, radiusBottomLeft: e.target.value },
+                    })
+                  }
+                  className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+                >
+                  <option value="">Default (0)</option>
+                  <option value="rounded-bl-none">Square (0)</option>
+                  <option value="rounded-bl-md">Subtle (6px)</option>
+                  <option value="rounded-bl-xl">Medium (12px)</option>
+                  <option value="rounded-bl-2xl">Modern (16px)</option>
+                  <option value="rounded-bl-3xl">Pill (24px)</option>
+                  <option value="rounded-bl-full">Full</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Border Color Swatches */}
         <div className="mt-2.5">
           <span className="text-[10px] text-slate-400 mb-1.5 block">Border Color Preset</span>
@@ -707,6 +871,64 @@ export function BoxModelStudio({
               <option value="shadow-lg shadow-amber-500/25">Civic Gold Glow</option>
               <option value="shadow-lg shadow-sky-500/25">Cyan Tech Glow</option>
               <option value="shadow-2xl shadow-blue-950/60">Patriotic Navy Shadow</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <div>
+            <label htmlFor={shadowColorSelectId} className="text-[10px] text-slate-400 mb-1 block">
+              Shadow Aura Glow (Pro)
+            </label>
+            <select
+              id={shadowColorSelectId}
+              value={styles.effects.shadowColor || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  effects: { ...styles.effects, shadowColor: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">Default Shadow Tint</option>
+              <option value="shadow-amber-500/20">Civic Gold Aura (20%)</option>
+              <option value="shadow-blue-500/30">Navy / Sky Aura (30%)</option>
+              <option value="shadow-emerald-500/20">Forest Emerald Glow</option>
+              <option value="shadow-rose-500/25">Crimson Alert Glow</option>
+              <option value="shadow-white/10">Frost White Radiance</option>
+              <option value="shadow-black/50">High-Contrast Deep Black</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor={clipPathSelectId} className="text-[10px] text-slate-400 mb-1 block">
+              Shape Mask / Clip Path (Pro)
+            </label>
+            <select
+              id={clipPathSelectId}
+              value={styles.effects.clipPath || ''}
+              onChange={(e) =>
+                setStyles({
+                  ...styles,
+                  effects: { ...styles.effects, clipPath: e.target.value },
+                })
+              }
+              className="w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+            >
+              <option value="">None (Standard Box)</option>
+              <option value="[clip-path:polygon(0_0,100%_0,100%_85%,0_100%)]">
+                Angled Slant (Bottom Cut)
+              </option>
+              <option value="[clip-path:polygon(0_15%,100%_0,100%_100%,0_100%)]">
+                Angled Slant (Top Cut)
+              </option>
+              <option value="[clip-path:polygon(50%_0%,100%_50%,50%_100%,0%_50%)]">
+                Diamond Badge Mask
+              </option>
+              <option value="[clip-path:polygon(25%_0%,75%_0%,100%_50%,75%_100%,25%_100%,0%_50%)]">
+                Hexagon Badge Mask
+              </option>
+              <option value="[clip-path:ellipse(50%_50%_at_50%_50%)]">Smooth Ellipse</option>
             </select>
           </div>
         </div>
@@ -1242,6 +1464,143 @@ export function BoxModelStudio({
               <option value="overflow-auto">Auto Scroll</option>
               <option value="overflow-x-auto">Scroll X</option>
             </select>
+          </div>
+        </div>
+
+        {/* Directional Positioning Offsets (Pro) */}
+        <div className="mt-2 p-2 rounded-lg border border-white/10 bg-white/5 space-y-1.5">
+          <span className="text-[10px] text-slate-300 font-bold block">
+            Directional Positioning Offsets (Pro)
+          </span>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+            <div>
+              <label
+                htmlFor={layoutInsetSelectId}
+                className="text-[9px] text-slate-400 block mb-0.5"
+              >
+                Inset All
+              </label>
+              <select
+                id={layoutInsetSelectId}
+                value={styles.layout.inset || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    layout: { ...styles.layout, inset: e.target.value },
+                  })
+                }
+                className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+              >
+                <option value="">Auto</option>
+                <option value="inset-0">Cover (0)</option>
+                <option value="inset-2">Inset 8px</option>
+                <option value="inset-4">Inset 16px</option>
+                <option value="inset-x-0">Span X (0)</option>
+                <option value="inset-y-0">Span Y (0)</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor={layoutTopSelectId} className="text-[9px] text-slate-400 block mb-0.5">
+                Top
+              </label>
+              <select
+                id={layoutTopSelectId}
+                value={styles.layout.top || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    layout: { ...styles.layout, top: e.target.value },
+                  })
+                }
+                className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+              >
+                <option value="">Auto</option>
+                <option value="top-0">Top 0</option>
+                <option value="top-2">Top 8px</option>
+                <option value="top-4">Top 16px</option>
+                <option value="top-8">Top 32px</option>
+                <option value="top-1/2">Top 50%</option>
+                <option value="-top-4">-16px Pull</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor={layoutBottomSelectId}
+                className="text-[9px] text-slate-400 block mb-0.5"
+              >
+                Bottom
+              </label>
+              <select
+                id={layoutBottomSelectId}
+                value={styles.layout.bottom || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    layout: { ...styles.layout, bottom: e.target.value },
+                  })
+                }
+                className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+              >
+                <option value="">Auto</option>
+                <option value="bottom-0">Bottom 0</option>
+                <option value="bottom-2">Bottom 8px</option>
+                <option value="bottom-4">Bottom 16px</option>
+                <option value="bottom-8">Bottom 32px</option>
+                <option value="-bottom-4">-16px Pull</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor={layoutLeftSelectId}
+                className="text-[9px] text-slate-400 block mb-0.5"
+              >
+                Left
+              </label>
+              <select
+                id={layoutLeftSelectId}
+                value={styles.layout.left || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    layout: { ...styles.layout, left: e.target.value },
+                  })
+                }
+                className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+              >
+                <option value="">Auto</option>
+                <option value="left-0">Left 0</option>
+                <option value="left-2">Left 8px</option>
+                <option value="left-4">Left 16px</option>
+                <option value="left-1/2">Left 50%</option>
+                <option value="-left-4">-16px Pull</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor={layoutRightSelectId}
+                className="text-[9px] text-slate-400 block mb-0.5"
+              >
+                Right
+              </label>
+              <select
+                id={layoutRightSelectId}
+                value={styles.layout.right || ''}
+                onChange={(e) =>
+                  setStyles({
+                    ...styles,
+                    layout: { ...styles.layout, right: e.target.value },
+                  })
+                }
+                className="w-full rounded border border-white/10 bg-slate-900 p-1 text-white text-[10px]"
+              >
+                <option value="">Auto</option>
+                <option value="right-0">Right 0</option>
+                <option value="right-2">Right 8px</option>
+                <option value="right-4">Right 16px</option>
+                <option value="right-8">Right 32px</option>
+                <option value="-right-4">-16px Pull</option>
+              </select>
+            </div>
           </div>
         </div>
 

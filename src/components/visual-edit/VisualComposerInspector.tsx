@@ -68,7 +68,12 @@ interface VisualComposerInspectorProps {
   onClose: () => void;
   block: Block | null;
   blockIndex: number | null;
-  onSaveBlock: (updatedBlock: Block, customClasses?: string, anchorId?: string) => void;
+  onSaveBlock: (
+    updatedBlock: Block,
+    customClasses?: string,
+    anchorId?: string,
+    customStyle?: string
+  ) => void;
   initialMode?: VisualComposerMode;
 }
 
@@ -117,6 +122,10 @@ export function VisualComposerInspector({
   const borderWidthSelectId = useId();
   const borderStyleSelectId = useId();
   const borderSideSelectId = useId();
+  const radiusTopLeftSelectId = useId();
+  const radiusTopRightSelectId = useId();
+  const radiusBottomRightSelectId = useId();
+  const radiusBottomLeftSelectId = useId();
   const bgThemeSelectId = useId();
   const shadowSelectId = useId();
   const layoutColumnsSelectId = useId();
@@ -154,6 +163,8 @@ export function VisualComposerInspector({
   const sectionBackdropBlurSelectId = useId();
   const sectionBgBlendModeSelectId = useId();
   const sectionInnerShadowSelectId = useId();
+  const sectionRowLayoutSelectId = useId();
+  const sectionDividerColorSelectId = useId();
 
   const layoutDisplaySelectId = useId();
   const layoutFlexDirSelectId = useId();
@@ -178,6 +189,11 @@ export function VisualComposerInspector({
   const layoutVisibilitySelectId = useId();
   const layoutPointerEventsSelectId = useId();
   const layoutUserSelectSelectId = useId();
+  const layoutInsetSelectId = useId();
+  const layoutTopSelectId = useId();
+  const layoutBottomSelectId = useId();
+  const layoutLeftSelectId = useId();
+  const layoutRightSelectId = useId();
 
   const effectOpacitySelectId = useId();
   const effectBackdropBlurSelectId = useId();
@@ -193,6 +209,8 @@ export function VisualComposerInspector({
   const effectDropShadowSelectId = useId();
   const effectHoverBrightnessSelectId = useId();
   const effectHoverOpacitySelectId = useId();
+  const shadowColorSelectId = useId();
+  const clipPathSelectId = useId();
 
   const transformTranslateXSelectId = useId();
   const transformTranslateYSelectId = useId();
@@ -210,6 +228,8 @@ export function VisualComposerInspector({
   const textDecorationSelectId = useId();
   const textWrapSelectId = useId();
   const wordBreakSelectId = useId();
+  const textColumnsSelectId = useId();
+  const fontSmoothingSelectId = useId();
   const motionEntranceSelectId = useId();
   const motionHoverSelectId = useId();
   const motionHoverScaleSelectId = useId();
@@ -218,12 +238,15 @@ export function VisualComposerInspector({
   const motionHoverGlowSelectId = useId();
   const motionHoverBorderSelectId = useId();
   const motionHoverShadowSelectId = useId();
+  const motionHoverBgSelectId = useId();
+  const motionHoverTextColorSelectId = useId();
   const motionDurationSelectId = useId();
   const motionDelaySelectId = useId();
   const motionTimingSelectId = useId();
   const anchorIdInputId = useId();
   const blockAnchorIdInputId = useId();
   const customClassesInputId = useId();
+  const customStyleInputId = useId();
   const rawHtmlInputId = useId();
   const designJsonInputId = useId();
 
@@ -237,6 +260,7 @@ export function VisualComposerInspector({
         const attrs = divMatch[1] || '';
         const idMatch = attrs.match(/id=["']([^"']+)["']/i);
         const classMatch = attrs.match(/class=["']([^"']+)["']/i);
+        const styleMatch = attrs.match(/style=["']([^"']+)["']/i);
         if (idMatch?.[1]) {
           setStyles((prev) => ({ ...prev, anchorId: idMatch[1] }));
         }
@@ -244,6 +268,12 @@ export function VisualComposerInspector({
           setStyles((prev) => ({
             ...prev,
             customClasses: prev.customClasses || classMatch[1],
+          }));
+        }
+        if (styleMatch?.[1]) {
+          setStyles((prev) => ({
+            ...prev,
+            customStyle: prev.customStyle || styleMatch[1],
           }));
         }
       }
@@ -262,7 +292,12 @@ export function VisualComposerInspector({
 
   const handleApply = () => {
     if (!currentBlock) return;
-    onSaveBlock(currentBlock, compiledClassNames, styles.anchorId.trim() || undefined);
+    onSaveBlock(
+      currentBlock,
+      compiledClassNames,
+      styles.anchorId.trim() || undefined,
+      styles.customStyle?.trim() || undefined
+    );
     onClose();
   };
 
@@ -469,6 +504,8 @@ export function VisualComposerInspector({
             sectionCustomClassesInputId={sectionCustomClassesInputId}
             sectionBgBlendModeSelectId={sectionBgBlendModeSelectId}
             sectionInnerShadowSelectId={sectionInnerShadowSelectId}
+            sectionRowLayoutSelectId={sectionRowLayoutSelectId}
+            sectionDividerColorSelectId={sectionDividerColorSelectId}
             compiledClassNames={compiledClassNames}
           />
         )}
@@ -561,6 +598,17 @@ export function VisualComposerInspector({
             transformTranslateXSelectId={transformTranslateXSelectId}
             transformTranslateYSelectId={transformTranslateYSelectId}
             transformOriginSelectId={transformOriginSelectId}
+            shadowColorSelectId={shadowColorSelectId}
+            clipPathSelectId={clipPathSelectId}
+            layoutInsetSelectId={layoutInsetSelectId}
+            layoutTopSelectId={layoutTopSelectId}
+            layoutBottomSelectId={layoutBottomSelectId}
+            layoutLeftSelectId={layoutLeftSelectId}
+            layoutRightSelectId={layoutRightSelectId}
+            radiusTopLeftSelectId={radiusTopLeftSelectId}
+            radiusTopRightSelectId={radiusTopRightSelectId}
+            radiusBottomRightSelectId={radiusBottomRightSelectId}
+            radiusBottomLeftSelectId={radiusBottomLeftSelectId}
           />
         )}
 
@@ -580,6 +628,8 @@ export function VisualComposerInspector({
             fontStyleSelectId={fontStyleSelectId}
             textWrapSelectId={textWrapSelectId}
             wordBreakSelectId={wordBreakSelectId}
+            textColumnsSelectId={textColumnsSelectId}
+            fontSmoothingSelectId={fontSmoothingSelectId}
           />
         )}
 
@@ -592,6 +642,7 @@ export function VisualComposerInspector({
             rawHtmlInputId={rawHtmlInputId}
             blockAnchorIdInputId={blockAnchorIdInputId}
             customClassesInputId={customClassesInputId}
+            customStyleInputId={customStyleInputId}
             designJsonInputId={designJsonInputId}
             jsonConfigDraft={jsonConfigDraft}
             setJsonConfigDraft={setJsonConfigDraft}
@@ -614,6 +665,8 @@ export function VisualComposerInspector({
             motionHoverGlowSelectId={motionHoverGlowSelectId}
             motionHoverBorderSelectId={motionHoverBorderSelectId}
             motionHoverShadowSelectId={motionHoverShadowSelectId}
+            motionHoverBgSelectId={motionHoverBgSelectId}
+            motionHoverTextColorSelectId={motionHoverTextColorSelectId}
             motionTimingSelectId={motionTimingSelectId}
             anchorIdInputId={anchorIdInputId}
             compiledClassNames={compiledClassNames}

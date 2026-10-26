@@ -39,6 +39,8 @@ export interface SectionStudioProps {
   sectionCustomClassesInputId: string;
   sectionBgBlendModeSelectId?: string;
   sectionInnerShadowSelectId?: string;
+  sectionRowLayoutSelectId?: string;
+  sectionDividerColorSelectId?: string;
   compiledClassNames?: string;
 }
 
@@ -77,32 +79,59 @@ export function SectionStudio({
   sectionCustomClassesInputId,
   sectionBgBlendModeSelectId = 'section-bg-blend-mode',
   sectionInnerShadowSelectId = 'section-inner-shadow',
+  sectionRowLayoutSelectId = 'section-row-layout',
+  sectionDividerColorSelectId = 'section-divider-color',
   compiledClassNames,
 }: SectionStudioProps) {
   return (
     <div className="space-y-4">
-      <div>
-        <span className="block text-slate-300 font-bold mb-2">Section Container Width</span>
-        <label htmlFor={sectionWidthSelectId} className="sr-only">
-          Container Width
-        </label>
-        <select
-          id={sectionWidthSelectId}
-          value={styles.section.containerWidth}
-          onChange={(e) =>
-            setStyles({
-              ...styles,
-              section: { ...styles.section, containerWidth: e.target.value },
-            })
-          }
-          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
-        >
-          <option value="max-w-4xl mx-auto px-4">Standard Editorial (4XL - 896px)</option>
-          <option value="max-w-5xl mx-auto px-4">Wide Content (5XL - 1024px)</option>
-          <option value="max-w-7xl mx-auto px-6">Ultra Wide Showcase (7XL - 1280px)</option>
-          <option value="max-w-2xl mx-auto px-4">Compact Focused Reader (2XL - 672px)</option>
-          <option value="w-full px-4">Full Bleed Fluid (100% Width)</option>
-        </select>
+      {/* Row Canvas Mode & Container Width */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <span className="block text-slate-300 font-bold mb-2">Row Canvas Mode</span>
+          <label htmlFor={sectionRowLayoutSelectId} className="sr-only">
+            Row Canvas Mode
+          </label>
+          <select
+            id={sectionRowLayoutSelectId}
+            value={styles.section.rowLayout || ''}
+            onChange={(e) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, rowLayout: e.target.value },
+              })
+            }
+            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
+          >
+            <option value="">Boxed Container (Default)</option>
+            <option value="full-width-bg">Full Width Background</option>
+            <option value="full-width-content">Stretched Full Canvas (Edge-to-Edge)</option>
+            <option value="screen-height">Screen Height Hero (100vh)</option>
+          </select>
+        </div>
+        <div>
+          <span className="block text-slate-300 font-bold mb-2">Section Container Width</span>
+          <label htmlFor={sectionWidthSelectId} className="sr-only">
+            Container Width
+          </label>
+          <select
+            id={sectionWidthSelectId}
+            value={styles.section.containerWidth}
+            onChange={(e) =>
+              setStyles({
+                ...styles,
+                section: { ...styles.section, containerWidth: e.target.value },
+              })
+            }
+            className="w-full rounded-xl border border-white/10 bg-slate-900 p-2.5 text-white text-xs"
+          >
+            <option value="max-w-4xl mx-auto px-4">Standard Editorial (4XL - 896px)</option>
+            <option value="max-w-5xl mx-auto px-4">Wide Content (5XL - 1024px)</option>
+            <option value="max-w-7xl mx-auto px-6">Ultra Wide Showcase (7XL - 1280px)</option>
+            <option value="max-w-2xl mx-auto px-4">Compact Focused Reader (2XL - 672px)</option>
+            <option value="w-full px-4">Full Bleed Fluid (100% Width)</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -473,6 +502,34 @@ export function SectionStudio({
             </option>
           </select>
         </div>
+      </div>
+
+      {/* Divider Accent Color */}
+      <div>
+        <label
+          htmlFor={sectionDividerColorSelectId}
+          className="block text-slate-300 font-bold mb-1 text-[11px]"
+        >
+          Divider Accent Color (Pro)
+        </label>
+        <select
+          id={sectionDividerColorSelectId}
+          value={styles.section.dividerColor || ''}
+          onChange={(e) =>
+            setStyles({
+              ...styles,
+              section: { ...styles.section, dividerColor: e.target.value },
+            })
+          }
+          className="w-full rounded-xl border border-white/10 bg-slate-900 p-2 text-white text-[11px]"
+        >
+          <option value="">Default Border Frame</option>
+          <option value="text-amber-500/40">Civic Gold Accent</option>
+          <option value="text-blue-900/50">Patriotic Navy Depth</option>
+          <option value="text-white/20">Frost Glass Accent</option>
+          <option value="text-emerald-500/40">Grassroots Emerald</option>
+          <option value="text-rose-500/40">Alert Crimson</option>
+        </select>
       </div>
 
       {/* Section Overflow Clipping & Stacking Z-Index */}

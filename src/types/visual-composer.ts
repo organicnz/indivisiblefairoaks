@@ -15,6 +15,7 @@ export interface VisualComposerBoxModel {
 
 export interface VisualComposerSection {
   containerWidth: string;
+  rowLayout?: string;
   paddingY: string;
   paddingX: string;
   marginY?: string;
@@ -41,11 +42,16 @@ export interface VisualComposerSection {
   bgRepeat?: string;
   topDivider?: string;
   bottomDivider?: string;
+  dividerColor?: string;
   overflow?: string;
   zIndex?: string;
   bgBlendMode?: string;
   innerShadow?: string;
   equalHeight?: boolean;
+  hideMobile?: boolean;
+  hideTablet?: boolean;
+  hideDesktop?: boolean;
+  hidePrint?: boolean;
 }
 
 export interface VisualComposerTypography {
@@ -60,6 +66,8 @@ export interface VisualComposerTypography {
   textDecoration?: string;
   textWrap?: string;
   wordBreak?: string;
+  textColumns?: string;
+  fontSmoothing?: string;
   color: string;
   textGradient: string;
   textShadow: string;
@@ -71,6 +79,11 @@ export interface VisualComposerBorder {
   style: 'none' | 'solid' | 'dashed' | 'dotted' | 'double';
   color: string;
   radius: string;
+  radiusLinked?: boolean;
+  radiusTopLeft?: string;
+  radiusTopRight?: string;
+  radiusBottomRight?: string;
+  radiusBottomLeft?: string;
 }
 
 export interface VisualComposerBackground {
@@ -105,6 +118,11 @@ export interface VisualComposerLayout {
   objectFit?: string;
   pointerEvents?: string;
   userSelect?: string;
+  inset?: string;
+  top?: string;
+  bottom?: string;
+  left?: string;
+  right?: string;
 }
 
 export interface VisualComposerEffects {
@@ -122,6 +140,8 @@ export interface VisualComposerEffects {
   hoverOpacity?: string;
   invert?: string;
   dropShadow?: string;
+  shadowColor?: string;
+  clipPath?: string;
 }
 
 export interface VisualComposerMotion {
@@ -133,6 +153,8 @@ export interface VisualComposerMotion {
   hoverGlow?: string;
   hoverBorder?: string;
   hoverShadow?: string;
+  hoverBg?: string;
+  hoverTextColor?: string;
   duration?: string;
   delay?: string;
   timing?: string;
