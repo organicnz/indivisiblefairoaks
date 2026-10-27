@@ -52,6 +52,7 @@ export interface SectionStudioProps {
   sectionDividerColorSelectId?: string;
   sectionCustomStyleInputId?: string;
   sectionThemeModeSelectId?: string;
+  sectionBgImageInputId?: string;
   compiledClassNames?: string;
 }
 
@@ -94,6 +95,7 @@ export function SectionStudio({
   sectionDividerColorSelectId = 'section-divider-color',
   sectionCustomStyleInputId = 'section-custom-style-input',
   sectionThemeModeSelectId = 'section-theme-mode-select',
+  sectionBgImageInputId = 'section-bg-image-input',
   compiledClassNames,
 }: SectionStudioProps) {
   return (
@@ -702,6 +704,20 @@ export function SectionStudio({
             ]}
           />
         </div>
+
+        {/* Row Background Image URL */}
+        <StudioInput
+          id={sectionBgImageInputId}
+          label="Row Background Image URL (Optional)"
+          value={styles.section.bgImage || ''}
+          placeholder="https://... or /images/hero.jpg"
+          onChange={(val) =>
+            setStyles({
+              ...styles,
+              section: { ...styles.section, bgImage: val },
+            })
+          }
+        />
 
         <div className="grid grid-cols-2 gap-2">
           <StudioSelect

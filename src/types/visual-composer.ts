@@ -37,6 +37,7 @@ export interface VisualComposerSection {
   sticky: boolean;
   border?: string;
   borderColor?: string;
+  bgImage?: string;
   overlay?: string;
   bgAttachment?: string;
   bgPosition?: string;

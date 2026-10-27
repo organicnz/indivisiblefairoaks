@@ -38,6 +38,7 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     sticky: false,
     border: '',
     borderColor: 'border-border',
+    bgImage: '',
     overlay: '',
     bgAttachment: '',
     bgPosition: '',

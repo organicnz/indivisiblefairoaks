@@ -1,3 +1,4 @@
+export * from './BoxModelDiagram';
 export * from './ColorSwatchPicker';
 export * from './StudioInput';
 export * from './StudioSection';

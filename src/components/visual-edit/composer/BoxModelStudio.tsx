@@ -4,6 +4,7 @@ import { Columns3, Eye, Link2, Sparkles, Unlink2 } from 'lucide-react';
 import type { Block } from '@/lib/blocks';
 import type { VisualComposerStyles } from '@/types/unified';
 import {
+  BoxModelDiagram,
   ColorSwatchPicker,
   StudioInput,
   StudioSection,
@@ -221,260 +222,15 @@ export function BoxModelStudio({
         </div>
 
         {/* Interactive 2D Visual CSS Box Model Diagram */}
-        <div className="rounded-2xl border border-white/10 bg-slate-900/90 p-3 mt-3">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold text-accent-gold uppercase tracking-wider">
-              Interactive CSS Box Model (4-Sided)
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsSidesLinked((prev) => !prev)}
-              title={isSidesLinked ? 'Sides Linked (Sync)' : 'Sides Unlinked (Independent)'}
-              className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold transition-colors cursor-pointer ${
-                isSidesLinked ? 'bg-accent-gold/20 text-accent-gold' : 'bg-white/10 text-slate-300'
-              }`}
-            >
-              {isSidesLinked ? <Link2 size={10} /> : <Unlink2 size={10} />}
-              <span>{isSidesLinked ? 'Linked' : 'Separate'}</span>
-            </button>
-          </div>
-
-          {/* Quick Spacing Presets */}
-          <div className="flex flex-wrap gap-1 mb-2.5">
-            {[
-              { label: 'Default', margin: 'my-2', padding: 'p-4' },
-              { label: 'Card', margin: 'my-4', padding: 'p-6' },
-              { label: 'Spacious', margin: 'my-8', padding: 'p-8' },
-              { label: 'Compact', margin: 'my-1', padding: 'p-2' },
-              { label: 'Flush', margin: '', padding: '' },
-            ].map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() =>
-                  setStyles({
-                    ...styles,
-                    margin: { top: preset.margin, bottom: '', left: '', right: '' },
-                    padding: { top: preset.padding, bottom: '', left: '', right: '' },
-                  })
-                }
-                className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-bold text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Nested Box Model Canvas with Clickable 4 Sides */}
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-2 text-center relative transition-colors">
-            <span className="absolute top-1 left-2 text-[8px] font-mono font-bold text-amber-400/90 tracking-widest uppercase">
-              Margin (Outer)
-            </span>
-
-            {/* Top Margin Clickable Pill */}
-            <div className="flex justify-center my-0.5">
-              <button
-                type="button"
-                onClick={() => {
-                  const next = cycleMarginValue(styles.margin.top, 'vertical');
-                  setStyles({
-                    ...styles,
-                    margin: {
-                      ...styles.margin,
-                      top: next,
-                      bottom: isSidesLinked ? next : styles.margin.bottom,
-                    },
-                  });
-                }}
-                title="Click to cycle top margin"
-                className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors cursor-pointer"
-              >
-                T: {styles.margin.top || '0'}
-              </button>
-            </div>
-
-            {/* Middle Row: Left Margin, Border & Padding, Right Margin */}
-            <div className="flex items-center gap-1 my-0.5">
-              <button
-                type="button"
-                onClick={() => {
-                  const next = cycleMarginValue(styles.margin.left, 'horizontal');
-                  setStyles({
-                    ...styles,
-                    margin: {
-                      ...styles.margin,
-                      left: next,
-                      right: isSidesLinked ? next : styles.margin.right,
-                    },
-                  });
-                }}
-                title="Click to cycle left margin"
-                className="px-1.5 py-1 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors shrink-0 cursor-pointer"
-              >
-                L: {styles.margin.left || '0'}
-              </button>
-
-              <div className="flex-1 rounded-lg border border-sky-500/40 bg-sky-500/5 p-1.5 relative transition-colors">
-                <span className="absolute top-1 left-2 text-[8px] font-mono font-bold text-sky-400/90 tracking-widest uppercase">
-                  Border ({styles.border.width}{' '}
-                  {styles.border.style !== 'none' ? styles.border.style : ''})
-                </span>
-
-                <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-1.5 relative transition-colors mt-2">
-                  <span className="absolute top-1 left-2 text-[8px] font-mono font-bold text-emerald-400/90 tracking-widest uppercase">
-                    Padding (Inner)
-                  </span>
-
-                  {/* Top Padding Clickable Pill */}
-                  <div className="flex justify-center my-0.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = cyclePaddingValue(styles.padding.top, 'vertical');
-                        setStyles({
-                          ...styles,
-                          padding: {
-                            ...styles.padding,
-                            top: next,
-                            bottom: isSidesLinked ? next : styles.padding.bottom,
-                            left: isSidesLinked ? next : styles.padding.left,
-                            right: isSidesLinked ? next : styles.padding.right,
-                          },
-                        });
-                      }}
-                      title="Click to cycle top padding"
-                      className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors cursor-pointer"
-                    >
-                      T: {styles.padding.top || '0'}
-                    </button>
-                  </div>
-
-                  {/* Middle Row: Left Padding, Content, Right Padding */}
-                  <div className="flex items-center gap-1 my-0.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = cyclePaddingValue(styles.padding.left, 'horizontal');
-                        setStyles({
-                          ...styles,
-                          padding: {
-                            ...styles.padding,
-                            left: next,
-                            right: isSidesLinked ? next : styles.padding.right,
-                            top: isSidesLinked ? next : styles.padding.top,
-                            bottom: isSidesLinked ? next : styles.padding.bottom,
-                          },
-                        });
-                      }}
-                      title="Click to cycle left padding"
-                      className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors shrink-0 cursor-pointer"
-                    >
-                      L: {styles.padding.left || '0'}
-                    </button>
-
-                    {/* Content Center */}
-                    <div className="flex-1 rounded bg-slate-950 border border-white/20 py-1.5 px-2 text-center shadow-inner">
-                      <span className="text-[10px] font-mono font-black text-accent-gold tracking-wide uppercase">
-                        [ {currentBlock.type} ]
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = cyclePaddingValue(styles.padding.right, 'horizontal');
-                        setStyles({
-                          ...styles,
-                          padding: {
-                            ...styles.padding,
-                            right: next,
-                            left: isSidesLinked ? next : styles.padding.left,
-                            top: isSidesLinked ? next : styles.padding.top,
-                            bottom: isSidesLinked ? next : styles.padding.bottom,
-                          },
-                        });
-                      }}
-                      title="Click to cycle right padding"
-                      className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors shrink-0 cursor-pointer"
-                    >
-                      R: {styles.padding.right || '0'}
-                    </button>
-                  </div>
-
-                  {/* Bottom Padding Clickable Pill */}
-                  <div className="flex justify-center my-0.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = cyclePaddingValue(
-                          styles.padding.bottom || styles.padding.top,
-                          'vertical'
-                        );
-                        setStyles({
-                          ...styles,
-                          padding: {
-                            ...styles.padding,
-                            bottom: next,
-                            top: isSidesLinked ? next : styles.padding.top,
-                          },
-                        });
-                      }}
-                      title="Click to cycle bottom padding"
-                      className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors cursor-pointer"
-                    >
-                      B: {styles.padding.bottom || styles.padding.top || '0'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Margin Clickable Pill */}
-              <button
-                type="button"
-                onClick={() => {
-                  const next = cycleMarginValue(styles.margin.right, 'horizontal');
-                  setStyles({
-                    ...styles,
-                    margin: {
-                      ...styles.margin,
-                      right: next,
-                      left: isSidesLinked ? next : styles.margin.left,
-                    },
-                  });
-                }}
-                title="Click to cycle right margin"
-                className="px-1.5 py-1 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors shrink-0 cursor-pointer"
-              >
-                R: {styles.margin.right || '0'}
-              </button>
-            </div>
-
-            {/* Bottom Margin Clickable Pill */}
-            <div className="flex justify-center my-0.5">
-              <button
-                type="button"
-                onClick={() => {
-                  const next = cycleMarginValue(
-                    styles.margin.bottom || styles.margin.top,
-                    'vertical'
-                  );
-                  setStyles({
-                    ...styles,
-                    margin: {
-                      ...styles.margin,
-                      bottom: next,
-                      top: isSidesLinked ? next : styles.margin.top,
-                    },
-                  });
-                }}
-                title="Click to cycle bottom margin"
-                className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors cursor-pointer"
-              >
-                B: {styles.margin.bottom || styles.margin.top || '0'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <BoxModelDiagram
+          styles={styles}
+          setStyles={setStyles}
+          isSidesLinked={isSidesLinked}
+          setIsSidesLinked={setIsSidesLinked}
+          cycleMarginValue={cycleMarginValue}
+          cyclePaddingValue={cyclePaddingValue}
+          currentBlock={currentBlock}
+        />
       </StudioSection>
 
       {/* ── 2. Layout Grid & Columns ── */}
@@ -786,7 +542,7 @@ export function BoxModelStudio({
         badge="Surface"
         description="Choose element surface tone, shadow depth, dark/light theme lock, and custom shape masks."
       >
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
           <StudioSelect
             id={bgThemeSelectId}
             label="Background Theme"

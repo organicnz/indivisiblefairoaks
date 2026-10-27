@@ -72,6 +72,11 @@ export function compileSectionClasses(
     section.marginX,
     section.minHeight,
     section.pattern || section.bgGradient || section.background,
+    section.bgImage?.trim()
+      ? section.bgImage.trim().startsWith('url(')
+        ? `bg-[${section.bgImage.trim()}]`
+        : `bg-[url('${section.bgImage.trim().replace(/['"\s]/g, '')}')]`
+      : '',
     effects.backdropBlur,
     section.overlay,
     section.divider,
