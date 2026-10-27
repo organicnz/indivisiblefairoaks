@@ -21,6 +21,7 @@ import {
   MotionHoverStudio,
   MotionTimingStudio,
   TIMING_OPTIONS,
+  TIMING_PRESETS,
 } from './motion';
 import { StudioSection } from './ui';
 
@@ -43,6 +44,7 @@ export {
   MotionHoverStudio,
   MotionTimingStudio,
   TIMING_OPTIONS,
+  TIMING_PRESETS,
 };
 
 export type AdvancedMotionStudioTab = VisualComposerMotionTab;

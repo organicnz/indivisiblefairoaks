@@ -101,13 +101,16 @@ describe('TypographyStudio & Sub-Studios', () => {
     expect(currentStyles.typography.textAlign).toBe('center');
   });
 
-  it('renders TypographyEffectsStudio and triggers text shadow change', async () => {
-    const setStyles = vi.fn();
+  it('renders TypographyEffectsStudio and triggers text shadow change and effect presets', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
 
     await act(async () => {
       root.render(
         <TypographyEffectsStudio
-          styles={DEFAULT_VC_STYLES}
+          styles={currentStyles}
           setStyles={setStyles}
           letterSpacingSelectId="letter-spacing-select"
           textShadowSelectId="text-shadow-select"
@@ -116,7 +119,13 @@ describe('TypographyStudio & Sub-Studios', () => {
     });
 
     expect(container.textContent).toContain('Letter Spacing, Casing & Accents');
+    expect(container.textContent).toContain('Live Effects Sandbox');
+    expect(container.textContent).toContain('Civic Democracy In Action');
+    expect(container.textContent).toContain('1-Click Effect Presets');
     expect(container.textContent).toContain('Text Drop Shadow');
+
+    const preview = container.querySelector('[data-testid="typography-effects-preview-text"]');
+    expect(preview).not.toBeNull();
 
     const select = container.querySelector('#text-shadow-select') as HTMLSelectElement;
     expect(select).not.toBeNull();
@@ -127,6 +136,34 @@ describe('TypographyStudio & Sub-Studios', () => {
     });
 
     expect(setStyles).toHaveBeenCalled();
+    expect(currentStyles.typography.textShadow).toBe('drop-shadow-md');
+
+    // Click 1-Click Preset: Civic Gold Accent
+    const goldAccentBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Civic Gold Accent')
+    );
+    expect(goldAccentBtn).toBeDefined();
+
+    await act(async () => {
+      goldAccentBtn?.click();
+    });
+
+    expect(currentStyles.typography.letterSpacing).toBe('tracking-wide');
+    expect(currentStyles.typography.textTransform).toBe('capitalize');
+    expect(currentStyles.typography.textDecoration).toContain('decoration-amber-500');
+
+    // Click Reset Effects
+    const resetBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Reset Effects')
+    );
+    expect(resetBtn).toBeDefined();
+
+    await act(async () => {
+      resetBtn?.click();
+    });
+
+    expect(currentStyles.typography.letterSpacing).toBe('tracking-normal');
+    expect(currentStyles.typography.textDecoration).toBe('');
   });
 
   it('renders TypographyEditorialStudio and triggers font posture change', async () => {

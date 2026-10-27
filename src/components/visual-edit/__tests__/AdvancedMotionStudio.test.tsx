@@ -145,13 +145,16 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
     expect(currentStyles.motion.hoverShadow).toBe('');
   });
 
-  it('renders MotionTimingStudio and triggers duration change', async () => {
-    const setStyles = vi.fn();
+  it('renders MotionTimingStudio and triggers duration change and timing presets', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
 
     await act(async () => {
       root.render(
         <MotionTimingStudio
-          styles={DEFAULT_VC_STYLES}
+          styles={currentStyles}
           setStyles={setStyles}
           motionDurationSelectId="motion-duration-select"
           motionTimingSelectId="motion-timing-select"
@@ -159,8 +162,22 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
       );
     });
 
+    expect(container.textContent).toContain('Transition Physics Stage');
+    expect(container.textContent).toContain('1-Click Timing Curves');
     expect(container.textContent).toContain('Transition Speed');
     expect(container.textContent).toContain('Animation Easing Curve');
+
+    // Test Glider Button Click
+    const testBtn = container.querySelector(
+      '[data-testid="motion-timing-test-btn"]'
+    ) as HTMLButtonElement;
+    expect(testBtn).not.toBeNull();
+
+    await act(async () => {
+      testBtn.click();
+    });
+
+    expect(container.querySelector('[data-testid="motion-timing-glider"]')).not.toBeNull();
 
     const select = container.querySelector('#motion-duration-select') as HTMLSelectElement;
     expect(select).not.toBeNull();
@@ -171,6 +188,33 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
     });
 
     expect(setStyles).toHaveBeenCalled();
+    expect(currentStyles.motion.duration).toBe('transition-all duration-300');
+
+    // Click 1-Click Preset: Snappy Decel
+    const snappyBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Snappy Decel')
+    );
+    expect(snappyBtn).toBeDefined();
+
+    await act(async () => {
+      snappyBtn?.click();
+    });
+
+    expect(currentStyles.motion.duration).toBe('transition-all duration-150');
+    expect(currentStyles.motion.timing).toBe('ease-out');
+
+    // Click Reset Timing
+    const resetTimingBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Reset Timing')
+    );
+    expect(resetTimingBtn).toBeDefined();
+
+    await act(async () => {
+      resetTimingBtn?.click();
+    });
+
+    expect(currentStyles.motion.duration).toBe('');
+    expect(currentStyles.motion.timing).toBe('');
   });
 
   it('renders MotionAdvancedStudio and toggles responsive visibility', async () => {

@@ -153,9 +153,11 @@ export type {
   VisualComposerStyles,
   VisualComposerTab,
   VisualComposerThemeMode,
+  VisualComposerTimingPreset,
   VisualComposerTransform,
   VisualComposerTransformPreset,
   VisualComposerTypography,
+  VisualComposerTypographyEffectsPreset,
   VisualComposerTypographyPalettePreset,
   VisualComposerTypographyTab,
 } from './visual-composer';

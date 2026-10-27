@@ -410,3 +410,19 @@ export interface VisualComposerTypographyPalettePreset {
   badge: string;
   apply: () => Partial<VisualComposerTypography>;
 }
+
+export interface VisualComposerTimingPreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerMotion>;
+}
+
+export interface VisualComposerTypographyEffectsPreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerTypography>;
+}
