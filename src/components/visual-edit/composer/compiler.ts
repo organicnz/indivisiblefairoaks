@@ -168,6 +168,7 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
     styles.layout.minHeight,
     styles.layout.maxHeight,
     styles.layout.columns,
+    styles.layout.gap,
     styles.margin.top,
     styles.margin.bottom,
     styles.margin.left,

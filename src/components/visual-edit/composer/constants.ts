@@ -106,6 +106,7 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     justifyContent: '',
     alignItems: '',
     columns: '',
+    gap: '',
     maxWidth: '',
     minWidth: '',
     width: '',

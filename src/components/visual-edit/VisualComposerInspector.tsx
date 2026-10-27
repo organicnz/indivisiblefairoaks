@@ -40,6 +40,7 @@ export type {
   VisualComposerBackground,
   VisualComposerBorder,
   VisualComposerBoxModel,
+  VisualComposerBoxModelTab,
   VisualComposerCivicPreset,
   VisualComposerColumnPreset,
   VisualComposerColumnSlot,

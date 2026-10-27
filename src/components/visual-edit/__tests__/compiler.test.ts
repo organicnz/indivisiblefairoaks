@@ -239,6 +239,19 @@ describe('Visual Composer Compiler Suite', () => {
       expect(compileBadgeHtml(DEFAULT_VC_STYLES)).toBe('');
     });
 
+    it('compiles layout.gap into block class string', () => {
+      const classes = compileBlockClasses({
+        ...DEFAULT_VC_STYLES,
+        layout: {
+          ...DEFAULT_VC_STYLES.layout,
+          display: 'grid',
+          gap: 'gap-8',
+        },
+      });
+      expect(classes).toContain('grid');
+      expect(classes).toContain('gap-8');
+    });
+
     it('compiles decorative badge ribbon HTML with position and tone', () => {
       const badgeHtml = compileBadgeHtml({
         ...DEFAULT_VC_STYLES,

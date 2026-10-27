@@ -187,6 +187,19 @@ describe('BlockContentStudio & Modular Block Editors', () => {
 
     expect(container.textContent).toContain('Button Label');
     expect(container.textContent).toContain('Destination URL');
+    expect(container.textContent).toContain('Quick Destination Links');
+    expect(container.textContent).toContain('Events Calendar');
+
+    const eventsBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Events Calendar')
+    );
+    expect(eventsBtn).toBeDefined();
+
+    act(() => {
+      eventsBtn?.click();
+    });
+
+    expect(setCurrentBlock).toHaveBeenCalledWith(expect.objectContaining({ href: '/events' }));
   });
 
   it('renders CalloutBlockEditor and selects action tone', async () => {

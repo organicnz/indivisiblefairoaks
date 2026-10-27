@@ -3,6 +3,7 @@ export * from './BlockBackgroundStudio';
 export * from './BlockContentStudio';
 export * from './BordersStudio';
 export * from './BoxModelStudio';
+export * from './box-model';
 export * from './CodeStudio';
 export * from './CSSFiltersStudio';
 export * from './compiler';

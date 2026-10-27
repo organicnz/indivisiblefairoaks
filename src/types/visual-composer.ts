@@ -113,6 +113,7 @@ export interface VisualComposerLayout {
   justifyContent: string;
   alignItems: string;
   columns: string;
+  gap?: string;
   maxWidth: string;
   minWidth?: string;
   width?: string;
@@ -272,6 +273,17 @@ export type VisualComposerSectionTab =
   | 'spacing'
   | 'style'
   | 'advanced';
+
+export type VisualComposerBoxModelTab =
+  | 'all'
+  | 'spacing'
+  | 'layout'
+  | 'borders'
+  | 'background'
+  | 'sizing'
+  | 'filters'
+  | 'transforms'
+  | 'responsive';
 
 export interface VisualComposerSectionPreset {
   id: string;
