@@ -15,6 +15,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
+import { ENABLE_LEGACY_ORDERS } from '@/config/commerce';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
 interface AdminNavItem {
@@ -24,7 +25,7 @@ interface AdminNavItem {
   icon: React.ComponentType<{ size?: number; className?: string }>;
 }
 
-const ITEMS: AdminNavItem[] = [
+const BASE_ITEMS: AdminNavItem[] = [
   {
     href: '/admin',
     labelKey: 'admin.nav.dashboard',
@@ -50,6 +51,10 @@ const ITEMS: AdminNavItem[] = [
 export const LEGACY_ADMIN_ITEMS: AdminNavItem[] = [
   { href: '/admin/orders', labelKey: 'admin.nav.orders', label: 'Orders', icon: ShoppingBag },
 ];
+
+const ITEMS: AdminNavItem[] = ENABLE_LEGACY_ORDERS
+  ? [...BASE_ITEMS.slice(0, 6), ...LEGACY_ADMIN_ITEMS, ...BASE_ITEMS.slice(6)]
+  : BASE_ITEMS;
 
 export function AdminNav() {
   const pathname = usePathname();

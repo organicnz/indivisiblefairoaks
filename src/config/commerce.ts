@@ -14,6 +14,17 @@
 export const CURRENCY = 'usd';
 export const CURRENCY_CODE = 'USD';
 
+/**
+ * Feature toggle for the legacy order management experience.
+ *
+ * Preserves the entire legacy order stack (admin views, CSV export, customer order
+ * history, status updates) while keeping it hidden from navigation and account tabs.
+ *
+ * To bring the full order experience back to life in the UI:
+ * Flip `ENABLE_LEGACY_ORDERS` to `true`.
+ */
+export const ENABLE_LEGACY_ORDERS = false;
+
 /** Symbol formatter for the storefront. Single implementation, no per-site copies. */
 export function formatPrice(amount: number | string | null | undefined): string {
   const value = Number(amount ?? 0);

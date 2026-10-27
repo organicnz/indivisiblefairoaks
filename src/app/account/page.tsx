@@ -9,6 +9,7 @@ import { MyOrdersPanel } from '@/components/account/MyOrdersPanel';
 import { UserSettings } from '@/components/account/UserSettings';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { ENABLE_LEGACY_ORDERS } from '@/config/commerce';
 import { getDataPoints } from '@/lib/queries/civic';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 import type { AdminOrder, MyOrder } from '@/types/orders';
@@ -101,14 +102,15 @@ export default async function AccountPage(props: {
 
   const isAdmin = profile?.is_admin === true;
 
-  // The legacy order experience is hidden from active navigation tabs.
-  // Absent ?tab falls back to 'settings' (Profile, Security & Session control).
-  // Explicit ?tab=admin or ?tab=orders remains supported for backwards reference.
-  const activeTab = sp.tab ?? 'settings';
+  // The legacy order experience is hidden from active navigation tabs by default.
+  // When ENABLE_LEGACY_ORDERS is false, absent ?tab falls back to 'settings'.
+  // If ENABLE_LEGACY_ORDERS is true, it restores the full live admin/orders default.
+  const activeTab = sp.tab ?? (ENABLE_LEGACY_ORDERS ? (isAdmin ? 'admin' : 'orders') : 'settings');
 
   // Fetch data
+  const needOrders = ENABLE_LEGACY_ORDERS || sp.tab === 'admin' || sp.tab === 'orders';
   const [allOrdersResult, myOrdersResult, dataPoints] = await Promise.all([
-    isAdmin && (sp.tab === 'admin' || sp.tab === 'orders')
+    isAdmin && needOrders
       ? createAdminClient().then((ac) =>
           ac
             .from('orders')
@@ -120,7 +122,7 @@ export default async function AccountPage(props: {
             .limit(200)
         )
       : Promise.resolve({ data: [] as AdminOrder[] }),
-    profile && (sp.tab === 'orders' || sp.tab === 'admin')
+    profile && needOrders
       ? supabase
           .from('orders')
           .select('id, created_at, status, total, order_items(product_name, quantity, unit_price)')
@@ -134,7 +136,7 @@ export default async function AccountPage(props: {
   const myOrders = (myOrdersResult.data ?? []) as MyOrder[];
   const processing = allOrders.filter((o) => o.status === 'processing').length;
 
-  const showLegacyOrders = sp.tab === 'admin' || sp.tab === 'orders';
+  const showLegacyOrders = ENABLE_LEGACY_ORDERS || sp.tab === 'admin' || sp.tab === 'orders';
   const tabs = [
     {
       id: 'settings',
