@@ -2,7 +2,7 @@
 
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight } from 'lucide-react';
 import type { VisualComposerStyles } from '@/types/unified';
-import { StudioSection, StudioSelect } from './ui';
+import { ColorSwatchPicker, StudioSection, StudioSelect, TYPOGRAPHY_COLOR_SWATCHES } from './ui';
 
 export interface TypographyStudioProps {
   styles: VisualComposerStyles;
@@ -150,15 +150,6 @@ const FONT_SMOOTHING_OPTIONS = [
   { value: 'subpixel-antialiased', label: 'Subpixel Antialiased' },
 ] as const;
 
-const COLOR_SWATCHES = [
-  { color: 'text-foreground', label: 'Default Ink', dot: 'bg-white/40' },
-  { color: 'text-accent-gold', label: 'Civic Gold', dot: 'bg-amber-400' },
-  { color: 'text-white', label: 'Bright White', dot: 'bg-white/95' },
-  { color: 'text-sky-300', label: 'Patriotic Sky', dot: 'bg-sky-400' },
-  { color: 'text-rose-400', label: 'Alert Crimson', dot: 'bg-rose-400' },
-  { color: 'text-emerald-400', label: 'Success Green', dot: 'bg-emerald-500' },
-] as const;
-
 export function TypographyStudio({
   styles,
   setStyles,
@@ -291,32 +282,17 @@ export function TypographyStudio({
         </div>
 
         <div className="mt-3">
-          <span className="block text-slate-300 font-bold mb-2">Typography Color</span>
-          <div className="grid grid-cols-3 gap-1.5">
-            {COLOR_SWATCHES.map((item) => {
-              const isSelected = styles.typography.color === item.color;
-              return (
-                <button
-                  key={item.color}
-                  type="button"
-                  onClick={() =>
-                    setStyles({
-                      ...styles,
-                      typography: { ...styles.typography, color: item.color, textGradient: '' },
-                    })
-                  }
-                  className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] transition-colors cursor-pointer ${
-                    isSelected
-                      ? 'border-accent-gold bg-accent-gold/15 text-accent-gold font-bold'
-                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                  }`}
-                >
-                  <span className={`h-2.5 w-2.5 rounded-full ${item.dot}`} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
+          <ColorSwatchPicker
+            label="Typography Color"
+            value={styles.typography.color}
+            swatches={TYPOGRAPHY_COLOR_SWATCHES}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, color: val, textGradient: '' },
+              })
+            }
+          />
         </div>
       </StudioSection>
 

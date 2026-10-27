@@ -38,6 +38,7 @@ export interface VisualComposerSection {
   border?: string;
   borderColor?: string;
   bgImage?: string;
+  videoUrl?: string;
   overlay?: string;
   bgAttachment?: string;
   bgPosition?: string;
@@ -257,7 +258,13 @@ export interface VisualComposerPresetCategory {
   presets: VisualComposerPreset[];
 }
 
-export type VisualComposerSectionTab = 'layout' | 'style' | 'spacing' | 'presets' | 'advanced';
+export type VisualComposerSectionTab =
+  | 'all'
+  | 'presets'
+  | 'layout'
+  | 'spacing'
+  | 'style'
+  | 'advanced';
 
 export interface VisualComposerSectionPreset {
   id: string;

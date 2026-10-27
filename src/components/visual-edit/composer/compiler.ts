@@ -77,6 +77,7 @@ export function compileSectionClasses(
         ? `bg-[${section.bgImage.trim()}]`
         : `bg-[url('${section.bgImage.trim().replace(/['"\s]/g, '')}')]`
       : '',
+    section.videoUrl?.trim() ? 'relative overflow-hidden' : '',
     effects.backdropBlur,
     section.overlay,
     section.divider,

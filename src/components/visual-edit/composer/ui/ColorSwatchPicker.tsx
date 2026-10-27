@@ -44,6 +44,15 @@ export const DEFAULT_COLOR_SWATCHES: readonly ColorSwatch[] = [
   },
 ] as const;
 
+export const TYPOGRAPHY_COLOR_SWATCHES: readonly ColorSwatch[] = [
+  { label: 'Default Ink', value: 'text-foreground', bgClass: 'bg-white/40' },
+  { label: 'Civic Gold', value: 'text-accent-gold', bgClass: 'bg-amber-400' },
+  { label: 'Bright White', value: 'text-white', bgClass: 'bg-white/95' },
+  { label: 'Patriotic Sky', value: 'text-sky-300', bgClass: 'bg-sky-400' },
+  { label: 'Alert Crimson', value: 'text-rose-400', bgClass: 'bg-rose-400' },
+  { label: 'Success Green', value: 'text-emerald-400', bgClass: 'bg-emerald-500' },
+] as const;
+
 export function ColorSwatchPicker({
   label,
   value,

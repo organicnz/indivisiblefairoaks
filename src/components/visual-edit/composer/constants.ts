@@ -39,6 +39,7 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     border: '',
     borderColor: 'border-border',
     bgImage: '',
+    videoUrl: '',
     overlay: '',
     bgAttachment: '',
     bgPosition: '',
