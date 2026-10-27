@@ -160,6 +160,8 @@ describe('Dimensions Sub-Studios', () => {
     });
 
     expect(container.textContent).toContain('Interaction Behavior, Pointer & Cursors');
+    expect(container.textContent).toContain('Interaction & Cursor Playground');
+    expect(container.textContent).toContain('1-Click Behavior Presets');
     expect(container.textContent).toContain('Cursor Behavior');
     expect(container.textContent).toContain('CSS Visibility');
     expect(container.textContent).toContain('Pointer Events');
@@ -178,6 +180,30 @@ describe('Dimensions Sub-Studios', () => {
 
     expect(setStyles).toHaveBeenCalled();
     expect(currentStyles.layout.cursor).toBe('cursor-pointer');
+
+    // Click 1-click behavior preset: Draggable Move Handle
+    const dragBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Draggable Move Handle')
+    );
+    expect(dragBtn).toBeDefined();
+    await act(async () => {
+      dragBtn?.click();
+    });
+
+    expect(currentStyles.layout.cursor).toBe('cursor-grab');
+    expect(currentStyles.layout.userSelect).toBe('select-none');
+
+    // Click Reset Default
+    const resetBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Reset Default')
+    );
+    expect(resetBtn).toBeDefined();
+    await act(async () => {
+      resetBtn?.click();
+    });
+
+    expect(currentStyles.layout.cursor).toBe('');
+    expect(currentStyles.layout.userSelect).toBe('');
   });
 
   it('supports sticky sub-tab filtering in LayoutDimensionsStudio', async () => {

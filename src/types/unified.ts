@@ -117,6 +117,7 @@ export type { PublishedSection, VisualSection } from '@/lib/visual-sections';
 export type {
   StylePreset,
   VisualComposerBackground,
+  VisualComposerBehaviorPreset,
   VisualComposerBlockCategory,
   VisualComposerBorder,
   VisualComposerBorderPreset,
@@ -134,6 +135,7 @@ export type {
   VisualComposerLayout,
   VisualComposerMode,
   VisualComposerMotion,
+  VisualComposerMotionPreset,
   VisualComposerMotionTab,
   VisualComposerPositionPreset,
   VisualComposerPreset,

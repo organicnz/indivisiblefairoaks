@@ -378,3 +378,19 @@ export interface VisualComposerSizingPreset {
   description: string;
   apply: () => Partial<VisualComposerLayout>;
 }
+
+export interface VisualComposerBehaviorPreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerLayout>;
+}
+
+export interface VisualComposerMotionPreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerMotion>;
+}

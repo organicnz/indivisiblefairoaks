@@ -29,13 +29,16 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders MotionEntranceStudio and triggers entrance animation change', async () => {
-    const setStyles = vi.fn();
+  it('renders MotionEntranceStudio and triggers entrance animation change, replay and presets', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
 
     await act(async () => {
       root.render(
         <MotionEntranceStudio
-          styles={DEFAULT_VC_STYLES}
+          styles={currentStyles}
           setStyles={setStyles}
           motionEntranceSelectId="motion-entrance-select"
           motionDelaySelectId="motion-delay-select"
@@ -43,6 +46,8 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
       );
     });
 
+    expect(container.textContent).toContain('Live Entrance Stage');
+    expect(container.textContent).toContain('1-Click Entrance Presets');
     expect(container.textContent).toContain('Entrance Dynamics');
     expect(container.textContent).toContain('Entrance Animation');
     expect(container.textContent).toContain('Entrance Stagger Delay');
@@ -56,6 +61,27 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
     });
 
     expect(setStyles).toHaveBeenCalled();
+
+    // Replay motion button
+    const replayBtn = container.querySelector(
+      '[data-testid="replay-motion-button"]'
+    ) as HTMLButtonElement;
+    expect(replayBtn).not.toBeNull();
+    await act(async () => {
+      replayBtn.click();
+    });
+
+    // 1-Click Preset: Dynamic Slide Up
+    const slideUpBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Dynamic Slide Up')
+    );
+    expect(slideUpBtn).toBeDefined();
+    await act(async () => {
+      slideUpBtn?.click();
+    });
+
+    expect(currentStyles.motion.entrance).toContain('slide-in-from-bottom-4');
+    expect(currentStyles.motion.delay).toBe('delay-150');
   });
 
   it('renders MotionHoverStudio and triggers hover scale change', async () => {
