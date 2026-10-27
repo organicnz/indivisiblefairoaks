@@ -120,4 +120,46 @@ describe('BordersStudio', () => {
     expect(setStyles).toHaveBeenCalled();
     expect(currentStyles.border.color).toBe('border-amber-500/50');
   });
+
+  it('applies 1-click border geometry presets and clears border cleanly', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
+
+    await act(async () => {
+      root.render(<BordersStudio styles={currentStyles} setStyles={setStyles} />);
+    });
+
+    expect(container.textContent).toContain('1-Click Border & Corner Presets (Pro)');
+    expect(container.textContent).toContain('Frame Geometry');
+
+    // Click Civic Accent Bar preset
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const civicAccentBtn = buttons.find((b) => b.textContent?.includes('Civic Accent Bar'));
+    expect(civicAccentBtn).toBeDefined();
+
+    await act(async () => {
+      civicAccentBtn?.click();
+    });
+
+    expect(setStyles).toHaveBeenCalled();
+    const updatedBorder = setStyles.mock.calls[0][0].border;
+    expect(updatedBorder.side).toBe('left');
+    expect(updatedBorder.width).toBe('border-4');
+    expect(updatedBorder.color).toBe('border-amber-500/50');
+
+    // Click Clear Border button
+    const clearBtn = buttons.find((b) => b.textContent?.includes('Clear Border'));
+    expect(clearBtn).toBeDefined();
+
+    await act(async () => {
+      clearBtn?.click();
+    });
+
+    const clearedBorder = setStyles.mock.calls[1][0].border;
+    expect(clearedBorder.radius).toBe('rounded-none');
+    expect(clearedBorder.width).toBe('border-0');
+    expect(clearedBorder.style).toBe('none');
+  });
 });

@@ -1,7 +1,136 @@
 'use client';
 
-import type { VisualComposerStyles } from '@/types/unified';
+import type { VisualComposerFilterPreset, VisualComposerStyles } from '@/types/unified';
 import { StudioSection, StudioSelect } from './ui';
+
+export const CSS_FILTER_PRESETS: readonly VisualComposerFilterPreset[] = [
+  {
+    id: 'clear-glass',
+    name: 'Clear Glass',
+    description: 'Medium backdrop blur with luminous highlight',
+    effects: {
+      backdropBlur: 'backdrop-blur-md',
+      opacity: '',
+      grayscale: '',
+      brightness: 'brightness-110',
+      contrast: '',
+      saturate: '',
+      hueRotate: '',
+      sepia: '',
+      blur: '',
+      blendMode: '',
+      hoverBrightness: 'hover:brightness-105 transition-all',
+      hoverOpacity: '',
+      invert: '',
+      dropShadow: 'drop-shadow-sm',
+    },
+  },
+  {
+    id: 'deep-frosted',
+    name: 'Deep Frosted',
+    description: 'Heavy blur, subtle opacity, vivid saturation and deep drop shadow',
+    effects: {
+      backdropBlur: 'backdrop-blur-xl',
+      opacity: 'opacity-90',
+      grayscale: '',
+      brightness: 'brightness-125',
+      contrast: 'contrast-125',
+      saturate: 'saturate-150',
+      hueRotate: '',
+      sepia: '',
+      blur: '',
+      blendMode: '',
+      hoverBrightness: 'hover:brightness-110 transition-all',
+      hoverOpacity: '',
+      invert: '',
+      dropShadow: 'drop-shadow-xl',
+    },
+  },
+  {
+    id: 'dramatic-bw',
+    name: 'Dramatic B&W',
+    description: 'High dynamic monochrome with deep shadows',
+    effects: {
+      backdropBlur: '',
+      opacity: '',
+      grayscale: 'grayscale',
+      brightness: 'brightness-90',
+      contrast: 'contrast-150',
+      saturate: '',
+      hueRotate: '',
+      sepia: '',
+      blur: '',
+      blendMode: '',
+      hoverBrightness: '',
+      hoverOpacity: '',
+      invert: '',
+      dropShadow: 'drop-shadow-md',
+    },
+  },
+  {
+    id: 'warm-sepia',
+    name: 'Warm Sepia',
+    description: 'Vintage historical tone with punchy contrast',
+    effects: {
+      backdropBlur: '',
+      opacity: '',
+      grayscale: '',
+      brightness: 'brightness-90',
+      contrast: 'contrast-125',
+      saturate: '',
+      hueRotate: '',
+      sepia: 'sepia',
+      blur: '',
+      blendMode: '',
+      hoverBrightness: '',
+      hoverOpacity: '',
+      invert: '',
+      dropShadow: '',
+    },
+  },
+  {
+    id: 'vivid-neon',
+    name: 'Vivid Neon',
+    description: 'Super-saturated colors with golden amber hue rotation and radiant pop',
+    effects: {
+      backdropBlur: '',
+      opacity: '',
+      grayscale: '',
+      brightness: 'brightness-110',
+      contrast: 'contrast-125',
+      saturate: 'saturate-200',
+      hueRotate: 'hue-rotate-30',
+      sepia: '',
+      blur: '',
+      blendMode: '',
+      hoverBrightness: 'hover:brightness-125 transition-all',
+      hoverOpacity: '',
+      invert: '',
+      dropShadow: 'drop-shadow-lg',
+    },
+  },
+  {
+    id: 'soft-focus',
+    name: 'Soft Focus',
+    description: 'Gentle dreamy bokeh with luminous highlight',
+    effects: {
+      backdropBlur: '',
+      opacity: '',
+      grayscale: '',
+      brightness: 'brightness-105',
+      contrast: '',
+      saturate: '',
+      hueRotate: '',
+      sepia: '',
+      blur: 'blur-xs',
+      blendMode: '',
+      hoverBrightness: '',
+      hoverOpacity: '',
+      invert: '',
+      dropShadow: '',
+    },
+  },
+] as const;
 
 export interface CSSFiltersStudioProps {
   styles: VisualComposerStyles;
@@ -46,6 +175,86 @@ export function CSSFiltersStudio({
       badge="FX Studio"
       description="Stack optical filters, backdrop blur, brightness shifts, and blend modes."
     >
+      {/* 1-Click Optical & Filter Presets */}
+      <div className="p-2.5 rounded-xl border border-white/10 bg-white/5 space-y-2 mb-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-slate-300 font-bold block">
+            1-Click Optical &amp; Filter Presets (Pro)
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setStyles({
+                ...styles,
+                effects: {
+                  backdropBlur: '',
+                  opacity: '',
+                  grayscale: '',
+                  brightness: '',
+                  contrast: '',
+                  saturate: '',
+                  hueRotate: '',
+                  sepia: '',
+                  blur: '',
+                  blendMode: '',
+                  hoverBrightness: '',
+                  hoverOpacity: '',
+                  invert: '',
+                  dropShadow: '',
+                },
+              })
+            }
+            className="text-[10px] text-slate-400 hover:text-white transition-colors underline"
+          >
+            Clear FX
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {CSS_FILTER_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() =>
+                setStyles({
+                  ...styles,
+                  effects: {
+                    ...styles.effects,
+                    ...preset.effects,
+                  },
+                })
+              }
+              title={preset.description}
+              className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95"
+            >
+              {preset.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Interactive Live Optics Preview Card */}
+      <div className="relative overflow-hidden p-3 rounded-xl border border-white/10 bg-slate-900 mb-3">
+        <div className="flex items-center justify-between">
+          <div
+            className={`p-2 rounded-lg border border-white/20 bg-white/10 transition-all duration-300 text-xs text-white ${
+              styles.effects.backdropBlur || ''
+            } ${styles.effects.opacity || ''} ${styles.effects.grayscale || ''} ${
+              styles.effects.brightness || ''
+            } ${styles.effects.contrast || ''} ${styles.effects.saturate || ''} ${
+              styles.effects.hueRotate || ''
+            } ${styles.effects.sepia || ''} ${styles.effects.blur || ''} ${
+              styles.effects.dropShadow || ''
+            } ${styles.effects.blendMode || ''}`}
+          >
+            <span className="font-semibold block text-[11px]">Optical Filter Preview</span>
+            <span className="text-[10px] text-slate-300">Live Glassmorphism &amp; FX Stacking</span>
+          </div>
+          <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-accent-gold/20 text-accent-gold border border-accent-gold/30">
+            Live FX
+          </span>
+        </div>
+      </div>
+
       <div className="grid grid-cols-3 gap-1.5">
         <StudioSelect
           id={effectBackdropBlurSelectId}

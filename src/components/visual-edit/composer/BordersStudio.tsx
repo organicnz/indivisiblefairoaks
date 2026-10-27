@@ -1,7 +1,7 @@
 'use client';
 
 import { Link2, Unlink2 } from 'lucide-react';
-import type { VisualComposerStyles } from '@/types/unified';
+import type { VisualComposerBorderPreset, VisualComposerStyles } from '@/types/unified';
 import { type ColorSwatch, ColorSwatchPicker, StudioSection, StudioSelect } from './ui';
 
 export interface BordersStudioProps {
@@ -24,6 +24,76 @@ export const BORDER_COLOR_SWATCHES: readonly ColorSwatch[] = [
   { label: 'Frost Glass', value: 'border-white/30', bgClass: 'bg-white/40' },
   { label: 'Crimson', value: 'border-rose-500/50', bgClass: 'bg-rose-500' },
   { label: 'Forest Green', value: 'border-emerald-500/50', bgClass: 'bg-emerald-500' },
+] as const;
+
+export const BORDER_GEOMETRY_PRESETS: readonly VisualComposerBorderPreset[] = [
+  {
+    id: 'modern-card',
+    name: 'Modern Card',
+    description: 'Clean 16px radius with thin 1px frame',
+    border: {
+      radius: 'rounded-2xl',
+      width: 'border',
+      style: 'solid',
+      side: 'all',
+      radiusLinked: true,
+      color: 'border-white/20',
+    },
+  },
+  {
+    id: 'squircle-pill',
+    name: 'Squircle Capsule',
+    description: 'Full capsule rounding with medium border',
+    border: {
+      radius: 'rounded-full',
+      width: 'border-2',
+      style: 'solid',
+      side: 'all',
+      radiusLinked: true,
+    },
+  },
+  {
+    id: 'civic-callout',
+    name: 'Civic Accent Bar',
+    description: 'Thick 4px gold left accent bar with rounded right corners',
+    border: {
+      radius: 'rounded-r-xl',
+      width: 'border-4',
+      style: 'solid',
+      side: 'left',
+      color: 'border-amber-500/50',
+      radiusLinked: true,
+    },
+  },
+  {
+    id: 'diagonal-shield',
+    name: 'Diagonal Shield',
+    description: 'Organic leaf shape with unlinked top-left and bottom-right pill corners',
+    border: {
+      radius: '',
+      radiusLinked: false,
+      radiusTopLeft: 'rounded-tl-3xl',
+      radiusTopRight: 'rounded-tr-none',
+      radiusBottomRight: 'rounded-br-3xl',
+      radiusBottomLeft: 'rounded-bl-none',
+      width: 'border',
+      style: 'solid',
+      side: 'all',
+      color: 'border-amber-500/50',
+    },
+  },
+  {
+    id: 'sharp-flush',
+    name: 'Sharp Flush',
+    description: 'Architectural sharp edges with heavy 2px frame',
+    border: {
+      radius: 'rounded-none',
+      width: 'border-2',
+      style: 'solid',
+      side: 'all',
+      radiusLinked: true,
+    },
+  },
 ] as const;
 
 export function BordersStudio({
@@ -67,6 +137,78 @@ export function BordersStudio({
         </button>
       }
     >
+      {/* 1-Click Border & Corner Geometry Presets */}
+      <div className="p-2.5 rounded-xl border border-white/10 bg-white/5 space-y-2 mb-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-slate-300 font-bold block">
+            1-Click Border &amp; Corner Presets (Pro)
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setStyles({
+                ...styles,
+                border: {
+                  radius: 'rounded-none',
+                  width: 'border-0',
+                  style: 'none',
+                  side: 'all',
+                  color: 'border-border',
+                  radiusLinked: true,
+                  radiusTopLeft: '',
+                  radiusTopRight: '',
+                  radiusBottomRight: '',
+                  radiusBottomLeft: '',
+                },
+              })
+            }
+            className="text-[10px] text-slate-400 hover:text-white transition-colors underline"
+          >
+            Clear Border
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {BORDER_GEOMETRY_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() =>
+                setStyles({
+                  ...styles,
+                  border: {
+                    ...styles.border,
+                    ...preset.border,
+                  },
+                })
+              }
+              title={preset.description}
+              className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95"
+            >
+              {preset.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Interactive Live Border Preview */}
+      <div className="relative overflow-hidden p-3 rounded-xl border border-white/10 bg-slate-900 mb-3 flex items-center justify-between min-h-[56px]">
+        <div className="flex items-center gap-3">
+          <div
+            className={`px-3 py-1.5 bg-white/10 text-white font-medium text-xs transition-all duration-200 ${
+              styles.border.radiusLinked === false
+                ? `${styles.border.radiusTopLeft || 'rounded-tl-none'} ${styles.border.radiusTopRight || 'rounded-tr-none'} ${styles.border.radiusBottomRight || 'rounded-br-none'} ${styles.border.radiusBottomLeft || 'rounded-bl-none'}`
+                : styles.border.radius || 'rounded-none'
+            } ${styles.border.width || 'border'} ${styles.border.color || 'border-border'}`}
+          >
+            Frame Geometry
+          </div>
+          <span className="text-[10px] text-slate-300">Live Corner &amp; Side Stroke</span>
+        </div>
+        <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-accent-gold/20 text-accent-gold border border-accent-gold/30">
+          Geometry
+        </span>
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StudioSelect
           id={radiusSelectId}

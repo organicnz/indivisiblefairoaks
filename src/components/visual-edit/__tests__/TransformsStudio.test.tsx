@@ -74,4 +74,46 @@ describe('TransformsStudio', () => {
     expect(setStyles).toHaveBeenCalledTimes(1);
     expect(setStyles.mock.calls[0][0].transform.rotate).toBe('rotate-2');
   });
+
+  it('applies 1-click 3D tilt presets and resets flat cleanly', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
+
+    await act(async () => {
+      root.render(<TransformsStudio styles={currentStyles} setStyles={setStyles} />);
+    });
+
+    expect(container.textContent).toContain('1-Click 3D Tilt & Angle Presets (Pro)');
+    expect(container.textContent).toContain('3D Tilt Preview');
+
+    // Click Dynamic Tilt preset
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const dynamicTiltBtn = buttons.find((b) => b.textContent?.includes('Dynamic Tilt'));
+    expect(dynamicTiltBtn).toBeDefined();
+
+    await act(async () => {
+      dynamicTiltBtn?.click();
+    });
+
+    expect(setStyles).toHaveBeenCalled();
+    const updatedTransform = setStyles.mock.calls[0][0].transform;
+    expect(updatedTransform.rotate).toBe('rotate-2');
+    expect(updatedTransform.scale).toBe('scale-105');
+    expect(updatedTransform.translateY).toBe('-translate-y-2');
+
+    // Click Reset Flat button
+    const resetBtn = buttons.find((b) => b.textContent?.includes('Reset Flat'));
+    expect(resetBtn).toBeDefined();
+
+    await act(async () => {
+      resetBtn?.click();
+    });
+
+    const resetTransform = setStyles.mock.calls[1][0].transform;
+    expect(resetTransform.rotate).toBe('');
+    expect(resetTransform.scale).toBe('');
+    expect(resetTransform.translateY).toBe('');
+  });
 });

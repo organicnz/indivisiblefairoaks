@@ -1,7 +1,75 @@
 'use client';
 
-import type { VisualComposerStyles } from '@/types/unified';
+import type { VisualComposerStyles, VisualComposerTransformPreset } from '@/types/unified';
 import { StudioSection, StudioSelect } from './ui';
+
+export const TRANSFORM_PRESETS: readonly VisualComposerTransformPreset[] = [
+  {
+    id: 'subtle-lift',
+    name: 'Subtle Lift',
+    description: 'Elevated pop with -4px Y-translation and 105% scale',
+    transform: {
+      rotate: '',
+      scale: 'scale-105',
+      skew: '',
+      translateX: '',
+      translateY: '-translate-y-1',
+      transformOrigin: 'origin-center',
+    },
+  },
+  {
+    id: 'dynamic-tilt',
+    name: 'Dynamic Tilt',
+    description: '2° dynamic tilt angle with subtle slant and -8px lift',
+    transform: {
+      rotate: 'rotate-2',
+      scale: 'scale-105',
+      skew: 'skew-x-1',
+      translateX: '',
+      translateY: '-translate-y-2',
+      transformOrigin: 'origin-center',
+    },
+  },
+  {
+    id: 'hero-slant',
+    name: 'Hero Slant',
+    description: 'Civic dynamic diagonal slant with forward X translation',
+    transform: {
+      rotate: '',
+      scale: '',
+      skew: 'skew-x-1',
+      translateX: 'translate-x-1',
+      translateY: '',
+      transformOrigin: 'origin-left',
+    },
+  },
+  {
+    id: 'accent-stamp',
+    name: 'Accent Stamp',
+    description: 'Stamp angle of -3° with compact 95% scale',
+    transform: {
+      rotate: '-rotate-3',
+      scale: 'scale-95',
+      skew: '',
+      translateX: '',
+      translateY: '',
+      transformOrigin: 'origin-center',
+    },
+  },
+  {
+    id: 'floating-hover',
+    name: 'Floating Hover',
+    description: 'Center hovering lift of -16px with heroic 110% zoom',
+    transform: {
+      rotate: '',
+      scale: 'scale-110',
+      skew: '',
+      translateX: '',
+      translateY: '-translate-y-4',
+      transformOrigin: 'origin-center',
+    },
+  },
+] as const;
 
 export interface TransformsStudioProps {
   styles: VisualComposerStyles;
@@ -30,6 +98,76 @@ export function TransformsStudio({
       badge="3D Motion"
       description="Apply physical angles, scale spotlighting, slant, and 2D translation offsets."
     >
+      {/* 1-Click Transform & 3D Tilt Presets */}
+      <div className="p-2.5 rounded-xl border border-white/10 bg-white/5 space-y-2 mb-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-slate-300 font-bold block">
+            1-Click 3D Tilt &amp; Angle Presets (Pro)
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setStyles({
+                ...styles,
+                transform: {
+                  rotate: '',
+                  scale: '',
+                  skew: '',
+                  translateX: '',
+                  translateY: '',
+                  transformOrigin: '',
+                },
+              })
+            }
+            className="text-[10px] text-slate-400 hover:text-white transition-colors underline"
+          >
+            Reset Flat
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {TRANSFORM_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() =>
+                setStyles({
+                  ...styles,
+                  transform: {
+                    ...styles.transform,
+                    ...preset.transform,
+                  },
+                })
+              }
+              title={preset.description}
+              className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95"
+            >
+              {preset.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Interactive Live 3D Transform Preview Card */}
+      <div className="relative overflow-hidden p-3 rounded-xl border border-white/10 bg-slate-900 mb-3 flex items-center justify-between min-h-[64px]">
+        <div className="flex items-center gap-3">
+          <div
+            className={`p-2 rounded-lg border border-accent-gold/40 bg-accent-gold/10 text-white font-bold text-xs transition-all duration-300 ${
+              styles.transform?.rotate || ''
+            } ${styles.transform?.scale || ''} ${styles.transform?.skew || ''} ${
+              styles.transform?.translateX || ''
+            } ${styles.transform?.translateY || ''} ${
+              styles.transform?.transformOrigin || 'origin-center'
+            }`}
+          >
+            3D Tilt Preview
+          </div>
+          <span className="text-[10px] text-slate-300">Physical Angle &amp; Translation</span>
+        </div>
+        <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-accent-gold/20 text-accent-gold border border-accent-gold/30">
+          Live 3D
+        </span>
+      </div>
+
       <div className="grid grid-cols-3 gap-1.5">
         <StudioSelect
           id={transformRotateSelectId}

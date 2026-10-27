@@ -311,3 +311,24 @@ export type VisualComposerPresetCategoryFilter =
   | 'editorial'
   | 'clean'
   | 'saved';
+
+export interface VisualComposerFilterPreset {
+  id: string;
+  name: string;
+  description?: string;
+  effects: Partial<VisualComposerEffects>;
+}
+
+export interface VisualComposerTransformPreset {
+  id: string;
+  name: string;
+  description?: string;
+  transform: Partial<VisualComposerTransform>;
+}
+
+export interface VisualComposerBorderPreset {
+  id: string;
+  name: string;
+  description?: string;
+  border: Partial<VisualComposerBorder>;
+}

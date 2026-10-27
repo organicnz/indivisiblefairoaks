@@ -118,6 +118,7 @@ export type {
   StylePreset,
   VisualComposerBackground,
   VisualComposerBorder,
+  VisualComposerBorderPreset,
   VisualComposerBoxModel,
   VisualComposerBoxModelTab,
   VisualComposerCivicPreset,
@@ -126,6 +127,7 @@ export type {
   VisualComposerDevice,
   VisualComposerDimensionsTab,
   VisualComposerEffects,
+  VisualComposerFilterPreset,
   VisualComposerLayout,
   VisualComposerMode,
   VisualComposerMotion,
@@ -142,6 +144,7 @@ export type {
   VisualComposerTab,
   VisualComposerThemeMode,
   VisualComposerTransform,
+  VisualComposerTransformPreset,
   VisualComposerTypography,
   VisualComposerTypographyTab,
 } from './visual-composer';

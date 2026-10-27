@@ -78,4 +78,44 @@ describe('CSSFiltersStudio', () => {
     expect(setStyles).toHaveBeenCalledTimes(1);
     expect(setStyles.mock.calls[0][0].effects.backdropBlur).toBe('backdrop-blur-md');
   });
+
+  it('applies 1-click optical and filter presets and clears FX cleanly', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
+
+    await act(async () => {
+      root.render(<CSSFiltersStudio styles={currentStyles} setStyles={setStyles} />);
+    });
+
+    expect(container.textContent).toContain('1-Click Optical & Filter Presets (Pro)');
+    expect(container.textContent).toContain('Optical Filter Preview');
+
+    // Click Deep Frosted preset
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const deepFrostedBtn = buttons.find((b) => b.textContent?.includes('Deep Frosted'));
+    expect(deepFrostedBtn).toBeDefined();
+
+    await act(async () => {
+      deepFrostedBtn?.click();
+    });
+
+    expect(setStyles).toHaveBeenCalled();
+    const updatedEffects = setStyles.mock.calls[0][0].effects;
+    expect(updatedEffects.backdropBlur).toBe('backdrop-blur-xl');
+    expect(updatedEffects.saturate).toBe('saturate-150');
+
+    // Click Clear FX button
+    const clearBtn = buttons.find((b) => b.textContent?.includes('Clear FX'));
+    expect(clearBtn).toBeDefined();
+
+    await act(async () => {
+      clearBtn?.click();
+    });
+
+    const clearedEffects = setStyles.mock.calls[1][0].effects;
+    expect(clearedEffects.backdropBlur).toBe('');
+    expect(clearedEffects.saturate).toBe('');
+  });
 });
