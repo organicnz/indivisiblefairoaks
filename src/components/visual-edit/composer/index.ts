@@ -1,5 +1,6 @@
 export * from './AdvancedMotionStudio';
 export * from './BlockContentStudio';
+export * from './BordersStudio';
 export * from './BoxModelStudio';
 export * from './CodeStudio';
 export * from './CSSFiltersStudio';
@@ -7,6 +8,7 @@ export * from './compiler';
 export * from './constants';
 export * from './DevicePreviewFrame';
 export * from './InspectorHeader';
+export * from './LayoutDimensionsStudio';
 export * from './PresetStudio';
 export * from './SectionStudio';
 export * from './TransformsStudio';

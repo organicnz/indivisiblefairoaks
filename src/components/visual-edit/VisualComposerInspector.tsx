@@ -432,6 +432,7 @@ export function VisualComposerInspector({
           <AdvancedMotionStudio
             styles={styles}
             setStyles={setStyles}
+            anchorIdInputId="block-anchor-id-input"
             compiledClassNames={compiledClassNames}
           />
         )}
