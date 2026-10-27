@@ -5,6 +5,7 @@ import { StudioSection, StudioSelect } from '../ui';
 
 export const FONT_FAMILY_OPTIONS = [
   { value: '', label: 'Default Clean Sans' },
+  { value: 'font-outfit', label: 'Civic Display Bold (Outfit)' },
   { value: 'font-serif', label: 'Civic Editorial Serif' },
   { value: 'font-mono', label: 'Technical Monospace' },
 ] as const;
@@ -21,6 +22,8 @@ export const FONT_SIZE_OPTIONS = [
   { value: 'text-5xl', label: 'Heroic (5xl)' },
   { value: 'text-6xl', label: 'Billboard (6xl)' },
   { value: 'text-7xl', label: 'Monumental (7xl)' },
+  { value: 'text-8xl', label: 'Colossal (8xl)' },
+  { value: 'text-9xl', label: 'Epic Display (9xl)' },
 ] as const;
 
 export const FONT_WEIGHT_OPTIONS = [
@@ -50,6 +53,20 @@ export const TEXT_GRADIENT_OPTIONS = [
       'bg-gradient-to-r from-emerald-400 via-teal-200 to-emerald-500 bg-clip-text text-transparent',
     label: 'Grassroots Emerald',
   },
+  {
+    value:
+      'bg-gradient-to-r from-amber-400 via-rose-400 to-indigo-500 bg-clip-text text-transparent',
+    label: 'Sunset Civic Horizon',
+  },
+  {
+    value: 'bg-gradient-to-r from-rose-500 via-red-400 to-amber-400 bg-clip-text text-transparent',
+    label: 'Urgent Action Crimson',
+  },
+  {
+    value:
+      'bg-gradient-to-r from-purple-400 via-pink-300 to-indigo-400 bg-clip-text text-transparent',
+    label: 'Amethyst Violet Glow',
+  },
 ] as const;
 
 export const LINE_HEIGHT_OPTIONS = [
@@ -59,6 +76,18 @@ export const LINE_HEIGHT_OPTIONS = [
   { value: 'leading-tight', label: 'Tight Headline (1.25)' },
   { value: 'leading-none', label: 'Flush None (1.0)' },
   { value: 'leading-loose', label: 'Loose Breathing (2.0)' },
+] as const;
+
+const QUICK_FONT_SIZES = [
+  { label: 'XS', value: 'text-xs' },
+  { label: 'SM', value: 'text-sm' },
+  { label: 'MD', value: 'text-base' },
+  { label: 'LG', value: 'text-lg' },
+  { label: 'XL', value: 'text-xl' },
+  { label: '2X', value: 'text-2xl' },
+  { label: '3X', value: 'text-3xl' },
+  { label: '4X', value: 'text-4xl' },
+  { label: '5X', value: 'text-5xl' },
 ] as const;
 
 export interface TypographyScaleStudioProps {
@@ -82,6 +111,32 @@ export function TypographyScaleStudio({
 }: TypographyScaleStudioProps) {
   return (
     <StudioSection title="Font Family, Scale & Hierarchy" badge="Core">
+      {/* Interactive Live Typography Preview Banner */}
+      <div className="mb-3 rounded-xl border border-white/10 bg-slate-900/60 p-2.5">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+            Live Typography Preview
+          </span>
+          <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-accent-gold/20 text-accent-gold border border-accent-gold/30">
+            {styles.typography.fontSize}
+          </span>
+        </div>
+        <div
+          className={`p-2 rounded-lg bg-black/40 border border-white/5 overflow-hidden text-center truncate ${
+            styles.typography.fontFamily
+          } ${styles.typography.fontWeight} ${
+            styles.typography.fontStyle === 'italic' ? 'italic' : ''
+          } ${styles.typography.letterSpacing} ${
+            styles.typography.textTransform !== 'none' ? styles.typography.textTransform : ''
+          } ${styles.typography.textDecoration} ${styles.typography.textShadow} ${
+            styles.typography.textGradient || styles.typography.color
+          }`}
+          style={{ fontSize: '1.125rem' }}
+        >
+          Democracy in Action · Fair Oaks
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <StudioSelect
           id={fontFamilySelectId}
@@ -107,6 +162,35 @@ export function TypographyScaleStudio({
           }
           options={FONT_SIZE_OPTIONS}
         />
+      </div>
+
+      {/* 1-Click Quick Font Size Chips */}
+      <div className="mt-2">
+        <span className="text-[10px] text-slate-400 block mb-1">Quick Scale Presets:</span>
+        <div className="grid grid-cols-9 gap-1">
+          {QUICK_FONT_SIZES.map((sz) => {
+            const isActive = styles.typography.fontSize === sz.value;
+            return (
+              <button
+                key={sz.value}
+                type="button"
+                onClick={() =>
+                  setStyles({
+                    ...styles,
+                    typography: { ...styles.typography, fontSize: sz.value },
+                  })
+                }
+                className={`py-1 text-center rounded text-[9px] font-bold transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-accent-gold text-ink-strong shadow-xs'
+                    : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {sz.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 mt-2">

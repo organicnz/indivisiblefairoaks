@@ -289,6 +289,8 @@ export type VisualComposerTypographyTab = 'all' | 'scale' | 'palette' | 'effects
 
 export type VisualComposerMotionTab = 'all' | 'entrance' | 'hover' | 'timing' | 'advanced';
 
+export type VisualComposerDimensionsTab = 'all' | 'sizing' | 'flex' | 'position' | 'behavior';
+
 export interface VisualComposerSectionPreset {
   id: string;
   name: string;
