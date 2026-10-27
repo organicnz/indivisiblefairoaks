@@ -115,4 +115,53 @@ describe('BlockBackgroundStudio', () => {
     expect(setStyles).toHaveBeenCalled();
     expect(currentStyles.badgeText).toBe('HOT');
   });
+
+  it('renders and updates block background image, overlay, and sizing', async () => {
+    let currentStyles = {
+      ...DEFAULT_VC_STYLES,
+      background: {
+        ...DEFAULT_VC_STYLES.background,
+        image: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c',
+      },
+    };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
+
+    await act(async () => {
+      root.render(
+        <BlockBackgroundStudio
+          styles={currentStyles}
+          setStyles={setStyles}
+          bgImageInputId="test-bg-image"
+          bgOverlaySelectId="test-bg-overlay"
+          bgSizeSelectId="test-bg-size"
+          bgPositionSelectId="test-bg-position"
+          bgRepeatSelectId="test-bg-repeat"
+        />
+      );
+    });
+
+    expect(container.textContent).toContain('Block Background Image & Overlay (Pro)');
+    expect(container.textContent).toContain('Background Image URL');
+    expect(container.textContent).toContain('Overlay Tint');
+    expect(container.textContent).toContain('Image Sizing');
+    expect(container.textContent).toContain('Image Position');
+    expect(container.textContent).toContain('Pattern Repeat');
+
+    const overlaySelect = container.querySelector('#test-bg-overlay') as HTMLSelectElement;
+    expect(overlaySelect).not.toBeNull();
+
+    await act(async () => {
+      const nativeSetter = Object.getOwnPropertyDescriptor(
+        HTMLSelectElement.prototype,
+        'value'
+      )?.set;
+      nativeSetter?.call(overlaySelect, 'bg-black/60');
+      overlaySelect.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    expect(setStyles).toHaveBeenCalled();
+    expect(currentStyles.background.overlay).toBe('bg-black/60');
+  });
 });

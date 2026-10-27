@@ -91,6 +91,13 @@ export const DEFAULT_VC_STYLES: VisualComposerStyles = {
     preset: 'bg-transparent',
     blur: false,
     gradient: '',
+    image: '',
+    overlay: '',
+    position: '',
+    size: '',
+    repeat: '',
+    attachment: '',
+    blendMode: '',
   },
   shadow: 'shadow-none',
   layout: {

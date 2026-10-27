@@ -199,6 +199,18 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
     styles.typography.textShadow,
     compiledBorder,
     styles.background.gradient || styles.background.preset,
+    styles.background.image?.trim()
+      ? styles.background.image.trim().startsWith('url(')
+        ? `bg-[${styles.background.image.trim()}]`
+        : `bg-[url('${styles.background.image.trim().replace(/['"\s]/g, '')}')]`
+      : '',
+    styles.background.image?.trim() ? 'relative overflow-hidden' : '',
+    styles.background.overlay,
+    styles.background.position,
+    styles.background.size,
+    styles.background.repeat,
+    styles.background.attachment,
+    styles.background.blendMode,
     styles.effects.backdropBlur || (styles.background.blur ? 'backdrop-blur-md' : ''),
     styles.effects.opacity,
     styles.effects.grayscale,

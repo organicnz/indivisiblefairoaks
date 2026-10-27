@@ -106,6 +106,59 @@
   --primary-on-dark-muted: #7cbaff;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   System reactive palette mode
+   
+   Allows containers, sections, or blocks declaring `data-theme-mode="system"`
+   to adapt dynamically to the user's OS prefers-color-scheme preference.
+───────────────────────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  [data-theme-mode='system'],
+  :where([data-theme-mode='system']) {
+    color-scheme: dark;
+    --background: #16305c;
+    --foreground: #f1f5f9;
+    --surface-muted: #1a3768;
+    --surface-card: #1e427e;
+    --surface-deep: #0f2244;
+    --border: #3a6699;
+    --muted-foreground: #a3b4c9;
+    --primary: #155dfc;
+    --primary-dark: #2563eb;
+    --primary-ink: #8ec5ff;
+    --primary-light: #60a5fa;
+    --ink-on-dark: #cbd5e1;
+    --ink-muted-on-dark: #a3b4c9;
+    --ink-strong: #0f172a;
+    --primary-on-dark-muted: #7cbaff;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme-mode='system'],
+  :where([data-theme-mode='system']) {
+    color-scheme: light;
+    --background: #eef4ff;
+    --foreground: #0f1f3d;
+    --primary: #1e3a8a;
+    --primary-light: #2563eb;
+    --primary-dark: #172554;
+    --primary-ink: #1e3a8a;
+    --secondary: #16305c;
+    --accent: #d97706;
+    --accent-red: #dc2626;
+    --accent-gold: #f59e0b;
+    --surface-muted: #f4f8ff;
+    --surface-card: #ffffff;
+    --surface-deep: #e2ecfc;
+    --border: #c3d3f0;
+    --muted-foreground: #475f85;
+    --ink-on-dark: #cbd5e1;
+    --ink-muted-on-dark: #a3b4c9;
+    --ink-strong: #0f172a;
+  }
+}
+
 @media (min-width: 48rem) {
   :root {
     --header-h: 6.5rem; /* 104px, excluding the notch inset */

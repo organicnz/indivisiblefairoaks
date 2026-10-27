@@ -98,6 +98,13 @@ export interface VisualComposerBackground {
   preset: string;
   blur: boolean;
   gradient: string;
+  image?: string;
+  overlay?: string;
+  position?: string;
+  size?: string;
+  repeat?: string;
+  attachment?: string;
+  blendMode?: string;
 }
 
 export interface VisualComposerLayout {

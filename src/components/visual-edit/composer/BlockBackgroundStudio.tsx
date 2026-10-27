@@ -19,6 +19,11 @@ export interface BlockBackgroundStudioProps {
   shadowColorSelectId?: string;
   clipPathSelectId?: string;
   bgGradientSelectId?: string;
+  bgImageInputId?: string;
+  bgOverlaySelectId?: string;
+  bgSizeSelectId?: string;
+  bgPositionSelectId?: string;
+  bgRepeatSelectId?: string;
 }
 
 export const BLOCK_GRADIENT_OPTIONS = [
@@ -46,6 +51,42 @@ export const BLOCK_GRADIENT_OPTIONS = [
   },
 ] as const;
 
+export const BLOCK_OVERLAY_OPTIONS = [
+  { value: '', label: 'None (Clean Media)' },
+  { value: 'bg-black/40', label: 'Dark Tint (40%)' },
+  { value: 'bg-black/60', label: 'Dark Contrast (60%)' },
+  { value: 'bg-black/80', label: 'Deep Blackout (80%)' },
+  { value: 'bg-slate-950/70 backdrop-blur-xs', label: 'Midnight Frost Glass' },
+  { value: 'bg-amber-500/15', label: 'Civic Gold Wash (15%)' },
+  { value: 'bg-blue-950/50', label: 'Patriotic Navy Tint (50%)' },
+  { value: 'bg-emerald-950/40', label: 'Grassroots Emerald Wash' },
+  { value: 'bg-rose-950/40', label: 'Alert Crimson Wash' },
+] as const;
+
+export const BLOCK_BG_SIZE_OPTIONS = [
+  { value: '', label: 'Default' },
+  { value: 'bg-cover', label: 'Cover (Fill Element)' },
+  { value: 'bg-contain', label: 'Contain (Fit Proportions)' },
+  { value: 'bg-auto', label: 'Original Size (Auto)' },
+] as const;
+
+export const BLOCK_BG_POSITION_OPTIONS = [
+  { value: '', label: 'Default' },
+  { value: 'bg-center', label: 'Center Centered' },
+  { value: 'bg-top', label: 'Top Aligned' },
+  { value: 'bg-bottom', label: 'Bottom Aligned' },
+  { value: 'bg-left', label: 'Left Aligned' },
+  { value: 'bg-right', label: 'Right Aligned' },
+] as const;
+
+export const BLOCK_BG_REPEAT_OPTIONS = [
+  { value: '', label: 'Default' },
+  { value: 'bg-no-repeat', label: 'No Repeat (Clean)' },
+  { value: 'bg-repeat', label: 'Tile Seamless (Repeat)' },
+  { value: 'bg-repeat-x', label: 'Repeat Horizontal (X)' },
+  { value: 'bg-repeat-y', label: 'Repeat Vertical (Y)' },
+] as const;
+
 export function BlockBackgroundStudio({
   styles,
   setStyles,
@@ -55,6 +96,11 @@ export function BlockBackgroundStudio({
   shadowColorSelectId = 'shadow-color-select',
   clipPathSelectId = 'clip-path-select',
   bgGradientSelectId = 'block-bg-gradient-select',
+  bgImageInputId = 'block-bg-image-input',
+  bgOverlaySelectId = 'block-bg-overlay-select',
+  bgSizeSelectId = 'block-bg-size-select',
+  bgPositionSelectId = 'block-bg-position-select',
+  bgRepeatSelectId = 'block-bg-repeat-select',
 }: BlockBackgroundStudioProps) {
   return (
     <>
@@ -191,6 +237,85 @@ export function BlockBackgroundStudio({
               { value: '[clip-path:ellipse(50%_50%_at_50%_50%)]', label: 'Smooth Ellipse' },
             ]}
           />
+        </div>
+
+        {/* ── Block Background Image & Media Overlay ── */}
+        <div className="mt-3 p-3 rounded-xl bg-white/5 border border-white/10 space-y-2.5">
+          <span className="text-[10px] text-accent-gold font-bold uppercase tracking-wider block">
+            Block Background Image &amp; Overlay (Pro)
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <StudioInput
+              id={bgImageInputId}
+              label="Background Image URL"
+              value={styles.background.image || ''}
+              onChange={(val) =>
+                setStyles({
+                  ...styles,
+                  background: { ...styles.background, image: val },
+                })
+              }
+              placeholder="https://... or /images/..."
+              description="Applies background image with auto-clipping."
+            />
+            <StudioSelect
+              id={bgOverlaySelectId}
+              label="Overlay Tint"
+              value={styles.background.overlay || ''}
+              onChange={(val) =>
+                setStyles({
+                  ...styles,
+                  background: { ...styles.background, overlay: val },
+                })
+              }
+              options={BLOCK_OVERLAY_OPTIONS}
+              size="xs"
+            />
+          </div>
+
+          {Boolean(styles.background.image) && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <StudioSelect
+                id={bgSizeSelectId}
+                label="Image Sizing"
+                value={styles.background.size || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    background: { ...styles.background, size: val },
+                  })
+                }
+                options={BLOCK_BG_SIZE_OPTIONS}
+                size="xs"
+              />
+              <StudioSelect
+                id={bgPositionSelectId}
+                label="Image Position"
+                value={styles.background.position || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    background: { ...styles.background, position: val },
+                  })
+                }
+                options={BLOCK_BG_POSITION_OPTIONS}
+                size="xs"
+              />
+              <StudioSelect
+                id={bgRepeatSelectId}
+                label="Pattern Repeat"
+                value={styles.background.repeat || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    background: { ...styles.background, repeat: val },
+                  })
+                }
+                options={BLOCK_BG_REPEAT_OPTIONS}
+                size="xs"
+              />
+            </div>
+          )}
         </div>
       </StudioSection>
 
