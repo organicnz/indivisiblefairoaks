@@ -2,7 +2,7 @@
 
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight } from 'lucide-react';
 import type { VisualComposerStyles } from '@/types/unified';
-import { StudioSelect } from './ui';
+import { StudioSection, StudioSelect } from './ui';
 
 export interface TypographyStudioProps {
   styles: VisualComposerStyles;
@@ -179,275 +179,284 @@ export function TypographyStudio({
 }: TypographyStudioProps) {
   return (
     <div className="space-y-4">
-      {/* Alignment Buttons */}
-      <div>
-        <span className="block text-slate-300 font-bold mb-2">Alignment</span>
-        <div className="flex gap-2">
-          {[
-            { align: 'left', icon: AlignLeft },
-            { align: 'center', icon: AlignCenter },
-            { align: 'right', icon: AlignRight },
-            { align: 'justify', icon: AlignJustify },
-          ].map((item) => {
-            const Icon = item.icon;
-            const isActive = styles.typography.textAlign === item.align;
-            return (
-              <button
-                key={item.align}
-                type="button"
-                onClick={() =>
-                  setStyles({
-                    ...styles,
-                    typography: {
-                      ...styles.typography,
-                      textAlign: item.align as typeof styles.typography.textAlign,
-                    },
-                  })
-                }
-                className={`flex-1 flex items-center justify-center p-2 rounded-lg border transition-colors cursor-pointer ${
-                  isActive
-                    ? 'bg-accent-gold text-ink-strong border-accent-gold'
-                    : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-                }`}
-              >
-                <Icon size={14} />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Font Family & Size */}
-      <div className="grid grid-cols-2 gap-2">
-        <StudioSelect
-          id={fontFamilySelectId}
-          label="Font Family"
-          value={styles.typography.fontFamily}
-          onChange={(val) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, fontFamily: val },
-            })
-          }
-          options={FONT_FAMILY_OPTIONS}
-        />
-        <StudioSelect
-          id={fontSizeSelectId}
-          label="Font Size"
-          value={styles.typography.fontSize}
-          onChange={(val) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, fontSize: val },
-            })
-          }
-          options={FONT_SIZE_OPTIONS}
-        />
-      </div>
-
-      {/* Weight & Text Gradient */}
-      <div className="grid grid-cols-2 gap-2">
-        <StudioSelect
-          id={fontWeightSelectId}
-          label="Weight"
-          value={styles.typography.fontWeight}
-          onChange={(val) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, fontWeight: val },
-            })
-          }
-          options={FONT_WEIGHT_OPTIONS}
-        />
-        <StudioSelect
-          id={textGradientSelectId}
-          label="Text Gradient"
-          value={styles.typography.textGradient}
-          onChange={(val) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, textGradient: val },
-            })
-          }
-          options={TEXT_GRADIENT_OPTIONS}
-        />
-      </div>
-
-      {/* Line Height */}
-      <StudioSelect
-        id={lineHeightSelectId}
-        label="Line Height"
-        value={styles.typography.lineHeight}
-        onChange={(val) =>
-          setStyles({
-            ...styles,
-            typography: { ...styles.typography, lineHeight: val },
-          })
-        }
-        options={LINE_HEIGHT_OPTIONS}
-      />
-
-      {/* Text Color Swatches */}
-      <div>
-        <span className="block text-slate-300 font-bold mb-2">Typography Color</span>
-        <div className="grid grid-cols-3 gap-1.5">
-          {COLOR_SWATCHES.map((item) => {
-            const isSelected = styles.typography.color === item.color;
-            return (
-              <button
-                key={item.color}
-                type="button"
-                onClick={() =>
-                  setStyles({
-                    ...styles,
-                    typography: { ...styles.typography, color: item.color, textGradient: '' },
-                  })
-                }
-                className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] transition-colors cursor-pointer ${
-                  isSelected
-                    ? 'border-accent-gold bg-accent-gold/15 text-accent-gold font-bold'
-                    : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
-                }`}
-              >
-                <span className={`h-2.5 w-2.5 rounded-full ${item.dot}`} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Letter Spacing & Casing */}
-      <div>
-        <span className="text-[10px] text-slate-400 mb-1 block">Letter Spacing &amp; Casing</span>
+      {/* 1. Font Family, Scale & Hierarchy */}
+      <StudioSection title="Font Family, Scale & Hierarchy" badge="Core">
         <div className="grid grid-cols-2 gap-2">
           <StudioSelect
-            id={letterSpacingSelectId}
-            value={styles.typography.letterSpacing}
+            id={fontFamilySelectId}
+            label="Font Family"
+            value={styles.typography.fontFamily}
             onChange={(val) =>
               setStyles({
                 ...styles,
-                typography: { ...styles.typography, letterSpacing: val },
+                typography: { ...styles.typography, fontFamily: val },
               })
             }
-            options={LETTER_SPACING_OPTIONS}
+            options={FONT_FAMILY_OPTIONS}
           />
           <StudioSelect
-            id={textTransformSelectId}
-            value={styles.typography.textTransform}
+            id={fontSizeSelectId}
+            label="Font Size"
+            value={styles.typography.fontSize}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, fontSize: val },
+              })
+            }
+            options={FONT_SIZE_OPTIONS}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <StudioSelect
+            id={fontWeightSelectId}
+            label="Weight"
+            value={styles.typography.fontWeight}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, fontWeight: val },
+              })
+            }
+            options={FONT_WEIGHT_OPTIONS}
+          />
+          <StudioSelect
+            id={textGradientSelectId}
+            label="Text Gradient"
+            value={styles.typography.textGradient}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, textGradient: val },
+              })
+            }
+            options={TEXT_GRADIENT_OPTIONS}
+          />
+        </div>
+
+        <div className="mt-2">
+          <StudioSelect
+            id={lineHeightSelectId}
+            label="Line Height"
+            value={styles.typography.lineHeight}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, lineHeight: val },
+              })
+            }
+            options={LINE_HEIGHT_OPTIONS}
+          />
+        </div>
+      </StudioSection>
+
+      {/* 2. Text Alignment & Color Swatches */}
+      <StudioSection title="Text Alignment & Color Palette" badge="Color & Align">
+        <div>
+          <span className="block text-slate-300 font-bold mb-2">Alignment</span>
+          <div className="flex gap-2">
+            {[
+              { align: 'left', icon: AlignLeft },
+              { align: 'center', icon: AlignCenter },
+              { align: 'right', icon: AlignRight },
+              { align: 'justify', icon: AlignJustify },
+            ].map((item) => {
+              const Icon = item.icon;
+              const isActive = styles.typography.textAlign === item.align;
+              return (
+                <button
+                  key={item.align}
+                  type="button"
+                  onClick={() =>
+                    setStyles({
+                      ...styles,
+                      typography: {
+                        ...styles.typography,
+                        textAlign: item.align as typeof styles.typography.textAlign,
+                      },
+                    })
+                  }
+                  className={`flex-1 flex items-center justify-center p-2 rounded-lg border transition-colors cursor-pointer ${
+                    isActive
+                      ? 'bg-accent-gold text-ink-strong border-accent-gold'
+                      : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                  }`}
+                >
+                  <Icon size={14} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <span className="block text-slate-300 font-bold mb-2">Typography Color</span>
+          <div className="grid grid-cols-3 gap-1.5">
+            {COLOR_SWATCHES.map((item) => {
+              const isSelected = styles.typography.color === item.color;
+              return (
+                <button
+                  key={item.color}
+                  type="button"
+                  onClick={() =>
+                    setStyles({
+                      ...styles,
+                      typography: { ...styles.typography, color: item.color, textGradient: '' },
+                    })
+                  }
+                  className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] transition-colors cursor-pointer ${
+                    isSelected
+                      ? 'border-accent-gold bg-accent-gold/15 text-accent-gold font-bold'
+                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                  }`}
+                >
+                  <span className={`h-2.5 w-2.5 rounded-full ${item.dot}`} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </StudioSection>
+
+      {/* 3. Spacing, Casing & Accents */}
+      <StudioSection title="Letter Spacing, Casing & Accents" badge="Styling">
+        <div>
+          <span className="text-[10px] text-slate-400 mb-1 block">Letter Spacing &amp; Casing</span>
+          <div className="grid grid-cols-2 gap-2">
+            <StudioSelect
+              id={letterSpacingSelectId}
+              value={styles.typography.letterSpacing}
+              onChange={(val) =>
+                setStyles({
+                  ...styles,
+                  typography: { ...styles.typography, letterSpacing: val },
+                })
+              }
+              options={LETTER_SPACING_OPTIONS}
+            />
+            <StudioSelect
+              id={textTransformSelectId}
+              value={styles.typography.textTransform}
+              onChange={(val) =>
+                setStyles({
+                  ...styles,
+                  typography: {
+                    ...styles.typography,
+                    textTransform: val as typeof styles.typography.textTransform,
+                  },
+                })
+              }
+              options={TEXT_TRANSFORM_OPTIONS}
+            />
+          </div>
+        </div>
+
+        <div className="mt-2">
+          <StudioSelect
+            id={textDecorationSelectId}
+            label="Text Decoration & Accents"
+            value={styles.typography.textDecoration || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, textDecoration: val },
+              })
+            }
+            options={TEXT_DECORATION_OPTIONS}
+          />
+        </div>
+
+        <div className="mt-2">
+          <StudioSelect
+            id={textShadowSelectId}
+            label="Text Drop Shadow"
+            value={styles.typography.textShadow}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, textShadow: val },
+              })
+            }
+            options={TEXT_SHADOW_OPTIONS}
+          />
+        </div>
+      </StudioSection>
+
+      {/* 4. Advanced Editorial Typography */}
+      <StudioSection title="Editorial Posture, Wrap & Columns" badge="Layout">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <StudioSelect
+            id={fontStyleSelectId}
+            label="Font Posture / Style"
+            value={styles.typography.fontStyle || 'normal'}
             onChange={(val) =>
               setStyles({
                 ...styles,
                 typography: {
                   ...styles.typography,
-                  textTransform: val as typeof styles.typography.textTransform,
+                  fontStyle: val as 'normal' | 'italic',
                 },
               })
             }
-            options={TEXT_TRANSFORM_OPTIONS}
+            options={FONT_STYLE_OPTIONS}
+            size="xs"
+          />
+          <StudioSelect
+            id={textWrapSelectId}
+            label="Text Wrapping & Overflow"
+            value={styles.typography.textWrap || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, textWrap: val },
+              })
+            }
+            options={TEXT_WRAP_OPTIONS}
+            size="xs"
+          />
+          <StudioSelect
+            id={wordBreakSelectId}
+            label="Word Break Behavior"
+            value={styles.typography.wordBreak || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, wordBreak: val },
+              })
+            }
+            options={WORD_BREAK_OPTIONS}
+            size="xs"
+          />
+          <StudioSelect
+            id={textColumnsSelectId}
+            label="Editorial Multi-Columns"
+            value={styles.typography.textColumns || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, textColumns: val },
+              })
+            }
+            options={TEXT_COLUMNS_OPTIONS}
+            size="xs"
+          />
+          <StudioSelect
+            id={fontSmoothingSelectId}
+            label="Font Smoothing (Rendering)"
+            value={styles.typography.fontSmoothing || ''}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                typography: { ...styles.typography, fontSmoothing: val },
+              })
+            }
+            options={FONT_SMOOTHING_OPTIONS}
+            size="xs"
           />
         </div>
-      </div>
-
-      {/* Text Decoration & Accents */}
-      <StudioSelect
-        id={textDecorationSelectId}
-        label="Text Decoration & Accents"
-        value={styles.typography.textDecoration || ''}
-        onChange={(val) =>
-          setStyles({
-            ...styles,
-            typography: { ...styles.typography, textDecoration: val },
-          })
-        }
-        options={TEXT_DECORATION_OPTIONS}
-      />
-
-      {/* Text Drop Shadow */}
-      <StudioSelect
-        id={textShadowSelectId}
-        label="Text Drop Shadow"
-        value={styles.typography.textShadow}
-        onChange={(val) =>
-          setStyles({
-            ...styles,
-            typography: { ...styles.typography, textShadow: val },
-          })
-        }
-        options={TEXT_SHADOW_OPTIONS}
-      />
-
-      {/* Font Style, Editorial Text Wrapping & Multi-Columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <StudioSelect
-          id={fontStyleSelectId}
-          label="Font Posture / Style"
-          value={styles.typography.fontStyle || 'normal'}
-          onChange={(val) =>
-            setStyles({
-              ...styles,
-              typography: {
-                ...styles.typography,
-                fontStyle: val as 'normal' | 'italic',
-              },
-            })
-          }
-          options={FONT_STYLE_OPTIONS}
-          size="xs"
-        />
-        <StudioSelect
-          id={textWrapSelectId}
-          label="Text Wrapping & Overflow"
-          value={styles.typography.textWrap || ''}
-          onChange={(val) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, textWrap: val },
-            })
-          }
-          options={TEXT_WRAP_OPTIONS}
-          size="xs"
-        />
-        <StudioSelect
-          id={wordBreakSelectId}
-          label="Word Break Behavior"
-          value={styles.typography.wordBreak || ''}
-          onChange={(val) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, wordBreak: val },
-            })
-          }
-          options={WORD_BREAK_OPTIONS}
-          size="xs"
-        />
-        <StudioSelect
-          id={textColumnsSelectId}
-          label="Editorial Multi-Columns"
-          value={styles.typography.textColumns || ''}
-          onChange={(val) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, textColumns: val },
-            })
-          }
-          options={TEXT_COLUMNS_OPTIONS}
-          size="xs"
-        />
-        <StudioSelect
-          id={fontSmoothingSelectId}
-          label="Font Smoothing (Rendering)"
-          value={styles.typography.fontSmoothing || ''}
-          onChange={(val) =>
-            setStyles({
-              ...styles,
-              typography: { ...styles.typography, fontSmoothing: val },
-            })
-          }
-          options={FONT_SMOOTHING_OPTIONS}
-          size="xs"
-        />
-      </div>
+      </StudioSection>
     </div>
   );
 }

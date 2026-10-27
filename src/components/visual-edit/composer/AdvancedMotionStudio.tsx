@@ -2,7 +2,7 @@
 
 import { Eye, EyeOff, Sparkles } from 'lucide-react';
 import type { VisualComposerStyles } from '@/types/unified';
-import { StudioInput, StudioSelect, StudioToggle } from './ui';
+import { StudioInput, StudioSection, StudioSelect, StudioToggle } from './ui';
 
 export interface AdvancedMotionStudioProps {
   styles: VisualComposerStyles;
@@ -170,288 +170,296 @@ export function AdvancedMotionStudio({
 }: AdvancedMotionStudioProps) {
   return (
     <div className="space-y-4">
-      {/* Motion & Animations Header */}
-      <div>
-        <span className="block text-slate-300 font-bold mb-2 flex items-center gap-1.5">
-          <Sparkles size={13} className="text-accent-gold" />
-          <span>Motion &amp; Animations</span>
-        </span>
-        <div className="grid grid-cols-2 gap-2">
-          <StudioSelect
-            id={motionEntranceSelectId}
-            label="Entrance Animation"
-            value={styles.motion.entrance}
-            onChange={(val) =>
-              setStyles({
-                ...styles,
-                motion: { ...styles.motion, entrance: val },
-              })
-            }
-            options={ENTRANCE_OPTIONS}
-            size="xs"
-          />
-          <StudioSelect
-            id={motionHoverSelectId}
-            label="Hover Interaction"
-            value={styles.motion.hover}
-            onChange={(val) =>
-              setStyles({
-                ...styles,
-                motion: { ...styles.motion, hover: val },
-              })
-            }
-            options={HOVER_OPTIONS}
-            size="xs"
-          />
-        </div>
-
-        {/* Fine-Grained Hover Micro-Interactions Matrix */}
-        <div className="mt-2.5 p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
-          <span className="text-[10px] text-accent-gold font-bold uppercase tracking-wider block">
-            Hover Micro-Interactions &amp; Timing
+      {/* 1. Motion & Animation Transitions */}
+      <StudioSection title="Motion & Animation Transitions" badge="Dynamics">
+        <div>
+          <span className="block text-slate-300 font-bold mb-2 flex items-center gap-1.5">
+            <Sparkles size={13} className="text-accent-gold" />
+            <span>Motion &amp; Animations</span>
           </span>
           <div className="grid grid-cols-2 gap-2">
             <StudioSelect
-              id={motionHoverScaleSelectId}
-              label="Scale on Hover"
-              value={styles.motion.hoverScale || ''}
+              id={motionEntranceSelectId}
+              label="Entrance Animation"
+              value={styles.motion.entrance}
               onChange={(val) =>
                 setStyles({
                   ...styles,
-                  motion: { ...styles.motion, hoverScale: val },
+                  motion: { ...styles.motion, entrance: val },
                 })
               }
-              options={HOVER_SCALE_OPTIONS}
+              options={ENTRANCE_OPTIONS}
               size="xs"
             />
             <StudioSelect
-              id={motionHoverLiftSelectId}
-              label="Vertical Lift"
-              value={styles.motion.hoverLift || ''}
+              id={motionHoverSelectId}
+              label="Hover Interaction"
+              value={styles.motion.hover}
               onChange={(val) =>
                 setStyles({
                   ...styles,
-                  motion: { ...styles.motion, hoverLift: val },
+                  motion: { ...styles.motion, hover: val },
                 })
               }
-              options={HOVER_LIFT_OPTIONS}
+              options={HOVER_OPTIONS}
               size="xs"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <StudioSelect
-              id={motionHoverRotateSelectId}
-              label="Hover Rotation"
-              value={styles.motion.hoverRotate || ''}
-              onChange={(val) =>
-                setStyles({
-                  ...styles,
-                  motion: { ...styles.motion, hoverRotate: val },
-                })
-              }
-              options={HOVER_ROTATE_OPTIONS}
-              size="xs"
-            />
-            <StudioSelect
-              id={motionDurationSelectId}
-              label="Transition Speed"
-              value={styles.motion.duration || ''}
-              onChange={(val) =>
-                setStyles({
-                  ...styles,
-                  motion: { ...styles.motion, duration: val },
-                })
-              }
-              options={DURATION_OPTIONS}
-              size="xs"
-            />
-          </div>
+          {/* Fine-Grained Hover Micro-Interactions Matrix */}
+          <div className="mt-2.5 p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
+            <span className="text-[10px] text-accent-gold font-bold uppercase tracking-wider block">
+              Hover Micro-Interactions &amp; Timing
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <StudioSelect
+                id={motionHoverScaleSelectId}
+                label="Scale on Hover"
+                value={styles.motion.hoverScale || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverScale: val },
+                  })
+                }
+                options={HOVER_SCALE_OPTIONS}
+                size="xs"
+              />
+              <StudioSelect
+                id={motionHoverLiftSelectId}
+                label="Vertical Lift"
+                value={styles.motion.hoverLift || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverLift: val },
+                  })
+                }
+                options={HOVER_LIFT_OPTIONS}
+                size="xs"
+              />
+            </div>
 
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <StudioSelect
-              id={motionDelaySelectId}
-              label="Entrance Stagger Delay"
-              value={styles.motion.delay || ''}
-              onChange={(val) =>
-                setStyles({
-                  ...styles,
-                  motion: { ...styles.motion, delay: val },
-                })
-              }
-              options={DELAY_OPTIONS}
-              size="xs"
-            />
-            <StudioSelect
-              id={motionHoverGlowSelectId}
-              label="Hover Glow Ring"
-              value={styles.motion.hoverGlow || ''}
-              onChange={(val) =>
-                setStyles({
-                  ...styles,
-                  motion: { ...styles.motion, hoverGlow: val },
-                })
-              }
-              options={HOVER_GLOW_OPTIONS}
-              size="xs"
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-2">
+              <StudioSelect
+                id={motionHoverRotateSelectId}
+                label="Hover Rotation"
+                value={styles.motion.hoverRotate || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverRotate: val },
+                  })
+                }
+                options={HOVER_ROTATE_OPTIONS}
+                size="xs"
+              />
+              <StudioSelect
+                id={motionDurationSelectId}
+                label="Transition Speed"
+                value={styles.motion.duration || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, duration: val },
+                  })
+                }
+                options={DURATION_OPTIONS}
+                size="xs"
+              />
+            </div>
 
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <StudioSelect
-              id={motionHoverBorderSelectId}
-              label="Hover Border Accent"
-              value={styles.motion.hoverBorder || ''}
-              onChange={(val) =>
-                setStyles({
-                  ...styles,
-                  motion: { ...styles.motion, hoverBorder: val },
-                })
-              }
-              options={HOVER_BORDER_OPTIONS}
-              size="xs"
-            />
-            <StudioSelect
-              id={motionHoverShadowSelectId}
-              label="Hover Elevation Shadow"
-              value={styles.motion.hoverShadow || ''}
-              onChange={(val) =>
-                setStyles({
-                  ...styles,
-                  motion: { ...styles.motion, hoverShadow: val },
-                })
-              }
-              options={HOVER_SHADOW_OPTIONS}
-              size="xs"
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <StudioSelect
+                id={motionDelaySelectId}
+                label="Entrance Stagger Delay"
+                value={styles.motion.delay || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, delay: val },
+                  })
+                }
+                options={DELAY_OPTIONS}
+                size="xs"
+              />
+              <StudioSelect
+                id={motionHoverGlowSelectId}
+                label="Hover Glow Ring"
+                value={styles.motion.hoverGlow || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverGlow: val },
+                  })
+                }
+                options={HOVER_GLOW_OPTIONS}
+                size="xs"
+              />
+            </div>
 
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <StudioSelect
-              id={motionHoverBgSelectId}
-              label="Hover Background Tint (Pro)"
-              value={styles.motion.hoverBg || ''}
-              onChange={(val) =>
-                setStyles({
-                  ...styles,
-                  motion: { ...styles.motion, hoverBg: val },
-                })
-              }
-              options={HOVER_BG_OPTIONS}
-              size="xs"
-            />
-            <StudioSelect
-              id={motionHoverTextColorSelectId}
-              label="Hover Text Accent (Pro)"
-              value={styles.motion.hoverTextColor || ''}
-              onChange={(val) =>
-                setStyles({
-                  ...styles,
-                  motion: { ...styles.motion, hoverTextColor: val },
-                })
-              }
-              options={HOVER_TEXT_COLOR_OPTIONS}
-              size="xs"
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <StudioSelect
+                id={motionHoverBorderSelectId}
+                label="Hover Border Accent"
+                value={styles.motion.hoverBorder || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverBorder: val },
+                  })
+                }
+                options={HOVER_BORDER_OPTIONS}
+                size="xs"
+              />
+              <StudioSelect
+                id={motionHoverShadowSelectId}
+                label="Hover Elevation Shadow"
+                value={styles.motion.hoverShadow || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverShadow: val },
+                  })
+                }
+                options={HOVER_SHADOW_OPTIONS}
+                size="xs"
+              />
+            </div>
 
-          <div className="mt-2">
-            <StudioSelect
-              id={motionTimingSelectId}
-              label="Animation Easing Curve"
-              value={styles.motion.timing || ''}
-              onChange={(val) =>
-                setStyles({
-                  ...styles,
-                  motion: { ...styles.motion, timing: val },
-                })
-              }
-              options={TIMING_OPTIONS}
-              size="xs"
-            />
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <StudioSelect
+                id={motionHoverBgSelectId}
+                label="Hover Background Tint (Pro)"
+                value={styles.motion.hoverBg || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverBg: val },
+                  })
+                }
+                options={HOVER_BG_OPTIONS}
+                size="xs"
+              />
+              <StudioSelect
+                id={motionHoverTextColorSelectId}
+                label="Hover Text Accent (Pro)"
+                value={styles.motion.hoverTextColor || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, hoverTextColor: val },
+                  })
+                }
+                options={HOVER_TEXT_COLOR_OPTIONS}
+                size="xs"
+              />
+            </div>
+
+            <div className="mt-2">
+              <StudioSelect
+                id={motionTimingSelectId}
+                label="Animation Easing Curve"
+                value={styles.motion.timing || ''}
+                onChange={(val) =>
+                  setStyles({
+                    ...styles,
+                    motion: { ...styles.motion, timing: val },
+                  })
+                }
+                options={TIMING_OPTIONS}
+                size="xs"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      </StudioSection>
 
-      {/* HTML Anchor ID Target */}
+      {/* 2. HTML Anchor ID Target */}
       {anchorIdInputId && (
-        <StudioInput
-          id={anchorIdInputId}
-          label="HTML Anchor ID (Section Target)"
-          value={styles.anchorId}
-          onChange={(val) =>
-            setStyles({
-              ...styles,
-              anchorId: val.toLowerCase().replace(/[^a-z0-9-_]/g, ''),
-            })
-          }
-          placeholder="e.g. rally-info, volunteer-form"
-          description="Allows links like #rally-info to jump directly to this block."
-        />
+        <StudioSection title="Page Anchor & Linking" badge="Deep Link">
+          <StudioInput
+            id={anchorIdInputId}
+            label="HTML Anchor ID (Section Target)"
+            value={styles.anchorId}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                anchorId: val.toLowerCase().replace(/[^a-z0-9-_]/g, ''),
+              })
+            }
+            placeholder="e.g. rally-info, volunteer-form"
+            description="Allows links like #rally-info to jump directly to this block."
+          />
+        </StudioSection>
       )}
 
-      {/* Device Visibility Matrix */}
-      <div>
-        <span className="block text-slate-300 font-bold mb-2">Device Visibility</span>
-        <div className="space-y-1.5">
-          {[
-            {
-              key: 'hideMobile' as const,
-              label: 'Hide on Mobile (<640px)',
-              active: styles.responsive.hideMobile,
-            },
-            {
-              key: 'hideTablet' as const,
-              label: 'Hide on Tablet (640-768px)',
-              active: styles.responsive.hideTablet,
-            },
-            {
-              key: 'hideDesktop' as const,
-              label: 'Hide on Desktop (>768px)',
-              active: styles.responsive.hideDesktop,
-            },
-            {
-              key: 'hidePrint' as const,
-              label: 'Hide on Print / Paper Export',
-              active: styles.responsive.hidePrint,
-            },
-          ].map((item) => (
-            <StudioToggle
-              key={item.key}
-              label={item.label}
-              active={item.active}
-              activeTone="rose"
-              onToggle={() =>
-                setStyles({
-                  ...styles,
-                  responsive: {
-                    ...styles.responsive,
-                    [item.key]: !styles.responsive[item.key],
-                  },
-                })
-              }
-              icon={
-                item.active ? (
-                  <EyeOff size={13} className="text-rose-300" />
-                ) : (
-                  <Eye size={13} className="text-slate-400" />
-                )
-              }
-            />
-          ))}
+      {/* 3. Device Visibility Matrix */}
+      <StudioSection title="Responsive Device Visibility" badge="Matrix">
+        <div>
+          <span className="block text-slate-300 font-bold mb-2">Device Visibility</span>
+          <div className="space-y-1.5">
+            {[
+              {
+                key: 'hideMobile' as const,
+                label: 'Hide on Mobile (<640px)',
+                active: styles.responsive.hideMobile,
+              },
+              {
+                key: 'hideTablet' as const,
+                label: 'Hide on Tablet (640-768px)',
+                active: styles.responsive.hideTablet,
+              },
+              {
+                key: 'hideDesktop' as const,
+                label: 'Hide on Desktop (>768px)',
+                active: styles.responsive.hideDesktop,
+              },
+              {
+                key: 'hidePrint' as const,
+                label: 'Hide on Print / Paper Export',
+                active: styles.responsive.hidePrint,
+              },
+            ].map((item) => (
+              <StudioToggle
+                key={item.key}
+                label={item.label}
+                active={item.active}
+                activeTone="rose"
+                onToggle={() =>
+                  setStyles({
+                    ...styles,
+                    responsive: {
+                      ...styles.responsive,
+                      [item.key]: !styles.responsive[item.key],
+                    },
+                  })
+                }
+                icon={
+                  item.active ? (
+                    <EyeOff size={13} className="text-rose-300" />
+                  ) : (
+                    <Eye size={13} className="text-slate-400" />
+                  )
+                }
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      </StudioSection>
 
-      {/* Generated CSS Classes Preview */}
+      {/* 4. Generated CSS Classes Preview */}
       {compiledClassNames !== undefined && (
-        <div className="rounded-xl border border-white/10 bg-slate-900/90 p-3">
-          <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-            Compiled Classnames Preview
-          </span>
-          <p className="font-mono text-[10px] text-accent-gold break-all">
-            {compiledClassNames || '(default block styles)'}
-          </p>
-        </div>
+        <StudioSection title="Generated CSS Class Output" badge="Classes">
+          <div className="rounded-xl border border-white/10 bg-slate-900/90 p-3">
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+              Compiled Classnames Preview
+            </span>
+            <p className="font-mono text-[10px] text-accent-gold break-all">
+              {compiledClassNames || '(default block styles)'}
+            </p>
+          </div>
+        </StudioSection>
       )}
     </div>
   );
