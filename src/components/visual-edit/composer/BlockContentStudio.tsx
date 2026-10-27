@@ -63,6 +63,7 @@ export function BlockContentStudio({
             { type: 'callout', label: 'Callout' },
             { type: 'quote', label: 'Quote' },
             { type: 'bulletList', label: 'Bullet List' },
+            { type: 'orderedList', label: 'Numbered List' },
             { type: 'button', label: 'Button' },
             { type: 'code', label: 'Code' },
           ].map((t) => (

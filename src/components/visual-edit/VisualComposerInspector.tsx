@@ -163,6 +163,7 @@ export function VisualComposerInspector({
   const sectionBgRepeatSelectId = useId();
   const sectionAnchorIdInputId = useId();
   const sectionCustomClassesInputId = useId();
+  const sectionCustomStyleInputId = 'section-custom-style-input';
   const sectionBackdropBlurSelectId = useId();
   const sectionBgBlendModeSelectId = useId();
   const sectionInnerShadowSelectId = useId();
@@ -550,6 +551,7 @@ export function VisualComposerInspector({
             sectionInnerShadowSelectId={sectionInnerShadowSelectId}
             sectionRowLayoutSelectId={sectionRowLayoutSelectId}
             sectionDividerColorSelectId={sectionDividerColorSelectId}
+            sectionCustomStyleInputId={sectionCustomStyleInputId}
             compiledClassNames={compiledClassNames}
           />
         )}

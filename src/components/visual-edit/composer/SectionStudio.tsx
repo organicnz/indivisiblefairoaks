@@ -42,6 +42,7 @@ export interface SectionStudioProps {
   sectionInnerShadowSelectId?: string;
   sectionRowLayoutSelectId?: string;
   sectionDividerColorSelectId?: string;
+  sectionCustomStyleInputId?: string;
   compiledClassNames?: string;
 }
 
@@ -82,6 +83,7 @@ export function SectionStudio({
   sectionInnerShadowSelectId = 'section-inner-shadow',
   sectionRowLayoutSelectId = 'section-row-layout',
   sectionDividerColorSelectId = 'section-divider-color',
+  sectionCustomStyleInputId = 'section-custom-style-input',
   compiledClassNames,
 }: SectionStudioProps) {
   return (
@@ -1069,6 +1071,26 @@ export function SectionStudio({
             onChange={(val) => setStyles({ ...styles, customClasses: val })}
             placeholder="border-t border-white/10"
           />
+        </div>
+
+        <div>
+          <label
+            htmlFor={sectionCustomStyleInputId}
+            className="block text-slate-300 font-bold mb-1"
+          >
+            Section Custom Inline CSS (style="...")
+          </label>
+          <input
+            id={sectionCustomStyleInputId}
+            type="text"
+            value={styles.customStyle || ''}
+            onChange={(e) => setStyles({ ...styles, customStyle: e.target.value })}
+            placeholder="e.g. min-height: 480px; background-attachment: fixed;"
+            className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono text-[11px]"
+          />
+          <p className="text-[10px] text-slate-400 mt-1">
+            Custom inline CSS rules applied directly to the outer row / section container.
+          </p>
         </div>
 
         {/* Sticky Row Pinning & Print Visibility */}
