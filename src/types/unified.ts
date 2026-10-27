@@ -122,6 +122,7 @@ export type {
   VisualComposerBoxModel,
   VisualComposerBoxModelTab,
   VisualComposerCivicPreset,
+  VisualComposerCodeTab,
   VisualComposerColumnPreset,
   VisualComposerColumnSlot,
   VisualComposerDevice,

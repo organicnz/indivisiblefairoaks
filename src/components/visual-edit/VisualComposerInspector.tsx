@@ -1,6 +1,5 @@
 'use client';
 
-import { Code, Layers, Move, Palette, RotateCcw, Type, Wand2 } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 import { type Block, serializeBlocks } from '@/lib/blocks';
@@ -25,7 +24,9 @@ import {
   DEFAULT_VC_STYLES,
   DevicePreviewFrame,
   getStylesClipboard,
+  InspectorFooter,
   InspectorHeader,
+  InspectorTabBar,
   PresetStudio,
   SECTION_PRESETS,
   SectionStudio,
@@ -339,34 +340,7 @@ export function VisualComposerInspector({
 
       {/* Tabs Navigation (Block Mode) */}
       {inspectorMode === 'block' && (
-        <div className="flex border-b border-white/10 bg-slate-900/60 px-2 py-1.5 gap-1 text-[11px]">
-          {[
-            { id: 'content', label: 'Content', icon: Type },
-            { id: 'presets', label: 'Presets', icon: Wand2 },
-            { id: 'design', label: 'Box Model', icon: Move },
-            { id: 'typography', label: 'Type', icon: Palette },
-            { id: 'code', label: 'Code', icon: Code },
-            { id: 'advanced', label: 'Advanced', icon: Layers },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as VisualComposerTab)}
-                className={`flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg font-bold transition-colors ${
-                  isActive
-                    ? 'bg-accent-gold/20 text-accent-gold border border-accent-gold/30'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Icon size={12} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <InspectorTabBar activeTab={activeTab} setActiveTab={setActiveTab} />
       )}
 
       {/* Live Mini Preview Box with Responsive Viewport Device Switcher */}
@@ -442,33 +416,12 @@ export function VisualComposerInspector({
       </div>
 
       {/* Drawer Footer Actions */}
-      <div className="flex items-center justify-between border-t border-white/10 bg-slate-900/80 px-5 py-3">
-        <button
-          type="button"
-          onClick={handleResetStyles}
-          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
-        >
-          <RotateCcw size={13} />
-          <span>Reset Styles</span>
-        </button>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-white/10 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleApply}
-            className="rounded-xl bg-accent-gold px-4 py-1.5 text-xs font-bold text-ink-strong hover:bg-accent-gold/90 transition-colors shadow-lg font-black"
-          >
-            {inspectorMode === 'section' ? 'Save Section' : 'Save Block'}
-          </button>
-        </div>
-      </div>
+      <InspectorFooter
+        inspectorMode={inspectorMode}
+        onResetStyles={handleResetStyles}
+        onClose={onClose}
+        onApply={handleApply}
+      />
     </aside>
   );
 }

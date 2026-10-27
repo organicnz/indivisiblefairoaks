@@ -291,6 +291,8 @@ export type VisualComposerMotionTab = 'all' | 'entrance' | 'hover' | 'timing' | 
 
 export type VisualComposerDimensionsTab = 'all' | 'sizing' | 'flex' | 'position' | 'behavior';
 
+export type VisualComposerCodeTab = 'all' | 'html' | 'styles' | 'json';
+
 export interface VisualComposerSectionPreset {
   id: string;
   name: string;
