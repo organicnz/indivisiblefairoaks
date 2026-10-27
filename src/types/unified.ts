@@ -132,6 +132,7 @@ export type {
   VisualComposerEffects,
   VisualComposerFilterPreset,
   VisualComposerFlexPreset,
+  VisualComposerHoverPreset,
   VisualComposerLayout,
   VisualComposerMode,
   VisualComposerMotion,
@@ -155,6 +156,7 @@ export type {
   VisualComposerTransform,
   VisualComposerTransformPreset,
   VisualComposerTypography,
+  VisualComposerTypographyPalettePreset,
   VisualComposerTypographyTab,
 } from './visual-composer';
 

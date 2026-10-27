@@ -84,13 +84,16 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
     expect(currentStyles.motion.delay).toBe('delay-150');
   });
 
-  it('renders MotionHoverStudio and triggers hover scale change', async () => {
-    const setStyles = vi.fn();
+  it('renders MotionHoverStudio and triggers hover scale change and hover presets', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
 
     await act(async () => {
       root.render(
         <MotionHoverStudio
-          styles={DEFAULT_VC_STYLES}
+          styles={currentStyles}
           setStyles={setStyles}
           motionHoverSelectId="motion-hover-select"
           motionHoverScaleSelectId="motion-hover-scale-select"
@@ -98,6 +101,8 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
       );
     });
 
+    expect(container.textContent).toContain('Live Hover Dynamics Playground');
+    expect(container.textContent).toContain('1-Click Hover Presets');
     expect(container.textContent).toContain('Hover Interaction Preset');
     expect(container.textContent).toContain('Hover Micro-Interactions & Timing');
     expect(container.textContent).toContain('Scale on Hover');
@@ -111,6 +116,33 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
     });
 
     expect(setStyles).toHaveBeenCalled();
+    expect(currentStyles.motion.hoverScale).toBe('hover:scale-105');
+
+    // 1-Click Preset: Float Card Up
+    const floatBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Float Card Up')
+    );
+    expect(floatBtn).toBeDefined();
+
+    await act(async () => {
+      floatBtn?.click();
+    });
+
+    expect(currentStyles.motion.hoverLift).toBe('hover:-translate-y-1');
+    expect(currentStyles.motion.hoverShadow).toBe('hover:shadow-xl');
+
+    // Reset Hover
+    const resetHoverBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Reset Hover')
+    );
+    expect(resetHoverBtn).toBeDefined();
+
+    await act(async () => {
+      resetHoverBtn?.click();
+    });
+
+    expect(currentStyles.motion.hoverLift).toBe('');
+    expect(currentStyles.motion.hoverShadow).toBe('');
   });
 
   it('renders MotionTimingStudio and triggers duration change', async () => {

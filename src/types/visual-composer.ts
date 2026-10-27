@@ -394,3 +394,19 @@ export interface VisualComposerMotionPreset {
   badge: string;
   apply: () => Partial<VisualComposerMotion>;
 }
+
+export interface VisualComposerHoverPreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerMotion>;
+}
+
+export interface VisualComposerTypographyPalettePreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerTypography>;
+}

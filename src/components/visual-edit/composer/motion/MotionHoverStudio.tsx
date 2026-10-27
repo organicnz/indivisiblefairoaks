@@ -1,6 +1,8 @@
 'use client';
 
-import type { VisualComposerStyles } from '@/types/unified';
+import { RotateCcw, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
+import type { VisualComposerHoverPreset, VisualComposerStyles } from '@/types/unified';
 import { StudioSelect } from '../ui';
 
 export const HOVER_OPTIONS = [
@@ -91,6 +93,67 @@ export const HOVER_TEXT_COLOR_OPTIONS = [
   { value: 'hover:text-white', label: 'Crisp Bright White' },
 ] as const;
 
+export const HOVER_PRESETS: readonly VisualComposerHoverPreset[] = [
+  {
+    id: 'float-elevation',
+    name: 'Float Card Up',
+    description: 'Smooth vertical lift (-4px) combined with high elevation shadow depth',
+    badge: 'Float',
+    apply: () => ({
+      hoverLift: 'hover:-translate-y-1',
+      hoverShadow: 'hover:shadow-xl',
+    }),
+  },
+  {
+    id: 'scale-civic-ring',
+    name: 'Scale Pop & Civic Ring',
+    description: 'Energetic scale zoom (+2%) with bright gold civic focus ring',
+    badge: 'Pop',
+    apply: () => ({
+      hoverScale: 'hover:scale-[1.02]',
+      hoverGlow: 'hover:ring-2 hover:ring-accent-gold/60',
+    }),
+  },
+  {
+    id: 'civic-gold-accent',
+    name: 'Civic Gold Aura',
+    description: 'Warm gold background tint, amber border outline, and vibrant text focus',
+    badge: 'Civic',
+    apply: () => ({
+      hoverBg: 'hover:bg-amber-500/10',
+      hoverBorder: 'hover:border-amber-500',
+      hoverTextColor: 'hover:text-amber-400',
+    }),
+  },
+  {
+    id: 'subtle-tilt-lift',
+    name: 'Subtle 3D Tilt',
+    description: 'Playful clockwise tilt (+1deg) with gentle vertical elevation',
+    badge: 'Tilt',
+    apply: () => ({
+      hoverRotate: 'hover:rotate-1',
+      hoverLift: 'hover:-translate-y-0.5',
+    }),
+  },
+  {
+    id: 'reset-hover',
+    name: 'Reset Hover Effects',
+    description: 'Clear all hover micro-interactions, scale, glow, and elevations',
+    badge: 'Reset',
+    apply: () => ({
+      hover: '',
+      hoverScale: '',
+      hoverLift: '',
+      hoverRotate: '',
+      hoverGlow: '',
+      hoverBorder: '',
+      hoverShadow: '',
+      hoverBg: '',
+      hoverTextColor: '',
+    }),
+  },
+] as const;
+
 export interface MotionHoverStudioProps {
   styles: VisualComposerStyles;
   setStyles: React.Dispatch<React.SetStateAction<VisualComposerStyles>>;
@@ -119,7 +182,130 @@ export function MotionHoverStudio({
   motionHoverTextColorSelectId = 'motion-hover-text-color-select',
 }: MotionHoverStudioProps) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* 1. Live Interactive Hover Dynamics Playground */}
+      <div className="p-3 rounded-xl border border-white/10 bg-slate-900/60 flex flex-col gap-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+            <Sparkles size={12} className="text-accent-gold" />
+            <span>Live Hover Dynamics Playground</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setStyles((prev) => ({
+                ...prev,
+                motion: {
+                  ...prev.motion,
+                  hover: '',
+                  hoverScale: '',
+                  hoverLift: '',
+                  hoverRotate: '',
+                  hoverGlow: '',
+                  hoverBorder: '',
+                  hoverShadow: '',
+                  hoverBg: '',
+                  hoverTextColor: '',
+                },
+              }));
+              toast.success('Reset hover micro-interactions');
+            }}
+            className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded hover:bg-white/5 cursor-pointer"
+          >
+            <RotateCcw size={10} />
+            <span>Reset Hover</span>
+          </button>
+        </div>
+
+        {/* Live Staged Hover Box */}
+        <div className="relative w-full h-24 rounded-lg bg-black/40 border border-white/5 p-2 flex items-center justify-center overflow-hidden">
+          <div
+            data-testid="motion-hover-preview-card"
+            className={`px-5 py-2.5 rounded-xl border border-white/15 bg-slate-800/80 text-center cursor-pointer transition-all duration-200 ${styles.motion.hover || ''} ${styles.motion.hoverScale || ''} ${styles.motion.hoverLift || ''} ${styles.motion.hoverRotate || ''} ${styles.motion.hoverGlow || ''} ${styles.motion.hoverBorder || ''} ${styles.motion.hoverShadow || ''} ${styles.motion.hoverBg || ''} ${styles.motion.hoverTextColor || ''}`}
+          >
+            <span className="text-xs font-bold text-white block">Hover Over This Card</span>
+            <span className="text-[10px] text-slate-400 block">
+              Experience active lift, scale, glow, and shadow response
+            </span>
+          </div>
+        </div>
+
+        {/* Live Indicator Badges */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/5 border border-white/10 text-slate-300">
+            Scale:{' '}
+            <strong className="text-white">
+              {styles.motion.hoverScale
+                ? styles.motion.hoverScale.replace('hover:scale-', '')
+                : '1.0x'}
+            </strong>
+          </span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/5 border border-white/10 text-slate-300">
+            Lift:{' '}
+            <strong className="text-white">
+              {styles.motion.hoverLift
+                ? styles.motion.hoverLift.replace('hover:-translate-y-', '-')
+                : 'None'}
+            </strong>
+          </span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/5 border border-white/10 text-slate-300">
+            Glow:{' '}
+            <strong className="text-accent-gold">
+              {styles.motion.hoverGlow ? 'Active' : 'None'}
+            </strong>
+          </span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/5 border border-white/10 text-slate-300">
+            Border:{' '}
+            <strong className="text-accent-gold">
+              {styles.motion.hoverBorder ? 'Accent' : 'None'}
+            </strong>
+          </span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/5 border border-white/10 text-slate-300">
+            Shadow:{' '}
+            <strong className="text-white">
+              {styles.motion.hoverShadow
+                ? styles.motion.hoverShadow.replace('hover:shadow-', '')
+                : 'None'}
+            </strong>
+          </span>
+        </div>
+
+        {/* 1-Click Hover Presets */}
+        <div className="pt-1 border-t border-white/5">
+          <span className="text-[10px] font-bold text-slate-300 mb-1.5 block">
+            1-Click Hover Presets
+          </span>
+          <div className="grid grid-cols-2 gap-1.5">
+            {HOVER_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => {
+                  const applied = preset.apply();
+                  setStyles((prev) => ({
+                    ...prev,
+                    motion: {
+                      ...prev.motion,
+                      ...applied,
+                    },
+                  }));
+                  toast.success(`Applied ${preset.name}`);
+                }}
+                className="flex items-center justify-between text-left px-2 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 hover:border-accent-gold/40 transition-all cursor-pointer group"
+              >
+                <span className="text-[10px] font-medium text-white group-hover:text-accent-gold truncate">
+                  {preset.name}
+                </span>
+                <span className="text-[8px] px-1 py-0.2 rounded font-mono font-bold bg-accent-gold/20 text-accent-gold border border-accent-gold/30 shrink-0 ml-1">
+                  {preset.badge}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Preset Select */}
       <StudioSelect
         id={motionHoverSelectId}
         label="Hover Interaction Preset"
@@ -134,8 +320,8 @@ export function MotionHoverStudio({
         size="xs"
       />
 
-      {/* Fine-Grained Hover Micro-Interactions Matrix */}
-      <div className="mt-2.5 p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
+      {/* 3. Fine-Grained Hover Micro-Interactions Matrix */}
+      <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
         <span className="text-[10px] text-accent-gold font-bold uppercase tracking-wider block">
           Hover Micro-Interactions &amp; Timing
         </span>

@@ -58,25 +58,47 @@ describe('TypographyStudio & Sub-Studios', () => {
     expect(setStyles).toHaveBeenCalled();
   });
 
-  it('renders TypographyPaletteStudio and triggers alignment click', async () => {
-    const setStyles = vi.fn();
+  it('renders TypographyPaletteStudio and triggers alignment click and palette presets', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
 
     await act(async () => {
-      root.render(<TypographyPaletteStudio styles={DEFAULT_VC_STYLES} setStyles={setStyles} />);
+      root.render(<TypographyPaletteStudio styles={currentStyles} setStyles={setStyles} />);
     });
 
     expect(container.textContent).toContain('Text Alignment & Color Palette');
+    expect(container.textContent).toContain('Live Palette & Alignment Preview');
+    expect(container.textContent).toContain('1-Click Civic Palette Presets');
     expect(container.textContent).toContain('Alignment');
     expect(container.textContent).toContain('Typography Color');
 
-    const buttons = container.querySelectorAll('button');
-    expect(buttons.length).toBeGreaterThan(1);
+    // Click Alignment button (e.g. Center)
+    const alignCenterBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.querySelector('svg.lucide-align-center')
+    );
+    expect(alignCenterBtn).toBeDefined();
 
-    act(() => {
-      buttons[1].click();
+    await act(async () => {
+      alignCenterBtn?.click();
     });
 
     expect(setStyles).toHaveBeenCalled();
+    expect(currentStyles.typography.textAlign).toBe('center');
+
+    // Click 1-Click Civic Palette Preset: Civic Gold Hero
+    const goldPresetBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Civic Gold Hero')
+    );
+    expect(goldPresetBtn).toBeDefined();
+
+    await act(async () => {
+      goldPresetBtn?.click();
+    });
+
+    expect(currentStyles.typography.color).toBe('text-amber-500');
+    expect(currentStyles.typography.textAlign).toBe('center');
   });
 
   it('renders TypographyEffectsStudio and triggers text shadow change', async () => {
