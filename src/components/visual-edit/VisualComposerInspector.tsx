@@ -49,6 +49,7 @@ export type {
   VisualComposerLayout,
   VisualComposerMode,
   VisualComposerMotion,
+  VisualComposerMotionTab,
   VisualComposerPreset,
   VisualComposerPresetCategory,
   VisualComposerResponsive,
@@ -60,6 +61,7 @@ export type {
   VisualComposerThemeMode,
   VisualComposerTransform,
   VisualComposerTypography,
+  VisualComposerTypographyTab,
 } from '@/types/unified';
 export type { StylePreset };
 export {

@@ -128,6 +128,7 @@ export type {
   VisualComposerLayout,
   VisualComposerMode,
   VisualComposerMotion,
+  VisualComposerMotionTab,
   VisualComposerPreset,
   VisualComposerPresetCategory,
   VisualComposerResponsive,
@@ -139,6 +140,7 @@ export type {
   VisualComposerThemeMode,
   VisualComposerTransform,
   VisualComposerTypography,
+  VisualComposerTypographyTab,
 } from './visual-composer';
 
 // ==========================================

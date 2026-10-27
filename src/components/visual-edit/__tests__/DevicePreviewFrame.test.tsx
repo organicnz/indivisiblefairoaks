@@ -111,5 +111,8 @@ describe('DevicePreviewFrame', () => {
     const badgeRibbon = container.querySelector('[data-testid="preview-badge-ribbon"]');
     expect(badgeRibbon).not.toBeNull();
     expect(badgeRibbon?.textContent).toBe('HOT UPDATE');
+
+    const themeModeContainer = container.querySelector('[data-theme-mode="dark"]');
+    expect(themeModeContainer).not.toBeNull();
   });
 });

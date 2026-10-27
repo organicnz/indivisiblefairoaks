@@ -285,6 +285,10 @@ export type VisualComposerBoxModelTab =
   | 'transforms'
   | 'responsive';
 
+export type VisualComposerTypographyTab = 'all' | 'scale' | 'palette' | 'effects' | 'editorial';
+
+export type VisualComposerMotionTab = 'all' | 'entrance' | 'hover' | 'timing' | 'advanced';
+
 export interface VisualComposerSectionPreset {
   id: string;
   name: string;

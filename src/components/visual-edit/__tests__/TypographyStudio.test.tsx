@@ -135,16 +135,40 @@ describe('TypographyStudio & Sub-Studios', () => {
     expect(setStyles).toHaveBeenCalled();
   });
 
-  it('renders complete composed TypographyStudio without errors', async () => {
+  it('renders complete composed TypographyStudio with sub-tabs', async () => {
     const setStyles = vi.fn();
 
     await act(async () => {
       root.render(<TypographyStudio styles={DEFAULT_VC_STYLES} setStyles={setStyles} />);
     });
 
+    expect(container.textContent).toContain('All Type');
+    expect(container.textContent).toContain('Scale & Font');
+    expect(container.textContent).toContain('Color & Align');
+    expect(container.textContent).toContain('Casing & Accents');
+    expect(container.textContent).toContain('Columns & Wrap');
+
     expect(container.textContent).toContain('Font Family, Scale & Hierarchy');
     expect(container.textContent).toContain('Text Alignment & Color Palette');
     expect(container.textContent).toContain('Letter Spacing, Casing & Accents');
     expect(container.textContent).toContain('Editorial Posture, Wrap & Columns');
+  });
+
+  it('filters controls when activeTypographyTab is scale', async () => {
+    const setStyles = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <TypographyStudio
+          styles={DEFAULT_VC_STYLES}
+          setStyles={setStyles}
+          activeTypographyTab="scale"
+        />
+      );
+    });
+
+    expect(container.textContent).toContain('Font Family, Scale & Hierarchy');
+    expect(container.textContent).not.toContain('Text Alignment & Color Palette');
+    expect(container.textContent).not.toContain('Editorial Posture, Wrap & Columns');
   });
 });

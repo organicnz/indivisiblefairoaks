@@ -110,6 +110,7 @@ export function DevicePreviewFrame({
       </div>
       <div
         data-theme={effectiveTheme}
+        data-theme-mode={themeOverrideTone || activeTheme}
         className={`rounded-xl border transition-all duration-300 p-2.5 overflow-hidden relative ${
           effectiveTheme === 'light'
             ? 'bg-white/95 text-ink-strong border-white/20 shadow-xs'

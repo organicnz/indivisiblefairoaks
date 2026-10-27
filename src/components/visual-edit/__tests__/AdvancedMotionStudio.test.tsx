@@ -161,10 +161,34 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
       );
     });
 
+    expect(container.textContent).toContain('All Motion');
+    expect(container.textContent).toContain('Entrance');
+    expect(container.textContent).toContain('Hover Effects');
+    expect(container.textContent).toContain('Timing & Curves');
+    expect(container.textContent).toContain('Anchor & CSS');
+
     expect(container.textContent).toContain('Motion & Animation Transitions');
     expect(container.textContent).toContain('Entrance Dynamics');
     expect(container.textContent).toContain('Hover Interaction Preset');
     expect(container.textContent).toContain('Page Anchor & Linking');
     expect(container.textContent).toContain('Responsive Device Visibility');
+  });
+
+  it('filters controls when activeMotionTab is entrance', async () => {
+    const setStyles = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <AdvancedMotionStudio
+          styles={DEFAULT_VC_STYLES}
+          setStyles={setStyles}
+          activeMotionTab="entrance"
+        />
+      );
+    });
+
+    expect(container.textContent).toContain('Entrance Dynamics');
+    expect(container.textContent).not.toContain('Hover Interaction Preset');
+    expect(container.textContent).not.toContain('Page Anchor & Linking');
   });
 });
