@@ -111,13 +111,16 @@ describe('Section Sub-Studios', () => {
   });
 
   describe('SectionAtmosphereStudio', () => {
-    it('renders atmospheric tone and overrides', async () => {
-      const setStyles = vi.fn();
+    it('renders atmospheric tone and overrides with live stage and presets', async () => {
+      let currentStyles = { ...DEFAULT_VC_STYLES };
+      const setStyles = vi.fn((update) => {
+        currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+      });
 
       await act(async () => {
         root.render(
           <SectionAtmosphereStudio
-            styles={DEFAULT_VC_STYLES}
+            styles={currentStyles}
             setStyles={setStyles}
             sectionBgSelectId="test-bg-theme"
           />
@@ -125,12 +128,44 @@ describe('Section Sub-Studios', () => {
       });
 
       expect(container.textContent).toContain('Theme, Atmosphere & Background');
+      expect(container.textContent).toContain('Live Atmosphere Stage');
+      expect(container.textContent).toContain('1-Click Atmosphere Presets');
       expect(container.textContent).toContain('Section Background Theme');
       expect(container.textContent).toContain('Quick Canvas Tint');
       expect(container.textContent).toContain('Tone Mode Override');
       expect(container.textContent).toContain('Civic Gradient Background');
       expect(container.textContent).toContain('Ambient Background Video');
       expect(container.querySelector('#test-bg-theme')).not.toBeNull();
+
+      expect(
+        container.querySelector('[data-testid="section-atmosphere-preview-stage"]')
+      ).not.toBeNull();
+
+      // Click 1-Click Preset: Patriotic Midnight Navy
+      const navyPresetBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Patriotic Midnight Navy')
+      );
+      expect(navyPresetBtn).toBeDefined();
+
+      await act(async () => {
+        navyPresetBtn?.click();
+      });
+
+      expect(currentStyles.section.background).toBe('bg-navy-950 text-white');
+      expect(currentStyles.section.themeMode).toBe('dark');
+
+      // Click Clean Card Minimal
+      const minimalBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Clean Card Minimal')
+      );
+      expect(minimalBtn).toBeDefined();
+
+      await act(async () => {
+        minimalBtn?.click();
+      });
+
+      expect(currentStyles.section.background).toBe('bg-card text-foreground');
+      expect(currentStyles.section.themeMode).toBe('system');
     });
   });
 

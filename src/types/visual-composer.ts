@@ -442,3 +442,11 @@ export interface VisualComposerResponsivePreset {
   badge: string;
   apply: () => Partial<VisualComposerResponsive>;
 }
+
+export interface VisualComposerAtmospherePreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerSection>;
+}

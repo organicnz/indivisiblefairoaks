@@ -116,6 +116,7 @@ export type {
 export type { PublishedSection, VisualSection } from '@/lib/visual-sections';
 export type {
   StylePreset,
+  VisualComposerAtmospherePreset,
   VisualComposerBackground,
   VisualComposerBehaviorPreset,
   VisualComposerBlockCategory,
