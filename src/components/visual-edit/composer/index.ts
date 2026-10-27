@@ -1,4 +1,5 @@
 export * from './AdvancedMotionStudio';
+export * from './BlockBackgroundStudio';
 export * from './BlockContentStudio';
 export * from './BordersStudio';
 export * from './BoxModelStudio';
@@ -11,6 +12,7 @@ export * from './InspectorHeader';
 export * from './LayoutDimensionsStudio';
 export * from './PresetStudio';
 export * from './SectionStudio';
+export * from './section';
 export * from './TransformsStudio';
 export * from './TypographyStudio';
 export * from './ui';
