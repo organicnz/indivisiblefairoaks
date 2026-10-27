@@ -2,10 +2,13 @@
 
 import {
   AlertTriangle,
+  Calendar,
   Code,
   Heading,
+  HeartHandshake,
   Image as ImageIcon,
   Layers,
+  Lightbulb,
   Link as LinkIcon,
   List,
   ListOrdered,
@@ -15,15 +18,17 @@ import {
   Sparkles,
   Table,
   Type,
+  Users,
   X,
 } from 'lucide-react';
 import type React from 'react';
 import { useId, useMemo, useState } from 'react';
 import type { Block, HeadingLevel } from '@/lib/blocks';
+import type { VisualComposerBlockCategory } from '@/types/unified';
 
 export interface BlockTemplate {
   id: string;
-  category: 'Typography' | 'Media' | 'Action' | 'Structure';
+  category: VisualComposerBlockCategory;
   title: string;
   description: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
@@ -32,6 +37,18 @@ export interface BlockTemplate {
 
 export const BLOCK_TEMPLATES: BlockTemplate[] = [
   // Typography
+  {
+    id: 'h1',
+    category: 'Typography',
+    title: 'Hero Heading H1',
+    description: 'Page hero heading with dominant typography for major campaigns',
+    icon: Heading,
+    createBlock: () => ({
+      type: 'heading',
+      level: 1 as HeadingLevel,
+      html: 'Empowering Community & Democracy',
+    }),
+  },
   {
     id: 'h2',
     category: 'Typography',
@@ -47,6 +64,14 @@ export const BLOCK_TEMPLATES: BlockTemplate[] = [
     description: 'Subsection header for topics, dates, or grouped details',
     icon: Heading,
     createBlock: () => ({ type: 'heading', level: 3 as HeadingLevel, html: 'Subsection Title' }),
+  },
+  {
+    id: 'h4',
+    category: 'Typography',
+    title: 'Detail Heading H4',
+    description: 'Compact subsection heading for agenda topics, dates, or card titles',
+    icon: Heading,
+    createBlock: () => ({ type: 'heading', level: 4 as HeadingLevel, html: 'Key Meeting Details' }),
   },
   {
     id: 'paragraph',
@@ -123,6 +148,42 @@ export const BLOCK_TEMPLATES: BlockTemplate[] = [
     }),
   },
   {
+    id: 'button-donate',
+    category: 'Action',
+    title: 'Grassroots Donation CTA',
+    description: 'Direct fundraising action button for community resilience',
+    icon: HeartHandshake,
+    createBlock: () => ({
+      type: 'button',
+      label: 'Support Grassroots Democracy',
+      href: '/donate',
+    }),
+  },
+  {
+    id: 'button-events',
+    category: 'Action',
+    title: 'Civic Calendar CTA',
+    description: 'Direct navigation button to upcoming rallies and town halls',
+    icon: Calendar,
+    createBlock: () => ({
+      type: 'button',
+      label: 'Browse Upcoming Events',
+      href: '/events',
+    }),
+  },
+  {
+    id: 'button-volunteer',
+    category: 'Action',
+    title: 'Volunteer Signup CTA',
+    description: 'Call-to-action button to recruit active community volunteers',
+    icon: Users,
+    createBlock: () => ({
+      type: 'button',
+      label: 'Join Our Volunteer Team',
+      href: '/contact?topic=volunteer',
+    }),
+  },
+  {
     id: 'callout-info',
     category: 'Action',
     title: 'Info Callout Box',
@@ -156,6 +217,18 @@ export const BLOCK_TEMPLATES: BlockTemplate[] = [
       type: 'callout',
       tone: 'warning',
       html: '<strong>Voter Registration Deadline:</strong> Ensure your registration is current before election week.',
+    }),
+  },
+  {
+    id: 'callout-tip',
+    category: 'Action',
+    title: 'Pro Organizer Tip',
+    description: 'Actionable organizing tip with positive emerald styling',
+    icon: Lightbulb,
+    createBlock: () => ({
+      type: 'callout',
+      tone: 'tip',
+      html: '<strong>Organizer Tip:</strong> Arrive 15 minutes before town halls to connect with fellow community liaisons.',
     }),
   },
 

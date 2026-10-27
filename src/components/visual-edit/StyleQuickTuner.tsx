@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { toast } from 'sonner';
+import type { VisualComposerThemeMode } from '@/types/unified';
 
 export interface StyleQuickTunerProps {
   element: HTMLElement;
@@ -75,7 +76,7 @@ export const StyleQuickTuner: React.FC<StyleQuickTunerProps> = ({
     toast.success(`Font set to ${family}`);
   };
 
-  const handleThemeMode = (mode: 'inherit' | 'system' | 'light' | 'dark') => {
+  const handleThemeMode = (mode: VisualComposerThemeMode) => {
     element.removeAttribute('data-theme');
     element.removeAttribute('data-theme-mode');
     element.classList.remove(

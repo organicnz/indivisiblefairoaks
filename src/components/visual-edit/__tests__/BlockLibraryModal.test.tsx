@@ -39,9 +39,13 @@ describe('BlockLibraryModal', () => {
     expect(document.body.textContent).toContain('Media');
     expect(document.body.textContent).toContain('Action');
     expect(document.body.textContent).toContain('Structure');
+    expect(document.body.textContent).toContain('Hero Heading H1');
     expect(document.body.textContent).toContain('Heading H2');
+    expect(document.body.textContent).toContain('Detail Heading H4');
     expect(document.body.textContent).toContain('Supabase S3 Image');
     expect(document.body.textContent).toContain('Action Button CTA');
+    expect(document.body.textContent).toContain('Grassroots Donation CTA');
+    expect(document.body.textContent).toContain('Pro Organizer Tip');
   });
 
   it('filters templates when typing in search input', async () => {

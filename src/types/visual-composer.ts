@@ -334,3 +334,5 @@ export interface VisualComposerBorderPreset {
   description?: string;
   border: Partial<VisualComposerBorder>;
 }
+
+export type VisualComposerBlockCategory = 'Typography' | 'Media' | 'Action' | 'Structure';

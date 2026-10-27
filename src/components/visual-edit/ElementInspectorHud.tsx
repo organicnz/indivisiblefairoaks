@@ -230,7 +230,8 @@ export function ElementInspectorHud({
 
       {/* Floating HUD Pill */}
       <div
-        aria-hidden="true"
+        role="status"
+        aria-label="Element Inspector HUD"
         style={{
           position: 'fixed',
           top: `${hovered.top}px`,
@@ -292,6 +293,13 @@ export function ElementInspectorHud({
         <span className="text-white/30 hidden sm:inline">·</span>
         <span className="text-[10px] text-amber-300/80 font-sans font-semibold hidden sm:inline">
           Click to edit
+        </span>
+        <span
+          data-testid="hud-keyboard-shortcut"
+          className="hidden md:inline-flex items-center rounded bg-white/10 px-1 py-0.2 text-[9px] font-mono text-slate-300 border border-white/10"
+          title="Keyboard Shortcut: ⌘E to open Visual Composer"
+        >
+          ⌘E
         </span>
         {onOpenStudio && (
           <>

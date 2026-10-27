@@ -71,6 +71,11 @@ describe('ElementInspectorHud', () => {
     expect(container.textContent).toContain('h1');
     expect(container.textContent).toContain('400×40');
     expect(container.textContent).toContain('Click to edit');
+    expect(container.textContent).toContain('⌘E');
+
+    const statusHud = container.querySelector('[role="status"]');
+    expect(statusHud).not.toBeNull();
+    expect(statusHud?.getAttribute('aria-label')).toBe('Element Inspector HUD');
   });
 
   it('displays DataPoint key name when hovering over a data-data-point element', async () => {
