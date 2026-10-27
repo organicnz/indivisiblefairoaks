@@ -450,3 +450,11 @@ export interface VisualComposerAtmospherePreset {
   badge: string;
   apply: () => Partial<VisualComposerSection>;
 }
+
+export interface VisualComposerSectionLayoutPreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerSection>;
+}

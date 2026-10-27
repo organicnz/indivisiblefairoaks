@@ -88,13 +88,16 @@ describe('Section Sub-Studios', () => {
   });
 
   describe('SectionLayoutStudio', () => {
-    it('renders structure, spacing, and multi-column grid', async () => {
-      const setStyles = vi.fn();
+    it('renders structure, spacing, multi-column grid, wireframe stage and presets', async () => {
+      let currentStyles = { ...DEFAULT_VC_STYLES };
+      const setStyles = vi.fn((update) => {
+        currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+      });
 
       await act(async () => {
         root.render(
           <SectionLayoutStudio
-            styles={DEFAULT_VC_STYLES}
+            styles={currentStyles}
             setStyles={setStyles}
             sectionRowLayoutSelectId="test-row-layout"
             sectionWidthSelectId="test-width-select"
@@ -103,10 +106,44 @@ describe('Section Sub-Studios', () => {
       });
 
       expect(container.textContent).toContain('Canvas & Container Structure');
+      expect(container.textContent).toContain('Live Section Layout Wireframe');
+      expect(container.textContent).toContain('1-Click Section Layout Presets');
       expect(container.textContent).toContain('Spacing & Geometry');
       expect(container.textContent).toContain('Row Multi-Column Layout');
       expect(container.querySelector('#test-row-layout')).not.toBeNull();
       expect(container.querySelector('#test-width-select')).not.toBeNull();
+
+      expect(
+        container.querySelector('[data-testid="section-layout-preview-stage"]')
+      ).not.toBeNull();
+
+      // Click 1-Click Preset: Hero Showcase Split
+      const heroPresetBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Hero Showcase Split')
+      );
+      expect(heroPresetBtn).toBeDefined();
+
+      await act(async () => {
+        heroPresetBtn?.click();
+      });
+
+      expect(currentStyles.section.rowLayout).toBe('full-width-bg');
+      expect(currentStyles.section.containerWidth).toBe('max-w-7xl mx-auto px-6');
+      expect(currentStyles.section.columns).toBe('grid grid-cols-1 md:grid-cols-2');
+
+      // Click Reset Layout
+      const resetBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Reset Layout')
+      );
+      expect(resetBtn).toBeDefined();
+
+      await act(async () => {
+        resetBtn?.click();
+      });
+
+      expect(currentStyles.section.rowLayout).toBe('');
+      expect(currentStyles.section.containerWidth).toBe('max-w-4xl mx-auto px-4');
+      expect(currentStyles.section.columns).toBe('');
     });
   });
 
