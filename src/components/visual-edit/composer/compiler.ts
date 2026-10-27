@@ -99,7 +99,9 @@ export function compileSectionClasses(
       ? '[data-theme=dark] [color-scheme:dark]'
       : section.themeMode === 'light'
         ? '[data-theme=light] [color-scheme:light]'
-        : '',
+        : section.themeMode === 'system'
+          ? '[data-theme-mode=system]'
+          : '',
     section.reverseMobile ? 'flex flex-col-reverse md:flex-row' : '',
     section.radius !== 'rounded-none' ? section.radius : '',
     section.shadow !== 'shadow-none' ? section.shadow : '',
@@ -236,7 +238,9 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
       ? '[data-theme=dark] [color-scheme:dark]'
       : styles.themeMode === 'light'
         ? '[data-theme=light] [color-scheme:light]'
-        : '',
+        : styles.themeMode === 'system'
+          ? '[data-theme-mode=system]'
+          : '',
     styles.badgeText?.trim() && !styles.layout.position ? 'relative' : '',
     styles.customClasses,
   ]

@@ -3,46 +3,54 @@
 import { Eye, EyeOff } from 'lucide-react';
 import type { VisualComposerStyles } from '@/types/unified';
 import { VC_COLUMN_PRESETS } from './constants';
-import { StudioInput, StudioSection, StudioSelect, StudioToggle } from './ui';
+import {
+  ColorSwatchPicker,
+  StudioInput,
+  StudioSection,
+  StudioSelect,
+  StudioToggle,
+  ThemeModeSelector,
+} from './ui';
 
 export interface SectionStudioProps {
   styles: VisualComposerStyles;
   setStyles: React.Dispatch<React.SetStateAction<VisualComposerStyles>>;
-  sectionWidthSelectId: string;
-  sectionPaddingYSelectId: string;
-  sectionPaddingXSelectId: string;
-  sectionMarginYSelectId: string;
-  sectionMarginXSelectId: string;
-  sectionMinHeightSelectId: string;
-  sectionBgSelectId: string;
-  bgGradientSelectId: string;
-  sectionPatternSelectId: string;
-  sectionDividerSelectId: string;
-  sectionTopDividerSelectId: string;
-  sectionBottomDividerSelectId: string;
-  sectionOverflowSelectId: string;
-  sectionZIndexSelectId: string;
-  sectionColumnsSelectId: string;
-  sectionGapSelectId: string;
-  sectionAlignSelectId: string;
-  sectionJustifyContentSelectId: string;
-  sectionRadiusSelectId: string;
-  sectionShadowSelectId: string;
-  sectionBackdropBlurSelectId: string;
-  sectionBorderSelectId: string;
-  sectionBorderColorSelectId: string;
-  sectionOverlaySelectId: string;
-  sectionBgAttachmentSelectId: string;
-  sectionBgPositionSelectId: string;
-  sectionBgSizeSelectId: string;
-  sectionBgRepeatSelectId: string;
-  sectionAnchorIdInputId: string;
-  sectionCustomClassesInputId: string;
+  sectionWidthSelectId?: string;
+  sectionPaddingYSelectId?: string;
+  sectionPaddingXSelectId?: string;
+  sectionMarginYSelectId?: string;
+  sectionMarginXSelectId?: string;
+  sectionMinHeightSelectId?: string;
+  sectionBgSelectId?: string;
+  bgGradientSelectId?: string;
+  sectionPatternSelectId?: string;
+  sectionDividerSelectId?: string;
+  sectionTopDividerSelectId?: string;
+  sectionBottomDividerSelectId?: string;
+  sectionOverflowSelectId?: string;
+  sectionZIndexSelectId?: string;
+  sectionColumnsSelectId?: string;
+  sectionGapSelectId?: string;
+  sectionAlignSelectId?: string;
+  sectionJustifyContentSelectId?: string;
+  sectionRadiusSelectId?: string;
+  sectionShadowSelectId?: string;
+  sectionBackdropBlurSelectId?: string;
+  sectionBorderSelectId?: string;
+  sectionBorderColorSelectId?: string;
+  sectionOverlaySelectId?: string;
+  sectionBgAttachmentSelectId?: string;
+  sectionBgPositionSelectId?: string;
+  sectionBgSizeSelectId?: string;
+  sectionBgRepeatSelectId?: string;
+  sectionAnchorIdInputId?: string;
+  sectionCustomClassesInputId?: string;
   sectionBgBlendModeSelectId?: string;
   sectionInnerShadowSelectId?: string;
   sectionRowLayoutSelectId?: string;
   sectionDividerColorSelectId?: string;
   sectionCustomStyleInputId?: string;
+  sectionThemeModeSelectId?: string;
   compiledClassNames?: string;
 }
 
@@ -84,6 +92,7 @@ export function SectionStudio({
   sectionRowLayoutSelectId = 'section-row-layout',
   sectionDividerColorSelectId = 'section-divider-color',
   sectionCustomStyleInputId = 'section-custom-style-input',
+  sectionThemeModeSelectId = 'section-theme-mode-select',
   compiledClassNames,
 }: SectionStudioProps) {
   return (
@@ -463,6 +472,7 @@ export function SectionStudio({
             options={[
               { value: 'bg-transparent', label: 'Transparent (Default)' },
               { value: 'bg-card text-foreground', label: 'Clean Card Surface' },
+              { value: 'bg-slate-950 text-white', label: 'Midnight Slate Surface' },
               { value: 'bg-navy-950 text-white', label: 'Patriotic Navy Deep' },
               { value: 'bg-amber-500/10 text-foreground', label: 'Civic Gold Warmth' },
               {
@@ -473,8 +483,23 @@ export function SectionStudio({
               { value: 'bg-emerald-500/10 text-foreground', label: 'Grassroots Forest Green' },
             ]}
           />
-          <StudioSelect
-            id="section-theme-mode-select"
+          <ColorSwatchPicker
+            label="Quick Canvas Tint"
+            value={styles.section.background}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                section: {
+                  ...styles.section,
+                  background: val,
+                  bgGradient: '',
+                  pattern: '',
+                },
+              })
+            }
+          />
+          <ThemeModeSelector
+            id={sectionThemeModeSelectId}
             label="Tone Mode Override"
             value={styles.section.themeMode || 'inherit'}
             onChange={(val) =>
@@ -482,16 +507,11 @@ export function SectionStudio({
                 ...styles,
                 section: {
                   ...styles.section,
-                  themeMode: val as 'inherit' | 'light' | 'dark',
+                  themeMode: val,
                 },
               })
             }
-            options={[
-              { value: 'inherit', label: 'Inherit Global Site Theme' },
-              { value: 'dark', label: 'Force Dark Mode ([data-theme=dark])' },
-              { value: 'light', label: 'Force Light Mode ([data-theme=light])' },
-            ]}
-            description="Locks section to light or dark mode regardless of OS preference."
+            description="Locks section to light, dark, or system mode regardless of reader OS setting."
           />
         </div>
 

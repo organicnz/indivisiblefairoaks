@@ -49,12 +49,24 @@ export function DevicePreviewFrame({
     return () => media.removeEventListener?.('change', onChange);
   }, []);
 
-  const effectiveTheme = resolveEffectiveTheme(activeTheme, osPrefersDark);
-
   const hasThemeOverride =
     (styles?.themeMode && styles.themeMode !== 'inherit') ||
     (styles?.section?.themeMode && styles.section.themeMode !== 'inherit');
-  const themeOverrideTone = styles?.themeMode || styles?.section?.themeMode;
+  const themeOverrideTone =
+    inspectorMode === 'section'
+      ? styles?.section?.themeMode || styles?.themeMode
+      : styles?.themeMode || styles?.section?.themeMode;
+
+  const effectiveTheme = resolveEffectiveTheme(
+    hasThemeOverride && themeOverrideTone
+      ? themeOverrideTone === 'system'
+        ? 'system'
+        : themeOverrideTone === 'dark'
+          ? 'dark'
+          : 'light'
+      : activeTheme,
+    osPrefersDark
+  );
 
   return (
     <div className="border-b border-white/10 bg-slate-900/40 px-5 py-2.5">

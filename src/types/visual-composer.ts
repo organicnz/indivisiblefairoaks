@@ -13,6 +13,8 @@ export interface VisualComposerBoxModel {
   right: string;
 }
 
+export type VisualComposerThemeMode = 'inherit' | 'system' | 'light' | 'dark';
+
 export interface VisualComposerSection {
   containerWidth: string;
   rowLayout?: string;
@@ -48,7 +50,7 @@ export interface VisualComposerSection {
   bgBlendMode?: string;
   innerShadow?: string;
   equalHeight?: boolean;
-  themeMode?: 'inherit' | 'light' | 'dark';
+  themeMode?: VisualComposerThemeMode;
   bgTexture?: string;
   rowGap?: string;
   contentWidth?: string;
@@ -197,7 +199,7 @@ export interface VisualComposerStyles {
   animation: string;
   customClasses: string;
   customStyle?: string;
-  themeMode?: 'inherit' | 'light' | 'dark';
+  themeMode?: VisualComposerThemeMode;
   badgeText?: string;
   badgeTone?: 'gold' | 'navy' | 'emerald' | 'crimson' | 'slate';
   badgePosition?: 'top-left' | 'top-right';

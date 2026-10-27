@@ -2507,4 +2507,176 @@ describe('VisualComposerInspector', () => {
     const savedBlockClasses = onSaveBlock.mock.calls[1][1];
     expect(savedBlockClasses).toContain('[data-theme=light]');
   });
+
+  it('supports adaptive system theme mode and quick color swatches in section and block studios', async () => {
+    const onSaveBlock = vi.fn();
+    const mockBlock: Block = {
+      id: 'system-theme-block',
+      type: 'paragraph',
+      html: 'System adaptive content block',
+    };
+
+    // Render in Section mode
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={mockBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="section"
+        />
+      );
+    });
+
+    // Select System theme mode in Section Studio
+    const sectionThemeSelect = document.getElementById(
+      'section-theme-mode-select'
+    ) as HTMLSelectElement | null;
+    expect(sectionThemeSelect).not.toBeNull();
+    if (sectionThemeSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(sectionThemeSelect, 'system');
+        sectionThemeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(sectionThemeSelect.value).toBe('system');
+    }
+
+    // Click Civic Gold color swatch in Section Studio
+    const goldSwatchBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.getAttribute('aria-label')?.includes('Civic Gold')
+    );
+    expect(goldSwatchBtn).not.toBeNull();
+    await act(async () => {
+      goldSwatchBtn?.click();
+    });
+
+    // Save Section
+    const saveSectionButton = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Save Section')
+    );
+    await act(async () => {
+      saveSectionButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    const savedSectionClasses = onSaveBlock.mock.calls[0][1];
+    expect(savedSectionClasses).toContain('[data-theme-mode=system]');
+    expect(savedSectionClasses).toContain('bg-amber-500/10 text-amber-500');
+
+    // Re-mount in Block mode
+    await act(async () => {
+      root.unmount();
+    });
+    root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={mockBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="block"
+        />
+      );
+    });
+
+    // Switch to Box Model Tab
+    const designTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Box Model')
+    );
+    await act(async () => {
+      designTabBtn?.click();
+    });
+
+    // Select System theme mode for block
+    const blockThemeSelect = document.getElementById(
+      'block-theme-mode-select'
+    ) as HTMLSelectElement | null;
+    expect(blockThemeSelect).not.toBeNull();
+    if (blockThemeSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(blockThemeSelect, 'system');
+        blockThemeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(blockThemeSelect.value).toBe('system');
+    }
+
+    // Save Block
+    const saveBlockButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Block'
+    );
+    await act(async () => {
+      saveBlockButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(2);
+    const savedBlockClasses = onSaveBlock.mock.calls[1][1];
+    expect(savedBlockClasses).toContain('[data-theme-mode=system]');
+  });
+
+  it('restores themeMode, anchor ID, custom classes, custom style, and decorative badge when reopening inspector', async () => {
+    const onSaveBlock = vi.fn();
+    const existingBlock: Block = {
+      id: 'existing-block-with-attrs',
+      type: 'unsupported',
+      html: '<div id="contact-us" class="p-6 bg-slate-900 border border-white/20" data-theme="dark" style="letter-spacing: 0.05em;"><span data-vc-badge data-tone="emerald" data-pos="top-left">ACTIVIST PASS</span><p>Contact Indivisible</p></div>',
+    };
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={existingBlock}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="block"
+        />
+      );
+    });
+
+    // Switch to Box Model tab to verify restored block theme mode
+    const designTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Box Model')
+    );
+    await act(async () => {
+      designTabBtn?.click();
+    });
+
+    const blockThemeSelect = document.getElementById(
+      'block-theme-mode-select'
+    ) as HTMLSelectElement | null;
+    expect(blockThemeSelect).not.toBeNull();
+    expect(blockThemeSelect?.value).toBe('dark');
+
+    const badgeInput = document.getElementById('block-badge-text-input') as HTMLInputElement | null;
+    expect(badgeInput).not.toBeNull();
+    expect(badgeInput?.value).toBe('ACTIVIST PASS');
+
+    // Switch to Code tab to verify anchor ID and custom styles
+    const codeTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Code')
+    );
+    await act(async () => {
+      codeTabBtn?.click();
+    });
+
+    const anchorInput = document.getElementById('block-anchor-id-input') as HTMLInputElement | null;
+    if (anchorInput) {
+      expect(anchorInput.value).toBe('contact-us');
+    }
+
+    const customStyleInput = document.getElementById(
+      'block-custom-style-input'
+    ) as HTMLInputElement | null;
+    if (customStyleInput) {
+      expect(customStyleInput.value).toBe('letter-spacing: 0.05em;');
+    }
+  });
 });

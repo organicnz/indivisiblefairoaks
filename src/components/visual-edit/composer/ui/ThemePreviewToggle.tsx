@@ -1,7 +1,7 @@
 'use client';
 
 import { Monitor, Moon, Sun } from 'lucide-react';
-import type { ThemeMode } from '@/lib/theme';
+import { playThemeHaptic, type ThemeMode } from '@/lib/theme';
 
 export interface ThemePreviewToggleProps {
   currentMode: ThemeMode;
@@ -32,7 +32,10 @@ export function ThemePreviewToggle({
           <button
             key={mode}
             type="button"
-            onClick={() => onSelectMode(mode)}
+            onClick={() => {
+              playThemeHaptic(mode);
+              onSelectMode(mode);
+            }}
             title={`Preview in ${label} mode`}
             aria-label={`Preview in ${label} mode`}
             aria-pressed={isActive}

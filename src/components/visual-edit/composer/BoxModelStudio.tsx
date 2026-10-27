@@ -3,7 +3,14 @@
 import { Columns3, Eye, Link2, Sparkles, Unlink2 } from 'lucide-react';
 import type { Block } from '@/lib/blocks';
 import type { VisualComposerStyles } from '@/types/unified';
-import { StudioInput, StudioSection, StudioSelect, StudioToggle } from './ui';
+import {
+  ColorSwatchPicker,
+  StudioInput,
+  StudioSection,
+  StudioSelect,
+  StudioToggle,
+  ThemeModeSelector,
+} from './ui';
 
 export interface BoxModelStudioProps {
   styles: VisualComposerStyles;
@@ -13,45 +20,45 @@ export interface BoxModelStudioProps {
   setIsSidesLinked: React.Dispatch<React.SetStateAction<boolean>>;
   cycleMarginValue: (current: string, axis?: 'vertical' | 'horizontal') => string;
   cyclePaddingValue: (current: string, axis?: 'vertical' | 'horizontal') => string;
-  marginSelectId: string;
-  paddingSelectId: string;
-  layoutColumnsSelectId: string;
-  layoutMaxWidthSelectId: string;
-  radiusSelectId: string;
-  borderWidthSelectId: string;
-  borderStyleSelectId: string;
-  borderSideSelectId: string;
-  bgThemeSelectId: string;
-  shadowSelectId: string;
-  layoutDisplaySelectId: string;
-  layoutFlexDirSelectId: string;
-  layoutJustifySelectId: string;
-  layoutAlignSelectId: string;
-  layoutAlignSelfSelectId: string;
-  layoutOrderSelectId: string;
-  layoutFlexGrowSelectId: string;
-  layoutAspectRatioSelectId: string;
-  layoutObjectFitSelectId: string;
-  layoutPositionSelectId: string;
-  layoutZIndexSelectId: string;
-  layoutOverflowSelectId: string;
-  layoutCursorSelectId: string;
-  layoutVisibilitySelectId: string;
-  effectBackdropBlurSelectId: string;
-  effectOpacitySelectId: string;
-  effectGrayscaleSelectId: string;
-  effectBrightnessSelectId: string;
-  effectContrastSelectId: string;
-  effectSaturateSelectId: string;
-  effectSepiaSelectId: string;
-  effectHueRotateSelectId: string;
-  effectBlurSelectId: string;
-  effectBlendModeSelectId: string;
-  effectHoverBrightnessSelectId: string;
-  effectHoverOpacitySelectId: string;
-  transformRotateSelectId: string;
-  transformScaleSelectId: string;
-  transformSkewSelectId: string;
+  marginSelectId?: string;
+  paddingSelectId?: string;
+  layoutColumnsSelectId?: string;
+  layoutMaxWidthSelectId?: string;
+  radiusSelectId?: string;
+  borderWidthSelectId?: string;
+  borderStyleSelectId?: string;
+  borderSideSelectId?: string;
+  bgThemeSelectId?: string;
+  shadowSelectId?: string;
+  layoutDisplaySelectId?: string;
+  layoutFlexDirSelectId?: string;
+  layoutJustifySelectId?: string;
+  layoutAlignSelectId?: string;
+  layoutAlignSelfSelectId?: string;
+  layoutOrderSelectId?: string;
+  layoutFlexGrowSelectId?: string;
+  layoutAspectRatioSelectId?: string;
+  layoutObjectFitSelectId?: string;
+  layoutPositionSelectId?: string;
+  layoutZIndexSelectId?: string;
+  layoutOverflowSelectId?: string;
+  layoutCursorSelectId?: string;
+  layoutVisibilitySelectId?: string;
+  effectBackdropBlurSelectId?: string;
+  effectOpacitySelectId?: string;
+  effectGrayscaleSelectId?: string;
+  effectBrightnessSelectId?: string;
+  effectContrastSelectId?: string;
+  effectSaturateSelectId?: string;
+  effectSepiaSelectId?: string;
+  effectHueRotateSelectId?: string;
+  effectBlurSelectId?: string;
+  effectBlendModeSelectId?: string;
+  effectHoverBrightnessSelectId?: string;
+  effectHoverOpacitySelectId?: string;
+  transformRotateSelectId?: string;
+  transformScaleSelectId?: string;
+  transformSkewSelectId?: string;
   layoutWidthSelectId?: string;
   layoutMinWidthSelectId?: string;
   layoutHeightSelectId?: string;
@@ -77,6 +84,7 @@ export interface BoxModelStudioProps {
   radiusTopRightSelectId?: string;
   radiusBottomRightSelectId?: string;
   radiusBottomLeftSelectId?: string;
+  blockThemeModeSelectId?: string;
 }
 
 export function BoxModelStudio({
@@ -151,6 +159,7 @@ export function BoxModelStudio({
   radiusTopRightSelectId = 'radius-top-right-select',
   radiusBottomRightSelectId = 'radius-bottom-right-select',
   radiusBottomLeftSelectId = 'radius-bottom-left-select',
+  blockThemeModeSelectId = 'block-theme-mode-select',
 }: BoxModelStudioProps) {
   return (
     <div className="space-y-5">
@@ -798,6 +807,16 @@ export function BoxModelStudio({
               { value: 'bg-white/10', label: 'Glass Surface' },
             ]}
           />
+          <ColorSwatchPicker
+            label="Quick Surface Tint"
+            value={styles.background.preset}
+            onChange={(val) =>
+              setStyles({
+                ...styles,
+                background: { ...styles.background, preset: val, gradient: '' },
+              })
+            }
+          />
           <StudioSelect
             id={shadowSelectId}
             label="Elevation Shadow"
@@ -816,21 +835,17 @@ export function BoxModelStudio({
               { value: 'shadow-2xl shadow-blue-950/60', label: 'Patriotic Navy Shadow' },
             ]}
           />
-          <StudioSelect
-            id="block-theme-mode-select"
+          <ThemeModeSelector
+            id={blockThemeModeSelectId}
             label="Element Theme Mode"
             value={styles.themeMode || 'inherit'}
             onChange={(val) =>
               setStyles({
                 ...styles,
-                themeMode: val as VisualComposerStyles['themeMode'],
+                themeMode: val,
               })
             }
-            options={[
-              { value: 'inherit', label: 'Inherit Section Theme' },
-              { value: 'dark', label: 'Force Dark Tone Mode' },
-              { value: 'light', label: 'Force Light Tone Mode' },
-            ]}
+            description="Forces block into dark, light, or system reactive palette."
           />
         </div>
 

@@ -11,6 +11,7 @@ import type {
   VisualComposerMode,
   VisualComposerStyles,
   VisualComposerTab,
+  VisualComposerThemeMode,
 } from '@/types/unified';
 
 import {
@@ -52,6 +53,7 @@ export type {
   VisualComposerSection,
   VisualComposerStyles,
   VisualComposerTab,
+  VisualComposerThemeMode,
   VisualComposerTransform,
   VisualComposerTypography,
 } from '@/types/unified';
@@ -100,160 +102,6 @@ export function VisualComposerInspector({
   const titleId = useId();
   const descId = useId();
 
-  // Control IDs for accessibility
-  const headingTextId = useId();
-  const paragraphTextId = useId();
-  const imageSrcId = useId();
-  const imageAltId = useId();
-  const imageCaptionId = useId();
-  const buttonLabelId = useId();
-  const buttonHrefId = useId();
-  const calloutTextId = useId();
-  const quoteTextId = useId();
-  const listItemsId = useId();
-  const codeTextId = useId();
-  const tableHeadId = useId();
-  const tableRowsId = useId();
-  const unsupportedHtmlId = useId();
-  const transformRotateSelectId = useId();
-  const transformScaleSelectId = useId();
-  const transformSkewSelectId = useId();
-
-  const marginSelectId = useId();
-  const paddingSelectId = useId();
-  const radiusSelectId = useId();
-  const borderWidthSelectId = useId();
-  const borderStyleSelectId = useId();
-  const borderSideSelectId = useId();
-  const radiusTopLeftSelectId = useId();
-  const radiusTopRightSelectId = useId();
-  const radiusBottomRightSelectId = useId();
-  const radiusBottomLeftSelectId = useId();
-  const bgThemeSelectId = useId();
-  const shadowSelectId = useId();
-  const layoutColumnsSelectId = useId();
-  const layoutMaxWidthSelectId = useId();
-
-  const sectionWidthSelectId = useId();
-  const sectionPaddingYSelectId = useId();
-  const sectionPaddingXSelectId = useId();
-  const sectionMarginYSelectId = useId();
-  const sectionMarginXSelectId = useId();
-  const sectionMinHeightSelectId = useId();
-  const sectionPatternSelectId = useId();
-  const sectionBgSelectId = useId();
-  const bgGradientSelectId = useId();
-  const sectionDividerSelectId = useId();
-  const sectionTopDividerSelectId = useId();
-  const sectionBottomDividerSelectId = useId();
-  const sectionOverflowSelectId = useId();
-  const sectionZIndexSelectId = useId();
-  const sectionColumnsSelectId = useId();
-  const sectionGapSelectId = useId();
-  const sectionAlignSelectId = useId();
-  const sectionJustifyContentSelectId = useId();
-  const sectionRadiusSelectId = useId();
-  const sectionShadowSelectId = useId();
-  const sectionBorderSelectId = useId();
-  const sectionBorderColorSelectId = useId();
-  const sectionOverlaySelectId = useId();
-  const sectionBgAttachmentSelectId = useId();
-  const sectionBgPositionSelectId = useId();
-  const sectionBgSizeSelectId = useId();
-  const sectionBgRepeatSelectId = useId();
-  const sectionAnchorIdInputId = useId();
-  const sectionCustomClassesInputId = useId();
-  const sectionCustomStyleInputId = 'section-custom-style-input';
-  const sectionBackdropBlurSelectId = useId();
-  const sectionBgBlendModeSelectId = useId();
-  const sectionInnerShadowSelectId = useId();
-  const sectionRowLayoutSelectId = useId();
-  const sectionDividerColorSelectId = useId();
-
-  const layoutDisplaySelectId = useId();
-  const layoutFlexDirSelectId = useId();
-  const layoutJustifySelectId = useId();
-  const layoutAlignSelectId = useId();
-  const layoutAlignSelfSelectId = useId();
-  const layoutOrderSelectId = useId();
-  const layoutFlexGrowSelectId = useId();
-  const layoutFlexShrinkSelectId = useId();
-  const layoutFlexWrapSelectId = useId();
-  const layoutAspectRatioSelectId = useId();
-  const layoutObjectFitSelectId = useId();
-  const layoutWidthSelectId = useId();
-  const layoutMinWidthSelectId = useId();
-  const layoutHeightSelectId = useId();
-  const layoutMinHeightSelectId = useId();
-  const layoutMaxHeightSelectId = useId();
-  const layoutPositionSelectId = useId();
-  const layoutZIndexSelectId = useId();
-  const layoutOverflowSelectId = useId();
-  const layoutCursorSelectId = useId();
-  const layoutVisibilitySelectId = useId();
-  const layoutPointerEventsSelectId = useId();
-  const layoutUserSelectSelectId = useId();
-  const layoutInsetSelectId = useId();
-  const layoutTopSelectId = useId();
-  const layoutBottomSelectId = useId();
-  const layoutLeftSelectId = useId();
-  const layoutRightSelectId = useId();
-
-  const effectOpacitySelectId = useId();
-  const effectBackdropBlurSelectId = useId();
-  const effectGrayscaleSelectId = useId();
-  const effectBrightnessSelectId = useId();
-  const effectContrastSelectId = useId();
-  const effectSaturateSelectId = useId();
-  const effectSepiaSelectId = useId();
-  const effectHueRotateSelectId = useId();
-  const effectBlurSelectId = useId();
-  const effectBlendModeSelectId = useId();
-  const effectInvertSelectId = useId();
-  const effectDropShadowSelectId = useId();
-  const effectHoverBrightnessSelectId = useId();
-  const effectHoverOpacitySelectId = useId();
-  const shadowColorSelectId = useId();
-  const clipPathSelectId = useId();
-
-  const transformTranslateXSelectId = useId();
-  const transformTranslateYSelectId = useId();
-  const transformOriginSelectId = useId();
-
-  const fontFamilySelectId = useId();
-  const fontSizeSelectId = useId();
-  const fontWeightSelectId = useId();
-  const fontStyleSelectId = useId();
-  const lineHeightSelectId = useId();
-  const textGradientSelectId = useId();
-  const textShadowSelectId = useId();
-  const letterSpacingSelectId = useId();
-  const textTransformSelectId = useId();
-  const textDecorationSelectId = useId();
-  const textWrapSelectId = useId();
-  const wordBreakSelectId = useId();
-  const textColumnsSelectId = useId();
-  const fontSmoothingSelectId = useId();
-  const motionEntranceSelectId = useId();
-  const motionHoverSelectId = useId();
-  const motionHoverScaleSelectId = useId();
-  const motionHoverLiftSelectId = useId();
-  const motionHoverRotateSelectId = useId();
-  const motionHoverGlowSelectId = useId();
-  const motionHoverBorderSelectId = useId();
-  const motionHoverShadowSelectId = useId();
-  const motionHoverBgSelectId = useId();
-  const motionHoverTextColorSelectId = useId();
-  const motionDurationSelectId = useId();
-  const motionDelaySelectId = useId();
-  const motionTimingSelectId = useId();
-  const anchorIdInputId = useId();
-  const blockAnchorIdInputId = useId();
-  const customClassesInputId = useId();
-  const customStyleInputId = 'block-custom-style-input';
-  const rawHtmlInputId = useId();
-  const designJsonInputId = useId();
-
   // Sync block state when props change
   useEffect(() => {
     setCurrentBlock(block);
@@ -265,6 +113,7 @@ export function VisualComposerInspector({
         const idMatch = attrs.match(/id=["']([^"']+)["']/i);
         const classMatch = attrs.match(/class=["']([^"']+)["']/i);
         const styleMatch = attrs.match(/style=["']([^"']+)["']/i);
+        const themeMatch = attrs.match(/data-theme(?:-mode)?=["']([^"']+)["']/i);
         if (idMatch?.[1]) {
           setStyles((prev) => ({ ...prev, anchorId: idMatch[1] }));
         }
@@ -279,6 +128,20 @@ export function VisualComposerInspector({
             ...prev,
             customStyle: prev.customStyle || styleMatch[1],
           }));
+        }
+        if (themeMatch?.[1]) {
+          const mode = themeMatch[1] as VisualComposerThemeMode;
+          if (['dark', 'light', 'system'].includes(mode)) {
+            setStyles((prev) => ({ ...prev, themeMode: mode }));
+          }
+        } else if (classMatch?.[1]) {
+          if (classMatch[1].includes('[data-theme=dark]')) {
+            setStyles((prev) => ({ ...prev, themeMode: 'dark' }));
+          } else if (classMatch[1].includes('[data-theme=light]')) {
+            setStyles((prev) => ({ ...prev, themeMode: 'light' }));
+          } else if (classMatch[1].includes('[data-theme-mode=system]')) {
+            setStyles((prev) => ({ ...prev, themeMode: 'system' }));
+          }
         }
       }
 
@@ -517,65 +380,13 @@ export function VisualComposerInspector({
           <SectionStudio
             styles={styles}
             setStyles={setStyles}
-            sectionWidthSelectId={sectionWidthSelectId}
-            sectionPaddingYSelectId={sectionPaddingYSelectId}
-            sectionPaddingXSelectId={sectionPaddingXSelectId}
-            sectionMarginYSelectId={sectionMarginYSelectId}
-            sectionMarginXSelectId={sectionMarginXSelectId}
-            sectionMinHeightSelectId={sectionMinHeightSelectId}
-            sectionBgSelectId={sectionBgSelectId}
-            bgGradientSelectId={bgGradientSelectId}
-            sectionPatternSelectId={sectionPatternSelectId}
-            sectionDividerSelectId={sectionDividerSelectId}
-            sectionTopDividerSelectId={sectionTopDividerSelectId}
-            sectionBottomDividerSelectId={sectionBottomDividerSelectId}
-            sectionOverflowSelectId={sectionOverflowSelectId}
-            sectionZIndexSelectId={sectionZIndexSelectId}
-            sectionColumnsSelectId={sectionColumnsSelectId}
-            sectionGapSelectId={sectionGapSelectId}
-            sectionAlignSelectId={sectionAlignSelectId}
-            sectionJustifyContentSelectId={sectionJustifyContentSelectId}
-            sectionRadiusSelectId={sectionRadiusSelectId}
-            sectionShadowSelectId={sectionShadowSelectId}
-            sectionBackdropBlurSelectId={sectionBackdropBlurSelectId}
-            sectionBorderSelectId={sectionBorderSelectId}
-            sectionBorderColorSelectId={sectionBorderColorSelectId}
-            sectionOverlaySelectId={sectionOverlaySelectId}
-            sectionBgAttachmentSelectId={sectionBgAttachmentSelectId}
-            sectionBgPositionSelectId={sectionBgPositionSelectId}
-            sectionBgSizeSelectId={sectionBgSizeSelectId}
-            sectionBgRepeatSelectId={sectionBgRepeatSelectId}
-            sectionAnchorIdInputId={sectionAnchorIdInputId}
-            sectionCustomClassesInputId={sectionCustomClassesInputId}
-            sectionBgBlendModeSelectId={sectionBgBlendModeSelectId}
-            sectionInnerShadowSelectId={sectionInnerShadowSelectId}
-            sectionRowLayoutSelectId={sectionRowLayoutSelectId}
-            sectionDividerColorSelectId={sectionDividerColorSelectId}
-            sectionCustomStyleInputId={sectionCustomStyleInputId}
             compiledClassNames={compiledClassNames}
           />
         )}
 
         {/* ── Block Mode Tabs ─────────────────────────────────────────── */}
         {inspectorMode === 'block' && activeTab === 'content' && (
-          <BlockContentStudio
-            currentBlock={currentBlock}
-            setCurrentBlock={setCurrentBlock}
-            headingTextId={headingTextId}
-            paragraphTextId={paragraphTextId}
-            imageSrcId={imageSrcId}
-            imageAltId={imageAltId}
-            imageCaptionId={imageCaptionId}
-            buttonLabelId={buttonLabelId}
-            buttonHrefId={buttonHrefId}
-            calloutTextId={calloutTextId}
-            quoteTextId={quoteTextId}
-            listItemsId={listItemsId}
-            codeTextId={codeTextId}
-            tableHeadId={tableHeadId}
-            tableRowsId={tableRowsId}
-            unsupportedHtmlId={unsupportedHtmlId}
-          />
+          <BlockContentStudio currentBlock={currentBlock} setCurrentBlock={setCurrentBlock} />
         )}
 
         {inspectorMode === 'block' && activeTab === 'presets' && (
@@ -591,92 +402,11 @@ export function VisualComposerInspector({
             setIsSidesLinked={setIsSidesLinked}
             cycleMarginValue={cycleMarginValue}
             cyclePaddingValue={cyclePaddingValue}
-            marginSelectId={marginSelectId}
-            paddingSelectId={paddingSelectId}
-            layoutColumnsSelectId={layoutColumnsSelectId}
-            layoutMaxWidthSelectId={layoutMaxWidthSelectId}
-            layoutWidthSelectId={layoutWidthSelectId}
-            layoutMinWidthSelectId={layoutMinWidthSelectId}
-            layoutHeightSelectId={layoutHeightSelectId}
-            layoutMinHeightSelectId={layoutMinHeightSelectId}
-            layoutMaxHeightSelectId={layoutMaxHeightSelectId}
-            radiusSelectId={radiusSelectId}
-            borderWidthSelectId={borderWidthSelectId}
-            borderStyleSelectId={borderStyleSelectId}
-            borderSideSelectId={borderSideSelectId}
-            bgThemeSelectId={bgThemeSelectId}
-            shadowSelectId={shadowSelectId}
-            layoutDisplaySelectId={layoutDisplaySelectId}
-            layoutFlexDirSelectId={layoutFlexDirSelectId}
-            layoutJustifySelectId={layoutJustifySelectId}
-            layoutAlignSelectId={layoutAlignSelectId}
-            layoutAlignSelfSelectId={layoutAlignSelfSelectId}
-            layoutOrderSelectId={layoutOrderSelectId}
-            layoutFlexGrowSelectId={layoutFlexGrowSelectId}
-            layoutFlexShrinkSelectId={layoutFlexShrinkSelectId}
-            layoutFlexWrapSelectId={layoutFlexWrapSelectId}
-            layoutAspectRatioSelectId={layoutAspectRatioSelectId}
-            layoutObjectFitSelectId={layoutObjectFitSelectId}
-            layoutPositionSelectId={layoutPositionSelectId}
-            layoutZIndexSelectId={layoutZIndexSelectId}
-            layoutOverflowSelectId={layoutOverflowSelectId}
-            layoutCursorSelectId={layoutCursorSelectId}
-            layoutVisibilitySelectId={layoutVisibilitySelectId}
-            layoutPointerEventsSelectId={layoutPointerEventsSelectId}
-            layoutUserSelectSelectId={layoutUserSelectSelectId}
-            effectBackdropBlurSelectId={effectBackdropBlurSelectId}
-            effectOpacitySelectId={effectOpacitySelectId}
-            effectGrayscaleSelectId={effectGrayscaleSelectId}
-            effectBrightnessSelectId={effectBrightnessSelectId}
-            effectContrastSelectId={effectContrastSelectId}
-            effectSaturateSelectId={effectSaturateSelectId}
-            effectSepiaSelectId={effectSepiaSelectId}
-            effectHueRotateSelectId={effectHueRotateSelectId}
-            effectBlurSelectId={effectBlurSelectId}
-            effectBlendModeSelectId={effectBlendModeSelectId}
-            effectInvertSelectId={effectInvertSelectId}
-            effectDropShadowSelectId={effectDropShadowSelectId}
-            effectHoverBrightnessSelectId={effectHoverBrightnessSelectId}
-            effectHoverOpacitySelectId={effectHoverOpacitySelectId}
-            transformRotateSelectId={transformRotateSelectId}
-            transformScaleSelectId={transformScaleSelectId}
-            transformSkewSelectId={transformSkewSelectId}
-            transformTranslateXSelectId={transformTranslateXSelectId}
-            transformTranslateYSelectId={transformTranslateYSelectId}
-            transformOriginSelectId={transformOriginSelectId}
-            shadowColorSelectId={shadowColorSelectId}
-            clipPathSelectId={clipPathSelectId}
-            layoutInsetSelectId={layoutInsetSelectId}
-            layoutTopSelectId={layoutTopSelectId}
-            layoutBottomSelectId={layoutBottomSelectId}
-            layoutLeftSelectId={layoutLeftSelectId}
-            layoutRightSelectId={layoutRightSelectId}
-            radiusTopLeftSelectId={radiusTopLeftSelectId}
-            radiusTopRightSelectId={radiusTopRightSelectId}
-            radiusBottomRightSelectId={radiusBottomRightSelectId}
-            radiusBottomLeftSelectId={radiusBottomLeftSelectId}
           />
         )}
 
         {inspectorMode === 'block' && activeTab === 'typography' && (
-          <TypographyStudio
-            styles={styles}
-            setStyles={setStyles}
-            fontFamilySelectId={fontFamilySelectId}
-            fontSizeSelectId={fontSizeSelectId}
-            fontWeightSelectId={fontWeightSelectId}
-            textGradientSelectId={textGradientSelectId}
-            lineHeightSelectId={lineHeightSelectId}
-            letterSpacingSelectId={letterSpacingSelectId}
-            textTransformSelectId={textTransformSelectId}
-            textDecorationSelectId={textDecorationSelectId}
-            textShadowSelectId={textShadowSelectId}
-            fontStyleSelectId={fontStyleSelectId}
-            textWrapSelectId={textWrapSelectId}
-            wordBreakSelectId={wordBreakSelectId}
-            textColumnsSelectId={textColumnsSelectId}
-            fontSmoothingSelectId={fontSmoothingSelectId}
-          />
+          <TypographyStudio styles={styles} setStyles={setStyles} />
         )}
 
         {inspectorMode === 'block' && activeTab === 'code' && (
@@ -685,11 +415,7 @@ export function VisualComposerInspector({
             setCurrentBlock={setCurrentBlock}
             styles={styles}
             setStyles={setStyles}
-            rawHtmlInputId={rawHtmlInputId}
-            blockAnchorIdInputId={blockAnchorIdInputId}
-            customClassesInputId={customClassesInputId}
-            customStyleInputId={customStyleInputId}
-            designJsonInputId={designJsonInputId}
+            customStyleInputId="block-custom-style-input"
             jsonConfigDraft={jsonConfigDraft}
             setJsonConfigDraft={setJsonConfigDraft}
             onExportJson={handleExportJson}
@@ -701,20 +427,6 @@ export function VisualComposerInspector({
           <AdvancedMotionStudio
             styles={styles}
             setStyles={setStyles}
-            motionEntranceSelectId={motionEntranceSelectId}
-            motionHoverSelectId={motionHoverSelectId}
-            motionHoverScaleSelectId={motionHoverScaleSelectId}
-            motionHoverLiftSelectId={motionHoverLiftSelectId}
-            motionHoverRotateSelectId={motionHoverRotateSelectId}
-            motionDurationSelectId={motionDurationSelectId}
-            motionDelaySelectId={motionDelaySelectId}
-            motionHoverGlowSelectId={motionHoverGlowSelectId}
-            motionHoverBorderSelectId={motionHoverBorderSelectId}
-            motionHoverShadowSelectId={motionHoverShadowSelectId}
-            motionHoverBgSelectId={motionHoverBgSelectId}
-            motionHoverTextColorSelectId={motionHoverTextColorSelectId}
-            motionTimingSelectId={motionTimingSelectId}
-            anchorIdInputId={anchorIdInputId}
             compiledClassNames={compiledClassNames}
           />
         )}

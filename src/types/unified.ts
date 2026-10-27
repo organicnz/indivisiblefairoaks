@@ -133,6 +133,7 @@ export type {
   VisualComposerSection,
   VisualComposerStyles,
   VisualComposerTab,
+  VisualComposerThemeMode,
   VisualComposerTransform,
   VisualComposerTypography,
 } from './visual-composer';

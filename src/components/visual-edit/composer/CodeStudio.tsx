@@ -12,11 +12,11 @@ export interface CodeStudioProps {
   setCurrentBlock: (block: Block) => void;
   styles: VisualComposerStyles;
   setStyles: React.Dispatch<React.SetStateAction<VisualComposerStyles>>;
-  rawHtmlInputId: string;
-  blockAnchorIdInputId: string;
-  customClassesInputId: string;
+  rawHtmlInputId?: string;
+  blockAnchorIdInputId?: string;
+  customClassesInputId?: string;
   customStyleInputId?: string;
-  designJsonInputId: string;
+  designJsonInputId?: string;
   jsonConfigDraft: string;
   setJsonConfigDraft: (draft: string) => void;
   onExportJson: () => void;
@@ -28,11 +28,11 @@ export function CodeStudio({
   setCurrentBlock,
   styles,
   setStyles,
-  rawHtmlInputId,
-  blockAnchorIdInputId,
-  customClassesInputId,
+  rawHtmlInputId = 'raw-html-editor-input',
+  blockAnchorIdInputId = 'block-anchor-id-input',
+  customClassesInputId = 'block-custom-classes-input',
   customStyleInputId = 'code-custom-style-input',
-  designJsonInputId,
+  designJsonInputId = 'design-json-config-input',
   jsonConfigDraft,
   setJsonConfigDraft,
   onExportJson,
