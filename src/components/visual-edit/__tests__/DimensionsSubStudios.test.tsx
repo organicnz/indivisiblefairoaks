@@ -212,4 +212,86 @@ describe('Dimensions Sub-Studios', () => {
 
     expect(onDimensionsTabChange).toHaveBeenCalledWith('flex');
   });
+
+  it('applies 1-click flex presets and enables flex container mode', async () => {
+    let currentStyles = {
+      ...DEFAULT_VC_STYLES,
+      layout: { ...DEFAULT_VC_STYLES.layout, display: '' },
+    };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
+
+    await act(async () => {
+      root.render(<DimensionsFlexStudio styles={currentStyles} setStyles={setStyles} />);
+    });
+
+    expect(container.textContent).toContain('Current display mode is Normal Flow');
+    const enableFlexBtn = container.querySelector(
+      '[data-testid="enable-flex-container-button"]'
+    ) as HTMLButtonElement;
+    expect(enableFlexBtn).not.toBeNull();
+
+    await act(async () => {
+      enableFlexBtn.click();
+    });
+
+    expect(setStyles).toHaveBeenCalled();
+    expect(currentStyles.layout.display).toBe('flex');
+
+    // Click Center Stage preset
+    const centerStageBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Center Stage')
+    );
+    expect(centerStageBtn).toBeDefined();
+
+    await act(async () => {
+      centerStageBtn?.click();
+    });
+
+    expect(currentStyles.layout.flexDirection).toBe('flex-col');
+    expect(currentStyles.layout.justifyContent).toBe('justify-center');
+    expect(currentStyles.layout.alignItems).toBe('items-center');
+  });
+
+  it('applies 1-click positioning and sizing presets', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
+
+    await act(async () => {
+      root.render(
+        <>
+          <DimensionsPositioningStudio styles={currentStyles} setStyles={setStyles} />
+          <DimensionsSizingStudio styles={currentStyles} setStyles={setStyles} />
+        </>
+      );
+    });
+
+    // Test sticky top preset
+    const stickyHeaderBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Sticky Header')
+    );
+    expect(stickyHeaderBtn).toBeDefined();
+
+    await act(async () => {
+      stickyHeaderBtn?.click();
+    });
+
+    expect(currentStyles.layout.position).toBe('sticky top-0');
+    expect(currentStyles.layout.zIndex).toBe('z-30');
+
+    // Test reading column preset
+    const readingColBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Reading Column')
+    );
+    expect(readingColBtn).toBeDefined();
+
+    await act(async () => {
+      readingColBtn?.click();
+    });
+
+    expect(currentStyles.layout.maxWidth).toBe('max-w-prose');
+  });
 });

@@ -1,7 +1,72 @@
 'use client';
 
-import type { VisualComposerStyles } from '@/types/unified';
+import { Sparkles } from 'lucide-react';
+import type { VisualComposerPositionPreset, VisualComposerStyles } from '@/types/unified';
 import { StudioSection, StudioSelect } from '../ui';
+
+export const POSITION_PRESETS: readonly VisualComposerPositionPreset[] = [
+  {
+    id: 'normal-flow',
+    name: 'Normal Flow',
+    description: 'Static browser layout flow with default z-index',
+    apply: () => ({
+      position: '',
+      inset: '',
+      top: '',
+      bottom: '',
+      left: '',
+      right: '',
+      zIndex: '',
+    }),
+  },
+  {
+    id: 'relative-anchor',
+    name: 'Relative Anchor',
+    description: 'Relative positioning context to anchor nested absolute badges or pins',
+    apply: () => ({
+      position: 'relative',
+    }),
+  },
+  {
+    id: 'sticky-top-bar',
+    name: 'Sticky Header',
+    description: 'Pins element to top edge (0) while scrolling with mid z-index',
+    apply: () => ({
+      position: 'sticky top-0',
+      zIndex: 'z-30',
+    }),
+  },
+  {
+    id: 'sticky-card-pull',
+    name: 'Sticky Floating',
+    description: 'Floats 16px below top with z-20 for sticky callout cards',
+    apply: () => ({
+      position: 'sticky top-4',
+      zIndex: 'z-20',
+    }),
+  },
+  {
+    id: 'absolute-full-cover',
+    name: 'Absolute Cover',
+    description: 'Covers entire parent canvas edge-to-edge (inset-0)',
+    apply: () => ({
+      position: 'absolute',
+      inset: 'inset-0',
+      zIndex: 'z-10',
+    }),
+  },
+  {
+    id: 'fixed-corner-action',
+    name: 'Fixed Action Button',
+    description: 'Pins to bottom-right viewport corner for floating actions',
+    apply: () => ({
+      position: 'fixed',
+      bottom: 'bottom-4',
+      right: 'right-4',
+      zIndex: 'z-50',
+    }),
+  },
+] as const;
 
 export interface DimensionsPositioningStudioProps {
   styles: VisualComposerStyles;
@@ -34,6 +99,65 @@ export function DimensionsPositioningStudio({
       badge="Positioning"
       description="Control position flow (relative, sticky, absolute), z-index stacking, overflow clipping, and directional insets."
     >
+      {/* 1-Click Positioning Presets */}
+      <div className="space-y-1.5 mb-3">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          1-Click Positioning Presets
+        </span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+          {POSITION_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => {
+                setStyles((prev) => ({
+                  ...prev,
+                  layout: {
+                    ...prev.layout,
+                    ...preset.apply(),
+                  },
+                }));
+              }}
+              title={preset.description}
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-left text-[10px] font-medium text-slate-300 hover:border-accent-gold/40 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+            >
+              <Sparkles size={10} className="text-accent-gold shrink-0" />
+              <span className="truncate">{preset.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Live Positioning Visualizer */}
+      <div className="p-2.5 rounded-xl border border-white/10 bg-slate-900/60 space-y-2 mb-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
+            <Sparkles size={11} className="text-accent-gold" />
+            <span>Positioning Geometry Preview</span>
+          </span>
+          <span className="text-[10px] font-mono text-slate-400">
+            {styles.layout.position || 'static'} · {styles.layout.zIndex || 'z-auto'}
+          </span>
+        </div>
+        <div
+          data-testid="position-live-preview"
+          className="relative h-20 w-full rounded-lg border border-white/10 bg-slate-950/80 p-2 overflow-hidden flex items-center justify-center text-center"
+        >
+          <div className="absolute inset-1 rounded border border-dashed border-white/10 pointer-events-none" />
+          <div
+            className={`rounded px-2.5 py-1 text-[10px] font-bold transition-all shadow-sm ${
+              styles.layout.position === 'absolute' || styles.layout.position === 'fixed'
+                ? 'bg-rose-500/20 border border-rose-400/40 text-rose-300'
+                : styles.layout.position.includes('sticky')
+                  ? 'bg-sky-500/20 border border-sky-400/40 text-sky-300'
+                  : 'bg-accent-gold/20 border border-accent-gold/40 text-accent-gold'
+            } ${styles.layout.position || 'relative'} ${styles.layout.inset || ''} ${styles.layout.top || ''} ${styles.layout.bottom || ''} ${styles.layout.left || ''} ${styles.layout.right || ''}`}
+          >
+            {styles.layout.position || 'Normal Flow'}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-3 gap-1.5 mb-2">
         <StudioSelect
           id={layoutPositionSelectId}

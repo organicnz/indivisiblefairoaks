@@ -1,7 +1,65 @@
 'use client';
 
-import type { VisualComposerStyles } from '@/types/unified';
+import { Sparkles } from 'lucide-react';
+import type { VisualComposerSizingPreset, VisualComposerStyles } from '@/types/unified';
 import { StudioSection, StudioSelect } from '../ui';
+
+export const SIZING_PRESETS: readonly VisualComposerSizingPreset[] = [
+  {
+    id: 'full-width',
+    name: 'Full Width',
+    description: 'Expands element to full 100% width of parent container',
+    apply: () => ({
+      width: 'w-full',
+      maxWidth: '',
+    }),
+  },
+  {
+    id: 'prose-reading',
+    name: 'Reading Column',
+    description: 'Limits reading line length to 65ch (max-w-prose) for editorial ease',
+    apply: () => ({
+      width: 'w-full',
+      maxWidth: 'max-w-prose',
+    }),
+  },
+  {
+    id: 'compact-card',
+    name: 'Compact Card',
+    description: 'Constrains width to 384px (max-w-sm) for compact sidebar cards',
+    apply: () => ({
+      width: 'w-full',
+      maxWidth: 'max-w-sm',
+    }),
+  },
+  {
+    id: 'hero-banner',
+    name: 'Hero Banner',
+    description: 'Sets full width and 400px min-height for hero banners',
+    apply: () => ({
+      width: 'w-full',
+      minHeight: 'min-h-[400px]',
+    }),
+  },
+  {
+    id: 'square-media',
+    name: 'Square 1:1',
+    description: 'Forces equal 1:1 aspect ratio with object cover for avatars/tiles',
+    apply: () => ({
+      aspectRatio: 'aspect-square',
+      objectFit: 'object-cover',
+    }),
+  },
+  {
+    id: 'video-widescreen',
+    name: 'Video 16:9',
+    description: 'Enforces standard 16:9 widescreen aspect ratio with object cover',
+    apply: () => ({
+      aspectRatio: 'aspect-video',
+      objectFit: 'object-cover',
+    }),
+  },
+] as const;
 
 export interface DimensionsSizingStudioProps {
   styles: VisualComposerStyles;
@@ -36,6 +94,64 @@ export function DimensionsSizingStudio({
       badge="Dimensions"
       description="Configure element display mode, width boundaries, vertical heights, and media aspect ratios."
     >
+      {/* 1-Click Sizing Presets */}
+      <div className="space-y-1.5 mb-3">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          1-Click Sizing Presets
+        </span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+          {SIZING_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => {
+                setStyles((prev) => ({
+                  ...prev,
+                  layout: {
+                    ...prev.layout,
+                    ...preset.apply(),
+                  },
+                }));
+              }}
+              title={preset.description}
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-left text-[10px] font-medium text-slate-300 hover:border-accent-gold/40 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+            >
+              <Sparkles size={10} className="text-accent-gold shrink-0" />
+              <span className="truncate">{preset.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Live Sizing Visualizer */}
+      <div className="p-2.5 rounded-xl border border-white/10 bg-slate-900/60 space-y-2 mb-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
+            <Sparkles size={11} className="text-accent-gold" />
+            <span>Sizing &amp; Boundaries Preview</span>
+          </span>
+          <span className="text-[10px] font-mono text-slate-400">
+            {styles.layout.width || 'w-auto'} · {styles.layout.maxWidth || 'max-w-none'} ·{' '}
+            {styles.layout.height || 'h-auto'}
+          </span>
+        </div>
+        <div
+          data-testid="sizing-live-preview"
+          className="h-16 w-full rounded-lg border border-white/10 bg-slate-950/80 p-2 flex items-center justify-center overflow-hidden"
+        >
+          <div
+            className={`flex h-10 items-center justify-center rounded bg-accent-gold/20 border border-accent-gold/40 px-3 text-[10px] font-bold text-accent-gold transition-all ${
+              styles.layout.width || 'w-auto'
+            } ${styles.layout.maxWidth || ''} ${styles.layout.aspectRatio || ''}`}
+          >
+            <span className="truncate">
+              {styles.layout.display || 'block'} ({styles.layout.width || 'auto'} /{' '}
+              {styles.layout.maxWidth || 'full'})
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2 mb-2">
         <StudioSelect
           id={layoutDisplaySelectId}

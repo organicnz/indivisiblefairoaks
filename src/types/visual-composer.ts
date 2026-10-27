@@ -336,3 +336,24 @@ export interface VisualComposerBorderPreset {
 }
 
 export type VisualComposerBlockCategory = 'Typography' | 'Media' | 'Action' | 'Structure';
+
+export interface VisualComposerFlexPreset {
+  id: string;
+  name: string;
+  description: string;
+  apply: () => Partial<VisualComposerLayout>;
+}
+
+export interface VisualComposerPositionPreset {
+  id: string;
+  name: string;
+  description: string;
+  apply: () => Partial<VisualComposerLayout>;
+}
+
+export interface VisualComposerSizingPreset {
+  id: string;
+  name: string;
+  description: string;
+  apply: () => Partial<VisualComposerLayout>;
+}
