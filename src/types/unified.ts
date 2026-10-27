@@ -151,6 +151,7 @@ export type {
   VisualComposerSectionPreset,
   VisualComposerSectionPresetCategoryFilter,
   VisualComposerSectionTab,
+  VisualComposerSectionVisibilityPreset,
   VisualComposerShapeDividerPreset,
   VisualComposerSizingPreset,
   VisualComposerStyles,

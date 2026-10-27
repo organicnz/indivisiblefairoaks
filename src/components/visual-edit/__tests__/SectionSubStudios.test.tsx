@@ -256,13 +256,16 @@ describe('Section Sub-Studios', () => {
   });
 
   describe('SectionAdvancedStudio', () => {
-    it('renders developer attributes and responsive visibility matrix', async () => {
-      const setStyles = vi.fn();
+    it('renders developer attributes, simulator, and responsive visibility presets', async () => {
+      let currentStyles = { ...DEFAULT_VC_STYLES };
+      const setStyles = vi.fn((update) => {
+        currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+      });
 
       await act(async () => {
         root.render(
           <SectionAdvancedStudio
-            styles={DEFAULT_VC_STYLES}
+            styles={currentStyles}
             setStyles={setStyles}
             sectionAnchorIdInputId="test-anchor"
             compiledClassNames="max-w-4xl mx-auto py-8"
@@ -271,6 +274,8 @@ describe('Section Sub-Studios', () => {
       });
 
       expect(container.textContent).toContain('Developer Attributes & Visibility');
+      expect(container.textContent).toContain('Live Section Device Simulator');
+      expect(container.textContent).toContain('1-Click Visibility Presets');
       expect(container.textContent).toContain('Section Anchor ID');
       expect(container.textContent).toContain('Section Custom Classes');
       expect(container.textContent).toContain('Sticky Row');
@@ -279,6 +284,43 @@ describe('Section Sub-Studios', () => {
       expect(container.textContent).toContain('Compiled Classnames Preview');
       expect(container.textContent).toContain('max-w-4xl mx-auto py-8');
       expect(container.querySelector('#test-anchor')).not.toBeNull();
+      expect(
+        container.querySelector('[data-testid="section-advanced-preview-card"]')
+      ).not.toBeNull();
+
+      // Click device simulator mobile button
+      const simMobileBtn = container.querySelector(
+        '[data-testid="section-device-sim-hideMobile"]'
+      ) as HTMLElement;
+      expect(simMobileBtn).not.toBeNull();
+      await act(async () => {
+        simMobileBtn.click();
+      });
+      expect(setStyles).toHaveBeenCalled();
+      expect(currentStyles.responsive.hideMobile).toBe(true);
+
+      // Click Quick Anchor Chip: #mission
+      const missionAnchorBtn = Array.from(container.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === '#mission'
+      );
+      expect(missionAnchorBtn).toBeDefined();
+      await act(async () => {
+        missionAnchorBtn?.click();
+      });
+      expect(setStyles).toHaveBeenCalled();
+      expect(currentStyles.anchorId).toBe('mission');
+
+      // Click 1-Click Preset: Sticky Header Banner
+      const stickyBannerPresetBtn = container.querySelector(
+        '[data-testid="section-vis-preset-sticky-header-banner"]'
+      ) as HTMLElement;
+      expect(stickyBannerPresetBtn).not.toBeNull();
+      await act(async () => {
+        stickyBannerPresetBtn.click();
+      });
+      expect(setStyles).toHaveBeenCalled();
+      expect(currentStyles.section.sticky).toBe(true);
+      expect(currentStyles.responsive.hidePrint).toBe(true);
     });
   });
 });

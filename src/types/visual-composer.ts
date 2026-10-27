@@ -458,3 +458,14 @@ export interface VisualComposerSectionLayoutPreset {
   badge: string;
   apply: () => Partial<VisualComposerSection>;
 }
+
+export interface VisualComposerSectionVisibilityPreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => {
+    responsive: Partial<VisualComposerResponsive>;
+    sticky?: boolean;
+  };
+}
