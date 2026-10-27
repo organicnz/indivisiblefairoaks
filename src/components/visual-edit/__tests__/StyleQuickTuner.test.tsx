@@ -91,4 +91,32 @@ describe('StyleQuickTuner', () => {
 
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
+
+  it('sets theme tone modes (dark / light / system) on target element', () => {
+    act(() => {
+      root.render(<StyleQuickTuner element={targetEl} defaultOpen={true} />);
+    });
+
+    const darkBtn = document.querySelector<HTMLButtonElement>('button[aria-label="Set tone Dark"]');
+    expect(darkBtn).not.toBeNull();
+
+    act(() => {
+      darkBtn?.click();
+    });
+
+    expect(targetEl.getAttribute('data-theme')).toBe('dark');
+    expect(targetEl.classList.contains('[data-theme=dark]')).toBe(true);
+
+    const systemBtn = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Set tone System"]'
+    );
+    expect(systemBtn).not.toBeNull();
+
+    act(() => {
+      systemBtn?.click();
+    });
+
+    expect(targetEl.getAttribute('data-theme-mode')).toBe('system');
+    expect(targetEl.classList.contains('[data-theme-mode=system]')).toBe(true);
+  });
 });

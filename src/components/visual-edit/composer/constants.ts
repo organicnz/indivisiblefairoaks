@@ -2,10 +2,11 @@ import type {
   StylePreset,
   VisualComposerCivicPreset,
   VisualComposerColumnPreset,
+  VisualComposerSectionPreset,
   VisualComposerStyles,
 } from '@/types/unified';
 
-export type { StylePreset };
+export type { StylePreset, VisualComposerSectionPreset };
 
 export const DEFAULT_VC_STYLES: VisualComposerStyles = {
   margin: { top: 'my-2', bottom: '', left: '', right: '' },
@@ -620,6 +621,122 @@ export const CIVIC_CLASS_PRESETS: readonly VisualComposerCivicPreset[] = [
   { label: 'Tilt 3D', value: 'rotate-1 hover:rotate-0 transition-transform duration-200' },
   { label: 'Card Lift', value: 'hover:-translate-y-1 hover:shadow-xl transition-all duration-200' },
   { label: 'Subtle Pulse', value: 'animate-pulse duration-1000' },
+] as const;
+
+export const SECTION_PRESETS: readonly VisualComposerSectionPreset[] = [
+  {
+    id: 'civic-hero-section',
+    name: 'Civic Hero Spotlight',
+    description: 'Deep navy background, centered headline alignment, gold border and dark tone',
+    badge: 'Hero',
+    apply: () => ({
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        containerWidth: 'w-full',
+        rowLayout: 'full-width-bg',
+        paddingY: 'py-16',
+        paddingX: 'px-6',
+        background: 'bg-blue-950/80',
+        border: 'border-b',
+        borderColor: 'border-accent-gold/40',
+        themeMode: 'dark',
+      },
+    }),
+  },
+  {
+    id: 'grassroots-matrix-section',
+    name: 'Grassroots 3-Col Matrix',
+    description: 'Balanced 3-column container with organic emerald tone and rounded card corners',
+    badge: 'Grid',
+    apply: () => ({
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        containerWidth: 'max-w-6xl mx-auto px-4',
+        columns: 'grid grid-cols-1 md:grid-cols-3',
+        columnGap: 'gap-6',
+        rowGap: 'gap-y-6',
+        paddingY: 'py-12',
+        background: 'bg-emerald-500/5',
+        border: 'border',
+        borderColor: 'border-emerald-500/30',
+        radius: 'rounded-3xl',
+        themeMode: 'inherit',
+      },
+    }),
+  },
+  {
+    id: 'split-callout-section',
+    name: 'Split 50/50 Callout & Media',
+    description: 'Side-by-side 2-column flex container with vertical centering',
+    badge: 'Split',
+    apply: () => ({
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        containerWidth: 'max-w-5xl mx-auto px-4',
+        columns: 'grid grid-cols-1 md:grid-cols-2',
+        columnGap: 'gap-8',
+        verticalAlign: 'items-center',
+        paddingY: 'py-10',
+        background: 'bg-slate-900/40',
+        border: 'border',
+        borderColor: 'border-white/10',
+        radius: 'rounded-2xl',
+        themeMode: 'inherit',
+      },
+    }),
+  },
+  {
+    id: 'translucent-glass-section',
+    name: 'Liquid Glass Showcase',
+    description: 'Frosted liquid glass backdrop with subtle atmospheric border and depth',
+    badge: 'Glass',
+    apply: () => ({
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        containerWidth: 'w-full',
+        rowLayout: 'full-width-content',
+        paddingY: 'py-12',
+        background: 'bg-white/10 backdrop-blur-md',
+        border: 'border-y',
+        borderColor: 'border-white/20',
+        themeMode: 'dark',
+      },
+    }),
+  },
+  {
+    id: 'urgent-alert-section',
+    name: 'Urgent Action Command Station',
+    description: 'High-urgency crimson alert band for rapid civic response & mobilization',
+    badge: 'Alert',
+    apply: () => ({
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        containerWidth: 'max-w-4xl mx-auto px-4',
+        paddingY: 'py-8',
+        background: 'bg-rose-500/10',
+        border: 'border-y',
+        borderColor: 'border-rose-500/40',
+        themeMode: 'inherit',
+      },
+    }),
+  },
+  {
+    id: 'editorial-feature-section',
+    name: 'Editorial Longform Focus',
+    description: 'Centered reading container with elegant vertical rhythm and hairline borders',
+    badge: 'Editorial',
+    apply: () => ({
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        containerWidth: 'max-w-3xl mx-auto px-4',
+        paddingY: 'py-12',
+        background: 'bg-transparent',
+        border: 'border-y',
+        borderColor: 'border-border',
+        themeMode: 'inherit',
+      },
+    }),
+  },
 ] as const;
 
 // Module-level clipboard for copying & pasting styles across blocks

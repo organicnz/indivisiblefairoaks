@@ -255,3 +255,13 @@ export interface VisualComposerPresetCategory {
   label: string;
   presets: VisualComposerPreset[];
 }
+
+export type VisualComposerSectionTab = 'layout' | 'style' | 'spacing' | 'presets' | 'advanced';
+
+export interface VisualComposerSectionPreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerStyles>;
+}

@@ -131,6 +131,8 @@ export type {
   VisualComposerPresetCategory,
   VisualComposerResponsive,
   VisualComposerSection,
+  VisualComposerSectionPreset,
+  VisualComposerSectionTab,
   VisualComposerStyles,
   VisualComposerTab,
   VisualComposerThemeMode,

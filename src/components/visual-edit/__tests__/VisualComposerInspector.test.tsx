@@ -2679,4 +2679,51 @@ describe('VisualComposerInspector', () => {
       expect(customStyleInput.value).toBe('letter-spacing: 0.05em;');
     }
   });
+
+  it('44. applies 1-click section presets and compiles theme mode into section classes', async () => {
+    const handleSave = vi.fn();
+    const handleClose = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={handleClose}
+          block={{ id: 'sec-1', type: 'unsupported', html: '<section><h2>Headline</h2></section>' }}
+          blockIndex={0}
+          onSaveBlock={handleSave}
+          initialMode="section"
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('1-Click Section Presets');
+    expect(document.body.textContent).toContain('Civic Hero Spotlight');
+
+    // Click Civic Hero Spotlight preset button
+    const heroPresetBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Civic Hero Spotlight')
+    );
+    expect(heroPresetBtn).toBeDefined();
+
+    await act(async () => {
+      heroPresetBtn?.click();
+    });
+
+    // Save Section
+    const saveBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Section'
+    );
+    expect(saveBtn).toBeDefined();
+
+    await act(async () => {
+      saveBtn?.click();
+    });
+
+    expect(handleSave).toHaveBeenCalledTimes(1);
+    const compiledClasses = handleSave.mock.calls[0][1];
+    expect(compiledClasses).toContain('bg-blue-950/80');
+    expect(compiledClasses).toContain('[data-theme=dark] [color-scheme:dark]');
+    expect(compiledClasses).toContain('py-16');
+  });
 });

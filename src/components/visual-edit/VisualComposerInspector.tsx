@@ -27,6 +27,7 @@ import {
   getStylesClipboard,
   InspectorHeader,
   PresetStudio,
+  SECTION_PRESETS,
   SectionStudio,
   type StylePreset,
   setStylesClipboard,
@@ -51,6 +52,8 @@ export type {
   VisualComposerPresetCategory,
   VisualComposerResponsive,
   VisualComposerSection,
+  VisualComposerSectionPreset,
+  VisualComposerSectionTab,
   VisualComposerStyles,
   VisualComposerTab,
   VisualComposerThemeMode,
@@ -60,8 +63,10 @@ export type {
 export type { StylePreset };
 export {
   CIVIC_CLASS_PRESETS,
+  compileClassNames,
   DEFAULT_VC_STYLES,
   getStylesClipboard,
+  SECTION_PRESETS,
   setStylesClipboard,
   VC_COLUMN_PRESETS,
   VC_STYLE_PRESETS,

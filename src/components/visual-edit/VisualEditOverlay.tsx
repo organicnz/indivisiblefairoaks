@@ -155,6 +155,7 @@ import { runTextareaFormatCommand } from './textareaFormat';
 import { useBlockWriter } from './useBlockWriter';
 import { ViewportDeviceBar } from './ViewportDeviceBar';
 import {
+  compileClassNames,
   DEFAULT_VC_STYLES,
   getStylesClipboard,
   setStylesClipboard,
@@ -1637,7 +1638,9 @@ export function VisualEditOverlay() {
           ? ' data-theme="dark"'
           : customClasses?.includes('[data-theme=light]')
             ? ' data-theme="light"'
-            : '';
+            : customClasses?.includes('[data-theme-mode=system]')
+              ? ' data-theme-mode="system"'
+              : '';
         if ('html' in updatedBlock && typeof updatedBlock.html === 'string') {
           const trimmed = updatedBlock.html.trim();
           if (trimmed.startsWith('<div') && trimmed.endsWith('</div>')) {
@@ -2878,9 +2881,10 @@ export function VisualEditOverlay() {
                         const cb = getStylesClipboard();
                         const blk = blocks[item.blockIndex];
                         if (!cb || !blk) return;
+                        const compiled = compileClassNames('block', cb);
                         handleSaveVcBlock(
                           blk,
-                          undefined,
+                          compiled,
                           cb.anchorId || undefined,
                           cb.customStyle || undefined
                         );

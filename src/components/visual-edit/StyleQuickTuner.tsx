@@ -1,7 +1,17 @@
 'use client';
 
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { AlignCenter, AlignLeft, AlignRight, Palette, SlidersHorizontal, Type } from 'lucide-react';
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Monitor,
+  Moon,
+  Palette,
+  SlidersHorizontal,
+  Sun,
+  Type,
+} from 'lucide-react';
 import type React from 'react';
 import { toast } from 'sonner';
 
@@ -63,6 +73,29 @@ export const StyleQuickTuner: React.FC<StyleQuickTunerProps> = ({
     element.classList.remove('font-sans', 'font-mono', 'font-serif');
     element.classList.add(`font-${family}`);
     toast.success(`Font set to ${family}`);
+  };
+
+  const handleThemeMode = (mode: 'inherit' | 'system' | 'light' | 'dark') => {
+    element.removeAttribute('data-theme');
+    element.removeAttribute('data-theme-mode');
+    element.classList.remove(
+      '[data-theme=dark]',
+      '[color-scheme:dark]',
+      '[data-theme=light]',
+      '[color-scheme:light]',
+      '[data-theme-mode=system]'
+    );
+    if (mode === 'dark') {
+      element.setAttribute('data-theme', 'dark');
+      element.classList.add('[data-theme=dark]', '[color-scheme:dark]');
+    } else if (mode === 'light') {
+      element.setAttribute('data-theme', 'light');
+      element.classList.add('[data-theme=light]', '[color-scheme:light]');
+    } else if (mode === 'system') {
+      element.setAttribute('data-theme-mode', 'system');
+      element.classList.add('[data-theme-mode=system]');
+    }
+    toast.success(`Theme mode: ${mode}`);
   };
 
   return (
@@ -229,6 +262,34 @@ export const StyleQuickTuner: React.FC<StyleQuickTunerProps> = ({
                   className="size-5 rounded-full border border-white/30 hover:scale-110 transition-transform flex items-center justify-center p-0.5 cursor-pointer"
                 >
                   <span className={`size-full rounded-full ${col.bg}`} />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Theme Tone (Dark / Light / System) */}
+          <div className="space-y-1 pt-1 border-t border-white/10">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+              <Sun size={11} className="text-amber-400" />
+              <span>Theme Tone</span>
+            </span>
+            <div className="grid grid-cols-4 gap-1">
+              {[
+                { label: 'Auto', mode: 'inherit' as const, icon: null },
+                { label: 'System', mode: 'system' as const, icon: Monitor },
+                { label: 'Light', mode: 'light' as const, icon: Sun },
+                { label: 'Dark', mode: 'dark' as const, icon: Moon },
+              ].map(({ label, mode, icon: Icon }) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => handleThemeMode(mode)}
+                  className="flex items-center justify-center gap-1 py-1 px-1 rounded text-[10px] font-bold bg-white/5 border border-white/10 hover:bg-white/15 text-slate-200 transition-colors cursor-pointer"
+                  title={`Set tone: ${label}`}
+                  aria-label={`Set tone ${label}`}
+                >
+                  {Icon && <Icon size={10} />}
+                  <span>{label}</span>
                 </button>
               ))}
             </div>
