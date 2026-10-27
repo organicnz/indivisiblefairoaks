@@ -296,3 +296,16 @@ export interface VisualComposerSectionPreset {
   badge: string;
   apply: () => Partial<VisualComposerStyles>;
 }
+
+export type VisualComposerPresetTab = 'blocks' | 'sections' | 'saved';
+
+export type VisualComposerPresetCategoryFilter =
+  | 'all'
+  | 'civic'
+  | 'hero'
+  | 'glass'
+  | 'card'
+  | 'alert'
+  | 'editorial'
+  | 'clean'
+  | 'saved';

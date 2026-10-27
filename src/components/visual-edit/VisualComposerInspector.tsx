@@ -398,7 +398,7 @@ export function VisualComposerInspector({
         )}
 
         {inspectorMode === 'block' && activeTab === 'presets' && (
-          <PresetStudio onApplyPreset={handleApplyPreset} />
+          <PresetStudio onApplyPreset={handleApplyPreset} styles={styles} setStyles={setStyles} />
         )}
 
         {inspectorMode === 'block' && activeTab === 'design' && (

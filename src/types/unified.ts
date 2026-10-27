@@ -131,6 +131,8 @@ export type {
   VisualComposerMotionTab,
   VisualComposerPreset,
   VisualComposerPresetCategory,
+  VisualComposerPresetCategoryFilter,
+  VisualComposerPresetTab,
   VisualComposerResponsive,
   VisualComposerSection,
   VisualComposerSectionPreset,

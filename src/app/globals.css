@@ -12,10 +12,11 @@
    script (see `lib/theme.ts`) has already folded the OS preference into the
    attribute. Keyed on the element *or* any ancestor so a `dark:` class works
    whether the palette lands on `<html>` or a nested root. */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme-mode="dark"], [data-theme="dark"] *, [data-theme-mode="dark"] *, .dark, .dark *));
 
 :root,
-[data-theme='light'] {
+[data-theme='light'],
+[data-theme-mode='light'] {
   color-scheme: light;
   --background: #eef4ff;
   --foreground: #0f1f3d;
@@ -86,6 +87,7 @@
    `lib/theme.ts` and `components/layout/theme-store.ts`).
 ───────────────────────────────────────────────────────────────────────────── */
 [data-theme='dark'],
+[data-theme-mode='dark'],
 .dark {
   color-scheme: dark;
   --background: #16305c;
