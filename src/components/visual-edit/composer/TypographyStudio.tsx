@@ -3,49 +3,17 @@
 import { useState } from 'react';
 import type { VisualComposerStyles, VisualComposerTypographyTab } from '@/types/unified';
 import {
-  FONT_FAMILY_OPTIONS,
-  FONT_SIZE_OPTIONS,
-  FONT_SMOOTHING_OPTIONS,
-  FONT_STYLE_OPTIONS,
-  FONT_WEIGHT_OPTIONS,
-  LETTER_SPACING_OPTIONS,
-  LINE_HEIGHT_OPTIONS,
-  TEXT_COLUMNS_OPTIONS,
-  TEXT_DECORATION_OPTIONS,
-  TEXT_GRADIENT_OPTIONS,
-  TEXT_SHADOW_OPTIONS,
-  TEXT_TRANSFORM_OPTIONS,
-  TEXT_WRAP_OPTIONS,
-  TYPOGRAPHY_EFFECTS_PRESETS,
-  TYPOGRAPHY_PALETTE_PRESETS,
   TypographyEditorialStudio,
   TypographyEffectsStudio,
   TypographyPaletteStudio,
   TypographyScaleStudio,
-  WORD_BREAK_OPTIONS,
 } from './typography';
 
 export {
-  FONT_FAMILY_OPTIONS,
-  FONT_SIZE_OPTIONS,
-  FONT_SMOOTHING_OPTIONS,
-  FONT_STYLE_OPTIONS,
-  FONT_WEIGHT_OPTIONS,
-  LETTER_SPACING_OPTIONS,
-  LINE_HEIGHT_OPTIONS,
-  TEXT_COLUMNS_OPTIONS,
-  TEXT_DECORATION_OPTIONS,
-  TEXT_GRADIENT_OPTIONS,
-  TEXT_SHADOW_OPTIONS,
-  TEXT_TRANSFORM_OPTIONS,
-  TEXT_WRAP_OPTIONS,
-  TYPOGRAPHY_EFFECTS_PRESETS,
-  TYPOGRAPHY_PALETTE_PRESETS,
   TypographyEditorialStudio,
   TypographyEffectsStudio,
   TypographyPaletteStudio,
   TypographyScaleStudio,
-  WORD_BREAK_OPTIONS,
 };
 
 export type TypographyStudioTab = VisualComposerTypographyTab;

@@ -166,13 +166,16 @@ describe('TypographyStudio & Sub-Studios', () => {
     expect(currentStyles.typography.textDecoration).toBe('');
   });
 
-  it('renders TypographyEditorialStudio and triggers font posture change', async () => {
-    const setStyles = vi.fn();
+  it('renders TypographyEditorialStudio and triggers font posture change and editorial presets', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
 
     await act(async () => {
       root.render(
         <TypographyEditorialStudio
-          styles={DEFAULT_VC_STYLES}
+          styles={currentStyles}
           setStyles={setStyles}
           fontStyleSelectId="font-style-select"
           textColumnsSelectId="text-columns-select"
@@ -181,7 +184,12 @@ describe('TypographyStudio & Sub-Studios', () => {
     });
 
     expect(container.textContent).toContain('Editorial Posture, Wrap & Columns');
+    expect(container.textContent).toContain('Live Editorial Flow Stage');
+    expect(container.textContent).toContain('1-Click Editorial Presets');
     expect(container.textContent).toContain('Font Posture / Style');
+
+    const preview = container.querySelector('[data-testid="typography-editorial-preview-text"]');
+    expect(preview).not.toBeNull();
 
     const select = container.querySelector('#font-style-select') as HTMLSelectElement;
     expect(select).not.toBeNull();
@@ -192,6 +200,33 @@ describe('TypographyStudio & Sub-Studios', () => {
     });
 
     expect(setStyles).toHaveBeenCalled();
+    expect(currentStyles.typography.fontStyle).toBe('italic');
+
+    // Click 1-Click Preset: 2-Column Newspaper
+    const newspaperBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('2-Column Newspaper')
+    );
+    expect(newspaperBtn).toBeDefined();
+
+    await act(async () => {
+      newspaperBtn?.click();
+    });
+
+    expect(currentStyles.typography.textColumns).toBe('columns-1 md:columns-2 gap-8');
+    expect(currentStyles.typography.textWrap).toBe('text-pretty');
+
+    // Click Reset Editorial
+    const resetEditorialBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Reset Editorial')
+    );
+    expect(resetEditorialBtn).toBeDefined();
+
+    await act(async () => {
+      resetEditorialBtn?.click();
+    });
+
+    expect(currentStyles.typography.textColumns).toBe('');
+    expect(currentStyles.typography.textWrap).toBe('');
   });
 
   it('renders complete composed TypographyStudio with sub-tabs', async () => {

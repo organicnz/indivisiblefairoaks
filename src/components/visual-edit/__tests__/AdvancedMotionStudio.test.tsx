@@ -217,13 +217,16 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
     expect(currentStyles.motion.timing).toBe('');
   });
 
-  it('renders MotionAdvancedStudio and toggles responsive visibility', async () => {
-    const setStyles = vi.fn();
+  it('renders MotionAdvancedStudio and toggles responsive visibility, simulator and presets', async () => {
+    let currentStyles = { ...DEFAULT_VC_STYLES };
+    const setStyles = vi.fn((update) => {
+      currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+    });
 
     await act(async () => {
       root.render(
         <MotionAdvancedStudio
-          styles={DEFAULT_VC_STYLES}
+          styles={currentStyles}
           setStyles={setStyles}
           anchorIdInputId="test-anchor-id"
           compiledClassNames="p-4 bg-slate-900"
@@ -232,21 +235,49 @@ describe('AdvancedMotionStudio & Sub-Studios', () => {
     });
 
     expect(container.textContent).toContain('Page Anchor & Linking');
+    expect(container.textContent).toContain('Quick Anchors:');
     expect(container.textContent).toContain('Responsive Device Visibility');
+    expect(container.textContent).toContain('Live Viewport Visibility Simulator');
+    expect(container.textContent).toContain('1-Click Visibility Presets');
     expect(container.textContent).toContain('Generated CSS Class Output');
     expect(container.textContent).toContain('p-4 bg-slate-900');
 
-    // Click on Hide on Mobile toggle
-    const toggleButton = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Hide on Mobile')
+    // Click Quick Anchor Chip: #rally-info
+    const rallyChip = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('#rally-info')
     );
-    expect(toggleButton).toBeDefined();
+    expect(rallyChip).toBeDefined();
 
-    act(() => {
-      toggleButton?.click();
+    await act(async () => {
+      rallyChip?.click();
     });
 
-    expect(setStyles).toHaveBeenCalled();
+    expect(currentStyles.anchorId).toBe('rally-info');
+
+    // Click device simulator for hideMobile
+    const mobileSimulatorBtn = container.querySelector(
+      '[data-testid="device-simulator-hideMobile"]'
+    ) as HTMLButtonElement;
+    expect(mobileSimulatorBtn).not.toBeNull();
+
+    await act(async () => {
+      mobileSimulatorBtn.click();
+    });
+
+    expect(currentStyles.responsive.hideMobile).toBe(true);
+
+    // Click 1-Click Preset: Universal (All Screens)
+    const universalBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Universal (All Screens)')
+    );
+    expect(universalBtn).toBeDefined();
+
+    await act(async () => {
+      universalBtn?.click();
+    });
+
+    expect(currentStyles.responsive.hideMobile).toBe(false);
+    expect(currentStyles.responsive.hideDesktop).toBe(false);
   });
 
   it('renders complete composed AdvancedMotionStudio without errors', async () => {

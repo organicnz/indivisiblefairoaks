@@ -426,3 +426,19 @@ export interface VisualComposerTypographyEffectsPreset {
   badge: string;
   apply: () => Partial<VisualComposerTypography>;
 }
+
+export interface VisualComposerTypographyEditorialPreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerTypography>;
+}
+
+export interface VisualComposerResponsivePreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerResponsive>;
+}

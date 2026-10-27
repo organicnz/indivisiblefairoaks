@@ -3,49 +3,14 @@
 import { useState } from 'react';
 import type { VisualComposerMotionTab, VisualComposerStyles } from '@/types/unified';
 import {
-  DELAY_OPTIONS,
-  DURATION_OPTIONS,
-  ENTRANCE_OPTIONS,
-  HOVER_BG_OPTIONS,
-  HOVER_BORDER_OPTIONS,
-  HOVER_GLOW_OPTIONS,
-  HOVER_LIFT_OPTIONS,
-  HOVER_OPTIONS,
-  HOVER_ROTATE_OPTIONS,
-  HOVER_SCALE_OPTIONS,
-  HOVER_SHADOW_OPTIONS,
-  HOVER_TEXT_COLOR_OPTIONS,
-  MOTION_PRESETS,
   MotionAdvancedStudio,
   MotionEntranceStudio,
   MotionHoverStudio,
   MotionTimingStudio,
-  TIMING_OPTIONS,
-  TIMING_PRESETS,
 } from './motion';
 import { StudioSection } from './ui';
 
-export {
-  DELAY_OPTIONS,
-  DURATION_OPTIONS,
-  ENTRANCE_OPTIONS,
-  HOVER_BG_OPTIONS,
-  HOVER_BORDER_OPTIONS,
-  HOVER_GLOW_OPTIONS,
-  HOVER_LIFT_OPTIONS,
-  HOVER_OPTIONS,
-  HOVER_ROTATE_OPTIONS,
-  HOVER_SCALE_OPTIONS,
-  HOVER_SHADOW_OPTIONS,
-  HOVER_TEXT_COLOR_OPTIONS,
-  MOTION_PRESETS,
-  MotionAdvancedStudio,
-  MotionEntranceStudio,
-  MotionHoverStudio,
-  MotionTimingStudio,
-  TIMING_OPTIONS,
-  TIMING_PRESETS,
-};
+export { MotionAdvancedStudio, MotionEntranceStudio, MotionHoverStudio, MotionTimingStudio };
 
 export type AdvancedMotionStudioTab = VisualComposerMotionTab;
 
