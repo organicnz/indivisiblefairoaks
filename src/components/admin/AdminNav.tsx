@@ -36,7 +36,6 @@ const ITEMS: AdminNavItem[] = [
   { href: '/admin/news', label: 'News', icon: Newspaper },
   { href: '/admin/links', label: 'Links', icon: Link2 },
   { href: '/admin/crm', labelKey: 'admin.nav.crm', label: 'Civic CRM', icon: UsersRound },
-  { href: '/admin/orders', labelKey: 'admin.nav.orders', label: 'Orders', icon: ShoppingBag },
   { href: '/admin/products', labelKey: 'admin.nav.products', label: 'Products', icon: Package },
   { href: '/admin/customers', labelKey: 'admin.nav.customers', label: 'Customers', icon: Users },
   {
@@ -45,6 +44,11 @@ const ITEMS: AdminNavItem[] = [
     label: 'Coupons',
     icon: BadgePercent,
   },
+];
+
+/** Legacy admin navigation items preserved for reference and data-points contract */
+export const LEGACY_ADMIN_ITEMS: AdminNavItem[] = [
+  { href: '/admin/orders', labelKey: 'admin.nav.orders', label: 'Orders', icon: ShoppingBag },
 ];
 
 export function AdminNav() {

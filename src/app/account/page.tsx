@@ -101,15 +101,14 @@ export default async function AccountPage(props: {
 
   const isAdmin = profile?.is_admin === true;
 
-  // Unchanged semantics — an unknown or absent `?tab` still falls back to the
-  // admin/orders default, and a non-admin asking for `?tab=admin` still renders
-  // the orders panel (the `panel` branch below requires `isAdmin`). The
-  // allowlist exists for the *return path* through /auth/mfa, not for this.
-  const activeTab = sp.tab ?? (isAdmin ? 'admin' : 'orders');
+  // The legacy order experience is hidden from active navigation tabs.
+  // Absent ?tab falls back to 'settings' (Profile, Security & Session control).
+  // Explicit ?tab=admin or ?tab=orders remains supported for backwards reference.
+  const activeTab = sp.tab ?? 'settings';
 
   // Fetch data
   const [allOrdersResult, myOrdersResult, dataPoints] = await Promise.all([
-    isAdmin
+    isAdmin && (sp.tab === 'admin' || sp.tab === 'orders')
       ? createAdminClient().then((ac) =>
           ac
             .from('orders')
@@ -121,7 +120,7 @@ export default async function AccountPage(props: {
             .limit(200)
         )
       : Promise.resolve({ data: [] as AdminOrder[] }),
-    profile
+    profile && (sp.tab === 'orders' || sp.tab === 'admin')
       ? supabase
           .from('orders')
           .select('id, created_at, status, total, order_items(product_name, quantity, unit_price)')
@@ -135,32 +134,39 @@ export default async function AccountPage(props: {
   const myOrders = (myOrdersResult.data ?? []) as MyOrder[];
   const processing = allOrders.filter((o) => o.status === 'processing').length;
 
+  const showLegacyOrders = sp.tab === 'admin' || sp.tab === 'orders';
   const tabs = [
-    ...(isAdmin
-      ? [
-          {
-            id: 'admin',
-            label: dataPoints['account.tab.all_orders'] || 'All Orders',
-            badge: processing,
-          },
-        ]
-      : []),
-    {
-      id: 'orders',
-      label: isAdmin
-        ? dataPoints['account.tab.my_orders'] || 'My Orders'
-        : dataPoints['account.tab.orders'] || 'Orders',
-    },
     {
       id: 'settings',
       label: dataPoints['account.tab.settings'] || 'Settings',
     },
+    ...(showLegacyOrders
+      ? [
+          ...(isAdmin
+            ? [
+                {
+                  id: 'admin',
+                  label: dataPoints['account.tab.all_orders'] || 'All Orders',
+                  badge: processing,
+                },
+              ]
+            : []),
+          {
+            id: 'orders',
+            label: isAdmin
+              ? dataPoints['account.tab.my_orders'] || 'My Orders'
+              : dataPoints['account.tab.orders'] || 'Orders',
+          },
+        ]
+      : []),
   ];
 
   let panel: React.ReactNode;
   if (activeTab === 'admin' && isAdmin) {
     panel = <AdminOrdersPanel orders={allOrders} />;
-  } else if (activeTab === 'settings') {
+  } else if (activeTab === 'orders') {
+    panel = <MyOrdersPanel orders={myOrders} />;
+  } else {
     panel = (
       <div className="max-w-2xl space-y-12">
         <UserSettings />
@@ -181,8 +187,6 @@ export default async function AccountPage(props: {
         </div>
       </div>
     );
-  } else {
-    panel = <MyOrdersPanel orders={myOrders} />;
   }
 
   return (
