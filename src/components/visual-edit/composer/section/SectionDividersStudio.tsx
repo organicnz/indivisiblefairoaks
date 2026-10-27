@@ -1,6 +1,9 @@
 'use client';
 
+import { RotateCcw, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import type { VisualComposerStyles } from '@/types/unified';
+import { SHAPE_DIVIDER_PRESETS } from '../constants';
 import { StudioSection, StudioSelect } from '../ui';
 
 export interface SectionDividersStudioProps {
@@ -42,6 +45,152 @@ export function SectionDividersStudio({
 }: SectionDividersStudioProps) {
   return (
     <>
+      {/* ── Section Shape & Boundary Geometry Visualizer ── */}
+      <StudioSection
+        title="Shape Dividers & Boundary Geometry"
+        badge="Visualizer"
+        description="Interactive live geometry preview and 1-click architectural section dividers."
+      >
+        <div className="p-3 rounded-xl border border-white/10 bg-slate-900/60 flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+              <Sparkles size={12} className="text-accent-gold" />
+              <span>Live Section Boundary Preview</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setStyles((prev) => ({
+                  ...prev,
+                  section: {
+                    ...prev.section,
+                    divider: '',
+                    topDivider: '',
+                    bottomDivider: '',
+                    dividerColor: '',
+                    radius: 'rounded-none',
+                    border: '',
+                    shadow: 'shadow-none',
+                  },
+                }));
+                toast.success('Reset section boundaries to flush rectangular');
+              }}
+              className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded hover:bg-white/5 cursor-pointer"
+            >
+              <RotateCcw size={10} />
+              <span>Reset Boundaries</span>
+            </button>
+          </div>
+
+          {/* Simulated Section Outer Canvas */}
+          <div className="relative w-full h-28 rounded-lg bg-black/40 border border-white/5 p-2 flex items-center justify-center overflow-hidden">
+            <div
+              className={`w-full h-full flex flex-col justify-between p-2 transition-all duration-300 relative ${styles.section.radius || 'rounded-none'} ${styles.section.border || 'border'} ${styles.section.borderColor || 'border-border'} ${styles.section.shadow || 'shadow-none'} ${styles.effects.backdropBlur || ''} ${styles.section.overflow || ''} bg-slate-800/60`}
+            >
+              {/* Top Divider Indicator Bar */}
+              <div className="w-full flex items-center justify-center">
+                {styles.section.topDivider ? (
+                  <div
+                    className={`w-full h-1.5 rounded-full ${styles.section.dividerColor || 'bg-amber-500/60'} animate-pulse`}
+                  />
+                ) : (
+                  <span className="text-[8px] text-slate-400 tracking-wider font-mono">
+                    TOP FLUSH
+                  </span>
+                )}
+              </div>
+
+              {/* Center Simulated Section Body */}
+              <div className="flex flex-col items-center justify-center gap-0.5">
+                <span className="text-[10px] font-bold text-white tracking-wide">
+                  Section Canvas Surface
+                </span>
+                <span className="text-[8px] text-slate-400 font-mono">
+                  {styles.section.containerWidth || 'Standard Container'} •{' '}
+                  {styles.section.paddingY || 'py-8'}
+                </span>
+              </div>
+
+              {/* Bottom Divider Indicator Bar */}
+              <div className="w-full flex items-center justify-center">
+                {styles.section.bottomDivider ? (
+                  <div
+                    className={`w-full h-1.5 rounded-full ${styles.section.dividerColor || 'bg-amber-500/60'} animate-pulse`}
+                  />
+                ) : (
+                  <span className="text-[8px] text-slate-400 tracking-wider font-mono">
+                    BOTTOM FLUSH
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Live Badge Metas */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/5 border border-white/10 text-slate-300">
+              Radius:{' '}
+              <strong className="text-white">{styles.section.radius || 'Square (0)'}</strong>
+            </span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/5 border border-white/10 text-slate-300">
+              Shadow:{' '}
+              <strong className="text-white">{styles.section.shadow || 'Flat (None)'}</strong>
+            </span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/5 border border-white/10 text-slate-300">
+              Top:{' '}
+              <strong className="text-accent-gold">
+                {styles.section.topDivider ? 'Custom Shape' : 'Flush'}
+              </strong>
+            </span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/5 border border-white/10 text-slate-300">
+              Bottom:{' '}
+              <strong className="text-accent-gold">
+                {styles.section.bottomDivider ? 'Custom Shape' : 'Flush'}
+              </strong>
+            </span>
+            {styles.effects.backdropBlur && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-accent-gold/10 border border-accent-gold/30 text-accent-gold">
+                Glass: {styles.effects.backdropBlur}
+              </span>
+            )}
+          </div>
+
+          {/* 1-Click Divider Presets */}
+          <div className="pt-1 border-t border-white/5">
+            <span className="text-[10px] font-bold text-slate-300 mb-1.5 block">
+              1-Click Boundary Presets
+            </span>
+            <div className="grid grid-cols-2 gap-1.5">
+              {SHAPE_DIVIDER_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => {
+                    const applied = preset.apply();
+                    setStyles((prev) => ({
+                      ...prev,
+                      section: {
+                        ...prev.section,
+                        ...applied,
+                      },
+                    }));
+                    toast.success(`Applied ${preset.name}`);
+                  }}
+                  className="flex items-center justify-between text-left px-2 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 hover:border-accent-gold/40 transition-all cursor-pointer group"
+                >
+                  <span className="text-[10px] font-medium text-white group-hover:text-accent-gold truncate">
+                    {preset.name}
+                  </span>
+                  <span className="text-[8px] px-1 py-0.2 rounded font-mono font-bold bg-accent-gold/20 text-accent-gold border border-accent-gold/30 shrink-0 ml-1">
+                    {preset.badge}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </StudioSection>
+
       {/* ── 5. Borders & Glassmorphism ──────────────────────────────────── */}
       {showBorders && (
         <StudioSection

@@ -301,6 +301,27 @@ export interface VisualComposerSectionPreset {
   apply: () => Partial<VisualComposerStyles>;
 }
 
+export type VisualComposerSectionPresetCategoryFilter =
+  | 'all'
+  | 'hero'
+  | 'grid'
+  | 'split'
+  | 'glass'
+  | 'alert'
+  | 'editorial'
+  | 'metrics'
+  | 'video'
+  | 'clean'
+  | 'faq';
+
+export interface VisualComposerShapeDividerPreset {
+  id: string;
+  name: string;
+  description: string;
+  badge: string;
+  apply: () => Partial<VisualComposerSection>;
+}
+
 export type VisualComposerPresetTab = 'blocks' | 'sections' | 'saved';
 
 export type VisualComposerPresetCategoryFilter =

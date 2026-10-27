@@ -3,10 +3,11 @@ import type {
   VisualComposerCivicPreset,
   VisualComposerColumnPreset,
   VisualComposerSectionPreset,
+  VisualComposerShapeDividerPreset,
   VisualComposerStyles,
 } from '@/types/unified';
 
-export type { StylePreset, VisualComposerSectionPreset };
+export type { StylePreset, VisualComposerSectionPreset, VisualComposerShapeDividerPreset };
 
 export const DEFAULT_VC_STYLES: VisualComposerStyles = {
   margin: { top: 'my-2', bottom: '', left: '', right: '' },
@@ -745,6 +746,160 @@ export const SECTION_PRESETS: readonly VisualComposerSectionPreset[] = [
         borderColor: 'border-border',
         themeMode: 'inherit',
       },
+    }),
+  },
+  {
+    id: 'stat-counter-grid-section',
+    name: 'Civic Impact Metrics Grid',
+    description:
+      'High-impact 4-column metrics dashboard with subtle card highlights and gold accents',
+    badge: 'Metrics',
+    apply: () => ({
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        containerWidth: 'max-w-6xl mx-auto px-4',
+        columns: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+        columnGap: 'gap-6',
+        rowGap: 'gap-y-6',
+        paddingY: 'py-12',
+        background: 'bg-slate-900/50',
+        border: 'border',
+        borderColor: 'border-amber-500/30',
+        radius: 'rounded-3xl',
+        shadow: 'shadow-xl',
+        themeMode: 'dark',
+      },
+    }),
+  },
+  {
+    id: 'video-spotlight-section',
+    name: 'Atmospheric Video Spotlight',
+    description: 'Cinematic wide container with dark backdrop and dramatic elevation',
+    badge: 'Video',
+    apply: () => ({
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        containerWidth: 'max-w-5xl mx-auto px-4',
+        paddingY: 'py-16',
+        paddingX: 'px-6',
+        background: 'bg-slate-950/90',
+        border: 'border',
+        borderColor: 'border-white/10',
+        radius: 'rounded-3xl',
+        shadow: 'shadow-2xl',
+        overflow: 'overflow-hidden',
+        themeMode: 'dark',
+      },
+    }),
+  },
+  {
+    id: 'clean-minimal-cards-section',
+    name: 'Clean Minimal Card Stack',
+    description: 'Modern unadorned surface with subtle hairline borders and generous spacing',
+    badge: 'Clean',
+    apply: () => ({
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        containerWidth: 'max-w-5xl mx-auto px-4',
+        columns: 'grid grid-cols-1 md:grid-cols-2',
+        columnGap: 'gap-8',
+        paddingY: 'py-10',
+        background: 'bg-transparent',
+        border: 'border-y',
+        borderColor: 'border-border',
+        themeMode: 'inherit',
+      },
+    }),
+  },
+  {
+    id: 'faq-accordion-section',
+    name: 'Civic Town Hall Q&A Accordion',
+    description: 'Focused single-column container styled for clear readable inquiries & answers',
+    badge: 'FAQ',
+    apply: () => ({
+      section: {
+        ...DEFAULT_VC_STYLES.section,
+        containerWidth: 'max-w-3xl mx-auto px-4',
+        paddingY: 'py-12',
+        paddingX: 'px-6',
+        background: 'bg-slate-900/30',
+        border: 'border',
+        borderColor: 'border-border',
+        radius: 'rounded-2xl',
+        themeMode: 'inherit',
+      },
+    }),
+  },
+] as const;
+
+export const SHAPE_DIVIDER_PRESETS: readonly VisualComposerShapeDividerPreset[] = [
+  {
+    id: 'clean-flush',
+    name: 'Clean Flush Edge',
+    description: 'No dividers or clipping, standard clean rectangular boundary',
+    badge: 'Clean',
+    apply: () => ({
+      divider: '',
+      topDivider: '',
+      bottomDivider: '',
+      dividerColor: '',
+      overflow: '',
+    }),
+  },
+  {
+    id: 'gold-accent-arch',
+    name: 'Civic Gold Banner & Arch',
+    description: 'Gold accent top header bar with smooth curved arch bottom footer',
+    badge: 'Arch',
+    apply: () => ({
+      topDivider: 'border-t-4 border-amber-500',
+      bottomDivider: 'rounded-b-[2.5rem] border-b-2 border-border',
+      dividerColor: 'text-amber-500/40',
+      overflow: 'overflow-hidden',
+    }),
+  },
+  {
+    id: 'dynamic-angular-slant',
+    name: 'Dynamic Angular Slopes',
+    description: 'Modern polygonal diagonal cutouts creating high-energy transitions',
+    badge: 'Slant',
+    apply: () => ({
+      topDivider: '[clip-path:polygon(0_3vw,100%_0,100%_100%,0_100%)]',
+      bottomDivider: '[clip-path:polygon(0_0,100%_0,100%_calc(100%-3vw),0_100%)]',
+      overflow: 'overflow-hidden',
+    }),
+  },
+  {
+    id: 'radiant-horizon-glow',
+    name: 'Radiant Gold Horizons',
+    description: 'Glowing ambient gold horizon reflections on top and bottom boundaries',
+    badge: 'Glow',
+    apply: () => ({
+      topDivider: 'shadow-[0_-12px_32px_-8px_rgba(245,158,11,0.3)] border-t border-amber-500/50',
+      bottomDivider: 'shadow-[0_12px_32px_-8px_rgba(245,158,11,0.3)] border-b border-amber-500/50',
+      dividerColor: 'text-amber-500/40',
+    }),
+  },
+  {
+    id: 'pill-cradle-vault',
+    name: 'Curved Dome & Cradle Vault',
+    description: 'Deep architectural dome ceiling and cradled bottom curve',
+    badge: 'Cradle',
+    apply: () => ({
+      topDivider: 'rounded-t-[4rem] border-t-2 border-border',
+      bottomDivider: 'rounded-b-[4rem] border-b-2 border-border',
+      overflow: 'overflow-hidden',
+    }),
+  },
+  {
+    id: 'patriotic-navy-frame',
+    name: 'Patriotic Navy Framing',
+    description: 'Distinguished 4px navy accent headers and footers with subtle depth',
+    badge: 'Navy',
+    apply: () => ({
+      topDivider: 'border-t-4 border-blue-900',
+      bottomDivider: 'border-b-4 border-blue-900',
+      dividerColor: 'text-blue-900/50',
     }),
   },
 ] as const;

@@ -41,6 +41,7 @@ describe('Section Sub-Studios', () => {
       });
 
       expect(container.textContent).toContain('1-Click Section Presets');
+      expect(container.textContent).toContain('10 Pro Templates');
       expect(container.textContent).toContain('Hero Spotlight');
 
       const heroBtn = Array.from(container.querySelectorAll('button')).find((b) =>
@@ -53,6 +54,36 @@ describe('Section Sub-Studios', () => {
       });
 
       expect(setStyles).toHaveBeenCalled();
+    });
+
+    it('filters presets by category pills and search input', async () => {
+      const setStyles = vi.fn();
+
+      await act(async () => {
+        root.render(<SectionPresetsStudio styles={DEFAULT_VC_STYLES} setStyles={setStyles} />);
+      });
+
+      const metricsPill = Array.from(container.querySelectorAll('button')).find(
+        (b) => b.textContent === 'Metrics'
+      );
+      expect(metricsPill).toBeDefined();
+
+      await act(async () => {
+        metricsPill?.click();
+      });
+
+      expect(container.textContent).toContain('Civic Impact Metrics Grid');
+      expect(container.textContent).not.toContain('Civic Hero Spotlight');
+
+      // Test search
+      const input = container.querySelector('input');
+      expect(input).not.toBeNull();
+      await act(async () => {
+        if (input) {
+          input.value = 'Spotlight';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
     });
   });
 
@@ -104,13 +135,16 @@ describe('Section Sub-Studios', () => {
   });
 
   describe('SectionDividersStudio', () => {
-    it('renders borders, shape dividers, and elevation stacking', async () => {
-      const setStyles = vi.fn();
+    it('renders borders, shape dividers, live boundary visualizer, and elevation stacking', async () => {
+      let currentStyles = { ...DEFAULT_VC_STYLES };
+      const setStyles = vi.fn((update) => {
+        currentStyles = typeof update === 'function' ? update(currentStyles) : update;
+      });
 
       await act(async () => {
         root.render(
           <SectionDividersStudio
-            styles={DEFAULT_VC_STYLES}
+            styles={currentStyles}
             setStyles={setStyles}
             sectionRadiusSelectId="test-radius"
             sectionDividerSelectId="test-divider"
@@ -118,11 +152,34 @@ describe('Section Sub-Studios', () => {
         );
       });
 
+      expect(container.textContent).toContain('Shape Dividers & Boundary Geometry');
+      expect(container.textContent).toContain('Live Section Boundary Preview');
+      expect(container.textContent).toContain('1-Click Boundary Presets');
       expect(container.textContent).toContain('Borders, Radius & Glassmorphism');
       expect(container.textContent).toContain('Shape Dividers & Cutouts');
       expect(container.textContent).toContain('Clipping & Stacking Elevation');
       expect(container.querySelector('#test-radius')).not.toBeNull();
       expect(container.querySelector('#test-divider')).not.toBeNull();
+
+      // Click a 1-click boundary preset
+      const archBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Civic Gold Banner & Arch')
+      );
+      expect(archBtn).toBeDefined();
+      await act(async () => {
+        archBtn?.click();
+      });
+      expect(setStyles).toHaveBeenCalled();
+
+      // Click Reset Boundaries button
+      const resetBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Reset Boundaries')
+      );
+      expect(resetBtn).toBeDefined();
+      await act(async () => {
+        resetBtn?.click();
+      });
+      expect(setStyles).toHaveBeenCalled();
     });
   });
 
