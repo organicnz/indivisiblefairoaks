@@ -2781,7 +2781,7 @@ export function VisualEditOverlay() {
               <div
                 role="toolbar"
                 aria-label={`Actions for ${item.label}`}
-                className="pointer-events-auto absolute -top-3.5 left-3 sm:left-6 inline-flex items-center gap-1.5 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-1 text-xs text-ink-on-dark shadow-float backdrop-blur-md transition-all hover:scale-105"
+                className="pointer-events-auto absolute -top-3.5 left-0 -translate-x-full -ml-1 max-sm:left-0 max-sm:translate-x-0 max-sm:-top-8 inline-flex items-center gap-1.5 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-1 text-xs text-ink-on-dark shadow-float backdrop-blur-md transition-all hover:scale-105"
               >
                 <span className="size-2 rounded-full bg-accent-gold animate-pulse" />
                 <span className="font-black text-accent-gold uppercase text-[10px] tracking-wider">
@@ -3148,13 +3148,17 @@ export function VisualEditOverlay() {
           role="toolbar"
           aria-label="Direct in-place text editor controls"
           style={{
-            position: 'fixed',
-            top: `${inlineSession.top}px`,
-            left: `${inlineSession.left}px`,
             zIndex: 9999,
+            right: isVisualComposerOpen ? 'min(100vw, 28rem)' : '0',
           }}
-          className="inline-flex flex-wrap items-center gap-1 rounded-full border border-accent-gold/80 bg-secondary/95 px-3 py-1.5 text-xs text-white shadow-float backdrop-blur-md transition-all duration-150 animate-in fade-in-0 zoom-in-95 pointer-events-auto max-w-[95vw]"
+          className="fixed inset-y-0 w-72 flex flex-col gap-2 border-l border-accent-gold/40 bg-secondary/95 px-3 py-4 text-xs text-white shadow-2xl backdrop-blur-xl pointer-events-auto overflow-y-auto animate-in slide-in-from-right duration-200"
         >
+          <div className="flex items-center justify-between mb-2 border-b border-white/15 pb-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-accent-gold flex items-center gap-1">
+              <PenLine size={12} />
+              <span>Inline Edit</span>
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => void commitInlineEdit(inlineSession)}
@@ -3203,7 +3207,7 @@ export function VisualEditOverlay() {
             </div>
           )}
 
-          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
+          <div className="my-1 h-px w-full bg-white/15" />
 
           <InlineFormatToolbar
             variant="pill"
@@ -3217,7 +3221,7 @@ export function VisualEditOverlay() {
             }}
           />
 
-          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
+          <div className="my-1 h-px w-full bg-white/15" />
 
           {/* Real-time Typography & Accent Styler */}
           <StyleQuickTuner
@@ -3225,7 +3229,7 @@ export function VisualEditOverlay() {
             onOpenVisualComposer={() => setIsVisualComposerOpen(true)}
           />
 
-          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
+          <div className="my-1 h-px w-full bg-white/15" />
 
           {/* Civic AI Ghostwriter & Polish */}
           <CivicGhostwriter
@@ -3243,7 +3247,7 @@ export function VisualEditOverlay() {
             {inlineCounts.words}w · {inlineCounts.chars}c
           </span>
 
-          <div className="mx-0.5 h-3.5 w-px bg-white/20" />
+          <div className="my-1 h-px w-full bg-white/15" />
 
           {/* Quick Slash Commands Palette Trigger */}
           <button
@@ -3259,7 +3263,7 @@ export function VisualEditOverlay() {
 
           {(inlineSession.blockIndex !== null || blocks.length > 0) && (
             <>
-              <div className="mx-0.5 h-3.5 w-px bg-white/20" />
+              <div className="my-1 h-px w-full bg-white/15" />
               <button
                 type="button"
                 onClick={() => {
@@ -3358,19 +3362,19 @@ export function VisualEditOverlay() {
           role="toolbar"
           aria-label="Image asset controls"
           style={{
-            position: 'fixed',
-            top: `${imageSession.top}px`,
-            left: `${imageSession.left}px`,
             zIndex: 9999,
+            right: isVisualComposerOpen ? 'min(100vw, 28rem)' : '0',
           }}
-          className="inline-flex items-center gap-1.5 rounded-full border border-primary-bright/80 bg-secondary/95 px-3 py-1.5 text-xs text-white shadow-float backdrop-blur-md transition-all duration-150 animate-in fade-in-0 zoom-in-95 pointer-events-auto"
+          className="fixed inset-y-0 w-72 flex flex-col gap-2 border-l border-sky-400/40 bg-secondary/95 px-3 py-4 text-xs text-white shadow-2xl backdrop-blur-xl pointer-events-auto overflow-y-auto animate-in slide-in-from-right duration-200"
         >
-          <div className="flex items-center gap-1 text-[11px] font-bold text-primary-on-dark pl-0.5">
-            <ImageIcon size={13} />
-            <span className="hidden sm:inline">Image Asset</span>
+          <div className="flex items-center justify-between mb-2 border-b border-white/15 pb-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1">
+              <ImageIcon size={12} />
+              <span>Image Asset</span>
+            </span>
           </div>
 
-          <div className="mx-1 h-3.5 w-px bg-white/20" />
+          <div className="my-1 h-px w-full bg-white/15" />
 
           <button
             type="button"
