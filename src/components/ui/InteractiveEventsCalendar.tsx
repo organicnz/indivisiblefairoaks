@@ -20,7 +20,8 @@ import { useEditContext } from '@/components/layout/useEditContext';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicEventRecord, deleteCivicEvent } from '@/lib/actions/civic';
-import { buildGoogleCalendarUrl } from '@/lib/civic-events';
+import { instantToPacificBasic } from '@/lib/calendar-time';
+import { buildGoogleCalendarUrl, buildIcsCalendar } from '@/lib/civic-events';
 
 export interface CivicEvent {
   id: string;
@@ -28,6 +29,7 @@ export interface CivicEvent {
   category: 'Meetings' | 'Resistance Choir' | 'Voter Mobilization' | 'Rallies & Street Action';
   dateLabel: string;
   timeLabel: string;
+  /** Pacific wall stamps (`YYYYMMDDTHHMMSS`, no `Z`) — see `@/lib/calendar-time`. */
   isoDateStart: string;
   isoDateEnd: string;
   locationName: string;
@@ -206,10 +208,12 @@ export function InteractiveEventsCalendar({
       category: savedRecord.category,
       dateLabel: savedRecord.date_label,
       timeLabel: savedRecord.time_label,
-      isoDateStart: savedRecord.starts_at
-        ? savedRecord.starts_at.replace(/[-:]/g, '').slice(0, 15)
-        : '',
-      isoDateEnd: savedRecord.ends_at ? savedRecord.ends_at.replace(/[-:]/g, '').slice(0, 15) : '',
+      // Issue #149: a saved record arrives as a UTC instant; render it as
+      // Pacific wall time — the zone the links and the .ics pin explicitly —
+      // instead of slicing the string into a floating stamp the viewer's
+      // clock reinterprets (the original 2:30 AM bug).
+      isoDateStart: instantToPacificBasic(savedRecord.starts_at),
+      isoDateEnd: instantToPacificBasic(savedRecord.ends_at),
       locationName: savedRecord.location_name,
       address: savedRecord.address,
       description: savedRecord.description,
@@ -230,26 +234,14 @@ export function InteractiveEventsCalendar({
   };
 
   // Single Google Calendar builder in `@/lib/civic-events`, shared with the
-  // homepage gathering card so the two links cannot drift into different shapes.
+  // homepage gathering card so the two links cannot drift into different shapes
+  // (and, since issue #149, cannot drift on the timezone contract either).
   const generateGoogleCalendarUrl = (event: CivicEvent) => buildGoogleCalendarUrl(event);
 
   const downloadIcsFile = (event: CivicEvent) => {
-    const icsContent = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//Indivisible Fair Oaks-Carmichael//Civic Calendar//EN',
-      'BEGIN:VEVENT',
-      `UID:${event.id}-${Date.now()}@indivisiblefairoaks.org`,
-      `DTSTAMP:${event.isoDateStart}Z`,
-      `DTSTART:${event.isoDateStart}`,
-      `DTEND:${event.isoDateEnd}`,
-      `SUMMARY:Indivisible: ${event.title}`,
-      `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,
-      `LOCATION:${event.locationName}, ${event.address}`,
-      `URL:${event.rsvpUrl}`,
-      'END:VEVENT',
-      'END:VCALENDAR',
-    ].join('\r\n');
+    // The VCALENDAR text (TZID + VTIMEZONE, RFC-stamped) lives with the other
+    // calendar builders so the download and the links stay one contract.
+    const icsContent = buildIcsCalendar(event);
 
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const link = document.createElement('a');

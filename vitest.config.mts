@@ -89,6 +89,11 @@ export default defineConfig({
         // Homepage gathering-card selection + calendar URL builder (issue #37).
         // Pure and fully covered, so it can only raise the aggregate.
         'src/lib/civic-events.ts',
+        // Pacific wall-time conversion for calendar links (issue #149). Pure
+        // Intl math; measured because the stamps it emits reach Google
+        // Calendar links, .ics downloads and the editor's inputs — the same
+        // surface the November 10 meeting displays through.
+        'src/lib/calendar-time.ts',
         'src/lib/blocks/parse.ts',
         'src/lib/blocks/serialize.ts',
         'src/lib/blocks/types.ts',

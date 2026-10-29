@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+// Issue #149: the GET payload feeds the calendar's rows and links; stamps must
+// be Pacific wall time interpreted by the consumers' `ctz=` / `TZID=`, never a
+// runtime-zone-of-the-server rendering.
+import { instantToPacificBasic } from '@/lib/calendar-time';
 import { createPublicClient, createServerClient } from '@/lib/supabase-server';
 
 const eventSchema = z.object({
@@ -30,17 +34,6 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
-}
-
-function toBasicFormat(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return (
-    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
-    `T${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
-  );
 }
 
 /**
@@ -78,8 +71,8 @@ export async function GET(req: NextRequest) {
       category: row.category,
       dateLabel: row.date_label,
       timeLabel: row.time_label,
-      isoDateStart: toBasicFormat(row.starts_at),
-      isoDateEnd: toBasicFormat(row.ends_at),
+      isoDateStart: instantToPacificBasic(row.starts_at),
+      isoDateEnd: instantToPacificBasic(row.ends_at),
       locationName: row.location_name,
       address: row.address,
       description: row.description,

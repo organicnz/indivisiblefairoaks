@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import type { CivicEvent } from '@/components/ui/InteractiveEventsCalendar';
+// Issue #149: stamps must be Pacific wall time (interpreted downstream by
+// `ctz=` / `TZID=`), never floating values the viewer's clock reinterprets.
+import { instantToPacificBasic } from '@/lib/calendar-time';
 import { createPublicClient } from '@/lib/supabase-server';
 
 // New civic tables predate the next `types:generate` run, so reads go through
@@ -69,18 +72,6 @@ export interface DataPointRow {
   label: string;
 }
 
-/** Basic-format stamp (YYYYMMDDTHHMMSS) for Google Calendar / ICS export. */
-function toBasicFormat(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return (
-    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
-    `T${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
-  );
-}
-
 export async function getEvents(): Promise<CivicEvent[]> {
   'use cache';
   cacheLife('hours');
@@ -100,8 +91,8 @@ export async function getEvents(): Promise<CivicEvent[]> {
       category: row.category as CivicEvent['category'],
       dateLabel: row.date_label,
       timeLabel: row.time_label,
-      isoDateStart: toBasicFormat(row.starts_at),
-      isoDateEnd: toBasicFormat(row.ends_at),
+      isoDateStart: instantToPacificBasic(row.starts_at),
+      isoDateEnd: instantToPacificBasic(row.ends_at),
       locationName: row.location_name,
       address: row.address,
       description: row.description,

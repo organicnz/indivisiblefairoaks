@@ -11,6 +11,10 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { type CivicEventRecord, saveCivicEvent } from '@/lib/actions/civic';
+// Issue #149: both directions of the timestamp round-trip are zone-explicit.
+// Writing: a `datetime-local` value is Pacific wall time, not the organizer's
+// device zone. Reading: the editor sees the chapter's clock, not UTC.
+import { instantToPacificInput, pacificWallToInstant } from '@/lib/calendar-time';
 
 interface CivicEventEditorModalProps {
   isOpen: boolean;
@@ -54,8 +58,12 @@ export function CivicEventEditorModal({
       setCategory(event.category || 'Meetings');
       setDateLabel(event.date_label || '');
       setTimeLabel(event.time_label || '');
-      setStartsAt(event.starts_at ? event.starts_at.slice(0, 16) : '');
-      setEndsAt(event.ends_at ? event.ends_at.slice(0, 16) : '');
+      // Pacific wall rendering: previously this sliced the stored instant
+      // (`2026-11-11T02:30:00+00:00` → `2026-11-11T02:30`), which showed an
+      // organizer on a Pacific laptop the UTC clock and then saved their
+      // re-submission back wrongly via the device-zone write below.
+      setStartsAt(instantToPacificInput(event.starts_at));
+      setEndsAt(instantToPacificInput(event.ends_at));
       setLocationName(event.location_name || '');
       setAddress(event.address || '');
       setDescription(event.description || '');
@@ -102,8 +110,11 @@ export function CivicEventEditorModal({
         category,
         date_label: dateLabel.trim(),
         time_label: timeLabel.trim(),
-        starts_at: startsAt ? new Date(startsAt).toISOString() : null,
-        ends_at: endsAt ? new Date(endsAt).toISOString() : null,
+        // `pacificWallToInstant` reads the input as Pacific wall time on every
+        // device; `new Date(startsAt)` read it in the device's zone and let a
+        // non-Pacific organizer silently corrupt the stored instant.
+        starts_at: pacificWallToInstant(startsAt) || null,
+        ends_at: pacificWallToInstant(endsAt) || null,
         location_name: locationName.trim(),
         address: address.trim(),
         description: description.trim(),
@@ -269,7 +280,7 @@ export function CivicEventEditorModal({
                 htmlFor="civic-event-starts-at"
                 className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1"
               >
-                Start Timestamp (Calendar sync)
+                Start Time (Calendar sync · Pacific)
               </label>
               <input
                 id="civic-event-starts-at"
@@ -285,7 +296,7 @@ export function CivicEventEditorModal({
                 htmlFor="civic-event-ends-at"
                 className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1"
               >
-                End Timestamp (Calendar sync)
+                End Time (Calendar sync · Pacific)
               </label>
               <input
                 id="civic-event-ends-at"
