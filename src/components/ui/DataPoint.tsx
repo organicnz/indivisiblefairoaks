@@ -39,7 +39,7 @@ export function DataPoint({
   const computedGroup = GROUP_ALIASES[rawGroup.toLowerCase()] || rawGroup;
   const { dataPoints } = useDataPoints(computedGroup, initialData);
 
-  const content = dataPoints[name] ?? (fallback || children);
+  const content = dataPoints[name] || fallback || children;
 
   return (
     <Component data-data-point={name} className={className} {...props}>
