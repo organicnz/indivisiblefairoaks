@@ -197,7 +197,7 @@ export default async function ChoirPage() {
 
               <div className="pt-2">
                 <a
-                  href="https://www.mobilize.us/indivisible/"
+                  href="https://www.mobilize.us/indivisible/event/1072857/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-3 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all"
