@@ -37,6 +37,18 @@ export const TRUSTED_DOMAINS = [
   'actblue.com',
   'indivisible.org',
   'indivisibleca.org',
+  // Sister Indivisible chapters and the regional allies restored from the
+  // chapter's Google Sites Links page (issue #150). Same class as
+  // `indivisible.org` above: organizations the chapter vouches for by
+  // publishing them, which an author may also reference from CMS bodies.
+  'indivisiblesacramento.com',
+  'indivisibleyolo.org',
+  'indivisible-roseville-ca.org',
+  'indivisibleeldorado.org',
+  'indivisibleegt.com',
+  '5calls.org',
+  'norcalresist.org',
+  'ardems.org',
   // Sea Cleaners mission partner (donation links live in CharitySection and CMS content).
   'seacleaners.org.nz',
   'givealittle.co.nz',

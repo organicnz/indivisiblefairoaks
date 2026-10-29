@@ -31,6 +31,57 @@ const LINKS_DATA: LinkItem[] = [
       'The national movement to elect progressive leaders and rebuild our democracy. Guides, toolkits, and national call campaigns.',
     badge: 'National Hub',
   },
+  // Sister Indivisible chapters, restored from the chapter's Google Sites Links
+  // page (issue #150 — see migration 20261028120000, which mirrors these rows).
+  {
+    name: 'Indivisible Sacramento',
+    category: 'Movement Partners',
+    url: 'https://indivisiblesacramento.com',
+    description: 'Neighboring Indivisible chapter organizing in Sacramento.',
+  },
+  {
+    name: 'Indivisible Yolo',
+    category: 'Movement Partners',
+    url: 'https://www.indivisibleyolo.org',
+    description: 'Neighboring Indivisible chapter organizing in Yolo County.',
+  },
+  {
+    name: 'Indivisible Roseville',
+    category: 'Movement Partners',
+    url: 'https://www.indivisible-roseville-ca.org',
+    description: 'Neighboring Indivisible chapter organizing in Roseville.',
+  },
+  {
+    name: 'Indivisible El Dorado',
+    category: 'Movement Partners',
+    url: 'https://www.indivisibleeldorado.org',
+    description: 'Neighboring Indivisible chapter organizing in El Dorado County.',
+  },
+  {
+    name: 'Indivisible Elk Grove',
+    category: 'Movement Partners',
+    url: 'https://indivisibleegt.com',
+    description: 'Neighboring Indivisible chapter organizing in Elk Grove.',
+  },
+  {
+    name: '5 Calls',
+    category: 'Civic Education',
+    url: 'https://5calls.org',
+    description: 'An easy way to call your elected officials with scripts for every issue.',
+  },
+  {
+    name: 'NorCal Resist',
+    category: 'Movement Partners',
+    url: 'https://www.norcalresist.org',
+    description:
+      'Community members organizing for a better world through shared resources and support.',
+  },
+  {
+    name: 'American River Democrats',
+    category: 'Movement Partners',
+    url: 'https://www.ardems.org',
+    description: 'Community organization serving East Sacramento County communities.',
+  },
   {
     name: 'Indivisible California State Network',
     category: 'Movement Partners',
