@@ -36,6 +36,7 @@ process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'test-key';
 
 const {
   getContentForEdit,
+  getContentBySlugForEdit,
   getContentList,
   deleteContent,
   duplicateContent,
@@ -78,6 +79,38 @@ describe('getContentForEdit', () => {
     });
 
     await expect(getContentForEdit(5)).rejects.toThrow('connection failed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getContentBySlugForEdit
+// ---------------------------------------------------------------------------
+
+describe('getContentBySlugForEdit', () => {
+  it('returns the row when the slug matches', async () => {
+    const row = { id: 7, slug: 'about', title: 'About Us', body: '<p>x</p>' };
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({ content: { rows: [row] } }),
+    });
+    const result = await getContentBySlugForEdit('about');
+    expect(result).toMatchObject({ id: 7, slug: 'about' });
+  });
+
+  it('returns null when no row matches the slug', async () => {
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({ content: { rows: [] } }),
+    });
+    const result = await getContentBySlugForEdit('nonexistent');
+    expect(result).toBeNull();
+  });
+
+  it('throws when the DB returns an error', async () => {
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({
+        content: { error: { message: 'slug lookup failed' } },
+      }),
+    });
+    await expect(getContentBySlugForEdit('error-slug')).rejects.toThrow('slug lookup failed');
   });
 });
 
@@ -409,6 +442,26 @@ describe('saveContent — featured image validation', () => {
 
     expect(result.success).toBe(false);
     expect(result).toMatchObject({ error: expect.stringContaining('http') });
+  });
+
+  it('rejects a featured image from a foreign host on the production site', async () => {
+    // IS_PRODUCTION_SITE is true in these tests because NEXT_PUBLIC_SITE_URL
+    // is mocked as the apex domain. A foreign https URL must be rejected.
+    requireAdmin.mockResolvedValue({
+      adminClient: createMockAdminClient({ content: { rows: [] } }),
+    });
+
+    const result = await saveContent({
+      title: 'Test page',
+      slug: 'foreign-image-page',
+      status: 'draft',
+      type: 'page',
+      metadata: {},
+      featuredImage: 'https://cdn.external.com/photo.jpg',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result).toMatchObject({ error: expect.stringContaining('uploaded here') });
   });
 
   it('rejects input that fails the schema', async () => {
