@@ -18,7 +18,6 @@ import Link from 'next/link';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { HeroPhotoFrame } from '@/components/home/HeroPhotoFrame';
 import { HomeGalleryPreview } from '@/components/home/HomeGalleryPreview';
-import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
 import type { TickerItem } from '@/components/ui/CivicActionTicker';
 import { CivicActionTicker } from '@/components/ui/CivicActionTicker';
 import { DataPoint } from '@/components/ui/DataPoint';
@@ -557,8 +556,9 @@ export default async function HomePage() {
                   &rdquo;
                 </p>
 
-                {/* Interactive Soundboard */}
-                <ChoirAudioPlayer />
+                {/* Issue #148: the Resistance Radio box (ChoirAudioPlayer) was
+                    removed with the choir page's instance — same component, same
+                    complaint. One line restores it if the chapter wants it here. */}
               </div>
             </div>
           </div>

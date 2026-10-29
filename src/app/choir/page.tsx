@@ -2,7 +2,6 @@ import { Calendar, CheckCircle2, Clock, ExternalLink, Mail, MapPin, Music } from
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CopyRegion } from '@/components/cms/CopyRegion';
-import { ChoirAudioPlayer } from '@/components/ui/ChoirAudioPlayer';
 import { ChoirSongbookExplorer } from '@/components/ui/ChoirSongbookExplorer';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuChoirHarmonics } from '@/components/ui/VgpuChoirHarmonics';
@@ -299,8 +298,9 @@ export default async function ChoirPage() {
           </div>
         </div>
 
-        {/* 10x Pro Interactive Audio Synthesizer */}
-        <ChoirAudioPlayer />
+        {/* Issue #148: the Resistance Radio box (ChoirAudioPlayer) was removed
+            at the chapter's request — the anthem it opened on was the complaint.
+            The component is still in `components/ui/` if the radio returns. */}
 
         {/* 10x Pro Interactive Songbook Explorer */}
         <ChoirSongbookExplorer />
