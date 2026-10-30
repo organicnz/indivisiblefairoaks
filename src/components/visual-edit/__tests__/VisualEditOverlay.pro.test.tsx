@@ -161,11 +161,11 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     expect(dialog?.textContent).toContain('Command Palette');
   });
 
-  it('allows minimizing and expanding the dock toolbar', async () => {
+  it('collapses and expands the editor sidebar', async () => {
     await mount();
 
     const minBtn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Minimize Visual Editor Dock"]'
+      'button[aria-label="Collapse Visual Editor Sidebar"]'
     );
     expect(minBtn).not.toBeNull();
 
@@ -173,9 +173,9 @@ describe('VisualEditOverlay 10x Pro Features', () => {
       minBtn?.click();
     });
 
-    // In minimized state, there is an expand button
+    // In collapsed state, there is an expand button
     const expandBtn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Expand Visual Editor Dock"]'
+      'button[aria-label="Expand Visual Editor Sidebar"]'
     );
     expect(expandBtn).not.toBeNull();
 
@@ -183,31 +183,12 @@ describe('VisualEditOverlay 10x Pro Features', () => {
       expandBtn?.click();
     });
 
-    // Returns to full dock
+    // Returns to full sidebar
     expect(
-      container.querySelector<HTMLButtonElement>('button[aria-label="Minimize Visual Editor Dock"]')
+      container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Collapse Visual Editor Sidebar"]'
+      )
     ).not.toBeNull();
-  });
-
-  it('allows repositioning the dock between top and bottom', async () => {
-    await mount();
-
-    const posBtn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Move dock to top"]'
-    );
-    expect(posBtn).not.toBeNull();
-
-    await act(async () => {
-      posBtn?.click();
-    });
-
-    const dock = container.querySelector('[aria-label="Visual Editor Toolbar"]');
-    expect(dock?.className).toContain('top-3');
-
-    const flipBackBtn = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Move dock to bottom"]'
-    );
-    expect(flipBackBtn).not.toBeNull();
   });
 
   it('toggles live inspector HUD state', async () => {

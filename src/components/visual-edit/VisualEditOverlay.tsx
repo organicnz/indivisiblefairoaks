@@ -5,54 +5,29 @@ import {
   Activity,
   ArrowDown,
   ArrowUp,
-  Calendar,
-  Check,
   ClipboardCopy,
   ClipboardPaste,
   Code,
   Copy,
-  Database,
   Download,
-  ExternalLink,
-  Eye,
   EyeOff,
   FileEdit,
-  FilePlus2,
   FolderOpen,
   Globe,
   History,
   Image as ImageIcon,
-  ImagePlus,
   Keyboard,
   Layers,
   LayoutTemplate,
-  Link as LinkIcon,
-  ListTree,
   Loader2,
-  Maximize2,
-  Minimize2,
-  Monitor,
-  Moon,
-  Newspaper,
   PenLine,
   Plus,
-  Redo2,
   RefreshCw,
-  RotateCw,
-  Search,
-  Settings,
-  ShieldCheck,
   SlidersHorizontal,
-  Smartphone,
   Sparkles,
-  Sun,
-  Tablet,
   Trash2,
-  Undo2,
   Upload,
   UploadCloud,
-  UsersRound,
-  X,
 } from 'lucide-react';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -107,7 +82,6 @@ import {
   undo as undoHistory,
 } from '@/lib/editor-history';
 import { saveDataPoint } from '@/lib/queries/civic-client';
-import { themeModeLabel } from '@/lib/theme';
 import { isStaleConflict } from '@/lib/visual-edit/conflict';
 import { extractBlocksFromDOM } from '@/lib/visual-edit/extract-blocks-from-dom';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
@@ -137,7 +111,6 @@ import type {
 } from '@/types/unified';
 import { BlockLibraryModal, type BlockTemplate } from './BlockLibraryModal';
 import { BreadcrumbBar } from './BreadcrumbBar';
-import { CivicGhostwriter } from './CivicGhostwriter';
 import { CommandPalette } from './CommandPalette';
 import { CRMPanel } from './CRMPanel';
 import { DataPointDrawer } from './DataPointDrawer';
@@ -150,7 +123,6 @@ import {
 import { PageA11yAuditor } from './PageA11yAuditor';
 import { PageNavigatorDrawer } from './PageNavigatorDrawer';
 import { SlashCommandMenu } from './SlashCommandMenu';
-import { StyleQuickTuner } from './StyleQuickTuner';
 import { runTextareaFormatCommand } from './textareaFormat';
 import { useBlockWriter } from './useBlockWriter';
 import { ViewportDeviceBar } from './ViewportDeviceBar';
@@ -166,6 +138,7 @@ import {
   type ModifiedDataPointItem,
   VisualDiffModal,
 } from './VisualDiffModal';
+import { VisualEditorSidebar } from './VisualEditorSidebar';
 
 /**
  * Visual editing surface for every page across the site.
@@ -242,24 +215,6 @@ const CONVERT_BLOCK_OPTIONS: ReadonlyArray<{
   { type: 'quote', label: 'Quote Block' },
   { type: 'bulletList', label: 'Bullet List' },
   { type: 'code', label: 'Code Snippet' },
-];
-
-/** Every command the floating pill offers, in run order. */
-const INLINE_FORMAT_COMMANDS: readonly InlineFormatCommand[] = [
-  'bold',
-  'italic',
-  'underline',
-  'strikethrough',
-  'code',
-  'highlight',
-  'bulletList',
-  'orderedList',
-  'link',
-  'unlink',
-  'clear',
-  'h2',
-  'h3',
-  'paragraph',
 ];
 
 /**
@@ -436,6 +391,22 @@ export function VisualEditOverlay() {
   // Backend health details popover state
   const [showHealthDetails, setShowHealthDetails] = useState(false);
 
+  /**
+   * The single path into the Visual Composer Inspector.
+   *
+   * The dock, the floating rails, the section pills, the context menu and the
+   * keyboard shortcut each used to carry their own copy of the same four
+   * setter calls, and the copies had already agreed with each other only by
+   * luck. One handler, so the next trigger cannot forget the index or the
+   * mode.
+   */
+  const openVisualComposer = useCallback((mode: 'block' | 'section', blockIndex: number) => {
+    setActiveBlockIndex(blockIndex);
+    setVcBlockIndex(blockIndex);
+    setVcMode(mode);
+    setIsVisualComposerOpen(true);
+  }, []);
+
   // Direct In-Place Click-To-Edit Session State
   const [inlineSession, setInlineSession] = useState<InlineEditSession | null>(null);
   const inlineSessionRef = useRef<InlineEditSession | null>(null);
@@ -511,16 +482,6 @@ export function VisualEditOverlay() {
       return false;
     }
   });
-  const [dockPosition, setDockPosition] = useState<'bottom' | 'top'>(() => {
-    try {
-      const pos =
-        typeof window !== 'undefined' ? window.localStorage?.getItem('visual_edit_dock_pos') : null;
-      return pos === 'top' ? 'top' : 'bottom';
-    } catch {
-      return 'bottom';
-    }
-  });
-
   const toggleInspector = useCallback(() => {
     setShowInspector((prev) => {
       const next = !prev;
@@ -528,16 +489,6 @@ export function VisualEditOverlay() {
         window.localStorage?.setItem('visual_edit_inspector', String(next));
       } catch {}
       toast.info(`Inspector HUD ${next ? 'enabled' : 'disabled'}`);
-      return next;
-    });
-  }, []);
-
-  const toggleDockPosition = useCallback(() => {
-    setDockPosition((prev) => {
-      const next = prev === 'bottom' ? 'top' : 'bottom';
-      try {
-        window.localStorage?.setItem('visual_edit_dock_pos', next);
-      } catch {}
       return next;
     });
   }, []);
@@ -3141,180 +3092,6 @@ export function VisualEditOverlay() {
         </div>
       )}
 
-      {/* ── Direct In-Place Click-To-Edit Floating Action Pill ─────────────── */}
-      {inlineSession && (
-        <div
-          data-inline-toolbar="true"
-          role="toolbar"
-          aria-label="Direct in-place text editor controls"
-          style={{
-            zIndex: 9999,
-            right: isVisualComposerOpen ? 'min(100vw, 28rem)' : '0',
-          }}
-          className="fixed inset-y-0 w-72 flex flex-col gap-2 border-l border-accent-gold/40 bg-secondary/95 px-3 py-4 text-xs text-white shadow-2xl backdrop-blur-xl pointer-events-auto overflow-y-auto animate-in slide-in-from-right duration-200"
-        >
-          <div className="flex items-center justify-between mb-2 border-b border-white/15 pb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-accent-gold flex items-center gap-1">
-              <PenLine size={12} />
-              <span>Inline Edit</span>
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => void commitInlineEdit(inlineSession)}
-            className="inline-flex items-center gap-1 rounded-md bg-accent-gold px-2.5 py-1 font-black text-ink-strong text-[11px] uppercase tracking-wider hover:bg-amber-400 transition-colors shadow-xs cursor-pointer"
-            title="Save changes (⌘+Enter)"
-          >
-            <Check size={13} className="stroke-[3]" />
-            <span>Save</span>
-            <kbd className="ml-1 text-[9px] font-mono opacity-60">⌘↵</kbd>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => cancelInlineEdit(inlineSession)}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-slate-300 text-[11px] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-            title="Cancel changes (Escape)"
-          >
-            <X size={12} />
-            <span>Cancel</span>
-            <kbd className="ml-0.5 text-[9px] font-mono opacity-50">esc</kbd>
-          </button>
-
-          {inlineSession.dataPointKey && (
-            <div className="flex items-center gap-1">
-              <span
-                className="inline-flex items-center gap-1 rounded bg-sky-500/20 border border-sky-400/40 px-2 py-0.5 text-[10px] font-mono font-bold text-sky-300 select-none shadow-xs"
-                title="Connected directly to Supabase DB public.data_points table"
-              >
-                <Database size={11} className="text-sky-400" />
-                <span>{inlineSession.dataPointKey}</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (inlineSession.dataPointKey) {
-                    void navigator.clipboard?.writeText(inlineSession.dataPointKey);
-                    toast.success(`Copied "${inlineSession.dataPointKey}" to clipboard`);
-                  }
-                }}
-                className="rounded p-1 text-sky-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                title="Copy DataPoint key"
-                aria-label="Copy DataPoint key"
-              >
-                <Copy size={11} />
-              </button>
-            </div>
-          )}
-
-          <div className="my-1 h-px w-full bg-white/15" />
-
-          <InlineFormatToolbar
-            variant="pill"
-            commands={INLINE_FORMAT_COMMANDS}
-            onCommand={(command) => {
-              if (command === 'link') {
-                setLinkModal({ textareaId: null, url: '', text: '' });
-              } else {
-                applyInlineFormatCommand(command);
-              }
-            }}
-          />
-
-          <div className="my-1 h-px w-full bg-white/15" />
-
-          {/* Real-time Typography & Accent Styler */}
-          <StyleQuickTuner
-            element={inlineSession.element}
-            onOpenVisualComposer={() => setIsVisualComposerOpen(true)}
-          />
-
-          <div className="my-1 h-px w-full bg-white/15" />
-
-          {/* Civic AI Ghostwriter & Polish */}
-          <CivicGhostwriter
-            element={inlineSession.element}
-            onTextUpdated={(t) =>
-              setInlineCounts({
-                chars: t.length,
-                words: t.trim() ? t.trim().split(/\s+/).length : 0,
-              })
-            }
-          />
-
-          {/* Word and Char Counter Badge */}
-          <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono text-ink-muted-on-dark select-none ml-0.5">
-            {inlineCounts.words}w · {inlineCounts.chars}c
-          </span>
-
-          <div className="my-1 h-px w-full bg-white/15" />
-
-          {/* Quick Slash Commands Palette Trigger */}
-          <button
-            type="button"
-            onClick={() => setIsSlashMenuOpen((prev) => !prev)}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-accent-gold hover:bg-accent-gold/20 text-[11px] transition-colors cursor-pointer"
-            title="Open Slash Commands (or type /)"
-            aria-label="Open Slash Commands"
-          >
-            <span className="font-mono text-xs">/</span>
-            <span className="hidden md:inline">Slash</span>
-          </button>
-
-          {(inlineSession.blockIndex !== null || blocks.length > 0) && (
-            <>
-              <div className="my-1 h-px w-full bg-white/15" />
-              <button
-                type="button"
-                onClick={() => {
-                  const idx = inlineSession.blockIndex ?? activeBlockIndex ?? 0;
-                  setActiveBlockIndex(idx);
-                  setVcBlockIndex(idx);
-                  setVcMode('block');
-                  setIsVisualComposerOpen(true);
-                }}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-accent-gold bg-accent-gold/15 hover:bg-accent-gold/25 border border-accent-gold/30 text-[11px] transition-colors cursor-pointer"
-                title="Visual Composer: Element Box Model, Effects, Motion & Typography (⌘E)"
-                aria-label="Open Visual Composer for block"
-              >
-                <SlidersHorizontal size={12} />
-                <span className="hidden md:inline">Composer</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const idx = inlineSession.blockIndex ?? activeBlockIndex ?? 0;
-                  setActiveBlockIndex(idx);
-                  setVcBlockIndex(idx);
-                  setVcMode('section');
-                  setIsVisualComposerOpen(true);
-                }}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-sky-400 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-[11px] transition-colors cursor-pointer"
-                title="Section Settings: Viewport Min-Height, Cutout Dividers & Grid Columns"
-                aria-label="Open Visual Composer for section"
-              >
-                <LayoutTemplate size={12} />
-                <span className="hidden md:inline">Section</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const idx = inlineSession.blockIndex;
-                  if (idx !== null) {
-                    handleOpenEditSection(idx);
-                  }
-                }}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-bold text-slate-300 hover:bg-white/10 text-[11px] transition-colors cursor-pointer"
-                title="Open comprehensive block editor modal"
-              >
-                <Settings size={12} />
-                <span className="hidden md:inline">Full Editor</span>
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
       {/* ── Inline Slash Commands Floating Palette ──────────────────────── */}
       {inlineSession && (
         <SlashCommandMenu
@@ -3355,1184 +3132,132 @@ export function VisualEditOverlay() {
         />
       )}
 
-      {/* ── Direct Click-To-Replace Image Floating Action Pill ─────────────── */}
-      {imageSession && (
-        <div
-          data-inline-toolbar="true"
-          role="toolbar"
-          aria-label="Image asset controls"
-          style={{
-            zIndex: 9999,
-            right: isVisualComposerOpen ? 'min(100vw, 28rem)' : '0',
-          }}
-          className="fixed inset-y-0 w-72 flex flex-col gap-2 border-l border-sky-400/40 bg-secondary/95 px-3 py-4 text-xs text-white shadow-2xl backdrop-blur-xl pointer-events-auto overflow-y-auto animate-in slide-in-from-right duration-200"
-        >
-          <div className="flex items-center justify-between mb-2 border-b border-white/15 pb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1">
-              <ImageIcon size={12} />
-              <span>Image Asset</span>
-            </span>
-          </div>
+      {/*
+        ── Visual Editor Sidebar ────────────────────────────────────────────
 
-          <div className="my-1 h-px w-full bg-white/15" />
+        One panel, three context zones. This replaces the former bottom Control
+        Dock and the two floating full-height rails (the amber inline-edit one
+        and the sky image-edit one): the sidebar today is exactly those surfaces
+        with the same handlers, so no capability was dropped in the merge.
 
-          <button
-            type="button"
-            onClick={() => {
-              setMediaTarget('image-replace');
-              setMediaModalOpen(true);
-            }}
-            className="inline-flex items-center gap-1 rounded-md bg-primary-bright px-2.5 py-1 font-bold text-white text-[11px] uppercase tracking-wider hover:bg-primary-light transition-colors shadow-xs cursor-pointer"
-            title="Replace image with Supabase S3 Storage media"
-          >
-            <ImagePlus size={13} />
-            <span>Replace</span>
-          </button>
+        The hidden file input used to live inside the image rail; it rides here
+        unconditionally now, because the sidebar's Upload button must reach it
+        whatever the session state.
+      */}
+      <input
+        ref={imageFileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
+        className="hidden"
+        onChange={handleDirectImageUpload}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
 
-          <input
-            ref={imageFileInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
-            className="hidden"
-            onChange={handleDirectImageUpload}
-          />
-          <button
-            type="button"
-            disabled={isUploadingImage}
-            onClick={() => imageFileInputRef.current?.click()}
-            className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 font-semibold text-white text-[11px] hover:bg-white/20 transition-colors shadow-xs cursor-pointer disabled:opacity-50"
-            title="Directly upload replacement image from your device"
-          >
-            {isUploadingImage ? (
-              <Loader2 size={12} className="animate-spin text-accent-gold" />
-            ) : (
-              <Upload size={12} className="text-primary-on-dark" />
-            )}
-            <span>{isUploadingImage ? 'Uploading…' : 'Upload'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setAltTextModal({
-                session: imageSession,
-                value: imageSession.element.alt || '',
-              });
-            }}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-slate-300 text-[11px] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-            title="Edit image alt text"
-            aria-label="Edit image alt text"
-          >
-            <Settings size={12} />
-            <span className="hidden sm:inline">Alt Text</span>
-          </button>
-
-          {imageSession.blockIndex !== null && (
-            <button
-              type="button"
-              onClick={() => {
-                const idx = imageSession.blockIndex;
-                if (idx !== null) {
-                  setActiveBlockIndex(idx);
-                  setVcBlockIndex(idx);
-                  setVcMode('block');
-                  setIsVisualComposerOpen(true);
-                }
-              }}
-              className="inline-flex items-center gap-1 rounded-md bg-accent-gold/20 border border-accent-gold/40 px-2 py-1 font-bold text-accent-gold text-[11px] hover:bg-accent-gold/30 transition-colors cursor-pointer"
-              title="Customize Image Box Model, Corners, Borders & Hover in Visual Composer (⌘E)"
-              aria-label="Image Visual Composer"
-            >
-              <SlidersHorizontal size={12} />
-              <span className="hidden sm:inline">Styles</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              imageSession.element.src = imageSession.initialSrc;
-              imageSession.element.alt = imageSession.initialAlt;
-              imageSessionRef.current = null;
-              setImageSession(null);
-              toast.info('Image changes cancelled');
-            }}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-slate-400 text-[11px] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-            title="Dismiss image controls"
-            aria-label="Dismiss image controls"
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
-
-      {/* ── Control Dock (Mini Capsule or Expanded Bar) ─────────────── */}
-      {dockCollapsed ? (
-        <aside
-          aria-label="Visual Editor Toolbar"
-          data-testid="visual-edit-overlay"
-          className={`fixed inset-x-3 ${dockPosition === 'top' ? 'top-3' : 'bottom-3'} z-50 mx-auto w-fit flex items-center gap-2.5 rounded-full border border-white/20 bg-secondary/95 px-4 py-2 text-ink-on-dark shadow-float backdrop-blur-md transition-all`}
-        >
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="size-2 rounded-full bg-accent-gold animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-wider text-white truncate max-w-[140px] sm:max-w-[200px]">
-              {contentRow?.title || pageTitle || target?.label || pathname}
-            </span>
-          </div>
-
-          <span className="text-white/20">|</span>
-
-          <span
-            className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-              dirty ? 'bg-amber-500/20 text-accent-gold' : 'bg-emerald-500/20 text-emerald-400'
-            }`}
-          >
-            {dirty ? 'Unsaved' : 'Saved'}
-          </span>
-
-          {dirty && (
-            <button
-              type="button"
-              onClick={() =>
-                void handlePersistBlocks(
-                  blocks,
-                  contentRow ? 'Page saved to Supabase' : 'Page connected to Supabase CMS'
-                )
-              }
-              disabled={savingBackend}
-              title="Save changes to Supabase (⌘S)"
-              className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-black text-ink-strong uppercase hover:bg-accent-gold shadow-xs cursor-pointer"
-            >
-              {savingBackend ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <Sparkles size={12} />
-              )}
-              <span>Save</span>
-              <kbd className="text-[9px] font-mono opacity-60">⌘S</kbd>
-            </button>
-          )}
-
-          {(dirty || modifiedDataPoints.length > 0) && (
-            <button
-              type="button"
-              onClick={() => setIsDiffModalOpen(true)}
-              title="Review visual changes diff (⌘⇧V)"
-              aria-label="Review visual changes diff"
-              className="inline-flex items-center gap-1 rounded-md bg-accent-gold/20 px-2 py-1 text-xs font-bold text-accent-gold hover:bg-accent-gold/30 cursor-pointer"
-            >
-              <Activity size={12} />
-              <span>Diff</span>
-              <span className="rounded-full bg-accent-gold/30 px-1 text-[9px] font-mono">
-                {modifiedBlocks.length + modifiedDataPoints.length}
-              </span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setIsCommandPaletteOpen(true)}
-            title="Open Command Palette (⌘K)"
-            aria-label="Open Command Palette"
-            className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-xs font-bold text-white hover:bg-white/20 cursor-pointer"
-          >
-            <Search size={12} className="text-accent-gold" />
-            <kbd className="text-[9px] font-mono opacity-70">⌘K</kbd>
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleDockPosition}
-            title={`Move dock to ${dockPosition === 'bottom' ? 'top' : 'bottom'}`}
-            aria-label={`Move dock to ${dockPosition === 'bottom' ? 'top' : 'bottom'}`}
-            className="rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
-          >
-            {dockPosition === 'bottom' ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleDockCollapsed}
-            title="Expand Visual Editor Dock"
-            aria-label="Expand Visual Editor Dock"
-            className="rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
-          >
-            <Maximize2 size={12} />
-          </button>
-        </aside>
-      ) : (
-        <aside
-          aria-label="Visual Editor Toolbar"
-          data-testid="visual-edit-overlay"
-          className={`fixed inset-x-3 ${dockPosition === 'top' ? 'top-3' : 'bottom-3'} z-50 mx-auto max-w-5xl rounded-2xl border border-white/20 bg-secondary/95 p-3.5 text-ink-on-dark shadow-float backdrop-blur-md transition-all`}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Document Info & Status */}
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className="size-2.5 rounded-full bg-accent-gold animate-pulse" />
-                <PenLine size={16} className="text-accent-gold" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                {/*
-                Which document is being edited.
-
-                `contentRow?.title` is what the row is *called* in the CMS, which
-                for a region is the region's label; the region label is the
-                fallback so a region with no row yet still names itself.
-              */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase tracking-[0.15em] text-white truncate max-w-[200px] sm:max-w-[280px]">
-                    {contentRow?.title || pageTitle || target?.label || pathname}
-                  </span>
-                  {contentRow ? (
-                    <button
-                      type="button"
-                      onClick={handleTogglePageStatus}
-                      disabled={savingBackend}
-                      title="Click to toggle between Published and Draft"
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider transition-colors ${
-                        contentRow.status === 'publish'
-                          ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                          : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                      }`}
-                    >
-                      {contentRow.status === 'publish' ? 'Published' : 'Draft'}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleInitializeCMSPage}
-                      disabled={savingBackend}
-                      className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-accent/20 text-accent-gold hover:bg-accent/30"
-                      title={
-                        activeRegion
-                          ? `Create the CMS row for the ${activeRegion.label} region`
-                          : 'Click to sync page into Supabase content table'
-                      }
-                    >
-                      Connect to Supabase
-                    </button>
-                  )}
-                </div>
-                <p className="text-[11px] text-ink-muted-on-dark truncate">
-                  {sections.length} {sections.length === 1 ? 'block' : 'blocks'} in the document (
-                  {enabledSectionKeys.size} framed) ·{' '}
-                  {dirty ? (
-                    <span className="font-bold text-accent-gold">unsaved changes</span>
-                  ) : (
-                    <span>saved</span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {/*
-            Which copy region is being edited.
-
-            A coded page cannot own a `content` row — a slug matching a route
-            segment is shadowed — so the editable unit on `/`, `/about` and the
-            other coded routes is a region. One row per region, one document
-            loaded at a time. The "Whole page" entry is the pre-region behaviour
-            and is what `[slug]` routes use.
-          */}
-            {pageRegions.length > 0 && (
-              // A fieldset, not a `role="group"`: the same set of controls is a
-              // native fieldset everywhere else in this file, and Biome's
-              // `useSemanticElements` is right that the role adds nothing a
-              // `<fieldset>` with a `<legend>` does not already say.
-              <fieldset className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/5 p-1">
-                <legend className="sr-only">Editable copy region</legend>
-                <button
-                  type="button"
-                  onClick={() => setActiveRegionId(null)}
-                  aria-pressed={activeRegionId === null}
-                  className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                    activeRegionId === null
-                      ? 'bg-accent-gold/20 text-accent-gold'
-                      : 'text-ink-muted-on-dark hover:text-white'
-                  }`}
-                >
-                  Whole page
-                </button>
-                {pageRegions.map((region) => (
-                  <button
-                    key={region.id}
-                    type="button"
-                    onClick={() => setActiveRegionId(region.id)}
-                    aria-pressed={region.id === activeRegionId}
-                    className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                      region.id === activeRegionId
-                        ? 'bg-accent-gold/20 text-accent-gold'
-                        : 'text-ink-muted-on-dark hover:text-white'
-                    }`}
-                  >
-                    {region.label}
-                  </button>
-                ))}
-              </fieldset>
-            )}
-
-            {/* Quick Actions */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Undo / Redo — the operations a visual editor needs most and the
-                ones this dock was missing entirely. */}
-              <button
-                type="button"
-                onClick={handleUndo}
-                disabled={!canUndo(history)}
-                title="Undo the last change (⌘Z)"
-                aria-label="Undo the last change"
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
-                  canUndo(history)
-                    ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
-                    : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
-                }`}
-              >
-                <Undo2 size={13} />
-                <span className="hidden lg:inline">Undo</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleRedo}
-                disabled={!canRedo(history)}
-                title="Redo (⌘⇧Z)"
-                aria-label="Redo the last undone change"
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors disabled:opacity-40 ${
-                  canRedo(history)
-                    ? 'border-white/15 bg-white/10 text-ink-on-dark hover:bg-white/15'
-                    : 'border-white/10 bg-white/5 text-ink-muted-on-dark'
-                }`}
-              >
-                <Redo2 size={13} />
-                <span className="hidden lg:inline">Redo</span>
-              </button>
-
-              {/*
-              The primary action is now "Save", not "Save to Supabase CMS".
-
-              Connecting a page to the CMS is a one-time act and it happens the
-              first time anything is saved. Treating it as the only write made
-              every later edit look like an initialisation, and it hid the fact
-              that the document had unsaved changes at all.
-            */}
-              <button
-                type="button"
-                onClick={() =>
-                  handlePersistBlocks(
-                    blocks,
-                    contentRow ? 'Page saved' : 'Page connected to Supabase CMS'
-                  )
-                }
-                disabled={savingBackend || !dirty}
-                title={
-                  contentRow
-                    ? 'Write this document to Supabase'
-                    : 'Create the Supabase CMS row for this page from what is on screen'
-                }
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider shadow-raised transition-all disabled:opacity-50 ${
-                  dirty
-                    ? 'bg-accent text-ink-strong hover:bg-accent-gold'
-                    : 'bg-white/10 text-ink-muted-on-dark'
-                }`}
-              >
-                {savingBackend ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Sparkles size={13} />
-                )}
-                <span>{contentRow ? (dirty ? 'Save' : 'Saved') : 'Connect'}</span>
-                <kbd className="hidden sm:inline-block text-[9px] font-mono opacity-70 ml-0.5">
-                  ⌘S
-                </kbd>
-              </button>
-
-              {/* Command Palette Trigger */}
-              <button
-                type="button"
-                onClick={() => setIsCommandPaletteOpen(true)}
-                title="Open Command Palette & Jump to Block/DataPoint (⌘K)"
-                aria-label="Open Command Palette"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-accent-gold/40 bg-accent-gold/10 px-2.5 py-1.5 text-xs font-bold text-accent-gold transition-colors hover:bg-accent-gold/20 cursor-pointer"
-              >
-                <Search size={13} className="text-accent-gold" />
-                <span className="hidden sm:inline">Command</span>
-                <kbd className="rounded bg-black/30 px-1 py-0.5 text-[9px] font-mono">⌘K</kbd>
-              </button>
-
-              {/* DataPoints Matrix Drawer Trigger */}
-              <button
-                type="button"
-                onClick={() => setIsDataPointDrawerOpen(true)}
-                title="Open Page DataPoints Matrix (⌘K -> DataPoints)"
-                aria-label="Open DataPoints Matrix"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-500/10 px-2.5 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/20 cursor-pointer"
-              >
-                <Database size={13} className="text-sky-400" />
-                <span className="hidden sm:inline">DataPoints</span>
-              </button>
-
-              {/* Civic A11y & SEO Health Auditor */}
-              <button
-                type="button"
-                onClick={() => setIsA11yAuditorOpen(true)}
-                title="Run in-page Accessibility, SEO, and DataPoint audit (⌘⇧A)"
-                aria-label="Run Civic A11y and Health Audit"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/10 cursor-pointer"
-              >
-                <ShieldCheck size={13} className="text-emerald-400" />
-                <span className="hidden md:inline">Audit</span>
-              </button>
-
-              {/* Visual Diff & Change Review Trigger */}
-              <button
-                type="button"
-                onClick={() => setIsDiffModalOpen(true)}
-                title="Review visual changes and draft diff against published version (⌘⇧V)"
-                aria-label="Review visual changes diff"
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
-                  dirty || modifiedDataPoints.length > 0
-                    ? 'border-accent-gold/40 bg-accent-gold/15 text-accent-gold hover:bg-accent-gold/25'
-                    : 'border-white/10 bg-white/5 text-ink-on-dark hover:bg-white/10'
-                }`}
-              >
-                <Activity size={13} className="text-accent-gold" />
-                <span className="hidden md:inline">Diff</span>
-                {(dirty || modifiedDataPoints.length > 0) && (
-                  <span className="rounded-full bg-accent-gold/20 px-1.5 py-0.2 text-[9px] font-mono text-accent-gold font-bold">
-                    {modifiedBlocks.length + modifiedDataPoints.length}
-                  </span>
-                )}
-              </button>
-
-              {/* Inspector HUD Toggle */}
-              <button
-                type="button"
-                onClick={toggleInspector}
-                title={
-                  showInspector
-                    ? 'Disable live element hover inspector HUD'
-                    : 'Enable live element hover inspector HUD'
-                }
-                aria-label="Toggle Inspector HUD"
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
-                  showInspector
-                    ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
-                    : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
-                }`}
-              >
-                <Eye size={13} />
-                <span className="hidden lg:inline">Inspector: {showInspector ? 'ON' : 'OFF'}</span>
-              </button>
-
-              {/* Badges Toggle */}
-              <button
-                type="button"
-                onClick={() => setShowSectionBadges((p) => !p)}
-                title={
-                  showSectionBadges ? 'Hide in-page section badges' : 'Show in-page section badges'
-                }
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
-                  showSectionBadges
-                    ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
-                    : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
-                }`}
-              >
-                <Layers size={13} />
-                <span className="hidden sm:inline">Badges: {showSectionBadges ? 'ON' : 'OFF'}</span>
-              </button>
-
-              {/* Frames Toggle */}
-              <button
-                type="button"
-                onClick={() => setShowAllSectionBorders((p) => !p)}
-                title={showAllSectionBorders ? 'Hide section frames' : 'Show section frames'}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
-                  showAllSectionBorders
-                    ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
-                    : 'border-white/10 bg-white/5 text-ink-muted-on-dark hover:bg-white/10'
-                }`}
-              >
-                <Eye size={13} />
-                <span className="hidden md:inline">
-                  Frames: {showAllSectionBorders ? 'ON' : 'OFF'}
-                </span>
-              </button>
-
-              {/* Theme Mode Preview Toggle */}
-              <button
-                type="button"
-                onClick={cycleTheme}
-                title={`Preview theme: ${themeModeLabel(themeMode)}${themeMode === 'system' ? ` (${effectiveTheme})` : ''} (click to cycle)`}
-                aria-label="Cycle theme mode preview"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-all duration-300 hover:bg-white/10 hover:text-white active:scale-95 cursor-pointer"
-              >
-                {themeMode === 'light' ? (
-                  <Sun
-                    size={13}
-                    className="text-amber-300 animate-in fade-in zoom-in-75 duration-200"
-                  />
-                ) : themeMode === 'dark' ? (
-                  <Moon
-                    size={13}
-                    className="text-blue-300 animate-in fade-in zoom-in-75 duration-200"
-                  />
-                ) : (
-                  <span className="relative flex items-center justify-center">
-                    <Monitor
-                      size={13}
-                      className="text-emerald-300 animate-in fade-in zoom-in-75 duration-200"
-                    />
-                    <span
-                      aria-hidden="true"
-                      className={`absolute -top-0.5 -right-0.5 size-1.5 rounded-full ring-1 ring-secondary ${
-                        effectiveTheme === 'dark' ? 'bg-sky-400' : 'bg-amber-400'
-                      }`}
-                    />
-                  </span>
-                )}
-                <span className="hidden lg:inline capitalize">
-                  {themeModeLabel(themeMode)}
-                  {themeMode === 'system' ? (
-                    <span className="ml-1 text-[10px] text-ink-muted-on-dark font-medium lowercase">
-                      ({effectiveTheme})
-                    </span>
-                  ) : null}
-                </span>
-              </button>
-
-              {/* Responsive Viewport Mode Simulator */}
-              <fieldset
-                aria-label="Responsive viewport preview"
-                className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 p-0.5"
-              >
-                <legend className="sr-only">Responsive viewport preview</legend>
-                <button
-                  type="button"
-                  onClick={() => setViewportMode('desktop')}
-                  title="Desktop full viewport (100% width)"
-                  aria-label="Desktop viewport"
-                  aria-pressed={viewportMode === 'desktop'}
-                  className={`rounded-md p-1.5 text-xs font-bold transition-colors ${
-                    viewportMode === 'desktop'
-                      ? 'bg-accent-gold/20 text-accent-gold'
-                      : 'text-ink-muted-on-dark hover:text-white'
-                  }`}
-                >
-                  <Monitor size={13} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewportMode('tablet')}
-                  title="Tablet viewport preview (768px width)"
-                  aria-label="Tablet viewport"
-                  aria-pressed={viewportMode === 'tablet'}
-                  className={`rounded-md p-1.5 text-xs font-bold transition-colors ${
-                    viewportMode === 'tablet'
-                      ? 'bg-accent-gold/20 text-accent-gold'
-                      : 'text-ink-muted-on-dark hover:text-white'
-                  }`}
-                >
-                  <Tablet size={13} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewportMode('mobile')}
-                  title="Mobile viewport preview (390px iPhone width)"
-                  aria-label="Mobile viewport"
-                  aria-pressed={viewportMode === 'mobile'}
-                  className={`rounded-md p-1.5 text-xs font-bold transition-colors ${
-                    viewportMode === 'mobile'
-                      ? 'bg-accent-gold/20 text-accent-gold'
-                      : 'text-ink-muted-on-dark hover:text-white'
-                  }`}
-                >
-                  <Smartphone size={13} />
-                </button>
-                {viewportMode !== 'desktop' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleRotateOrientation}
-                      title={`Rotate device orientation (${deviceOrientation === 'portrait' ? 'Landscape' : 'Portrait'})`}
-                      aria-label="Rotate device orientation"
-                      className="rounded-md p-1.5 text-xs font-bold text-accent-gold hover:bg-white/10 transition-colors"
-                    >
-                      <RotateCw size={13} />
-                    </button>
-                    <span className="px-1.5 text-[10px] font-mono font-bold text-accent-gold hidden xl:inline">
-                      {viewportMode === 'mobile'
-                        ? deviceOrientation === 'portrait'
-                          ? '390px'
-                          : '844px'
-                        : deviceOrientation === 'portrait'
-                          ? '768px'
-                          : '1024px'}
-                    </span>
-                  </>
-                )}
-              </fieldset>
-
-              {/* Section Navigator */}
-              {sections.length > 0 && (
-                <div className="relative">
-                  <select
-                    aria-label="Jump to block"
-                    onChange={(e) => {
-                      const blockIndex = Number.parseInt(e.target.value, 10);
-                      if (Number.isInteger(blockIndex)) jumpTo(blockIndex);
-                    }}
-                    className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-accent-gold"
-                    value=""
-                  >
-                    <option value="" disabled className="bg-secondary text-ink-on-dark">
-                      Jump to block…
-                    </option>
-                    {sections.map((sec) => (
-                      <option
-                        key={sec.key}
-                        value={sec.blockIndex}
-                        className="bg-secondary text-ink-on-dark"
-                      >
-                        {sec.ordinal}. {sec.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Add Block — a Radix menu, never hover.
-                `group-hover:block` hid this menu from every keyboard and touch
-                user, and left it in no tab order at all. Click-to-open keeps
-                touch first-class and hands keyboard users Enter/arrows/Escape
-                by construction — the same primitive and rationale as
-                NavDropdown. It opens upward because the dock sits at the
-                viewport bottom. */}
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary-bright px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-primary-light focus-visible:ring-2 focus-visible:ring-accent-gold"
-                  >
-                    <Plus size={14} />
-                    <span>Add Block</span>
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    align="end"
-                    side="top"
-                    sideOffset={8}
-                    aria-label="Add block"
-                    className="z-50 w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
-                  >
-                    {BLOCK_TYPE_OPTIONS.map((option) => (
-                      <DropdownMenu.Item
-                        key={option.type}
-                        onSelect={() => handleAddNewSection(option.type)}
-                        className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                      >
-                        {option.label}
-                      </DropdownMenu.Item>
-                    ))}
-                    <div className="my-1 h-px bg-white/10" />
-                    <DropdownMenu.Item
-                      onSelect={() => {
-                        setLibraryTargetIndex(null);
-                        setIsBlockLibraryOpen(true);
-                      }}
-                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-accent-gold hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                    >
-                      <Layers size={13} />
-                      <span>Element Library &amp; Templates...</span>
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-
-              {/* Visual Composer Inspector Trigger Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setVcBlockIndex(activeBlockIndex ?? 0);
-                  setIsVisualComposerOpen(true);
-                }}
-                title="Visual Composer: Full Design &amp; Box Model Inspector (⌘E)"
-                aria-label="Visual Composer Inspector"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-accent-gold/30 bg-accent-gold/15 px-2.5 py-1.5 text-xs font-bold text-accent-gold transition-colors hover:bg-accent-gold/25 focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                <SlidersHorizontal size={14} />
-                <span className="hidden xl:inline">Composer</span>
-              </button>
-
-              {/* Structure Navigator Tree Button */}
-              <button
-                type="button"
-                onClick={() => setIsPageNavigatorOpen((prev) => !prev)}
-                title="Page Structure Navigator &amp; Tree (⌘7)"
-                aria-label="Page Structure Navigator"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/15 px-2.5 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-400/25 focus-visible:ring-2 focus-visible:ring-sky-400"
-              >
-                <ListTree size={14} />
-                <span className="hidden xl:inline">Tree</span>
-              </button>
-
-              {/* S3 Storage Media Library */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMediaTarget('section');
-                  setMediaModalOpen(true);
-                }}
-                title="Open Supabase S3 Media Library"
-                aria-label="Open Supabase S3 Media Library"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                <FolderOpen size={14} className="text-accent-gold" />
-                <span className="hidden lg:inline">Media</span>
-              </button>
-
-              {/* Page Settings */}
-              <button
-                type="button"
-                onClick={() => setIsSettingsOpen(true)}
-                title="Edit page title, slug, and featured image"
-                aria-label="Edit page title, slug, and featured image"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                <Settings size={14} />
-                <span className="hidden sm:inline">Settings</span>
-              </button>
-
-              {/* Revisions History */}
-              {contentRow && (
-                <button
-                  type="button"
-                  onClick={handleOpenRevisions}
-                  title="View page revision history and restore previous snapshots"
-                  aria-label="View page revision history and restore previous snapshots"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-                >
-                  <History size={14} />
-                  <span className="hidden sm:inline">Revisions</span>
-                </button>
-              )}
-
-              {/* Quick Civic Publish & Creation Dropdown */}
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <button
-                    type="button"
-                    title="Create or manage: Posts, Events, Bulletins, or Links"
-                    aria-label="Create or manage: Posts, Events, Bulletins, or Links"
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary-bright/40 bg-primary/20 px-2.5 py-1.5 text-xs font-bold text-primary-on-dark transition-colors hover:bg-primary/30 focus-visible:ring-2 focus-visible:ring-accent-gold"
-                  >
-                    <Plus size={14} className="text-accent-gold" />
-                    <span className="hidden sm:inline">Publish</span>
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    side="top"
-                    align="start"
-                    sideOffset={8}
-                    className="z-50 min-w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
-                  >
-                    <DropdownMenu.Item
-                      onSelect={() => router.push('/admin/content/new?type=post')}
-                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                    >
-                      <FilePlus2 size={14} className="text-primary-on-dark" />
-                      <span>New Post</span>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      onSelect={() => openCrmWithTab('events')}
-                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                    >
-                      <Calendar size={14} className="text-purple-400" />
-                      <span>Manage Events</span>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      onSelect={() => openCrmWithTab('news')}
-                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                    >
-                      <Newspaper size={14} className="text-accent-gold" />
-                      <span>Manage Bulletins</span>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      onSelect={() => openCrmWithTab('links')}
-                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                    >
-                      <LinkIcon size={14} className="text-emerald-400" />
-                      <span>Manage Action Links</span>
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-
-              {/* CRM Panel */}
-              <button
-                type="button"
-                onClick={() => openCrmWithTab()}
-                title="Open Civic CRM (Constituents, Events, News, Links)"
-                aria-label="Open Civic CRM (Constituents, Events, News, Links)"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                <UsersRound size={14} className="text-emerald-400" />
-                <span className="hidden sm:inline">Civic CRM</span>
-              </button>
-
-              {/* Quick CRM Studio Link */}
-              <a
-                href="/admin/crm/broadcasts"
-                target="_blank"
-                rel="noreferrer"
-                title="Open CRM Studio (Broadcasts & Constituents)"
-                aria-label="Open CRM Studio (Broadcasts & Constituents)"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                <ExternalLink size={14} className="text-primary-on-dark" />
-                <span className="hidden lg:inline">CRM Studio</span>
-              </a>
-
-              {/* Keyboard Shortcuts Help */}
-              <button
-                type="button"
-                onClick={() => setIsShortcutsOpen(true)}
-                title="Keyboard shortcuts cheat sheet (⌘/)"
-                aria-label="Keyboard shortcuts cheat sheet"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                <Keyboard size={14} className="text-accent-gold" />
-                <span className="hidden xl:inline">Shortcuts</span>
-              </button>
-
-              {/* Backend Health Badge */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowHealthDetails((p) => !p)}
-                  title="Supabase Backend & Edge Function Health"
-                  aria-label="Supabase Backend & Edge Function Health"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:bg-white/10"
-                >
-                  <Activity
-                    size={13}
-                    className={
-                      backendStatus?.database &&
-                      backendStatus?.storage &&
-                      backendStatus?.edgeFunction
-                        ? 'text-emerald-400'
-                        : 'text-amber-400'
-                    }
-                  />
-                  <span
-                    className={`size-2 rounded-full ${
-                      backendStatus?.database &&
-                      backendStatus?.storage &&
-                      backendStatus?.edgeFunction
-                        ? 'bg-emerald-400'
-                        : !backendStatus?.database || !backendStatus?.storage
-                          ? 'bg-rose-400'
-                          : 'bg-amber-400'
-                    }`}
-                  />
-                </button>
-                {showHealthDetails && backendStatus && (
-                  <div className="absolute bottom-full right-0 mb-2 w-64 rounded-xl border border-white/15 bg-secondary p-3 shadow-float z-50 text-xs space-y-2">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
-                      <span className="font-black uppercase tracking-wider text-white">
-                        Backend Health
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => probeBackendHealth()}
-                        disabled={statusLoading}
-                        className="p-1 text-slate-400 hover:text-white"
-                        aria-label="Refresh health probe"
-                      >
-                        <RefreshCw size={12} className={statusLoading ? 'animate-spin' : ''} />
-                      </button>
-                    </div>
-                    <div className="flex justify-between items-center text-ink-on-dark">
-                      <span>Database (Postgres)</span>
-                      <span
-                        className={
-                          backendStatus.database
-                            ? 'text-emerald-400 font-bold'
-                            : 'text-rose-400 font-bold'
-                        }
-                      >
-                        {backendStatus.database ? 'Connected' : 'Offline'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-ink-on-dark">
-                      <span>Supabase S3 Storage</span>
-                      <span
-                        className={
-                          backendStatus.storage
-                            ? 'text-emerald-400 font-bold'
-                            : 'text-rose-400 font-bold'
-                        }
-                      >
-                        {backendStatus.storage ? 'media bucket ready' : 'Error'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-ink-on-dark">
-                      <span>Edge Functions</span>
-                      <span
-                        className={
-                          backendStatus.edgeFunction
-                            ? 'text-emerald-400 font-bold'
-                            : 'text-amber-400 font-bold'
-                        }
-                      >
-                        {backendStatus.edgeFunction ? 'Healthy' : 'Fallback'}
-                      </span>
-                    </div>
-                    {backendStatus.edgeFunctionDetails?.latencyMs !== undefined && (
-                      <div className="text-[10px] text-ink-muted-on-dark text-right">
-                        Latency: {backendStatus.edgeFunctionDetails.latencyMs}ms
-                      </div>
-                    )}
-                    {backendSummary && (
-                      <div className="border-t border-white/10 pt-2 space-y-1.5">
-                        <div className="flex justify-between items-center text-ink-on-dark">
-                          <span>Constituents</span>
-                          <span className="font-bold">
-                            {backendSummary.crmTotal ?? '—'}
-                            <span className="text-ink-muted-on-dark font-medium">
-                              {' '}
-                              · {backendSummary.segments} segments
-                              {backendSummary.segmentsTruncated ? '+' : ''}
-                            </span>
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center text-ink-on-dark">
-                          <span>Catalog</span>
-                          <span className="font-bold">
-                            {backendSummary.products} products · {backendSummary.gallery} photos ·{' '}
-                            {backendSummary.events} events
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center text-ink-on-dark">
-                          <span>Media library</span>
-                          <span className="font-bold">
-                            {backendSummary.mediaItems} recent files
-                            {backendSummary.mediaTruncated ? '+' : ''}
-                          </span>
-                        </div>
-                        {(backendSummary.mediaTruncated ||
-                          backendSummary.segmentsTruncated ||
-                          backendSummary.revisionsTruncated) && (
-                          <p className="text-[10px] text-ink-muted-on-dark">
-                            Capped window — open the picker for the full list.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowHealthDetails(false);
-                        setIsDiagnosticsModalOpen(true);
-                      }}
-                      className="w-full text-center py-1 mt-1 text-[11px] font-bold text-accent-gold hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-colors"
-                    >
-                      System Diagnostics →
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Open in full admin if target known */}
-              {target?.editUrl && (
-                <a
-                  href={target.editUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  title="Open full admin page editor in new tab"
-                  aria-label="Open full admin page editor in new tab"
-                  className="hidden md:inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-muted-on-dark hover:text-white hover:bg-white/10"
-                >
-                  <span>Admin</span>
-                  <ExternalLink size={12} />
-                </a>
-              )}
-
-              {/* Dock Position Switcher */}
-              <button
-                type="button"
-                onClick={toggleDockPosition}
-                title={`Dock position: ${dockPosition} (click to flip to ${dockPosition === 'bottom' ? 'top' : 'bottom'})`}
-                aria-label={`Move dock to ${dockPosition === 'bottom' ? 'top' : 'bottom'}`}
-                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1.5 text-xs text-ink-muted-on-dark hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-              >
-                {dockPosition === 'bottom' ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
-              </button>
-
-              {/* Minimize Dock Button */}
-              <button
-                type="button"
-                onClick={toggleDockCollapsed}
-                title="Minimize dock to floating status pill"
-                aria-label="Minimize Visual Editor Dock"
-                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1.5 text-xs text-ink-muted-on-dark hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-              >
-                <Minimize2 size={13} />
-              </button>
-
-              {/* Exit visual editing */}
-              <button
-                type="button"
-                onClick={toggle}
-                className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                <X size={14} />
-                <span>Done</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Section List Quick Links bar.
-            Every block carries its own frame switch here, because the
-            in-page pill's EyeOff only hides: once hidden, the pill is gone
-            and nothing on the page can bring that one frame back. Without a
-            switch here the only recovery is the drawer's "Frame all", which
-            reframes every section to recover one. */}
-          {blocks.length > 0 && (
-            <div className="mt-2.5 flex items-center gap-2 overflow-x-auto border-t border-white/10 pt-2 text-xs no-scrollbar">
-              <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-ink-muted-on-dark">
-                Blocks:
-              </span>
-              {blocks.map((block, idx) => {
-                const label = sectionLabelForBlock(block);
-                const section = sections.find((item) => item.blockIndex === idx);
-                const framed = section ? enabledSectionKeys.has(section.key) : false;
-                return (
-                  <div
-                    key={block.id}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-md bg-white/5 border border-white/10 px-2 py-0.5 text-[11px] text-ink-on-dark"
-                  >
-                    <span className="font-semibold truncate max-w-[90px]" title={label}>
-                      {label}
-                    </span>
-                    {section && (
-                      <button
-                        type="button"
-                        onClick={() => toggleSectionFrame(idx)}
-                        aria-pressed={framed}
-                        aria-label={framed ? `Hide frame for ${label}` : `Show frame for ${label}`}
-                        title={framed ? 'Hide visual frame' : 'Show visual frame'}
-                        className={`p-0.5 transition-colors ${
-                          framed
-                            ? 'text-accent-gold hover:text-white'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {framed ? <Eye size={11} /> : <EyeOff size={11} />}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditSection(idx)}
-                      title="Edit block"
-                      aria-label={`Edit block ${label}`}
-                      className="text-accent-gold hover:text-white p-0.5"
-                    >
-                      <PenLine size={11} />
-                    </button>
-                    {/* Visual Composer: Element Design & Box Model */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveBlockIndex(idx);
-                        setVcBlockIndex(idx);
-                        setVcMode('block');
-                        setIsVisualComposerOpen(true);
-                      }}
-                      title="Visual Composer: Element Design & Box Model (⌘E)"
-                      aria-label={`Visual Composer for ${label}`}
-                      className="text-accent-gold hover:text-white p-0.5"
-                    >
-                      <SlidersHorizontal size={11} />
-                    </button>
-                    {/* Visual Composer: Row / Section Settings */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveBlockIndex(idx);
-                        setVcBlockIndex(idx);
-                        setVcMode('section');
-                        setIsVisualComposerOpen(true);
-                      }}
-                      title="Row / Section Settings (Containers, Dividers & Grid)"
-                      aria-label={`Row settings for ${label}`}
-                      className="text-sky-400 hover:text-white p-0.5"
-                    >
-                      <LayoutTemplate size={11} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDuplicateSection(idx)}
-                      title="Duplicate block"
-                      aria-label={`Duplicate block ${label}`}
-                      className="text-slate-400 hover:text-white p-0.5"
-                    >
-                      <Copy size={11} />
-                    </button>
-                    {idx > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => handleMoveSection(idx, 'up')}
-                        title="Move up"
-                        aria-label={`Move block ${label} up`}
-                        className="text-slate-400 hover:text-white p-0.5"
-                      >
-                        <ArrowUp size={11} />
-                      </button>
-                    )}
-                    {idx < blocks.length - 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleMoveSection(idx, 'down')}
-                        title="Move down"
-                        aria-label={`Move block ${label} down`}
-                        className="text-slate-400 hover:text-white p-0.5"
-                      >
-                        <ArrowDown size={11} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {blocks.length === 0 && (
-            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-accent-gold flex items-center gap-1">
-                  <Database size={11} className="text-sky-400" />
-                  <span>Coded Route DataPoints:</span>
-                </span>
-                <span className="text-ink-muted-on-dark text-[11px] hidden sm:inline">
-                  This page renders dynamic database fields. Click any element on page or open the
-                  matrix to edit live copy.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsDataPointDrawerOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-md bg-sky-500/20 border border-sky-400/40 px-2.5 py-1 text-xs font-bold text-sky-300 hover:bg-sky-500/30 transition-colors cursor-pointer"
-              >
-                <Database size={12} />
-                <span>Open DataPoints Matrix</span>
-              </button>
-            </div>
-          )}
-        </aside>
-      )}
+      <VisualEditorSidebar
+        collapsed={dockCollapsed}
+        onToggleCollapsed={toggleDockCollapsed}
+        isVisualComposerOpen={isVisualComposerOpen}
+        documentTitle={contentRow?.title || pageTitle || target?.label || pathname}
+        contentRow={contentRow}
+        blocks={blocks}
+        sections={sections}
+        enabledSectionKeys={enabledSectionKeys}
+        dirty={dirty}
+        savingBackend={savingBackend}
+        history={history}
+        activeBlockIndex={activeBlockIndex}
+        pageRegions={pageRegions}
+        activeRegionId={activeRegionId}
+        activeRegionLabel={activeRegion?.label || null}
+        onSetRegion={setActiveRegionId}
+        showSectionBadges={showSectionBadges}
+        showAllSectionBorders={showAllSectionBorders}
+        showInspector={showInspector}
+        onToggleBadges={() => setShowSectionBadges((p) => !p)}
+        onToggleFrames={() => setShowAllSectionBorders((p) => !p)}
+        onToggleInspector={toggleInspector}
+        viewportMode={viewportMode}
+        deviceOrientation={deviceOrientation}
+        onSetViewportMode={setViewportMode}
+        onRotateOrientation={handleRotateOrientation}
+        themeMode={themeMode}
+        effectiveTheme={effectiveTheme}
+        onCycleTheme={cycleTheme}
+        backendStatus={backendStatus}
+        backendSummary={backendSummary}
+        showHealthDetails={showHealthDetails}
+        statusLoading={statusLoading}
+        onToggleHealthDetails={() => setShowHealthDetails((p) => !p)}
+        onProbeBackendHealth={() => probeBackendHealth()}
+        onOpenDiagnostics={() => {
+          setShowHealthDetails(false);
+          setIsDiagnosticsModalOpen(true);
+        }}
+        modifiedBlocks={modifiedBlocks}
+        modifiedDataPoints={modifiedDataPoints}
+        inlineSession={inlineSession}
+        inlineCounts={inlineCounts}
+        onCommitInlineEdit={(session) => void commitInlineEdit(session)}
+        onCancelInlineEdit={(session) => cancelInlineEdit(session)}
+        onSetLinkModal={(state) => setLinkModal(state)}
+        onToggleSlashMenu={() => setIsSlashMenuOpen((prev) => !prev)}
+        onInlineTextUpdated={(text) =>
+          setInlineCounts({
+            chars: text.length,
+            words: text.trim() ? text.trim().split(/\s+/).length : 0,
+          })
+        }
+        imageSession={imageSession}
+        isUploadingImage={isUploadingImage}
+        onUploadClick={() => imageFileInputRef.current?.click()}
+        onSetAltTextModal={(state) => setAltTextModal(state)}
+        onCancelImageEdit={(session) => {
+          session.element.src = session.initialSrc;
+          session.element.alt = session.initialAlt;
+          imageSessionRef.current = null;
+          setImageSession(null);
+          toast.info('Image changes cancelled');
+        }}
+        onToggle={toggle}
+        onSave={() =>
+          void handlePersistBlocks(
+            blocks,
+            contentRow ? 'Page saved' : 'Page connected to Supabase CMS'
+          )
+        }
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenDataPointDrawer={() => setIsDataPointDrawerOpen(true)}
+        onOpenA11yAuditor={() => setIsA11yAuditorOpen(true)}
+        onOpenDiffModal={() => setIsDiffModalOpen(true)}
+        onOpenVisualComposer={openVisualComposer}
+        onOpenPageNavigator={() => setIsPageNavigatorOpen((prev) => !prev)}
+        onOpenMedia={(nextTarget) => {
+          setMediaTarget(nextTarget);
+          setMediaModalOpen(true);
+        }}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenRevisions={handleOpenRevisions}
+        onOpenShortcuts={() => setIsShortcutsOpen(true)}
+        onOpenCRM={(nextTab) => openCrmWithTab(nextTab)}
+        onNewPost={() => router.push('/admin/content/new?type=post')}
+        onTogglePageStatus={handleTogglePageStatus}
+        onInitializeCMSPage={handleInitializeCMSPage}
+        onAddBlock={(type) => handleAddNewSection(type)}
+        onOpenBlockLibrary={(insertAfterIndex) => {
+          setLibraryTargetIndex(insertAfterIndex);
+          setIsBlockLibraryOpen(true);
+        }}
+        onJumpToBlock={jumpTo}
+        onToggleSectionFrame={toggleSectionFrame}
+        onOpenEditSection={handleOpenEditSection}
+        onDuplicateSection={handleDuplicateSection}
+        onMoveSection={handleMoveSection}
+        blockTypeOptions={BLOCK_TYPE_OPTIONS}
+        adminEditUrl={target?.editUrl ?? null}
+      />
 
       {/* ── Section Edit Modal ────────────────────────────────────────── */}
       {isSectionModalOpen && editingBlock && (

@@ -655,13 +655,13 @@ different section.
   sections publish; the drawer keeps regions, CRUD dispatches, Frame-all
   semantics, inert undescribed rows and region-scoped adoption
 
-### A hidden frame is recoverable per section, from the dock
+### A hidden frame is recoverable per section, from the sidebar
 
 The in-page pill's EyeOff hides a frame, and a hidden frame has no pill — so
 the control that hid it cannot bring it back. The only recovery was the
 drawer's "Frame all", which reframes every section to recover one.
 
-Every block in the dock's block bar now carries its own frame switch
+Every block in the sidebar's block bar now carries its own frame switch
 (Eye/EyeOff with `aria-pressed`), addressing the block by index through the
 same `toggleSectionFrame` the pill uses. A block with no measured section —
 unpaired with any element — gets no switch rather than a switch that guesses.
@@ -670,12 +670,12 @@ and the drawer show, not the raw `block.type`.
 
 ### Editor chrome opens on click, never on hover
 
-The dock's Add Block menu was `group-hover:block`: invisible to every keyboard
+The sidebar's Add Block menu was `group-hover:block`: invisible to every keyboard
 and touch user, and in no tab order at all. It is a Radix `DropdownMenu` now —
 click-to-open, arrows to move, Escape to dismiss — the same primitive and the
-same rationale as `NavDropdown`. It opens upward because the dock sits at the
-viewport bottom, and its options come from one `ADD_BLOCK_OPTIONS` list so a
-creatable block and a convertible block cannot drift apart.
+same rationale as `NavDropdown`. It opens to the left because the sidebar sits
+at the viewport right, and its options come from one `ADD_BLOCK_OPTIONS` list
+so a creatable block and a convertible block cannot drift apart.
 
 ### Editor dialogs follow the reader's palette
 
@@ -684,7 +684,7 @@ The section editor, settings and revisions dialogs were hardcoded light
 got a blinding white modal over a dark page. Every light-surface class is now
 a token (`bg-surface-card`, `text-foreground`, `border-border`,
 `bg-surface-muted`, `text-muted-foreground`) — identical paint in light mode,
-adaptive in dark. The dock, pills and frames stay deliberately dark chrome on
+adaptive in dark. The sidebar, pills and frames stay deliberately dark chrome on
 opaque `bg-secondary`, like the site header: they are dark because they say so,
 not because the reader is in dark mode.
 

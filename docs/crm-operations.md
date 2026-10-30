@@ -965,7 +965,7 @@ that brings full CRM CRUD into the page author's workflow:
 
 All mutations go through the existing server actions (`src/lib/actions/crm.ts`);
 no new API surface is exposed. The panel is a `Dialog` that opens from the
-overlay's dock (`Constituents` button, `UsersRound` icon). It is admin-gated
+overlay sidebar (`Constituents` button, `UsersRound` icon). It is admin-gated
 through the existing `requireAdmin()` checks in the server actions.
 
 No email sending from the overlay — the send paths (`sendCRMBroadcast`,

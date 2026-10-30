@@ -2240,11 +2240,11 @@ A full-featured in-page visual editor mounted globally in `src/app/layout.tsx`. 
 - **Direct S3 image replacement & 1-click device upload**: Click any `<img>` tag to summon the image asset pill, replacing assets via `CRMMediaLibraryModal`, directly uploading replacement files from desktop via `uploadCRMMedia`, or updating accessibility `alt` text with instant backend persistence.
 - **Dynamic ResizeObserver tracking**: Uses a `ResizeObserver` on `[data-visual-edit-root]` debounced with `requestAnimationFrame` to keep section overlays and bounding boxes pixel-perfect during inline text expansion and dynamic DOM mutations.
 - **Interactive controls protection**: Tabs, accordions, audio players, dialog triggers, and civic buttons (`[role="tab"]`, `[data-civic-control]`, `.audio-player`, etc.) are protected from `contentEditable` hijacking.
-- **Responsive viewport simulator**: Interactive Desktop (100%), Tablet (768px), and Mobile (390px) framed preview modes directly in the bottom dock toolbar.
+- **Responsive viewport simulator**: Interactive Desktop (100%), Tablet (768px), and Mobile (390px) framed preview modes directly in the editor sidebar.
 - **CRM Visual Broadcast Composer enhancements**: Email canvas viewport simulation (100% full width, 600px email standard, 375px mobile phone) and real-time word count & reading time estimation stats in `VisualComposerCanvas.tsx`.
 - **Per-section CRUD**: Every section has a floating action pill (frame on/off, edit, duplicate, move up/down, add below, delete with `ConfirmAction`)
 - **Block editor modal**: Rich editing for all 11 block types (heading, paragraph, bulletList, orderedList, quote, callout, code, image, divider, table, button) with inline toolbar (bold, italic, code, strikethrough, link)
-- **Dock toolbar**: Undo/redo (Cmd+Z/Shift+Z), save, badges/frames toggles, viewport simulator (desktop/tablet/mobile), theme toggle, section navigator, add block menu (Radix `DropdownMenu`, never hover-only), media library, revisions, settings, CRM Studio link
+- **Unified editor sidebar** (`VisualEditorSidebar.tsx`): One fixed right panel with three context zones — default (toolbar), inline-edit (amber), image-edit (sky). It owns undo/redo (Cmd+Z/Shift+Z), save, badges/frames toggles, viewport simulator (desktop/tablet/mobile), theme toggle, section navigator, add block menu (Radix `DropdownMenu`, never hover-only), media library, revisions, settings, CRM Studio link; its collapsed state is a `w-12` icon strip persisted under `visual_edit_dock_collapsed`. Replaces the former bottom dock and the two floating rails; the old browser surfaces remain recoverable at `git show HEAD:src/components/visual-edit/VisualEditOverlay.tsx`.
 - **Media library**: `CRMMediaLibraryModal` (reused from CRM composer) for Supabase Storage `media` bucket pick/upload
 - **Revisions**: `getContentRevisions` / `restoreContentRevision` with `ConfirmAction`
 - **Settings modal**: Edit title, slug, status (publish/draft), featured image
@@ -2253,13 +2253,13 @@ A full-featured in-page visual editor mounted globally in `src/app/layout.tsx`. 
 
 **Invariants:**
 - Header button is icon-only master switch; per-section controls live on section pills + drawer `EditorialDrawerRow`
-- All modals follow the reader's palette (`bg-surface-card`, `text-foreground`, etc.); dock/pills/frames stay dark chrome (`bg-secondary`)
+- All modals follow the reader's palette (`bg-surface-card`, `text-foreground`, etc.); sidebar/pills/frames stay dark chrome (`bg-secondary`)
 - Add Block menu is a Radix `DropdownMenu` (click-to-open, keyboard accessible), never hover-only
-- Hidden frames recover via per-block frame switch in dock block bar
+- Hidden frames recover via per-block frame switch in sidebar block bar
 
 ### CRM Panel in Visual Editor (`src/components/visual-edit/CRMPanel.tsx`)
 
-A `Dialog` opened from the overlay dock (`Constituents` button, `UsersRound` icon). Reuses existing CRM actions and components.
+A `Dialog` opened from the overlay sidebar (`Constituents` button, `UsersRound` icon). Reuses existing CRM actions and components.
 
 **Capabilities:**
 - **Search constituents**: `getCRMContacts({ query, consent, page, pageSize })`
