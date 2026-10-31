@@ -823,6 +823,9 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
             title={
               showSectionBadges ? 'Hide in-page section badges' : 'Show in-page section badges'
             }
+            aria-label={
+              showSectionBadges ? 'Hide in-page section badges' : 'Show in-page section badges'
+            }
             className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
               showSectionBadges
                 ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'
@@ -837,6 +840,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
             type="button"
             onClick={props.onToggleFrames}
             title={showAllSectionBorders ? 'Hide section frames' : 'Show section frames'}
+            aria-label={showAllSectionBorders ? 'Hide section frames' : 'Show section frames'}
             className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
               showAllSectionBorders
                 ? 'border-accent-gold/50 bg-accent-gold/20 text-accent-gold'

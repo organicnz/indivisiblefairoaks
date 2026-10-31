@@ -132,7 +132,7 @@ export function wrapSelectionWithTag(tagName: string, className?: string) {
  * `'<h2>'` and Safari rejected that form historically, so both spellings are
  * attempted. Everything else is a single `execCommand`.
  */
-export function applyInlineFormatCommand(command: InlineFormatCommand) {
+export function applyInlineFormatCommand(command: InlineFormatCommand, onLinkRequest?: () => void) {
   switch (command) {
     case 'code':
       wrapSelectionWithTag(
@@ -144,6 +144,11 @@ export function applyInlineFormatCommand(command: InlineFormatCommand) {
       wrapSelectionWithTag('mark', 'bg-amber-400/25 text-inherit px-1 rounded');
       return;
     case 'link': {
+      if (onLinkRequest) {
+        onLinkRequest();
+        return;
+      }
+      // Fallback for callers that don't supply onLinkRequest.
       const url = window.prompt('Enter link URL (e.g. https://... or /about):');
       if (url) document.execCommand('createLink', false, url);
       return;
@@ -179,6 +184,12 @@ interface InlineFormatToolbarProps {
   variant: 'pill' | 'panel';
   commands: readonly InlineFormatCommand[];
   onCommand: (command: InlineFormatCommand) => void;
+  /**
+   * Optional override for the link command. When provided, the toolbar calls
+   * this instead of `window.prompt` so callers can show a proper React modal.
+   * Falls back to `window.prompt` only when not provided, for backward compat.
+   */
+  onLinkRequest?: () => void;
   /** Rendered after the last command (counters, hints, status). */
   trailing?: ReactNode;
   className?: string;
@@ -188,6 +199,7 @@ export function InlineFormatToolbar({
   variant,
   commands,
   onCommand,
+  onLinkRequest,
   trailing,
   className,
 }: InlineFormatToolbarProps) {
@@ -203,15 +215,22 @@ export function InlineFormatToolbar({
            to be cancelled or the selection collapses before the command runs.
            The modal's toolbar targets a textarea by id and does not have that
            problem, so it keeps the ordinary click. */
+        const handleCommand = () => {
+          if (command === 'link' && onLinkRequest) {
+            onLinkRequest();
+          } else {
+            onCommand(command);
+          }
+        };
         const activation =
           variant === 'pill'
             ? {
                 onMouseDown: (e: ReactMouseEvent) => {
                   e.preventDefault();
-                  onCommand(command);
+                  handleCommand();
                 },
               }
-            : { onClick: () => onCommand(command) };
+            : { onClick: handleCommand };
 
         return (
           <Fragment key={command}>
