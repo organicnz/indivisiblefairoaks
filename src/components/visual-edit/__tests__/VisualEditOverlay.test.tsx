@@ -736,6 +736,145 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(toolbar?.textContent).toMatch(/\d+w · \d+c/);
   });
 
+  /**
+   * A page whose only block is a paragraph containing a link.
+   *
+   * This is the shape that made a destination-only edit invisible: the session
+   * element is the `<a>`, so `innerHTML` serializes "the guide" and says
+   * nothing about where it points — and the paragraph, not the anchor, is the
+   * block the model has to persist.
+   */
+  const linkedBody = '<p>Read <a href="/guide">the guide</a> today.</p>';
+
+  const withLinkedPage = async () => {
+    renderPage(linkedBody);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: linkedBody,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+  };
+
+  it('makes a link inside the page editable instead of following it', async () => {
+    await withLinkedPage();
+
+    const anchor = document.querySelector<HTMLAnchorElement>('main a');
+    expect(anchor).not.toBeNull();
+
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    await act(async () => {
+      anchor?.dispatchEvent(click);
+    });
+
+    // Navigation is an anchor's default action. Preventing it is what keeps the
+    // organiser on the page they are editing rather than on its destination.
+    expect(click.defaultPrevented).toBe(true);
+    expect(anchor?.contentEditable).toBe('true');
+
+    const toolbar = container.querySelector('[data-inline-toolbar="true"]');
+    expect(toolbar?.querySelector('button[aria-label="Edit link"]')).not.toBeNull();
+  });
+
+  it('makes a header navigation link editable without navigating', async () => {
+    await withLinkedPage();
+
+    const header = document.createElement('header');
+    const nav = document.createElement('nav');
+    const tab = document.createElement('a');
+    tab.href = '/events';
+    tab.textContent = 'Events';
+    nav.appendChild(tab);
+    header.appendChild(nav);
+    document.body.insertBefore(header, document.body.firstChild);
+
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    await act(async () => {
+      tab.dispatchEvent(click);
+    });
+
+    expect(click.defaultPrevented).toBe(true);
+    expect(tab.contentEditable).toBe('true');
+    expect(
+      container.querySelector('[data-inline-toolbar="true"] button[aria-label="Edit link"]')
+    ).not.toBeNull();
+  });
+
+  it('leaves header controls functional so the editorial toggle still works', async () => {
+    await withLinkedPage();
+
+    const header = document.createElement('header');
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.textContent = 'Editorial';
+    header.appendChild(toggle);
+    document.body.insertBefore(header, document.body.firstChild);
+
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    await act(async () => {
+      toggle.dispatchEvent(click);
+    });
+
+    // The mode toggle, theme switch and menu are <button>s in the header.
+    // Intercepting them would leave the editor unable to turn itself off.
+    expect(click.defaultPrevented).toBe(false);
+    expect(toggle.contentEditable).not.toBe('true');
+    expect(container.querySelector('[data-inline-toolbar="true"]')).toBeNull();
+  });
+
+  it('persists an edited link destination to the paragraph that contains it', async () => {
+    await withLinkedPage();
+
+    const anchor = document.querySelector<HTMLAnchorElement>('main a');
+    await act(async () => {
+      anchor?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    const editLink = container.querySelector<HTMLButtonElement>('button[aria-label="Edit link"]');
+    expect(editLink).not.toBeNull();
+
+    // The pill variant activates on mouse-down so the contentEditable
+    // selection does not collapse before the command runs.
+    await act(async () => {
+      editLink?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain('Edit link');
+
+    const input = dialog?.querySelector<HTMLInputElement>('#link-url');
+    expect(input?.value).toBe('/guide');
+
+    // React tracks the previous value on the DOM node, so assigning `.value`
+    // directly is discarded; the native setter plus an input event is the
+    // change React actually observes.
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, 'https://example.org/new-guide');
+      input?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const save = dialog?.querySelector<HTMLButtonElement>('button[data-confirm]');
+    await act(async () => {
+      save?.click();
+    });
+
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    const written = saveContent.mock.calls[0][0].body as string;
+    expect(written).toContain('href="https://example.org/new-guide"');
+    // The block is the paragraph. Persisting the anchor's own innerHTML would
+    // replace the paragraph with "the guide".
+    expect(written).toContain('Read ');
+    expect(written).toContain('today.');
+  });
+
   it('renders image action pill when clicking an image element instead of making it contentEditable', async () => {
     await withPage();
 
@@ -823,5 +962,102 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
 
     expect(tabButton.contentEditable).not.toBe('true');
     expect(container.querySelector('[data-inline-toolbar="true"]')).toBeNull();
+  });
+
+  it('renders the unified right sidebar instead of a bottom dock', async () => {
+    await withPage();
+
+    // The sidebar is an <aside> with role complementary — no bottom-bar element
+    const sidebar = container.querySelector<HTMLElement>(
+      'aside[aria-label="Visual Editor Toolbar"]'
+    );
+    expect(sidebar).not.toBeNull();
+
+    // It is fixed to the right, not the bottom
+    const classList = sidebar?.className ?? '';
+    expect(classList).toContain('right-0');
+    expect(classList).not.toContain('bottom-3');
+    expect(classList).not.toContain('inset-x-3');
+  });
+
+  it('collapses the sidebar to an icon strip and restores it', async () => {
+    await withPage();
+
+    const sidebar = container.querySelector<HTMLElement>(
+      'aside[aria-label="Visual Editor Toolbar"]'
+    );
+    expect(sidebar).not.toBeNull();
+
+    // Expanded by default — collapse button is present
+    const collapseBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Collapse Visual Editor Sidebar"]'
+    );
+    expect(collapseBtn).not.toBeNull();
+
+    await act(async () => {
+      collapseBtn?.click();
+    });
+
+    // Collapsed: expand button appears, sidebar is narrower (w-12)
+    const expandBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Expand Visual Editor Sidebar"]'
+    );
+    expect(expandBtn).not.toBeNull();
+
+    const collapsedSidebar = container.querySelector<HTMLElement>(
+      'aside[aria-label="Visual Editor Toolbar"]'
+    );
+    expect(collapsedSidebar?.className).toContain('w-12');
+
+    // Expand again
+    await act(async () => {
+      expandBtn?.click();
+    });
+
+    const expandedSidebar = container.querySelector<HTMLElement>(
+      'aside[aria-label="Visual Editor Toolbar"]'
+    );
+    expect(expandedSidebar?.className).toContain('w-72');
+  });
+
+  it('sidebar shows document title and saved/unsaved state', async () => {
+    await withPage();
+
+    const toolbar = container.querySelector('[data-testid="visual-edit-overlay"]');
+    expect(toolbar).not.toBeNull();
+    // The "saved" text comes from the sidebar's document info line
+    expect(toolbar?.textContent).toContain('saved');
+    // No unsaved indicator on a fresh load
+    expect(toolbar?.textContent).not.toContain('unsaved changes');
+  });
+
+  it('sidebar context zone switches to inline-edit mode on text click and back to default when dismissed', async () => {
+    await withPage();
+
+    const heading = document.querySelector('h2');
+    expect(heading).not.toBeNull();
+
+    await act(async () => {
+      heading?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    // Inline-edit zone is now active inside the sidebar
+    const inlineZone = container.querySelector('[data-inline-toolbar="true"]');
+    expect(inlineZone).not.toBeNull();
+    expect(inlineZone?.getAttribute('aria-label')).toBe('Direct in-place text editor controls');
+
+    // Cancel button dismisses the inline zone
+    const cancelBtn = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Cancel')
+    );
+    expect(cancelBtn).not.toBeNull();
+
+    await act(async () => {
+      cancelBtn?.click();
+    });
+
+    // Back to default context zone — no inline toolbar visible
+    const inlineZoneAfter = container.querySelector('[data-inline-toolbar="true"]');
+    expect(inlineZoneAfter).toBeNull();
   });
 });
