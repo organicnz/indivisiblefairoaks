@@ -607,7 +607,7 @@ ones that finish:
 |---|---|
 | 35 pre-commit guards | lefthook, on `git commit` |
 | documentation claims | `bun scripts/check-doc-claims.mjs` — guards, baseline, spec counts |
-| suppression ratchet | pre-push, baseline 30 |
+| suppression ratchet | pre-push, baseline 31 |
 | lint | `bun run lint:check` |
 | unit + coverage | `bun run test:coverage` — full suite, per-file thresholds |
 | types | `bunx tsc --noEmit` |

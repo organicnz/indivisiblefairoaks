@@ -12,6 +12,25 @@ import type { VisualComposerStyles } from '@/types/unified';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+/** The visual content editor inside the inspector, never a raw-HTML field or the Code tab. */
+function contentEditor(): HTMLElement {
+  const editor = document.querySelector<HTMLElement>(
+    'aside[role="dialog"] [contenteditable="true"]'
+  );
+  if (!editor) throw new Error('expected a visual content editor');
+  return editor;
+}
+
+async function typeIntoContent(html: string): Promise<HTMLElement> {
+  const editor = contentEditor();
+  await act(async () => {
+    editor.focus();
+    editor.innerHTML = html;
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  return editor;
+}
+
 /**
  * A page that echoes a save the way the overlay does: the block comes back with
  * the design shell the editor persists on its own root, not as the draft that
@@ -111,18 +130,7 @@ describe('VisualComposerInspector', () => {
       );
     });
 
-    const textarea = document.querySelector('textarea');
-    expect(textarea).not.toBeNull();
-    if (textarea) {
-      await act(async () => {
-        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-        if (setter) {
-          setter.call(textarea, 'Updated Grassroots Title');
-        }
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        textarea.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-    }
+    await typeIntoContent('Updated Grassroots Title');
 
     const saveButton = Array.from(document.querySelectorAll('button')).find(
       (b) => b.textContent?.trim() === 'Save Block'
@@ -3017,7 +3025,7 @@ describe('FR-3: Alt+Arrow cycles inspector tabs', () => {
     expect(activeTabBtn).not.toBeNull();
   });
 
-  it('Alt+Arrow does not fire when a textarea is focused', async () => {
+  it('Alt+Arrow does not fire when a content editor is focused', async () => {
     await act(async () => {
       root.render(
         <VisualComposerInspector
@@ -3030,9 +3038,7 @@ describe('FR-3: Alt+Arrow cycles inspector tabs', () => {
       );
     });
 
-    const textarea = document.body.querySelector<HTMLTextAreaElement>('textarea');
-    expect(textarea).not.toBeNull();
-    textarea?.focus();
+    contentEditor().focus();
 
     await act(async () => {
       window.dispatchEvent(
@@ -3517,15 +3523,7 @@ describe('VisualComposerInspector closing, focus and refused saves', () => {
 
     // The heading editor owns the block's text, and that text only reaches the
     // page on Save — so it is exactly as losable as a style change.
-    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
-    expect(textarea).not.toBeNull();
-    if (!textarea) return;
-
-    await act(async () => {
-      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-      setValue?.call(textarea, 'A different headline');
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    });
+    await typeIntoContent('A different headline');
 
     expect(document.body.textContent).toContain('Unsaved changes');
 
@@ -3897,15 +3895,7 @@ describe('VisualComposerInspector content summary', () => {
       );
     });
 
-    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
-    expect(textarea).not.toBeNull();
-    if (!textarea) return;
-
-    await act(async () => {
-      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-      setValue?.call(textarea, 'A different headline');
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    });
+    await typeIntoContent('A different headline');
 
     // Copy is not a style group, but it is unsaved work all the same.
     const chips = Array.from(
@@ -3939,18 +3929,12 @@ describe('VisualComposerInspector content summary', () => {
       );
     });
 
-    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
-    expect(textarea).not.toBeNull();
-    if (!textarea) return;
+    const editor = contentEditor();
 
     const type = async (value: string) => {
       await act(async () => {
-        const setValue = Object.getOwnPropertyDescriptor(
-          HTMLTextAreaElement.prototype,
-          'value'
-        )?.set;
-        setValue?.call(textarea, value);
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        editor.innerHTML = value;
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
       });
     };
 
@@ -3970,13 +3954,13 @@ describe('VisualComposerInspector content summary', () => {
     });
 
     // One step for the burst, not one per keystroke.
-    expect(textarea.value).toBe('Mission');
+    expect(editor.textContent).toBe('Mission');
     expect(document.body.textContent).toContain('All changes saved');
 
     await act(async () => {
       redo()?.click();
     });
-    expect(textarea.value).toBe('Mission edited again');
+    expect(editor.textContent).toBe('Mission edited again');
   });
 });
 
@@ -4050,19 +4034,12 @@ describe('VisualComposerInspector draft integrity and reset identity', () => {
   it('keeps typed copy when the page changes the block underneath it', async () => {
     await render(block);
 
-    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
-    expect(textarea).not.toBeNull();
-    if (!textarea) return;
-    await act(async () => {
-      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-      setValue?.call(textarea, 'Mission, typed here');
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    });
+    const editor = await typeIntoContent('Mission, typed here');
 
     await render({ ...block, html: 'Mission, edited elsewhere' });
 
     // The operator's draft is newer than the refresh; it is not replaced.
-    expect(textarea.value).toBe('Mission, typed here');
+    expect(editor.textContent).toBe('Mission, typed here');
     expect(document.body.textContent).toContain('Unsaved changes');
   });
 
@@ -4070,8 +4047,7 @@ describe('VisualComposerInspector draft integrity and reset identity', () => {
     await render(block);
     await render({ ...block, html: 'Mission, edited elsewhere' });
 
-    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
-    expect(textarea?.value).toBe('Mission, edited elsewhere');
+    expect(contentEditor().textContent).toBe('Mission, edited elsewhere');
     expect(document.body.textContent).toContain('All changes saved');
   });
 
@@ -4650,13 +4626,7 @@ describe('VisualComposerInspector live page preview', () => {
     const onPreviewChange = vi.fn();
     await mount(onPreviewChange);
 
-    const textarea = document.querySelector<HTMLTextAreaElement>('aside[role="dialog"] textarea');
-    expect(textarea).not.toBeNull();
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-      setter?.call(textarea, 'A new mission');
-      textarea?.dispatchEvent(new Event('input', { bubbles: true }));
-    });
+    await typeIntoContent('A new mission');
 
     const draft = onPreviewChange.mock.calls.at(-1)?.[0];
     /*

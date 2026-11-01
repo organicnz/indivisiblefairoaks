@@ -1181,8 +1181,17 @@ export function VisualComposerInspector({
       }
 
       if (!e.altKey) return;
-      const tag = (document.activeElement as HTMLElement)?.tagName;
-      if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;
+      const active = document.activeElement as HTMLElement | null;
+      const tag = active?.tagName;
+      if (
+        tag === 'TEXTAREA' ||
+        tag === 'INPUT' ||
+        tag === 'SELECT' ||
+        active?.isContentEditable ||
+        active?.getAttribute('contenteditable') === 'true'
+      ) {
+        return;
+      }
 
       /*
        * Up and down walk the page. A batch has no single "next block" —

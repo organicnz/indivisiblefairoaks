@@ -117,22 +117,19 @@ describe('BlockContentStudio & Modular Block Editors', () => {
       );
     });
 
-    expect(container.textContent).toContain('Paragraph HTML / Content');
-    const textarea = container.querySelector('#para-input') as HTMLTextAreaElement;
-    expect(textarea).not.toBeNull();
-    expect(textarea.value).toBe('Initial body text');
+    expect(container.textContent).toContain('Paragraph');
+    const editor = container.querySelector('#para-input') as HTMLDivElement;
+    expect(editor).not.toBeNull();
+    expect(editor.textContent).toBe('Initial body text');
 
     act(() => {
-      const nativeSetter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        'value'
-      )?.set;
-      nativeSetter?.call(textarea, 'Updated paragraph');
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-      textarea.dispatchEvent(new Event('change', { bubbles: true }));
+      editor.innerHTML = 'Updated paragraph';
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    expect(setCurrentBlock).toHaveBeenCalled();
+    expect(setCurrentBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ html: 'Updated paragraph' })
+    );
   });
 
   it('renders ImageBlockEditor and updates width/height dimensions', async () => {
@@ -261,7 +258,8 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     await act(async () => {
       root.render(<ListBlockEditor currentBlock={listBlock} setCurrentBlock={setCurrentBlock} />);
     });
-    expect(container.textContent).toContain('List Items (one per line)');
+    expect(container.textContent).toContain('List Items');
+    expect(container.textContent).toContain('Vote');
 
     // Code
     const codeBlock: Extract<Block, { type: 'code' }> = {

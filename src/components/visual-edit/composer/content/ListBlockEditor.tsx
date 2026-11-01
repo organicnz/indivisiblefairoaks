@@ -1,6 +1,7 @@
 'use client';
 
 import type { Block } from '@/lib/blocks';
+import { RichTextListEditor } from './RichTextEditor';
 
 export interface ListBlockEditorProps {
   currentBlock: Extract<Block, { type: 'bulletList' | 'orderedList' }>;
@@ -14,17 +15,11 @@ export function ListBlockEditor({
   listItemsId,
 }: ListBlockEditorProps) {
   return (
-    <div>
-      <label htmlFor={listItemsId} className="block text-slate-300 font-bold mb-1">
-        List Items (one per line)
-      </label>
-      <textarea
-        id={listItemsId}
-        rows={6}
-        value={currentBlock.items.join('\n')}
-        onChange={(e) => setCurrentBlock({ ...currentBlock, items: e.target.value.split('\n') })}
-        className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none font-mono"
-      />
-    </div>
+    <RichTextListEditor
+      id={listItemsId}
+      ordered={currentBlock.type === 'orderedList'}
+      items={currentBlock.items}
+      onChange={(items) => setCurrentBlock({ ...currentBlock, items })}
+    />
   );
 }

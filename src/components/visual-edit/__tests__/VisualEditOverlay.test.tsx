@@ -226,14 +226,21 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     });
   };
 
+  /** The composer's visual copy surface, not a raw-HTML field or the Code tab. */
+  const composerCopy = (): HTMLElement => {
+    const editor = document.querySelector<HTMLElement>(
+      'aside[role="dialog"] [contenteditable="true"]'
+    );
+    if (!editor) throw new Error('expected the composer copy editor');
+    return editor;
+  };
+
   /** Type into the composer's copy field, the way the Content tab does. */
   const changeComposerCopy = async (text: string) => {
-    const textarea = document.querySelector<HTMLTextAreaElement>('aside[role="dialog"] textarea');
-    expect(textarea).not.toBeNull();
+    const editor = composerCopy();
     await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-      setter?.call(textarea, text);
-      textarea?.dispatchEvent(new Event('input', { bubbles: true }));
+      editor.innerHTML = text;
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
     });
   };
 
@@ -1585,7 +1592,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(panel).not.toBeNull();
     expect(panel?.textContent).toContain('Block #2 ·');
     // Same block, same draft, same preview — design included.
-    expect(panel?.querySelector<HTMLTextAreaElement>('textarea')?.value).toBe('Fresh intro copy.');
+    expect(composerCopy().textContent).toBe('Fresh intro copy.');
     expect(paragraph.textContent).toBe('Fresh intro copy.');
     expect(paragraph.getAttribute('class')).toContain('rounded-2xl');
 

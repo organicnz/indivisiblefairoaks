@@ -13,7 +13,12 @@ import {
   Underline,
   Unlink,
 } from 'lucide-react';
-import { Fragment, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import {
+  Fragment,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 
 /**
  * The inline formatting vocabulary, in one place.
@@ -243,6 +248,13 @@ export function InlineFormatToolbar({
           variant === 'pill'
             ? {
                 onMouseDown: (e: ReactMouseEvent) => {
+                  e.preventDefault();
+                  handleCommand();
+                },
+                /* The pill cancels mousedown to keep the selection, so a
+                   keyboard press has no click to fall back on. */
+                onKeyDown: (e: ReactKeyboardEvent<HTMLButtonElement>) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
                   e.preventDefault();
                   handleCommand();
                 },
