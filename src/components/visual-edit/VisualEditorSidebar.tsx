@@ -81,6 +81,7 @@ const INLINE_FORMAT_COMMANDS: readonly InlineFormatCommand[] = [
   'link',
   'unlink',
   'clear',
+  'editLink',
   'h2',
   'h3',
   'paragraph',
@@ -146,7 +147,12 @@ export interface VisualEditorSidebarProps {
   inlineCounts: { chars: number; words: number };
   onCommitInlineEdit: (session: InlineEditSession) => void;
   onCancelInlineEdit: (session: InlineEditSession) => void;
-  onSetLinkModal: (state: { textareaId: string | null; url: string; text: string }) => void;
+  onSetLinkModal: (state: {
+    textareaId: string | null;
+    url: string;
+    text: string;
+    editAnchor?: HTMLAnchorElement | null;
+  }) => void;
   onToggleSlashMenu: () => void;
   onInlineTextUpdated: (text: string) => void;
 
@@ -319,6 +325,19 @@ function InlineContextZone(props: VisualEditorSidebarProps & { inlineSession: In
   const { inlineSession } = props;
   const composerIdx = inlineSession.blockIndex ?? props.activeBlockIndex ?? 0;
 
+  /*
+   * "Edit link" is only meaningful when the edited element is, or contains, an
+   * anchor. "Remove link" stays available on any element: it acts on the
+   * current selection, which may contain a link even when the element does not.
+   */
+  const activeAnchor =
+    inlineSession.element.tagName === 'A'
+      ? (inlineSession.element as HTMLAnchorElement)
+      : inlineSession.element.querySelector('a');
+  const formatCommands = activeAnchor
+    ? INLINE_FORMAT_COMMANDS
+    : INLINE_FORMAT_COMMANDS.filter((command) => command !== 'editLink');
+
   return (
     <div
       data-inline-toolbar="true"
@@ -385,10 +404,21 @@ function InlineContextZone(props: VisualEditorSidebarProps & { inlineSession: In
 
       <InlineFormatToolbar
         variant="pill"
-        commands={INLINE_FORMAT_COMMANDS}
+        commands={formatCommands}
         onCommand={(command) => {
           if (command === 'link') {
             props.onSetLinkModal({ textareaId: null, url: '', text: '' });
+          } else if (command === 'editLink') {
+            // `activeAnchor` is guaranteed non-null here: the command is only in
+            // `formatCommands` when the session element is or contains an <a>.
+            if (activeAnchor) {
+              props.onSetLinkModal({
+                textareaId: null,
+                url: activeAnchor.getAttribute('href') ?? activeAnchor.href,
+                text: '',
+                editAnchor: activeAnchor,
+              });
+            }
           } else {
             applyInlineFormatCommand(command);
           }

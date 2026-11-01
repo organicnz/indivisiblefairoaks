@@ -28,6 +28,7 @@ import {
   Trash2,
   Upload,
   UploadCloud,
+  X,
 } from 'lucide-react';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -65,6 +66,7 @@ import {
   nextBlockId,
   parseHtml,
   serializeBlocks,
+  structuralClassesOf,
 } from '@/lib/blocks';
 import { copyRegionSlug, getPageCopyRegions } from '@/lib/copy-regions';
 import { clearDraft, isWorthRecovering, readDraft, writeDraft } from '@/lib/draft-recovery';
@@ -163,6 +165,7 @@ export interface InlineEditSession {
   dataPointKey: string | null;
   copyRegionId: string | null;
   blockIndex: number | null;
+  href: string | null;
   top: number;
   left: number;
 }
@@ -252,6 +255,52 @@ function wrapSelectionWithTag(tagName: string, className?: string) {
   }
 }
 
+/**
+ * The shape of an `id` attribute, shared by both anchor checks.
+ *
+ * `(?:^|\s)`, not `\b`: a word boundary also matches the `id` inside
+ * `data-id`, which would report a collision that is not one. The composer's
+ * save guard and its live warning both build from this string, so the two
+ * cannot disagree about what counts as an anchor.
+ */
+const ANCHOR_ATTRIBUTE_PREFIX = String.raw`(?:^|\s)id=["']`;
+
+/** Every id a block carries, or every id on the page but one block's. */
+function collectAnchorIds(blocks: Block[], exceptIndex: number | null = null): string[] {
+  const ids: string[] = [];
+  blocks.forEach((block, index) => {
+    if (index === exceptIndex) return;
+    if (!('html' in block) || typeof block.html !== 'string') return;
+    const pattern = new RegExp(`${ANCHOR_ATTRIBUTE_PREFIX}([^"']+)["']`, 'gi');
+    for (const match of block.html.matchAll(pattern)) {
+      if (match[1]) ids.push(match[1]);
+    }
+  });
+  return ids;
+}
+
+/**
+ * The index of another block that already owns `anchorId`, or `null` if free.
+ *
+ * An `id` identifies exactly one element. Two blocks carrying the same one
+ * produces invalid HTML, breaks every in-page link that meant the first of
+ * them, and fails the composer's own accessibility audit — so the write is
+ * refused with a message naming the conflict, rather than silently minting a
+ * duplicate or silently renaming what the operator typed.
+ */
+function findAnchorOwner(blocks: Block[], blockIndex: number, anchorId: string): number | null {
+  const escaped = anchorId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`${ANCHOR_ATTRIBUTE_PREFIX}${escaped}["']`, 'i');
+  for (let i = 0; i < blocks.length; i += 1) {
+    if (i === blockIndex) continue;
+    const block = blocks[i];
+    if ('html' in block && typeof block.html === 'string' && pattern.test(block.html)) {
+      return i;
+    }
+  }
+  return null;
+}
+
 export function VisualEditOverlay() {
   const router = useRouter();
   const rawPathname = usePathname();
@@ -315,6 +364,50 @@ export function VisualEditOverlay() {
   const [sectionOverlays, setSectionOverlays] = useState<VisualSectionOverlayItem[]>([]);
   /** The block the operator is working on, for the highlighted frame. */
   const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
+
+  // ── Multi-block selection ────────────────────────────────────────────────
+  // Selection is stored by block id, not by index. Reordering, deleting or
+  // inserting a section shifts every index after it, and a selection held by
+  // index would then style the wrong blocks — or the right blocks minus one.
+  // Ids survive those edits, and an index that no longer resolves is simply
+  // dropped from the derived set below.
+  const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
+
+  /** Selected block ids resolved against the blocks that exist right now. */
+  const selectedBlockIndexes = useMemo(() => {
+    const indexes = new Set<number>();
+    blocks.forEach((block, index) => {
+      if (selectedBlockIds.has(block.id)) indexes.add(index);
+    });
+    return indexes;
+  }, [blocks, selectedBlockIds]);
+
+  /** Replace the selection with a single block (plain click). */
+  const selectBlockOnly = useCallback((index: number) => {
+    const block = blocksRef.current[index];
+    if (!block) return;
+    setSelectedBlockIds(new Set([block.id]));
+    setActiveBlockIndex(index);
+  }, []);
+
+  /** Toggle one block into/out of a multi-selection (Cmd/Ctrl+click). */
+  const toggleBlockSelection = useCallback((index: number) => {
+    const block = blocksRef.current[index];
+    if (!block) return;
+    setSelectedBlockIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(block.id)) next.delete(block.id);
+      else next.add(block.id);
+      return next;
+    });
+    setActiveBlockIndex(index);
+  }, []);
+
+  /** Clear the selection entirely. */
+  const clearSelection = useCallback(() => {
+    setSelectedBlockIds(new Set());
+    setActiveBlockIndex(null);
+  }, []);
 
   // ── Undo, dirty tracking and autosave ────────────────────────────────────
   // The overlay used to write every keystroke straight to `content`, which made
@@ -400,12 +493,61 @@ export function VisualEditOverlay() {
    * luck. One handler, so the next trigger cannot forget the index or the
    * mode.
    */
-  const openVisualComposer = useCallback((mode: 'block' | 'section', blockIndex: number) => {
-    setActiveBlockIndex(blockIndex);
-    setVcBlockIndex(blockIndex);
-    setVcMode(mode);
-    setIsVisualComposerOpen(true);
+  const openVisualComposer = useCallback(
+    (mode: 'block' | 'section', blockIndex: number) => {
+      const target = blocksRef.current[blockIndex];
+      if (!target) return;
+
+      const selected = Array.from(selectedBlockIndexes);
+      const selectedIds = selected
+        .map((index) => blocksRef.current[index]?.id)
+        .filter((id): id is string => Boolean(id));
+      /*
+       * Batch mode only when the block the inspector was opened for is itself
+       * part of the selection. Opening the composer for an unselected block is
+       * a request to style *that* block; applying to a different selection
+       * behind it would be an invisible write.
+       */
+      const useBatch = selected.length > 1 && selected.includes(blockIndex);
+
+      setActiveBlockIndex(blockIndex);
+      setVcBlockIndex(blockIndex);
+      setVcSelectedBlockIds(useBatch ? selectedIds : []);
+      if (!useBatch) setSelectedBlockIds(new Set([target.id]));
+      setVcMode(mode);
+      setIsVisualComposerOpen(true);
+    },
+    [selectedBlockIndexes]
+  );
+
+  /** Close the inspector and drop the batch target snapshot with it. */
+  const closeVisualComposer = useCallback(() => {
+    setIsVisualComposerOpen(false);
+    setVcSelectedBlockIds([]);
   }, []);
+
+  /**
+   * Move the open inspector to the neighbouring block.
+   *
+   * The panel stays open and the page selection follows it, so the frame that
+   * is being edited is the frame the operator sees. A batch is left behind on
+   * purpose: navigating names one block, and a write to the previous selection
+   * behind the panel would be invisible.
+   */
+  const navigateComposerBlock = useCallback(
+    (direction: 'previous' | 'next') => {
+      const from = vcBlockIndexRef.current;
+      if (from === null) return;
+      const target = from + (direction === 'next' ? 1 : -1);
+      const list = blocksRef.current;
+      if (target < 0 || target >= list.length) return;
+
+      setVcBlockIndex(target);
+      setVcSelectedBlockIds([]);
+      selectBlockOnly(target);
+    },
+    [selectBlockOnly]
+  );
 
   // Direct In-Place Click-To-Edit Session State
   const [inlineSession, setInlineSession] = useState<InlineEditSession | null>(null);
@@ -434,10 +576,12 @@ export function VisualEditOverlay() {
   // `textareaId` is set when the dialog is opened from the section modal's
   // textarea toolbar; null means it was opened from the inline contentEditable
   // pill, which uses `execCommand('createLink')` instead of `wrapSelection`.
+  // `editAnchor` is set when editing an existing anchor's href (inline edit).
   const [linkModal, setLinkModal] = useState<{
     textareaId: string | null;
     url: string;
     text: string;
+    editAnchor?: HTMLAnchorElement | null;
   } | null>(null);
 
   // ── Alt text edit dialog (replaces browser prompt) ───────────────────────
@@ -458,7 +602,66 @@ export function VisualEditOverlay() {
   const [isSlashMenuOpen, setIsSlashMenuOpen] = useState(false);
   const [isVisualComposerOpen, setIsVisualComposerOpen] = useState(false);
   const [vcBlockIndex, setVcBlockIndex] = useState<number | null>(null);
+  /**
+   * Where the open panel is, readable from a callback that must not be rebuilt
+   * on every navigation — the same reason `blocksRef` exists above.
+   */
+  const vcBlockIndexRef = useRef<number | null>(null);
+  vcBlockIndexRef.current = vcBlockIndex;
   const [vcMode, setVcMode] = useState<'block' | 'section'>('block');
+  /**
+   * When more than one block is selected, the Visual Composer opens in batch
+   * mode: one set of design controls applied to every selected block.
+   * `vcBlockIndex` is the "primary" block whose styles are shown as the draft;
+   * `vcSelectedBlockIds` is every block that will receive the applied styles.
+   *
+   * Ids, not indexes, for the same reason the selection uses them: the panel can
+   * stay open while a section is deleted or moved behind it, and an index would
+   * then name a different block than the one the operator chose.
+   */
+  const [vcSelectedBlockIds, setVcSelectedBlockIds] = useState<string[]>([]);
+  const vcSelectedBlockIndexes = useMemo(() => {
+    const indexes: number[] = [];
+    blocks.forEach((block, index) => {
+      if (vcSelectedBlockIds.includes(block.id)) indexes.push(index);
+    });
+    return indexes;
+  }, [blocks, vcSelectedBlockIds]);
+
+  /**
+   * What a batch will actually touch, named the way the page names it.
+   *
+   * The panel used to say "Apply to 3 blocks" and nothing else — a count of a
+   * write that cannot be undone from here. The same labels the page's chips and
+   * the structure navigator use make the scope checkable before the click.
+   */
+  const vcSelectedTargets = useMemo(
+    () =>
+      vcSelectedBlockIndexes.map((index) => {
+        const target = blocks[index];
+        return {
+          index,
+          // The id is how the composer remembers a design against the block it
+          // styled: a batch writes one class string to several blocks, and each
+          // has to be able to recognise it again when reopened.
+          id: target?.id,
+          label: target ? sectionLabelForBlock(target) : 'Removed block',
+          type: target?.type ?? 'unsupported',
+        };
+      }),
+    [vcSelectedBlockIndexes, blocks]
+  );
+
+  /**
+   * Anchor ids the rest of the page already owns.
+   *
+   * The composer warns while the id is being typed and the save guard refuses
+   * it; both read this, so the warning cannot disagree with what Save will do.
+   */
+  const vcTakenAnchorIds = useMemo(
+    () => collectAnchorIds(blocks, vcBlockIndex),
+    [blocks, vcBlockIndex]
+  );
   const [isBlockLibraryOpen, setIsBlockLibraryOpen] = useState(false);
   const [libraryTargetIndex, setLibraryTargetIndex] = useState<number | null>(null);
   const [isPageNavigatorOpen, setIsPageNavigatorOpen] = useState(false);
@@ -673,6 +876,14 @@ export function VisualEditOverlay() {
 
   // Load content row and blocks when visual editing is turned on
   const loadContentData = useCallback(async () => {
+    // A different document means a different set of blocks: ids from the
+    // previous one must not stay selected, and a batch target snapshot is
+    // meaningless once the underlying document changes.
+    setSelectedBlockIds(new Set());
+    setActiveBlockIndex(null);
+    setVcSelectedBlockIds([]);
+    setIsVisualComposerOpen(false);
+
     // A region is addressed by its own slug; the whole page keeps the old
     // slug-from-path behaviour, including the `home` fallback for `/`.
     let slug: string | null = documentSlug;
@@ -1073,8 +1284,23 @@ export function VisualEditOverlay() {
       const element = locate(blockIndex);
       if (!element) return;
 
-      setActiveBlockIndex(blockIndex);
+      selectBlockOnly(blockIndex);
       highlightPageSection(element);
+    },
+    [locate, selectBlockOnly]
+  );
+
+  /**
+   * Scroll a block into view and flash it, without changing the selection.
+   *
+   * `jumpTo` also selects, which is right for the navigator and wrong for the
+   * composer: locating the block a panel is editing must not collapse a
+   * three-block batch behind a panel that still says "3 blocks".
+   */
+  const revealBlock = useCallback(
+    (blockIndex: number) => {
+      const element = locate(blockIndex);
+      if (element) highlightPageSection(element);
     },
     [locate]
   );
@@ -1578,12 +1804,38 @@ export function VisualEditOverlay() {
   };
 
   const handleSaveVcBlock = useCallback(
-    (updatedBlock: Block, customClasses?: string, anchorId?: string, customStyle?: string) => {
-      if (vcBlockIndex === null) return;
-      const nextBlocks = [...blocksRef.current];
+    (
+      updatedBlock: Block,
+      customClasses?: string,
+      anchorId?: string,
+      customStyle?: string
+    ): boolean => {
+      if (vcBlockIndex === null) return false;
+
+      // Refused, not repaired: see `findAnchorOwner`. The inspector keeps the
+      // panel open on `false`, so the id the operator typed is still theirs to
+      // change.
+      if (anchorId) {
+        const owner = findAnchorOwner(blocksRef.current, vcBlockIndex, anchorId);
+        if (owner !== null) {
+          toast.error(
+            `Anchor id “${anchorId}” is already used by block #${owner + 1}. Choose a different id.`
+          );
+          return false;
+        }
+      }
+
+      /*
+       * The block is rebuilt rather than mutated. The inspector hands over a
+       * state object of its own, and writing through it would edit the panel's
+       * draft from underneath it — the same object the undo stack snapshots.
+       */
+      let nextBlock = updatedBlock;
       if (customClasses || anchorId || customStyle) {
         const idAttr = anchorId ? ` id="${anchorId}"` : '';
-        const classAttr = customClasses ? ` class="${customClasses}"` : '';
+        const preservedClasses = structuralClassesOf(updatedBlock);
+        const mergedClasses = [customClasses, preservedClasses].filter(Boolean).join(' ').trim();
+        const classAttr = mergedClasses ? ` class="${mergedClasses}"` : '';
         const styleAttr = customStyle ? ` style="${customStyle}"` : '';
         const themeAttr = customClasses?.includes('[data-theme=dark]')
           ? ' data-theme="dark"'
@@ -1592,33 +1844,104 @@ export function VisualEditOverlay() {
             : customClasses?.includes('[data-theme-mode=system]')
               ? ' data-theme-mode="system"'
               : '';
-        if ('html' in updatedBlock && typeof updatedBlock.html === 'string') {
-          const trimmed = updatedBlock.html.trim();
-          if (trimmed.startsWith('<div') && trimmed.endsWith('</div>')) {
-            const closingTag = trimmed.indexOf('>');
-            if (closingTag !== -1) {
-              const inner = trimmed.slice(closingTag + 1, -6);
-              updatedBlock.html = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${inner}</div>`;
-            }
-          } else {
-            updatedBlock.html = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${trimmed}</div>`;
-          }
+        const shell = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>`;
+
+        if ('html' in nextBlock && typeof nextBlock.html === 'string') {
+          const trimmed = nextBlock.html.trim();
+          const isWrapped = trimmed.startsWith('<div') && trimmed.endsWith('</div>');
+          const openingTagEnd = isWrapped ? trimmed.indexOf('>') : -1;
+          const inner = openingTagEnd !== -1 ? trimmed.slice(openingTagEnd + 1, -6) : trimmed;
+          nextBlock = { ...nextBlock, html: `${shell}${inner}</div>` };
         } else {
-          const serialized = serializeBlocks([updatedBlock]);
-          const wrappedHtml = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${serialized}</div>`;
-          updatedBlock = {
-            id: updatedBlock.id,
+          const serialized = serializeBlocks([nextBlock]);
+          nextBlock = {
+            id: nextBlock.id,
             type: 'unsupported',
-            html: wrappedHtml,
+            html: `${shell}${serialized}</div>`,
           };
         }
       }
-      nextBlocks[vcBlockIndex] = updatedBlock;
+
+      const nextBlocks = [...blocksRef.current];
+      nextBlocks[vcBlockIndex] = nextBlock;
       setBlocks(nextBlocks);
       commitBlocks(nextBlocks, `vc-edit:${vcBlockIndex}`);
       toast.success(`Block #${vcBlockIndex + 1} customized`);
+      return true;
     },
     [commitBlocks, vcBlockIndex]
+  );
+
+  /**
+   * Batch-apply one set of design controls to every selected block.
+   * Each block keeps its own content/HTML; only the shell classes/attrs change.
+   */
+  const handleSaveVcBlocks = useCallback(
+    (
+      _updatedBlock: Block,
+      blockIndexes: number[],
+      customClasses?: string,
+      anchorId?: string,
+      customStyle?: string
+    ): boolean => {
+      const nextBlocks = [...blocksRef.current];
+      /*
+       * The anchor id is deliberately ignored in batch mode. An id identifies
+       * one element, and writing the same one onto N blocks produces duplicate
+       * ids — invalid HTML and an a11y defect axe fails. `anchorId` stays in
+       * the signature because the single-block path shares it.
+       */
+      const idAttr = '';
+      if (anchorId) {
+        toast.info('Anchor IDs are not applied when styling multiple blocks.');
+      }
+      const styleAttr = customStyle ? ` style="${customStyle}"` : '';
+      const themeAttr = customClasses?.includes('[data-theme=dark]')
+        ? ' data-theme="dark"'
+        : customClasses?.includes('[data-theme=light]')
+          ? ' data-theme="light"'
+          : customClasses?.includes('[data-theme-mode=system]')
+            ? ' data-theme-mode="system"'
+            : '';
+
+      for (const idx of blockIndexes) {
+        const blk = nextBlocks[idx];
+        if (!blk) continue;
+        const next = { ...blk };
+        if (customClasses || anchorId || customStyle) {
+          const preservedClasses = structuralClassesOf(blk);
+          const mergedClasses = [customClasses, preservedClasses].filter(Boolean).join(' ').trim();
+          const classAttr = mergedClasses ? ` class="${mergedClasses}"` : '';
+          if ('html' in next && typeof next.html === 'string') {
+            const trimmed = next.html.trim();
+            if (trimmed.startsWith('<div') && trimmed.endsWith('</div>')) {
+              const closingTag = trimmed.indexOf('>');
+              if (closingTag !== -1) {
+                const inner = trimmed.slice(closingTag + 1, -6);
+                next.html = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${inner}</div>`;
+              }
+            } else {
+              next.html = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${trimmed}</div>`;
+            }
+          } else {
+            const serialized = serializeBlocks([next]);
+            const wrappedHtml = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${serialized}</div>`;
+            Object.assign(next, {
+              id: next.id,
+              type: 'unsupported',
+              html: wrappedHtml,
+            });
+          }
+        }
+        nextBlocks[idx] = next;
+      }
+
+      setBlocks(nextBlocks);
+      commitBlocks(nextBlocks, `vc-batch-edit:${blockIndexes.join(',')}`);
+      toast.success(`Styled ${blockIndexes.length} blocks`);
+      return true;
+    },
+    [commitBlocks]
   );
 
   const handleInsertBlockFromLibrary = useCallback(
@@ -1659,7 +1982,19 @@ export function VisualEditOverlay() {
       setInlineSession(null);
 
       const updatedHtml = element.innerHTML;
-      if (updatedHtml === initialHtml) {
+      /*
+       * `innerHTML` serializes an element's children, so when the session's
+       * element is the <a> itself, changing its href does not change
+       * `updatedHtml` at all. The href comparison is what makes a link-only
+       * edit visible; without it the early return below silently drops it.
+       */
+      const anchorInElement =
+        element.tagName === 'A' ? (element as HTMLAnchorElement) : element.querySelector('a');
+      const hrefChanged = Boolean(
+        anchorInElement && session.href !== null && anchorInElement.href !== session.href
+      );
+
+      if (updatedHtml === initialHtml && !hrefChanged) {
         return;
       }
 
@@ -1707,6 +2042,61 @@ export function VisualEditOverlay() {
         return;
       }
 
+      /*
+       * The session element is often a CHILD of the block's rendered element —
+       * a link inside a paragraph, a span inside a callout. `element.innerHTML`
+       * is then only that fragment, and persisting it as the block's `html`
+       * would replace the whole paragraph with the link's text. The block's own
+       * root is what the model stores, so read the HTML from there whenever the
+       * session element sits inside it.
+       */
+      const blockRoot = blockIndex !== null ? locate(blockIndex) : null;
+      const blockHtml =
+        blockRoot && blockRoot !== element && blockRoot.contains(element)
+          ? blockRoot.innerHTML
+          : updatedHtml;
+
+      if (hrefChanged && anchorInElement) {
+        if (blockIndex !== null && blocksRef.current[blockIndex]?.type === 'button') {
+          await writeToBlock({
+            blockIndex,
+            blocks: blocksRef.current,
+            successMessage: 'Button link saved to backend',
+            mutate: (target) => {
+              if (target.type === 'button') {
+                return {
+                  ...target,
+                  label: element.textContent?.trim() || target.label,
+                  href: anchorInElement.getAttribute('href') || target.href,
+                };
+              }
+              return undefined;
+            },
+          });
+          return;
+        }
+        if (blockIndex !== null && blocksRef.current[blockIndex]) {
+          await writeToBlock({
+            blockIndex,
+            blocks: blocksRef.current,
+            successMessage: 'Link saved to backend',
+            mutate: (target) => {
+              if (
+                target.type === 'paragraph' ||
+                target.type === 'quote' ||
+                target.type === 'callout'
+              ) {
+                return { ...target, html: blockHtml };
+              }
+              return undefined;
+            },
+          });
+          return;
+        }
+        toast.success('Link updated');
+        return;
+      }
+
       if (blockIndex !== null && blocksRef.current[blockIndex]) {
         await writeToBlock({
           blockIndex,
@@ -1721,7 +2111,7 @@ export function VisualEditOverlay() {
               target.type === 'quote' ||
               target.type === 'callout'
             ) {
-              return { ...target, html: updatedHtml };
+              return { ...target, html: blockHtml };
             }
             if (target.type === 'button') {
               return { ...target, label: element.textContent?.trim() || target.label };
@@ -1734,7 +2124,7 @@ export function VisualEditOverlay() {
 
       toast.success('Section text updated');
     },
-    [router, writeToBlock, writeToCopyRegion]
+    [router, writeToBlock, writeToCopyRegion, locate]
   );
 
   const handleSaveImageAlt = useCallback(
@@ -1898,8 +2288,6 @@ export function VisualEditOverlay() {
         target.closest('[role="dialog"]') ||
         target.closest('[role="toolbar"]') ||
         target.closest('[data-inline-toolbar="true"]') ||
-        target.closest('header') ||
-        target.closest('nav') ||
         target.closest('input') ||
         target.closest('textarea') ||
         target.closest('select') ||
@@ -1920,14 +2308,29 @@ export function VisualEditOverlay() {
         return;
       }
 
-      const main = target.closest('main');
-      if (!main) return;
+      /*
+       * Outside <main> (the site header, the nav row, the footer) only links are
+       * page content. A <button> out there is an application control — the
+       * editorial-mode toggle itself, the theme switch, the mobile menu, the
+       * search trigger — and intercepting one would leave the editor unable to
+       * turn itself off. So the header's nav tabs become editable (they are
+       * <a>), and its controls keep working.
+       */
+      const inMain = Boolean(target.closest('main'));
+      if (!inMain && !target.closest('a')) return;
 
       if (
         inlineSessionRef.current &&
         (inlineSessionRef.current.element === target ||
           inlineSessionRef.current.element.contains(target))
       ) {
+        /*
+         * A contentEditable <a> can still follow its href on click in some
+         * browsers, and a link nested in the element being edited would
+         * navigate away mid-edit. Suppressing the default here does not affect
+         * cursor placement (that happens on mousedown), only navigation.
+         */
+        if (target.closest('a')) e.preventDefault();
         return;
       }
 
@@ -2023,12 +2426,17 @@ export function VisualEditOverlay() {
         words: text.trim() ? text.trim().split(/\s+/).length : 0,
       });
 
+      const anchor =
+        editable.tagName === 'A' ? (editable as HTMLAnchorElement) : editable.querySelector('a');
+      const sessionHref = anchor ? (anchor as HTMLAnchorElement).href || null : null;
+
       const session: InlineEditSession = {
         element: editable,
         initialHtml,
         dataPointKey,
         copyRegionId,
         blockIndex: matchedBlockIdx,
+        href: sessionHref,
         top: Math.max(12, r.top - 46),
         left: Math.max(12, Math.min(window.innerWidth - 500, r.left)),
       };
@@ -2265,12 +2673,69 @@ export function VisualEditOverlay() {
       }
       // Don't intercept shortcuts when typing in inputs
       const target = event.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      const isTyping =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable;
+      if (isTyping) {
         // Allow default browser shortcuts in inputs (bold, italic, etc.)
         if (['b', 'i', 'k'].includes(event.key.toLowerCase())) return;
       }
-      if (!(event.metaKey || event.ctrlKey)) return;
       const key = event.key.toLowerCase();
+      const mod = event.metaKey || event.ctrlKey;
+
+      /*
+       * Plain-key navigation: J/K move the selected section, Enter edits it.
+       * These are the shortcuts the cheat sheet has always advertised, and they
+       * only run where no field, dialog or menu owns the keyboard — otherwise
+       * typing "j" in a URL field would jump the page.
+       */
+      if (!mod && !event.altKey) {
+        const overlayOpen = Boolean(
+          document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')
+        );
+        if (!isTyping && !overlayOpen && !isVisualComposerOpen) {
+          if (key === 'j' || key === 'k') {
+            const total = blocksRef.current.length;
+            if (total > 0) {
+              event.preventDefault();
+              const current = activeBlockIndex ?? (key === 'j' ? -1 : total);
+              const step = key === 'j' ? 1 : -1;
+              const next = Math.min(total - 1, Math.max(0, current + step));
+              setActiveBlockIndex(next);
+              if (event.shiftKey) toggleBlockSelection(next);
+              else selectBlockOnly(next);
+              locate(next)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              return;
+            }
+          }
+          if (key === 'enter' && activeBlockIndex !== null) {
+            const onControl = Boolean(
+              target.closest(
+                'button, a[href], input, textarea, select, [role="button"], [role="menuitem"]'
+              )
+            );
+            if (!onControl) {
+              event.preventDefault();
+              handleOpenEditSection(activeBlockIndex);
+              return;
+            }
+          }
+        }
+        // Escape collapses a multi-selection back to the active block. A single
+        // selection is left alone: it is the normal working state, not a mode.
+        // While the composer is open it owns Escape: collapsing the selection
+        // behind the panel would change what the operator is looking at without
+        // anything on screen explaining why.
+        if (key === 'escape' && !isTyping && !isVisualComposerOpen && selectedBlockIds.size > 1) {
+          if (activeBlockIndex !== null) selectBlockOnly(activeBlockIndex);
+          else clearSelection();
+          return;
+        }
+      }
+
+      if (!mod) return;
       // Command palette spotlight (⌘K / Ctrl+K)
       if (key === 'k') {
         const sel = window.getSelection();
@@ -2344,8 +2809,8 @@ export function VisualEditOverlay() {
       // Visual Composer Inspector (⌘E)
       if (key === 'e' && !event.shiftKey) {
         event.preventDefault();
-        setVcBlockIndex(activeBlockIndex ?? 0);
-        setIsVisualComposerOpen((prev) => !prev);
+        if (isVisualComposerOpen) closeVisualComposer();
+        else openVisualComposer('block', activeBlockIndex ?? 0);
         return;
       }
       // Visual Composer Block Library (⌘⇧E)
@@ -2400,6 +2865,15 @@ export function VisualEditOverlay() {
     contentRow,
     toggleInspector,
     contextMenu,
+    handleOpenEditSection,
+    locate,
+    selectBlockOnly,
+    toggleBlockSelection,
+    clearSelection,
+    selectedBlockIds.size,
+    isVisualComposerOpen,
+    closeVisualComposer,
+    openVisualComposer,
   ]);
 
   // Revisions management — restore is destructive; the confirm step lives at the
@@ -2717,14 +3191,22 @@ export function VisualEditOverlay() {
               }}
               className="pointer-events-none"
             >
-              {/* Highlight boundary */}
+              {/*
+                Highlight boundary. It stays pointer-events-none: this layer sits
+                over the live page, and making it clickable would swallow every
+                click meant for the content underneath — including the inline
+                editing this overlay exists to provide. Selection happens on the
+                pill chip, which is the one pointer-events-auto surface here.
+              */}
               <div
                 className={`w-full h-full rounded-2xl transition-all duration-300 ${
-                  activeBlockIndex === item.blockIndex
-                    ? 'border-2 border-accent-gold ring-4 ring-accent-gold/20 bg-accent-gold/5 shadow-[0_0_30px_rgba(245,158,11,0.25)]'
-                    : showAllSectionBorders
-                      ? 'border border-dashed border-accent-gold/40 bg-accent-gold/[0.02]'
-                      : 'border border-transparent'
+                  selectedBlockIndexes.has(item.blockIndex)
+                    ? 'border-2 border-accent-gold ring-4 ring-accent-gold/30 bg-accent-gold/10 shadow-[0_0_40px_rgba(245,158,11,0.35)]'
+                    : activeBlockIndex === item.blockIndex
+                      ? 'border-2 border-accent-gold ring-4 ring-accent-gold/20 bg-accent-gold/5 shadow-[0_0_30px_rgba(245,158,11,0.25)]'
+                      : showAllSectionBorders
+                        ? 'border border-dashed border-accent-gold/40 bg-accent-gold/[0.02]'
+                        : 'border border-transparent'
                 }`}
               />
 
@@ -2734,13 +3216,52 @@ export function VisualEditOverlay() {
                 aria-label={`Actions for ${item.label}`}
                 className="pointer-events-auto absolute -top-3.5 left-0 -translate-x-full -ml-1 max-sm:left-0 max-sm:translate-x-0 max-sm:-top-8 inline-flex items-center gap-1.5 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-1 text-xs text-ink-on-dark shadow-float backdrop-blur-md transition-all hover:scale-105"
               >
-                <span className="size-2 rounded-full bg-accent-gold animate-pulse" />
-                <span className="font-black text-accent-gold uppercase text-[10px] tracking-wider">
-                  {item.blockType}
-                </span>
-                <span className="max-w-[120px] sm:max-w-[180px] truncate font-semibold text-white text-[11px]">
-                  {item.label}
-                </span>
+                {/* Selection chip: click selects the block; Cmd/Ctrl/Shift+click toggles multi. */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (e.metaKey || e.ctrlKey || e.shiftKey) toggleBlockSelection(item.blockIndex);
+                    else selectBlockOnly(item.blockIndex);
+                  }}
+                  aria-pressed={selectedBlockIndexes.has(item.blockIndex)}
+                  aria-label={
+                    selectedBlockIndexes.has(item.blockIndex)
+                      ? `Deselect ${item.label}`
+                      : `Select ${item.label}. Hold Command or Control to add to a multi-selection.`
+                  }
+                  disabled={isVisualComposerOpen}
+                  title={
+                    isVisualComposerOpen
+                      ? 'Close the composer to change the block selection'
+                      : 'Select this block — ⌘/Ctrl-click to add more for batch styling'
+                  }
+                  className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white/10"
+                >
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      selectedBlockIndexes.has(item.blockIndex)
+                        ? 'bg-accent-gold ring-2 ring-white'
+                        : 'bg-white/20'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="font-black text-accent-gold uppercase tracking-wider">
+                    {item.blockType}
+                  </span>
+                  <span
+                    className={`max-w-[120px] sm:max-w-[180px] truncate font-semibold text-[11px] ${
+                      selectedBlockIndexes.has(item.blockIndex) ? 'text-white' : 'text-ink-on-dark'
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                  {selectedBlockIndexes.size > 1 && selectedBlockIndexes.has(item.blockIndex) && (
+                    <span className="ml-1 inline-flex min-w-4 shrink-0 items-center justify-center rounded-full border border-accent-gold bg-accent-gold/20 px-1 text-[9px] font-black leading-4 text-ink-strong">
+                      {selectedBlockIndexes.size}×
+                    </span>
+                  )}
+                </button>
 
                 <div className="ml-1.5 flex items-center gap-1 border-l border-white/20 pl-1.5">
                   {/* Edit section */}
@@ -2779,10 +3300,7 @@ export function VisualEditOverlay() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveBlockIndex(item.blockIndex);
-                      setVcBlockIndex(item.blockIndex);
-                      setVcMode('block');
-                      setIsVisualComposerOpen(true);
+                      openVisualComposer('block', item.blockIndex);
                     }}
                     title="Visual Composer: Element Design &amp; Box Model Inspector (⌘E)"
                     aria-label="Visual Composer Inspector"
@@ -2795,10 +3313,7 @@ export function VisualEditOverlay() {
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveBlockIndex(item.blockIndex);
-                      setVcBlockIndex(item.blockIndex);
-                      setVcMode('section');
-                      setIsVisualComposerOpen(true);
+                      openVisualComposer('section', item.blockIndex);
                     }}
                     title="Visual Composer: Row / Section Settings (Containers, Dividers &amp; Grid)"
                     aria-label="Section Row Settings"
@@ -3091,6 +3606,48 @@ export function VisualEditOverlay() {
           ))}
         </div>
       )}
+
+      {/*
+        ── Batch selection bar ───────────────────────────────────────────────
+        Multi-select is only discoverable once you know about ⌘-click. This bar
+        appears the moment a second block is selected, names the count, and
+        gives the two actions that matter: style them together, or clear.
+      */}
+      {selectedBlockIndexes.size > 1 && !isVisualComposerOpen ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-auto fixed bottom-6 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-2 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-2 text-white shadow-float backdrop-blur-md"
+        >
+          <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-accent-gold">
+            <Layers size={13} />
+            {selectedBlockIndexes.size} blocks selected
+          </span>
+          <span className="h-4 w-px bg-white/20" aria-hidden="true" />
+          {/**
+           * Block mode, not section mode: the tabs that hold the design
+           * controls (Presets, Box Model, Type) only render in block mode, so
+           * opening the batch in section mode would hide every control the
+           * batch exists for.
+           */}
+          <button
+            type="button"
+            onClick={() => openVisualComposer('block', Array.from(selectedBlockIndexes)[0] ?? 0)}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-accent-gold px-3 py-1 text-[11px] font-black text-ink-strong transition-colors hover:bg-accent-gold/90"
+          >
+            <Sparkles size={12} />
+            Style together
+          </button>
+          <button
+            type="button"
+            onClick={clearSelection}
+            aria-label="Clear block selection"
+            className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      ) : null}
 
       {/* ── Inline Slash Commands Floating Palette ──────────────────────── */}
       {inlineSession && (
@@ -4388,7 +4945,7 @@ export function VisualEditOverlay() {
                     </kbd>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
-                    <span className="text-foreground">Toggle Visual Editor</span>
+                    <span className="text-foreground">Toggle Composer Inspector</span>
                     <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
                       ⌘ E
                     </kbd>
@@ -4397,17 +4954,69 @@ export function VisualEditOverlay() {
                     <span className="text-foreground">Next / Previous Section</span>
                     <div className="flex gap-1">
                       <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                        J / ↓
+                        J
                       </kbd>
                       <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
-                        K / ↑
+                        K
                       </kbd>
                     </div>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Add Section to Batch Selection</span>
+                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⇧ J / K
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Select Blocks for Batch Styling</span>
+                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ Click
+                    </kbd>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
                     <span className="text-foreground">Edit Selected Section</span>
                     <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
                       Enter
+                    </kbd>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                  Composer Inspector
+                </h4>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Next / Previous Composer Tab</span>
+                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌥ ← / →
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">
+                      Next / Previous Block (panel stays open)
+                    </span>
+                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌥ ↑ / ↓
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Apply Styles to the Page</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ ↵
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Undo / Redo a Style Change</span>
+                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ Z / ⌘ ⇧ Z
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Close Composer (asks before discarding)</span>
+                    <kbd className="px-2 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      Esc
                     </kbd>
                   </div>
                 </div>
@@ -4729,11 +5338,15 @@ export function VisualEditOverlay() {
         >
           <DialogContent className="max-w-md bg-surface-card text-foreground p-6 rounded-3xl">
             <DialogHeader>
-              <DialogTitle className="text-lg font-black text-foreground">Insert link</DialogTitle>
+              <DialogTitle className="text-lg font-black text-foreground">
+                {linkModal.editAnchor ? 'Edit link' : 'Insert link'}
+              </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                {linkModal.textareaId
-                  ? 'Enter the destination URL and optional link text.'
-                  : 'Enter the destination URL for the selected text.'}
+                {linkModal.editAnchor
+                  ? 'Change the destination URL for this link.'
+                  : linkModal.textareaId
+                    ? 'Enter the destination URL and optional link text.'
+                    : 'Enter the destination URL for the selected text.'}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
@@ -4837,7 +5450,18 @@ export function VisualEditOverlay() {
                 onClick={() => {
                   const url = linkModal.url.trim();
                   if (!url) return;
-                  if (linkModal.textareaId) {
+                  if (linkModal.editAnchor) {
+                    /*
+                     * Update only the DOM. `session.href` deliberately keeps the
+                     * ORIGINAL href: commitInlineEdit detects the change by
+                     * comparing the anchor's current href against it, so
+                     * overwriting it here would make the edit invisible.
+                     */
+                    linkModal.editAnchor.href = url;
+                    if (inlineSessionRef.current) {
+                      void commitInlineEdit(inlineSessionRef.current);
+                    }
+                  } else if (linkModal.textareaId) {
                     const ta = document.getElementById(
                       linkModal.textareaId
                     ) as HTMLTextAreaElement | null;
@@ -4858,7 +5482,7 @@ export function VisualEditOverlay() {
                 }}
                 className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 disabled:opacity-40"
               >
-                Insert link
+                {linkModal.editAnchor ? 'Save link' : 'Insert link'}
               </button>
             </div>
           </DialogContent>
@@ -5037,10 +5661,7 @@ export function VisualEditOverlay() {
         onOpenDataPoints={() => setIsDataPointDrawerOpen(true)}
         onOpenA11yAuditor={() => setIsA11yAuditorOpen(true)}
         onOpenDiff={() => setIsDiffModalOpen(true)}
-        onOpenVisualComposer={() => {
-          setVcBlockIndex(activeBlockIndex ?? 0);
-          setIsVisualComposerOpen(true);
-        }}
+        onOpenVisualComposer={() => openVisualComposer('block', activeBlockIndex ?? 0)}
         onOpenBlockLibrary={() => {
           setLibraryTargetIndex(activeBlockIndex);
           setIsBlockLibraryOpen(true);
@@ -5082,10 +5703,19 @@ export function VisualEditOverlay() {
       {/* ── Visual Composer Full Block & Design Inspector (⌘E) ─────────────── */}
       <VisualComposerInspector
         open={isVisualComposerOpen}
-        onClose={() => setIsVisualComposerOpen(false)}
+        onClose={closeVisualComposer}
         block={vcBlockIndex !== null ? (blocks[vcBlockIndex] ?? null) : null}
         blockIndex={vcBlockIndex}
         onSaveBlock={handleSaveVcBlock}
+        onSaveBlocks={handleSaveVcBlocks}
+        selectedBlockIndexes={vcSelectedBlockIndexes}
+        selectedBlockTargets={vcSelectedTargets}
+        expectedSelectedCount={vcSelectedBlockIds.length}
+        takenAnchorIds={vcTakenAnchorIds}
+        onLocateBlock={revealBlock}
+        onNavigateBlock={navigateComposerBlock}
+        canNavigatePrevious={vcBlockIndex !== null && vcBlockIndex > 0}
+        canNavigateNext={vcBlockIndex !== null && vcBlockIndex < blocks.length - 1}
         initialMode={vcMode}
       />
 
@@ -5111,10 +5741,9 @@ export function VisualEditOverlay() {
         onDuplicateBlock={(idx) => handleDuplicateSection(idx)}
         onDeleteBlock={(idx) => handleDeleteSection(idx)}
         onOpenComposer={(idx, mode = 'block') => {
-          setActiveBlockIndex(idx);
-          setVcBlockIndex(idx);
-          setVcMode(mode);
-          setIsVisualComposerOpen(true);
+          // The same single path the dock and the ⌘E shortcut use, so a
+          // multi-selection opened from the tree is still a batch.
+          openVisualComposer(mode, idx);
         }}
         onOpenLibrary={(targetIndex) => {
           setLibraryTargetIndex(targetIndex ?? null);
@@ -5142,10 +5771,7 @@ export function VisualEditOverlay() {
             type="button"
             role="menuitem"
             onClick={() => {
-              setActiveBlockIndex(contextMenu.blockIndex);
-              setVcBlockIndex(contextMenu.blockIndex);
-              setVcMode('block');
-              setIsVisualComposerOpen(true);
+              openVisualComposer('block', contextMenu.blockIndex);
               setContextMenu(null);
             }}
             className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"
@@ -5159,10 +5785,7 @@ export function VisualEditOverlay() {
             type="button"
             role="menuitem"
             onClick={() => {
-              setActiveBlockIndex(contextMenu.blockIndex);
-              setVcBlockIndex(contextMenu.blockIndex);
-              setVcMode('section');
-              setIsVisualComposerOpen(true);
+              openVisualComposer('section', contextMenu.blockIndex);
               setContextMenu(null);
             }}
             className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"

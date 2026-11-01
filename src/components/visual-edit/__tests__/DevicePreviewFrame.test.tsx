@@ -115,4 +115,86 @@ describe('DevicePreviewFrame', () => {
     const themeModeContainer = container.querySelector('[data-theme-mode="dark"]');
     expect(themeModeContainer).not.toBeNull();
   });
+
+  it('previews the copy, not the markup', async () => {
+    const richHeading: Block = {
+      id: 'block-rich',
+      type: 'heading',
+      level: 2,
+      html: '<strong>Bold</strong> mission &amp; more',
+    };
+
+    await act(async () => {
+      root.render(
+        <DevicePreviewFrame
+          inspectorMode="block"
+          previewDevice="desktop"
+          setPreviewDevice={vi.fn()}
+          previewTheme="system"
+          setPreviewTheme={vi.fn()}
+          compiledClassNames="p-4"
+          currentBlock={richHeading}
+        />
+      );
+    });
+
+    const body = container.querySelector('[data-testid="composer-preview-body"]');
+    expect(body?.textContent).toContain('Bold mission & more');
+    expect(body?.textContent).not.toContain('<strong>');
+  });
+
+  it('previews the shape of a button, a list and a divider', async () => {
+    const button: Block = { id: 'b', type: 'button', label: 'Join the chapter', href: '/join' };
+    await act(async () => {
+      root.render(
+        <DevicePreviewFrame
+          inspectorMode="block"
+          previewDevice="desktop"
+          setPreviewDevice={vi.fn()}
+          previewTheme="system"
+          setPreviewTheme={vi.fn()}
+          compiledClassNames="p-4"
+          currentBlock={button}
+        />
+      );
+    });
+    expect(container.textContent).toContain('Join the chapter');
+
+    const list: Block = {
+      id: 'l',
+      type: 'bulletList',
+      items: ['First action', 'Second action', 'Third action', 'Fourth action'],
+    };
+    await act(async () => {
+      root.render(
+        <DevicePreviewFrame
+          inspectorMode="block"
+          previewDevice="desktop"
+          setPreviewDevice={vi.fn()}
+          previewTheme="system"
+          setPreviewTheme={vi.fn()}
+          compiledClassNames="p-4"
+          currentBlock={list}
+        />
+      );
+    });
+    expect(container.querySelectorAll('li')).toHaveLength(4);
+    expect(container.textContent).toContain('First action');
+    expect(container.textContent).toContain('+1 more');
+
+    await act(async () => {
+      root.render(
+        <DevicePreviewFrame
+          inspectorMode="block"
+          previewDevice="desktop"
+          setPreviewDevice={vi.fn()}
+          previewTheme="system"
+          setPreviewTheme={vi.fn()}
+          compiledClassNames="p-4"
+          currentBlock={{ id: 'd', type: 'divider' }}
+        />
+      );
+    });
+    expect(container.querySelector('hr')).not.toBeNull();
+  });
 });
