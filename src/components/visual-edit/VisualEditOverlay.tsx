@@ -69,7 +69,6 @@ import {
   nextBlockId,
   parseHtml,
   serializeBlocks,
-  structuralClassesForBlock,
 } from '@/lib/blocks';
 import { copyRegionSlug, getPageCopyRegions } from '@/lib/copy-regions';
 import { clearDraft, isWorthRecovering, readDraft, writeDraft } from '@/lib/draft-recovery';
@@ -1037,15 +1036,10 @@ export function VisualEditOverlay() {
   const { applyDraft: applyComposerDraft, commitDraft: commitComposerDraft } =
     useComposerPagePreview({
       resolveElement: locate,
-      // The classes the serializer writes on the block's own root. One function,
-      // so the preview cannot paint a different element than the save writes.
-      structuralClassesOf: (index) => {
-        const targetBlock = blocksRef.current[index];
-        return targetBlock ? structuralClassesForBlock(targetBlock) : '';
-      },
-      // Unsupported markup is saved inside a wrapper around markup the model
-      // does not own; its preview keeps the element's own classes.
-      preserveRootClasses: (index) => blocksRef.current[index]?.type === 'unsupported',
+      // The live block, not just its index: the preview applies the draft through
+      // the save's own `applyBlockShell` and `blockRootPresentation`, which need
+      // the block's type to produce the class list the write will store.
+      blockAt: (index) => blocksRef.current[index] ?? null,
     });
 
   // The overlay can disappear while the panel is still open — an admin signing

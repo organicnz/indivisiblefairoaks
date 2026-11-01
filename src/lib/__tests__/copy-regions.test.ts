@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import {
-  COPY_REGION_OMISSIONS,
   COPY_REGION_SLUG_PREFIX,
   copyRegionComposeHref,
   copyRegionIdForSlug,
@@ -113,9 +112,9 @@ describe('page copy region registry', () => {
     // The FAQ answers are rendered into FAQPage JSON-LD from the same array the
     // page renders. A copy region replacing the visible text would leave the
     // structured data emitting the old answers — a documented schema.org
-    // manual-action risk — so the path has no region at all.
+    // manual-action risk — so the path has no region at all. The rationale
+    // lives on the registry itself; there is no second list to read.
     expect(getPageCopyRegions('/faqs')).toEqual([]);
-    expect(COPY_REGION_OMISSIONS['/faqs']).toBeTruthy();
   });
 
   it('keeps the reserved prefix out of every region id', () => {

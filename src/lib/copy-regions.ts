@@ -45,6 +45,18 @@ export interface CopyRegionDefinition {
  * always did — a page is never half-registered. That matters more than it looks:
  * a registry that silently omits a route is a page that looks editable in the
  * editorial button and is not.
+ *
+ * `/faqs` is deliberately absent, and it is not an oversight. Its Q&As are
+ * rendered into FAQPage JSON-LD from the *same* `faqs` array the page renders,
+ * because Google requires the visible text and the markup to match — mismatched
+ * FAQ markup is grounds for a manual action. Making the visible list a copy
+ * region would let a CMS row replace the text while the JSON-LD kept emitting
+ * the old answers, so the page would actively ship the violation that structure
+ * exists to prevent. The fix is not "delete the JSON-LD"; it is to derive both
+ * from one source, which means the FAQ list becomes a region only once its
+ * answers are stored as data the page and the markup both read. Until then,
+ * `/faqs` stays out of the registry and its copy is edited where it already
+ * lives.
  */
 export const PAGE_COPY_REGIONS: Readonly<Record<string, readonly CopyRegionDefinition[]>> = {
   '/': [
@@ -65,26 +77,6 @@ export const PAGE_COPY_REGIONS: Readonly<Record<string, readonly CopyRegionDefin
   '/choir': [{ id: 'choir-schedule', label: 'Rehearsal Schedule' }],
   '/donate': [{ id: 'donate-impact', label: 'Where Your Donation Goes' }],
   '/events': [{ id: 'events-trainings', label: 'Trainings & Action Labs' }],
-} as const;
-
-/**
- * Paths deliberately **not** registered, and why.
- *
- * `/faqs` is the one that looks like an oversight. Its Q&As are rendered into
- * FAQPage JSON-LD from the *same* `faqs` array the page renders, because Google
- * requires the visible text and the markup to match — mismatched FAQ markup is
- * grounds for a manual action. Making the visible list a copy region would let a
- * CMS row replace the text while the JSON-LD kept emitting the old answers, so
- * the page would actively ship the violation that structure exists to prevent.
- *
- * The fix is not "delete the JSON-LD". It is to derive both from one source,
- * which means the FAQ list becomes a region only once its answers are stored as
- * data the page and the markup both read. Until then, `/faqs` stays out of the
- * registry and its copy is edited where it already lives.
- */
-export const COPY_REGION_OMISSIONS: Readonly<Record<string, string>> = {
-  '/faqs':
-    'FAQ JSON-LD is emitted from the same array the page renders; a CMS region would let the visible text and the structured data drift.',
 } as const;
 
 /** The region a plain `content.slug` addresses, or null when it is not one. */

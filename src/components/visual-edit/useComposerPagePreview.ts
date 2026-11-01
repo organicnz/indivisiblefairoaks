@@ -1,9 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { isStructuralBlockClass } from '@/lib/blocks/structural';
-import { themeAttributesFor } from '@/lib/blocks/theme';
-import type { VisualComposerMode, VisualComposerThemeMode } from '@/types/unified';
+import { applyBlockShell, type BlockShellDesign } from '@/lib/blocks/save-shape';
+import { blockRootPresentation } from '@/lib/blocks/serialize';
+import { designClassesOf, structuralClassesForBlock } from '@/lib/blocks/structural';
+import { themeAttributesFor, themeModeFromClassList } from '@/lib/blocks/theme';
+import type { Block } from '@/lib/blocks/types';
+import type { VisualComposerMode } from '@/types/unified';
 
 /**
  * The composer's draft, painted onto the live page.
@@ -37,9 +40,11 @@ import type { VisualComposerMode, VisualComposerThemeMode } from '@/types/unifie
  * preview, went on showing the old one. WPBakery-class editors edit and see the
  * real thing; so does this one.
  *
- * Structural `cw-*` classes are preserved on purpose. They are how the block
- * parser recognises a callout or a table; they belong to the page, not to the
- * design, and the overlay's save path reattaches them for the same reason.
+ * The design is not re-derived here. `applyBlockShell` and
+ * `blockRootPresentation` are the save's own two steps, so the class list, the
+ * inline style and the theme attribute painted on the page are literally the
+ * values the serializer will write. Mirroring that mapping was how the preview
+ * could claim a theme the save never emitted.
  */
 
 export interface ComposerDraftPreview {
@@ -51,14 +56,11 @@ export interface ComposerDraftPreview {
    * A copy edit is not a design edit: opening a block and retyping its text
    * must not restyle it with the editor's defaults. The split is what lets the
    * page show the new sentence without also showing a design nobody chose.
+   *
+   * The shape is the save's own input, not a preview-specific one, so there is
+   * no second vocabulary to keep in step.
    */
-  design: {
-    /** The compiled class list for the draft, without structural classes. */
-    classes: string;
-    /** Inline CSS from the Code tab, or an empty string. */
-    style: string;
-    themeMode: VisualComposerThemeMode;
-  } | null;
+  design: BlockShellDesign | null;
   /**
    * The block's copy as the save would write it, or null when this draft does
    * not touch copy — a batch styles many blocks and must not copy one block's
@@ -121,48 +123,8 @@ function uniqueTokens(tokens: readonly string[]): string[] {
   return [...new Set(tokens.filter(Boolean))];
 }
 
-function paintDesign(
-  entry: AppliedPreview,
-  design: NonNullable<ComposerDraftPreview['design']>,
-  structural: string,
-  preserveRootClasses: boolean
-) {
-  const { element } = entry;
-  // Same split the serializer uses: a `cw-*` token is the block's type, never
-  // the design, even if it was typed into the custom-class field.
-  const draftTokens = design.classes
-    .split(/\s+/)
-    .filter((token) => token && !isStructuralBlockClass(token));
-  const structuralTokens = structural.split(/\s+/).filter(Boolean);
-
-  /*
-   * The block's own root carries exactly this list when it is saved: the design
-   * utilities, then the structural `cw-*` classes the type owns. Replacing the
-   * root's class list is therefore not a simplification — it is the preview
-   * being the save.
-   *
-   * `unsupported` is the one exception, and it is the honest one: its save puts
-   * the design on a new wrapper around markup the model does not own, and moving
-   * the live node into a wrapper would take it out from under the section
-   * pairing. The preview preserves that element's own classes instead of
-   * stripping them, and leaves inline CSS alone for the same reason.
-   */
-  const classes = preserveRootClasses
-    ? uniqueTokens([
-        ...(entry.classAttr ?? '').split(/\s+/).filter(Boolean),
-        ...draftTokens,
-        ...structuralTokens,
-      ])
-    : uniqueTokens([...draftTokens, ...structuralTokens]);
-
-  writeOrRemove(element, 'class', classes.join(' '));
-  // Inline CSS lives on the same root in the saved markup, so it gets the same
-  // element here. Anything else would preview a layout the page will not have.
-  writeOrRemove(element, 'style', preserveRootClasses ? entry.styleAttr : design.style.trim());
-
-  // Mirror the save path from the save's own mapping: one theme attribute, and
-  // the other one clears.
-  const theme = themeAttributesFor(design.themeMode);
+/** Paint one theme attribute, clearing whichever of the two the block had. */
+function writeTheme(element: HTMLElement, theme: ReturnType<typeof themeAttributesFor>): void {
   if (theme) {
     element.setAttribute(theme.name, theme.value);
     element.removeAttribute(theme.name === 'data-theme' ? 'data-theme-mode' : 'data-theme');
@@ -170,6 +132,58 @@ function paintDesign(
     element.removeAttribute('data-theme');
     element.removeAttribute('data-theme-mode');
   }
+}
+
+/**
+ * Unsupported markup is the one block whose saved root is not the element the
+ * editor paints.
+ *
+ * The save wraps it in a `<div>` because the model does not own the markup and
+ * has nowhere else to put a design. The preview's element is that markup
+ * itself, so it keeps the element's own classes and style and adds the design
+ * the save will put on the wrapper. Every other type uses the save's output
+ * verbatim, below.
+ */
+function paintUnsupported(entry: AppliedPreview, design: BlockShellDesign, block: Block) {
+  const { element } = entry;
+  const designClasses = designClassesOf(design.customClasses ?? '');
+  const classes = uniqueTokens([
+    ...(entry.classAttr ?? '').split(/\s+/).filter(Boolean),
+    ...designClasses.split(/\s+/).filter(Boolean),
+    ...structuralClassesForBlock(block).split(/\s+/).filter(Boolean),
+  ]);
+
+  writeOrRemove(element, 'class', classes.join(' '));
+  // The element's own inline CSS is the page's, not the design's: the save puts
+  // the design style on its wrapper, around markup the element still carries.
+  writeOrRemove(element, 'style', entry.styleAttr);
+  writeTheme(element, themeAttributesFor(themeModeFromClassList(designClasses) ?? undefined));
+}
+
+/**
+ * Paint the save's own presentation for this block and draft.
+ *
+ * `applyBlockShell` is what the overlay calls on Apply, and
+ * `blockRootPresentation` is what `serializeBlocks` turns into markup. Using
+ * both here is the whole point: there is no third implementation to drift.
+ */
+function paintDesign(entry: AppliedPreview, design: BlockShellDesign, block: Block) {
+  const { element } = entry;
+
+  if (block.type === 'unsupported') {
+    paintUnsupported(entry, design, block);
+    return;
+  }
+
+  const root = blockRootPresentation(applyBlockShell(block, design));
+  writeOrRemove(element, 'class', root.className || null);
+  writeOrRemove(element, 'style', root.style);
+  writeTheme(element, root.theme);
+  /*
+   * The anchor id is deliberately not painted. It has no visual effect, and a
+   * draft is validated on Apply — painting it here would put a duplicate id on
+   * the live page while the operator is still typing one the save will refuse.
+   */
 }
 
 /** Put the page's own design attributes back, keeping any copy preview. */
@@ -187,13 +201,8 @@ function restoreDesign(entry: AppliedPreview) {
  * classes exactly as the page has them, and a later design draft can land on
  * top of painted copy without recapturing it as the page's own markup.
  */
-function paint(
-  entry: AppliedPreview,
-  draft: ComposerDraftPreview,
-  structural: string,
-  preserveRootClasses: boolean
-) {
-  if (draft.design) paintDesign(entry, draft.design, structural, preserveRootClasses);
+function paint(entry: AppliedPreview, draft: ComposerDraftPreview, block: Block) {
+  if (draft.design) paintDesign(entry, draft.design, block);
   else restoreDesign(entry);
 
   /*
@@ -217,13 +226,8 @@ function paint(
 export interface UseComposerPagePreviewOptions {
   /** The block's rendered element, or null when it has none. */
   resolveElement: (blockIndex: number) => HTMLElement | null;
-  /** The block's own `cw-*` classes, which the page owns. */
-  structuralClassesOf: (blockIndex: number) => string;
-  /**
-   * Keep the element's own classes instead of substituting the saved list.
-   * Only `unsupported` needs it: its save wraps markup the model cannot move.
-   */
-  preserveRootClasses?: (blockIndex: number) => boolean;
+  /** The live block the index addresses, or null when it is gone. */
+  blockAt: (blockIndex: number) => Block | null;
 }
 
 export interface ComposerPagePreviewControls {
@@ -237,8 +241,7 @@ export interface ComposerPagePreviewControls {
 
 export function useComposerPagePreview({
   resolveElement,
-  structuralClassesOf,
-  preserveRootClasses = () => false,
+  blockAt,
 }: UseComposerPagePreviewOptions): ComposerPagePreviewControls {
   const appliedRef = useRef<Map<HTMLElement, AppliedPreview>>(new Map());
 
@@ -248,10 +251,8 @@ export function useComposerPagePreview({
   // on every keystroke.
   const resolveRef = useRef(resolveElement);
   resolveRef.current = resolveElement;
-  const structuralRef = useRef(structuralClassesOf);
-  structuralRef.current = structuralClassesOf;
-  const preserveRef = useRef(preserveRootClasses);
-  preserveRef.current = preserveRootClasses;
+  const blockAtRef = useRef(blockAt);
+  blockAtRef.current = blockAt;
 
   const clearDraft = useCallback(() => {
     for (const entry of appliedRef.current.values()) {
@@ -289,7 +290,10 @@ export function useComposerPagePreview({
 
       for (const index of draft.blockIndexes) {
         const element = resolveRef.current(index);
-        if (!element) continue;
+        const block = blockAtRef.current(index);
+        // No element, or no block to tell the save's shape from: painting
+        // either would be a guess at markup the page does not have.
+        if (!element || !block) continue;
 
         let entry = applied.get(element);
         if (entry && entry.index !== index) {
@@ -318,7 +322,7 @@ export function useComposerPagePreview({
          * Discard should return to. The entry only becomes a draft again.
          */
         entry.committed = false;
-        paint(entry, draft, structuralRef.current(index), preserveRef.current(index));
+        paint(entry, draft, block);
       }
     },
     [clearDraft]

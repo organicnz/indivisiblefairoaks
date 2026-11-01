@@ -4519,11 +4519,11 @@ describe('VisualComposerInspector live page preview', () => {
     expect(draft).toMatchObject({
       mode: 'block',
       blockIndexes: [0],
-      design: { themeMode: 'inherit' },
       // A design change alone has no copy to carry.
       contentHtml: null,
     });
-    expect(draft.design.classes).toContain('rounded-2xl');
+    // The draft uses the save's own design vocabulary, not a preview-only one.
+    expect(draft.design?.customClasses).toContain('rounded-2xl');
     expect(document.body.textContent).toContain('Previewing on the page');
     expect(document.body.textContent).toContain('nothing is saved until you apply');
 

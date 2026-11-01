@@ -79,10 +79,6 @@ export function toggleVisualEditMode(): void {
 
 // ── Per-Section Visual Editing State ──────────────────────────────────────────
 
-export function isSectionVisualEnabled(index: number): boolean {
-  return enabledSections.has(index);
-}
-
 export function setSectionVisualEnabled(index: number, isEnabled: boolean): void {
   const had = enabledSections.has(index);
   if (isEnabled && !had) {

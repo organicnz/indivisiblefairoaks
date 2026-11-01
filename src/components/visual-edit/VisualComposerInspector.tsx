@@ -697,16 +697,6 @@ export function VisualComposerInspector({
   previewReporterRef.current = onPreviewChange;
 
   /**
-   * Section mode themes the row through `section.themeMode`; block mode uses
-   * the wrapper's own. Sending the wrong one would preview a theme the save
-   * would not write.
-   */
-  const previewThemeMode =
-    inspectorMode === 'section'
-      ? (styles.section.themeMode ?? styles.themeMode ?? 'system')
-      : (styles.themeMode ?? 'system');
-
-  /**
    * The copy the page should show for this draft.
    *
    * Composed through the same block the save writes, so the sentence, the badge
@@ -741,11 +731,15 @@ export function VisualComposerInspector({
     report({
       mode: inspectorMode,
       blockIndexes: previewIndexesRef.current,
+      // The save's own input. The preview applies it with `applyBlockShell` and
+      // reads the root through `blockRootPresentation`, so a theme or class the
+      // page shows here is one the serializer will actually write.
       design: designDirty
         ? {
-            classes: compiledClassNames,
-            style: styles.customStyle ?? '',
-            themeMode: previewThemeMode,
+            customClasses: compiledClassNames,
+            // The apply path trims before it persists; the preview matches it,
+            // so a whitespace-only style is discarded in both places.
+            customStyle: styles.customStyle?.trim() || undefined,
           }
         : null,
       contentHtml: previewContentHtml,
@@ -758,7 +752,6 @@ export function VisualComposerInspector({
     compiledClassNames,
     previewIndexKey,
     styles.customStyle,
-    previewThemeMode,
     previewContentHtml,
   ]);
 

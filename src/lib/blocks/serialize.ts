@@ -24,18 +24,33 @@ export function escapeHtmlAttr(value: string): string {
 }
 
 /**
- * The attributes the block's own root carries.
+ * The presentation a block's own root carries.
  *
- * This is the single writer for design, identity and theme. The preview paints
- * the class list this returns, so "preview equals save" is a property of one
+ * This is the single writer for design, identity and theme. `rootAttributes`
+ * turns it into the save's markup, and the composer's live preview paints the
+ * same value onto the page — so "preview equals save" is a property of one
  * function rather than a convention two code paths have to remember.
  *
- * Structural `cw-*` classes are emitted here, after the design list, because
+ * Structural `cw-*` classes are appended here, after the design list, because
  * they belong to the block's type rather than to the design. The theme
  * attribute is derived from the theme token the compiler put in the design
  * list — the same mapping in both directions.
  */
-function rootAttributes(block: Block, structural = structuralClassesForBlock(block)): string {
+export interface BlockRootPresentation {
+  /** The complete class list, design utilities then structural classes. */
+  className: string;
+  /** The anchor id, or null when the block has none. */
+  anchorId: string | null;
+  /** The theme attribute, or null when the block inherits the page's. */
+  theme: { name: 'data-theme' | 'data-theme-mode'; value: 'dark' | 'light' | 'system' } | null;
+  /** Inline CSS from the Code tab, or null. */
+  style: string | null;
+}
+
+export function blockRootPresentation(
+  block: Block,
+  structural = structuralClassesForBlock(block)
+): BlockRootPresentation {
   const shell = block.shell;
   // A shell can arrive from pasted JSON as well as from the parser. Structural
   // classes are the type's, never the design's: letting one through would let a
@@ -44,12 +59,21 @@ function rootAttributes(block: Block, structural = structuralClassesForBlock(blo
     .split(/\s+/)
     .filter((token) => token && !isStructuralBlockClass(token))
     .join(' ');
-  const classes = [design, structural].filter(Boolean).join(' ').trim();
-  const idAttr = shell?.anchorId ? ` id="${escapeHtmlAttr(shell.anchorId)}"` : '';
-  const classAttr = classes ? ` class="${escapeHtmlAttr(classes)}"` : '';
-  const theme = themeAttributesFor(themeModeFromClassList(design) ?? 'inherit');
-  const themeAttr = theme ? ` ${theme.name}="${theme.value}"` : '';
-  const styleAttr = shell?.style ? ` style="${escapeHtmlAttr(shell.style)}"` : '';
+  return {
+    className: [design, structural].filter(Boolean).join(' ').trim(),
+    anchorId: shell?.anchorId ?? null,
+    theme: themeAttributesFor(themeModeFromClassList(design) ?? 'inherit'),
+    style: shell?.style ?? null,
+  };
+}
+
+/** The attributes the block's own root carries, escaped for markup. */
+function rootAttributes(block: Block, structural = structuralClassesForBlock(block)): string {
+  const root = blockRootPresentation(block, structural);
+  const idAttr = root.anchorId ? ` id="${escapeHtmlAttr(root.anchorId)}"` : '';
+  const classAttr = root.className ? ` class="${escapeHtmlAttr(root.className)}"` : '';
+  const themeAttr = root.theme ? ` ${root.theme.name}="${root.theme.value}"` : '';
+  const styleAttr = root.style ? ` style="${escapeHtmlAttr(root.style)}"` : '';
   return `${idAttr}${classAttr}${themeAttr}${styleAttr}`;
 }
 
