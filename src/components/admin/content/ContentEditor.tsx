@@ -176,6 +176,12 @@ export function ContentEditor({ initial, siteHost }: Props) {
   const [metaTitle, setMetaTitle] = useState(initial.metadata?.meta_title ?? '');
   const [metaDescription, setMetaDescription] = useState(initial.metadata?.meta_description ?? '');
   const [blocks, setBlocks] = useState<Block[]>(() => parseHtml(initial.body ?? ''));
+  /*
+   * The row card's way into the composer. Null for a page that has never been
+   * saved, where `/compose/0` would be a route to nothing; the card says to
+   * save first instead.
+   */
+  const composeHref = initial.id ? contentComposeHref({ id: initial.id, slug }) : null;
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1137,7 +1143,7 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 to save now
               </span>
             </p>
-            <BlockEditor blocks={blocks} onChange={handleBlocksChange} />
+            <BlockEditor blocks={blocks} onChange={handleBlocksChange} composeHref={composeHref} />
           </div>
         </div>
 

@@ -3,6 +3,7 @@
 import {
   ChevronDown,
   ChevronUp,
+  Columns3,
   Copy,
   GripVertical,
   Link2,
@@ -26,6 +27,8 @@ import {
   type Block,
   CALLOUT_TONES,
   type CalloutTone,
+  type ContentBlock,
+  cloneBlockWithFreshIds,
   type HeadingLevel,
   INSERTABLE_HEADING_LEVELS,
   isTextualBlock,
@@ -56,6 +59,16 @@ interface Props {
    * block you deleted".
    */
   onChange: (blocks: Block[], intent?: string | null) => void;
+  /**
+   * Where this document's visual composer opens, or null before the page has
+   * been saved once.
+   *
+   * A row is a layout container and the only block this editor cannot edit: its
+   * columns and nested blocks live in the composer. The dependency is passed in
+   * rather than built here because the composer address is a property of the
+   * document (a copy region opens its host page), not of the block.
+   */
+  composeHref?: string | null;
 }
 
 const HEADING_LEVEL_NAMES: Record<number, string> = {
@@ -93,7 +106,7 @@ function burstIntent(ids: Iterable<string>): string {
   return `type:${[...ids].sort().join(',')}`;
 }
 
-export function BlockEditor({ blocks, onChange }: Props) {
+export function BlockEditor({ blocks, onChange, composeHref = null }: Props) {
   const [slash, setSlash] = useState<{
     index: number;
     query: string;
@@ -376,11 +389,12 @@ export function BlockEditor({ blocks, onChange }: Props) {
     (index: number) => {
       const source = liveBlocks()[index];
       if (!source) return;
-      // A fresh id is required: two blocks sharing an id would share a DOM node
-      // in the ref map, and the second one's edits would overwrite the first.
-      // Sourced from `liveBlocks()`, so the copy carries the words just typed
-      // rather than the ones last saved.
-      const copy = { ...source, id: nextBlockId() } as Block;
+      // Fired from `liveBlocks()`, so the copy carries the words just typed
+      // rather than the ones last saved. A row needs ids all the way down:
+      // shallow-copying it gives the duplicate's columns and nested blocks the
+      // original's addresses, which is the aliasing `cloneBlockWithFreshIds`
+      // exists to prevent.
+      const copy = cloneBlockWithFreshIds(source);
       structural((current) => {
         const next = [...current];
         next.splice(index + 1, 0, copy);
@@ -394,6 +408,11 @@ export function BlockEditor({ blocks, onChange }: Props) {
     (index: number, kind: BlockKind, tone: CalloutTone = 'info') => {
       const current = liveBlocks()[index];
       if (!current) return;
+      // A row is a layout, not a leaf: converting it here would replace its
+      // columns with a single paragraph. Every control that reaches this
+      // function is hidden for a row, and this guard keeps a future one from
+      // making the destructive path reachable again.
+      if (current.type === 'row') return;
       const replacement = makeBlock(kind, tone);
       // Carry the author's words across the conversion — losing them because
       // they pressed the wrong arrow key is the fastest way to lose trust.
@@ -561,9 +580,11 @@ export function BlockEditor({ blocks, onChange }: Props) {
     <div ref={containerRef} className="space-y-1">
       <ul aria-label="Page content blocks" className="m-0 list-none p-0">
         {blocks.map((block, index) => {
+          const isRow = block.type === 'row';
           const def = definitionFor(
-            (block.type === 'unsupported' ? 'paragraph' : block.type) as BlockKind
+            (block.type === 'unsupported' || isRow ? 'paragraph' : block.type) as BlockKind
           );
+          const reorderLabel = isRow ? 'row' : def.label;
           return (
             <li
               key={block.id}
@@ -606,15 +627,20 @@ export function BlockEditor({ blocks, onChange }: Props) {
                 button they cannot see.
               */}
               <div className="absolute -left-1 top-1 flex items-center gap-0.5 transition-opacity focus-within:opacity-100 hover-capable:opacity-0 hover-capable:group-hover:opacity-100">
-                <button
-                  type="button"
-                  onClick={() => openSlash(index)}
-                  aria-label="Insert or change block"
-                  title="Add or change block"
-                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <Plus size={14} aria-hidden="true" />
-                </button>
+                {/* A row has no leaf editor. The slash menu converts the block
+                    it opened on, so offering it here would replace the whole
+                    layout with a paragraph in one click. */}
+                {!isRow && (
+                  <button
+                    type="button"
+                    onClick={() => openSlash(index)}
+                    aria-label="Insert or change block"
+                    title="Add or change block"
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                  </button>
+                )}
                 <button
                   type="button"
                   draggable
@@ -642,7 +668,7 @@ export function BlockEditor({ blocks, onChange }: Props) {
                       moveTo(index, index + 1);
                     }
                   }}
-                  aria-label={`Reorder ${def.label} block`}
+                  aria-label={`Reorder ${reorderLabel} block`}
                   aria-describedby="block-reorder-help"
                   title="Drag to reorder, or Alt+Arrow Up/Down"
                   className="cursor-grab rounded-md p-1 text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
@@ -689,20 +715,24 @@ export function BlockEditor({ blocks, onChange }: Props) {
                 </button>
               </div>
 
-              <BlockBody
-                block={block}
-                index={index}
-                registerRef={registerBlock}
-                onInput={handleInput}
-                onKeyDown={onEditableKeyDown}
-                onUpdate={update}
-                onApplyInline={applyInline}
-                onOpenLinkEditor={() => setLinkEditorBlockId(block.id)}
-                onCloseLinkEditor={() => setLinkEditorBlockId(null)}
-                linkEditorOpen={linkEditorBlockId === block.id}
-                restoreSelection={restoreSelection}
-                onPickBlock={(kind, tone) => convert(index, kind, tone)}
-              />
+              {block.type === 'row' ? (
+                <RowBlockCard block={block} composeHref={composeHref} />
+              ) : (
+                <BlockBody
+                  block={block}
+                  index={index}
+                  registerRef={registerBlock}
+                  onInput={handleInput}
+                  onKeyDown={onEditableKeyDown}
+                  onUpdate={update}
+                  onApplyInline={applyInline}
+                  onOpenLinkEditor={() => setLinkEditorBlockId(block.id)}
+                  onCloseLinkEditor={() => setLinkEditorBlockId(null)}
+                  linkEditorOpen={linkEditorBlockId === block.id}
+                  restoreSelection={restoreSelection}
+                  onPickBlock={(kind, tone) => convert(index, kind, tone)}
+                />
+              )}
             </li>
           );
         })}
@@ -921,6 +951,96 @@ function BlockTypeMenu({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** One nested block, named by its words rather than its type. */
+function rowBlockSummary(block: ContentBlock): string {
+  if (block.type === 'unsupported') return 'Preserved markup';
+  if (block.type === 'image') return block.alt || 'Image';
+  if (block.type === 'button') return block.label || 'Button';
+  if (block.type === 'table') return block.head.filter(Boolean).join(' · ') || 'Table';
+  if (block.type === 'code') return block.text.split('\n')[0] || 'Code';
+  if (block.type === 'divider') return 'Divider';
+  if (block.type === 'bulletList' || block.type === 'orderedList') {
+    const items = block.items.map((item) => stripTags(item).trim()).filter(Boolean);
+    return items.join(' · ') || 'Empty list';
+  }
+  return stripTags(block.html).trim() || 'Empty text block';
+}
+
+/**
+ * A row as the content editor can honestly show it.
+ *
+ * This editor only edits leaves: a nested block's text, its type and its
+ * design controls live in the composer. Rendering the row through the text
+ * fallback made it an empty paragraph card whose type menu replaced the whole
+ * layout. The card below shows the columns, names their contents, and sends the
+ * author to the one surface that can change them; it deliberately offers no
+ * type menu, no slash insert, and no conversion.
+ */
+function RowBlockCard({
+  block,
+  composeHref,
+}: {
+  block: Extract<Block, { type: 'row' }>;
+  composeHref: string | null;
+}) {
+  const count = block.columns.length;
+  return (
+    <div className="rounded-xl border border-border bg-surface-muted p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <Columns3 size={13} aria-hidden="true" />
+            Row · {count} {count === 1 ? 'column' : 'columns'}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            A layout container. Its columns and nested blocks are edited in the visual composer.
+          </p>
+        </div>
+        {composeHref ? (
+          <a
+            href={composeHref}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface-card px-2.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-primary hover:text-primary focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-primary-on-dark"
+          >
+            Edit in Composer
+          </a>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            Save this page once to edit it in the Composer.
+          </span>
+        )}
+      </div>
+      <div
+        className="mt-3 grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
+      >
+        {block.columns.map((column, columnIndex) => (
+          <div
+            key={column.id}
+            className="min-w-0 rounded-lg border border-border bg-surface-card p-2"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Column {columnIndex + 1}
+            </p>
+            {column.blocks.length === 0 ? (
+              <p className="mt-1 text-xs italic text-muted-foreground">Empty column</p>
+            ) : (
+              <ul className="mt-1 space-y-1 text-xs text-foreground">
+                {column.blocks.map((child) => (
+                  <li key={child.id} className="line-clamp-2 break-words">
+                    {rowBlockSummary(child)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -6,10 +6,14 @@
  * and the `Block[]` model the editor persists to Supabase.
  *
  * The order of checks matters: table before lists (a table can contain `<ul>`),
- * and the paragraph fallback is last so every child produces a block.
+ * and the paragraph fallback is last so every child produces a block. A row is
+ * checked before all of them: its columns contain headings, lists and images,
+ * and the generic search would return the first one it found and drop the rest
+ * of the layout. Rows are delegated to the block parser, so the fallback keeps
+ * the same one-level structure the composer will save.
  */
 
-import { type Block, type HeadingLevel, nextBlockId } from '@/lib/blocks';
+import { type Block, type HeadingLevel, nextBlockId, parseHtml, ROW_CLASS } from '@/lib/blocks';
 
 export function extractBlocksFromDOM(root: HTMLElement): Block[] {
   const extracted: Block[] = [];
@@ -17,6 +21,19 @@ export function extractBlocksFromDOM(root: HTMLElement): Block[] {
 
   children.forEach((child, idx) => {
     if (!(child instanceof HTMLElement)) return;
+
+    /*
+     * A row is a layout, not a container of copy. Checking a heading inside it
+     * first turned a two-column row into its first column's heading; the next
+     * save then wrote that flat body over the layout. The parser knows how to
+     * read the row, its columns and their children, so use it rather than
+     * reimplementing that shape here.
+     */
+    if (child.classList.contains(ROW_CLASS)) {
+      extracted.push(...parseHtml(child.outerHTML));
+      return;
+    }
+
     const blockId = nextBlockId();
 
     // Check heading

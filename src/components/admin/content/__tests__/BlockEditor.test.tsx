@@ -38,9 +38,9 @@ describe('BlockEditor DOM/model bridge', () => {
     return spy.mock.calls.at(-1)?.[0] as Block[];
   };
 
-  const render = (initial: Block[], onChange: (b: Block[]) => void) =>
+  const render = (initial: Block[], onChange: (b: Block[]) => void, composeHref?: string | null) =>
     act(() => {
-      root.render(<BlockEditor blocks={initial} onChange={onChange} />);
+      root.render(<BlockEditor blocks={initial} onChange={onChange} composeHref={composeHref} />);
     });
 
   const editable = (index = 0) =>
@@ -231,6 +231,64 @@ describe('BlockEditor DOM/model bridge', () => {
     });
     const last = onChange.mock.calls.at(-1)?.[0] as Block[];
     expect(last[0]).toMatchObject({ type: 'bulletList', items: ['One', ''] });
+  });
+
+  it('renders a row as a read-only layout instead of a convertible text block', () => {
+    const onChange = vi.fn();
+    const rowBody =
+      '<div class="cw-row cw-row--2">' +
+      '<div class="cw-column"><h2 class="cw cw--h2">Agenda</h2><p>Doors at nine.</p></div>' +
+      '<div class="cw-column"><p>Right copy</p></div>' +
+      '</div>';
+
+    render(parseHtml(rowBody), onChange, '/compose/42');
+
+    const rowCard = container.querySelector('[data-block-type="row"]');
+    expect(rowCard?.textContent).toContain('Row · 2 columns');
+    expect(rowCard?.textContent).toContain('Column 1');
+    expect(rowCard?.textContent).toContain('Doors at nine.');
+    expect(rowCard?.textContent).toContain('Right copy');
+    // A row is not a leaf, so it has no editable node and no type/insert menu.
+    expect(container.querySelector('[contenteditable="true"]')).toBeNull();
+    expect(rowCard?.querySelector('[aria-label="Insert or change block"]')).toBeNull();
+    expect(rowCard?.querySelector('[aria-expanded]')).toBeNull();
+    expect(rowCard?.querySelector('a[href="/compose/42"]')?.textContent).toContain(
+      'Edit in Composer'
+    );
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('names an empty column rather than rendering a bare frame', () => {
+    render(parseHtml('<div class="cw-row cw-row--1"><div class="cw-column"></div></div>'), vi.fn());
+    expect(container.textContent).toContain('Row · 1 column');
+    expect(container.textContent).toContain('Empty column');
+    expect(container.textContent).toContain('Save this page once');
+  });
+
+  it('duplicates a row with fresh column and leaf ids, keeping the layout serializable', () => {
+    const onChange = vi.fn();
+    const rowBody =
+      '<div class="cw-row cw-row--2">' +
+      '<div class="cw-column"><h2 class="cw cw--h2">Agenda</h2><p>Doors at nine.</p></div>' +
+      '<div class="cw-column"><p>Right copy</p></div>' +
+      '</div>';
+
+    render(parseHtml(rowBody), onChange);
+    const duplicate = container.querySelector(
+      '[aria-label="Duplicate block"]'
+    ) as HTMLButtonElement;
+    act(() => {
+      duplicate.click();
+    });
+
+    const last = onChange.mock.calls.at(-1)?.[0] as Block[];
+    expect(last).toHaveLength(2);
+    const [first, second] = last;
+    if (first.type !== 'row' || second.type !== 'row') throw new Error('expected two rows');
+    expect(second.id).not.toBe(first.id);
+    expect(second.columns[0].id).not.toBe(first.columns[0].id);
+    expect(second.columns[0].blocks[0].id).not.toBe(first.columns[0].blocks[0].id);
+    expect(serializeBlocks(last)).toBe(`${rowBody}${rowBody}`);
   });
 
   it('renders an unsupported block read-only with its original markup', () => {

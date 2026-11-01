@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import type { Block } from '@/lib/blocks';
+import { type Block, serializeBlocks } from '@/lib/blocks';
 import { extractBlocksFromDOM } from '@/lib/visual-edit/extract-blocks-from-dom';
 
 function makeRoot(html: string): HTMLElement {
@@ -115,5 +115,40 @@ describe('extractBlocksFromDOM', () => {
     const root = makeRoot('<h2>Title</h2><p>Body</p><ul><li>Item</li></ul>');
     const blocks = extractBlocksFromDOM(root);
     expect(blocks.map((b: Block) => b.type)).toEqual(['heading', 'paragraph', 'bulletList']);
+  });
+
+  it('round-trips a two-column row instead of flattening it to its first heading', () => {
+    const rowBody =
+      '<div class="cw-row cw-row--2">' +
+      '<div class="cw-column"><h2 class="cw cw--h2">Agenda</h2><p>Doors at nine.</p></div>' +
+      '<div class="cw-column"><ul class="cw-list cw-list--bullet"><li>Water</li></ul></div>' +
+      '</div>';
+    const root = makeRoot(rowBody);
+
+    const blocks = extractBlocksFromDOM(root);
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].type).toBe('row');
+    if (blocks[0].type !== 'row') throw new Error('expected a row');
+    expect(blocks[0].columns).toHaveLength(2);
+    expect(blocks[0].columns[0].blocks.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+    ]);
+    expect(blocks[0].columns[1].blocks.map((block) => block.type)).toEqual(['bulletList']);
+    // This is the document the fallback hands to the save path.
+    expect(serializeBlocks(blocks)).toBe(rowBody);
+  });
+
+  it('keeps an empty column in an extracted row', () => {
+    const rowBody =
+      '<div class="cw-row cw-row--2">' +
+      '<div class="cw-column"><p>Only here</p></div>' +
+      '<div class="cw-column"></div>' +
+      '</div>';
+
+    const blocks = extractBlocksFromDOM(makeRoot(rowBody));
+
+    expect(serializeBlocks(blocks)).toBe(rowBody);
   });
 });
