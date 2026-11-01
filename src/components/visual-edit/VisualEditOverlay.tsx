@@ -91,7 +91,9 @@ import { isStaleConflict } from '@/lib/visual-edit/conflict';
 import { extractBlocksFromDOM } from '@/lib/visual-edit/extract-blocks-from-dom';
 import { readComposerContentId } from '@/lib/visual-edit-document';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
+import { applyVisualEditRail } from '@/lib/visual-edit-layout';
 import { highlightPageSection } from '@/lib/visual-edit-mode';
+import { syncRegionParamInUrl } from '@/lib/visual-edit-url';
 import {
   buildVisualSections,
   canMoveSection,
@@ -389,6 +391,32 @@ export function VisualEditOverlay() {
   const activeRegion = useMemo(
     () => pageRegions.find((region) => region.id === activeRegionId) ?? null,
     [pageRegions, activeRegionId]
+  );
+
+  /**
+   * Switch the editable slice, and make every surface agree it happened.
+   *
+   * Selection used to be React state alone, so the address bar kept claiming a
+   * different region (or none) and a refresh silently returned the admin to the
+   * whole-page document. It also left the region off screen: clicking a region
+   * in the sidebar loaded its copy but did not show where that copy lives.
+   *
+   * The id is validated against this page's registry here too. The sidebar can
+   * only offer valid ids, but the event bus is a public surface, and selecting
+   * a different page's region would load its row while framing this page.
+   */
+  const selectRegion = useCallback(
+    (regionId: string | null) => {
+      if (regionId && !pageRegions.some((region) => region.id === regionId)) return;
+      setActiveRegionId((current) => (current === regionId ? current : regionId));
+      syncRegionParamInUrl(regionId);
+      if (regionId) {
+        highlightPageSection(
+          document.querySelector<HTMLElement>(`[data-copy-region="${regionId}"]`)
+        );
+      }
+    },
+    [pageRegions]
   );
 
   const rootRef = useRef<HTMLElement | null>(null);
@@ -833,6 +861,23 @@ export function VisualEditOverlay() {
       return next;
     });
   }, []);
+
+  /**
+   * Reserve the rail on the dedicated composer route.
+   *
+   * The sidebar is fixed, so the route underneath has to be told how much room
+   * it takes. Only `/compose` reserves it: the same rail over a live page would
+   * change the layout the admin is judging, and the page is already the real
+   * thing. Navigating away clears the property so no fallback is needed.
+   */
+  useEffect(() => {
+    if (!enabled || !isAdmin || !pathname.startsWith('/compose/')) {
+      applyVisualEditRail(null);
+      return;
+    }
+    applyVisualEditRail(dockCollapsed);
+    return () => applyVisualEditRail(null);
+  }, [dockCollapsed, enabled, isAdmin, pathname]);
 
   const handleRotateOrientation = useCallback(() => {
     setDeviceOrientation((prev) => (prev === 'portrait' ? 'landscape' : 'portrait'));
@@ -1434,6 +1479,14 @@ export function VisualEditOverlay() {
     const next =
       requested && pageRegions.some((region) => region.id === requested) ? requested : null;
     setActiveRegionId((current) => (current === next ? current : next));
+    if (!next) return;
+
+    // The region's row may load after this paint; the container is already in
+    // the DOM, so the frame is enough to let layout settle before scrolling.
+    const frame = window.requestAnimationFrame(() => {
+      highlightPageSection(document.querySelector<HTMLElement>(`[data-copy-region="${next}"]`));
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [pageRegions]);
 
   // Re-pair whenever the document or the DOM changes.
@@ -3290,8 +3343,7 @@ export function VisualEditOverlay() {
       // Null and undefined both mean "the whole page"; a region id addresses the
       // region's own document.
       const next = typeof detail?.regionId === 'string' ? detail.regionId : null;
-      if (next === activeRegionId) return;
-      setActiveRegionId(next);
+      selectRegion(next);
     };
 
     window.addEventListener(VISUAL_EDIT_EVENTS.focusSection, handleFocusSection);
@@ -3326,9 +3378,9 @@ export function VisualEditOverlay() {
       window.removeEventListener(VISUAL_EDIT_EVENTS.selectRegion, handleSelectRegion);
     };
   }, [
-    activeRegionId,
     enabled,
     isAdmin,
+    selectRegion,
     handleAddNewSection,
     handleConvertSection,
     handleDeleteSection,
@@ -3994,7 +4046,7 @@ export function VisualEditOverlay() {
         pageRegions={pageRegions}
         activeRegionId={activeRegionId}
         activeRegionLabel={activeRegion?.label || null}
-        onSetRegion={setActiveRegionId}
+        onSetRegion={selectRegion}
         showSectionBadges={showSectionBadges}
         showAllSectionBorders={showAllSectionBorders}
         showInspector={showInspector}

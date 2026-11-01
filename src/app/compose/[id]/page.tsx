@@ -77,8 +77,13 @@ export default async function ComposerWorkspacePage({ params }: PageProps) {
       : null);
   const publicHref = contentPublicHref(content);
 
+  /*
+   * The composer's right rail is fixed. Reserve its width here so the page is
+   * judged at its real line length instead of under the inspector; the variable
+   * is published by the overlay and absent on every other route.
+   */
   return (
-    <div className="min-h-screen bg-background pt-(--header-h) pb-24 text-foreground">
+    <div className="min-h-screen bg-background pt-(--header-h) pb-24 text-foreground transition-[padding-right] duration-300 motion-reduce:transition-none lg:pr-[var(--visual-edit-rail-width,0px)]">
       <ComposerWorkspaceBoot />
       {/* Same column width as the public page: a canvas one size wider would
           preview line breaks the saved page will not have. */}

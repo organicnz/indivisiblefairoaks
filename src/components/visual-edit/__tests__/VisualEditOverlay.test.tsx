@@ -1903,4 +1903,73 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
 
     expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
   });
+
+  it('keeps the selected region in the address bar', async () => {
+    /*
+     * Selection used to be React state alone. The address bar kept the old id,
+     * so a refresh — or a bookmark — reopened a different document from the one
+     * being edited. The sidebar's tabs and the event bus both go through the
+     * same selection path, and that path now owns the URL.
+     */
+    window.history.replaceState({}, '', '/?visual-edit=1');
+    pathname.value = '/';
+    renderPage('<div data-copy-region="home-hero"><h2 class="cw cw--h2">Mission</h2></div>');
+    await mount();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+          detail: { regionId: 'home-hero' },
+        })
+      );
+    });
+    expect(new URLSearchParams(window.location.search).get('region')).toBe('home-hero');
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, { detail: { regionId: null } })
+      );
+    });
+    expect(new URLSearchParams(window.location.search).get('region')).toBeNull();
+    // The mode parameter is not the region's to remove.
+    expect(new URLSearchParams(window.location.search).get('visual-edit')).toBe('1');
+  });
+
+  it('refuses a region id from another page on the event bus', async () => {
+    window.history.replaceState({}, '', '/?visual-edit=1');
+    pathname.value = '/';
+    renderPage('<div data-copy-region="home-hero"><h2 class="cw cw--h2">Mission</h2></div>');
+    await mount();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+          detail: { regionId: 'about-mission' },
+        })
+      );
+    });
+
+    // Region ids are unique site-wide. Accepting one from another page would
+    // load that row while framing this page.
+    expect(new URLSearchParams(window.location.search).get('region')).toBeNull();
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+  });
+
+  it('reserves the sidebar rail only on the composer route', async () => {
+    pathname.value = '/compose/42';
+    renderPage(rendered);
+
+    await mount();
+    expect(document.documentElement.style.getPropertyValue('--visual-edit-rail-width')).toBe(
+      '18rem'
+    );
+
+    await act(async () => root.unmount());
+    expect(document.documentElement.style.getPropertyValue('--visual-edit-rail-width')).toBe('');
+
+    root = createRoot(container);
+    pathname.value = '/about';
+    await mount();
+    expect(document.documentElement.style.getPropertyValue('--visual-edit-rail-width')).toBe('');
+  });
 });
