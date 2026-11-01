@@ -62,10 +62,17 @@ export function convertBlock(
   const raw = extractBlockContentText(block);
   const plain = stripTags(raw).trim();
   const fallbackHtml = raw.trim() || 'Content';
+  /*
+   * The design survives a conversion. It lives in the shell rather than the
+   * markup now, so a conversion that rebuilt only the content would silently
+   * strip a block's look — and the parser would read the new type as unstyled.
+   * Structural classes change with the type; the serializer re-emits them.
+   */
+  const carried = block.shell ? { shell: block.shell } : {};
 
   switch (targetType) {
     case 'paragraph':
-      return { id: block.id, type: 'paragraph', html: fallbackHtml };
+      return { id: block.id, type: 'paragraph', html: fallbackHtml, ...carried };
 
     case 'heading':
       return {
@@ -73,6 +80,7 @@ export function convertBlock(
         type: 'heading',
         level: targetLevel,
         html: fallbackHtml,
+        ...carried,
       };
 
     case 'callout':
@@ -81,13 +89,14 @@ export function convertBlock(
         type: 'callout',
         tone: targetTone,
         html: fallbackHtml,
+        ...carried,
       };
 
     case 'quote':
-      return { id: block.id, type: 'quote', html: fallbackHtml };
+      return { id: block.id, type: 'quote', html: fallbackHtml, ...carried };
 
     case 'code':
-      return { id: block.id, type: 'code', text: plain || '// code' };
+      return { id: block.id, type: 'code', text: plain || '// code', ...carried };
 
     case 'bulletList': {
       const splitItems = raw
@@ -98,6 +107,7 @@ export function convertBlock(
         id: block.id,
         type: 'bulletList',
         items: splitItems.length > 0 ? splitItems : ['Item 1', 'Item 2'],
+        ...carried,
       };
     }
 
@@ -110,6 +120,7 @@ export function convertBlock(
         id: block.id,
         type: 'orderedList',
         items: splitItems.length > 0 ? splitItems : ['Step 1', 'Step 2'],
+        ...carried,
       };
     }
 
@@ -119,6 +130,7 @@ export function convertBlock(
         type: 'button',
         label: plain.slice(0, 40) || 'Action',
         href: '/',
+        ...carried,
       };
 
     case 'image':
@@ -130,6 +142,7 @@ export function convertBlock(
         caption: plain.slice(0, 100),
         width: null,
         height: null,
+        ...carried,
       };
 
     case 'table':
@@ -141,12 +154,13 @@ export function convertBlock(
           [plain.slice(0, 30) || 'Row 1', 'Data'],
           ['Row 2', 'Data'],
         ],
+        ...carried,
       };
 
     case 'divider':
-      return { id: block.id, type: 'divider' };
+      return { id: block.id, type: 'divider', ...carried };
 
     case 'unsupported':
-      return { id: block.id, type: 'unsupported', html: fallbackHtml };
+      return { id: block.id, type: 'unsupported', html: fallbackHtml, ...carried };
   }
 }

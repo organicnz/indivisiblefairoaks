@@ -16,12 +16,10 @@ import {
 import { toast } from 'sonner';
 import {
   type Block,
-  blockWrapperAttributes,
-  designClassesOf,
   isStructuralBlockClass,
+  readBlockShell,
   serializeBlocks,
-  themeModeFromAttribute,
-  themeModeFromClassList,
+  THEME_CLASS_TOKENS,
 } from '@/lib/blocks';
 import type { ThemeMode } from '@/lib/theme';
 import { sectionLabelForBlock } from '@/lib/visual-sections';
@@ -191,24 +189,17 @@ function readComposerStylesFromBlock(
   memory?: ComposerStyleMemory
 ): VisualComposerStyles {
   const next: VisualComposerStyles = { ...DEFAULT_VC_STYLES };
-  if (!('html' in block) || typeof block.html !== 'string') return next;
+  const shell = readBlockShell(block);
 
-  const trimmed = block.html.trim();
-  const attrs = blockWrapperAttributes(trimmed);
-  if (attrs !== null) {
-    const idMatch = attrs.match(/id=["']([^"']+)["']/i);
-    const classMatch = attrs.match(/class=["']([^"']+)["']/i);
-    const styleMatch = attrs.match(/style=["']([^"']+)["']/i);
-    const themeMatch = attrs.match(/data-theme(?:-mode)?=["']([^"']+)["']/i);
-
+  if (shell) {
     /*
-     * Every token on the wrapper, split once. `cw-*` classes are structure, not
+     * Every token on the root, split once. `cw-*` classes are structure, not
      * design: the block parser uses them to know a callout is a callout. They
-     * are the page's to own, and the overlay re-attaches them on every write, so
-     * the design panel never carries them into `customClasses` where a reset
+     * are the page's to own, and the serializer re-attaches them on every write,
+     * so the design panel never carries them into `customClasses` where a reset
      * would delete them.
      */
-    const wrapperTokens = (classMatch?.[1] ?? '').split(/\s+/).filter(Boolean);
+    const wrapperTokens = shell.className.split(/\s+/).filter(Boolean);
 
     /*
      * The tokens the remembered draft generated. Section-mode designs are not
@@ -258,39 +249,39 @@ function readComposerStylesFromBlock(
       next.badgePosition = DEFAULT_VC_STYLES.badgePosition;
     }
 
-    if (idMatch?.[1]) next.anchorId = idMatch[1];
-    if (styleMatch?.[1]) next.customStyle = styleMatch[1];
+    if (shell.anchorId) next.anchorId = shell.anchorId;
+    if (shell.style) next.customStyle = shell.style;
 
     /*
-     * What is left of the wrapper is the operator's own classes. Subtracting the
+     * What is left of the root is the operator's own classes. Subtracting the
      * generated tokens is what prevents the next apply from emitting every
      * utility a second time; CSS source order, not class-attribute order, would
      * decide which copy wins. Without a grounded memory there is nothing to
-     * subtract, so this is the pre-existing read of the wrapper.
+     * subtract, so this is the read of the root.
      */
-    next.customClasses = grounded
-      ? wrapperTokens
-          .filter((token) => !isStructuralBlockClass(token) && !generated.has(token))
-          .join(' ')
-      : designClassesOf(classMatch?.[1] ?? '');
-    if (themeMatch?.[1]) {
-      const mode = themeModeFromAttribute(themeMatch[1]);
-      if (mode) next.themeMode = mode;
-    } else {
-      const mode = themeModeFromClassList(classMatch?.[1]);
-      if (mode) next.themeMode = mode;
-    }
+    const themeTokens = new Set(THEME_CLASS_TOKENS);
+    next.customClasses = wrapperTokens
+      .filter(
+        (token) =>
+          !isStructuralBlockClass(token) &&
+          !themeTokens.has(token) &&
+          (!grounded || !generated.has(token))
+      )
+      .join(' ');
+    if (shell.themeMode) next.themeMode = shell.themeMode;
   }
 
   // Restore the decorative badge ribbon if the block carries one.
-  const badgeMatch = trimmed.match(/<span\s+data-vc-badge(?:[^>]*)>(.*?)<\/span>/i);
-  if (badgeMatch) {
-    const text = badgeMatch[1].trim();
-    const toneMatch = badgeMatch[0].match(/data-tone=["']([^"']+)["']/);
-    const posMatch = badgeMatch[0].match(/data-pos=["']([^"']+)["']/);
-    next.badgeText = text;
-    next.badgeTone = (toneMatch?.[1] as VisualComposerStyles['badgeTone']) || 'gold';
-    next.badgePosition = (posMatch?.[1] as VisualComposerStyles['badgePosition']) || 'top-right';
+  if ('html' in block && typeof block.html === 'string') {
+    const badgeMatch = block.html.match(/<span\s+data-vc-badge(?:[^>]*)>(.*?)<\/span>/i);
+    if (badgeMatch) {
+      const text = badgeMatch[1].trim();
+      const toneMatch = badgeMatch[0].match(/data-tone=["']([^"']+)["']/);
+      const posMatch = badgeMatch[0].match(/data-pos=["']([^"']+)["']/);
+      next.badgeText = text;
+      next.badgeTone = (toneMatch?.[1] as VisualComposerStyles['badgeTone']) || 'gold';
+      next.badgePosition = (posMatch?.[1] as VisualComposerStyles['badgePosition']) || 'top-right';
+    }
   }
 
   return next;

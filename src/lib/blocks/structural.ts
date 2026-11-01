@@ -1,4 +1,15 @@
-import type { Block } from './types';
+import {
+  BLOCK_CLASS,
+  type Block,
+  BUTTON_WRAPPER_CLASS,
+  CALLOUT_CLASS,
+  CODE_CLASS,
+  DIVIDER_CLASS,
+  FIGURE_CLASS,
+  LIST_CLASS,
+  QUOTE_CLASS,
+  TABLE_CLASS,
+} from './types';
 
 /**
  * The class prefix that identifies a block's structure rather than its look.
@@ -45,10 +56,48 @@ export function isWrappedBlockHtml(html: string): boolean {
 }
 
 /**
- * The structural classes on a block's own wrapper, in source order.
+ * The `cw-*` classes the serializer writes for a block's own root.
  *
- * Empty for a block whose markup is not wrapped in a `<div>` — a plain
- * paragraph, for instance — and for a wrapper with no structural classes.
+ * This is the type's structure, not something read back out of markup: the
+ * parser decides the type and the serializer re-emits its marker, so the two
+ * directions cannot disagree. The preview calls the same function, which is
+ * what makes its painted class list the saved one rather than a guess.
+ */
+export function structuralClassesForBlock(block: Block): string {
+  switch (block.type) {
+    case 'heading':
+      return `${BLOCK_CLASS} ${BLOCK_CLASS}--h${block.level}`;
+    case 'bulletList':
+      return `${LIST_CLASS} ${LIST_CLASS}--bullet`;
+    case 'orderedList':
+      return `${LIST_CLASS} ${LIST_CLASS}--ordered`;
+    case 'quote':
+      return QUOTE_CLASS;
+    case 'callout':
+      return `${CALLOUT_CLASS} ${CALLOUT_CLASS}--${block.tone}`;
+    case 'code':
+      return CODE_CLASS;
+    case 'image':
+      return FIGURE_CLASS;
+    case 'divider':
+      return DIVIDER_CLASS;
+    case 'table':
+      return TABLE_CLASS;
+    case 'button':
+      return BUTTON_WRAPPER_CLASS;
+    case 'paragraph':
+    case 'unsupported':
+      return '';
+  }
+}
+
+/**
+ * The structural classes on a legacy block's `<div>` wrapper, in source order.
+ *
+ * Only the reader's back-compat path uses this now: new saves put the design
+ * on the block's root, not on a wrapper. It stays because a page saved by the
+ * previous composer still has that shape, and reading it is how the editor
+ * upgrades it on the next save instead of losing its design.
  */
 export function structuralClassesOf(block: Block): string {
   if (!('html' in block) || typeof block.html !== 'string') return '';

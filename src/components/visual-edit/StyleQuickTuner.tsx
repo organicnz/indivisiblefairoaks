@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { toast } from 'sonner';
-import { THEME_CLASS_TOKENS, themeAttributesFor, themeClassTokens } from '@/lib/blocks/save-shape';
+import { THEME_CLASS_TOKENS, themeAttributesFor, themeClassTokens } from '@/lib/blocks/theme';
 import type { VisualComposerThemeMode } from '@/types/unified';
 
 export interface StyleQuickTunerProps {

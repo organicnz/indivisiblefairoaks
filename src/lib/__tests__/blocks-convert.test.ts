@@ -50,6 +50,20 @@ describe('blocks convert', () => {
     });
   });
 
+  it('carries a design shell through a conversion', () => {
+    const p: Block = {
+      id: 'p3',
+      type: 'paragraph',
+      html: 'Styled copy',
+      shell: { className: 'rounded-xl bg-white', anchorId: 'styled', style: 'color: red;' },
+    };
+
+    const h = convertBlock(p, 'heading', { headingLevel: 3 });
+
+    expect(h.shell).toEqual(p.shell);
+    expect(h.type).toBe('heading');
+  });
+
   it('converts heading to callout, preserving html and setting tone', () => {
     const h: Block = { id: 'h1', type: 'heading', level: 2, html: 'Notice to members' };
     const c = convertBlock(h, 'callout', { calloutTone: 'warning' });

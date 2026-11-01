@@ -1,7 +1,10 @@
+import { mergeBlockShells } from './save-shape';
 import { isBlockEmpty, isCalloutTone, stripTags } from './serialize';
+import { isStructuralBlockClass } from './structural';
 import {
   BLOCK_CLASS,
   type Block,
+  type BlockShell,
   BUTTON_CLASS,
   BUTTON_WRAPPER_CLASS,
   CALLOUT_CLASS,
@@ -45,6 +48,35 @@ function innerHtml(el: Element): string {
 }
 
 /**
+ * The design a live element carries, in the shape the model stores.
+ *
+ * Structural `cw-*` classes are excluded: they are how the parser recognises
+ * the type, and the serializer re-emits them from the type. Everything else on
+ * the root — design utilities, the compiler's theme tokens, an anchor id and
+ * inline CSS — belongs to the block, on the element the browser actually
+ * renders. This is the reader half of the own-the-root rule.
+ */
+function readElementShell(el: Element): BlockShell | undefined {
+  const className = classTokens(el)
+    .filter((token) => !isStructuralBlockClass(token))
+    .join(' ');
+  const anchorId = el.id || undefined;
+  const style = el.getAttribute('style') || undefined;
+  if (!className && !anchorId && !style) return undefined;
+  return {
+    ...(className ? { className } : {}),
+    ...(anchorId ? { anchorId } : {}),
+    ...(style ? { style } : {}),
+  };
+}
+
+/** Attach a root's design to a parsed block, without inventing an empty shell. */
+function withElementShell<T extends Block>(block: T, el: Element): T {
+  const shell = readElementShell(el);
+  return shell ? ({ ...block, shell } as T) : block;
+}
+
+/**
  * True for nodes that carry no layout meaning between blocks: whitespace and
  * comments. Google Sites exports are full of blank lines and `<!-- -->`.
  */
@@ -57,11 +89,22 @@ function isIgnorableNode(node: Node): boolean {
 function parseHeading(el: Element, level: HeadingLevel, html: string): Block {
   // An explicit class wins over the tag so a level can be changed without
   // changing the tag; a bare legacy <h2> with no class just takes its tag level.
+  let resolved = level;
   for (const token of classTokens(el)) {
     const m = HEADING_CLASS_RE.exec(token);
-    if (m) return { id: nextBlockId(), type: 'heading', level: Number(m[1]) as HeadingLevel, html };
+    if (m) {
+      resolved = Number(m[1]) as HeadingLevel;
+      break;
+    }
   }
-  return { id: nextBlockId(), type: 'heading', level, html };
+  const shell = readElementShell(el);
+  return {
+    id: nextBlockId(),
+    type: 'heading',
+    level: resolved,
+    html,
+    ...(shell ? { shell } : {}),
+  };
 }
 
 function parseList(el: Element, ordered: boolean): Block {
@@ -71,11 +114,14 @@ function parseList(el: Element, ordered: boolean): Block {
   const items = [...el.children]
     .filter((child) => child.tagName.toLowerCase() === 'li')
     .map((li) => li.innerHTML);
-  return {
-    id: nextBlockId(),
-    type: ordered ? 'orderedList' : 'bulletList',
-    items: items.length ? items : [''],
-  };
+  return withElementShell(
+    {
+      id: nextBlockId(),
+      type: ordered ? 'orderedList' : 'bulletList',
+      items: items.length ? items : [''],
+    },
+    el
+  );
 }
 
 /**
@@ -98,18 +144,38 @@ function parseCallout(el: Element): Block {
       break;
     }
   }
-  return { id: nextBlockId(), type: 'callout', tone, html: unwrapLoneParagraph(el) };
+  const shell = readElementShell(el);
+  return {
+    id: nextBlockId(),
+    type: 'callout',
+    tone,
+    html: unwrapLoneParagraph(el),
+    ...(shell ? { shell } : {}),
+  };
 }
 
 function parseQuote(el: Element): Block {
-  return { id: nextBlockId(), type: 'quote', html: unwrapLoneParagraph(el) };
+  const shell = readElementShell(el);
+  return {
+    id: nextBlockId(),
+    type: 'quote',
+    html: unwrapLoneParagraph(el),
+    ...(shell ? { shell } : {}),
+  };
 }
 
 function parseCode(el: Element): Block {
   const code = el.querySelector('code');
   // textContent, not innerHTML: code content is literal text, and re-reading it
   // as markup would decode entities a second time on every round trip.
-  return { id: nextBlockId(), type: 'code', text: (code ?? el).textContent ?? '' };
+  return withElementShell(
+    {
+      id: nextBlockId(),
+      type: 'code',
+      text: (code ?? el).textContent ?? '',
+    },
+    el
+  );
 }
 
 function parseFigure(el: Element): Block {
@@ -118,15 +184,18 @@ function parseFigure(el: Element): Block {
   if (!img) return { id: nextBlockId(), type: 'unsupported', html: el.outerHTML };
   const widthAttr = img.getAttribute('width');
   const heightAttr = img.getAttribute('height');
-  return {
-    id: nextBlockId(),
-    type: 'image',
-    src: img.getAttribute('src') ?? '',
-    alt: img.getAttribute('alt') ?? '',
-    caption: figcaption ? (figcaption.textContent ?? '') : '',
-    width: widthAttr ? Number(widthAttr) || null : null,
-    height: heightAttr ? Number(heightAttr) || null : null,
-  };
+  return withElementShell(
+    {
+      id: nextBlockId(),
+      type: 'image',
+      src: img.getAttribute('src') ?? '',
+      alt: img.getAttribute('alt') ?? '',
+      caption: figcaption ? (figcaption.textContent ?? '') : '',
+      width: widthAttr ? Number(widthAttr) || null : null,
+      height: heightAttr ? Number(heightAttr) || null : null,
+    },
+    el
+  );
 }
 
 function parseTable(el: Element): Block {
@@ -144,7 +213,15 @@ function parseTable(el: Element): Block {
   if (head.length === 0 && bodyRows.length > 0) {
     head.push(...(bodyRows.shift() as string[]));
   }
-  return { id: nextBlockId(), type: 'table', head, rows: bodyRows };
+  return withElementShell(
+    {
+      id: nextBlockId(),
+      type: 'table',
+      head,
+      rows: bodyRows,
+    },
+    el
+  );
 }
 
 function parseButton(el: Element): Block | null {
@@ -154,14 +231,22 @@ function parseButton(el: Element): Block | null {
   // keeps its own spacing so a load/save cycle is lossless.
   const label = link.textContent ?? '';
   if (!label.trim()) return null;
-  return { id: nextBlockId(), type: 'button', label, href: link.getAttribute('href') ?? '' };
+  return withElementShell(
+    {
+      id: nextBlockId(),
+      type: 'button',
+      label,
+      href: link.getAttribute('href') ?? '',
+    },
+    el
+  );
 }
 
 function parseElement(el: Element): Block | Block[] | null {
   const tag = el.tagName.toLowerCase();
 
   if (hasClass(el, DIVIDER_CLASS) || tag === 'hr') {
-    return { id: nextBlockId(), type: 'divider' };
+    return withElementShell({ id: nextBlockId(), type: 'divider' }, el);
   }
 
   if (hasClass(el, CALLOUT_CLASS)) return parseCallout(el);
@@ -194,21 +279,23 @@ function parseElement(el: Element): Block | Block[] | null {
   const heading = HEADING_RE.exec(tag);
   if (heading) return parseHeading(el, Number(heading[1]) as HeadingLevel, innerHtml(el));
 
-  if (tag === 'p') return { id: nextBlockId(), type: 'paragraph', html: innerHtml(el) };
+  if (tag === 'p') {
+    return withElementShell({ id: nextBlockId(), type: 'paragraph', html: innerHtml(el) }, el);
+  }
 
   if (tag === 'div') {
-    // A div holding a single block-level child is a wrapper, not a block.
+    // A div holding a single block-level child is a wrapper, not a block. If the
+    // wrapper carries a design — the previous composer's shape for a list,
+    // figure, table, divider or button — lift it onto the block's own root. That
+    // is the migration: the div's classes are the block's classes, and the next
+    // save writes them on an element that is allowed to carry them.
     const childElements = [...el.children];
     if (childElements.length === 1) {
       const only = childElements[0];
-      const onlyTag = only.tagName.toLowerCase();
-      const isBlock =
-        HEADING_RE.test(onlyTag) ||
-        ['p', 'ul', 'ol', 'blockquote', 'pre', 'figure', 'table', 'hr'].includes(onlyTag) ||
-        hasClass(only, CALLOUT_CLASS);
-      if (isBlock) {
-        const parsed = parseElement(only);
-        return parsed ?? null;
+      const parsed = parseElement(only);
+      if (parsed && !Array.isArray(parsed) && parsed.type !== 'unsupported') {
+        const outer = readElementShell(el);
+        return outer ? { ...parsed, shell: mergeBlockShells(parsed.shell, outer) } : parsed;
       }
     }
     return { id: nextBlockId(), type: 'unsupported', html: el.outerHTML };

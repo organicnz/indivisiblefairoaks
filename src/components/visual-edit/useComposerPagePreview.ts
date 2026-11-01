@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { type BlockShell, themeAttributesFor } from '@/lib/blocks/save-shape';
+import { isStructuralBlockClass } from '@/lib/blocks/structural';
+import { themeAttributesFor } from '@/lib/blocks/theme';
 import type { VisualComposerMode, VisualComposerThemeMode } from '@/types/unified';
 
 /**
@@ -14,8 +15,7 @@ import type { VisualComposerMode, VisualComposerThemeMode } from '@/types/unifie
  * element — none of those are visible in a 380px facsimile. WordPress's visual
  * composers are remembered for the opposite: you tune, and the page answers.
  *
- * So the draft is applied to the block's real wrapper while the composer is
- * open. Three rules keep that from being dangerous:
+ * So the draft is applied to the block's own root while the composer is open. Three rules keep that from being dangerous:
  *
  *  1. **Nothing is written.** The DOM is the only thing touched; the block
  *     model, the autosave and the dirty flag are unchanged, so closing with
@@ -76,8 +76,6 @@ interface AppliedPreview {
   themeModeAttr: string | null;
   /** The element's markup before the first copy preview. */
   innerHtml: string;
-  /** Tokens this preview added on top of the element's own markup. */
-  paintedClasses: string[];
   /** True while this entry's copy, not the page's, is inside the element. */
   paintedContent: boolean;
   /** True once the design was applied for real; the saved attrs are then the
@@ -127,38 +125,40 @@ function paintDesign(
   entry: AppliedPreview,
   design: NonNullable<ComposerDraftPreview['design']>,
   structural: string,
-  shell: BlockShell
+  preserveRootClasses: boolean
 ) {
   const { element } = entry;
-  const draftTokens = design.classes.split(/\s+/).filter(Boolean);
+  // Same split the serializer uses: a `cw-*` token is the block's type, never
+  // the design, even if it was typed into the custom-class field.
+  const draftTokens = design.classes
+    .split(/\s+/)
+    .filter((token) => token && !isStructuralBlockClass(token));
   const structuralTokens = structural.split(/\s+/).filter(Boolean);
 
-  const classes =
-    shell === 'replace'
-      ? uniqueTokens([...draftTokens, ...structuralTokens])
-      : uniqueTokens([
-          // The element's own markup, minus whatever the previous preview added
-          // to it — otherwise a second draft would leave the first one's
-          // utilities stacked underneath it, and CSS order would pick the
-          // winner rather than the operator.
-          ...(entry.classAttr ?? '')
-            .split(/\s+/)
-            .filter((token) => token && !entry.paintedClasses.includes(token)),
-          ...draftTokens,
-          ...structuralTokens,
-        ]);
+  /*
+   * The block's own root carries exactly this list when it is saved: the design
+   * utilities, then the structural `cw-*` classes the type owns. Replacing the
+   * root's class list is therefore not a simplification — it is the preview
+   * being the save.
+   *
+   * `unsupported` is the one exception, and it is the honest one: its save puts
+   * the design on a new wrapper around markup the model does not own, and moving
+   * the live node into a wrapper would take it out from under the section
+   * pairing. The preview preserves that element's own classes instead of
+   * stripping them, and leaves inline CSS alone for the same reason.
+   */
+  const classes = preserveRootClasses
+    ? uniqueTokens([
+        ...(entry.classAttr ?? '').split(/\s+/).filter(Boolean),
+        ...draftTokens,
+        ...structuralTokens,
+      ])
+    : uniqueTokens([...draftTokens, ...structuralTokens]);
 
   writeOrRemove(element, 'class', classes.join(' '));
-  /*
-   * Inline CSS belongs to the wrapper the save creates, not to the heading it
-   * wraps; putting it on the element itself would change layout (`display`, a
-   * transform) in a way the saved page would not. The class changes still
-   * preview the design, and the Code tab's own live sample covers the rest.
-   */
-  writeOrRemove(element, 'style', shell === 'replace' ? design.style.trim() : entry.styleAttr);
-
-  entry.paintedClasses =
-    shell === 'replace' ? [] : uniqueTokens([...draftTokens, ...structuralTokens]);
+  // Inline CSS lives on the same root in the saved markup, so it gets the same
+  // element here. Anything else would preview a layout the page will not have.
+  writeOrRemove(element, 'style', preserveRootClasses ? entry.styleAttr : design.style.trim());
 
   // Mirror the save path from the save's own mapping: one theme attribute, and
   // the other one clears.
@@ -178,7 +178,6 @@ function restoreDesign(entry: AppliedPreview) {
   writeOrRemove(entry.element, 'style', entry.styleAttr);
   writeOrRemove(entry.element, 'data-theme', entry.themeAttr);
   writeOrRemove(entry.element, 'data-theme-mode', entry.themeModeAttr);
-  entry.paintedClasses = [];
 }
 
 /**
@@ -192,9 +191,9 @@ function paint(
   entry: AppliedPreview,
   draft: ComposerDraftPreview,
   structural: string,
-  shell: BlockShell
+  preserveRootClasses: boolean
 ) {
-  if (draft.design) paintDesign(entry, draft.design, structural, shell);
+  if (draft.design) paintDesign(entry, draft.design, structural, preserveRootClasses);
   else restoreDesign(entry);
 
   /*
@@ -220,8 +219,11 @@ export interface UseComposerPagePreviewOptions {
   resolveElement: (blockIndex: number) => HTMLElement | null;
   /** The block's own `cw-*` classes, which the page owns. */
   structuralClassesOf: (blockIndex: number) => string;
-  /** Whether the save will replace its wrapper or wrap the element. */
-  shellOf: (blockIndex: number) => BlockShell;
+  /**
+   * Keep the element's own classes instead of substituting the saved list.
+   * Only `unsupported` needs it: its save wraps markup the model cannot move.
+   */
+  preserveRootClasses?: (blockIndex: number) => boolean;
 }
 
 export interface ComposerPagePreviewControls {
@@ -236,7 +238,7 @@ export interface ComposerPagePreviewControls {
 export function useComposerPagePreview({
   resolveElement,
   structuralClassesOf,
-  shellOf,
+  preserveRootClasses = () => false,
 }: UseComposerPagePreviewOptions): ComposerPagePreviewControls {
   const appliedRef = useRef<Map<HTMLElement, AppliedPreview>>(new Map());
 
@@ -248,8 +250,8 @@ export function useComposerPagePreview({
   resolveRef.current = resolveElement;
   const structuralRef = useRef(structuralClassesOf);
   structuralRef.current = structuralClassesOf;
-  const shellRef = useRef(shellOf);
-  shellRef.current = shellOf;
+  const preserveRef = useRef(preserveRootClasses);
+  preserveRef.current = preserveRootClasses;
 
   const clearDraft = useCallback(() => {
     for (const entry of appliedRef.current.values()) {
@@ -304,7 +306,6 @@ export function useComposerPagePreview({
             element,
             ...readAttrs(element),
             innerHtml: element.innerHTML,
-            paintedClasses: [],
             paintedContent: false,
             committed: false,
           };
@@ -317,7 +318,7 @@ export function useComposerPagePreview({
          * Discard should return to. The entry only becomes a draft again.
          */
         entry.committed = false;
-        paint(entry, draft, structuralRef.current(index), shellRef.current(index));
+        paint(entry, draft, structuralRef.current(index), preserveRef.current(index));
       }
     },
     [clearDraft]

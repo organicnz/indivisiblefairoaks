@@ -68,8 +68,31 @@ export const BUTTON_CLASS = `${BLOCK_CLASS}-button`;
  */
 export const BUTTON_WRAPPER_CLASS = `${BLOCK_CLASS}-action`;
 
+/**
+ * The design a block carries on its own root element.
+ *
+ * A block's root is the element the page renders: `<p>`, `<h2>`, `<ul>`,
+ * `<figure>`, `<hr>`, or the button's `cw-action` wrapper. Design utilities,
+ * the anchor id and inline CSS live *there*, not on a div wrapped around the
+ * block. That is what keeps saved markup valid — a `<div>` inside a `<p>` is
+ * not, and the browser splits it — and it is what makes the preview and the
+ * save paint the same element.
+ *
+ * `className` is the design list, including the compiler's theme-variant
+ * tokens. Structural `cw-*` classes are not stored here: they belong to the
+ * block's type and the serializer re-emits them, so a design reset cannot
+ * change a callout into something the parser no longer recognises.
+ */
+export interface BlockShell {
+  className?: string;
+  anchorId?: string;
+  style?: string;
+}
+
 interface BlockBase {
   id: string;
+  /** Design attached to the block's root; absent when the block is unstyled. */
+  shell?: BlockShell;
 }
 
 export type Block =

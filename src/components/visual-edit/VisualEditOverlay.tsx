@@ -68,9 +68,8 @@ import {
   type HeadingLevel,
   nextBlockId,
   parseHtml,
-  previewShellForBlock,
   serializeBlocks,
-  structuralClassesOf,
+  structuralClassesForBlock,
 } from '@/lib/blocks';
 import { copyRegionSlug, getPageCopyRegions } from '@/lib/copy-regions';
 import { clearDraft, isWorthRecovering, readDraft, writeDraft } from '@/lib/draft-recovery';
@@ -276,6 +275,8 @@ function collectAnchorIds(blocks: Block[], exceptIndex: number | null = null): s
   const ids: string[] = [];
   blocks.forEach((block, index) => {
     if (index === exceptIndex) return;
+    // A shell block's root id is no longer inside its `html`; the model owns it.
+    if (block.shell?.anchorId) ids.push(block.shell.anchorId);
     if (!('html' in block) || typeof block.html !== 'string') return;
     const pattern = new RegExp(`${ANCHOR_ATTRIBUTE_PREFIX}([^"']+)["']`, 'gi');
     for (const match of block.html.matchAll(pattern)) {
@@ -297,9 +298,11 @@ function collectAnchorIds(blocks: Block[], exceptIndex: number | null = null): s
 function findAnchorOwner(blocks: Block[], blockIndex: number, anchorId: string): number | null {
   const escaped = anchorId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`${ANCHOR_ATTRIBUTE_PREFIX}${escaped}["']`, 'i');
+  const wanted = anchorId.toLowerCase();
   for (let i = 0; i < blocks.length; i += 1) {
     if (i === blockIndex) continue;
     const block = blocks[i];
+    if (block.shell?.anchorId?.toLowerCase() === wanted) return i;
     if ('html' in block && typeof block.html === 'string' && pattern.test(block.html)) {
       return i;
     }
@@ -980,7 +983,7 @@ export function VisualEditOverlay() {
    * The page is the composer's preview surface.
    *
    * The inspector reports its unapplied design; this hook paints it onto the
-   * blocks' real wrappers and restores the captured attributes when the draft
+   * blocks' real roots and restores the captured attributes when the draft
    * is discarded, the panel closes, or the overlay unmounts. A successful apply
    * converts the preview into the page's new state, so closing no longer snaps
    * back to the old look between Apply and the autosave's refresh.
@@ -988,13 +991,15 @@ export function VisualEditOverlay() {
   const { applyDraft: applyComposerDraft, commitDraft: commitComposerDraft } =
     useComposerPagePreview({
       resolveElement: locate,
+      // The classes the serializer writes on the block's own root. One function,
+      // so the preview cannot paint a different element than the save writes.
       structuralClassesOf: (index) => {
         const targetBlock = blocksRef.current[index];
-        return targetBlock ? structuralClassesOf(targetBlock) : '';
+        return targetBlock ? structuralClassesForBlock(targetBlock) : '';
       },
-      // The save shape and the preview shape are one decision, owned by the
-      // block model rather than re-derived here.
-      shellOf: (index) => previewShellForBlock(blocksRef.current[index]),
+      // Unsupported markup is saved inside a wrapper around markup the model
+      // does not own; its preview keeps the element's own classes.
+      preserveRootClasses: (index) => blocksRef.current[index]?.type === 'unsupported',
     });
 
   // The overlay can disappear while the panel is still open — an admin signing

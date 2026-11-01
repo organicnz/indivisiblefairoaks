@@ -10,12 +10,12 @@ import {
   isBlockEmpty,
   isTextualBlock,
   isTransient,
-  isWrappedBlockHtml,
   parseHtml,
-  previewShellForBlock,
+  readBlockShell,
   resetBlockIds,
   serializeBlocks,
   stripTags,
+  structuralClassesForBlock,
   structuralClassesOf,
   themeAttributesFor,
   themeClassTokens,
@@ -766,71 +766,187 @@ describe('structural block classes', () => {
  * The save shape.
  *
  * The live preview's whole promise is "what the page shows is what the save
- * writes", and the two used to derive that shape — and the theme mapping riding
- * on it — independently. These pin the single owner instead: the tokens the
- * compiler writes are the tokens the save reads back, and the shell the save
- * produces is the shell the preview paints.
+ * writes". A block's design therefore lives on the element the page renders,
+ * not on a `<div>` wrapped around it: a div inside a paragraph is not valid
+ * HTML, and the browser splits it on re-parse. These pin the single owner: the
+ * save writes the root, the parser reads the root, and the next save is the
+ * same bytes.
  */
 describe('block save shape', () => {
-  const plain: Block = { id: 'p', type: 'paragraph', html: '<p>Copy</p>' };
+  const design = 'rounded-xl bg-white p-4';
 
-  const htmlOf = (block: Block): string => ('html' in block ? block.html : '');
+  const types: { label: string; block: Block }[] = [
+    { label: 'paragraph', block: { id: 'p', type: 'paragraph', html: 'Paragraph copy.' } },
+    { label: 'heading', block: { id: 'h', type: 'heading', level: 2, html: 'Heading copy.' } },
+    { label: 'bullet list', block: { id: 'ul', type: 'bulletList', items: ['One', 'Two'] } },
+    { label: 'ordered list', block: { id: 'ol', type: 'orderedList', items: ['First', 'Second'] } },
+    { label: 'quote', block: { id: 'q', type: 'quote', html: 'Quoted copy.' } },
+    {
+      label: 'callout',
+      block: { id: 'callout', type: 'callout', tone: 'warning', html: 'Callout copy.' },
+    },
+    { label: 'code', block: { id: 'code', type: 'code', text: 'const answer = 42;' } },
+    {
+      label: 'image',
+      block: {
+        id: 'img',
+        type: 'image',
+        src: '/mission.jpg',
+        alt: 'Volunteers',
+        caption: 'A caption',
+        width: 640,
+        height: 480,
+      },
+    },
+    { label: 'divider', block: { id: 'hr', type: 'divider' } },
+    {
+      label: 'table',
+      block: {
+        id: 'table',
+        type: 'table',
+        head: ['Name', 'Role'],
+        rows: [['Ada', 'Organizer']],
+      },
+    },
+    {
+      label: 'button',
+      block: { id: 'button', type: 'button', label: 'Join us', href: '/contact' },
+    },
+  ];
 
-  it('replaces an existing wrapper instead of nesting a second one', () => {
-    const callout: Block = {
-      id: 'callout-a',
-      type: 'callout',
-      tone: 'info',
-      html: '<div class="cw-callout cw-callout--info p-2">Text</div>',
+  const savedHtml = (block: Block): string =>
+    serializeBlocks([applyBlockShell(block, { customClasses: design })]);
+
+  it('puts the design on every block type’s own root and round-trips it', () => {
+    for (const { label, block } of types) {
+      const saved = savedHtml(block);
+
+      // No block-level wrapper inside a root that cannot contain one. This is
+      // the exact shape the composer used to save for a paragraph, and the
+      // browser split it into an empty paragraph plus a div.
+      expect(saved, label).not.toMatch(
+        /<(p|h[1-6]|blockquote|pre|ul|ol|table|figure)\b[^>]*>\s*<div\b/i
+      );
+
+      // The sanitizer is on the save path, so a design that it would strip is a
+      // design the editor must not offer. The root attributes are what make the
+      // save survive it.
+      expect(sanitizeWPContent(saved), label).toBe(saved);
+
+      const parsed = parseHtml(saved);
+      expect(parsed, label).toHaveLength(1);
+      expect(parsed[0].type, label).toBe(block.type);
+      expect(readBlockShell(parsed[0])?.className, label).toBe(design);
+
+      // The round trip the editor depends on: the page re-reads its own save as
+      // the same blocks and writes the same bytes back.
+      expect(serializeBlocks(parsed), label).toBe(saved);
+    }
+  });
+
+  it('writes a paragraph’s design on the paragraph, not around it', () => {
+    const paragraph = parseHtml('<p>Copy</p>')[0];
+    const saved = applyBlockShell(paragraph, {
+      anchorId: 'mission',
+      customClasses: 'text-lg',
+      customStyle: 'color: red;',
+    });
+
+    expect(serializeBlocks([saved])).toBe(
+      '<p id="mission" class="text-lg" style="color: red;">Copy</p>'
+    );
+    expect(readBlockShell(saved)).toMatchObject({
+      className: 'text-lg',
+      anchorId: 'mission',
+      style: 'color: red;',
+    });
+  });
+
+  it('keeps a divider a divider when it gets a design', () => {
+    const saved = applyBlockShell({ id: 'hr', type: 'divider' }, { customClasses: 'my-8' });
+
+    expect(saved.type).toBe('divider');
+    expect(serializeBlocks([saved])).toBe('<hr class="my-8 cw-divider" />');
+    expect(serializeBlocks(parseHtml(serializeBlocks([saved])))).toBe(
+      '<hr class="my-8 cw-divider" />'
+    );
+  });
+
+  it('does not mistake a callout’s authored div for a design wrapper', () => {
+    const block = parseHtml(
+      '<div class="cw-callout cw-callout--info"><div class="note">Text</div></div>'
+    )[0];
+    expect(block.type).toBe('callout');
+    if (block.type !== 'callout') return;
+    expect(block.html).toBe('<div class="note">Text</div>');
+
+    const saved = serializeBlocks([applyBlockShell(block, { customClasses: 'p-4' })]);
+    expect(saved).toBe(
+      '<div class="p-4 cw-callout cw-callout--info"><div class="note">Text</div></div>'
+    );
+    expect(serializeBlocks(parseHtml(saved))).toBe(saved);
+  });
+
+  it('replaces an unsupported block’s wrapper instead of stacking a second one', () => {
+    const form: Block = {
+      id: 'u',
+      type: 'unsupported',
+      html: '<form><input name="email" /></form>',
     };
 
-    const saved = applyBlockShell(callout, { customClasses: 'rounded-xl bg-white' });
+    const once = applyBlockShell(form, { customClasses: 'p-4' });
+    const twice = applyBlockShell(once, { customClasses: 'p-6' });
+    const html = 'html' in twice ? twice.html : '';
 
-    // Structural `cw-*` classes belong to the page and travel with the block;
-    // only the design list is replaced.
-    expect(htmlOf(saved)).toBe(
-      '<div class="rounded-xl bg-white cw-callout cw-callout--info">Text</div>'
+    expect(html).toContain('<div class="p-6"><form>');
+    expect(html).not.toContain('p-4');
+    expect(parseHtml(html)[0].type).toBe('unsupported');
+  });
+
+  it('lifts the previous composer’s wrapper onto the block root on parse', () => {
+    const legacyList = parseHtml(
+      '<div class="rounded-xl"><ul class="cw-list cw-list--bullet"><li>One</li></ul></div>'
     );
-    expect(isWrappedBlockHtml(htmlOf(saved))).toBe(true);
-  });
-
-  it('wraps a plain block without touching its own markup', () => {
-    const saved = applyBlockShell(plain, { customClasses: 'text-lg', customStyle: 'color: red;' });
-
-    expect(htmlOf(saved)).toBe('<div class="text-lg" style="color: red;"><p>Copy</p></div>');
-  });
-
-  it('writes the anchor only where the save passes one', () => {
-    expect(htmlOf(applyBlockShell(plain, { anchorId: 'mission', customClasses: 'p-4' }))).toBe(
-      '<div id="mission" class="p-4"><p>Copy</p></div>'
+    expect(legacyList).toHaveLength(1);
+    expect(legacyList[0].type).toBe('bulletList');
+    expect(readBlockShell(legacyList[0])?.className).toBe('rounded-xl');
+    expect(serializeBlocks(legacyList)).toBe(
+      '<ul class="rounded-xl cw-list cw-list--bullet"><li>One</li></ul>'
     );
-    // The batch path deliberately omits it: two blocks cannot share an id.
-    expect(htmlOf(applyBlockShell(plain, { customClasses: 'p-4' }))).not.toContain('id=');
+
+    const legacyHeading = parseHtml(
+      '<div class="text-3xl"><h2 class="cw cw--h2">Mission</h2></div>'
+    );
+    expect(legacyHeading[0].type).toBe('heading');
+    expect(readBlockShell(legacyHeading[0])?.className).toBe('text-3xl');
+    expect(serializeBlocks(legacyHeading)).toBe('<h2 class="text-3xl cw cw--h2">Mission</h2>');
   });
 
-  it('serializes a block with no authorable HTML into a wrapped unsupported block', () => {
-    const divider: Block = { id: 'divider-a', type: 'divider' };
-
-    const saved = applyBlockShell(divider, { customClasses: 'my-8' });
-
-    expect(saved.type).toBe('unsupported');
-    expect(htmlOf(saved).startsWith('<div class="my-8">')).toBe(true);
-    expect(htmlOf(saved).endsWith('</div>')).toBe(true);
+  it('gives the preview the same structural classes the serializer writes', () => {
+    expect(structuralClassesForBlock({ id: 'h', type: 'heading', level: 3, html: '' })).toBe(
+      'cw cw--h3'
+    );
+    expect(structuralClassesForBlock({ id: 'l', type: 'bulletList', items: [] })).toBe(
+      'cw-list cw-list--bullet'
+    );
+    expect(structuralClassesForBlock({ id: 'c', type: 'callout', tone: 'info', html: '' })).toBe(
+      'cw-callout cw-callout--info'
+    );
+    expect(structuralClassesForBlock({ id: 'b', type: 'button', label: '', href: '' })).toBe(
+      'cw-action'
+    );
   });
 
-  it('paints the shape the save writes', () => {
-    const wrapped: Block = {
-      id: 'callout-b',
-      type: 'callout',
-      tone: 'info',
-      html: '<div class="cw-callout cw-callout--info">Text</div>',
-    };
+  it('drops an empty paragraph even when it carries a design', () => {
+    const styledEmpty = applyBlockShell(
+      { id: 'p', type: 'paragraph', html: '' },
+      {
+        customClasses: 'p-4',
+      }
+    );
 
-    expect(previewShellForBlock(wrapped)).toBe('replace');
-    expect(previewShellForBlock(plain)).toBe('wrap');
-    // A block the page paints as its own element, whose save adds a wrapper.
-    expect(previewShellForBlock({ id: 'divider-b', type: 'divider' })).toBe('replace');
-    expect(previewShellForBlock(undefined)).toBe('replace');
+    expect(isBlockEmpty(styledEmpty)).toBe(true);
+    expect(serializeBlocks([styledEmpty])).toBe('<p></p>');
   });
 
   it('round-trips every theme from the compiler token to the saved attribute', () => {
@@ -841,9 +957,12 @@ describe('block save shape', () => {
 
       // The compiler writes these tokens; the save reads the same tokens back.
       expect(themeModeFromClassList(tokens)).toBe(mode);
-      expect(htmlOf(applyBlockShell(plain, { customClasses: `p-4 ${tokens}` }))).toContain(
-        ` ${attribute?.name}="${attribute?.value}"`
-      );
+      const saved = serializeBlocks([
+        applyBlockShell(parseHtml('<p>Copy</p>')[0], { customClasses: `p-4 ${tokens}` }),
+      ]);
+      expect(saved).toContain(` ${attribute?.name}="${attribute?.value}"`);
+      expect(readBlockShell(parseHtml(saved)[0])?.themeMode).toBe(mode);
+      expect(serializeBlocks(parseHtml(saved))).toBe(saved);
     }
   });
 
@@ -852,6 +971,9 @@ describe('block save shape', () => {
     expect(themeClassTokens(undefined)).toBe('');
     expect(themeAttributesFor('inherit')).toBeNull();
     expect(themeModeFromClassList('p-4')).toBeNull();
-    expect(htmlOf(applyBlockShell(plain, { customClasses: 'p-4' }))).not.toContain('data-theme');
+    const saved = serializeBlocks([
+      applyBlockShell(parseHtml('<p>Copy</p>')[0], { customClasses: 'p-4' }),
+    ]);
+    expect(saved).not.toContain('data-theme');
   });
 });

@@ -1557,7 +1557,17 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
 
     await openComposerOnFirstBlock();
     await changeComposerCopy('Fresh intro copy.');
+    // A design change as well as a copy change: the audit's failure was a draft
+    // staying on an index, and a design landing on the wrong block is the
+    // expensive version of that.
+    await changeCornerRadius();
     expect(paragraph.textContent).toBe('Fresh intro copy.');
+    expect(paragraph.getAttribute('class')).toContain('rounded-2xl');
+    // Back to the copy tab so the panel still shows the draft that must follow
+    // the block across the move.
+    await act(async () => {
+      byText('Content')?.click();
+    });
 
     // The sidebar's Move down, which is the same document mutation the frame's
     // arrow key and the header's section move dispatch.
@@ -1573,9 +1583,10 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     const panel = document.querySelector<HTMLElement>('aside[role="dialog"]');
     expect(panel).not.toBeNull();
     expect(panel?.textContent).toContain('Block #2 ·');
-    // Same block, same draft, same preview.
+    // Same block, same draft, same preview — design included.
     expect(panel?.querySelector<HTMLTextAreaElement>('textarea')?.value).toBe('Fresh intro copy.');
     expect(paragraph.textContent).toBe('Fresh intro copy.');
+    expect(paragraph.getAttribute('class')).toContain('rounded-2xl');
 
     // Applying writes the draft onto the block that moved, not onto the block
     // that inherited its old index.
@@ -1599,6 +1610,10 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(written).toContain('Fresh intro copy.');
     expect(written.indexOf('<form>')).toBeLessThan(written.indexOf('Fresh intro copy.'));
     expect(written.indexOf('Fresh intro copy.')).toBeLessThan(written.indexOf('Mission'));
+
+    // The design landed on the moved paragraph's own root, and nowhere else.
+    expect(written).toMatch(/<p[^>]*rounded-2xl[^>]*>Fresh intro copy\.<\/p>/);
+    expect(written).not.toMatch(/<h2[^>]*rounded-2xl/);
   });
 
   it('keeps typed copy on the page when it is applied', async () => {
@@ -1618,13 +1633,12 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(paragraph.hasAttribute('data-vc-draft-preview')).toBe(false);
   });
 
-  it('keeps the page’s own classes when the design will be wrapped around them', async () => {
+  it('keeps the page’s own structural classes on the heading root', async () => {
     /*
-     * A plain heading is not a `<div>` wrapper: the save leaves its own classes
-     * alone and wraps a new div around it. The preview has to do the same in
-     * spirit — add the design without stripping `cw--h2`, which is the site's
-     * typography, not the composer's. Replacing the class here would make every
-     * heading look like the editor default while a draft was being tuned.
+     * The save writes the design on the heading itself, beside `cw--h2` — the
+     * site's typography, not the composer's. The preview paints that same root:
+     * design plus structural classes, never a replacement that drops the
+     * heading's typography while a draft is being tuned.
      */
     const wrappedBody = '<p>Intro copy.</p><h2 class="cw cw--h2">Mission</h2>';
     renderPage(wrappedBody);

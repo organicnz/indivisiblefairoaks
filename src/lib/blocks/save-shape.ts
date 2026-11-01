@@ -1,81 +1,12 @@
-import type { VisualComposerThemeMode } from '@/types/visual-composer';
-import { serializeBlocks } from './serialize';
-import { isWrappedBlockHtml, structuralClassesOf } from './structural';
-import type { Block } from './types';
-
-/**
- * The shape a saved block's design takes.
- *
- * `replace` is a block whose markup already owns a `<div>`: the save rewrites
- * that wrapper's attributes. `wrap` is a plain `<h2>`, `<p>` or serialized
- * non-HTML block: the save leaves the element and adds a wrapper around it.
- *
- * The live preview, both save paths and the design reader all used to derive
- * this split, and the theme mapping that rides on it, independently. The
- * guarantee that makes the preview honest — "it paints what the save writes" —
- * therefore had four copies and nothing enforcing it. They live here now.
- */
-export type BlockShell = 'replace' | 'wrap';
-
-/**
- * The theme a wrapper records in its class list.
- *
- * The compiler writes a Tailwind variant token for the theme because the class
- * attribute is the only design surface the sanitizer permits. The save then
- * turns that token into the real `data-theme` / `data-theme-mode` attribute the
- * page's CSS reads. One mapping, both directions, so a token the compiler does
- * not write cannot become an attribute the save does.
- */
-const THEME_CLASS_TOKENS_BY_MODE = {
-  dark: '[data-theme=dark] [color-scheme:dark]',
-  light: '[data-theme=light] [color-scheme:light]',
-  system: '[data-theme-mode=system]',
-} as const satisfies Record<Exclude<VisualComposerThemeMode, 'inherit'>, string>;
-
-/** Every theme token, for a reset that must remove all of them. */
-export const THEME_CLASS_TOKENS: readonly string[] = Object.values(
-  THEME_CLASS_TOKENS_BY_MODE
-).flatMap((tokens) => tokens.split(' '));
-
-/** The class tokens the compiler appends for a theme, or an empty string. */
-export function themeClassTokens(mode?: VisualComposerThemeMode): string {
-  return mode === 'dark' || mode === 'light' || mode === 'system'
-    ? THEME_CLASS_TOKENS_BY_MODE[mode]
-    : '';
-}
-
-/** The attribute a saved wrapper carries for a theme, or null for `inherit`. */
-export function themeAttributesFor(
-  mode: VisualComposerThemeMode | undefined
-): { name: 'data-theme' | 'data-theme-mode'; value: 'dark' | 'light' | 'system' } | null {
-  if (mode === 'dark' || mode === 'light') return { name: 'data-theme', value: mode };
-  if (mode === 'system') return { name: 'data-theme-mode', value: 'system' };
-  return null;
-}
-
-/** Read a theme mode out of a `data-theme` / `data-theme-mode` value. */
-export function themeModeFromAttribute(
-  value: string | null | undefined
-): VisualComposerThemeMode | null {
-  return value === 'dark' || value === 'light' || value === 'system' ? value : null;
-}
-
-/**
- * Read the theme an already-saved wrapper records in its class list.
- *
- * Same precedence as the save's writer: dark, then light, then system. A class
- * list carrying two theme tokens is malformed markup, and picking the same one
- * in both directions is what keeps a reopen from changing the theme.
- */
-export function themeModeFromClassList(
-  className: string | null | undefined
-): VisualComposerThemeMode | null {
-  if (!className) return null;
-  if (className.includes('[data-theme=dark]')) return 'dark';
-  if (className.includes('[data-theme=light]')) return 'light';
-  if (className.includes('[data-theme-mode=system]')) return 'system';
-  return null;
-}
+import { escapeHtmlAttr, serializeBlocks } from './serialize';
+import {
+  blockWrapperAttributes,
+  designClassesOf,
+  isWrappedBlockHtml,
+  structuralClassesOf,
+} from './structural';
+import { themeAttributesFor, themeModeFromAttribute, themeModeFromClassList } from './theme';
+import type { Block, BlockShell } from './types';
 
 export interface BlockShellDesign {
   /** Compiled design utilities, without the block's structural classes. */
@@ -86,60 +17,116 @@ export interface BlockShellDesign {
   customStyle?: string;
 }
 
-/** The `<div …>` the save writes around a block, attributes in save order. */
-function shellOpeningTag(block: Block, design: BlockShellDesign): string {
-  const idAttr = design.anchorId ? ` id="${design.anchorId}"` : '';
-  const mergedClasses = [design.customClasses, structuralClassesOf(block)]
+/**
+ * The root attributes a block already carries, wherever they live.
+ *
+ * New saves store them on `block.shell`. A page saved by the previous composer
+ * has them on a `<div>` wrapped around the block, so that is the back-compat
+ * path — reading it is how the next save upgrades the page rather than losing
+ * the design. A plain `<p>`/`<h2>` with no shell has none, which is the honest
+ * answer.
+ */
+export type BlockRootShell = Required<BlockShell> & {
+  /** The theme the root declares; null when it inherits the page's. */
+  themeMode: ReturnType<typeof themeModeFromClassList>;
+};
+
+export function readBlockShell(block: Block): BlockRootShell | null {
+  if (block.shell) {
+    return {
+      className: block.shell.className ?? '',
+      anchorId: block.shell.anchorId ?? '',
+      style: block.shell.style ?? '',
+      themeMode: themeModeFromClassList(block.shell.className),
+    };
+  }
+  if (!('html' in block) || typeof block.html !== 'string') return null;
+  const attrs = blockWrapperAttributes(block.html);
+  if (attrs === null) return null;
+  const classMatch = attrs.match(/class=["']([^"']+)["']/i);
+  const idMatch = attrs.match(/id=["']([^"']+)["']/i);
+  const styleMatch = attrs.match(/style=["']([^"']+)["']/i);
+  const themeMatch = attrs.match(/data-theme(?:-mode)?=["']([^"']+)["']/i);
+  return {
+    className: designClassesOf(classMatch?.[1] ?? ''),
+    anchorId: idMatch?.[1] ?? '',
+    style: styleMatch?.[1] ?? '',
+    themeMode: themeModeFromAttribute(themeMatch?.[1]) ?? themeModeFromClassList(classMatch?.[1]),
+  };
+}
+
+/**
+ * Fold a legacy `<div>` wrapper's design onto the block it wrapped.
+ *
+ * The previous composer put the design on a div around a list, figure, table,
+ * divider or button. That div has one block child and no authorable content of
+ * its own, so on parse it is the block's root in spirit. Lifting it here is what
+ * lets the next save put the same classes on the element that is actually
+ * allowed to carry them.
+ */
+export function mergeBlockShells(
+  inner: BlockShell | undefined,
+  outer: BlockShell | undefined
+): BlockShell | undefined {
+  if (!inner) return outer;
+  if (!outer) return inner;
+  const tokens = [...(outer.className ?? '').split(/\s+/), ...(inner.className ?? '').split(/\s+/)]
+    .filter(Boolean)
+    .filter((token, index, all) => all.indexOf(token) === index);
+  const merged: BlockShell = {
+    ...(tokens.length > 0 ? { className: tokens.join(' ') } : {}),
+    ...(outer.anchorId || inner.anchorId ? { anchorId: outer.anchorId ?? inner.anchorId } : {}),
+    ...(outer.style || inner.style ? { style: outer.style ?? inner.style } : {}),
+  };
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+/**
+ * The `<div …>` a legacy unsupported block keeps around its verbatim markup.
+ *
+ * `unsupported` has no modelled root to put attributes on, so the design stays
+ * on the wrapper it already had. The parser reads that wrapper back as the same
+ * unsupported block, which is what keeps its round trip lossless.
+ */
+function legacyShellOpeningTag(block: Block, design: BlockShellDesign): string {
+  const idAttr = design.anchorId ? ` id="${escapeHtmlAttr(design.anchorId)}"` : '';
+  const mergedClasses = [designClassesOf(design.customClasses ?? ''), structuralClassesOf(block)]
     .filter(Boolean)
     .join(' ')
     .trim();
-  const classAttr = mergedClasses ? ` class="${mergedClasses}"` : '';
-  const theme = themeAttributesFor(themeModeFromClassList(design.customClasses) ?? 'inherit');
+  const classAttr = mergedClasses ? ` class="${escapeHtmlAttr(mergedClasses)}"` : '';
+  const theme = themeAttributesFor(themeModeFromClassList(design.customClasses) ?? undefined);
   const themeAttr = theme ? ` ${theme.name}="${theme.value}"` : '';
-  const styleAttr = design.customStyle ? ` style="${design.customStyle}"` : '';
+  const styleAttr = design.customStyle ? ` style="${escapeHtmlAttr(design.customStyle)}"` : '';
   return `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>`;
 }
 
 /**
  * Apply a design to one block, exactly as the page stores it.
  *
- * Both save paths call this. A block with its own wrapper has that wrapper's
- * attributes replaced, keeping the inner markup; a plain block is wrapped
- * whole; a block with no authorable HTML is serialized and wrapped as an
- * `unsupported` block. Those are the three shapes the overlay used to spell
- * out in two places.
+ * Every block type with a modelled root gets the design on that root. The
+ * element the browser renders is then the element the preview paints, and the
+ * markup is valid HTML for the type — no `<div>` inside a `<p>`, no design
+ * stranded on a wrapper that reads back as a different block. `unsupported`
+ * keeps its wrapper because it has no root the model owns.
  */
 export function applyBlockShell(block: Block, design: BlockShellDesign): Block {
-  const openingTag = shellOpeningTag(block, design);
-
-  if ('html' in block && typeof block.html === 'string') {
+  if (block.type === 'unsupported') {
+    const openingTag = legacyShellOpeningTag(block, design);
     const html = block.html.trim();
     if (isWrappedBlockHtml(html)) {
       const openingEnd = html.indexOf('>');
       const inner = openingEnd === -1 ? html : html.slice(openingEnd + 1, -'</div>'.length);
       return { ...block, html: `${openingTag}${inner}</div>` };
     }
-    return { ...block, html: `${openingTag}${html}</div>` };
+    return { ...block, html: `${openingTag}${serializeBlocks([block])}</div>` };
   }
 
-  return {
-    id: block.id,
-    type: 'unsupported',
-    html: `${openingTag}${serializeBlocks([block])}</div>`,
+  const className = designClassesOf(design.customClasses ?? '').trim();
+  const shell: BlockShell = {
+    ...(className ? { className } : {}),
+    ...(design.anchorId ? { anchorId: design.anchorId } : {}),
+    ...(design.customStyle ? { style: design.customStyle } : {}),
   };
-}
-
-/**
- * The shell the *preview* paints for a block.
- *
- * For markup blocks this is the save's shape: replace the existing wrapper, or
- * add the design tokens to the element rather than moving it into a new div.
- * A block with no authorable HTML — a figure, a list — is painted as its own
- * element even though its save will include a wrapper: moving a live node into
- * a new div takes it out from under the section pairing, and the preview's job
- * is to show the design without changing the page's addressability.
- */
-export function previewShellForBlock(block: Block | undefined): BlockShell {
-  if (!block || !('html' in block) || typeof block.html !== 'string') return 'replace';
-  return isWrappedBlockHtml(block.html) ? 'replace' : 'wrap';
+  return { ...block, shell };
 }

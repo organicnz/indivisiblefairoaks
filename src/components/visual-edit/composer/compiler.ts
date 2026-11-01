@@ -1,4 +1,4 @@
-import { themeClassTokens } from '@/lib/blocks/save-shape';
+import { themeClassTokens } from '@/lib/blocks/theme';
 import type {
   VisualComposerBorder,
   VisualComposerEffects,

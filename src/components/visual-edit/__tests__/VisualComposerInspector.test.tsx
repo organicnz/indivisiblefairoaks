@@ -13,8 +13,9 @@ import type { VisualComposerStyles } from '@/types/unified';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * A page that echoes a save the way the overlay does: the block comes back
- * wrapped in the shell the editor persists, not as the draft that was sent.
+ * A page that echoes a save the way the overlay does: the block comes back with
+ * the design shell the editor persists on its own root, not as the draft that
+ * was sent.
  */
 const APPLY_HARNESS_BLOCK: Block = {
   id: 'apply-a',
@@ -3977,11 +3978,8 @@ describe('VisualComposerInspector draft integrity and reset identity', () => {
             block={current}
             blockIndex={0}
             keepOpenOnApplyInitial
-            onSaveBlock={(updated) => {
-              current =
-                'html' in updated && typeof updated.html === 'string'
-                  ? { ...updated, html: `<div class="p-4">${updated.html}</div>` }
-                  : updated;
+            onSaveBlock={(updated, customClasses, anchorId, customStyle) => {
+              current = applyBlockShell(updated, { customClasses, anchorId, customStyle });
               return true;
             }}
           />
@@ -4053,15 +4051,16 @@ describe('VisualComposerInspector draft integrity and reset identity', () => {
  * markup still carries it.
  */
 /*
- * The first block carries a `cw-*` class on its own wrapper, so the harness can
- * prove the structural token does not come back through `customClasses`
- * without fabricating it: the only writer is the save's own shell.
+ * A callout carries structural `cw-callout` classes on its own root, so the
+ * harness can prove the structural tokens do not come back through
+ * `customClasses` without fabricating a wrapper: the serializer is the only
+ * writer of those classes.
  */
 const MEMORY_FIRST: Block = {
   id: 'memory-a',
-  type: 'heading',
-  level: 2,
-  html: '<div class="cw-callout">Mission</div>',
+  type: 'callout',
+  tone: 'info',
+  html: 'Mission',
 };
 const MEMORY_SECOND: Block = { id: 'memory-b', type: 'paragraph', html: 'Intro copy.' };
 
@@ -4256,13 +4255,16 @@ describe('VisualComposerInspector design memory', () => {
       byText('Save Block')?.click();
     });
 
-    // An external rewrite — a revert, a revision — replaces the wrapper. The
-    // default token stays: it is not evidence of the remembered design.
+    // An external rewrite — a revert, a revision — replaces the root and drops
+    // the shell. The default token stays: it is not evidence of the remembered
+    // design.
     await renderPanel(false);
-    const first = page.blocks[0];
-    if ('html' in first) {
-      page.blocks[0] = { ...first, html: '<div class="text-left legacy">Mission</div>' };
-    }
+    page.blocks[0] = {
+      id: 'memory-a',
+      type: 'callout',
+      tone: 'info',
+      html: '<div class="text-left legacy">Mission</div>',
+    };
     await renderPanel();
     page.active = 1;
     await renderPanel();
