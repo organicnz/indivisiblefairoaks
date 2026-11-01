@@ -1,3 +1,4 @@
+import { themeClassTokens } from '@/lib/blocks/save-shape';
 import type {
   VisualComposerBorder,
   VisualComposerEffects,
@@ -101,13 +102,7 @@ export function compileSectionClasses(
     section.columns ? section.verticalAlign : '',
     section.columns && section.justifyContent ? section.justifyContent : '',
     section.contentWidth,
-    section.themeMode === 'dark'
-      ? '[data-theme=dark] [color-scheme:dark]'
-      : section.themeMode === 'light'
-        ? '[data-theme=light] [color-scheme:light]'
-        : section.themeMode === 'system'
-          ? '[data-theme-mode=system]'
-          : '',
+    themeClassTokens(section.themeMode),
     section.reverseMobile ? 'flex flex-col-reverse md:flex-row' : '',
     section.radius !== 'rounded-none' ? section.radius : '',
     section.shadow !== 'shadow-none' ? section.shadow : '',
@@ -253,13 +248,7 @@ export function compileBlockClasses(styles: VisualComposerStyles): string {
     styles.responsive.hideDesktop ? 'md:hidden' : '',
     styles.responsive.hidePrint ? 'print:hidden' : '',
     styles.animation !== 'none' ? styles.animation : '',
-    styles.themeMode === 'dark'
-      ? '[data-theme=dark] [color-scheme:dark]'
-      : styles.themeMode === 'light'
-        ? '[data-theme=light] [color-scheme:light]'
-        : styles.themeMode === 'system'
-          ? '[data-theme-mode=system]'
-          : '',
+    themeClassTokens(styles.themeMode),
     styles.badgeText?.trim() && !styles.layout.position ? 'relative' : '',
     styles.customClasses,
   ]

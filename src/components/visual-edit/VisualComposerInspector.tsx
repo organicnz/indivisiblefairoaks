@@ -14,7 +14,15 @@ import {
   useState,
 } from 'react';
 import { toast } from 'sonner';
-import { type Block, designClassesOf, isStructuralBlockClass, serializeBlocks } from '@/lib/blocks';
+import {
+  type Block,
+  blockWrapperAttributes,
+  designClassesOf,
+  isStructuralBlockClass,
+  serializeBlocks,
+  themeModeFromAttribute,
+  themeModeFromClassList,
+} from '@/lib/blocks';
 import type { ThemeMode } from '@/lib/theme';
 import { sectionLabelForBlock } from '@/lib/visual-sections';
 
@@ -23,7 +31,6 @@ import type {
   VisualComposerMode,
   VisualComposerStyles,
   VisualComposerTab,
-  VisualComposerThemeMode,
 } from '@/types/unified';
 import {
   AdvancedMotionStudio,
@@ -187,9 +194,8 @@ function readComposerStylesFromBlock(
   if (!('html' in block) || typeof block.html !== 'string') return next;
 
   const trimmed = block.html.trim();
-  const divMatch = trimmed.match(/^<div\s+([^>]*?)>/i);
-  if (divMatch) {
-    const attrs = divMatch[1] || '';
+  const attrs = blockWrapperAttributes(trimmed);
+  if (attrs !== null) {
     const idMatch = attrs.match(/id=["']([^"']+)["']/i);
     const classMatch = attrs.match(/class=["']([^"']+)["']/i);
     const styleMatch = attrs.match(/style=["']([^"']+)["']/i);
@@ -268,12 +274,11 @@ function readComposerStylesFromBlock(
           .join(' ')
       : designClassesOf(classMatch?.[1] ?? '');
     if (themeMatch?.[1]) {
-      const mode = themeMatch[1] as VisualComposerThemeMode;
-      if (['dark', 'light', 'system'].includes(mode)) next.themeMode = mode;
-    } else if (classMatch?.[1]) {
-      if (classMatch[1].includes('[data-theme=dark]')) next.themeMode = 'dark';
-      else if (classMatch[1].includes('[data-theme=light]')) next.themeMode = 'light';
-      else if (classMatch[1].includes('[data-theme-mode=system]')) next.themeMode = 'system';
+      const mode = themeModeFromAttribute(themeMatch[1]);
+      if (mode) next.themeMode = mode;
+    } else {
+      const mode = themeModeFromClassList(classMatch?.[1]);
+      if (mode) next.themeMode = mode;
     }
   }
 

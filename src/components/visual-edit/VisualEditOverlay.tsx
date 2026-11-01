@@ -33,15 +33,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-  type PointerEvent as ReactPointerEvent,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
@@ -66,13 +58,9 @@ import {
 } from '@/lib/actions/content';
 import { getCRMEdgeFunctionHealth, uploadCRMMedia } from '@/lib/actions/crm';
 import { getVisualPageContext } from '@/lib/actions/visual';
+import { moveBlockItem } from '@/lib/block-order';
 import {
-  type BlockFrame,
-  insertionPointForPointer,
-  moveBlockItem,
-  planBlockMove,
-} from '@/lib/block-order';
-import {
+  applyBlockShell,
   type Block,
   CALLOUT_TONES,
   type CalloutTone,
@@ -80,6 +68,7 @@ import {
   type HeadingLevel,
   nextBlockId,
   parseHtml,
+  previewShellForBlock,
   serializeBlocks,
   structuralClassesOf,
 } from '@/lib/blocks';
@@ -141,6 +130,7 @@ import { PageA11yAuditor } from './PageA11yAuditor';
 import { PageNavigatorDrawer } from './PageNavigatorDrawer';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { runTextareaFormatCommand } from './textareaFormat';
+import { useBlockDrag } from './useBlockDrag';
 import { useBlockWriter } from './useBlockWriter';
 import { useComposerPagePreview } from './useComposerPagePreview';
 import { ViewportDeviceBar } from './ViewportDeviceBar';
@@ -429,19 +419,6 @@ export function VisualEditOverlay() {
   const [sectionOverlays, setSectionOverlays] = useState<VisualSectionOverlayItem[]>([]);
   /** The block the operator is working on, for the highlighted frame. */
   const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
-
-  // ── Dragging a block to a new position ──────────────────────────────────
-  // The pointer picks a *gap* between blocks; the drop closes it. The
-  // arithmetic lives in `@/lib/block-order` so the off-by-one that turns a
-  // downward move into a no-op is tested without a browser.
-  interface BlockDragState {
-    fromIndex: number;
-    insertion: number;
-    indicator: { top: number; left: number; width: number } | null;
-  }
-  const [blockDrag, setBlockDrag] = useState<BlockDragState | null>(null);
-  const blockDragRef = useRef<BlockDragState | null>(null);
-  blockDragRef.current = blockDrag;
 
   // ── Multi-block selection ────────────────────────────────────────────────
   // Selection is stored by block id, not by index. Reordering, deleting or
@@ -981,19 +958,9 @@ export function VisualEditOverlay() {
         const targetBlock = blocksRef.current[index];
         return targetBlock ? structuralClassesOf(targetBlock) : '';
       },
-      /*
-       * The design lands on the block's existing `<div>` when it has one, and on
-       * a new wrapper the save creates when it does not. The preview follows the
-       * same split so it cannot show a shape the save would not produce.
-       */
-      shellOf: (index) => {
-        const targetBlock = blocksRef.current[index];
-        if (!targetBlock || !('html' in targetBlock) || typeof targetBlock.html !== 'string') {
-          return 'replace';
-        }
-        const trimmed = targetBlock.html.trim();
-        return trimmed.startsWith('<div') && trimmed.endsWith('</div>') ? 'replace' : 'wrap';
-      },
+      // The save shape and the preview shape are one decision, owned by the
+      // block model rather than re-derived here.
+      shellOf: (index) => previewShellForBlock(blocksRef.current[index]),
     });
 
   // The overlay can disappear while the panel is still open — an admin signing
@@ -2063,37 +2030,10 @@ export function VisualEditOverlay() {
        * state object of its own, and writing through it would edit the panel's
        * draft from underneath it — the same object the undo stack snapshots.
        */
-      let nextBlock = updatedBlock;
-      if (customClasses || anchorId || customStyle) {
-        const idAttr = anchorId ? ` id="${anchorId}"` : '';
-        const preservedClasses = structuralClassesOf(updatedBlock);
-        const mergedClasses = [customClasses, preservedClasses].filter(Boolean).join(' ').trim();
-        const classAttr = mergedClasses ? ` class="${mergedClasses}"` : '';
-        const styleAttr = customStyle ? ` style="${customStyle}"` : '';
-        const themeAttr = customClasses?.includes('[data-theme=dark]')
-          ? ' data-theme="dark"'
-          : customClasses?.includes('[data-theme=light]')
-            ? ' data-theme="light"'
-            : customClasses?.includes('[data-theme-mode=system]')
-              ? ' data-theme-mode="system"'
-              : '';
-        const shell = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>`;
-
-        if ('html' in nextBlock && typeof nextBlock.html === 'string') {
-          const trimmed = nextBlock.html.trim();
-          const isWrapped = trimmed.startsWith('<div') && trimmed.endsWith('</div>');
-          const openingTagEnd = isWrapped ? trimmed.indexOf('>') : -1;
-          const inner = openingTagEnd !== -1 ? trimmed.slice(openingTagEnd + 1, -6) : trimmed;
-          nextBlock = { ...nextBlock, html: `${shell}${inner}</div>` };
-        } else {
-          const serialized = serializeBlocks([nextBlock]);
-          nextBlock = {
-            id: nextBlock.id,
-            type: 'unsupported',
-            html: `${shell}${serialized}</div>`,
-          };
-        }
-      }
+      const nextBlock =
+        customClasses || anchorId || customStyle
+          ? applyBlockShell(updatedBlock, { customClasses, anchorId, customStyle })
+          : updatedBlock;
 
       const nextBlocks = [...blocksRef.current];
       nextBlocks[vcBlockIndex] = nextBlock;
@@ -2127,49 +2067,17 @@ export function VisualEditOverlay() {
        * ids — invalid HTML and an a11y defect axe fails. `anchorId` stays in
        * the signature because the single-block path shares it.
        */
-      const idAttr = '';
       if (anchorId) {
         toast.info('Anchor IDs are not applied when styling multiple blocks.');
       }
-      const styleAttr = customStyle ? ` style="${customStyle}"` : '';
-      const themeAttr = customClasses?.includes('[data-theme=dark]')
-        ? ' data-theme="dark"'
-        : customClasses?.includes('[data-theme=light]')
-          ? ' data-theme="light"'
-          : customClasses?.includes('[data-theme-mode=system]')
-            ? ' data-theme-mode="system"'
-            : '';
 
       for (const idx of blockIndexes) {
         const blk = nextBlocks[idx];
         if (!blk) continue;
-        const next = { ...blk };
         if (customClasses || anchorId || customStyle) {
-          const preservedClasses = structuralClassesOf(blk);
-          const mergedClasses = [customClasses, preservedClasses].filter(Boolean).join(' ').trim();
-          const classAttr = mergedClasses ? ` class="${mergedClasses}"` : '';
-          if ('html' in next && typeof next.html === 'string') {
-            const trimmed = next.html.trim();
-            if (trimmed.startsWith('<div') && trimmed.endsWith('</div>')) {
-              const closingTag = trimmed.indexOf('>');
-              if (closingTag !== -1) {
-                const inner = trimmed.slice(closingTag + 1, -6);
-                next.html = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${inner}</div>`;
-              }
-            } else {
-              next.html = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${trimmed}</div>`;
-            }
-          } else {
-            const serialized = serializeBlocks([next]);
-            const wrappedHtml = `<div${idAttr}${classAttr}${themeAttr}${styleAttr}>${serialized}</div>`;
-            Object.assign(next, {
-              id: next.id,
-              type: 'unsupported',
-              html: wrappedHtml,
-            });
-          }
+          // The anchor stays out of the batch shell; the guard above says why.
+          nextBlocks[idx] = applyBlockShell(blk, { customClasses, customStyle });
         }
-        nextBlocks[idx] = next;
       }
 
       setBlocks(nextBlocks);
@@ -2868,59 +2776,6 @@ export function VisualEditOverlay() {
   );
 
   /**
-   * The rendered blocks, in document order, with the vertical extent a drop
-   * gesture compares against.
-   */
-  const blockFrames = useCallback((): BlockFrame[] => {
-    const frames: BlockFrame[] = [];
-    for (const section of sections) {
-      const element = locate(section.blockIndex);
-      if (!element) continue;
-      const rect = element.getBoundingClientRect();
-      // A zero-height element (a hidden add-block placeholder, say) has no
-      // meaningful midpoint and would steal every drop above it.
-      if (rect.bottom <= rect.top) continue;
-      frames.push({ blockIndex: section.blockIndex, top: rect.top, bottom: rect.bottom });
-    }
-    return frames;
-  }, [locate, sections]);
-
-  /** Where to draw the insertion line for a gap, in viewport coordinates. */
-  const dropIndicatorFor = useCallback(
-    (insertion: number): { top: number; left: number; width: number } | null => {
-      const before = sections.find((section) => section.blockIndex === insertion);
-      // The end of the list is drawn under the last block that is actually on
-      // the page; an unrendered trailing block has no edge to point at.
-      const target =
-        before ?? [...sections].reverse().find((section) => locate(section.blockIndex));
-      if (!target) return null;
-      const element = locate(target.blockIndex);
-      if (!element) return null;
-      const rect = element.getBoundingClientRect();
-      return { top: before ? rect.top : rect.bottom, left: rect.left, width: rect.width };
-    },
-    [locate, sections]
-  );
-
-  /**
-   * Lift a block. Nothing is written until the pointer is released over a
-   * different gap — a click on the handle is not a move, so it must not mint a
-   * revision that says the page changed when it did not.
-   */
-  const beginBlockDrag = useCallback(
-    (event: ReactPointerEvent<HTMLButtonElement>, fromIndex: number) => {
-      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
-      if (isVisualComposerOpen) return;
-      if (blockFrames().length < 2) return;
-      event.preventDefault();
-      event.stopPropagation();
-      selectBlockOnly(fromIndex);
-      setBlockDrag({ fromIndex, insertion: fromIndex, indicator: dropIndicatorFor(fromIndex) });
-    },
-    [blockFrames, dropIndicatorFor, isVisualComposerOpen, selectBlockOnly]
-  );
-
-  /**
    * Put a block at a new index, as one undoable write.
    *
    * Both the drop and the handle's arrow keys land here, so they cannot grow
@@ -2943,18 +2798,23 @@ export function VisualEditOverlay() {
     [commitBlocks, handlePersistBlocks]
   );
 
-  const finishBlockDrag = useCallback(
-    (drop: boolean) => {
-      const drag = blockDragRef.current;
-      blockDragRef.current = null;
-      setBlockDrag(null);
-      if (!drop || !drag) return;
-
-      const plan = planBlockMove(blocksRef.current.length, drag.fromIndex, drag.insertion);
-      if (plan) moveBlockTo(plan.from, plan.to);
-    },
-    [moveBlockTo]
-  );
+  /**
+   * The lift/drop gesture, in its own hook beside the pure arithmetic in
+   * `@/lib/block-order`.
+   *
+   * It owns the listeners, the body styles and the drag state; the overlay
+   * keeps the one write path, because `onMove` is `moveBlockTo`. A drop and the
+   * handle's arrow keys therefore share one history entry and one save, which
+   * is the invariant that kept the two halves of this control from drifting.
+   */
+  const { blockDrag, blockFrames, beginBlockDrag } = useBlockDrag({
+    sections,
+    locate,
+    disabled: isVisualComposerOpen,
+    onDragStart: selectBlockOnly,
+    onMove: moveBlockTo,
+    totalBlocks: blocks.length,
+  });
 
   /**
    * Move one *rendered* neighbour, not necessarily one block.
@@ -2983,71 +2843,6 @@ export function VisualEditOverlay() {
     },
     [blockFrames, handleMoveSection, moveBlockTo, sections]
   );
-
-  const isDraggingBlock = blockDrag !== null;
-  useEffect(() => {
-    if (!isDraggingBlock) return;
-    const previousUserSelect = document.body.style.userSelect;
-    const previousCursor = document.body.style.cursor;
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'grabbing';
-
-    const onPointerMove = (event: PointerEvent) => {
-      /*
-       * A drag that cannot reach the edge is a drag that cannot reach the end of
-       * a long page. Scroll while the pointer is held near an edge; the frames
-       * are re-measured after this, so the gap under the pointer is the gap the
-       * page is now showing rather than the one it showed a moment ago.
-       */
-      const edge = 72;
-      if (typeof window.scrollBy === 'function') {
-        if (event.clientY < edge) window.scrollBy({ top: -18 });
-        else if (event.clientY > window.innerHeight - edge) window.scrollBy({ top: 18 });
-      }
-
-      const frames = blockFrames();
-      if (frames.length === 0) return;
-      const insertion = insertionPointForPointer(frames, event.clientY);
-      if (insertion === null) return;
-      setBlockDrag((prev) =>
-        prev === null || prev.insertion === insertion
-          ? prev
-          : { ...prev, insertion, indicator: dropIndicatorFor(insertion) }
-      );
-    };
-    const onPointerUp = () => finishBlockDrag(true);
-    const onPointerCancel = () => finishBlockDrag(false);
-    // Dragging into the browser chrome (or out of the tab) never delivers a
-    // pointerup. Treat losing the window as the cancel it effectively is.
-    const onWindowBlur = () => finishBlockDrag(false);
-    /*
-     * Escape cancels the gesture, not the page. Capturing here runs before the
-     * overlay's own key handler, which would otherwise read Escape as "collapse
-     * the selection" or the composer's as "close the panel" while a block is
-     * mid-air.
-     */
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      finishBlockDrag(false);
-    };
-
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerCancel);
-    window.addEventListener('blur', onWindowBlur);
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerCancel);
-      window.removeEventListener('blur', onWindowBlur);
-      window.removeEventListener('keydown', onKeyDown, true);
-      document.body.style.userSelect = previousUserSelect;
-      document.body.style.cursor = previousCursor;
-    };
-  }, [isDraggingBlock, blockFrames, dropIndicatorFor, finishBlockDrag]);
 
   const handleDuplicateSection = useCallback(
     async (blockIndex: number) => {

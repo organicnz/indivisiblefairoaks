@@ -18,6 +18,33 @@ export function isStructuralBlockClass(token: string): boolean {
 }
 
 /**
+ * The inside of a block's opening `<div …>` when the block has one.
+ *
+ * This is the *reader's* question: a migrated block may start with a wrapper
+ * and carry other markup after it, and its attributes are still the wrapper's.
+ * The save's stricter question is `isWrappedBlockHtml` — whether the whole
+ * document is one div — and the two must not be collapsed: using the strict
+ * predicate here would drop the structural classes the parser needs to keep.
+ */
+export function blockWrapperAttributes(html: string): string | null {
+  const opening = html.trim().match(/^<div(?:\s+([^>]*?))?>/i);
+  return opening ? (opening[1] ?? '') : null;
+}
+
+/**
+ * True when a block's markup is one `<div>` and nothing else.
+ *
+ * This is the single definition of the save's "wrapped vs plain root" split:
+ * the save replaces this wrapper, the preview paints this element, and the
+ * reader reads this wrapper. A plain `<h2>` is the other shape, and the save
+ * creates a new wrapper around it.
+ */
+export function isWrappedBlockHtml(html: string): boolean {
+  const trimmed = html.trim();
+  return trimmed.startsWith('<div') && trimmed.endsWith('</div>');
+}
+
+/**
  * The structural classes on a block's own wrapper, in source order.
  *
  * Empty for a block whose markup is not wrapped in a `<div>` — a plain
@@ -25,9 +52,9 @@ export function isStructuralBlockClass(token: string): boolean {
  */
 export function structuralClassesOf(block: Block): string {
   if (!('html' in block) || typeof block.html !== 'string') return '';
-  const opening = block.html.trim().match(/^<div\s+([^>]*?)>/i);
-  if (!opening) return '';
-  const classMatch = opening[1]?.match(/class=["']([^"']+)["']/i);
+  const attrs = blockWrapperAttributes(block.html);
+  if (attrs === null) return '';
+  const classMatch = attrs.match(/class=["']([^"']+)["']/i);
   if (!classMatch?.[1]) return '';
   return classMatch[1].split(/\s+/).filter(isStructuralBlockClass).join(' ');
 }

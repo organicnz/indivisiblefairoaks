@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { toast } from 'sonner';
+import { THEME_CLASS_TOKENS, themeAttributesFor, themeClassTokens } from '@/lib/blocks/save-shape';
 import type { VisualComposerThemeMode } from '@/types/unified';
 
 export interface StyleQuickTunerProps {
@@ -79,22 +80,12 @@ export const StyleQuickTuner: React.FC<StyleQuickTunerProps> = ({
   const handleThemeMode = (mode: VisualComposerThemeMode) => {
     element.removeAttribute('data-theme');
     element.removeAttribute('data-theme-mode');
-    element.classList.remove(
-      '[data-theme=dark]',
-      '[color-scheme:dark]',
-      '[data-theme=light]',
-      '[color-scheme:light]',
-      '[data-theme-mode=system]'
-    );
-    if (mode === 'dark') {
-      element.setAttribute('data-theme', 'dark');
-      element.classList.add('[data-theme=dark]', '[color-scheme:dark]');
-    } else if (mode === 'light') {
-      element.setAttribute('data-theme', 'light');
-      element.classList.add('[data-theme=light]', '[color-scheme:light]');
-    } else if (mode === 'system') {
-      element.setAttribute('data-theme-mode', 'system');
-      element.classList.add('[data-theme-mode=system]');
+    element.classList.remove(...THEME_CLASS_TOKENS);
+    /* The theme mapping is the save's; the quick tuner writes the same tokens. */
+    const theme = themeAttributesFor(mode);
+    if (theme) {
+      element.setAttribute(theme.name, theme.value);
+      element.classList.add(...themeClassTokens(mode).split(' '));
     }
     toast.success(`Theme mode: ${mode}`);
   };

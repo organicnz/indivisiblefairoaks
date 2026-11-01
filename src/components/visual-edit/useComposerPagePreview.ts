@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import { type BlockShell, themeAttributesFor } from '@/lib/blocks/save-shape';
 import type { VisualComposerMode, VisualComposerThemeMode } from '@/types/unified';
 
 /**
@@ -84,20 +85,6 @@ interface AppliedPreview {
   committed: boolean;
 }
 
-/**
- * How the save path will attach the design to a block.
- *
- * `replace` is a block already wrapped in its own `<div>`: the overlay rewrites
- * that wrapper's `class`, so the preview does exactly the same thing.
- *
- * `wrap` is a plain `<h2>` or `<p>`: the save leaves the element's own classes
- * alone and wraps a new `<div>` around it. Wrapping live DOM nodes would move
- * the element out from under `locate()` and the section list, so the preview
- * adds the design tokens to the element instead and never removes what the site
- * put there. It is the closest faithful shape that is also non-destructive.
- */
-type PreviewShell = 'replace' | 'wrap';
-
 interface SavedAttrs {
   classAttr: string | null;
   styleAttr: string | null;
@@ -140,7 +127,7 @@ function paintDesign(
   entry: AppliedPreview,
   design: NonNullable<ComposerDraftPreview['design']>,
   structural: string,
-  shell: PreviewShell
+  shell: BlockShell
 ) {
   const { element } = entry;
   const draftTokens = design.classes.split(/\s+/).filter(Boolean);
@@ -173,13 +160,12 @@ function paintDesign(
   entry.paintedClasses =
     shell === 'replace' ? [] : uniqueTokens([...draftTokens, ...structuralTokens]);
 
-  // Mirror the save path: one theme attribute, and the other one clears.
-  if (design.themeMode === 'dark' || design.themeMode === 'light') {
-    element.setAttribute('data-theme', design.themeMode);
-    element.removeAttribute('data-theme-mode');
-  } else if (design.themeMode === 'system') {
-    element.removeAttribute('data-theme');
-    element.setAttribute('data-theme-mode', 'system');
+  // Mirror the save path from the save's own mapping: one theme attribute, and
+  // the other one clears.
+  const theme = themeAttributesFor(design.themeMode);
+  if (theme) {
+    element.setAttribute(theme.name, theme.value);
+    element.removeAttribute(theme.name === 'data-theme' ? 'data-theme-mode' : 'data-theme');
   } else {
     element.removeAttribute('data-theme');
     element.removeAttribute('data-theme-mode');
@@ -206,7 +192,7 @@ function paint(
   entry: AppliedPreview,
   draft: ComposerDraftPreview,
   structural: string,
-  shell: PreviewShell
+  shell: BlockShell
 ) {
   if (draft.design) paintDesign(entry, draft.design, structural, shell);
   else restoreDesign(entry);
@@ -235,7 +221,7 @@ export interface UseComposerPagePreviewOptions {
   /** The block's own `cw-*` classes, which the page owns. */
   structuralClassesOf: (blockIndex: number) => string;
   /** Whether the save will replace its wrapper or wrap the element. */
-  shellOf: (blockIndex: number) => PreviewShell;
+  shellOf: (blockIndex: number) => BlockShell;
 }
 
 export interface ComposerPagePreviewControls {

@@ -7,7 +7,7 @@ import {
   DEFAULT_VC_STYLES,
   VisualComposerInspector,
 } from '@/components/visual-edit/VisualComposerInspector';
-import type { Block } from '@/lib/blocks';
+import { applyBlockShell, type Block } from '@/lib/blocks';
 import type { VisualComposerStyles } from '@/types/unified';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -4052,31 +4052,22 @@ describe('VisualComposerInspector draft integrity and reset identity', () => {
  * remembers what it generated instead, and uses that memory only while the
  * markup still carries it.
  */
-const MEMORY_FIRST: Block = { id: 'memory-a', type: 'heading', level: 2, html: 'Mission' };
+/*
+ * The first block carries a `cw-*` class on its own wrapper, so the harness can
+ * prove the structural token does not come back through `customClasses`
+ * without fabricating it: the only writer is the save's own shell.
+ */
+const MEMORY_FIRST: Block = {
+  id: 'memory-a',
+  type: 'heading',
+  level: 2,
+  html: '<div class="cw-callout">Mission</div>',
+};
 const MEMORY_SECOND: Block = { id: 'memory-b', type: 'paragraph', html: 'Intro copy.' };
 
-/** The overlay's write: one shell, the compiled classes, structural classes kept. */
+/** The overlay's write, through the shared owner rather than a copy of it. */
 function shellBlock(block: Block, classes?: string, anchorId?: string, style?: string): Block {
-  if (!('html' in block) || typeof block.html !== 'string') return block;
-  /*
-   * The overlay merges the compiled list with the block's own `cw-*`
-   * structural classes. This harness fabricates one so the test can prove the
-   * structural token does not come back through `customClasses`.
-   */
-  const merged = [classes, 'cw-callout'].filter(Boolean).join(' ').trim();
-  const attrs = [
-    anchorId ? `id="${anchorId}"` : '',
-    merged ? `class="${merged}"` : '',
-    style ? `style="${style}"` : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-  const trimmed = block.html.trim();
-  const inner =
-    trimmed.startsWith('<div') && trimmed.endsWith('</div>')
-      ? trimmed.slice(trimmed.indexOf('>') + 1, -6)
-      : trimmed;
-  return { ...block, html: `<div ${attrs}>${inner}</div>` };
+  return applyBlockShell(block, { customClasses: classes, anchorId, customStyle: style });
 }
 
 describe('VisualComposerInspector design memory', () => {

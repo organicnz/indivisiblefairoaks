@@ -2,6 +2,7 @@
 import fc from 'fast-check';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  applyBlockShell,
   type Block,
   blockText,
   CALLOUT_TONES,
@@ -9,11 +10,16 @@ import {
   isBlockEmpty,
   isTextualBlock,
   isTransient,
+  isWrappedBlockHtml,
   parseHtml,
+  previewShellForBlock,
   resetBlockIds,
   serializeBlocks,
   stripTags,
   structuralClassesOf,
+  themeAttributesFor,
+  themeClassTokens,
+  themeModeFromClassList,
 } from '@/lib/blocks';
 import { containsSpamKeyword, sanitizeWPContent } from '@/lib/sanitize';
 
@@ -753,5 +759,99 @@ describe('structural block classes', () => {
 
   it('is empty for a block with no wrapper', () => {
     expect(structuralClassesOf({ id: 'p', type: 'paragraph', html: 'Plain copy' })).toBe('');
+  });
+});
+
+/**
+ * The save shape.
+ *
+ * The live preview's whole promise is "what the page shows is what the save
+ * writes", and the two used to derive that shape — and the theme mapping riding
+ * on it — independently. These pin the single owner instead: the tokens the
+ * compiler writes are the tokens the save reads back, and the shell the save
+ * produces is the shell the preview paints.
+ */
+describe('block save shape', () => {
+  const plain: Block = { id: 'p', type: 'paragraph', html: '<p>Copy</p>' };
+
+  const htmlOf = (block: Block): string => ('html' in block ? block.html : '');
+
+  it('replaces an existing wrapper instead of nesting a second one', () => {
+    const callout: Block = {
+      id: 'callout-a',
+      type: 'callout',
+      tone: 'info',
+      html: '<div class="cw-callout cw-callout--info p-2">Text</div>',
+    };
+
+    const saved = applyBlockShell(callout, { customClasses: 'rounded-xl bg-white' });
+
+    // Structural `cw-*` classes belong to the page and travel with the block;
+    // only the design list is replaced.
+    expect(htmlOf(saved)).toBe(
+      '<div class="rounded-xl bg-white cw-callout cw-callout--info">Text</div>'
+    );
+    expect(isWrappedBlockHtml(htmlOf(saved))).toBe(true);
+  });
+
+  it('wraps a plain block without touching its own markup', () => {
+    const saved = applyBlockShell(plain, { customClasses: 'text-lg', customStyle: 'color: red;' });
+
+    expect(htmlOf(saved)).toBe('<div class="text-lg" style="color: red;"><p>Copy</p></div>');
+  });
+
+  it('writes the anchor only where the save passes one', () => {
+    expect(htmlOf(applyBlockShell(plain, { anchorId: 'mission', customClasses: 'p-4' }))).toBe(
+      '<div id="mission" class="p-4"><p>Copy</p></div>'
+    );
+    // The batch path deliberately omits it: two blocks cannot share an id.
+    expect(htmlOf(applyBlockShell(plain, { customClasses: 'p-4' }))).not.toContain('id=');
+  });
+
+  it('serializes a block with no authorable HTML into a wrapped unsupported block', () => {
+    const divider: Block = { id: 'divider-a', type: 'divider' };
+
+    const saved = applyBlockShell(divider, { customClasses: 'my-8' });
+
+    expect(saved.type).toBe('unsupported');
+    expect(htmlOf(saved).startsWith('<div class="my-8">')).toBe(true);
+    expect(htmlOf(saved).endsWith('</div>')).toBe(true);
+  });
+
+  it('paints the shape the save writes', () => {
+    const wrapped: Block = {
+      id: 'callout-b',
+      type: 'callout',
+      tone: 'info',
+      html: '<div class="cw-callout cw-callout--info">Text</div>',
+    };
+
+    expect(previewShellForBlock(wrapped)).toBe('replace');
+    expect(previewShellForBlock(plain)).toBe('wrap');
+    // A block the page paints as its own element, whose save adds a wrapper.
+    expect(previewShellForBlock({ id: 'divider-b', type: 'divider' })).toBe('replace');
+    expect(previewShellForBlock(undefined)).toBe('replace');
+  });
+
+  it('round-trips every theme from the compiler token to the saved attribute', () => {
+    for (const mode of ['dark', 'light', 'system'] as const) {
+      const tokens = themeClassTokens(mode);
+      const attribute = themeAttributesFor(mode);
+      expect(attribute).not.toBeNull();
+
+      // The compiler writes these tokens; the save reads the same tokens back.
+      expect(themeModeFromClassList(tokens)).toBe(mode);
+      expect(htmlOf(applyBlockShell(plain, { customClasses: `p-4 ${tokens}` }))).toContain(
+        ` ${attribute?.name}="${attribute?.value}"`
+      );
+    }
+  });
+
+  it('writes no theme attribute for inherit or for nothing at all', () => {
+    expect(themeClassTokens('inherit')).toBe('');
+    expect(themeClassTokens(undefined)).toBe('');
+    expect(themeAttributesFor('inherit')).toBeNull();
+    expect(themeModeFromClassList('p-4')).toBeNull();
+    expect(htmlOf(applyBlockShell(plain, { customClasses: 'p-4' }))).not.toContain('data-theme');
   });
 });
