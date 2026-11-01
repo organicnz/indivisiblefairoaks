@@ -31,6 +31,20 @@ async function typeIntoContent(html: string): Promise<HTMLElement> {
   return editor;
 }
 
+/** Select the editor's contents the way a pointer selection would. */
+function selectContents(editor: HTMLElement): void {
+  editor.focus();
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  const selection = window.getSelection();
+  if (!selection) throw new Error('expected a selection');
+  selection.removeAllRanges();
+  selection.addRange(range);
+  // The gesture that would create this selection in a browser also records it
+  // for the toolbar's mousedown path.
+  editor.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+}
+
 /**
  * A page that echoes a save the way the overlay does: the block comes back with
  * the design shell the editor persists on its own root, not as the draft that
@@ -3961,6 +3975,53 @@ describe('VisualComposerInspector content summary', () => {
       redo()?.click();
     });
     expect(editor.textContent).toBe('Mission edited again');
+  });
+
+  it('reverts a toolbar format through the composer draft and the rendered DOM', async () => {
+    const onPreviewChange = vi.fn();
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={block}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          onPreviewChange={onPreviewChange}
+        />
+      );
+    });
+
+    const editor = contentEditor();
+    expect(editor.innerHTML).toBe('Mission');
+
+    await act(async () => {
+      selectContents(editor);
+      document
+        .querySelector<HTMLButtonElement>('aside[role="dialog"] button[aria-label="Bold"]')
+        ?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    });
+
+    // The formatted state comes first, so this cannot pass on a no-op.
+    expect(editor.innerHTML).toBe('<strong>Mission</strong>');
+    const formatted = onPreviewChange.mock.calls.at(-1)?.[0];
+    expect(formatted?.contentHtml).toContain('<strong>Mission</strong>');
+
+    const undo = document.querySelector<HTMLButtonElement>('button[aria-label="Undo last change"]');
+    expect(undo?.disabled).toBe(false);
+    await act(async () => {
+      undo?.click();
+    });
+
+    // The block and the contenteditable are one value: undo restores both.
+    expect(editor.innerHTML).toBe('Mission');
+    expect(onPreviewChange).toHaveBeenLastCalledWith(null);
+
+    // A later edit proves the block lost the tag, not just the DOM.
+    await typeIntoContent('Mission after undo');
+    const reverted = onPreviewChange.mock.calls.at(-1)?.[0];
+    expect(reverted?.contentHtml).toContain('Mission after undo');
+    expect(reverted?.contentHtml).not.toContain('<strong>');
   });
 });
 
