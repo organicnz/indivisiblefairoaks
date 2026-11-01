@@ -6,7 +6,6 @@ import {
   type InsertableBlockType,
   MAX_ROW_COLUMNS,
   MIN_ROW_COLUMNS,
-  type RowBlock,
 } from '@/lib/blocks';
 import { createRowColumn } from '@/lib/blocks/create';
 import {
@@ -94,10 +93,26 @@ export function BlockContentStudio({
   };
 
   const removeColumn = (columnIndex: number) => {
-    const next = removeRowColumn(currentBlock, columnIndex);
-    // A one-column row is the floor, and an out-of-range index is stale UI.
-    // Neither is an edit, so neither may create an undo step.
-    if (next !== currentBlock) setCurrentBlock(next);
+    const columns = currentBlock.columns;
+    if (columns.length <= MIN_ROW_COLUMNS || columnIndex < 0 || columnIndex >= columns.length) {
+      return;
+    }
+
+    const nextColumns = [...columns];
+    const [removed] = nextColumns.splice(columnIndex, 1);
+    // Merge into the left neighbour, or the right one for the first column, so
+    // the authored blocks keep their document order.
+    const targetIndex = columnIndex > 0 ? columnIndex - 1 : 0;
+    const target = nextColumns[targetIndex];
+    nextColumns[targetIndex] = {
+      ...target,
+      blocks:
+        columnIndex > 0
+          ? [...target.blocks, ...removed.blocks]
+          : [...removed.blocks, ...target.blocks],
+    };
+
+    setCurrentBlock({ ...currentBlock, columns: nextColumns });
   };
 
   const addBlock = (columnIndex: number, kind: InsertableBlockType) => {
@@ -149,36 +164,4 @@ export function BlockContentStudio({
       onRemoveBlock={removeBlock}
     />
   );
-}
-
-/**
- * Remove one column without losing the blocks it held.
- *
- * A layout control must not silently delete authored copy, so a removed
- * column's blocks move into a surviving neighbour. They go into the column on
- * the left — or, for the first column, the one on the right — which keeps
- * document order: left column, removed column, right column. The survivor keeps
- * its id, and every block keeps its own, so React does not remount the content.
- *
- * The row never drops below one column: the serializer and parser both assume
- * at least one, and a zero-column row has no layout to restore. An
- * out-of-range index returns the row unchanged for the same reason — a stale
- * control is not a document edit.
- */
-function removeRowColumn(row: RowBlock, columnIndex: number): RowBlock {
-  if (row.columns.length <= MIN_ROW_COLUMNS) return row;
-  if (!Number.isInteger(columnIndex) || columnIndex < 0 || columnIndex >= row.columns.length) {
-    return row;
-  }
-
-  const columns = row.columns.map((column) => ({ ...column, blocks: [...column.blocks] }));
-  const [removed] = columns.splice(columnIndex, 1);
-
-  if (columnIndex > 0) {
-    columns[columnIndex - 1].blocks = [...columns[columnIndex - 1].blocks, ...removed.blocks];
-  } else {
-    columns[0].blocks = [...removed.blocks, ...columns[0].blocks];
-  }
-
-  return { ...row, columns };
 }

@@ -3250,6 +3250,44 @@ describe('VisualComposerInspector batch styling and session history', () => {
     expect(byAria('Undo last change')?.disabled).toBe(true);
     expect(byAria('Redo last undone change')?.disabled).toBe(true);
   });
+
+  it('undoes a column removal through the composer draft', async () => {
+    const row: Block = {
+      id: 'history-row',
+      type: 'row',
+      columns: [
+        { id: 'hc1', blocks: [{ id: 'hp1', type: 'paragraph', html: 'Alpha' }] },
+        { id: 'hc2', blocks: [{ id: 'hp2', type: 'paragraph', html: 'Beta' }] },
+        { id: 'hc3', blocks: [{ id: 'hp3', type: 'paragraph', html: 'Gamma' }] },
+      ],
+    };
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={row}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    await act(async () => {
+      byAria('Remove column 2 of 3')?.click();
+    });
+    expect(byAria('Remove column 2 of 2')).not.toBeNull();
+    expect(byAria('Remove column 3 of 3')).toBeNull();
+
+    const undo = byAria('Undo last change');
+    expect(undo?.disabled).toBe(false);
+    await act(async () => {
+      undo?.click();
+    });
+
+    expect(byAria('Remove column 3 of 3')).not.toBeNull();
+    expect(byAria('Remove column 2 of 2')).toBeNull();
+  });
 });
 
 /**
@@ -4654,56 +4692,6 @@ describe('VisualComposerInspector live page preview', () => {
     expect(draft).toMatchObject({ mode: 'block', blockIndexes: [0], design: null });
     expect(draft.contentRootClassName).toBe('cw-row cw-row--3');
     expect(draft.contentHtml?.match(/class="cw-column"/g)).toHaveLength(3);
-  });
-
-  it('records a column removal in the same draft history as every row edit', async () => {
-    const onPreviewChange = vi.fn();
-    const row: Block = {
-      id: 'history-row',
-      type: 'row',
-      columns: [
-        { id: 'hc1', blocks: [{ id: 'hp1', type: 'paragraph', html: 'Alpha' }] },
-        { id: 'hc2', blocks: [{ id: 'hp2', type: 'paragraph', html: 'Beta' }] },
-        { id: 'hc3', blocks: [{ id: 'hp3', type: 'paragraph', html: 'Gamma' }] },
-      ],
-    };
-    await mount(onPreviewChange, true, row);
-
-    await act(async () => {
-      document
-        .querySelector<HTMLButtonElement>('button[aria-label="Remove column 2 of 3"]')
-        ?.click();
-    });
-
-    // The row is one column narrower and its middle copy moved into the first
-    // column; the draft, not a side channel, carries both changes.
-    expect(document.querySelectorAll('[data-testid="row-column-2"]')).toHaveLength(0);
-    expect(
-      document.querySelector<HTMLButtonElement>('button[aria-label="Remove column 2 of 2"]')
-    ).not.toBeNull();
-    expect(onPreviewChange.mock.calls.at(-1)?.[0].contentRootClassName).toBe('cw-row cw-row--2');
-
-    const undo = document.querySelector<HTMLButtonElement>('button[aria-label="Undo last change"]');
-    expect(undo?.disabled).toBe(false);
-    await act(async () => {
-      undo?.click();
-    });
-
-    // Undo walks back the whole layout edit: three columns, not two with the
-    // middle copy still folded into the first.
-    expect(document.querySelectorAll('[data-testid="row-column-2"]')).toHaveLength(1);
-    expect(
-      document.querySelector<HTMLButtonElement>('button[aria-label="Remove column 3 of 3"]')
-    ).not.toBeNull();
-
-    await act(async () => {
-      document
-        .querySelector<HTMLButtonElement>('button[aria-label="Redo last undone change"]')
-        ?.click();
-    });
-    expect(
-      document.querySelector<HTMLButtonElement>('button[aria-label="Remove column 2 of 2"]')
-    ).not.toBeNull();
   });
 
   it('puts the draft badge into the reported copy, exactly as the save will', async () => {

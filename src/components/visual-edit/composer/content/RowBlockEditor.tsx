@@ -76,10 +76,7 @@ export interface RowBlockEditorProps {
   setCurrentBlock: (block: Block) => void;
   /** Append an empty column, keeping every existing column where it is. */
   onAddColumn: () => void;
-  /**
-   * Remove one column by position, merging its blocks into a surviving
-   * neighbour. The editor owns the merge; this only says which column left.
-   */
+  /** Remove the column at this position; the studio owns the merge. */
   onRemoveColumn: (columnIndex: number) => void;
   onAddBlock: (columnIndex: number, kind: InsertableBlockType) => void;
   /**
@@ -117,6 +114,7 @@ export function RowBlockEditor({
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const columnCount = currentBlock.columns.length;
+  const canRemoveColumn = columnCount > MIN_ROW_COLUMNS;
 
   const updateLeaf = (blockId: string, next: ContentBlock) => {
     setCurrentBlock({
@@ -178,29 +176,22 @@ export function RowBlockEditor({
                   <span className="text-[9px] text-slate-400">
                     {column.blocks.length} {column.blocks.length === 1 ? 'block' : 'blocks'}
                   </span>
-                  {/*
-                    Each column removes itself, rather than the row offering
-                    one "remove the last column" control: with three columns
-                    that control could not remove the first or middle one
-                    without destroying the third first, which is not a layout
-                    edit the author asked for. A native button, so the control
-                    is in the tab order and Enter/Space work without a handler.
-                  */}
+                  {/* A row-level control could only ever remove the last column. */}
                   <button
                     type="button"
                     aria-label={
-                      columnCount > MIN_ROW_COLUMNS
+                      canRemoveColumn
                         ? `Remove column ${columnIndex + 1} of ${columnCount}`
                         : `Remove column ${columnIndex + 1} of ${columnCount} (a row needs at least one column)`
                     }
                     title={
-                      columnCount <= MIN_ROW_COLUMNS
+                      !canRemoveColumn
                         ? 'A row needs at least one column'
                         : columnIndex === 0
                           ? 'Remove column 1 and move its blocks into the column on its right'
                           : `Remove column ${columnIndex + 1} and move its blocks into column ${columnIndex}`
                     }
-                    disabled={columnCount <= MIN_ROW_COLUMNS}
+                    disabled={!canRemoveColumn}
                     onClick={() => onRemoveColumn(columnIndex)}
                     className="inline-flex size-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-30"
                   >

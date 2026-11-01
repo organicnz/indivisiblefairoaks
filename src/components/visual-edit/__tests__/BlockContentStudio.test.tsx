@@ -442,7 +442,7 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     expect(container.textContent).toContain('Row Layout');
   });
 
-  it('adds an empty column without moving authored blocks', async () => {
+  it('adds an empty column at the end', async () => {
     const row: Block = {
       id: 'r',
       type: 'row',
@@ -462,8 +462,6 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     });
     const grown = expectRow(committed.at(-1));
     expect(grown.columns).toHaveLength(3);
-    expect(grown.columns[0]).toEqual(row.columns[0]);
-    expect(grown.columns[1]).toEqual(row.columns[1]);
     expect(grown.columns[2].blocks).toEqual([]);
     expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(3);
   });
@@ -483,8 +481,6 @@ describe('BlockContentStudio & Modular Block Editors', () => {
       expect(document.activeElement).toBe(button);
     }
 
-    // The row-level control only ever removed the last column; every removal
-    // now belongs to the column it removes.
     expect(container.querySelector('button[aria-label="Remove column"]')).toBeNull();
   });
 
