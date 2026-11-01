@@ -908,19 +908,31 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
 - PostgreSQL with RLS on every user-facing table. Anon key = read-only + insert on allowlisted tables only.
 - Auth includes MFA support. Middleware enforces session checks on `/account`, `/admin`, `/login` **only** — do not expand middleware scope without checking Fluid CPU budget.
 - Edge Functions: `notify-contact`, `checkout`, `search`, `webhook`, `health`,
-  `wall-e-chat`, `walle-refresh`, `crm-broadcast-send`, `data-points`. All are deployed by
+  `wall-e-chat`, `walle-refresh`, `crm-broadcast-send`, `data-points`,
+  `sync-mobilize-events`. All are deployed by
   `.github/workflows/supabase.yml`; `crm-broadcast-send` joined that list only
   recently, and until it did, `CRM_BROADCAST_FUNCTION_URL` pointed production at
   a route no pipeline shipped. Invoked directly from Server Actions; never call
   Edge Functions from Client Components.
   **JWT verification is on unless a step says `--no-verify-jwt`.** Five functions
   are deliberately public (`notify-contact`, `search`, `webhook`, `health`, `data-points`);
-  `checkout`, `wall-e-chat`, `walle-refresh` and `crm-broadcast-send` require a
+  `checkout`, `wall-e-chat`, `walle-refresh`, `crm-broadcast-send` and
+  `sync-mobilize-events` require a
   key. A step that silently loses the flag turns a credentialed endpoint into a
   public one; one that silently gains it makes an internal endpoint unreachable.
   The `verify` job probes each function and asserts the specific expected code —
-  400, 400|401, 405, 401 for `crm-broadcast-send`, or 200 for `health` and `data-points` — so neither direction passes
+  400, 400|401, 405, 401 for `crm-broadcast-send` and `sync-mobilize-events`, or
+  200 for `health` and `data-points` — so neither direction passes
   silently. **A config var and a deploy step have to land together.**
+- **The Mobilize sync is the one place the service key lives in Postgres.**
+  `sync-mobilize-events` is scheduled by `pg_cron` → `pg_net`, and the job reads
+  its URL and key from **Vault at run time** rather than embedding them in
+  `cron.job.command`. This is the case `secrets.manifest.mjs` anticipated when it
+  recorded Vault as unused "because every consumer is an edge function … worth
+  revisiting if a server-side consumer ever needed a secret". The scope — org,
+  radius, city allowlist, virtual — is data in `mobilize_settings`, editable from
+  `/admin/events → Mobilize`, not code. See
+  [`docs/mobilize-sync.md`](./docs/mobilize-sync.md).
 - `supabase/config.toml` governs the **local** CLI stack only. The hosted
   project's `site_url` / `additional_redirect_urls` live in the dashboard —
   Authentication → URL Configuration. Magic links and OAuth callbacks fail
@@ -966,41 +978,35 @@ canonical URL, every `og:url`, `sitemap.xml`, `robots.txt`, and all JSON-LD
 - **RLS role-repair pattern**: after project restore/re-provisioning, policy→role OID references can orphan (`pg_policies` shows `{public}` but matches nobody). Playbook: `DROP POLICY … ; CREATE POLICY … TO authenticated …`. There is no dedicated migration for this — the pattern responds to a re-provisioning event rather than a schema change, so it lives in `scripts/rls-role-repair.mjs` and not in `migrations/`.
 
 ### Commerce
+- **There is no online checkout: the storefront is a catalog.** The legacy cart,
+  the Stripe checkout route, the Stripe webhook, the `checkout`/`webhook` edge
+  functions, the admin order surfaces, the coupon admin and the Stripe scripts
+  were removed in one change. A half-removed checkout is worse than either
+  state, because the cart button and the "Buy" affordance still imply a
+  purchase path that does not exist. The product page's primary action is an
+  enquiry link into `/contact`, and the wishlist saves items without a cart
+  hand-off.
 - `src/config/commerce.ts` owns currency, shipping rates and price formatting.
-  Stripe sessions, the Product JSON-LD and the storefront all read from it.
-  The site previously charged `nzd` with Auckland pickup addresses while its
-  structured data advertised `USD`; do not reintroduce a per-site currency
-  literal. Shipping rates are placeholders pending the chapter's confirmation.
-- **The checkout wire payload is built in exactly one place.**
-  `buildCheckoutItems()` in `src/lib/checkout-validation.ts` serves both
-  `cart/page.tsx` and `StripeExpressCheckout`, which previously inlined the same
-  six-line mapping. Two hand-copied shapes is how this storefront shipped `nzd`
-  checkout beside `USD` structured data; a parity test cannot catch a field one
-  site forgot to send, but a shared function can. Its `variationId ?? undefined`
-  is load-bearing — the cart store carries `number | null` while the validator
-  accepts only a positive integer or `undefined`, so a null reaching the server
-  is a 400 on a perfectly ordinary cart.
-- **There is deliberately no idempotency key on `checkout.sessions.create`.**
-  The obvious candidate — a hash of the cart — is wrong: Stripe returns the
-  cached response for a key for 24 hours, so buying the same cart twice in a day
-  hands back the *first*, already-completed session and charges nothing for the
-  second. The orphan session a key would prevent is cosmetic, and the
-  parallel-submit case is already closed by `disabled={isLoading}` on the cart
-  button. The full reasoning sits at the call site in
-  `src/app/api/checkout/route.ts`. **Do not "fix" this without reading it.**
-- **Orders are provider-agnostic and the store is not yet connected.** There are
-  no live orders, so the admin and account surfaces are empty-state shells that
-  render the stored row currency with `CURRENCY_CODE` as fallback and format
-  with `formatPrice` — never a per-site literal (`commerce-no-nzd.test.ts` fails
-  the build on any `nzd` residue outside the historical record). A future
-  WooCommerce store writes through `mapWooOrderToRow()` in
-  `src/lib/commerce/orders.ts` into the same `orders` table with
-  `source = 'woocommerce'` (migration `20261009000000`, CHECK
-  `orders_source_check`); a new provider adds a mapper plus a CHECK value in the
-  same change, never a second orders table. Reads do not select
-  `source`/`external_id` until that migration has been pushed — PostgREST refuses
-  a select naming an unknown column, so the hand-written order types carry both
-  as optional until then.
+  The Product JSON-LD, `/shipping-returns` and the admin product surfaces read
+  from it — the checkout no longer does. The site previously charged `nzd` with
+  Auckland pickup addresses while its structured data advertised `USD`; do not
+  reintroduce a per-site currency literal. Shipping rates are placeholders
+  pending the chapter's confirmation.
+  `commerce-no-nzd.test.ts` fails the build on any `nzd` residue in those
+  surfaces.
+- **The order tables remain in the database and nothing reads them.** Removing
+  the application layer did not drop `orders`, `order_items` or `coupons`; the
+  history is left intact rather than destroyed. A future provider writes into
+  the same tables — migration `20261009000000` added `source`/`external_id`
+  with the `orders_source_check` constraint, and a new provider adds a mapper
+  plus a CHECK value in the same change, never a second orders table. Reads do
+  not select those columns until the migration is pushed: PostgREST refuses a
+  select naming an unknown column.
+- **Do not reintroduce a checkout route without the rest of the stack.** The
+  removed pieces were coupled: the cart store, `buildCheckoutItems()`, the
+  Stripe session route, the webhook that wrote order rows, and the admin order
+  surfaces that made those rows visible. Rebuilding one of them in isolation is
+  how this storefront shipped `nzd` sessions beside `USD` structured data.
 
 ### Sanitization layer
 `sanitizeWPContent` in `src/lib/` must wrap **all** HTML from the `content` table before render. It:
@@ -1515,7 +1521,7 @@ pre-commit gate, so drift fails at commit time rather than at 3am.
      against Next.js (`next start`) and the mock server for memory.
 - **The local lefthook gates are therefore the real gates**, and they do run on
   every push: 35 pre-commit guards, then lint → unit → coverage → types → build →
-  peer-deps → 95 Playwright specs (95 + no running tests). Migrations and Edge Functions are **not**
+  peer-deps → 85 Playwright specs (85 + no running tests). Migrations and Edge Functions are **not**
   deployed by hand: `supabase.yml` is the only delivery path and a push touching
   `supabase/**` is its trigger, so the fix and the deploy are one action. It pushed
   migrations to the hosted project at 20:56 on 2026-10-04 while its sibling
@@ -1663,7 +1669,7 @@ deployed green and broke silently.
 ## Delivery Gates (lefthook)
 
 - **pre-commit**: secrets, migration guards, RLS/SECURITY DEFINER, Biome, oxlint, typecheck, env contracts (local `.env`, the GitHub Actions inventory, and the secrets registry in `--offline` mode — no network, because a hook that needs a token is a hook that gets bypassed), lockfile pairing, data-points seed↔reader↔fallback consistency (`scripts/check-data-points.mjs` — a seed nobody reads, a read nobody seeds, and a wired fallback that disagrees with its seed all fail, with accepted findings annotated in `scripts/data-points-baseline.json`, and that ratchet only shrinks), documentation numeric claims (`scripts/check-doc-claims.mjs` re-derives guard counts, the suppression baseline, `lefthook.yml`'s length, spec totals and the two coverage floors from their sources of truth), the no-Node-runtime guard (`scripts/hooks/no-node-runtime.mjs` — a Node shebang, a second package manager or a `setup-node` step works on a laptop with Node installed and breaks on every runner this project has; and a local binary invoked as `bun <bin>` rather than `bun --bun <bin>`, which hands the program to Node.js wherever Node.js is installed and to Bun only where it is not — the same divergence, wearing a different hat. The rule reads the local bin set out of `node_modules/.bin`, so a dependency that arrives tomorrow is covered without the guard being edited. CI runs it over the **whole tree** with `--all`, not just the staged subset, so a violation that arrived by a merge is caught too), the test-environment guard (`scripts/hooks/vitest-environment.mjs` — **every** test file must declare its Vitest environment on its first line, because Vitest constructs an environment per file and jsdom's construction was 63% of the unit suite's time; the guard also requires the `node` environment on any test that reaches for `Bun.*`, directly or through an imported script, because Vitest's `jsdom` environment replaces the worker's global with the jsdom window's and the `Bun` global does not survive that swap on every platform), and `playwright test --list` when `e2e/**` changes (spec parse only — no browser launch).
-- **`lefthook.yml` is 626 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
+- **`lefthook.yml` is 638 lines of wiring; the logic is in `scripts/hooks/*.mjs`.** Every
   guard that was a `run: |` bash block is now a `bun scripts/hooks/<name>.mjs` call, and
   its rationale comment moved into that file's header — where it sits beside the code it
   explains rather than four hundred lines above it. `lefthook.yml` keeps what only it can
