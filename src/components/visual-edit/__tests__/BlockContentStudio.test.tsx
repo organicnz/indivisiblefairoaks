@@ -442,7 +442,7 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     expect(container.textContent).toContain('Row Layout');
   });
 
-  it('resizes a row and merges a removed column’s blocks instead of deleting them', async () => {
+  it('adds an empty column without moving authored blocks', async () => {
     const row: Block = {
       id: 'r',
       type: 'row',
@@ -462,23 +462,119 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     });
     const grown = expectRow(committed.at(-1));
     expect(grown.columns).toHaveLength(3);
+    expect(grown.columns[0]).toEqual(row.columns[0]);
+    expect(grown.columns[1]).toEqual(row.columns[1]);
+    expect(grown.columns[2].blocks).toEqual([]);
     expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(3);
+  });
+
+  it('gives every column a focusable remove control labelled with its position', async () => {
+    await act(async () => {
+      root.render(<RowHarness initial={THREE_COLUMN_ROW} />);
+    });
+
+    for (const columnNumber of [1, 2, 3]) {
+      const button = container.querySelector<HTMLButtonElement>(
+        `button[aria-label="Remove column ${columnNumber} of 3"]`
+      );
+      expect(button).not.toBeNull();
+      button?.focus();
+      // Native buttons with no disabled attribute are in the tab order.
+      expect(document.activeElement).toBe(button);
+    }
+
+    // The row-level control only ever removed the last column; every removal
+    // now belongs to the column it removes.
+    expect(container.querySelector('button[aria-label="Remove column"]')).toBeNull();
+  });
+
+  it.each([
+    {
+      removed: 'first',
+      label: 'Remove column 1 of 3',
+      columnIds: ['c2', 'c3'],
+      blockIds: [['a1', 'a2', 'b1'], ['g1']],
+    },
+    {
+      removed: 'middle',
+      label: 'Remove column 2 of 3',
+      columnIds: ['c1', 'c3'],
+      blockIds: [['a1', 'a2', 'b1'], ['g1']],
+    },
+    {
+      removed: 'last',
+      label: 'Remove column 3 of 3',
+      columnIds: ['c1', 'c2'],
+      blockIds: [
+        ['a1', 'a2'],
+        ['b1', 'g1'],
+      ],
+    },
+  ])(
+    'removes the $removed column and merges its blocks in document order',
+    async ({ label, columnIds, blockIds }) => {
+      const committed: Block[] = [];
+      await act(async () => {
+        root.render(
+          <RowHarness initial={THREE_COLUMN_ROW} onCommit={(next) => committed.push(next)} />
+        );
+      });
+
+      await act(async () => {
+        (container.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement).click();
+      });
+
+      const next = expectRow(committed.at(-1));
+      expect(next.columns.map((column) => column.id)).toEqual(columnIds);
+      expect(next.columns.map((column) => column.blocks.map((block) => block.id))).toEqual(
+        blockIds
+      );
+      expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(2);
+    }
+  );
+
+  it('never removes the only column, and says why the control is unavailable', async () => {
+    const row: Block = {
+      id: 'r',
+      type: 'row',
+      columns: [{ id: 'c1', blocks: [{ id: 'h', type: 'heading', level: 2, html: 'Agenda' }] }],
+    };
+    const committed: Block[] = [];
 
     await act(async () => {
-      (container.querySelector('[aria-label="Remove column"]') as HTMLButtonElement).click();
+      root.render(<RowHarness initial={row} onCommit={(next) => committed.push(next)} />);
     });
-    const shrunk = expectRow(committed.at(-1));
-    expect(shrunk.columns).toHaveLength(2);
 
-    // Down to one: the second column's blocks move into the first, in order.
+    const remove = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Remove column 1 of 1 (a row needs at least one column)"]'
+    );
+    expect(remove).not.toBeNull();
+    expect(remove?.disabled).toBe(true);
+
     await act(async () => {
-      (container.querySelector('[aria-label="Remove column"]') as HTMLButtonElement).click();
+      remove?.click();
     });
-    const merged = expectRow(committed.at(-1));
-    expect(merged.columns).toHaveLength(1);
-    expect(merged.columns[0].blocks.map((block) => block.type)).toEqual(['heading', 'paragraph']);
+
+    expect(committed).toHaveLength(0);
+    expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(1);
   });
 });
+
+const THREE_COLUMN_ROW: Block = {
+  id: 'r',
+  type: 'row',
+  columns: [
+    {
+      id: 'c1',
+      blocks: [
+        { id: 'a1', type: 'paragraph', html: 'Alpha one' },
+        { id: 'a2', type: 'paragraph', html: 'Alpha two' },
+      ],
+    },
+    { id: 'c2', blocks: [{ id: 'b1', type: 'heading', level: 2, html: 'Beta' }] },
+    { id: 'c3', blocks: [{ id: 'g1', type: 'paragraph', html: 'Gamma' }] },
+  ],
+};
 
 /** Narrow the last committed draft, failing the test if it is not a row. */
 function expectRow(block: Block | undefined): Extract<Block, { type: 'row' }> {

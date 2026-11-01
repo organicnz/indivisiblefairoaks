@@ -74,8 +74,13 @@ function leafLabel(block: ContentBlock): string {
 export interface RowBlockEditorProps {
   currentBlock: RowBlock;
   setCurrentBlock: (block: Block) => void;
-  /** Resize the row, keeping column content where the count allows. */
-  onColumnsChange: (count: number) => void;
+  /** Append an empty column, keeping every existing column where it is. */
+  onAddColumn: () => void;
+  /**
+   * Remove one column by position, merging its blocks into a surviving
+   * neighbour. The editor owns the merge; this only says which column left.
+   */
+  onRemoveColumn: (columnIndex: number) => void;
   onAddBlock: (columnIndex: number, kind: InsertableBlockType) => void;
   /**
    * Move a block to an index within its own column.
@@ -101,7 +106,8 @@ export interface RowBlockEditorProps {
 export function RowBlockEditor({
   currentBlock,
   setCurrentBlock,
-  onColumnsChange,
+  onAddColumn,
+  onRemoveColumn,
   onAddBlock,
   onReorderBlock,
   onRemoveBlock,
@@ -130,20 +136,6 @@ export function RowBlockEditor({
         description="A row lays blocks side by side. Columns hold one level of blocks; a row cannot nest inside a row."
         action={
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              aria-label="Remove column"
-              title={
-                columnCount > MIN_ROW_COLUMNS
-                  ? 'Remove the last column and move its blocks into the previous one'
-                  : 'A row needs at least one column'
-              }
-              disabled={columnCount <= MIN_ROW_COLUMNS}
-              onClick={() => onColumnsChange(columnCount - 1)}
-              className="inline-flex size-6 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Trash2 size={12} />
-            </button>
             <span className="min-w-6 text-center font-mono text-xs font-bold text-accent-gold">
               {columnCount}
             </span>
@@ -156,7 +148,7 @@ export function RowBlockEditor({
                   : `A row holds at most ${MAX_ROW_COLUMNS} columns`
               }
               disabled={columnCount >= MAX_ROW_COLUMNS}
-              onClick={() => onColumnsChange(columnCount + 1)}
+              onClick={onAddColumn}
               className="inline-flex size-6 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus size={12} />
@@ -182,8 +174,38 @@ export function RowBlockEditor({
                   <Columns3 size={10} className="text-accent-gold" />
                   Column {columnIndex + 1}
                 </span>
-                <span className="text-[9px] text-slate-400">
-                  {column.blocks.length} {column.blocks.length === 1 ? 'block' : 'blocks'}
+                <span className="flex items-center gap-1">
+                  <span className="text-[9px] text-slate-400">
+                    {column.blocks.length} {column.blocks.length === 1 ? 'block' : 'blocks'}
+                  </span>
+                  {/*
+                    Each column removes itself, rather than the row offering
+                    one "remove the last column" control: with three columns
+                    that control could not remove the first or middle one
+                    without destroying the third first, which is not a layout
+                    edit the author asked for. A native button, so the control
+                    is in the tab order and Enter/Space work without a handler.
+                  */}
+                  <button
+                    type="button"
+                    aria-label={
+                      columnCount > MIN_ROW_COLUMNS
+                        ? `Remove column ${columnIndex + 1} of ${columnCount}`
+                        : `Remove column ${columnIndex + 1} of ${columnCount} (a row needs at least one column)`
+                    }
+                    title={
+                      columnCount <= MIN_ROW_COLUMNS
+                        ? 'A row needs at least one column'
+                        : columnIndex === 0
+                          ? 'Remove column 1 and move its blocks into the column on its right'
+                          : `Remove column ${columnIndex + 1} and move its blocks into column ${columnIndex}`
+                    }
+                    disabled={columnCount <= MIN_ROW_COLUMNS}
+                    onClick={() => onRemoveColumn(columnIndex)}
+                    className="inline-flex size-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Trash2 size={11} />
+                  </button>
                 </span>
               </div>
 

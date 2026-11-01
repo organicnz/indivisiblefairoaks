@@ -85,9 +85,19 @@ export function BlockContentStudio({
     );
   }
 
-  const resize = (count: number) => {
-    if (count === currentBlock.columns.length) return;
-    setCurrentBlock(resizeRow(currentBlock, count));
+  const addColumn = () => {
+    if (currentBlock.columns.length >= MAX_ROW_COLUMNS) return;
+    setCurrentBlock({
+      ...currentBlock,
+      columns: [...currentBlock.columns, createRowColumn()],
+    });
+  };
+
+  const removeColumn = (columnIndex: number) => {
+    const next = removeRowColumn(currentBlock, columnIndex);
+    // A one-column row is the floor, and an out-of-range index is stale UI.
+    // Neither is an edit, so neither may create an undo step.
+    if (next !== currentBlock) setCurrentBlock(next);
   };
 
   const addBlock = (columnIndex: number, kind: InsertableBlockType) => {
@@ -132,7 +142,8 @@ export function BlockContentStudio({
     <RowBlockEditor
       currentBlock={currentBlock}
       setCurrentBlock={setCurrentBlock}
-      onColumnsChange={resize}
+      onAddColumn={addColumn}
+      onRemoveColumn={removeColumn}
       onAddBlock={addBlock}
       onReorderBlock={reorderBlock}
       onRemoveBlock={removeBlock}
@@ -141,36 +152,33 @@ export function BlockContentStudio({
 }
 
 /**
- * Resize a row without losing a column's blocks.
+ * Remove one column without losing the blocks it held.
  *
- * Removing a column used to drop whatever it held, which is a destructive
- * consequence of a layout control — the blocks were authored, and a grid that is
- * one column narrower is not a reason to delete them. They move into the column
- * before them, which is the only merge that keeps document order. Adding a
- * column appends an empty one; growing never moves anything.
+ * A layout control must not silently delete authored copy, so a removed
+ * column's blocks move into a surviving neighbour. They go into the column on
+ * the left — or, for the first column, the one on the right — which keeps
+ * document order: left column, removed column, right column. The survivor keeps
+ * its id, and every block keeps its own, so React does not remount the content.
  *
- * Clamped at both ends because the serializer and the parser both assume a row
- * has at least one column, and a fourth column stops being readable at the
- * composer's page width.
+ * The row never drops below one column: the serializer and parser both assume
+ * at least one, and a zero-column row has no layout to restore. An
+ * out-of-range index returns the row unchanged for the same reason — a stale
+ * control is not a document edit.
  */
-function resizeRow(row: RowBlock, requested: number): RowBlock {
-  const count = Math.min(MAX_ROW_COLUMNS, Math.max(MIN_ROW_COLUMNS, requested));
-  if (count === row.columns.length) return row;
-
-  if (count < row.columns.length) {
-    const kept = row.columns.slice(0, count).map((column) => ({ ...column }));
-    for (const dropped of row.columns.slice(count)) {
-      const last = kept[kept.length - 1];
-      last.blocks = [...last.blocks, ...dropped.blocks];
-    }
-    return { ...row, columns: kept };
+function removeRowColumn(row: RowBlock, columnIndex: number): RowBlock {
+  if (row.columns.length <= MIN_ROW_COLUMNS) return row;
+  if (!Number.isInteger(columnIndex) || columnIndex < 0 || columnIndex >= row.columns.length) {
+    return row;
   }
 
-  return {
-    ...row,
-    columns: [
-      ...row.columns,
-      ...Array.from({ length: count - row.columns.length }, () => createRowColumn()),
-    ],
-  };
+  const columns = row.columns.map((column) => ({ ...column, blocks: [...column.blocks] }));
+  const [removed] = columns.splice(columnIndex, 1);
+
+  if (columnIndex > 0) {
+    columns[columnIndex - 1].blocks = [...columns[columnIndex - 1].blocks, ...removed.blocks];
+  } else {
+    columns[0].blocks = [...removed.blocks, ...columns[0].blocks];
+  }
+
+  return { ...row, columns };
 }
