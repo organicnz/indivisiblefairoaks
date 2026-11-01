@@ -317,6 +317,55 @@ function findAnchorOwner(blocks: Block[], blockIndex: number, anchorId: string):
   return null;
 }
 
+/**
+ * Give a refreshed document the ids of the blocks the panel is still editing.
+ *
+ * A reload parses `content.body` again, and `parseHtml` mints fresh ids; the
+ * composer keys an editing session by id. Without this carry-over a page-side
+ * refresh reads as "a different block" even though it is the same paragraph in
+ * the same place, and the inspector rebuilds the draft from markup — silently
+ * discarding whatever the operator had not applied yet.
+ *
+ * Only the blocks that are part of the live session are mapped: the block the
+ * panel has open, the multi-selection, and the batch target snapshot. A block
+ * nobody is holding keeps its fresh id, so a refresh cannot make two unrelated
+ * blocks look like one. Mapping is positional on purpose — the same index is
+ * the same place on the page, and a block that has moved is still the block the
+ * operator is looking at.
+ */
+function carrySessionBlockIds(
+  next: readonly Block[],
+  previous: readonly Block[],
+  session: {
+    openIndex: number | null;
+    selectedIds: readonly string[];
+    batchIds: readonly string[];
+  }
+): Block[] {
+  const idByIndex = new Map<number, string>();
+  const bind = (index: number, id: string | undefined) => {
+    if (!id || index < 0 || index >= next.length) return;
+    idByIndex.set(index, id);
+  };
+
+  bind(
+    session.openIndex ?? -1,
+    session.openIndex !== null ? previous[session.openIndex]?.id : undefined
+  );
+  for (const id of new Set([...session.selectedIds, ...session.batchIds])) {
+    bind(
+      previous.findIndex((block) => block.id === id),
+      id
+    );
+  }
+
+  if (idByIndex.size === 0) return [...next];
+  return next.map((block, index) => {
+    const id = idByIndex.get(index);
+    return id ? { ...block, id } : block;
+  });
+}
+
 export function VisualEditOverlay() {
   const router = useRouter();
   const rawPathname = usePathname();
@@ -556,6 +605,17 @@ export function VisualEditOverlay() {
   }, []);
 
   /**
+   * The one way the page asks the open composer to leave.
+   *
+   * It cannot close it directly: the draft and the "is it safe to discard?"
+   * answer live in the inspector. The token is read there, by the same guard
+   * Close and Escape use, so a page-side load cannot become a silent discard.
+   */
+  const requestComposerClose = useCallback(() => {
+    setComposerCloseRequest((request) => request + 1);
+  }, []);
+
+  /**
    * Move the open inspector to the neighbouring block.
    *
    * The panel stays open and the page selection follows it, so the frame that
@@ -637,6 +697,26 @@ export function VisualEditOverlay() {
    */
   const vcBlockIndexRef = useRef<number | null>(null);
   vcBlockIndexRef.current = vcBlockIndex;
+  /** Whether the composer is open, for the content loader's decision. */
+  const isVisualComposerOpenRef = useRef(false);
+  isVisualComposerOpenRef.current = isVisualComposerOpen;
+  /**
+   * A page-side request for the open composer to close.
+   *
+   * A token rather than a callback: the inspector owns the dirty draft and
+   * therefore the answer. Incrementing this asks; the panel closes only after
+   * its own guard has decided that closing is what the operator wants.
+   */
+  const [composerCloseRequest, setComposerCloseRequest] = useState(0);
+  /**
+   * Which document the loaded blocks belong to.
+   *
+   * `null` until the first load. After that, a mismatch is a real document
+   * switch — not a refresh of the same row, which must leave the panel alone.
+   */
+  const loadedDocumentKeyRef = useRef<string | null>(null);
+  /** A document switch was postponed until the composer could be closed. */
+  const [reloadAfterComposerClose, setReloadAfterComposerClose] = useState(false);
   const [vcMode, setVcMode] = useState<'block' | 'section'>('block');
   /**
    * When more than one block is selected, the Visual Composer opens in batch
@@ -649,6 +729,10 @@ export function VisualEditOverlay() {
    * then name a different block than the one the operator chose.
    */
   const [vcSelectedBlockIds, setVcSelectedBlockIds] = useState<string[]>([]);
+  const vcSelectedBlockIdsRef = useRef<string[]>([]);
+  vcSelectedBlockIdsRef.current = vcSelectedBlockIds;
+  const selectedBlockIdsRef = useRef<Set<string>>(new Set());
+  selectedBlockIdsRef.current = selectedBlockIds;
   const vcSelectedBlockIndexes = useMemo(() => {
     const indexes: number[] = [];
     blocks.forEach((block, index) => {
@@ -943,14 +1027,6 @@ export function VisualEditOverlay() {
 
   // Load content row and blocks when visual editing is turned on
   const loadContentData = useCallback(async () => {
-    // A different document means a different set of blocks: ids from the
-    // previous one must not stay selected, and a batch target snapshot is
-    // meaningless once the underlying document changes.
-    setSelectedBlockIds(new Set());
-    setActiveBlockIndex(null);
-    setVcSelectedBlockIds([]);
-    setIsVisualComposerOpen(false);
-
     // A region is addressed by its own slug; the whole page keeps the old
     // slug-from-path behaviour, including the `home` fallback for `/`.
     let slug: string | null = documentSlug;
@@ -965,6 +1041,72 @@ export function VisualEditOverlay() {
       : target?.editUrl
         ? Number.parseInt(target.editUrl.split('/').pop() || '', 10)
         : null;
+
+    /*
+     * What document this load is for.
+     *
+     * Keyed by the addressable document, not by the lookup used to fetch it: an
+     * edit-context response that arrives after the slug load and names the same
+     * row is a refresh, not a document switch. Including `rowId` here made that
+     * late arrival look like a different document and closed the panel over an
+     * unapplied draft.
+     */
+    const documentKey = isRegion
+      ? `region:${activeRegionId}`
+      : slug
+        ? `slug:${slug}`
+        : rowId
+          ? `row:${rowId}`
+          : `path:${pathname}`;
+    const previousDocumentKey = loadedDocumentKeyRef.current;
+    const documentChanged = previousDocumentKey !== null && previousDocumentKey !== documentKey;
+
+    /*
+     * A load must never close the composer by itself.
+     *
+     * Refreshing the same document is exactly that — a refresh — and the panel
+     * keeps its draft. Replacing the document underneath an open panel is
+     * different: the blocks it addresses are about to disappear, so the panel
+     * has to go, but only after its own guard has asked about unsaved work. Ask
+     * through the token and remember the load; the effect below runs it once the
+     * panel has closed. Before this, the loader called `setIsVisualComposerOpen(
+     * false)` directly, so every refresh was a silent discard.
+     */
+    if (documentChanged && isVisualComposerOpenRef.current) {
+      setReloadAfterComposerClose(true);
+      requestComposerClose();
+      return;
+    }
+
+    if (documentChanged) {
+      // A different document means a different set of blocks: ids from the
+      // previous one must not stay selected, and a batch target snapshot is
+      // meaningless once the underlying document changes.
+      setSelectedBlockIds(new Set());
+      setActiveBlockIndex(null);
+      setVcSelectedBlockIds([]);
+    }
+
+    /*
+     * A queued load belongs to the switch that queued it. Reaching this point
+     * means a load is running, so a switch that was superseded — the operator
+     * went back to the document already open — must not fire again when the
+     * panel later closes.
+     */
+    setReloadAfterComposerClose(false);
+
+    // The ids the panel is holding belong to the same document from here on.
+    const sameDocument = previousDocumentKey !== null && !documentChanged;
+    loadedDocumentKeyRef.current = documentKey;
+
+    const carrySessionIds = (next: Block[]): Block[] =>
+      sameDocument
+        ? carrySessionBlockIds(next, blocksRef.current, {
+            openIndex: vcBlockIndexRef.current,
+            selectedIds: [...selectedBlockIdsRef.current],
+            batchIds: vcSelectedBlockIdsRef.current,
+          })
+        : next;
 
     try {
       let row = null;
@@ -1003,7 +1145,7 @@ export function VisualEditOverlay() {
         setPageSlug(row.slug);
         setPageFeaturedImage(row.featured_image || '');
         setPageStatus((row.status === 'publish' ? 'publish' : 'draft') as 'publish' | 'draft');
-        const parsed = parseHtml(row.body || '');
+        const parsed = carrySessionIds(parseHtml(row.body || ''));
         blocksRef.current = parsed;
         setBlocks(parsed);
         // The loaded document is the baseline "saved" state. Without this the
@@ -1030,7 +1172,7 @@ export function VisualEditOverlay() {
             resolvedSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
         );
         const root = rootRef.current || findEffectiveVisualEditRoot();
-        const extracted = root ? extractBlocksFromDOM(root) : [];
+        const extracted = carrySessionIds(root ? extractBlocksFromDOM(root) : []);
         blocksRef.current = extracted;
         setBlocks(extracted);
         setSavedBody(serializeBlocks(extracted));
@@ -1038,12 +1180,36 @@ export function VisualEditOverlay() {
     } catch {
       // Non-fatal if loading row fails, extract from live DOM
       const root = rootRef.current || findEffectiveVisualEditRoot();
-      const extracted = root ? extractBlocksFromDOM(root) : [];
+      const extracted = carrySessionIds(root ? extractBlocksFromDOM(root) : []);
       blocksRef.current = extracted;
       setBlocks(extracted);
       setSavedBody(serializeBlocks(extracted));
     }
-  }, [activeRegion, activeRegionId, documentSlug, findEffectiveVisualEditRoot, pathname, target]);
+  }, [
+    activeRegion,
+    activeRegionId,
+    documentSlug,
+    findEffectiveVisualEditRoot,
+    pathname,
+    requestComposerClose,
+    target,
+  ]);
+
+  /**
+   * Run the document load that was postponed for the composer.
+   *
+   * The loader above returns instead of closing the panel, because only the
+   * panel knows whether the draft may be discarded. Once it has closed — by
+   * Discard, by Apply-then-close, or by a clean panel closing itself — the
+   * document that was waiting becomes the active one.
+   */
+  const loadContentDataRef = useRef(loadContentData);
+  loadContentDataRef.current = loadContentData;
+  useEffect(() => {
+    if (!reloadAfterComposerClose || isVisualComposerOpen) return;
+    setReloadAfterComposerClose(false);
+    void loadContentDataRef.current();
+  }, [reloadAfterComposerClose, isVisualComposerOpen]);
 
   // Reload whenever the active document changes — switching regions must clear
   // the previous document's blocks, or the operator edits one region's copy
@@ -6039,6 +6205,7 @@ export function VisualEditOverlay() {
         canNavigateNext={vcBlockIndex !== null && vcBlockIndex < blocks.length - 1}
         initialMode={vcMode}
         onPreviewChange={applyComposerDraft}
+        closeRequest={composerCloseRequest}
       />
 
       {/* ── Visual Composer Element Library & Templates Modal (⌘⇧E) ─────────── */}

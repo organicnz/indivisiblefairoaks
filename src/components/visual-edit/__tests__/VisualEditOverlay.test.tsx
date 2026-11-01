@@ -52,7 +52,11 @@ vi.mock('@/lib/actions/visual', () => ({ getVisualPageContext }));
 vi.mock('sonner', () => ({ toast }));
 
 // The overlay asks the header's hook whether this visitor is an admin.
-const editContext = vi.hoisted(() => ({ isAdmin: true, loading: false, target: null }));
+const editContext = vi.hoisted(() => ({
+  isAdmin: true,
+  loading: false,
+  target: null as { label: string; editUrl: string } | null,
+}));
 vi.mock('@/components/layout/useEditContext', () => ({
   useEditContext: () => editContext,
 }));
@@ -131,6 +135,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       data: { id: 7, updatedAt: '2026-10-10T00:00:00Z' },
     });
     editContext.isAdmin = true;
+    editContext.target = null;
     visualMode.enabled = true;
     pathname.value = '/about';
     container = document.createElement('div');
@@ -1388,6 +1393,90 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(
       document.querySelector<HTMLButtonElement>('button[aria-label="Next block"]')?.disabled
     ).toBe(true);
+  });
+
+  it('opens from a block row and keeps its draft when the page reloads the same document', async () => {
+    await withPage();
+
+    /*
+     * The dock's per-block row is the entry point an operator browsing a page
+     * reaches first. It addresses the same block its frame does; the panel used
+     * to open and then be closed a moment later by an in-flight content load.
+     */
+    const rowButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[aria-label^="Visual Composer for "]')
+    );
+    expect(rowButtons.length).toBeGreaterThan(0);
+    await act(async () => {
+      rowButtons[0].click();
+    });
+
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    expect(document.body.textContent).toContain('Block #1 ·');
+
+    await changeCornerRadius();
+    const paragraph = pageChildren().children[0] as HTMLElement;
+    expect(paragraph.getAttribute('class')).toContain('rounded-2xl');
+
+    /*
+     * A late edit-context response makes the overlay load the same row again:
+     * it is still the `/about` document, but now the loader knows its content
+     * id. That used to close the panel and take the unapplied draft with it.
+     */
+    getContentForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    editContext.target = { label: 'About Us', editUrl: '/admin/content/7' };
+    await act(async () => {
+      // Any overlay state update re-renders it; the loader itself re-runs
+      // because its `target` dependency changed.
+      document
+        .querySelector<HTMLButtonElement>('button[aria-label="Collapse Visual Editor Sidebar"]')
+        ?.click();
+    });
+
+    expect(getContentForEdit).toHaveBeenCalledWith(7);
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    expect(document.body.textContent).toContain('Block #1 ·');
+    // The draft is still the live design, not the row's original markup.
+    expect(paragraph.getAttribute('class')).toContain('rounded-2xl');
+    expect(paragraph.getAttribute('data-vc-draft-preview')).toBe('true');
+  });
+
+  it('asks before replacing the document under an unsaved draft', async () => {
+    await withPage();
+    await openComposerOnFirstBlock();
+    await changeCornerRadius();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.selectRegion, {
+          detail: { regionId: 'about-mission' },
+        })
+      );
+    });
+
+    // The panel still describes the document it was editing, and the switch has
+    // not been allowed to overwrite it behind the prompt.
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+
+    await act(async () => {
+      byText('Discard')?.click();
+    });
+
+    expect(document.body.textContent).not.toContain('Visual Composer Inspector');
+    expect(getContentBySlugForEdit).toHaveBeenCalledWith('copy-about-mission');
   });
 
   it('paints the composer draft onto the page, and takes it back on discard', async () => {

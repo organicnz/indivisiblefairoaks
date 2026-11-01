@@ -422,6 +422,16 @@ export interface VisualComposerInspectorProps {
   /** Initial value of the "keep open after apply" toggle. */
   keepOpenOnApplyInitial?: boolean;
   /**
+   * Ask the panel to close through its own unsaved-work guard.
+   *
+   * The page owns the document and can learn that the blocks underneath the
+   * panel are about to be replaced; it cannot see the draft. So it asks with a
+   * monotonically increasing token instead of closing directly, and the same
+   * guard that Close, Escape and ⌘E use decides what happens: a clean panel
+   * closes, a dirty one asks first.
+   */
+  closeRequest?: number;
+  /**
    * Report the unapplied design so the page itself can show it.
    *
    * Called with `null` whenever there is nothing to preview — the draft is
@@ -449,6 +459,7 @@ export function VisualComposerInspector({
   canNavigateNext = false,
   initialMode = 'block',
   keepOpenOnApplyInitial = false,
+  closeRequest = 0,
   onPreviewChange,
 }: VisualComposerInspectorProps) {
   const [inspectorMode, setInspectorMode] = useState<VisualComposerMode>(initialMode);
@@ -951,6 +962,23 @@ export function VisualComposerInspector({
     }
     onClose();
   }, [dirty, onClose]);
+
+  /**
+   * A close requested by the page, answered by the operator's own guard.
+   *
+   * Content can be replaced underneath an open panel — a revision restore, a
+   * region becoming the active document, an edit context arriving late. The
+   * overlay knows that is about to happen and the panel knows whether the draft
+   * is worth keeping, so the overlay asks through this token rather than
+   * closing over the draft. Without it, a background load was a silent discard.
+   */
+  const handledCloseRequestRef = useRef(closeRequest);
+  useEffect(() => {
+    if (closeRequest === handledCloseRequestRef.current) return;
+    handledCloseRequestRef.current = closeRequest;
+    if (!open) return;
+    requestClose();
+  }, [closeRequest, open, requestClose]);
 
   /**
    * Step to the neighbouring block, asking first if the draft is unsaved.
