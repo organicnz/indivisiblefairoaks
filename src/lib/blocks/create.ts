@@ -45,6 +45,20 @@ export function createRowBlock(id: string, columnCount = 2): RowBlock {
 }
 
 /**
+ * The surviving column that receives a removed column's blocks.
+ *
+ * A column merges left, except the first, which merges right to keep document
+ * order. The merge and the Remove control's wording both read this, so the
+ * destination they announce cannot disagree.
+ */
+export function rowColumnMergeTarget(columnIndex: number): {
+  index: number;
+  side: 'left' | 'right';
+} {
+  return columnIndex > 0 ? { index: columnIndex - 1, side: 'left' } : { index: 0, side: 'right' };
+}
+
+/**
  * The starting content for one insertable block.
  *
  * This used to live in the overlay's Add Block switch and, separately, in the

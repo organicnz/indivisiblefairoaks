@@ -466,40 +466,28 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(3);
   });
 
-  it('gives every column a focusable remove control labelled with its position', async () => {
-    await act(async () => {
-      root.render(<RowHarness initial={THREE_COLUMN_ROW} />);
-    });
-
-    for (const columnNumber of [1, 2, 3]) {
-      const button = container.querySelector<HTMLButtonElement>(
-        `button[aria-label="Remove column ${columnNumber} of 3"]`
-      );
-      expect(button).not.toBeNull();
-      button?.focus();
-      // Native buttons with no disabled attribute are in the tab order.
-      expect(document.activeElement).toBe(button);
-    }
-
-    expect(container.querySelector('button[aria-label="Remove column"]')).toBeNull();
-  });
-
   it.each([
     {
       removed: 'first',
       label: 'Remove column 1 of 3',
+      title: 'Remove column 1 and move its blocks into the column on its right',
+      focusLabel: 'Remove column 1 of 2',
       columnIds: ['c2', 'c3'],
       blockIds: [['a1', 'a2', 'b1'], ['g1']],
     },
     {
       removed: 'middle',
       label: 'Remove column 2 of 3',
+      title: 'Remove column 2 and move its blocks into the column on its left',
+      focusLabel: 'Remove column 1 of 2',
       columnIds: ['c1', 'c3'],
       blockIds: [['a1', 'a2', 'b1'], ['g1']],
     },
     {
       removed: 'last',
       label: 'Remove column 3 of 3',
+      title: 'Remove column 3 and move its blocks into the column on its left',
+      focusLabel: 'Remove column 2 of 2',
       columnIds: ['c1', 'c2'],
       blockIds: [
         ['a1', 'a2'],
@@ -507,8 +495,8 @@ describe('BlockContentStudio & Modular Block Editors', () => {
       ],
     },
   ])(
-    'removes the $removed column and merges its blocks in document order',
-    async ({ label, columnIds, blockIds }) => {
+    'removes the $removed column, merges in document order and keeps focus in the row',
+    async ({ label, title, focusLabel, columnIds, blockIds }) => {
       const committed: Block[] = [];
       await act(async () => {
         root.render(
@@ -516,8 +504,12 @@ describe('BlockContentStudio & Modular Block Editors', () => {
         );
       });
 
+      const remove = container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+      expect(remove?.title).toBe(title);
+      expect(container.querySelector('button[aria-label="Remove column"]')).toBeNull();
       await act(async () => {
-        (container.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement).click();
+        remove?.focus();
+        remove?.click();
       });
 
       const next = expectRow(committed.at(-1));
@@ -526,14 +518,23 @@ describe('BlockContentStudio & Modular Block Editors', () => {
         blockIds
       );
       expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(2);
+
+      const focused = container.querySelector<HTMLButtonElement>(
+        `button[aria-label="${focusLabel}"]`
+      );
+      expect(focused).not.toBeNull();
+      expect(document.activeElement).toBe(focused);
     }
   );
 
-  it('never removes the only column, and says why the control is unavailable', async () => {
+  it('moves focus to Add and explains the one-column floor', async () => {
     const row: Block = {
       id: 'r',
       type: 'row',
-      columns: [{ id: 'c1', blocks: [{ id: 'h', type: 'heading', level: 2, html: 'Agenda' }] }],
+      columns: [
+        { id: 'c1', blocks: [{ id: 'h', type: 'heading', level: 2, html: 'Agenda' }] },
+        { id: 'c2', blocks: [{ id: 'p', type: 'paragraph', html: 'Doors at nine.' }] },
+      ],
     };
     const committed: Block[] = [];
 
@@ -542,17 +543,37 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     });
 
     const remove = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Remove column 1 of 1 (a row needs at least one column)"]'
+      'button[aria-label="Remove column 2 of 2"]'
     );
-    expect(remove).not.toBeNull();
-    expect(remove?.disabled).toBe(true);
-
+    expect(remove?.title).toBe('Remove column 2 and move its blocks into the column on its left');
     await act(async () => {
+      remove?.focus();
       remove?.click();
     });
 
-    expect(committed).toHaveLength(0);
-    expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(1);
+    const next = expectRow(committed.at(-1));
+    expect(next.columns).toHaveLength(1);
+    expect(next.columns[0].blocks.map((block) => block.type)).toEqual(['heading', 'paragraph']);
+
+    const add = container.querySelector<HTMLButtonElement>('button[aria-label="Add column"]');
+    expect(add).not.toBeNull();
+    expect(document.activeElement).toBe(add);
+
+    const describedBy = add?.getAttribute('aria-describedby');
+    expect(describedBy).not.toBeNull();
+    const hint = describedBy ? container.querySelector<HTMLElement>(`[id="${describedBy}"]`) : null;
+    expect(hint?.textContent).toContain('A row needs at least one column');
+    expect(hint?.closest('button')).toBeNull();
+
+    const onlyRemove = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Remove column 1 of 1"]'
+    );
+    expect(onlyRemove?.disabled).toBe(true);
+    await act(async () => {
+      onlyRemove?.click();
+    });
+    expect(committed).toHaveLength(1);
+    expect(document.activeElement).toBe(add);
   });
 });
 

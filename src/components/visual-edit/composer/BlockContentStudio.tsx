@@ -6,6 +6,7 @@ import {
   type InsertableBlockType,
   MAX_ROW_COLUMNS,
   MIN_ROW_COLUMNS,
+  rowColumnMergeTarget,
 } from '@/lib/blocks';
 import { createRowColumn } from '@/lib/blocks/create';
 import {
@@ -100,14 +101,12 @@ export function BlockContentStudio({
 
     const nextColumns = [...columns];
     const [removed] = nextColumns.splice(columnIndex, 1);
-    // Merge into the left neighbour, or the right one for the first column, so
-    // the authored blocks keep their document order.
-    const targetIndex = columnIndex > 0 ? columnIndex - 1 : 0;
+    const { index: targetIndex, side } = rowColumnMergeTarget(columnIndex);
     const target = nextColumns[targetIndex];
     nextColumns[targetIndex] = {
       ...target,
       blocks:
-        columnIndex > 0
+        side === 'left'
           ? [...target.blocks, ...removed.blocks]
           : [...removed.blocks, ...target.blocks],
     };

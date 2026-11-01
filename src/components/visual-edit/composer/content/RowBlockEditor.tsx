@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, ChevronUp, Columns3, GripVertical, Plus, Trash2 } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
   type Block,
   type ContentBlock,
@@ -9,6 +9,7 @@ import {
   MAX_ROW_COLUMNS,
   MIN_ROW_COLUMNS,
   type RowBlock,
+  rowColumnMergeTarget,
   stripTags,
 } from '@/lib/blocks';
 import { StudioSection } from '../ui';
@@ -110,11 +111,45 @@ export function RowBlockEditor({
   onRemoveBlock,
 }: RowBlockEditorProps) {
   const addBlockId = useId();
+  const floorHintId = useId();
+  const addColumnRef = useRef<HTMLButtonElement>(null);
+  const removeColumnButtons = useRef(new Map<string, HTMLButtonElement>());
+  const pendingFocusColumnId = useRef<string | null>(null);
   const [editingLeafId, setEditingLeafId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const columnCount = currentBlock.columns.length;
   const canRemoveColumn = columnCount > MIN_ROW_COLUMNS;
+
+  /*
+   * A removal unmounts the control that was focused, so the next focus target
+   * is recorded before the edit and claimed once the new columns have rendered.
+   * The floor has no enabled remove control, so focus falls back to Add — the
+   * action that makes another removal possible — which describes the hint.
+   */
+  useEffect(() => {
+    const columnId = pendingFocusColumnId.current;
+    if (!columnId) return;
+    pendingFocusColumnId.current = null;
+    if (columnCount > MIN_ROW_COLUMNS) {
+      const target = removeColumnButtons.current.get(columnId);
+      if (target) {
+        target.focus();
+        return;
+      }
+    }
+    addColumnRef.current?.focus();
+  }, [columnCount]);
+
+  const removeColumn = (columnIndex: number) => {
+    if (!canRemoveColumn) return;
+    const { index: targetIndex, side } = rowColumnMergeTarget(columnIndex);
+    // Before the edit the right-hand target is the next column, not the one
+    // being removed at this index. Record the surviving column's id either way.
+    const target = currentBlock.columns[side === 'right' ? columnIndex + 1 : targetIndex];
+    pendingFocusColumnId.current = target?.id ?? null;
+    onRemoveColumn(columnIndex);
+  };
 
   const updateLeaf = (blockId: string, next: ContentBlock) => {
     setCurrentBlock({
@@ -138,8 +173,10 @@ export function RowBlockEditor({
               {columnCount}
             </span>
             <button
+              ref={addColumnRef}
               type="button"
               aria-label="Add column"
+              aria-describedby={canRemoveColumn ? undefined : floorHintId}
               title={
                 columnCount < MAX_ROW_COLUMNS
                   ? 'Add a column'
@@ -160,6 +197,14 @@ export function RowBlockEditor({
           the mini preview above; the editor is where each column is read and
           filled, and the column cards are what make that legible at this width.
         */}
+        {!canRemoveColumn && (
+          <p
+            id={floorHintId}
+            className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-[10px] leading-relaxed text-slate-400"
+          >
+            A row needs at least one column. Add a column to enable removal.
+          </p>
+        )}
         <div className="space-y-2">
           {currentBlock.columns.map((column, columnIndex) => (
             <div
@@ -178,21 +223,19 @@ export function RowBlockEditor({
                   </span>
                   {/* A row-level control could only ever remove the last column. */}
                   <button
+                    ref={(node) => {
+                      if (node) removeColumnButtons.current.set(column.id, node);
+                      else removeColumnButtons.current.delete(column.id);
+                    }}
                     type="button"
-                    aria-label={
-                      canRemoveColumn
-                        ? `Remove column ${columnIndex + 1} of ${columnCount}`
-                        : `Remove column ${columnIndex + 1} of ${columnCount} (a row needs at least one column)`
-                    }
+                    aria-label={`Remove column ${columnIndex + 1} of ${columnCount}`}
                     title={
-                      !canRemoveColumn
-                        ? 'A row needs at least one column'
-                        : columnIndex === 0
-                          ? 'Remove column 1 and move its blocks into the column on its right'
-                          : `Remove column ${columnIndex + 1} and move its blocks into column ${columnIndex}`
+                      canRemoveColumn
+                        ? `Remove column ${columnIndex + 1} and move its blocks into the column on its ${rowColumnMergeTarget(columnIndex).side}`
+                        : undefined
                     }
                     disabled={!canRemoveColumn}
-                    onClick={() => onRemoveColumn(columnIndex)}
+                    onClick={() => removeColumn(columnIndex)}
                     className="inline-flex size-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <Trash2 size={11} />
