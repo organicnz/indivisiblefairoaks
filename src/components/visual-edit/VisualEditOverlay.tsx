@@ -14,6 +14,7 @@ import {
   FileEdit,
   FolderOpen,
   Globe,
+  GripVertical,
   History,
   Image as ImageIcon,
   Keyboard,
@@ -32,7 +33,15 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import {
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CRMMediaLibraryModal } from '@/components/admin/crm/composer/CRMMediaLibraryModal';
@@ -57,6 +66,12 @@ import {
 } from '@/lib/actions/content';
 import { getCRMEdgeFunctionHealth, uploadCRMMedia } from '@/lib/actions/crm';
 import { getVisualPageContext } from '@/lib/actions/visual';
+import {
+  type BlockFrame,
+  insertionPointForPointer,
+  moveBlockItem,
+  planBlockMove,
+} from '@/lib/block-order';
 import {
   type Block,
   CALLOUT_TONES,
@@ -127,6 +142,7 @@ import { PageNavigatorDrawer } from './PageNavigatorDrawer';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { runTextareaFormatCommand } from './textareaFormat';
 import { useBlockWriter } from './useBlockWriter';
+import { useComposerPagePreview } from './useComposerPagePreview';
 import { ViewportDeviceBar } from './ViewportDeviceBar';
 import {
   compileClassNames,
@@ -364,6 +380,19 @@ export function VisualEditOverlay() {
   const [sectionOverlays, setSectionOverlays] = useState<VisualSectionOverlayItem[]>([]);
   /** The block the operator is working on, for the highlighted frame. */
   const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
+
+  // ── Dragging a block to a new position ──────────────────────────────────
+  // The pointer picks a *gap* between blocks; the drop closes it. The
+  // arithmetic lives in `@/lib/block-order` so the off-by-one that turns a
+  // downward move into a no-op is tested without a browser.
+  interface BlockDragState {
+    fromIndex: number;
+    insertion: number;
+    indicator: { top: number; left: number; width: number } | null;
+  }
+  const [blockDrag, setBlockDrag] = useState<BlockDragState | null>(null);
+  const blockDragRef = useRef<BlockDragState | null>(null);
+  blockDragRef.current = blockDrag;
 
   // ── Multi-block selection ────────────────────────────────────────────────
   // Selection is stored by block id, not by index. Reordering, deleting or
@@ -851,6 +880,44 @@ export function VisualEditOverlay() {
     },
     [findEffectiveVisualEditRoot, sections]
   );
+
+  /**
+   * The page is the composer's preview surface.
+   *
+   * The inspector reports its unapplied design; this hook paints it onto the
+   * blocks' real wrappers and restores the captured attributes when the draft
+   * is discarded, the panel closes, or the overlay unmounts. A successful apply
+   * converts the preview into the page's new state, so closing no longer snaps
+   * back to the old look between Apply and the autosave's refresh.
+   */
+  const { applyDraft: applyComposerDraft, commitDraft: commitComposerDraft } =
+    useComposerPagePreview({
+      resolveElement: locate,
+      structuralClassesOf: (index) => {
+        const targetBlock = blocksRef.current[index];
+        return targetBlock ? structuralClassesOf(targetBlock) : '';
+      },
+      /*
+       * The design lands on the block's existing `<div>` when it has one, and on
+       * a new wrapper the save creates when it does not. The preview follows the
+       * same split so it cannot show a shape the save would not produce.
+       */
+      shellOf: (index) => {
+        const targetBlock = blocksRef.current[index];
+        if (!targetBlock || !('html' in targetBlock) || typeof targetBlock.html !== 'string') {
+          return 'replace';
+        }
+        const trimmed = targetBlock.html.trim();
+        return trimmed.startsWith('<div') && trimmed.endsWith('</div>') ? 'replace' : 'wrap';
+      },
+    });
+
+  // The overlay can disappear while the panel is still open — an admin signing
+  // out, a route that opts out of visual editing. A preview must not outlive
+  // the surface that describes it.
+  useEffect(() => {
+    if (!enabled || !isAdmin) applyComposerDraft(null);
+  }, [enabled, isAdmin, applyComposerDraft]);
 
   /** Handle keyboard shortcuts in the editor. */
   const handleEditorShortcuts = useCallback(
@@ -1866,10 +1933,13 @@ export function VisualEditOverlay() {
       nextBlocks[vcBlockIndex] = nextBlock;
       setBlocks(nextBlocks);
       commitBlocks(nextBlocks, `vc-edit:${vcBlockIndex}`);
+      // The preview *is* the page's new design now; keep it rather than let the
+      // cleanup restore the old look until the autosave refresh lands.
+      commitComposerDraft([vcBlockIndex]);
       toast.success(`Block #${vcBlockIndex + 1} customized`);
       return true;
     },
-    [commitBlocks, vcBlockIndex]
+    [commitBlocks, commitComposerDraft, vcBlockIndex]
   );
 
   /**
@@ -1938,10 +2008,11 @@ export function VisualEditOverlay() {
 
       setBlocks(nextBlocks);
       commitBlocks(nextBlocks, `vc-batch-edit:${blockIndexes.join(',')}`);
+      commitComposerDraft(blockIndexes);
       toast.success(`Styled ${blockIndexes.length} blocks`);
       return true;
     },
-    [commitBlocks]
+    [commitBlocks, commitComposerDraft]
   );
 
   const handleInsertBlockFromLibrary = useCallback(
@@ -2630,6 +2701,188 @@ export function VisualEditOverlay() {
     [commitBlocks, handlePersistBlocks, sections]
   );
 
+  /**
+   * The rendered blocks, in document order, with the vertical extent a drop
+   * gesture compares against.
+   */
+  const blockFrames = useCallback((): BlockFrame[] => {
+    const frames: BlockFrame[] = [];
+    for (const section of sections) {
+      const element = locate(section.blockIndex);
+      if (!element) continue;
+      const rect = element.getBoundingClientRect();
+      // A zero-height element (a hidden add-block placeholder, say) has no
+      // meaningful midpoint and would steal every drop above it.
+      if (rect.bottom <= rect.top) continue;
+      frames.push({ blockIndex: section.blockIndex, top: rect.top, bottom: rect.bottom });
+    }
+    return frames;
+  }, [locate, sections]);
+
+  /** Where to draw the insertion line for a gap, in viewport coordinates. */
+  const dropIndicatorFor = useCallback(
+    (insertion: number): { top: number; left: number; width: number } | null => {
+      const before = sections.find((section) => section.blockIndex === insertion);
+      // The end of the list is drawn under the last block that is actually on
+      // the page; an unrendered trailing block has no edge to point at.
+      const target =
+        before ?? [...sections].reverse().find((section) => locate(section.blockIndex));
+      if (!target) return null;
+      const element = locate(target.blockIndex);
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      return { top: before ? rect.top : rect.bottom, left: rect.left, width: rect.width };
+    },
+    [locate, sections]
+  );
+
+  /**
+   * Lift a block. Nothing is written until the pointer is released over a
+   * different gap — a click on the handle is not a move, so it must not mint a
+   * revision that says the page changed when it did not.
+   */
+  const beginBlockDrag = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>, fromIndex: number) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+      if (isVisualComposerOpen) return;
+      if (blockFrames().length < 2) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectBlockOnly(fromIndex);
+      setBlockDrag({ fromIndex, insertion: fromIndex, indicator: dropIndicatorFor(fromIndex) });
+    },
+    [blockFrames, dropIndicatorFor, isVisualComposerOpen, selectBlockOnly]
+  );
+
+  /**
+   * Put a block at a new index, as one undoable write.
+   *
+   * Both the drop and the handle's arrow keys land here, so they cannot grow
+   * two histories or two save paths that disagree about what "moved" means.
+   */
+  const moveBlockTo = useCallback(
+    (from: number, to: number) => {
+      if (from === to) return;
+      const total = blocksRef.current.length;
+      if (from < 0 || to < 0 || from >= total || to >= total) return;
+
+      const next = moveBlockItem(blocksRef.current, { from, to });
+      commitBlocks(next, `reorder:${from}`);
+      // Selection follows the block, not the slot it left behind.
+      setActiveBlockIndex(to);
+      const moved = next[to];
+      if (moved) setSelectedBlockIds(new Set([moved.id]));
+      void handlePersistBlocks(next, 'Block order updated');
+    },
+    [commitBlocks, handlePersistBlocks]
+  );
+
+  const finishBlockDrag = useCallback(
+    (drop: boolean) => {
+      const drag = blockDragRef.current;
+      blockDragRef.current = null;
+      setBlockDrag(null);
+      if (!drop || !drag) return;
+
+      const plan = planBlockMove(blocksRef.current.length, drag.fromIndex, drag.insertion);
+      if (plan) moveBlockTo(plan.from, plan.to);
+    },
+    [moveBlockTo]
+  );
+
+  /**
+   * Move one *rendered* neighbour, not necessarily one block.
+   *
+   * A block the page does not render — a migrated `<form>` the sanitizer keeps
+   * and the page drops — is still in the document, and moving past it is a
+   * move the operator cannot see. The drag already skips those gaps; the arrow
+   * keys on the same handle do too, so the two halves of one control agree.
+   * When nothing is rendered beside the block, the document-order move is the
+   * fallback, because "there is a block there, just not on the page" is still
+   * a real neighbour in the saved document.
+   */
+  const moveBlockToVisibleNeighbour = useCallback(
+    (fromIndex: number, direction: 'up' | 'down') => {
+      const frames = blockFrames();
+      const position = frames.findIndex((frame) => frame.blockIndex === fromIndex);
+      const neighbour =
+        position === -1 ? undefined : frames[position + (direction === 'down' ? 1 : -1)];
+      if (neighbour) {
+        moveBlockTo(fromIndex, neighbour.blockIndex);
+        return;
+      }
+      if (canMoveSection(sections, fromIndex, direction)) {
+        void handleMoveSection(fromIndex, direction);
+      }
+    },
+    [blockFrames, handleMoveSection, moveBlockTo, sections]
+  );
+
+  const isDraggingBlock = blockDrag !== null;
+  useEffect(() => {
+    if (!isDraggingBlock) return;
+    const previousUserSelect = document.body.style.userSelect;
+    const previousCursor = document.body.style.cursor;
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'grabbing';
+
+    const onPointerMove = (event: PointerEvent) => {
+      /*
+       * A drag that cannot reach the edge is a drag that cannot reach the end of
+       * a long page. Scroll while the pointer is held near an edge; the frames
+       * are re-measured after this, so the gap under the pointer is the gap the
+       * page is now showing rather than the one it showed a moment ago.
+       */
+      const edge = 72;
+      if (typeof window.scrollBy === 'function') {
+        if (event.clientY < edge) window.scrollBy({ top: -18 });
+        else if (event.clientY > window.innerHeight - edge) window.scrollBy({ top: 18 });
+      }
+
+      const frames = blockFrames();
+      if (frames.length === 0) return;
+      const insertion = insertionPointForPointer(frames, event.clientY);
+      if (insertion === null) return;
+      setBlockDrag((prev) =>
+        prev === null || prev.insertion === insertion
+          ? prev
+          : { ...prev, insertion, indicator: dropIndicatorFor(insertion) }
+      );
+    };
+    const onPointerUp = () => finishBlockDrag(true);
+    const onPointerCancel = () => finishBlockDrag(false);
+    // Dragging into the browser chrome (or out of the tab) never delivers a
+    // pointerup. Treat losing the window as the cancel it effectively is.
+    const onWindowBlur = () => finishBlockDrag(false);
+    /*
+     * Escape cancels the gesture, not the page. Capturing here runs before the
+     * overlay's own key handler, which would otherwise read Escape as "collapse
+     * the selection" or the composer's as "close the panel" while a block is
+     * mid-air.
+     */
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      finishBlockDrag(false);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
+    window.addEventListener('blur', onWindowBlur);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
+      window.removeEventListener('blur', onWindowBlur);
+      window.removeEventListener('keydown', onKeyDown, true);
+      document.body.style.userSelect = previousUserSelect;
+      document.body.style.cursor = previousCursor;
+    };
+  }, [isDraggingBlock, blockFrames, dropIndicatorFor, finishBlockDrag]);
+
   const handleDuplicateSection = useCallback(
     async (blockIndex: number) => {
       const source = blocksRef.current[blockIndex];
@@ -3210,12 +3463,66 @@ export function VisualEditOverlay() {
                 }`}
               />
 
+              {/*
+                Insert after this block. The gap between two blocks is where an
+                operator wants a new one, and it used to be reachable only
+                through the context menu or the structure drawer. It appears on
+                the block being worked on rather than on every frame, so a page
+                of forty blocks does not grow forty floating buttons.
+              */}
+              {activeBlockIndex === item.blockIndex ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLibraryTargetIndex(item.blockIndex + 1);
+                    setIsBlockLibraryOpen(true);
+                  }}
+                  aria-label={`Add a block after ${item.label}`}
+                  title="Add a block after this one"
+                  className="pointer-events-auto absolute -bottom-3 left-1/2 z-10 flex size-6 -translate-x-1/2 items-center justify-center rounded-full border border-accent-gold/60 bg-secondary text-accent-gold shadow-float backdrop-blur-md transition-all hover:scale-110 hover:bg-accent-gold hover:text-ink-strong"
+                >
+                  <Plus size={13} />
+                </button>
+              ) : null}
+
               {/* Floating Action Pill */}
               <div
                 role="toolbar"
                 aria-label={`Actions for ${item.label}`}
                 className="pointer-events-auto absolute -top-3.5 left-0 -translate-x-full -ml-1 max-sm:left-0 max-sm:translate-x-0 max-sm:-top-8 inline-flex items-center gap-1.5 rounded-full border border-accent-gold/50 bg-secondary/95 px-3 py-1 text-xs text-ink-on-dark shadow-float backdrop-blur-md transition-all hover:scale-105"
               >
+                {/*
+                  Drag to reorder. The handle is a button because a drag-only
+                  control is unusable from the keyboard: Arrow Up/Down on the
+                  same handle moves the block one place, which is also the
+                  fallback for a trackpad that cannot hold a drag.
+                */}
+                <button
+                  type="button"
+                  onPointerDown={(event) => beginBlockDrag(event, item.blockIndex)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    moveBlockToVisibleNeighbour(
+                      item.blockIndex,
+                      event.key === 'ArrowUp' ? 'up' : 'down'
+                    );
+                  }}
+                  disabled={isVisualComposerOpen}
+                  aria-label={`Reorder ${item.label}. Drag, or press Arrow Up or Arrow Down.`}
+                  title={
+                    isVisualComposerOpen
+                      ? 'Close the composer to move blocks'
+                      : 'Drag to reorder — or focus and press ↑ / ↓'
+                  }
+                  className="cursor-grab touch-none rounded p-1 text-slate-400 transition-colors hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                >
+                  <GripVertical size={13} />
+                </button>
+
+                <span className="h-3 w-px bg-white/20" aria-hidden="true" />
+
                 {/* Selection chip: click selects the block; Cmd/Ctrl/Shift+click toggles multi. */}
                 <button
                   type="button"
@@ -5040,6 +5347,20 @@ export function VisualEditOverlay() {
                     </kbd>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Move Active Section Up / Down</span>
+                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
+                      ⌘ ⇧ ↑ / ↓
+                    </kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Reorder a Block by Dragging</span>
+                    <span className="text-[11px] font-mono text-muted-foreground">⠿ handle</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
+                    <span className="text-foreground">Add a Block After the Active One</span>
+                    <span className="text-[11px] font-mono text-muted-foreground">＋ on frame</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-surface-muted border border-border">
                     <span className="text-foreground">Undo / Redo Edit</span>
                     <div className="flex gap-1">
                       <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[11px] font-mono font-bold text-foreground shadow-xs">
@@ -5717,6 +6038,7 @@ export function VisualEditOverlay() {
         canNavigatePrevious={vcBlockIndex !== null && vcBlockIndex > 0}
         canNavigateNext={vcBlockIndex !== null && vcBlockIndex < blocks.length - 1}
         initialMode={vcMode}
+        onPreviewChange={applyComposerDraft}
       />
 
       {/* ── Visual Composer Element Library & Templates Modal (⌘⇧E) ─────────── */}
@@ -5750,6 +6072,28 @@ export function VisualEditOverlay() {
           setIsBlockLibraryOpen(true);
         }}
       />
+
+      {/*
+        ── Drag insertion line ──────────────────────────────────────────────
+        The gap the block would land in, drawn where it would land. The dragged
+        block itself stays on the page: a floating ghost is harder to aim with
+        than the real row, and the line is what actually answers "where".
+      */}
+      {blockDrag?.indicator ? (
+        <div
+          data-testid="block-drop-indicator"
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            top: `${blockDrag.indicator.top - 1.5}px`,
+            left: `${blockDrag.indicator.left}px`,
+            width: `${blockDrag.indicator.width}px`,
+          }}
+          className="pointer-events-none z-[10020] h-[3px] rounded-full bg-accent-gold shadow-[0_0_14px_rgba(245,158,11,0.9)]"
+        >
+          <span className="absolute -left-1 -top-[3px] size-2.5 rounded-full bg-accent-gold" />
+        </div>
+      ) : null}
 
       {/* ── Visual Composer On-Canvas Right-Click Context Menu ──────────────── */}
       {contextMenu && (

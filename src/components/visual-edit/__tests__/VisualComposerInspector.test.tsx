@@ -2,6 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ComposerDraftPreview } from '@/components/visual-edit/useComposerPagePreview';
 import {
   DEFAULT_VC_STYLES,
   VisualComposerInspector,
@@ -4440,5 +4441,110 @@ describe('VisualComposerInspector block navigation', () => {
 
     expect(byAria('Previous block')).toBeNull();
     expect(byAria('Next block')).toBeNull();
+  });
+});
+
+/**
+ * Live page preview.
+ *
+ * The composer reports its unapplied draft so the page can paint it on the real
+ * wrapper — the actual column width, the actual neighbours. What it reports is
+ * the draft and only the draft: opening a pristine block must not restyle it
+ * with the editor's defaults, and returning to the baseline must withdraw the
+ * preview rather than leave the page wearing a design that was never applied.
+ */
+describe('VisualComposerInspector live page preview', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  const previewBlock: Block = { id: 'preview-a', type: 'heading', level: 2, html: 'Mission' };
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  const byText = (text: string) =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === text
+    );
+
+  /**
+   * One change the compiler emits. A radius alone is not emitted while the
+   * border width is zero — there is no edge to round — so the test uses the
+   * border preset that sets both, as an operator would.
+   */
+  const applyBorderPreset = async () => {
+    await act(async () => {
+      byText('Box Model')?.click();
+    });
+    const preset = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Apply Modern Card border preset"]'
+    );
+    expect(preset).not.toBeNull();
+    await act(async () => {
+      preset?.click();
+    });
+  };
+
+  const mount = async (
+    onPreviewChange: (draft: ComposerDraftPreview | null) => void,
+    open = true
+  ): Promise<void> => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={open}
+          onClose={vi.fn()}
+          block={previewBlock}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          onPreviewChange={onPreviewChange}
+        />
+      );
+    });
+  };
+
+  it('reports the draft while it differs from the page, and withdraws it on undo', async () => {
+    const onPreviewChange = vi.fn();
+    await mount(onPreviewChange);
+
+    // Opening is not a change: there is nothing to paint over the page.
+    expect(onPreviewChange).toHaveBeenLastCalledWith(null);
+    expect(document.body.textContent).not.toContain('Previewing on the page');
+
+    await applyBorderPreset();
+
+    const draft = onPreviewChange.mock.calls.at(-1)?.[0];
+    expect(draft).toMatchObject({ mode: 'block', blockIndexes: [0], themeMode: 'inherit' });
+    expect(draft.classes).toContain('rounded-2xl');
+    expect(document.body.textContent).toContain('Previewing on the page');
+    expect(document.body.textContent).toContain('nothing is saved until you apply');
+
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[aria-label="Undo last change"]')?.click();
+    });
+
+    // Back to what the page already carries, so the preview is withdrawn.
+    expect(onPreviewChange).toHaveBeenLastCalledWith(null);
+    expect(document.body.textContent).not.toContain('Previewing on the page');
+  });
+
+  it('withdraws the preview when the panel closes', async () => {
+    const onPreviewChange = vi.fn();
+    await mount(onPreviewChange);
+    await applyBorderPreset();
+    expect(onPreviewChange.mock.calls.at(-1)?.[0]).not.toBeNull();
+
+    await mount(onPreviewChange, false);
+
+    expect(onPreviewChange).toHaveBeenLastCalledWith(null);
   });
 });

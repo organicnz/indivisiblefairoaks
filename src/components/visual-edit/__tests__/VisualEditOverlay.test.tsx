@@ -177,6 +177,62 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     await mount();
   };
 
+  const byText = (text: string) =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === text
+    );
+
+  /** The page as the browser holds it: the overlay's frames sit over these. */
+  const pageChildren = () => {
+    const page = document.querySelector<HTMLElement>('[data-visual-edit-root]');
+    expect(page).not.toBeNull();
+    return page as HTMLElement;
+  };
+
+  const openComposerOn = async (frameIndex: number) => {
+    const composers = container.querySelectorAll<HTMLButtonElement>(
+      'button[aria-label="Visual Composer Inspector"]'
+    );
+    expect(composers[frameIndex]).toBeDefined();
+    await act(async () => {
+      composers[frameIndex]?.click();
+    });
+  };
+
+  const openComposerOnFirstBlock = () => openComposerOn(0);
+
+  /**
+   * Make one draft change the compiler actually emits. The radius alone is not
+   * emitted while the border width is zero — a rounded edge with no edge to
+   * round is not a visual change — so the test uses the border preset that sets
+   * both, the same way an operator would.
+   */
+  const changeCornerRadius = async () => {
+    await act(async () => {
+      byText('Box Model')?.click();
+    });
+    const preset = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Apply Modern Card border preset"]'
+    );
+    expect(preset).not.toBeNull();
+    await act(async () => {
+      preset?.click();
+    });
+  };
+
+  const asRect = (top: number, bottom: number): DOMRect =>
+    ({
+      top,
+      bottom,
+      left: 0,
+      right: 100,
+      width: 100,
+      height: bottom - top,
+      x: 0,
+      y: top,
+      toJSON: () => ({}),
+    }) as DOMRect;
+
   it('edits the block the frame is on, not the one at that ordinal', async () => {
     await withPage();
 
@@ -1332,5 +1388,203 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(
       document.querySelector<HTMLButtonElement>('button[aria-label="Next block"]')?.disabled
     ).toBe(true);
+  });
+
+  it('paints the composer draft onto the page, and takes it back on discard', async () => {
+    await withPage();
+    const paragraph = pageChildren().children[0] as HTMLElement;
+
+    await openComposerOnFirstBlock();
+    // Opening a clean draft is not a design change: the page keeps its markup.
+    expect(paragraph.getAttribute('class')).toBeNull();
+
+    await changeCornerRadius();
+    expect(paragraph.getAttribute('class')).toContain('rounded-2xl');
+    expect(paragraph.getAttribute('data-vc-draft-preview')).toBe('true');
+
+    await act(async () => {
+      byText('Cancel')?.click();
+    });
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+    await act(async () => {
+      byText('Discard')?.click();
+    });
+
+    // Discard means discard, including on the page itself.
+    expect(paragraph.getAttribute('class')).toBeNull();
+    expect(paragraph.hasAttribute('data-vc-draft-preview')).toBe(false);
+  });
+
+  it('keeps the page’s own classes when the design will be wrapped around them', async () => {
+    /*
+     * A plain heading is not a `<div>` wrapper: the save leaves its own classes
+     * alone and wraps a new div around it. The preview has to do the same in
+     * spirit — add the design without stripping `cw--h2`, which is the site's
+     * typography, not the composer's. Replacing the class here would make every
+     * heading look like the editor default while a draft was being tuned.
+     */
+    const wrappedBody = '<p>Intro copy.</p><h2 class="cw cw--h2">Mission</h2>';
+    renderPage(wrappedBody);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: wrappedBody,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+
+    const heading = pageChildren().children[1] as HTMLElement;
+    expect(heading.getAttribute('class')).toBe('cw cw--h2');
+
+    await openComposerOn(1);
+    await changeCornerRadius();
+
+    expect(heading.getAttribute('class')).toContain('cw--h2');
+    expect(heading.getAttribute('class')).toContain('rounded-2xl');
+
+    await act(async () => {
+      byText('Cancel')?.click();
+    });
+    await act(async () => {
+      byText('Discard')?.click();
+    });
+
+    // Byte-for-byte, not merely "the cw class is still there".
+    expect(heading.getAttribute('class')).toBe('cw cw--h2');
+  });
+
+  it('keeps the applied design on the page instead of flashing back to the old one', async () => {
+    await withPage();
+    const paragraph = pageChildren().children[0] as HTMLElement;
+
+    await openComposerOnFirstBlock();
+    await changeCornerRadius();
+    expect(paragraph.getAttribute('class')).toContain('rounded-2xl');
+
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+
+    /*
+     * The panel is gone and the page is already wearing what was applied. The
+     * autosave's refresh will replace this wrapper with identical classes; a
+     * restore here would show the old design for the seconds in between.
+     */
+    expect(document.body.textContent).not.toContain('Visual Composer Inspector');
+    expect(paragraph.getAttribute('class')).toContain('rounded-2xl');
+    expect(paragraph.hasAttribute('data-vc-draft-preview')).toBe(false);
+  });
+
+  it('reorders blocks by dragging the handle and writes the order once', async () => {
+    await withPage();
+    const page = pageChildren();
+    const paragraph = page.children[0] as HTMLElement;
+    const heading = page.children[1] as HTMLElement;
+
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element
+    ) {
+      if (this === paragraph) return asRect(0, 100);
+      if (this === heading) return asRect(100, 300);
+      return asRect(0, 0);
+    });
+
+    try {
+      const handle = container.querySelector<HTMLButtonElement>(
+        'button[aria-label^="Reorder Intro copy"]'
+      );
+      expect(handle).not.toBeNull();
+
+      await act(async () => {
+        handle?.dispatchEvent(
+          new MouseEvent('pointerdown', {
+            bubbles: true,
+            cancelable: true,
+            button: 0,
+            clientY: 50,
+          })
+        );
+      });
+      await act(async () => {
+        window.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientY: 220 }));
+      });
+
+      // The gap the block would land in is drawn while the pointer moves.
+      expect(document.querySelector('[data-testid="block-drop-indicator"]')).not.toBeNull();
+
+      await act(async () => {
+        window.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 220 }));
+      });
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    const written = saveContent.mock.calls[0][0].body as string;
+    expect(written.indexOf('Mission')).toBeLessThan(written.indexOf('Intro copy.'));
+  });
+
+  it('moves a block from the same handle with the arrow keys', async () => {
+    await withPage();
+    const page = pageChildren();
+    const paragraph = page.children[0] as HTMLElement;
+    const heading = page.children[1] as HTMLElement;
+
+    // The keyboard move is the drag's visible-neighbour rule: it steps over the
+    // form block that is in the document but not on the page.
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element
+    ) {
+      if (this === paragraph) return asRect(0, 100);
+      if (this === heading) return asRect(100, 300);
+      return asRect(0, 0);
+    });
+
+    try {
+      const handle = container.querySelector<HTMLButtonElement>(
+        'button[aria-label^="Reorder Intro copy"]'
+      );
+      expect(handle).not.toBeNull();
+
+      await act(async () => {
+        handle?.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })
+        );
+      });
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(saveContent).toHaveBeenCalledTimes(1);
+    const written = saveContent.mock.calls[0][0].body as string;
+    expect(written.indexOf('Mission')).toBeLessThan(written.indexOf('Intro copy.'));
+  });
+
+  it('offers an insert-after control on the block being worked on', async () => {
+    await withPage();
+
+    const chip = container.querySelector<HTMLButtonElement>('button[title^="Select this block"]');
+    await act(async () => {
+      chip?.click();
+    });
+
+    const addAfter = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Add a block after Intro copy."]'
+    );
+    expect(addAfter).not.toBeNull();
+    await act(async () => {
+      addAfter?.click();
+    });
+
+    expect(document.body.textContent).toContain('Visual Composer Element Library');
+    // The library is aimed at the gap after block #1, which reads as "above the
+    // block that comes next".
+    expect(document.body.textContent).toContain('Insert element above block #2');
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Eye } from 'lucide-react';
 import {
   type Dispatch,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -25,7 +25,6 @@ import type {
   VisualComposerTab,
   VisualComposerThemeMode,
 } from '@/types/unified';
-
 import {
   AdvancedMotionStudio,
   BlockContentStudio,
@@ -52,6 +51,7 @@ import {
   VC_COLUMN_PRESETS,
   VC_STYLE_PRESETS,
 } from './composer';
+import type { ComposerDraftPreview } from './useComposerPagePreview';
 
 export type {
   VisualComposerBackground,
@@ -421,6 +421,15 @@ export interface VisualComposerInspectorProps {
   initialMode?: VisualComposerMode;
   /** Initial value of the "keep open after apply" toggle. */
   keepOpenOnApplyInitial?: boolean;
+  /**
+   * Report the unapplied design so the page itself can show it.
+   *
+   * Called with `null` whenever there is nothing to preview — the draft is
+   * clean, the panel closed, or the component unmounted — so the page always
+   * has a way back to its own markup. The overlay owns what "preview" means;
+   * this panel only says what the draft looks like.
+   */
+  onPreviewChange?: (draft: ComposerDraftPreview | null) => void;
 }
 
 export function VisualComposerInspector({
@@ -440,6 +449,7 @@ export function VisualComposerInspector({
   canNavigateNext = false,
   initialMode = 'block',
   keepOpenOnApplyInitial = false,
+  onPreviewChange,
 }: VisualComposerInspectorProps) {
   const [inspectorMode, setInspectorMode] = useState<VisualComposerMode>(initialMode);
   const [activeTab, setActiveTab] = useState<VisualComposerTab>('content');
@@ -490,6 +500,15 @@ export function VisualComposerInspector({
   );
   const contentDirty = currentBlockSignature !== '' && currentBlockSignature !== blockSignature;
   const dirty = stylesSignature !== baselineSignature || contentDirty;
+
+  /**
+   * A design the page has not agreed to yet.
+   *
+   * Only this paints the live preview: opening the panel on an untouched block
+   * must not restyle it with the editor's defaults, and typed copy does not
+   * change the look.
+   */
+  const designDirty = stylesSignature !== baselineSignature;
 
   /**
    * What the draft actually changes, grouped the way an operator thinks.
@@ -604,6 +623,77 @@ export function VisualComposerInspector({
   );
 
   const isBatchMode = selectedBlockIndexes.length > 1;
+
+  /** The compiled draft, shared by the mini preview and the live page preview. */
+  const compiledClassNames = useMemo(
+    () => compileClassNames(inspectorMode, styles),
+    [inspectorMode, styles]
+  );
+
+  /*
+   * What the live preview paints: the block under edit, or every target of a
+   * batch. A ref plus a string key because `selectedBlockIndexes` arrives as a
+   * fresh array on most renders, and an effect keyed on its identity would
+   * repaint the page on every keystroke elsewhere in the panel.
+   */
+  const previewIndexes = isBatchMode
+    ? selectedBlockIndexes
+    : blockIndex !== null
+      ? [blockIndex]
+      : [];
+  const previewIndexesRef = useRef<number[]>(previewIndexes);
+  previewIndexesRef.current = previewIndexes;
+  const previewIndexKey = previewIndexes.join(',');
+  const previewReporterRef = useRef(onPreviewChange);
+  previewReporterRef.current = onPreviewChange;
+
+  /**
+   * Section mode themes the row through `section.themeMode`; block mode uses
+   * the wrapper's own. Sending the wrong one would preview a theme the save
+   * would not write.
+   */
+  const previewThemeMode =
+    inspectorMode === 'section'
+      ? (styles.section.themeMode ?? styles.themeMode ?? 'system')
+      : (styles.themeMode ?? 'system');
+
+  /*
+   * Report the draft to the page. The cleanup is deliberately not part of this
+   * effect: it would fire between two keystrokes, and the page would flash its
+   * original design back for a frame before the next one. Clearing is explicit
+   * — a clean draft, a closed panel, or unmount.
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: previewIndexKey is the trigger; the effect reads the live indexes through a ref so the array's identity cannot repaint the page.
+  useEffect(() => {
+    const report = previewReporterRef.current;
+    if (!report) return;
+    if (!open || !designDirty) {
+      report(null);
+      return;
+    }
+    report({
+      mode: inspectorMode,
+      blockIndexes: previewIndexesRef.current,
+      classes: compiledClassNames,
+      style: styles.customStyle ?? '',
+      themeMode: previewThemeMode,
+    });
+  }, [
+    open,
+    designDirty,
+    inspectorMode,
+    compiledClassNames,
+    previewIndexKey,
+    styles.customStyle,
+    previewThemeMode,
+  ]);
+
+  useEffect(
+    () => () => {
+      previewReporterRef.current?.(null);
+    },
+    []
+  );
 
   /**
    * Nothing changed, so there is nothing to write.
@@ -1021,9 +1111,6 @@ export function VisualComposerInspector({
 
   if (!open || !currentBlock || blockIndex === null) return null;
 
-  // Build Tailwind classes string based on mode
-  const compiledClassNames = compileClassNames(inspectorMode, styles);
-
   const handleApply = () => {
     if (!currentBlock || applyDisabled) return;
     let finalBlock: Block = { ...currentBlock };
@@ -1338,6 +1425,21 @@ export function VisualComposerInspector({
         canNavigatePrevious={canNavigatePrevious}
         canNavigateNext={canNavigateNext}
       />
+
+      {/*
+        The page is the preview now. Say so while the draft is live, and say
+        the part that matters: this is a look, not a write. An operator who does
+        not know the difference is one Esc away from a scare they did not earn.
+      */}
+      {designDirty && onPreviewChange ? (
+        <p
+          data-testid="composer-live-preview-status"
+          className="flex items-center gap-1.5 border-b border-emerald-400/20 bg-emerald-500/[0.07] px-5 py-1.5 text-[10px] font-semibold text-emerald-200"
+        >
+          <Eye size={11} className="shrink-0" aria-hidden="true" />
+          <span>Previewing on the page — nothing is saved until you apply.</span>
+        </p>
+      ) : null}
 
       {/* A batch that lost a block says so, instead of quietly styling fewer. */}
       {removedTargetCount > 0 ? (

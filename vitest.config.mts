@@ -97,6 +97,10 @@ export default defineConfig({
         'src/lib/blocks/parse.ts',
         'src/lib/blocks/serialize.ts',
         'src/lib/blocks/types.ts',
+        // Drag-to-reorder arithmetic. The pointer names a gap, the list needs an
+        // index, and the two differ by one for every gap below the dragged
+        // block — the off-by-one that makes "move down" a no-op.
+        'src/lib/block-order.ts',
         'src/lib/crm-broadcast.ts',
         'src/lib/crm-import.ts',
         'src/lib/content.ts',
