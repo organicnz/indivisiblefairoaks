@@ -11,6 +11,17 @@ import type { VisualComposerStyles } from '@/types/unified';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
+/**
+ * A page that echoes a save the way the overlay does: the block comes back
+ * wrapped in the shell the editor persists, not as the draft that was sent.
+ */
+const APPLY_HARNESS_BLOCK: Block = {
+  id: 'apply-a',
+  type: 'heading',
+  level: 2,
+  html: 'Mission',
+};
+
 describe('VisualComposerInspector', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -1196,7 +1207,9 @@ describe('VisualComposerInspector', () => {
     });
 
     // Quick Reset button in drawer header
-    const resetBtn = document.querySelector('button[aria-label="Reset styles to defaults"]');
+    const resetBtn = document.querySelector(
+      'button[aria-label="Reset design to defaults, keeping the anchor id"]'
+    );
     expect(resetBtn).not.toBeNull();
     await act(async () => {
       (resetBtn as HTMLButtonElement).click();
@@ -2962,5 +2975,1470 @@ describe('FR-3: Alt+Arrow cycles inspector tabs', () => {
       document.body.querySelectorAll<HTMLButtonElement>('button')
     ).find((b) => b.className.includes('bg-accent-gold') && b.textContent?.includes('Presets'));
     expect(presetsActive).toBeUndefined();
+  });
+});
+
+// ── Batch styling, keep-open, and session history ────────────────────────────
+
+describe('VisualComposerInspector batch styling and session history', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  const blockA: Block = { id: 'batch-a', type: 'heading', level: 2, html: 'First heading' };
+  const blockB: Block = { id: 'batch-b', type: 'paragraph', html: 'Second block' };
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  const buttons = () => Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'));
+  const byText = (text: string) => buttons().find((b) => b.textContent?.trim() === text);
+  const byAria = (label: string) =>
+    document.body.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+
+  it('hides content and code tabs in batch mode and applies to every selected block', async () => {
+    const onSaveBlock = vi.fn();
+    const onSaveBlocks = vi.fn();
+    const onClose = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={onClose}
+          block={blockA}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          onSaveBlocks={onSaveBlocks}
+          selectedBlockIndexes={[0, 1, 2]}
+        />
+      );
+    });
+
+    // Content editing is not a batch operation: one block's body copy must not
+    // overwrite another's, so those tabs are absent rather than silently inert.
+    expect(document.body.textContent).toContain('3 blocks · batch styling');
+    expect(document.body.textContent).toContain(
+      'Batch styling applies design controls to all 3 blocks'
+    );
+    expect(byText('Content')).toBeUndefined();
+    expect(byText('Code')).toBeUndefined();
+    expect(byText('Presets')).toBeDefined();
+    expect(byText('Box Model')).toBeDefined();
+
+    await act(async () => {
+      byText('Apply to 3 blocks')?.click();
+    });
+
+    expect(onSaveBlock).not.toHaveBeenCalled();
+    expect(onSaveBlocks).toHaveBeenCalledTimes(1);
+
+    const call = onSaveBlocks.mock.calls[0] as [
+      Block,
+      number[],
+      string,
+      string | undefined,
+      string | undefined,
+    ];
+    expect(call[0].id).toBe(blockA.id);
+    expect(call[1]).toEqual([0, 1, 2]);
+    expect(typeof call[2]).toBe('string');
+    // A shared anchor id across N blocks would be a duplicate id.
+    expect(call[3]).toBeUndefined();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the inspector open after applying when Keep editing is enabled', async () => {
+    const onSaveBlock = vi.fn();
+    const onClose = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={onClose}
+          block={blockA}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+        />
+      );
+    });
+
+    const keep = byText('Keep editing');
+    expect(keep).toBeDefined();
+    expect(keep?.getAttribute('aria-pressed')).toBe('false');
+
+    await act(async () => {
+      keep?.click();
+    });
+    expect(byText('Keep editing')?.getAttribute('aria-pressed')).toBe('true');
+
+    // There has to be a change to save: a no-op Apply is deliberately inert.
+    await act(async () => {
+      byText('Presets')?.click();
+    });
+    await act(async () => {
+      buttons()
+        .find((b) => b.textContent?.includes('Civic Gold Callout'))
+        ?.click();
+    });
+
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('undoes and redoes one style change without clearing the redo stack', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={blockA}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    // A preset is a real style change, made through the same path a control uses.
+    await act(async () => {
+      byText('Presets')?.click();
+    });
+    await act(async () => {
+      buttons()
+        .find((b) => b.textContent?.includes('Civic Gold Callout'))
+        ?.click();
+    });
+
+    expect(byAria('Undo last change')?.disabled).toBe(false);
+    expect(byAria('Redo last undone change')?.disabled).toBe(true);
+
+    await act(async () => {
+      byAria('Undo last change')?.click();
+    });
+
+    // The bug this test exists for: recording the undo as a new change cleared
+    // the future stack, so the first undo was the only one available.
+    expect(byAria('Redo last undone change')?.disabled).toBe(false);
+
+    await act(async () => {
+      byAria('Redo last undone change')?.click();
+    });
+
+    expect(byAria('Undo last change')?.disabled).toBe(false);
+    expect(byAria('Redo last undone change')?.disabled).toBe(true);
+  });
+
+  it('starts a fresh history when the inspected block changes', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={blockA}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    await act(async () => {
+      byText('Presets')?.click();
+    });
+    await act(async () => {
+      buttons()
+        .find((b) => b.textContent?.includes('Civic Gold Callout'))
+        ?.click();
+    });
+    expect(byAria('Undo last change')?.disabled).toBe(false);
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={blockB}
+          blockIndex={1}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    // Undoing into the previous block's styles would apply them to this one.
+    expect(byAria('Undo last change')?.disabled).toBe(true);
+    expect(byAria('Redo last undone change')?.disabled).toBe(true);
+  });
+});
+
+/**
+ * What the composer owes an operator who is about to leave it.
+ *
+ * The panel is a working surface, not a form: the last thing someone does
+ * before closing is often a nudge they have not applied yet. Escape is one
+ * keystroke away at all times, so "close" has to mean "close without losing
+ * work", and a save the page refused must not read as a save that happened.
+ */
+describe('VisualComposerInspector closing, focus and refused saves', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  const block: Block = { id: 'close-a', type: 'heading', level: 2, html: 'Mission' };
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  const buttons = () => Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'));
+  const byText = (text: string) => buttons().find((b) => b.textContent?.trim() === text);
+  const byAria = (label: string) =>
+    document.body.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+
+  type SaveBlockProp = (
+    updatedBlock: Block,
+    customClasses?: string,
+    anchorId?: string,
+    customStyle?: string
+  ) => boolean | undefined;
+
+  const mount = async (onClose: () => void, onSaveBlock: SaveBlockProp = vi.fn()) => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={onClose}
+          block={block}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+        />
+      );
+    });
+  };
+
+  /** A real style change, through the same path a control uses. */
+  const changeAStyle = async () => {
+    await act(async () => {
+      byText('Presets')?.click();
+    });
+    await act(async () => {
+      buttons()
+        .find((b) => b.textContent?.includes('Civic Gold Callout'))
+        ?.click();
+    });
+  };
+
+  const pressEscape = async () => {
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+  };
+
+  it('closes on Escape when there is nothing unsaved', async () => {
+    const onClose = vi.fn();
+    await mount(onClose);
+
+    // A clean panel has nothing to protect, so the keystroke is the close.
+    expect(document.body.textContent).toContain('All changes saved');
+    await pressEscape();
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(byText('Discard unsaved changes?')).toBeUndefined();
+  });
+
+  it('asks before discarding an unsaved style change', async () => {
+    const onClose = vi.fn();
+    await mount(onClose);
+    await changeAStyle();
+
+    // The state is visible before it is ever at risk.
+    expect(document.body.textContent).toContain('Unsaved changes');
+
+    await pressEscape();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+
+    // "Back to editing" keeps the panel and the edit.
+    await act(async () => {
+      byText('Back to editing')?.click();
+    });
+    expect(byAria('Undo last change')?.disabled).toBe(false);
+    expect(document.body.textContent).not.toContain('Discard unsaved changes?');
+
+    // Escape again, then discard deliberately.
+    await pressEscape();
+    await act(async () => {
+      byText('Discard')?.click();
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not close over a save the page refused', async () => {
+    const onClose = vi.fn();
+    // The overlay returns false for a duplicate anchor id; the panel must
+    // survive that refusal with its edits intact.
+    const onSaveBlock = vi.fn(() => false);
+    await mount(onClose, onSaveBlock);
+
+    // A real save requires a real change: a clean panel's Apply is inert.
+    await changeAStyle();
+
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+  });
+
+  it('hands focus back to whatever opened it', async () => {
+    const opener = document.createElement('button');
+    opener.textContent = 'Open Composer';
+    document.body.appendChild(opener);
+    opener.focus();
+    expect(document.activeElement).toBe(opener);
+
+    const onClose = vi.fn();
+    await mount(onClose);
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={false}
+          onClose={onClose}
+          block={block}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
+  it('contains Tab at both ends of the panel', async () => {
+    await mount(vi.fn());
+
+    const aside = document.querySelector<HTMLElement>('aside[role="dialog"]');
+    expect(aside).not.toBeNull();
+    if (!aside) return;
+
+    const focusable = Array.from(
+      aside.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((el) => !el.closest('[aria-hidden="true"], [hidden]'));
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    // Tab on the last control wraps to the first rather than walking into the
+    // page behind the panel.
+    last.focus();
+    await act(async () => {
+      aside.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+    });
+    expect(document.activeElement).toBe(first);
+
+    // Shift+Tab on the first wraps to the last.
+    first.focus();
+    await act(async () => {
+      aside.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true })
+      );
+    });
+    expect(document.activeElement).toBe(last);
+  });
+
+  it('actually reverts the edits it discards', async () => {
+    const onClose = vi.fn();
+    await mount(onClose);
+    await changeAStyle();
+
+    await pressEscape();
+    await act(async () => {
+      byText('Discard')?.click();
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    // The overlay closes on that callback; this harness has to do it.
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={false}
+          onClose={onClose}
+          block={block}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    // Reopen the same block: the discarded preset must not be on screen, and
+    // the panel must not offer an undo for work it claimed to throw away.
+    await mount(onClose);
+    expect(document.body.textContent).toContain('All changes saved');
+    expect(byAria('Undo last change')?.disabled).toBe(true);
+  });
+
+  it('treats an unapplied content edit as unsaved work', async () => {
+    const onClose = vi.fn();
+    await mount(onClose);
+
+    // The heading editor owns the block's text, and that text only reaches the
+    // page on Save — so it is exactly as losable as a style change.
+    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
+    expect(textarea).not.toBeNull();
+    if (!textarea) return;
+
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+      setValue?.call(textarea, 'A different headline');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    expect(document.body.textContent).toContain('Unsaved changes');
+
+    await pressEscape();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+  });
+
+  it('routes ⌘E through the discard guard instead of closing directly', async () => {
+    const onClose = vi.fn();
+    await mount(onClose);
+    await changeAStyle();
+
+    // ⌘E is the shortcut that opened the panel, so it reads as the shortcut to
+    // close it. The overlay listens for it too; it must not get to close a
+    // draft the operator has not applied.
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'e', metaKey: true, bubbles: true })
+      );
+    });
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+  });
+
+  it('closes on ⌘E when there is nothing unsaved', async () => {
+    const onClose = vi.fn();
+    await mount(onClose);
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'e', metaKey: true, bubbles: true })
+      );
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies on ⌘S rather than letting the page save bypass the draft', async () => {
+    const onSaveBlock = vi.fn();
+    await mount(vi.fn(), onSaveBlock);
+    await changeAStyle();
+
+    const aside = document.querySelector<HTMLElement>('aside[role="dialog"]');
+    expect(aside).not.toBeNull();
+    await act(async () => {
+      aside?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 's', metaKey: true, bubbles: true })
+      );
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Scope and orientation.
+ *
+ * A batch write is the most destructive thing this panel does, and it used to
+ * name a count. A count is not a scope: "Apply to 3 blocks" tells an operator
+ * how many rows will change and nothing about which. The same is true of the
+ * header — "Block #4 · paragraph" identifies a position, not a paragraph.
+ */
+describe('VisualComposerInspector batch scope and orientation', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  const block: Block = {
+    id: 'scope-a',
+    type: 'heading',
+    level: 2,
+    html: 'Grassroots Community Action',
+  };
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  const buttons = () => Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'));
+  const byText = (text: string) => buttons().find((b) => b.textContent?.trim() === text);
+
+  type Targets = readonly { index: number; label: string; type: string }[];
+
+  const mountBatch = async (targets: Targets, expectedSelectedCount = targets.length) => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={block}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          onSaveBlocks={vi.fn()}
+          selectedBlockIndexes={targets.map((target) => target.index)}
+          selectedBlockTargets={targets}
+          expectedSelectedCount={expectedSelectedCount}
+        />
+      );
+    });
+  };
+
+  it('names every block a batch will style', async () => {
+    await mountBatch([
+      { index: 0, label: 'First heading', type: 'heading' },
+      { index: 1, label: 'Second block', type: 'paragraph' },
+      { index: 2, label: 'Third block', type: 'button' },
+    ]);
+
+    const chips = Array.from(document.querySelectorAll('[data-testid="batch-target"]'));
+    expect(chips).toHaveLength(3);
+    expect(chips[0].textContent).toContain('First heading');
+    expect(chips[1].textContent).toContain('Second block');
+    expect(chips[2].textContent).toContain('Third block');
+
+    // The banner also states what a batch does *not* carry across blocks.
+    expect(document.body.textContent).toContain(
+      'Each block keeps its own copy, anchor id and code'
+    );
+  });
+
+  it('caps the visible targets and counts the rest', async () => {
+    await mountBatch([
+      { index: 0, label: 'One', type: 'paragraph' },
+      { index: 1, label: 'Two', type: 'paragraph' },
+      { index: 2, label: 'Three', type: 'paragraph' },
+      { index: 3, label: 'Four', type: 'paragraph' },
+      { index: 4, label: 'Five', type: 'paragraph' },
+      { index: 5, label: 'Six', type: 'paragraph' },
+    ]);
+
+    expect(document.querySelectorAll('[data-testid="batch-target"]')).toHaveLength(4);
+    expect(document.body.textContent).toContain('+2 more');
+  });
+
+  it('says when a chosen block is no longer on the page', async () => {
+    // The panel was opened for three blocks; one has since been deleted.
+    await mountBatch(
+      [
+        { index: 0, label: 'First heading', type: 'heading' },
+        { index: 1, label: 'Second block', type: 'paragraph' },
+      ],
+      3
+    );
+
+    expect(document.body.textContent).toContain('1 of the blocks you chose is');
+    expect(document.body.textContent).toContain('no longer on the page');
+  });
+
+  it('locates the block without touching the selection', async () => {
+    const onLocateBlock = vi.fn();
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={block}
+          blockIndex={2}
+          onSaveBlock={vi.fn()}
+          onLocateBlock={onLocateBlock}
+        />
+      );
+    });
+
+    // The header names the block by its text, not only by its ordinal.
+    expect(document.body.textContent).toContain('Grassroots Community Action');
+
+    const locate = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Show this block on the page"]'
+    );
+    expect(locate).not.toBeNull();
+    await act(async () => {
+      locate?.click();
+    });
+
+    expect(onLocateBlock).toHaveBeenCalledWith(2);
+  });
+
+  it('warns while an anchor id another block owns is being typed', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={block}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          takenAnchorIds={['mission']}
+        />
+      );
+    });
+
+    await act(async () => {
+      byText('Advanced')?.click();
+    });
+
+    const input = document.getElementById('block-anchor-id-input') as HTMLInputElement | null;
+    expect(input).not.toBeNull();
+    if (!input) return;
+
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    const type = async (value: string) => {
+      await act(async () => {
+        setValue?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    };
+
+    await type('mission');
+    const alert = document.querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain('#mission');
+    expect(alert?.textContent).toContain('already used by another block');
+
+    // A free id clears the warning: it is a live check, not a one-time verdict.
+    await type('about');
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+  });
+});
+
+/**
+ * The draft, made legible.
+ *
+ * "Something is unsaved" is a warning. "Type and Border are unsaved, and this
+ * chip drops just those" is a decision an operator can make without losing the
+ * work they meant to keep. The same principle applies to what a batch simply
+ * cannot carry: an anchor id identifies one element, so the field is not
+ * offered rather than offered and silently dropped.
+ */
+describe('VisualComposerInspector unsaved summary and batch honesty', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  const block: Block = { id: 'summary-a', type: 'heading', level: 2, html: 'Mission' };
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  const buttons = () => Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'));
+  const byText = (text: string) => buttons().find((b) => b.textContent?.trim() === text);
+  const changedChips = () =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>('[data-testid="changed-group"]'));
+
+  it('names the groups that are unsaved and reverts one of them', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={block}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    await act(async () => {
+      byText('Presets')?.click();
+    });
+    await act(async () => {
+      buttons()
+        .find((b) => b.textContent?.includes('Civic Gold Callout'))
+        ?.click();
+    });
+
+    const labels = changedChips().map((chip) => chip.textContent?.trim());
+    expect(changedChips().length).toBeGreaterThan(1);
+    // The preset sets margin, padding, border, background and shadow.
+    expect(changedChips().map((chip) => chip.textContent)).toEqual(
+      expect.arrayContaining([expect.stringContaining('Border'), expect.stringContaining('Margin')])
+    );
+
+    // The detail is in the tooltip rather than in the chip.
+    const borderChip = changedChips().find((chip) => chip.textContent?.includes('Border'));
+    expect(borderChip?.title.toLowerCase()).toContain('revert border');
+    expect(borderChip?.title).toContain('width');
+
+    // Dropping one group leaves the others alone.
+    const before = changedChips().length;
+    await act(async () => {
+      borderChip?.click();
+    });
+    expect(changedChips().map((chip) => chip.textContent?.trim())).not.toContain(
+      labels.find((label) => label?.includes('Border'))
+    );
+    expect(changedChips().length).toBe(before - 1);
+
+    // …and the revert is undoable, like any other design change.
+    expect(
+      document.body.querySelector<HTMLButtonElement>('button[aria-label="Undo last change"]')
+        ?.disabled
+    ).toBe(false);
+  });
+
+  it('does not offer an anchor field a batch cannot write', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={block}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          onSaveBlocks={vi.fn()}
+          selectedBlockIndexes={[0, 1]}
+          selectedBlockTargets={[
+            { index: 0, label: 'First heading', type: 'heading' },
+            { index: 1, label: 'Second block', type: 'paragraph' },
+          ]}
+          expectedSelectedCount={2}
+        />
+      );
+    });
+
+    await act(async () => {
+      byText('Advanced')?.click();
+    });
+
+    // Offering it would invite a change that apply silently drops.
+    expect(document.getElementById('block-anchor-id-input')).toBeNull();
+    expect(document.body.textContent).toContain('Anchor ids identify one block');
+  });
+});
+
+describe('VisualComposerInspector content summary', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  const block: Block = { id: 'content-a', type: 'heading', level: 2, html: 'Mission' };
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  it('names typed copy as unsaved work and can put it back', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={block}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
+    expect(textarea).not.toBeNull();
+    if (!textarea) return;
+
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+      setValue?.call(textarea, 'A different headline');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // Copy is not a style group, but it is unsaved work all the same.
+    const chips = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[data-testid="changed-group"]')
+    );
+    const contentChip = chips.find((chip) => chip.textContent?.includes('Content'));
+    expect(contentChip).toBeDefined();
+
+    await act(async () => {
+      contentChip?.click();
+    });
+
+    expect(document.body.textContent).toContain('All changes saved');
+    expect(
+      Array.from(document.querySelectorAll('[data-testid="changed-group"]')).some((chip) =>
+        chip.textContent?.includes('Content')
+      )
+    ).toBe(false);
+  });
+
+  it('undoes a typing burst as one step and redoes it', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={block}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
+    expect(textarea).not.toBeNull();
+    if (!textarea) return;
+
+    const type = async (value: string) => {
+      await act(async () => {
+        const setValue = Object.getOwnPropertyDescriptor(
+          HTMLTextAreaElement.prototype,
+          'value'
+        )?.set;
+        setValue?.call(textarea, value);
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    };
+
+    await type('Mission edited');
+    await type('Mission edited again');
+
+    const undo = () =>
+      document.body.querySelector<HTMLButtonElement>('button[aria-label="Undo last change"]');
+    const redo = () =>
+      document.body.querySelector<HTMLButtonElement>(
+        'button[aria-label="Redo last undone change"]'
+      );
+
+    expect(undo()?.disabled).toBe(false);
+    await act(async () => {
+      undo()?.click();
+    });
+
+    // One step for the burst, not one per keystroke.
+    expect(textarea.value).toBe('Mission');
+    expect(document.body.textContent).toContain('All changes saved');
+
+    await act(async () => {
+      redo()?.click();
+    });
+    expect(textarea.value).toBe('Mission edited again');
+  });
+});
+
+/**
+ * Draft integrity and identity.
+ *
+ * A refreshed block prop is not an edit: it can arrive from an autosave, an
+ * inline edit or a revision while the panel is open. Rebuilding the draft from
+ * it marks unapplied work clean — the one state in which Escape throws it away
+ * without asking. Reset is the other half: design is what it resets, not the
+ * anchor id or code that the block's links depend on.
+ */
+describe('VisualComposerInspector draft integrity and reset identity', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  const buttons = () => Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'));
+  const byText = (text: string) => buttons().find((b) => b.textContent?.trim() === text);
+
+  const render = async (target: Block) => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={target}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+  };
+
+  const changeAStyle = async () => {
+    await act(async () => {
+      byText('Presets')?.click();
+    });
+    await act(async () => {
+      buttons()
+        .find((b) => b.textContent?.includes('Civic Gold Callout'))
+        ?.click();
+    });
+  };
+
+  const block: Block = { id: 'draft-a', type: 'heading', level: 2, html: 'Mission' };
+
+  it('keeps a dirty draft when the same block is handed over again', async () => {
+    await render(block);
+    await changeAStyle();
+    expect(document.body.textContent).toContain('Unsaved changes');
+
+    // A new object with identical markup: the page has not changed anything.
+    await render({ ...block });
+
+    expect(document.body.textContent).toContain('Unsaved changes');
+    expect(document.body.textContent).not.toContain('All changes saved');
+  });
+
+  it('keeps typed copy when the page changes the block underneath it', async () => {
+    await render(block);
+
+    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
+    expect(textarea).not.toBeNull();
+    if (!textarea) return;
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+      setValue?.call(textarea, 'Mission, typed here');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await render({ ...block, html: 'Mission, edited elsewhere' });
+
+    // The operator's draft is newer than the refresh; it is not replaced.
+    expect(textarea.value).toBe('Mission, typed here');
+    expect(document.body.textContent).toContain('Unsaved changes');
+  });
+
+  it('adopts a refreshed block when nothing is unapplied', async () => {
+    await render(block);
+    await render({ ...block, html: 'Mission, edited elsewhere' });
+
+    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
+    expect(textarea?.value).toBe('Mission, edited elsewhere');
+    expect(document.body.textContent).toContain('All changes saved');
+  });
+
+  it('stays clean after a save that keeps the panel open', async () => {
+    // The page wraps what it persists, exactly as the overlay does.
+    let current: Block = APPLY_HARNESS_BLOCK;
+    const renderComposer = async () => {
+      await act(async () => {
+        root.render(
+          <VisualComposerInspector
+            open={true}
+            onClose={vi.fn()}
+            block={current}
+            blockIndex={0}
+            keepOpenOnApplyInitial
+            onSaveBlock={(updated) => {
+              current =
+                'html' in updated && typeof updated.html === 'string'
+                  ? { ...updated, html: `<div class="p-4">${updated.html}</div>` }
+                  : updated;
+              return true;
+            }}
+          />
+        );
+      });
+    };
+
+    await renderComposer();
+    await changeAStyle();
+
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+
+    // The page's acknowledgement must not read as a new edit.
+    await renderComposer();
+
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    expect(document.body.textContent).toContain('All changes saved');
+    expect(document.querySelectorAll('[data-testid="changed-group"]')).toHaveLength(0);
+  });
+
+  it('resets design while keeping the anchor id', async () => {
+    const shelled: Block = {
+      id: 'identity-a',
+      type: 'heading',
+      level: 2,
+      html: '<div id="mission" class="cw legacy" style="color:red">Mission</div>',
+    };
+    await render(shelled);
+    await changeAStyle();
+
+    await act(async () => {
+      document
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="Reset design to defaults, keeping the anchor id"]'
+        )
+        ?.click();
+    });
+
+    await act(async () => {
+      byText('Advanced')?.click();
+    });
+    const anchor = document.getElementById('block-anchor-id-input') as HTMLInputElement | null;
+    expect(anchor?.value).toBe('mission');
+
+    await act(async () => {
+      byText('Code')?.click();
+    });
+    const classes = document.getElementById(
+      'block-custom-classes-input'
+    ) as HTMLInputElement | null;
+    const style = document.getElementById('block-custom-style-input') as HTMLInputElement | null;
+    // Design goes; the anchor stays. Structural `cw-*` classes are the page's
+    // and the overlay re-attaches them independently of this field.
+    expect(classes?.value).toBe('');
+    expect(style?.value).toBe('');
+  });
+});
+
+/**
+ * Design memory.
+ *
+ * The block model has no style field, so the only record of a design the panel
+ * applied is the class attribute it wrote. Reading that back wholesale would
+ * hand the next apply a second copy of every generated utility, and CSS source
+ * order — not attribute order — would decide which copy wins. The panel
+ * remembers what it generated instead, and uses that memory only while the
+ * markup still carries it.
+ */
+const MEMORY_FIRST: Block = { id: 'memory-a', type: 'heading', level: 2, html: 'Mission' };
+const MEMORY_SECOND: Block = { id: 'memory-b', type: 'paragraph', html: 'Intro copy.' };
+
+/** The overlay's write: one shell, the compiled classes, structural classes kept. */
+function shellBlock(block: Block, classes?: string, anchorId?: string, style?: string): Block {
+  if (!('html' in block) || typeof block.html !== 'string') return block;
+  /*
+   * The overlay merges the compiled list with the block's own `cw-*`
+   * structural classes. This harness fabricates one so the test can prove the
+   * structural token does not come back through `customClasses`.
+   */
+  const merged = [classes, 'cw-callout'].filter(Boolean).join(' ').trim();
+  const attrs = [
+    anchorId ? `id="${anchorId}"` : '',
+    merged ? `class="${merged}"` : '',
+    style ? `style="${style}"` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const trimmed = block.html.trim();
+  const inner =
+    trimmed.startsWith('<div') && trimmed.endsWith('</div>')
+      ? trimmed.slice(trimmed.indexOf('>') + 1, -6)
+      : trimmed;
+  return { ...block, html: `<div ${attrs}>${inner}</div>` };
+}
+
+describe('VisualComposerInspector design memory', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  const buttons = () => Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'));
+  const byText = (text: string) => buttons().find((b) => b.textContent?.trim() === text);
+
+  const selectByLabel = (label: string) => {
+    const field = Array.from(document.querySelectorAll('label')).find(
+      (el) => el.textContent?.trim() === label
+    );
+    const id = field?.getAttribute('for');
+    return id ? (document.getElementById(id) as HTMLSelectElement | null) : null;
+  };
+
+  /**
+   * A page that answers saves and switches the edit target the way the overlay
+   * does. The composer stays mounted across the switches — that is the session
+   * whose memory is under test — so the page drives it through props.
+   */
+  const makePage = () => {
+    const page = {
+      blocks: [MEMORY_FIRST, MEMORY_SECOND] as Block[],
+      active: 0,
+      compiled: [] as string[],
+    };
+
+    const renderPanel = async (open = true) => {
+      await act(async () => {
+        root.render(
+          <VisualComposerInspector
+            open={open}
+            onClose={vi.fn()}
+            block={page.blocks[page.active]}
+            blockIndex={page.active}
+            onSaveBlock={(updated, customClasses, anchorId, customStyle) => {
+              page.compiled.push(customClasses ?? '');
+              page.blocks = page.blocks.map((candidate, index) =>
+                index === page.active
+                  ? shellBlock(updated, customClasses, anchorId, customStyle)
+                  : candidate
+              );
+              return true;
+            }}
+          />
+        );
+      });
+    };
+
+    return { page, renderPanel };
+  };
+
+  const changeAStyle = async () => {
+    await act(async () => {
+      byText('Presets')?.click();
+    });
+    await act(async () => {
+      buttons()
+        .find((b) => b.textContent?.includes('Civic Gold Callout'))
+        ?.click();
+    });
+  };
+
+  const typeCustomClasses = async (value: string) => {
+    await act(async () => {
+      byText('Code')?.click();
+    });
+    const input = document.getElementById('block-custom-classes-input') as HTMLInputElement | null;
+    expect(input).not.toBeNull();
+    if (!input) return;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+
+  it('restores the design it applied when the block is reopened', async () => {
+    const { page, renderPanel } = makePage();
+    await renderPanel();
+
+    // Apply Civic Gold Callout to the first block, with one hand-authored class.
+    await changeAStyle();
+    await typeCustomClasses('prose');
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+    expect(page.compiled).toHaveLength(1);
+
+    // Close, then open a different block: it starts from its own markup.
+    await renderPanel(false);
+    page.active = 1;
+    await renderPanel();
+    await act(async () => {
+      byText('Box Model')?.click();
+    });
+    expect(selectByLabel('Corner Radius')?.value).toBe(DEFAULT_VC_STYLES.border.radius);
+
+    // Reopening the first block restores the controls that wrote its classes.
+    await renderPanel(false);
+    page.active = 0;
+    await renderPanel();
+    await act(async () => {
+      byText('Box Model')?.click();
+    });
+    expect(selectByLabel('Corner Radius')?.value).toBe('rounded-2xl');
+    expect(selectByLabel('Border Width')?.value).toBe('border-2');
+
+    // Only the hand-authored class is left in the field, and nothing named a
+    // structural class: the page owns those separately.
+    await act(async () => {
+      byText('Code')?.click();
+    });
+    const classes = document.getElementById(
+      'block-custom-classes-input'
+    ) as HTMLInputElement | null;
+    expect(classes?.value).toBe('prose');
+  });
+
+  it('does not write a second copy of the utilities it already applied', async () => {
+    const { page, renderPanel } = makePage();
+    await renderPanel();
+
+    await changeAStyle();
+    await typeCustomClasses('prose');
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+
+    await renderPanel(false);
+    page.active = 1;
+    await renderPanel();
+    page.active = 0;
+    await renderPanel();
+    await act(async () => {
+      byText('Box Model')?.click();
+    });
+
+    // One real change, so Apply is allowed to run and the compiled list is
+    // observable through the same argument the overlay receives.
+    const radius = selectByLabel('Corner Radius') as HTMLSelectElement | null;
+    expect(radius).not.toBeNull();
+    if (!radius) return;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+    await act(async () => {
+      setValue?.call(radius, 'rounded-xl');
+      radius.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+
+    const latest = page.compiled.at(-1) ?? '';
+    const tokens = latest.split(/\s+/).filter(Boolean);
+    expect(tokens.length).toBeGreaterThan(0);
+    // The bug this guards: a reopened block handed its whole wrapper back as
+    // custom classes, so every utility was emitted twice.
+    expect(new Set(tokens).size).toBe(tokens.length);
+    expect(tokens.filter((token) => token === 'prose')).toHaveLength(1);
+    expect(tokens).toContain('rounded-xl');
+    expect(tokens).not.toContain('rounded-2xl');
+    expect(tokens).not.toContain('cw-callout');
+  });
+
+  it('ignores a remembered design the markup no longer carries', async () => {
+    const { page, renderPanel } = makePage();
+    await renderPanel();
+
+    await changeAStyle();
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+
+    // An external rewrite — a revert, a revision — replaces the wrapper. The
+    // default token stays: it is not evidence of the remembered design.
+    await renderPanel(false);
+    const first = page.blocks[0];
+    if ('html' in first) {
+      page.blocks[0] = { ...first, html: '<div class="text-left legacy">Mission</div>' };
+    }
+    await renderPanel();
+    page.active = 1;
+    await renderPanel();
+    page.active = 0;
+    await renderPanel();
+    await act(async () => {
+      byText('Box Model')?.click();
+    });
+
+    // None of the remembered tokens survive, so the controls describe the page
+    // rather than a design that is no longer on it.
+    expect(selectByLabel('Corner Radius')?.value).toBe(DEFAULT_VC_STYLES.border.radius);
+    await act(async () => {
+      byText('Code')?.click();
+    });
+    const classes = document.getElementById(
+      'block-custom-classes-input'
+    ) as HTMLInputElement | null;
+    // The default token stays with the page: it was on the wrapper, and no
+    // remembered design is claiming it.
+    expect(classes?.value).toBe('text-left legacy');
+  });
+});
+
+/**
+ * Moving through the page.
+ *
+ * The composer used to be a dead end: working down a page meant close, find the
+ * next block, reopen. Navigation is the missing move — and because it leaves a
+ * draft behind exactly the way closing does, it asks the same question first.
+ */
+describe('VisualComposerInspector block navigation', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  const block: Block = { id: 'nav-a', type: 'heading', level: 2, html: 'Mission' };
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  const buttons = () => Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'));
+  const byText = (text: string) => buttons().find((b) => b.textContent?.trim() === text);
+  const byAria = (label: string) =>
+    document.body.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+
+  const mount = async (props: {
+    onClose?: () => void;
+    onNavigateBlock?: (direction: 'previous' | 'next') => void;
+    canNavigatePrevious?: boolean;
+    canNavigateNext?: boolean;
+  }) => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={props.onClose ?? vi.fn()}
+          block={block}
+          blockIndex={1}
+          onSaveBlock={vi.fn()}
+          onNavigateBlock={props.onNavigateBlock}
+          canNavigatePrevious={props.canNavigatePrevious}
+          canNavigateNext={props.canNavigateNext}
+        />
+      );
+    });
+  };
+
+  const changeAStyle = async () => {
+    await act(async () => {
+      byText('Presets')?.click();
+    });
+    await act(async () => {
+      buttons()
+        .find((b) => b.textContent?.includes('Civic Gold Callout'))
+        ?.click();
+    });
+  };
+
+  it('steps to the neighbouring block without closing', async () => {
+    const onNavigateBlock = vi.fn();
+    const onClose = vi.fn();
+    await mount({ onNavigateBlock, onClose, canNavigatePrevious: true, canNavigateNext: true });
+
+    await act(async () => {
+      byAria('Next block')?.click();
+    });
+    expect(onNavigateBlock).toHaveBeenCalledWith('next');
+
+    await act(async () => {
+      byAria('Previous block')?.click();
+    });
+    expect(onNavigateBlock).toHaveBeenCalledWith('previous');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('walks with Alt+ArrowDown and Alt+ArrowUp', async () => {
+    const onNavigateBlock = vi.fn();
+    await mount({ onNavigateBlock, canNavigatePrevious: true, canNavigateNext: true });
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true }));
+    });
+    expect(onNavigateBlock).toHaveBeenCalledWith('next');
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true }));
+    });
+    expect(onNavigateBlock).toHaveBeenCalledWith('previous');
+  });
+
+  it('asks before leaving an unsaved draft for another block', async () => {
+    const onNavigateBlock = vi.fn();
+    const onClose = vi.fn();
+    await mount({ onNavigateBlock, onClose, canNavigatePrevious: true, canNavigateNext: true });
+    await changeAStyle();
+
+    await act(async () => {
+      byAria('Next block')?.click();
+    });
+
+    // The move is the same loss as closing: the draft has not been applied.
+    expect(onNavigateBlock).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+
+    await act(async () => {
+      byText('Discard')?.click();
+    });
+    expect(onNavigateBlock).toHaveBeenCalledWith('next');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('stays put when the discard prompt is dismissed', async () => {
+    const onNavigateBlock = vi.fn();
+    await mount({ onNavigateBlock, canNavigatePrevious: true, canNavigateNext: true });
+    await changeAStyle();
+
+    await act(async () => {
+      byAria('Next block')?.click();
+    });
+    await act(async () => {
+      byText('Back to editing')?.click();
+    });
+
+    expect(onNavigateBlock).not.toHaveBeenCalled();
+    // …and the edit is still there to keep.
+    expect(document.body.textContent).toContain('Unsaved changes');
+  });
+
+  it('disables the directions the page does not have', async () => {
+    await mount({ onNavigateBlock: vi.fn(), canNavigatePrevious: false, canNavigateNext: false });
+
+    expect(byAria('Previous block')?.disabled).toBe(true);
+    expect(byAria('Next block')?.disabled).toBe(true);
+  });
+
+  it('offers no navigation when the page cannot move the panel', async () => {
+    await mount({ canNavigatePrevious: true, canNavigateNext: true });
+
+    expect(byAria('Previous block')).toBeNull();
+    expect(byAria('Next block')).toBeNull();
   });
 });

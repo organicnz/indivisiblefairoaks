@@ -5,6 +5,7 @@ import {
   type Block,
   blockText,
   CALLOUT_TONES,
+  designClassesOf,
   isBlockEmpty,
   isTextualBlock,
   isTransient,
@@ -12,6 +13,7 @@ import {
   resetBlockIds,
   serializeBlocks,
   stripTags,
+  structuralClassesOf,
 } from '@/lib/blocks';
 import { containsSpamKeyword, sanitizeWPContent } from '@/lib/sanitize';
 
@@ -723,4 +725,33 @@ describe('property: every serializable block survives a full round trip', () => 
     },
     PROPERTY_TIMEOUT_MS
   );
+});
+
+/**
+ * Structure travels in `class`, because the sanitizer allows it and does not
+ * allow `data-*`. That puts the block parser's markers in the same attribute as
+ * every design utility, so the composer has to be able to tell them apart: a
+ * design reset may replace the look, and the block must still parse as itself.
+ */
+describe('structural block classes', () => {
+  it('separates cw markers from design classes on a wrapper', () => {
+    const callout: Block = {
+      id: 'callout-a',
+      type: 'callout',
+      tone: 'info',
+      html: '<div class="cw-callout cw-callout--info p-4 my-2">Text</div>',
+    };
+
+    expect(structuralClassesOf(callout)).toBe('cw-callout cw-callout--info');
+    expect(designClassesOf('cw-callout cw-callout--info p-4 my-2')).toBe('p-4 my-2');
+  });
+
+  it('matches the exact prefix, not a substring', () => {
+    expect(designClassesOf('cwx custom-cw')).toBe('cwx custom-cw');
+    expect(designClassesOf('cw')).toBe('');
+  });
+
+  it('is empty for a block with no wrapper', () => {
+    expect(structuralClassesOf({ id: 'p', type: 'paragraph', html: 'Plain copy' })).toBe('');
+  });
 });

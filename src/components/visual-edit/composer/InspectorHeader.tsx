@@ -2,8 +2,11 @@
 
 import {
   Box,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCopy,
   ClipboardPaste,
+  Crosshair,
   LayoutTemplate,
   RotateCcw,
   SlidersHorizontal,
@@ -24,6 +27,24 @@ export interface InspectorHeaderProps {
   onPasteStyles: () => void;
   onResetStyles: () => void;
   onClose: () => void;
+  /** When batch-editing, show "N blocks selected" instead of the single-block subtitle. */
+  isBatchMode?: boolean;
+  selectedCount?: number;
+  /**
+   * The block's own text. An ordinal and a type ("Block #4 · paragraph") do not
+   * tell an operator which paragraph they are looking at; its first words do.
+   */
+  blockLabel?: string;
+  /** Scroll this block into view on the page. Omitted when nothing can locate it. */
+  onLocate?: () => void;
+  /**
+   * Step to the previous or next block without closing the panel.
+   * Omitted in batch mode (there is no single neighbouring block to edit) and
+   * when the page cannot move the composer's target.
+   */
+  onNavigate?: (direction: 'previous' | 'next') => void;
+  canNavigatePrevious?: boolean;
+  canNavigateNext?: boolean;
   /** Ref forwarded to the 'Block Element' button for focus-on-open (FR-4). */
   firstFocusRef?: React.RefObject<HTMLButtonElement | null>;
 }
@@ -40,13 +61,21 @@ export function InspectorHeader({
   onPasteStyles,
   onResetStyles,
   onClose,
+  isBatchMode = false,
+  selectedCount = 0,
+  blockLabel = '',
+  onLocate,
+  onNavigate,
+  canNavigatePrevious = false,
+  canNavigateNext = false,
   firstFocusRef,
 }: InspectorHeaderProps) {
   return (
     <>
       {/* Drawer Header */}
-      <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 border-b border-white/10 px-5 py-3">
+        {/* The action cluster keeps its width; the title gives way by wrapping. */}
+        <div className="flex min-w-0 items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-gold/20 text-accent-gold">
             <SlidersHorizontal size={15} />
           </div>
@@ -54,13 +83,77 @@ export function InspectorHeader({
             <h2 id={titleId} className="text-sm font-bold text-white tracking-wide">
               Visual Composer Inspector
             </h2>
-            <p id={descId} className="text-[11px] text-slate-400 capitalize">
-              Block #{blockIndex + 1} · {blockType}
-            </p>
+            {isBatchMode && selectedCount > 1 ? (
+              <p
+                id={descId}
+                className="text-[11px] font-bold uppercase tracking-wider text-accent-gold"
+              >
+                {selectedCount} blocks · batch styling
+              </p>
+            ) : (
+              <p id={descId} className="max-w-[15rem] text-[11px] text-slate-400">
+                <span className="capitalize">{`Block #${blockIndex + 1} · ${blockType}`}</span>
+                {blockLabel ? <span className="text-slate-400"> — “{blockLabel}”</span> : null}
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
+          {/*
+            Walk the page without closing. On a long page this is the whole
+            difference between editing a column of blocks and opening the panel
+            once per block — the move that used to require close, find, reopen.
+          */}
+          {onNavigate ? (
+            <div className="flex items-center rounded-lg border border-white/10 bg-white/5">
+              <button
+                type="button"
+                onClick={() => onNavigate('previous')}
+                disabled={!canNavigatePrevious}
+                aria-label="Previous block"
+                aria-keyshortcuts="Alt+ArrowUp"
+                title={
+                  canNavigatePrevious
+                    ? 'Edit the previous block (⌥↑)'
+                    : 'This is the first block on the page'
+                }
+                className="rounded-l-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span className="h-3 w-px bg-white/15" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => onNavigate('next')}
+                disabled={!canNavigateNext}
+                aria-label="Next block"
+                aria-keyshortcuts="Alt+ArrowDown"
+                title={
+                  canNavigateNext
+                    ? 'Edit the next block (⌥↓)'
+                    : 'This is the last block on the page'
+                }
+                className="rounded-r-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          ) : null}
+
+          {/* Locate: scroll the block into view, without changing the selection. */}
+          {onLocate ? (
+            <button
+              type="button"
+              onClick={onLocate}
+              aria-label="Show this block on the page"
+              title="Scroll this block into view on the page"
+              className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-accent-gold"
+            >
+              <Crosshair size={14} />
+            </button>
+          ) : null}
+
           {/* Quick Copy Styles Button */}
           <button
             type="button"
@@ -92,8 +185,8 @@ export function InspectorHeader({
           <button
             type="button"
             onClick={onResetStyles}
-            title="Reset styles to defaults"
-            aria-label="Reset styles to defaults"
+            title="Reset design to defaults — keeps the block's anchor id"
+            aria-label="Reset design to defaults, keeping the anchor id"
             className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-accent-gold hover:bg-white/10 transition-colors"
           >
             <RotateCcw size={12} />
@@ -116,6 +209,7 @@ export function InspectorHeader({
         <button
           type="button"
           ref={firstFocusRef}
+          aria-pressed={inspectorMode === 'block'}
           onClick={() => setInspectorMode('block')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors ${
             inspectorMode === 'block'
@@ -128,6 +222,7 @@ export function InspectorHeader({
         </button>
         <button
           type="button"
+          aria-pressed={inspectorMode === 'section'}
           onClick={() => setInspectorMode('section')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors ${
             inspectorMode === 'section'

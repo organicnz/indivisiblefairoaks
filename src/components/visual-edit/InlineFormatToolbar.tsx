@@ -45,6 +45,7 @@ export type InlineFormatCommand =
   | 'link'
   | 'unlink'
   | 'clear'
+  | 'editLink'
   | 'h2'
   | 'h3'
   | 'paragraph';
@@ -78,6 +79,7 @@ const COMMANDS: Record<InlineFormatCommand, CommandSpec> = {
   link: { label: 'Insert link', title: 'Insert link (⌘K)', icon: LinkIcon, group: 'link' },
   unlink: { label: 'Remove link', title: 'Remove link', icon: Unlink, group: 'link' },
   clear: { label: 'Clear formatting', title: 'Clear formatting', icon: Eraser, group: 'link' },
+  editLink: { label: 'Edit link', title: 'Edit link (⌘K)', icon: LinkIcon, group: 'link' },
   h2: { label: 'Heading 2', title: 'Format as Heading 2', glyph: 'H2', group: 'block' },
   h3: { label: 'Heading 3', title: 'Format as Heading 3', glyph: 'H3', group: 'block' },
   paragraph: { label: 'Paragraph', title: 'Format as Paragraph', glyph: '¶', group: 'block' },
@@ -151,6 +153,21 @@ export function applyInlineFormatCommand(command: InlineFormatCommand, onLinkReq
       // Fallback for callers that don't supply onLinkRequest.
       const url = window.prompt('Enter link URL (e.g. https://... or /about):');
       if (url) document.execCommand('createLink', false, url);
+      return;
+    }
+    case 'editLink': {
+      if (onLinkRequest) {
+        onLinkRequest();
+        return;
+      }
+      // Fallback - same as link but for editing
+      const selection = window.getSelection();
+      const anchor = selection?.anchorNode?.parentElement?.closest('a');
+      const currentHref = anchor ? (anchor as HTMLAnchorElement).href : '';
+      const url = window.prompt('Edit link URL:', currentHref);
+      if (url && anchor) {
+        (anchor as HTMLAnchorElement).href = url;
+      }
       return;
     }
     case 'h2':

@@ -1060,4 +1060,277 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     const inlineZoneAfter = container.querySelector('[data-inline-toolbar="true"]');
     expect(inlineZoneAfter).toBeNull();
   });
+
+  it('selects two section chips and opens the composer in batch mode', async () => {
+    await withPage();
+
+    const chips = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[title^="Select this block"]')
+    );
+    expect(chips.length).toBeGreaterThanOrEqual(2);
+
+    await act(async () => {
+      chips[0].click();
+    });
+    await act(async () => {
+      chips[1].dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true })
+      );
+    });
+
+    expect(document.body.textContent).toContain('2 blocks selected');
+
+    const composerButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(
+        'button[aria-label="Visual Composer Inspector"]'
+      )
+    );
+    expect(composerButtons.length).toBeGreaterThanOrEqual(1);
+
+    await act(async () => {
+      composerButtons[0].click();
+    });
+
+    // The composer opened for a selected block, so both are the target.
+    expect(document.body.textContent).toContain('2 blocks · batch styling');
+    expect(document.body.textContent).toContain('Apply to 2 blocks');
+    expect(
+      Array.from(document.querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Content'
+      )
+    ).toBeUndefined();
+  });
+
+  it('opens the batch from the selection bar in block mode, where the design tabs live', async () => {
+    await withPage();
+
+    const chips = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[title^="Select this block"]')
+    );
+    expect(chips.length).toBeGreaterThanOrEqual(2);
+
+    await act(async () => {
+      chips[0].click();
+    });
+    await act(async () => {
+      chips[1].dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true })
+      );
+    });
+
+    const styleTogether = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.trim() === 'Style together'
+    );
+    expect(styleTogether).toBeDefined();
+
+    await act(async () => {
+      styleTogether?.click();
+    });
+
+    // The tab strip only exists in block mode. Opening the batch in section
+    // mode showed section controls and hid every design tab the batch is for.
+    expect(document.body.textContent).toContain('2 blocks · batch styling');
+    expect(
+      Array.from(document.querySelectorAll('button')).some(
+        (b) => b.textContent?.trim() === 'Box Model'
+      )
+    ).toBe(true);
+  });
+
+  it('refuses an anchor id another block already holds', async () => {
+    // Block 2 is preserved markup that already owns `id="mission"`.
+    const collisionBody = '<p class="cw">Intro copy.</p><div id="mission">Anchored</div>';
+    renderPage(collisionBody);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: collisionBody,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+
+    const openComposer = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Visual Composer Inspector"]'
+    );
+    expect(openComposer).not.toBeNull();
+    await act(async () => {
+      openComposer?.click();
+    });
+
+    // The Advanced tab carries the anchor field.
+    await act(async () => {
+      Array.from(document.querySelectorAll<HTMLButtonElement>('button'))
+        .find((b) => b.textContent?.trim() === 'Advanced')
+        ?.click();
+    });
+
+    const anchorInput = document.getElementById('block-anchor-id-input') as HTMLInputElement | null;
+    expect(anchorInput).not.toBeNull();
+    if (!anchorInput) return;
+
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      setValue?.call(anchorInput, 'mission');
+      anchorInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // The conflict is visible while the id is being typed — before any click.
+    // The panel reads the page's other ids, so it can say so without a save.
+    expect(document.body.textContent).toContain('already used by another block');
+
+    await act(async () => {
+      Array.from(document.querySelectorAll<HTMLButtonElement>('button'))
+        .find((b) => b.textContent?.trim() === 'Save Block')
+        ?.click();
+    });
+
+    // Refused, and named: a duplicate id breaks the #mission link and the
+    // composer's own accessibility audit.
+    const anchorErrors = toast.error.mock.calls
+      .map((call) => String(call[0]))
+      .filter((message) => message.includes('Anchor id'));
+    expect(anchorErrors).toHaveLength(1);
+    expect(anchorErrors[0]).toContain('mission');
+    expect(anchorErrors[0]).toContain('block #2');
+
+    // The panel survives the refusal with the operator's id still typed, so the
+    // fix is an edit rather than a re-entry.
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    expect(anchorInput.value).toBe('mission');
+  });
+  it('names the blocks a batch will style, not just how many', async () => {
+    await withPage();
+
+    const chips = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[title^="Select this block"]')
+    );
+    expect(chips.length).toBeGreaterThanOrEqual(2);
+
+    await act(async () => {
+      chips[0].click();
+    });
+    await act(async () => {
+      chips[1].dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true })
+      );
+    });
+
+    const composer = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Visual Composer Inspector"]'
+    );
+    await act(async () => {
+      composer?.click();
+    });
+
+    // The panel used to name only the count. A count is not a scope.
+    const targets = Array.from(document.querySelectorAll('[data-testid="batch-target"]'));
+    expect(targets).toHaveLength(2);
+    expect(targets[0].textContent).toContain('Intro copy.');
+    expect(targets[1].textContent).toContain('Mission');
+  });
+
+  it('locates the edited block without collapsing the batch selection', async () => {
+    const scrollIntoView = vi.fn();
+    const animated: { element: Element | null } = { element: null };
+    const proto = Element.prototype as unknown as {
+      animate?: (this: Element, keyframes: unknown, options?: unknown) => unknown;
+    };
+    const originalAnimate = proto.animate;
+    const originalScroll = Element.prototype.scrollIntoView;
+
+    // jsdom has neither, and the locate path requires an animated element.
+    proto.animate = function (this: Element) {
+      animated.element = this;
+      return { cancel: () => {} };
+    };
+    Element.prototype.scrollIntoView =
+      scrollIntoView as unknown as typeof Element.prototype.scrollIntoView;
+
+    try {
+      await withPage();
+
+      const chips = Array.from(
+        container.querySelectorAll<HTMLButtonElement>('button[title^="Select this block"]')
+      );
+      await act(async () => {
+        chips[0].click();
+      });
+      await act(async () => {
+        chips[1].dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true })
+        );
+      });
+
+      const composer = container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Visual Composer Inspector"]'
+      );
+      await act(async () => {
+        composer?.click();
+      });
+
+      const locate = document.querySelector<HTMLButtonElement>(
+        'button[aria-label="Show this block on the page"]'
+      );
+      expect(locate).not.toBeNull();
+      await act(async () => {
+        locate?.click();
+      });
+
+      // The paragraph the composer was opened for, scrolled into view and
+      // flashed — that is the block being edited, not an ordinal.
+      expect(animated.element?.tagName).toBe('P');
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+      // And the two-block selection is still a two-block selection: locating
+      // is a view action, not `jumpTo` with its silent re-selection. A selected
+      // chip announces the opposite action ("Deselect …"), which is how it is
+      // addressed here — its title changes while the composer is open.
+      expect(container.querySelectorAll('button[aria-label^="Deselect "]')).toHaveLength(2);
+    } finally {
+      proto.animate = originalAnimate;
+      Element.prototype.scrollIntoView = originalScroll;
+    }
+  });
+
+  it('walks the page from the composer without closing it', async () => {
+    await withPage();
+
+    const composer = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Visual Composer Inspector"]'
+    );
+    expect(composer).not.toBeNull();
+    await act(async () => {
+      composer?.click();
+    });
+
+    // Opened on the first frame: the paragraph at block 0.
+    expect(document.body.textContent).toContain('Block #1 ·');
+    const previous = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Previous block"]'
+    );
+    expect(previous?.disabled).toBe(true);
+
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[aria-label="Next block"]')?.click();
+    });
+    expect(document.body.textContent).toContain('Block #2 ·');
+
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[aria-label="Next block"]')?.click();
+    });
+    expect(document.body.textContent).toContain('Block #3 ·');
+    expect(document.body.textContent).toContain('Mission');
+
+    // The panel stayed open the whole way, and the last block is the end of it.
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    expect(
+      document.querySelector<HTMLButtonElement>('button[aria-label="Next block"]')?.disabled
+    ).toBe(true);
+  });
 });
