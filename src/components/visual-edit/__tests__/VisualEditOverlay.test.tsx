@@ -1972,4 +1972,84 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     await mount();
     expect(document.documentElement.style.getPropertyValue('--visual-edit-rail-width')).toBe('');
   });
+
+  it('opens the row composer from the editor entry point, where the block modal has no fields', async () => {
+    /*
+     * The section modal's fields are keyed by leaf type. A row has none of
+     * them, so Enter or the header's "edit" would open a dialog that describes
+     * a row, offers no way to edit it, and is not where its columns live.
+     */
+    const rowHtml =
+      '<div class="cw-row cw-row--2">' +
+      '<div class="cw-column"><p>Left copy</p></div>' +
+      '<div class="cw-column"><p>Right copy</p></div>' +
+      '</div>';
+    renderPage(rowHtml);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: rowHtml,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent(VISUAL_EDIT_EVENTS.focusSection, {
+          detail: { blockIndex: 0, openEdit: true },
+        })
+      );
+    });
+
+    expect(document.body.textContent).toContain('Row Layout');
+    expect(document.body.textContent).not.toContain('Editing a row block');
+    // A row cannot be turned into a leaf without discarding its layout, so the
+    // conversion menu is absent rather than present and silently inert.
+    expect(container.querySelector('button[aria-label="Convert section type"]')).toBeNull();
+  });
+
+  it('opens the row composer instead of an inline editor for copy inside a column', async () => {
+    /*
+     * The inline editor writes the selected block's `html`. A row has none, so
+     * starting a session on a paragraph inside a column let the organiser type
+     * into a change whose save path could not represent it. The composer can
+     * edit the column's blocks, so it owns the click.
+     */
+    const rowHtml =
+      '<div class="cw-row cw-row--2">' +
+      '<div class="cw-column"><p>Left copy</p></div>' +
+      '<div class="cw-column"><p>Right copy</p></div>' +
+      '</div>';
+    const page = renderPage(rowHtml);
+    getContentBySlugForEdit.mockResolvedValue({
+      id: 7,
+      title: 'About Us',
+      slug: 'about',
+      excerpt: null,
+      type: 'page',
+      status: 'publish',
+      body: rowHtml,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+    await mount();
+
+    const left = page.querySelector('p') as HTMLElement;
+    await act(async () => {
+      left.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    expect(left.getAttribute('contenteditable')).toBeNull();
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    // The row is the selected block — the composer opens its column editor,
+    // not a leaf's content form.
+    expect(document.body.textContent).toContain('Row Layout');
+  });
 });

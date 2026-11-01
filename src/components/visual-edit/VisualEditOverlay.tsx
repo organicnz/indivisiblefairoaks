@@ -2007,7 +2007,7 @@ export function VisualEditOverlay() {
        * composer instead, so "one block editor" is a property of the route
        * rather than of the handful of buttons that happened to be reviewed.
        */
-      if (isComposerWorkspace) {
+      if (isComposerWorkspace || blocksRef.current[blockIndex]?.type === 'row') {
         openVisualComposer('block', blockIndex);
         return;
       }
@@ -2531,6 +2531,32 @@ export function VisualEditOverlay() {
        */
       const inMain = Boolean(target.closest('main'));
       if (!inMain && !target.closest('a')) return;
+
+      /*
+       * A row's copy belongs to its columns, and the inline editor writes
+       * `block.html` on the selected block. A row has no `html`, so starting an
+       * inline session on one of its paragraphs used to let the admin type into
+       * a field whose save path could not represent the edit — a change that
+       * looked accepted and was silently discarded. The composer is the surface
+       * that can edit a column's blocks, so a click anywhere inside a row routes
+       * there, on every route that has the overlay.
+       */
+      for (const section of sectionsRef.current) {
+        const element = locate(section.blockIndex);
+        if (!element || (element !== target && !element.contains(target))) continue;
+        if (blocksRef.current[section.blockIndex]?.type !== 'row') break;
+
+        e.preventDefault();
+        e.stopPropagation();
+        if (isVisualComposerOpenRef.current) {
+          toast.info('Close the composer to select a different block — it owns the open draft.');
+          return;
+        }
+        setActiveBlockIndex(section.blockIndex);
+        openVisualComposer('block', section.blockIndex);
+        setContextMenu(null);
+        return;
+      }
 
       /*
        * One editing surface on the composer route.
@@ -3864,51 +3890,55 @@ export function VisualEditOverlay() {
                     </div>
                   )}
 
-                  {/* Convert section block type */}
-                  <DropdownMenu.Root>
-                    <DropdownMenu.Trigger asChild>
-                      <button
-                        type="button"
-                        title="Convert section type"
-                        aria-label="Convert section type"
-                        className="rounded p-1 text-purple-400 hover:bg-white/15 hover:text-purple-300 transition-colors"
-                      >
-                        <Sparkles size={13} />
-                      </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content
-                        side="bottom"
-                        align="start"
-                        sideOffset={6}
-                        aria-label="Convert section type"
-                        className="z-50 w-52 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
-                      >
-                        <div className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-ink-muted-on-dark border-b border-white/10 mb-1">
-                          Turn into
-                        </div>
-                        {CONVERT_BLOCK_OPTIONS.map((option) => (
-                          <DropdownMenu.Item
-                            key={`${option.type}-${option.headingLevel ?? option.calloutTone ?? 'default'}`}
-                            onSelect={() =>
-                              handleConvertSection(item.blockIndex, option.type, {
-                                headingLevel: option.headingLevel,
-                                calloutTone: option.calloutTone,
-                              })
-                            }
-                            className="flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                          >
-                            <span>{option.label}</span>
-                            {item.blockType === option.type && (
-                              <span className="text-[10px] text-accent-gold uppercase font-mono">
-                                Current
-                              </span>
-                            )}
-                          </DropdownMenu.Item>
-                        ))}
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu.Root>
+                  {/* Convert section block type. A row's layout is its content,
+                      so turning it into a leaf would have to discard it; the
+                      composer edits its columns instead. */}
+                  {item.blockType !== 'row' && (
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger asChild>
+                        <button
+                          type="button"
+                          title="Convert section type"
+                          aria-label="Convert section type"
+                          className="rounded p-1 text-purple-400 hover:bg-white/15 hover:text-purple-300 transition-colors"
+                        >
+                          <Sparkles size={13} />
+                        </button>
+                      </DropdownMenu.Trigger>
+                      <DropdownMenu.Portal>
+                        <DropdownMenu.Content
+                          side="bottom"
+                          align="start"
+                          sideOffset={6}
+                          aria-label="Convert section type"
+                          className="z-50 w-52 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                        >
+                          <div className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-ink-muted-on-dark border-b border-white/10 mb-1">
+                            Turn into
+                          </div>
+                          {CONVERT_BLOCK_OPTIONS.map((option) => (
+                            <DropdownMenu.Item
+                              key={`${option.type}-${option.headingLevel ?? option.calloutTone ?? 'default'}`}
+                              onSelect={() =>
+                                handleConvertSection(item.blockIndex, option.type, {
+                                  headingLevel: option.headingLevel,
+                                  calloutTone: option.calloutTone,
+                                })
+                              }
+                              className="flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
+                            >
+                              <span>{option.label}</span>
+                              {item.blockType === option.type && (
+                                <span className="text-[10px] text-accent-gold uppercase font-mono">
+                                  Current
+                                </span>
+                              )}
+                            </DropdownMenu.Item>
+                          ))}
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Portal>
+                    </DropdownMenu.Root>
+                  )}
 
                   {/* Turn off visual frame for this section */}
                   <button

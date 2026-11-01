@@ -24,6 +24,14 @@ export interface BlockBackgroundStudioProps {
   bgSizeSelectId?: string;
   bgPositionSelectId?: string;
   bgRepeatSelectId?: string;
+  /**
+   * Whether this block can carry a decorative badge.
+   *
+   * A badge is markup written into a block's content root. A row has no content
+   * root — its content is its columns — so offering the control would promise a
+   * badge the save cannot place without replacing the row with raw markup.
+   */
+  showBadge?: boolean;
 }
 
 export const BLOCK_GRADIENT_OPTIONS = [
@@ -101,6 +109,7 @@ export function BlockBackgroundStudio({
   bgSizeSelectId = 'block-bg-size-select',
   bgPositionSelectId = 'block-bg-position-select',
   bgRepeatSelectId = 'block-bg-repeat-select',
+  showBadge = true,
 }: BlockBackgroundStudioProps) {
   return (
     <>
@@ -320,54 +329,56 @@ export function BlockBackgroundStudio({
       </StudioSection>
 
       {/* ── Decorative Corner Ribbon / Badge ── */}
-      <StudioSection
-        title="Decorative Badge / Ribbon Accent (Pro)"
-        badge="Pro"
-        action={<Sparkles size={13} className="text-accent-gold" />}
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <StudioInput
-            id="block-badge-text-input"
-            label="Badge Label Text"
-            value={styles.badgeText || ''}
-            onChange={(val) => setStyles({ ...styles, badgeText: val })}
-            placeholder="e.g. NEW, FEATURED"
-          />
-          <StudioSelect
-            id="block-badge-tone-select"
-            label="Badge Tone"
-            value={styles.badgeTone || 'gold'}
-            onChange={(val) =>
-              setStyles({
-                ...styles,
-                badgeTone: val as VisualComposerStyles['badgeTone'],
-              })
-            }
-            options={[
-              { value: 'gold', label: 'Civic Gold (Default)' },
-              { value: 'navy', label: 'Patriotic Navy' },
-              { value: 'emerald', label: 'Action Emerald' },
-              { value: 'crimson', label: 'Urgent Crimson' },
-              { value: 'slate', label: 'Minimal Slate' },
-            ]}
-          />
-          <StudioSelect
-            id="block-badge-position-select"
-            label="Badge Placement"
-            value={styles.badgePosition || 'top-right'}
-            onChange={(val) =>
-              setStyles({
-                ...styles,
-                badgePosition: val as VisualComposerStyles['badgePosition'],
-              })
-            }
-            options={[
-              { value: 'top-right', label: 'Top-Right Corner' },
-              { value: 'top-left', label: 'Top-Left Corner' },
-            ]}
-          />
-        </div>
-      </StudioSection>
+      {showBadge && (
+        <StudioSection
+          title="Decorative Badge / Ribbon Accent (Pro)"
+          badge="Pro"
+          action={<Sparkles size={13} className="text-accent-gold" />}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <StudioInput
+              id="block-badge-text-input"
+              label="Badge Label Text"
+              value={styles.badgeText || ''}
+              onChange={(val) => setStyles({ ...styles, badgeText: val })}
+              placeholder="e.g. NEW, FEATURED"
+            />
+            <StudioSelect
+              id="block-badge-tone-select"
+              label="Badge Tone"
+              value={styles.badgeTone || 'gold'}
+              onChange={(val) =>
+                setStyles({
+                  ...styles,
+                  badgeTone: val as VisualComposerStyles['badgeTone'],
+                })
+              }
+              options={[
+                { value: 'gold', label: 'Civic Gold (Default)' },
+                { value: 'navy', label: 'Patriotic Navy' },
+                { value: 'emerald', label: 'Action Emerald' },
+                { value: 'crimson', label: 'Urgent Crimson' },
+                { value: 'slate', label: 'Minimal Slate' },
+              ]}
+            />
+            <StudioSelect
+              id="block-badge-position-select"
+              label="Badge Placement"
+              value={styles.badgePosition || 'top-right'}
+              onChange={(val) =>
+                setStyles({
+                  ...styles,
+                  badgePosition: val as VisualComposerStyles['badgePosition'],
+                })
+              }
+              options={[
+                { value: 'top-right', label: 'Top-Right Corner' },
+                { value: 'top-left', label: 'Top-Left Corner' },
+              ]}
+            />
+          </div>
+        </StudioSection>
+      )}
     </>
   );
 }

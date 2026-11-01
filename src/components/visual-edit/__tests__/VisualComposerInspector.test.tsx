@@ -2523,6 +2523,74 @@ describe('VisualComposerInspector', () => {
     expect(savedBlockClasses).toContain('[data-theme=light]');
   });
 
+  it('saves a row as a row, with no badge control to fold into its markup', async () => {
+    const onSaveBlock = vi.fn();
+    const row: Block = {
+      id: 'row-block',
+      type: 'row',
+      columns: [
+        {
+          id: 'col-a',
+          blocks: [{ id: 'left', type: 'paragraph', html: 'Left copy' }],
+        },
+        { id: 'col-b', blocks: [] },
+      ],
+    };
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={row}
+          blockIndex={0}
+          onSaveBlock={onSaveBlock}
+          initialMode="block"
+        />
+      );
+    });
+
+    const designTabBtn = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Box Model')
+    );
+    await act(async () => {
+      designTabBtn?.click();
+    });
+
+    // A badge is markup for a content root; a row's content is its columns.
+    expect(document.getElementById('block-badge-text-input')).toBeNull();
+
+    // A design change enables Apply; the save must still receive a row.
+    const blockThemeSelect = document.getElementById(
+      'block-theme-mode-select'
+    ) as HTMLSelectElement | null;
+    expect(blockThemeSelect).not.toBeNull();
+    if (blockThemeSelect) {
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+        setter?.call(blockThemeSelect, 'dark');
+        blockThemeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
+    const saveBlockButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Save Block'
+    );
+    await act(async () => {
+      saveBlockButton?.click();
+    });
+
+    expect(onSaveBlock).toHaveBeenCalledTimes(1);
+    const saved = onSaveBlock.mock.calls[0][0] as Block;
+    expect(saved.type).toBe('row');
+    if (saved.type !== 'row') throw new Error('expected a row');
+    expect(saved.columns).toHaveLength(2);
+    expect(saved.columns[0].blocks[0]).toMatchObject({
+      type: 'paragraph',
+      html: 'Left copy',
+    });
+  });
+
   it('supports adaptive system theme mode and quick color swatches in section and block studios', async () => {
     const onSaveBlock = vi.fn();
     const mockBlock: Block = {
@@ -4489,14 +4557,15 @@ describe('VisualComposerInspector live page preview', () => {
 
   const mount = async (
     onPreviewChange: (draft: ComposerDraftPreview | null) => void,
-    open = true
+    open = true,
+    block: Block = previewBlock
   ): Promise<void> => {
     await act(async () => {
       root.render(
         <VisualComposerInspector
           open={open}
           onClose={vi.fn()}
-          block={previewBlock}
+          block={block}
           blockIndex={0}
           onSaveBlock={vi.fn()}
           onPreviewChange={onPreviewChange}
@@ -4556,6 +4625,35 @@ describe('VisualComposerInspector live page preview', () => {
     expect(draft).toMatchObject({ mode: 'block', blockIndexes: [0], design: null });
     expect(draft.contentHtml).toContain('A new mission');
     expect(document.body.textContent).toContain('Previewing on the page');
+  });
+
+  it('reports a row’s new column count as root structure as well as copy', async () => {
+    const onPreviewChange = vi.fn();
+    const row: Block = {
+      id: 'preview-row',
+      type: 'row',
+      columns: [
+        { id: 'pc1', blocks: [] },
+        { id: 'pc2', blocks: [] },
+      ],
+    };
+    await mount(onPreviewChange, true, row);
+
+    const addColumn = document.querySelector<HTMLButtonElement>('button[aria-label="Add column"]');
+    expect(addColumn).not.toBeNull();
+    await act(async () => {
+      addColumn?.click();
+    });
+
+    const draft = onPreviewChange.mock.calls.at(-1)?.[0];
+    /*
+     * The copy shows three columns, and the root class has to change with it.
+     * A preview that painted only the copy would leave the page in a two-column
+     * grid the save is about to replace.
+     */
+    expect(draft).toMatchObject({ mode: 'block', blockIndexes: [0], design: null });
+    expect(draft.contentRootClassName).toBe('cw-row cw-row--3');
+    expect(draft.contentHtml?.match(/class="cw-column"/g)).toHaveLength(3);
   });
 
   it('puts the draft badge into the reported copy, exactly as the save will', async () => {

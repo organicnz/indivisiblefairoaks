@@ -1,3 +1,4 @@
+import { MAX_ROW_COLUMNS } from './create';
 import { mergeBlockShells } from './save-shape';
 import { isBlockEmpty, isCalloutTone, stripTags } from './serialize';
 import { isStructuralBlockClass } from './structural';
@@ -242,8 +243,32 @@ function parseTable(el: Element): Block {
  * of a second level the model cannot represent.
  */
 function parseRow(el: Element): Block {
+  /*
+   * Only columns — and whitespace or comments — may be direct children.
+   *
+   * A stray paragraph or a bare sentence between columns is not something the
+   * row model can represent, and dropping it on the next save would delete
+   * authored copy the admin never asked to remove. Preserving the whole row as
+   * raw markup keeps the content visible and round-trips it verbatim, which is
+   * the parser's rule for every other shape it does not understand.
+   */
+  const hasUnexpectedChild = [...el.childNodes].some(
+    (node) =>
+      !isIgnorableNode(node) &&
+      (node.nodeType !== Node.ELEMENT_NODE || !hasClass(node as Element, ROW_COLUMN_CLASS))
+  );
   const columnElements = [...el.children].filter((child) => hasClass(child, ROW_COLUMN_CLASS));
-  if (columnElements.length === 0) {
+  /*
+   * The column bound is part of the model, not only of the editor's controls.
+   * A fourth column has no stylesheet rule, so it would render as a two-column
+   * grid while the editor claimed four — preserving the markup is more honest
+   * than loading a layout the renderer cannot paint.
+   */
+  if (
+    columnElements.length === 0 ||
+    columnElements.length > MAX_ROW_COLUMNS ||
+    hasUnexpectedChild
+  ) {
     return { id: nextBlockId(), type: 'unsupported', html: el.outerHTML };
   }
 

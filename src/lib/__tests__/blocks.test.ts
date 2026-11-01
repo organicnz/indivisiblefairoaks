@@ -1095,10 +1095,57 @@ describe('rows', () => {
     expect(serializeBlocks(parsed)).toBe(malformed);
   });
 
-  it('drops an empty row from the save, like an empty paragraph', () => {
+  it('preserves a row with content beside its columns, rather than dropping it', () => {
+    // The model has no place for this paragraph, and silently deleting copy on
+    // the next save is worse than showing the row as raw markup.
+    const malformed =
+      '<div class="cw-row cw-row--2">' +
+      '<div class="cw-column"><p>Left</p></div>' +
+      '<p>Stray note</p>' +
+      '<div class="cw-column"><p>Right</p></div>' +
+      '</div>';
+    const parsed = parseHtml(malformed);
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].type).toBe('unsupported');
+    expect(serializeBlocks(parsed)).toBe(malformed);
+  });
+
+  it('preserves a row with bare text beside its columns', () => {
+    const malformed =
+      '<div class="cw-row cw-row--1"><div class="cw-column"><p>Left</p></div>Bare note</div>';
+    const parsed = parseHtml(malformed);
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].type).toBe('unsupported');
+    expect(serializeBlocks(parsed)).toBe(malformed);
+  });
+
+  it('preserves a four-column row the stylesheet cannot paint', () => {
+    const columns = Array.from(
+      { length: 4 },
+      (_, i) => `<div class="cw-column"><p>Column ${i + 1}</p></div>`
+    ).join('');
+    const malformed = `<div class="cw-row cw-row--4">${columns}</div>`;
+    const parsed = parseHtml(malformed);
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].type).toBe('unsupported');
+    expect(serializeBlocks(parsed)).toBe(malformed);
+  });
+
+  it('keeps an empty row so a newly created layout survives its first save', () => {
+    // The columns are the author's layout decision; filling them is a separate
+    // step, and a save before that step must not delete the row.
     const empty = createRowBlock('empty', 2);
-    expect(isBlockEmpty(empty)).toBe(true);
-    expect(serializeBlocks([empty])).toBe('<p></p>');
+    const saved = serializeBlocks([empty]);
+
+    expect(saved).toBe(
+      '<div class="cw-row cw-row--2"><div class="cw-column"></div><div class="cw-column"></div></div>'
+    );
+    expect(isBlockEmpty(empty)).toBe(false);
+    expect(sanitizeWPContent(saved)).toBe(saved);
+    expect(serializeBlocks(parseHtml(saved))).toBe(saved);
   });
 
   it('keeps an empty column inside a row that has content elsewhere', () => {

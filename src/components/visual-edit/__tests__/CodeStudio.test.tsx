@@ -75,6 +75,30 @@ describe('CodeStudio and Sub-Studios', () => {
     );
   });
 
+  it('names a row’s generated markup instead of offering an inert HTML field', async () => {
+    const row: Block = {
+      id: 'row-code',
+      type: 'row',
+      columns: [{ id: 'rc1', blocks: [] }],
+    };
+
+    await act(async () => {
+      root.render(
+        <CodeHtmlStudio currentBlock={row} setCurrentBlock={vi.fn()} rawHtmlInputId="row-html" />
+      );
+    });
+
+    /*
+     * A row has no `html`, so the generic fallback showed its JSON in a
+     * textarea whose change handler ignored typing. The admin could write in
+     * it and nothing would happen.
+     */
+    expect(container.querySelector('#row-html')).toBeNull();
+    expect(container.querySelector('textarea')).toBeNull();
+    expect(container.textContent).toContain('generated from its columns');
+    expect(container.textContent).toContain('Content');
+  });
+
   it('renders CodeCustomStylesStudio and appends design tokens and inline style snippets', async () => {
     let currentStyles = { ...DEFAULT_VC_STYLES };
     const setStyles = vi.fn((update) => {

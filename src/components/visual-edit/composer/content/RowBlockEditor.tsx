@@ -201,11 +201,16 @@ export function RowBlockEditor({
                         data-testid={`row-block-${columnIndex}-${childIndex}`}
                         onDragOver={(event) => {
                           if (!draggingId || draggingId === child.id) return;
+                          // Reordering is within a column. A drag into another
+                          // column has no target to describe, so it is refused
+                          // here rather than accepted and silently discarded.
+                          if (!column.blocks.some((block) => block.id === draggingId)) return;
                           event.preventDefault();
                           event.dataTransfer.dropEffect = 'move';
                         }}
                         onDrop={(event) => {
                           if (!draggingId || draggingId === child.id) return;
+                          if (!column.blocks.some((block) => block.id === draggingId)) return;
                           event.preventDefault();
                           onReorderBlock(columnIndex, draggingId, childIndex);
                           setDraggingId(null);
@@ -228,6 +233,11 @@ export function RowBlockEditor({
                             onDragStart={(event) => {
                               setDraggingId(child.id);
                               event.dataTransfer.effectAllowed = 'move';
+                              // Firefox will not start a native drag without
+                              // data on the transfer; the id is never read on
+                              // drop (the component owns the state), but its
+                              // presence is what makes the gesture begin.
+                              event.dataTransfer.setData('text/plain', child.id);
                             }}
                             onDragEnd={() => setDraggingId(null)}
                             className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing"

@@ -18,6 +18,28 @@ export function CodeHtmlStudio({
   const isHtmlBlock = 'html' in currentBlock && typeof currentBlock.html === 'string';
   const htmlContent = isHtmlBlock ? currentBlock.html : JSON.stringify(currentBlock, null, 2);
 
+  /*
+   * A row has no raw HTML to edit. Its markup is the columns and the blocks in
+   * them, and the serializer writes it on save. The generic fallback below used
+   * to show the block as JSON in a textarea whose change handler ignored every
+   * keystroke — a field that accepted typing and discarded it, under a
+   * description promising that changes persist.
+   */
+  if (currentBlock.type === 'row') {
+    return (
+      <StudioSection
+        title="Raw Block HTML Markup"
+        badge="Generated"
+        description="A row's markup is generated from its columns, so there is no raw field to edit here."
+      >
+        <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] leading-relaxed text-slate-300">
+          Edit the row's columns and the blocks inside them in the <strong>Content</strong> tab. The
+          save writes that structure as the row's markup, exactly as the live preview shows it.
+        </p>
+      </StudioSection>
+    );
+  }
+
   const handleCleanHtml = () => {
     if (!isHtmlBlock) return;
     // Normalize extraneous whitespace and linebreaks

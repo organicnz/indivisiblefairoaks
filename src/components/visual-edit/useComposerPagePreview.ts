@@ -67,6 +67,15 @@ export interface ComposerDraftPreview {
    * text onto the rest, and section mode has no content fields.
    */
   contentHtml: string | null;
+  /**
+   * The block's own root classes, when a content edit changes its structure.
+   *
+   * A row's `cw-row--N` is derived from its column count, which the Content
+   * tab changes. Painting only the inner HTML would show three columns inside a
+   * two-column grid — the page claiming a layout the save is about to replace.
+   * Null for every draft whose content edit does not change the root.
+   */
+  contentRootClassName?: string | null;
 }
 
 interface AppliedPreview {
@@ -195,6 +204,20 @@ function restoreDesign(entry: AppliedPreview) {
 }
 
 /**
+ * Replace the root's structure without discarding its design.
+ *
+ * The design half comes from whatever class list the element currently has —
+ * which may already be a design draft — and every `cw-*` token is dropped,
+ * exactly as `blockRootPresentation` does for a save. The new structural token
+ * is the only structural class left, so a stale `cw-row--2` cannot survive
+ * beside a `cw-row--3`.
+ */
+function paintContentRoot(entry: AppliedPreview, structural: string) {
+  const design = designClassesOf(entry.element.getAttribute('class') ?? '');
+  writeOrRemove(entry.element, 'class', [design, structural].filter(Boolean).join(' '));
+}
+
+/**
  * Paint one entry for a draft: design if it has one, copy if it has one.
  *
  * The two are independent on purpose. A copy-only draft leaves the element's
@@ -204,6 +227,10 @@ function restoreDesign(entry: AppliedPreview) {
 function paint(entry: AppliedPreview, draft: ComposerDraftPreview, block: Block) {
   if (draft.design) paintDesign(entry, draft.design, block);
   else restoreDesign(entry);
+
+  // After the design, before the copy: a content draft's structure has to win
+  // over the page's old count while keeping the design classes it painted.
+  if (draft.contentRootClassName) paintContentRoot(entry, draft.contentRootClassName);
 
   /*
    * The copy, including the draft badge. The save writes this same markup
@@ -219,8 +246,11 @@ function paint(entry: AppliedPreview, draft: ComposerDraftPreview, block: Block)
     entry.paintedContent = false;
   }
 
-  if (draft.design || draft.contentHtml !== null) entry.element.setAttribute(PREVIEW_ATTR, 'true');
-  else entry.element.removeAttribute(PREVIEW_ATTR);
+  if (draft.design || draft.contentHtml !== null || draft.contentRootClassName) {
+    entry.element.setAttribute(PREVIEW_ATTR, 'true');
+  } else {
+    entry.element.removeAttribute(PREVIEW_ATTR);
+  }
 }
 
 export interface UseComposerPagePreviewOptions {

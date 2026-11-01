@@ -19,6 +19,7 @@ import {
   isStructuralBlockClass,
   readBlockShell,
   serializeBlocks,
+  structuralClassesForBlock,
   THEME_CLASS_TOKENS,
 } from '@/lib/blocks';
 import type { ThemeMode } from '@/lib/theme';
@@ -321,6 +322,14 @@ function revertKeys(
  */
 function composeDraftBlock(block: Block, styles: VisualComposerStyles): Block {
   const finalBlock: Block = { ...block };
+  /*
+   * A row has no content root a badge can live in, and folding one in would
+   * turn the row into an `unsupported` block — the save would replace a layout
+   * with its own raw markup. The badge controls are hidden for rows; this is
+   * the second half of that contract, so a draft carried over from another
+   * block cannot corrupt one either.
+   */
+  if (finalBlock.type === 'row') return finalBlock;
   const badgeHtml = compileBadgeHtml(styles);
   if ('html' in finalBlock && typeof finalBlock.html === 'string') {
     let content = finalBlock.html.replace(/<span\s+data-vc-badge[^>]*>.*?<\/span>/gi, '');
@@ -710,6 +719,23 @@ export function VisualComposerInspector({
     return blockInnerHtml(serializeBlocks([composeDraftBlock(currentBlock, styles)]));
   }, [contentDirty, badgeDirty, inspectorMode, isBatchMode, currentBlock, styles]);
 
+  /**
+   * The root structure a content edit changes, if it changes one.
+   *
+   * A row is the only block whose Content tab can change the classes on its own
+   * root: adding or removing a column changes `cw-row--N`. The copy preview
+   * paints the columns, so without this the page would render three columns in
+   * the old two-column grid until the save landed. Leaf conversions change the
+   * element's tag rather than its classes, which this preview does not replace,
+   * so they are deliberately not reported here.
+   */
+  const previewContentRootClassName = useMemo(() => {
+    if (!contentDirty || inspectorMode !== 'block' || isBatchMode || currentBlock?.type !== 'row') {
+      return null;
+    }
+    return structuralClassesForBlock(currentBlock);
+  }, [contentDirty, inspectorMode, isBatchMode, currentBlock]);
+
   /*
    * Report the draft to the page. The cleanup is deliberately not part of this
    * effect: it would fire between two keystrokes, and the page would flash its
@@ -743,6 +769,7 @@ export function VisualComposerInspector({
           }
         : null,
       contentHtml: previewContentHtml,
+      contentRootClassName: previewContentRootClassName,
     });
   }, [
     open,
@@ -753,6 +780,7 @@ export function VisualComposerInspector({
     previewIndexKey,
     styles.customStyle,
     previewContentHtml,
+    previewContentRootClassName,
   ]);
 
   useEffect(

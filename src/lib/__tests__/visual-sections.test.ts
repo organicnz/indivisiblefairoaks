@@ -91,6 +91,38 @@ describe('buildVisualSections', () => {
     const { blocks, elements } = render('<h2>One</h2><h2>Two</h2>');
     expect(buildVisualSections(blocks, elements).map((s) => s.ordinal)).toEqual([1, 2]);
   });
+
+  it('does not give a row a dropped block’s address just because their text agrees', () => {
+    /*
+     * The form is a block but not an element; the row is the only rendered
+     * child. Both read "Left Right", so text alone paired the row's element
+     * with the form — and a click inside the row then addressed the wrong
+     * block. A row and a leaf are different kinds of frame.
+     */
+    const { blocks, elements } = render(
+      '<form><p>Left Right</p></form>' +
+        '<div class="cw-row cw-row--1"><div class="cw-column"><p>Left Right</p></div></div>'
+    );
+    expect(blocks.map((block) => block.type)).toEqual(['unsupported', 'row']);
+    expect(elements).toHaveLength(1);
+
+    const sections = buildVisualSections(blocks, elements);
+    expect(sections[0].domIndex).toBeNull();
+    expect(sections[1]).toMatchObject({ blockType: 'row', domIndex: 0 });
+  });
+
+  it('pairs an empty row with its own element rather than a dropped neighbour', () => {
+    // No text distinguishes either side, so this is the document-order pass.
+    // The row is the only element of its kind; the form block is not its frame.
+    const { blocks, elements } = render(
+      '<form><input></form><div class="cw-row cw-row--1"><div class="cw-column"></div></div>'
+    );
+    expect(elements).toHaveLength(1);
+
+    const sections = buildVisualSections(blocks, elements);
+    expect(sections[0].domIndex).toBeNull();
+    expect(sections[1]).toMatchObject({ blockType: 'row', domIndex: 0 });
+  });
 });
 
 describe('blockIndexForDomIndex', () => {
@@ -209,6 +241,21 @@ describe('sectionLabelForBlock', () => {
   it('falls back to the type name for an image with no alt', () => {
     const [image] = parseHtml('<figure class="cw-figure"><img src="/a.png"></figure>');
     expect(sectionLabelForBlock(image)).toBe('Image');
+  });
+
+  it('names a row by its shape, including the one-column case', () => {
+    const [one] = parseHtml(
+      '<div class="cw-row cw-row--1"><div class="cw-column"><p>Only column</p></div></div>'
+    );
+    const [two] = parseHtml(
+      '<div class="cw-row cw-row--2"><div class="cw-column"><p>Left</p></div>' +
+        '<div class="cw-column"><p>Right</p></div></div>'
+    );
+
+    // The label must not be the children's text: "Only column" could be the
+    // row or a paragraph inside it, and the navigator needs to say which.
+    expect(sectionLabelForBlock(one)).toBe('Row · 1 column');
+    expect(sectionLabelForBlock(two)).toBe('Row · 2 columns');
   });
 });
 

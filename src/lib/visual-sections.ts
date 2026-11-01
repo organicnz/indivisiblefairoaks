@@ -21,7 +21,7 @@
  * pure function is one a test can find.
  */
 
-import { type Block, blockText, type ContentBlockType } from '@/lib/blocks';
+import { type Block, blockText, type ContentBlockType, ROW_CLASS } from '@/lib/blocks';
 import { collectPageSections } from '@/lib/visual-edit-mode';
 
 /** One editable section: a block, plus the element that renders it, if any. */
@@ -135,11 +135,21 @@ function pairBlocksToElements(blocks: Block[], elements: Element[]): (Element | 
   const claimedBlocks = new Set<number>();
   const claimedElements = new Set<Element>();
 
+  /*
+   * A row and a leaf are different kinds of frame even when their text agrees.
+   * Matching a row's element to a leaf block by text would put the row's frame
+   * on a paragraph's address — and the nested-click path would then open the
+   * wrong block, or edit an unsupported block's markup with a row's children.
+   */
+  const sameKind = (block: Block, element: Element) =>
+    (block.type === 'row') === element.classList.contains(ROW_CLASS);
+
   for (const element of elements) {
     const key = elementFingerprint(element);
     if (!key) continue;
     for (let index = 0; index < blocks.length; index += 1) {
       if (claimedBlocks.has(index)) continue;
+      if (!sameKind(blocks[index], element)) continue;
       if (blockFingerprint(blocks[index]) !== key) continue;
       paired[index] = element;
       claimedBlocks.add(index);
@@ -148,11 +158,22 @@ function pairBlocksToElements(blocks: Block[], elements: Element[]): (Element | 
     }
   }
 
+  /*
+   * Whatever is left is paired in document order, but only with an element of
+   * its own kind. Skipping an incompatible element rather than breaking lets a
+   * later compatible one still pair — an empty row after a sanitizer-dropped
+   * block is exactly that case.
+   */
   let cursor = 0;
   for (const element of elements) {
     if (claimedElements.has(element)) continue;
-    while (cursor < blocks.length && paired[cursor] !== null) cursor += 1;
-    if (cursor >= blocks.length) break;
+    while (
+      cursor < blocks.length &&
+      (paired[cursor] !== null || !sameKind(blocks[cursor], element))
+    ) {
+      cursor += 1;
+    }
+    if (cursor >= blocks.length) continue;
     paired[cursor] = element;
     claimedElements.add(element);
     cursor += 1;

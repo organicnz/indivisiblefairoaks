@@ -185,17 +185,26 @@ function serializeBlock(block: Block): string {
  * the page renders and the editor has somewhere to put the cursor.
  */
 /**
- * Whether a block has anything a reader would see.
+ * Whether a block should be emitted at all.
  *
- * Recursive for rows because an empty row is dropped exactly as an empty
- * paragraph is: it is scaffolding until a column holds something. An empty
- * *column* inside a row with content is still emitted, so a deliberate blank
- * column keeps its place in the grid instead of collapsing the layout.
+ * Empty text blocks are scaffolding and are dropped; a row is not, because its
+ * columns are a layout decision rather than copy. An empty *column* inside a
+ * row is always emitted, so a deliberate blank column keeps its place in the
+ * grid instead of collapsing the layout.
  */
 function hasMeaningfulContent(block: Block): boolean {
   if (block.type === 'divider') return true;
   if (block.type === 'row') {
-    return block.columns.some((column) => column.blocks.some(hasMeaningfulContent));
+    /*
+     * A row survives an empty save, unlike an empty paragraph.
+     *
+     * Its columns are authored structure, not copy: an admin who creates a
+     * three-column layout and applies the design before filling it has still
+     * made a decision, and dropping the row because no child has text yet makes
+     * that decision disappear. An empty grid renders nothing, so keeping it
+     * costs the page nothing — while losing it costs the admin the layout.
+     */
+    return block.columns.length > 0;
   }
   if (block.type === 'unsupported') return block.html.trim().length > 0;
   if (block.type === 'image') return Boolean(block.src);
@@ -220,7 +229,9 @@ export function serializeBlocks(blocks: Block[]): string {
  *
  * The design shell is deliberately ignored: an empty paragraph with a nice
  * border is still empty, and the save drops it. Testing the serialized markup
- * with the shell removed is what keeps this answer the same as the save's.
+ * with the shell removed is what keeps this answer the same as the save's. A
+ * row is the exception in the other direction: its columns are authored layout,
+ * so an empty row is kept and this reports false.
  */
 export function isBlockEmpty(block: Block): boolean {
   return serializeBlocks([{ ...block, shell: undefined }]) === '<p></p>';

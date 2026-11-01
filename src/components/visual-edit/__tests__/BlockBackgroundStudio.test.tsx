@@ -164,4 +164,18 @@ describe('BlockBackgroundStudio', () => {
     expect(setStyles).toHaveBeenCalled();
     expect(currentStyles.background.overlay).toBe('bg-black/60');
   });
+
+  it('hides the decorative badge for a block that cannot carry one', async () => {
+    await act(async () => {
+      root.render(
+        <BlockBackgroundStudio styles={DEFAULT_VC_STYLES} setStyles={vi.fn()} showBadge={false} />
+      );
+    });
+
+    // Background and elevation still apply to a row; the badge does not, because
+    // a row has no content root to put its markup in.
+    expect(container.textContent).toContain('Background & Elevation');
+    expect(container.textContent).not.toContain('Decorative Badge / Ribbon Accent');
+    expect(container.querySelector('#block-badge-text-input')).toBeNull();
+  });
 });

@@ -7,7 +7,13 @@ import {
   type ComposerPagePreviewControls,
   useComposerPagePreview,
 } from '@/components/visual-edit/useComposerPagePreview';
-import { applyBlockShell, type Block, type BlockShellDesign, serializeBlocks } from '@/lib/blocks';
+import {
+  applyBlockShell,
+  type Block,
+  type BlockShellDesign,
+  serializeBlocks,
+  structuralClassesForBlock,
+} from '@/lib/blocks';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -47,6 +53,14 @@ const BLOCKS: Record<string, Block> = {
   divider: { id: 'hr', type: 'divider' },
   table: { id: 't', type: 'table', head: ['A', 'B'], rows: [['1', '2']] },
   button: { id: 'btn', type: 'button', label: 'Join', href: '/join' },
+  row: {
+    id: 'row',
+    type: 'row',
+    columns: [
+      { id: 'r1', blocks: [{ id: 'rp', type: 'paragraph', html: 'Left' }] },
+      { id: 'r2', blocks: [] },
+    ],
+  },
 };
 
 type ControlsRef = { current: ComposerPagePreviewControls | null };
@@ -187,6 +201,49 @@ describe('useComposerPagePreview', () => {
     expect(element.innerHTML).toBe('A new <strong>mission</strong>');
     // A copy edit alone must not apply the editor's default design.
     expect(attrsOf(element)).toEqual({ ...before, html: element.innerHTML });
+
+    act(() => controls.current?.applyDraft(null));
+    expect(attrsOf(element)).toEqual(before);
+  });
+
+  it('repaints a row’s column count so the page cannot show the old grid', async () => {
+    const row: Block = {
+      id: 'growing-row',
+      type: 'row',
+      shell: { className: 'rounded-2xl bg-surface-muted' },
+      columns: [
+        { id: 'g1', blocks: [{ id: 'gp1', type: 'paragraph', html: 'Left' }] },
+        { id: 'g2', blocks: [] },
+      ],
+    };
+    const element = parseOne(serializeBlocks([row]));
+    document.body.appendChild(element);
+    const controls = await mount([element], [row]);
+    const before = attrsOf(element);
+
+    const grown: Block = {
+      ...row,
+      columns: [
+        ...row.columns,
+        { id: 'g3', blocks: [{ id: 'gp3', type: 'paragraph', html: 'Right' }] },
+      ],
+    };
+    const saved = parseOne(serializeBlocks([grown]));
+
+    act(() =>
+      controls.current?.applyDraft({
+        mode: 'block',
+        blockIndexes: [0],
+        design: null,
+        contentHtml: saved.innerHTML,
+        contentRootClassName: structuralClassesForBlock(grown),
+      })
+    );
+
+    // The page must match the save, not just the mini-preview: three columns in
+    // a `cw-row--2` grid is a layout the writer never stores.
+    expect(attrsOf(element)).toEqual(attrsOf(saved));
+    expect(element.classList.contains('cw-row--2')).toBe(false);
 
     act(() => controls.current?.applyDraft(null));
     expect(attrsOf(element)).toEqual(before);

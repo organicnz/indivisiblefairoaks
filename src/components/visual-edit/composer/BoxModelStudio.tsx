@@ -155,6 +155,7 @@ export function BoxModelStudio({
           bgThemeSelectId={bgThemeSelectId}
           shadowSelectId={shadowSelectId}
           blockThemeModeSelectId={blockThemeModeSelectId}
+          showBadge={currentBlock.type !== 'row'}
         />
       )}
 
