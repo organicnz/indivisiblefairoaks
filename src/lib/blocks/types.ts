@@ -20,7 +20,8 @@
  *     button blocks each carry a wrapper element. See `BUTTON_WRAPPER_CLASS`.
  */
 
-export type ContentBlockType =
+/** A block that can sit inside a column. Rows never contain rows. */
+export type LeafBlockType =
   | 'paragraph'
   | 'heading'
   | 'bulletList'
@@ -33,6 +34,9 @@ export type ContentBlockType =
   | 'table'
   | 'button'
   | 'unsupported';
+
+/** Every block type, including the one-level row container. */
+export type ContentBlockType = LeafBlockType | 'row';
 
 /**
  * Backward-compatible alias.
@@ -67,6 +71,8 @@ export const BUTTON_CLASS = `${BLOCK_CLASS}-button`;
  * which would silently eat a row of calls to action.
  */
 export const BUTTON_WRAPPER_CLASS = `${BLOCK_CLASS}-action`;
+export const ROW_CLASS = `${BLOCK_CLASS}-row`;
+export const ROW_COLUMN_CLASS = `${BLOCK_CLASS}-column`;
 
 /**
  * The design a block carries on its own root element.
@@ -95,7 +101,8 @@ interface BlockBase {
   shell?: BlockShell;
 }
 
-export type Block =
+/** Everything a column can hold. `row` is deliberately absent. */
+export type ContentBlock =
   | (BlockBase & { type: 'paragraph'; html: string })
   | (BlockBase & { type: 'heading'; level: HeadingLevel; html: string })
   | (BlockBase & { type: 'bulletList'; items: string[] })
@@ -121,6 +128,29 @@ export type Block =
    * not delete content it cannot represent.
    */
   | (BlockBase & { type: 'unsupported'; html: string });
+
+/**
+ * One column of a row. Width is the row's, not the column's: the serializer
+ * derives `cw-row--N` from the column count, so two columns cannot disagree
+ * about how wide the grid is.
+ */
+export interface RowColumn {
+  id: string;
+  blocks: ContentBlock[];
+}
+
+/**
+ * A one-level layout container.
+ *
+ * The bound is in the type: `RowColumn.blocks` is `ContentBlock[]`, and
+ * `ContentBlock` has no row variant. The parser enforces the same bound for
+ * stored markup by preserving a nested row as `unsupported` rather than
+ * modelling it, so hand-edited HTML cannot create a second level the editor
+ * would then have to walk.
+ */
+export type RowBlock = BlockBase & { type: 'row'; columns: RowColumn[] };
+
+export type Block = ContentBlock | RowBlock;
 
 let blockSeq = 0;
 

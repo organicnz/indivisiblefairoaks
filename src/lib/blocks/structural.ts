@@ -8,6 +8,7 @@ import {
   FIGURE_CLASS,
   LIST_CLASS,
   QUOTE_CLASS,
+  ROW_CLASS,
   TABLE_CLASS,
 } from './types';
 
@@ -85,6 +86,11 @@ export function structuralClassesForBlock(block: Block): string {
       return TABLE_CLASS;
     case 'button':
       return BUTTON_WRAPPER_CLASS;
+    case 'row':
+      /* The count is structural, derived from the model, never read back from
+       * the class list. A row whose markup says `cw-row--3` but that holds two
+       * columns saves as two, because the columns are the document. */
+      return `${ROW_CLASS} ${ROW_CLASS}--${Math.max(1, block.columns.length)}`;
     case 'paragraph':
     case 'unsupported':
       return '';

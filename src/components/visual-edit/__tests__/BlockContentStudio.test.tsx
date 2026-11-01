@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+'use client';
+
+import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -17,7 +19,7 @@ import {
   TableBlockEditor,
   UnsupportedBlockEditor,
 } from '@/components/visual-edit/composer/BlockContentStudio';
-import type { Block } from '@/lib/blocks';
+import { type Block, serializeBlocks } from '@/lib/blocks';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -317,4 +319,183 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     expect(container.textContent).toContain('Element Content & Copy');
     expect(container.textContent).toContain('Heading Level');
   });
+
+  it('renders a row as columns and names an empty column rather than a bare frame', async () => {
+    const row: Block = {
+      id: 'r',
+      type: 'row',
+      columns: [
+        { id: 'c1', blocks: [] },
+        { id: 'c2', blocks: [] },
+      ],
+    };
+
+    await act(async () => {
+      root.render(<RowHarness initial={row} />);
+    });
+
+    expect(container.textContent).toContain('Row Layout');
+    expect(container.textContent).toContain('2 columns');
+    expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(2);
+    expect(container.textContent?.match(/Empty column\. Add a block below\./g)).toHaveLength(2);
+    expect(container.textContent).toContain('A row lays blocks side by side');
+  });
+
+  it('adds a block to a column and serializes the result', async () => {
+    const committed: Block[] = [];
+    const row: Block = {
+      id: 'r',
+      type: 'row',
+      columns: [
+        { id: 'c1', blocks: [] },
+        { id: 'c2', blocks: [] },
+      ],
+    };
+
+    await act(async () => {
+      root.render(<RowHarness initial={row} onCommit={(next) => committed.push(next)} />);
+    });
+
+    const select = container.querySelector('select') as HTMLSelectElement;
+    await act(async () => {
+      select.value = 'heading';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const last = expectRow(committed.at(-1));
+    expect(last.columns[0].blocks).toHaveLength(1);
+    expect(last.columns[0].blocks[0].type).toBe('heading');
+    expect(last.columns[1].blocks).toHaveLength(0);
+    expect(serializeBlocks([last])).toContain(
+      '<div class="cw-column"><h2 class="cw cw--h2">New Section Heading</h2></div>'
+    );
+  });
+
+  it('reorders and deletes blocks inside a column without touching the other one', async () => {
+    const row: Block = {
+      id: 'r',
+      type: 'row',
+      columns: [
+        {
+          id: 'c1',
+          blocks: [
+            { id: 'h', type: 'heading', level: 2, html: 'Agenda' },
+            { id: 'p', type: 'paragraph', html: 'Doors at nine.' },
+          ],
+        },
+        { id: 'c2', blocks: [{ id: 'q', type: 'quote', html: 'A quote' }] },
+      ],
+    };
+    const committed: Block[] = [];
+
+    await act(async () => {
+      root.render(<RowHarness initial={row} onCommit={(next) => committed.push(next)} />);
+    });
+
+    await act(async () => {
+      (
+        container.querySelector('[aria-label="Move Doors at nine. up"]') as HTMLButtonElement
+      ).click();
+    });
+    const moved = expectRow(committed.at(-1));
+    expect(moved.columns[0].blocks.map((block) => block.type)).toEqual(['paragraph', 'heading']);
+    expect(moved.columns[1].blocks.map((block) => block.type)).toEqual(['quote']);
+
+    await act(async () => {
+      (container.querySelector('[aria-label="Delete Agenda"]') as HTMLButtonElement).click();
+    });
+    const deleted = expectRow(committed.at(-1));
+    expect(deleted.columns[0].blocks.map((block) => block.type)).toEqual(['paragraph']);
+    expect(deleted.columns[1].blocks).toHaveLength(1);
+  });
+
+  it('edits a nested block in place, keeping the row selected', async () => {
+    const row: Block = {
+      id: 'r',
+      type: 'row',
+      columns: [{ id: 'c1', blocks: [{ id: 'p', type: 'paragraph', html: 'Doors at nine.' }] }],
+    };
+    const committed: Block[] = [];
+
+    await act(async () => {
+      root.render(<RowHarness initial={row} onCommit={(next) => committed.push(next)} />);
+    });
+
+    // The row stays the selected block: the composition controls stay on screen.
+    expect(container.textContent).toContain('1 column');
+    await act(async () => {
+      (
+        container.querySelector('[aria-label="Edit Doors at nine. content"]') as HTMLButtonElement
+      ).click();
+    });
+    expect(container.textContent).toContain('Element Content & Copy');
+
+    const convert = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === 'Button'
+    );
+    await act(async () => {
+      (convert as HTMLButtonElement).click();
+    });
+
+    const last = expectRow(committed.at(-1));
+    expect(last.columns[0].blocks[0].type).toBe('button');
+    expect(container.textContent).toContain('Row Layout');
+  });
+
+  it('resizes a row and merges a removed column’s blocks instead of deleting them', async () => {
+    const row: Block = {
+      id: 'r',
+      type: 'row',
+      columns: [
+        { id: 'c1', blocks: [{ id: 'h', type: 'heading', level: 2, html: 'Agenda' }] },
+        { id: 'c2', blocks: [{ id: 'p', type: 'paragraph', html: 'Doors at nine.' }] },
+      ],
+    };
+    const committed: Block[] = [];
+
+    await act(async () => {
+      root.render(<RowHarness initial={row} onCommit={(next) => committed.push(next)} />);
+    });
+
+    await act(async () => {
+      (container.querySelector('[aria-label="Add column"]') as HTMLButtonElement).click();
+    });
+    const grown = expectRow(committed.at(-1));
+    expect(grown.columns).toHaveLength(3);
+    expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(3);
+
+    await act(async () => {
+      (container.querySelector('[aria-label="Remove column"]') as HTMLButtonElement).click();
+    });
+    const shrunk = expectRow(committed.at(-1));
+    expect(shrunk.columns).toHaveLength(2);
+
+    // Down to one: the second column's blocks move into the first, in order.
+    await act(async () => {
+      (container.querySelector('[aria-label="Remove column"]') as HTMLButtonElement).click();
+    });
+    const merged = expectRow(committed.at(-1));
+    expect(merged.columns).toHaveLength(1);
+    expect(merged.columns[0].blocks.map((block) => block.type)).toEqual(['heading', 'paragraph']);
+  });
 });
+
+/** Narrow the last committed draft, failing the test if it is not a row. */
+function expectRow(block: Block | undefined): Extract<Block, { type: 'row' }> {
+  if (block?.type !== 'row') throw new Error('expected a row');
+  return block;
+}
+
+/** A controlled row, so a sequence of clicks is one row rather than a mock call. */
+function RowHarness({ initial, onCommit }: { initial: Block; onCommit?: (next: Block) => void }) {
+  const [row, setRow] = useState<Block>(initial);
+  return (
+    <BlockContentStudio
+      currentBlock={row}
+      setCurrentBlock={(next) => {
+        setRow(next);
+        onCommit?.(next);
+      }}
+    />
+  );
+}

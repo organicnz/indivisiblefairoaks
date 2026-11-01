@@ -64,8 +64,12 @@ import {
   type Block,
   CALLOUT_TONES,
   type CalloutTone,
+  cloneBlockWithFreshIds,
   convertBlock,
+  createContentBlock,
+  createRowBlock,
   type HeadingLevel,
+  type LeafBlockType,
   nextBlockId,
   parseHtml,
   serializeBlocks,
@@ -208,10 +212,11 @@ const BLOCK_TYPE_OPTIONS: ReadonlyArray<{ type: Block['type']; label: string }> 
   { type: 'quote', label: 'Quote' },
   { type: 'code', label: 'Code' },
   { type: 'divider', label: 'Divider' },
+  { type: 'row', label: 'Row / Columns' },
 ];
 
 const CONVERT_BLOCK_OPTIONS: ReadonlyArray<{
-  type: Block['type'];
+  type: LeafBlockType;
   label: string;
   headingLevel?: HeadingLevel;
   calloutTone?: CalloutTone;
@@ -1762,10 +1767,7 @@ export function VisualEditOverlay() {
           toast.error('Invalid page snapshot: no blocks array found');
           return;
         }
-        const validatedBlocks: Block[] = parsed.blocks.map((b) => ({
-          ...b,
-          id: nextBlockId(),
-        }));
+        const validatedBlocks: Block[] = parsed.blocks.map((b) => cloneBlockWithFreshIds(b));
         if (parsed.title) setPageTitle(parsed.title);
         if (parsed.slug) setPageSlug(parsed.slug);
         commitBlocks(validatedBlocks);
@@ -2021,73 +2023,13 @@ export function VisualEditOverlay() {
     },
     [sections, isComposerWorkspace, openVisualComposer]
   );
-
   const handleAddNewSection = useCallback(
     (type: Block['type'], insertAfterBlockIndex?: number) => {
       const freshId = nextBlockId();
-      let freshBlock: Block;
-      switch (type) {
-        case 'heading':
-          freshBlock = { id: freshId, type: 'heading', level: 2, html: 'New Section Heading' };
-          break;
-        case 'paragraph':
-          freshBlock = { id: freshId, type: 'paragraph', html: 'Add section copy here...' };
-          break;
-        case 'bulletList':
-          freshBlock = {
-            id: freshId,
-            type: 'bulletList',
-            items: ['Action item 1', 'Action item 2'],
-          };
-          break;
-        case 'orderedList':
-          freshBlock = { id: freshId, type: 'orderedList', items: ['Step 1', 'Step 2'] };
-          break;
-        case 'table':
-          freshBlock = {
-            id: freshId,
-            type: 'table',
-            head: ['Column A', 'Column B'],
-            rows: [
-              ['Row 1', 'Row 1'],
-              ['Row 2', 'Row 2'],
-            ],
-          };
-          break;
-        case 'callout':
-          freshBlock = {
-            id: freshId,
-            type: 'callout',
-            tone: 'info',
-            html: 'Important civic action note.',
-          };
-          break;
-        case 'image':
-          freshBlock = {
-            id: freshId,
-            type: 'image',
-            src: '',
-            alt: 'Image description',
-            caption: '',
-            width: null,
-            height: null,
-          };
-          break;
-        case 'button':
-          freshBlock = { id: freshId, type: 'button', label: 'Take Action', href: '/take-action' };
-          break;
-        case 'quote':
-          freshBlock = { id: freshId, type: 'quote', html: 'Inspiring constituent quote.' };
-          break;
-        case 'divider':
-          freshBlock = { id: freshId, type: 'divider' };
-          break;
-        case 'code':
-          freshBlock = { id: freshId, type: 'code', text: '// inline code block' };
-          break;
-        default:
-          freshBlock = { id: freshId, type: 'paragraph', html: 'Content' };
-      }
+      const freshBlock: Block =
+        type === 'row'
+          ? createRowBlock(freshId)
+          : createContentBlock(type === 'unsupported' ? 'paragraph' : type, freshId);
 
       const nextBlocks = [...blocksRef.current];
       let newIndex: number;
@@ -2102,12 +2044,22 @@ export function VisualEditOverlay() {
         nextBlocks.push(freshBlock);
         newIndex = nextBlocks.length - 1;
       }
+
       commitBlocks(nextBlocks);
+      /*
+       * A row has no section-modal form — its content lives in its columns. The
+       * composer is where it can actually be filled, so adding one opens it
+       * rather than a modal with no fields for what was just created.
+       */
+      if (freshBlock.type === 'row') {
+        openVisualComposer('block', newIndex);
+        return;
+      }
       setEditingBlockIndex(newIndex);
       setEditingBlock(freshBlock);
       setIsSectionModalOpen(true);
     },
-    [commitBlocks]
+    [commitBlocks, openVisualComposer]
   );
 
   const handleSaveSectionModal = async () => {
@@ -3027,7 +2979,7 @@ export function VisualEditOverlay() {
     async (blockIndex: number) => {
       const source = blocksRef.current[blockIndex];
       if (!source) return;
-      const duplicated: Block = { ...source, id: nextBlockId() };
+      const duplicated = cloneBlockWithFreshIds(source);
       const nextBlocks = [...blocksRef.current];
       nextBlocks.splice(blockIndex + 1, 0, duplicated);
       commitBlocks(nextBlocks, null);
@@ -3039,11 +2991,11 @@ export function VisualEditOverlay() {
   const handleConvertSection = useCallback(
     async (
       blockIndex: number,
-      targetType: Block['type'],
+      targetType: LeafBlockType,
       options?: { headingLevel?: HeadingLevel; calloutTone?: CalloutTone }
     ) => {
       const source = blocksRef.current[blockIndex];
-      if (!source) return;
+      if (!source || source.type === 'row') return;
       const converted = convertBlock(source, targetType, options);
       if (converted === source) return;
       const nextBlocks = [...blocksRef.current];
@@ -3376,6 +3328,9 @@ export function VisualEditOverlay() {
     const handleConvertSectionEvent = (e: Event) => {
       const detail = (e as CustomEvent<ConvertSectionDetail>).detail;
       if (detail?.blockIndex === undefined || !detail.type) return;
+      // A row is a container, not a conversion target; its columns are edited in
+      // the composer rather than by retyping the row.
+      if (detail.type === 'row') return;
       handleConvertSection(detail.blockIndex, detail.type, {
         headingLevel: detail.headingLevel,
         calloutTone: detail.calloutTone,
@@ -4263,11 +4218,12 @@ export function VisualEditOverlay() {
                   value={editingBlock.type}
                   onChange={(e) => {
                     const newType = e.target.value as Block['type'];
+                    if (editingBlock.type === 'row' || newType === 'row') return;
                     setEditingBlock(convertBlock(editingBlock, newType));
                   }}
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary"
                 >
-                  {BLOCK_TYPE_OPTIONS.map((o) => (
+                  {BLOCK_TYPE_OPTIONS.filter((o) => o.type !== 'row').map((o) => (
                     <option key={o.type} value={o.type}>
                       {o.label}
                     </option>

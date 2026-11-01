@@ -63,6 +63,7 @@ const TYPE_LABELS: Record<ContentBlockType, string> = {
   divider: 'Divider',
   table: 'Table',
   button: 'Button',
+  row: 'Row',
   unsupported: 'Preserved markup',
 };
 
@@ -94,6 +95,17 @@ function elementFingerprint(element: Element): string {
 
 /** Human label for one block, for lists and frames. */
 export function sectionLabelForBlock(block: Block): string {
+  /*
+   * A row's text is its columns' text, which is useful for search but useless
+   * as an identity: "Meeting agenda" could be the row or a paragraph inside it.
+   * Naming the shape is the one label that cannot be mistaken for a child, and
+   * it makes the one-column case explicit rather than looking like a stray
+   * frame.
+   */
+  if (block.type === 'row') {
+    const count = block.columns.length;
+    return `Row · ${count} ${count === 1 ? 'column' : 'columns'}`;
+  }
   const text = collapse(blockText(block));
   if (text) return text.slice(0, MAX_LABEL);
   // An image with no alt, a divider, a table with no cells: name the thing.

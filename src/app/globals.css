@@ -741,6 +741,49 @@
     background: color-mix(in srgb, var(--surface-muted) 55%, white);
   }
 
+  /*
+     A row is a layout container and the only block with children. The count is
+     the structural class the serializer derives from the model — `cw-row--N`
+     is what the parser reads back, and it is never stored in the design list.
+     Columns collapse to a single stack on a phone, because a three-column grid
+     at 360px is a column of one-word lines, not a layout.
+  */
+  .cw-row {
+    display: grid;
+    grid-template-columns: repeat(var(--cw-row-columns, 2), minmax(0, 1fr));
+    gap: 1.5rem;
+    margin-block: 1.5rem;
+    align-items: start;
+  }
+
+  .cw-row--1 {
+    --cw-row-columns: 1;
+  }
+
+  .cw-row--2 {
+    --cw-row-columns: 2;
+  }
+
+  .cw-row--3 {
+    --cw-row-columns: 3;
+  }
+
+  /* A column is a bare grid cell: its class exists for the parser and for the
+     gap, not for decoration. */
+  .cw-column {
+    min-width: 0;
+  }
+
+  .cw-column > * + * {
+    margin-block-start: 1rem;
+  }
+
+  @media (max-width: 640px) {
+    .cw-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
   .cw-action {
     display: flex;
     margin-block: 1.5rem;

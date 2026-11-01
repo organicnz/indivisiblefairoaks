@@ -264,6 +264,28 @@ function PreviewBlockContent({ block }: { block: Block }) {
         </table>
       );
     }
+    case 'row':
+      return (
+        <div
+          data-testid="composer-preview-row"
+          className="grid gap-1.5"
+          style={{ gridTemplateColumns: `repeat(${block.columns.length}, minmax(0, 1fr))` }}
+        >
+          {block.columns.map((column, index) => (
+            <div
+              key={column.id}
+              data-testid={`composer-preview-column-${index}`}
+              className="min-w-0 space-y-1 rounded border border-current/20 p-1.5"
+            >
+              {column.blocks.length === 0 ? (
+                <p className="text-[9px] italic opacity-60">Empty column</p>
+              ) : (
+                column.blocks.map((child) => <PreviewBlockContent key={child.id} block={child} />)
+              )}
+            </div>
+          ))}
+        </div>
+      );
     case 'unsupported':
       return (
         <p

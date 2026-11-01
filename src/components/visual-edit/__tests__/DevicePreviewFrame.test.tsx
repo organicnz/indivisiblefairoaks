@@ -197,4 +197,36 @@ describe('DevicePreviewFrame', () => {
     });
     expect(container.querySelector('hr')).not.toBeNull();
   });
+
+  it('previews a row as columns, including a column with nothing in it yet', async () => {
+    const row: Block = {
+      id: 'r',
+      type: 'row',
+      columns: [
+        { id: 'c1', blocks: [{ id: 'p', type: 'paragraph', html: 'Doors at nine.' }] },
+        { id: 'c2', blocks: [] },
+      ],
+    };
+
+    await act(async () => {
+      root.render(
+        <DevicePreviewFrame
+          inspectorMode="block"
+          previewDevice="desktop"
+          setPreviewDevice={vi.fn()}
+          previewTheme="system"
+          setPreviewTheme={vi.fn()}
+          compiledClassNames="p-4"
+          currentBlock={row}
+        />
+      );
+    });
+
+    const preview = container.querySelector('[data-testid="composer-preview-row"]');
+    expect(preview).not.toBeNull();
+    expect(preview?.getAttribute('style')).toContain('repeat(2');
+    expect(container.querySelectorAll('[data-testid^="composer-preview-column-"]')).toHaveLength(2);
+    expect(container.textContent).toContain('Doors at nine.');
+    expect(container.textContent).toContain('Empty column');
+  });
 });

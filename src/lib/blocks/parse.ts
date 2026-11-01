@@ -11,12 +11,16 @@ import {
   CALLOUT_TONES,
   type CalloutTone,
   CODE_CLASS,
+  type ContentBlock,
   DIVIDER_CLASS,
   FIGURE_CLASS,
   type HeadingLevel,
   LIST_CLASS,
   nextBlockId,
   QUOTE_CLASS,
+  ROW_CLASS,
+  ROW_COLUMN_CLASS,
+  type RowColumn,
 } from './types';
 
 /**
@@ -224,6 +228,42 @@ function parseTable(el: Element): Block {
   );
 }
 
+/**
+ * A row and its columns.
+ *
+ * The column count is read from the columns that exist, not from `cw-row--N`:
+ * markup that disagrees with itself has one honest answer, and it is the cells.
+ * A `.cw-row` with no `.cw-column` children is malformed rather than empty;
+ * preserving it as `unsupported` is how the editor refuses to delete a layout
+ * it does not understand.
+ *
+ * Columns parse with `allowRows: false`. A nested row is real content, so it is
+ * preserved verbatim as `unsupported` — visible, editable as raw HTML, and free
+ * of a second level the model cannot represent.
+ */
+function parseRow(el: Element): Block {
+  const columnElements = [...el.children].filter((child) => hasClass(child, ROW_COLUMN_CLASS));
+  if (columnElements.length === 0) {
+    return { id: nextBlockId(), type: 'unsupported', html: el.outerHTML };
+  }
+
+  const columns: RowColumn[] = columnElements.map((columnEl) => {
+    const blocks: Block[] = [];
+    parseFragment(columnEl, blocks, { allowRows: false });
+    // `allowRows: false` replaces any row with an unsupported block, so this is
+    // the one place the runtime invariant is stronger than the local type.
+    return { id: nextBlockId(), blocks: blocks as ContentBlock[] };
+  });
+
+  const shell = readElementShell(el);
+  return {
+    id: nextBlockId(),
+    type: 'row',
+    columns,
+    ...(shell ? { shell } : {}),
+  };
+}
+
 function parseButton(el: Element): Block | null {
   const link = el.tagName.toLowerCase() === 'a' ? el : el.querySelector('a');
   if (!link) return null;
@@ -244,6 +284,8 @@ function parseButton(el: Element): Block | null {
 
 function parseElement(el: Element): Block | Block[] | null {
   const tag = el.tagName.toLowerCase();
+
+  if (hasClass(el, ROW_CLASS)) return parseRow(el);
 
   if (hasClass(el, DIVIDER_CLASS) || tag === 'hr') {
     return withElementShell({ id: nextBlockId(), type: 'divider' }, el);
@@ -305,7 +347,12 @@ function parseElement(el: Element): Block | Block[] | null {
   return { id: nextBlockId(), type: 'unsupported', html: el.outerHTML };
 }
 
-function parseFragment(root: ParentNode, out: Block[]): void {
+function parseFragment(
+  root: ParentNode,
+  out: Block[],
+  options: { allowRows?: boolean } = {}
+): void {
+  const allowRows = options.allowRows ?? true;
   for (const node of Array.from(root.childNodes)) {
     if (isIgnorableNode(node)) continue;
     if (node.nodeType !== Node.ELEMENT_NODE) {
@@ -316,8 +363,20 @@ function parseFragment(root: ParentNode, out: Block[]): void {
     }
     const parsed = parseElement(node as Element);
     if (!parsed) continue;
-    if (Array.isArray(parsed)) out.push(...parsed);
-    else out.push(parsed);
+    const items = Array.isArray(parsed) ? parsed : [parsed];
+    for (const item of items) {
+      if (!allowRows && item.type === 'row') {
+        // Keep the nested row's exact source, not a re-serialised copy: the
+        // point of preserving it is that a save writes back what was there.
+        out.push({
+          id: nextBlockId(),
+          type: 'unsupported',
+          html: (node as Element).outerHTML,
+        });
+      } else {
+        out.push(item);
+      }
+    }
   }
 }
 
@@ -374,6 +433,11 @@ export function blockText(block: Block): string {
       return [...block.head, ...block.rows.flat()].map(stripTags).join(' ');
     case 'button':
       return block.label;
+    case 'row':
+      return block.columns
+        .flatMap((column) => column.blocks.map(blockText))
+        .filter(Boolean)
+        .join(' ');
     case 'divider':
       return '';
     case 'unsupported':

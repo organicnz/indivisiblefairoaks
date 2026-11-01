@@ -6,6 +6,8 @@ import {
   type Block,
   blockText,
   CALLOUT_TONES,
+  cloneBlockWithFreshIds,
+  createRowBlock,
   designClassesOf,
   isBlockEmpty,
   isTextualBlock,
@@ -975,5 +977,151 @@ describe('block save shape', () => {
       applyBlockShell(parseHtml('<p>Copy</p>')[0], { customClasses: 'p-4' }),
     ]);
     expect(saved).not.toContain('data-theme');
+  });
+});
+
+describe('rows', () => {
+  beforeEach(() => resetBlockIds());
+
+  const row: Block = {
+    id: 'r',
+    type: 'row',
+    columns: [
+      {
+        id: 'c1',
+        blocks: [
+          { id: 'h', type: 'heading', level: 2, html: 'Agenda' },
+          { id: 'p', type: 'paragraph', html: 'Doors at nine.' },
+        ],
+      },
+      {
+        id: 'c2',
+        blocks: [{ id: 'l', type: 'bulletList', items: ['Water', 'Sun hat'] }],
+      },
+    ],
+  };
+
+  it('serializes a two-column row with real blocks in both columns', () => {
+    expect(serializeBlocks([row])).toBe(
+      '<div class="cw-row cw-row--2">' +
+        '<div class="cw-column"><h2 class="cw cw--h2">Agenda</h2><p>Doors at nine.</p></div>' +
+        '<div class="cw-column"><ul class="cw-list cw-list--bullet"><li>Water</li><li>Sun hat</li></ul></div>' +
+        '</div>'
+    );
+  });
+
+  it('survives the sanitizer and parses back to the same row', () => {
+    const saved = serializeBlocks([row]);
+    const sanitized = sanitizeWPContent(saved);
+
+    // The sanitizer is the storage boundary: whatever it drops, the save has lost.
+    expect(sanitized).toBe(saved);
+
+    const parsed = parseHtml(sanitized);
+    expect(parsed).toHaveLength(1);
+    const parsedRow = parsed[0];
+    if (parsedRow.type !== 'row') throw new Error('expected a row');
+    expect(parsedRow.columns).toHaveLength(2);
+    expect(parsedRow.columns[0].blocks.map((block) => block.type)).toEqual([
+      'heading',
+      'paragraph',
+    ]);
+    expect(parsedRow.columns[1].blocks.map((block) => block.type)).toEqual(['bulletList']);
+    expect(serializeBlocks(parsed)).toBe(saved);
+  });
+
+  it('keeps a row’s design on the row and its structure out of the design field', () => {
+    const styled: Block = { ...row, shell: { className: 'rounded-2xl bg-surface p-6' } };
+    const saved = serializeBlocks([styled]);
+
+    expect(saved).toContain('<div class="rounded-2xl bg-surface p-6 cw-row cw-row--2">');
+    expect(readBlockShell(parseHtml(saved)[0])?.className).toBe('rounded-2xl bg-surface p-6');
+    expect(serializeBlocks(parseHtml(saved))).toBe(saved);
+  });
+
+  it('emits the column count as structure for one and three columns', () => {
+    const one = createRowBlock('one', 1);
+    one.columns[0].blocks.push({ id: 'p1', type: 'paragraph', html: 'One' });
+    const three = createRowBlock('three', 3);
+    three.columns[2].blocks.push({ id: 'p3', type: 'paragraph', html: 'Three' });
+
+    expect(serializeBlocks([one])).toContain('class="cw-row cw-row--1"');
+    expect(serializeBlocks([three])).toContain('class="cw-row cw-row--3"');
+    expect(createRowBlock('clamped-low', 0).columns).toHaveLength(1);
+    expect(createRowBlock('clamped-high', 9).columns).toHaveLength(3);
+  });
+
+  it('leaves a flat legacy body untouched', () => {
+    const legacy = '<p>Intro</p><h2 class="cw cw--h2">Mission</h2>';
+    const parsed = parseHtml(legacy);
+
+    expect(parsed.map((block) => block.type)).toEqual(['paragraph', 'heading']);
+    expect(parsed.some((block) => block.type === 'row')).toBe(false);
+    expect(serializeBlocks(parsed)).toBe(legacy);
+  });
+
+  it('keeps an unwrapped legacy list a list, with its items', () => {
+    const parsed = parseHtml('<ul><li>One</li><li>Two</li></ul>');
+    expect(parsed[0].type).toBe('bulletList');
+    if (parsed[0].type !== 'bulletList') throw new Error('expected a list');
+    expect(parsed[0].items).toEqual(['One', 'Two']);
+    // The parser recognises a bare list; the save writes the structural class
+    // that makes it recognisable next time. The content is unchanged.
+    expect(serializeBlocks(parsed)).toBe(
+      '<ul class="cw-list cw-list--bullet"><li>One</li><li>Two</li></ul>'
+    );
+  });
+
+  it('preserves a nested row as unsupported markup rather than a second level', () => {
+    const nested =
+      '<div class="cw-row cw-row--2">' +
+      '<div class="cw-column"><p>Left</p></div>' +
+      '<div class="cw-column"><div class="cw-row cw-row--1"><div class="cw-column"><p>Too deep</p></div></div></div>' +
+      '</div>';
+    const parsed = parseHtml(nested);
+
+    expect(parsed).toHaveLength(1);
+    const outer = parsed[0];
+    if (outer.type !== 'row') throw new Error('expected a row');
+    expect(outer.columns[1].blocks).toHaveLength(1);
+    expect(outer.columns[1].blocks[0].type).toBe('unsupported');
+    expect(serializeBlocks(parsed)).toBe(nested);
+  });
+
+  it('preserves a row with no columns as unsupported', () => {
+    const malformed = '<div class="cw-row cw-row--2"><p>Orphan</p></div>';
+    const parsed = parseHtml(malformed);
+    expect(parsed[0].type).toBe('unsupported');
+    expect(serializeBlocks(parsed)).toBe(malformed);
+  });
+
+  it('drops an empty row from the save, like an empty paragraph', () => {
+    const empty = createRowBlock('empty', 2);
+    expect(isBlockEmpty(empty)).toBe(true);
+    expect(serializeBlocks([empty])).toBe('<p></p>');
+  });
+
+  it('keeps an empty column inside a row that has content elsewhere', () => {
+    const partial = createRowBlock('partial', 2);
+    partial.columns[0].blocks.push({ id: 'copy', type: 'paragraph', html: 'Only here' });
+    const saved = serializeBlocks([partial]);
+
+    expect(saved).toContain('<div class="cw-column"><p>Only here</p></div>');
+    expect(saved).toContain('<div class="cw-column"></div>');
+    // The blank column has to survive storage, or a deliberate gap becomes a
+    // collapsed grid on the next load.
+    expect(sanitizeWPContent(saved)).toBe(saved);
+    expect(serializeBlocks(parseHtml(saved))).toBe(saved);
+  });
+
+  it('gives every nested block a fresh id when duplicating a row', () => {
+    const copy = cloneBlockWithFreshIds(row);
+    if (copy.type !== 'row') throw new Error('expected a row');
+
+    expect(copy.id).not.toBe(row.id);
+    const original = (row as Extract<Block, { type: 'row' }>).columns;
+    expect(copy.columns[0].id).not.toBe(original[0].id);
+    expect(copy.columns[0].blocks[0].id).not.toBe(original[0].blocks[0].id);
+    expect(serializeBlocks([copy])).toBe(serializeBlocks([row]));
   });
 });

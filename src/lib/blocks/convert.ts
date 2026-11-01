@@ -1,10 +1,10 @@
 import { stripTags } from './serialize';
-import type { Block, CalloutTone, ContentBlockType, HeadingLevel } from './types';
+import type { CalloutTone, ContentBlock, HeadingLevel, LeafBlockType } from './types';
 
 /**
  * Extract human-readable text or inner HTML from any block for preservation across conversions.
  */
-export function extractBlockContentText(block: Block): string {
+export function extractBlockContentText(block: ContentBlock): string {
   switch (block.type) {
     case 'paragraph':
     case 'heading':
@@ -38,13 +38,13 @@ export function extractBlockContentText(block: Block): string {
  * - Converting Paragraph -> BulletList splits paragraphs/lines into list items.
  */
 export function convertBlock(
-  block: Block,
-  targetType: ContentBlockType,
+  block: ContentBlock,
+  targetType: LeafBlockType,
   options?: {
     headingLevel?: HeadingLevel;
     calloutTone?: CalloutTone;
   }
-): Block {
+): ContentBlock {
   const currentLevel = block.type === 'heading' ? block.level : undefined;
   const currentTone = block.type === 'callout' ? block.tone : undefined;
 

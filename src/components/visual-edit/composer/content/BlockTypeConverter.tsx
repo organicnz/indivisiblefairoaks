@@ -2,7 +2,7 @@
 
 import { Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { type Block, type ContentBlockType, convertBlock } from '@/lib/blocks';
+import { type Block, convertBlock, type LeafBlockType } from '@/lib/blocks';
 import { StudioSection } from '../ui';
 
 export interface BlockTypeConverterProps {
@@ -10,7 +10,7 @@ export interface BlockTypeConverterProps {
   setCurrentBlock: (block: Block) => void;
 }
 
-const BLOCK_TYPE_OPTIONS: readonly { type: ContentBlockType; label: string }[] = [
+const BLOCK_TYPE_OPTIONS: readonly { type: LeafBlockType; label: string }[] = [
   { type: 'heading', label: 'Heading' },
   { type: 'paragraph', label: 'Paragraph' },
   { type: 'callout', label: 'Callout' },
@@ -22,6 +22,10 @@ const BLOCK_TYPE_OPTIONS: readonly { type: ContentBlockType; label: string }[] =
 ] as const;
 
 export function BlockTypeConverter({ currentBlock, setCurrentBlock }: BlockTypeConverterProps) {
+  /* A row is a layout container, not a conversion target. The row editor owns
+   * its structure; this converter owns the copy inside a leaf block. */
+  if (currentBlock.type === 'row') return null;
+
   return (
     <StudioSection title="Element Type & Conversion" badge={currentBlock.type.toUpperCase()}>
       <div className="flex items-center justify-between text-[11px] font-bold text-slate-300 mb-2">

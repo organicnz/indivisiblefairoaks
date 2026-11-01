@@ -8,6 +8,7 @@ import {
   CALLOUT_CLASS,
   CALLOUT_TONES,
   type CalloutTone,
+  ROW_COLUMN_CLASS,
 } from './types';
 
 /**
@@ -119,6 +120,22 @@ function serializeTable(head: string[], rows: string[][], attrs: string): string
   return `<table${attrs}>${thead}${tbody}</table>`;
 }
 
+/**
+ * The inside of a row: its columns, and whatever each column holds.
+ *
+ * Columns are structural, so their class is written here and never stored in
+ * the row's design shell. A column cannot hold a row (`ContentBlock` has no row
+ * member), which is the one-level bound made unrepresentable.
+ */
+function serializeRowContent(row: Extract<Block, { type: 'row' }>): string {
+  return row.columns
+    .map(
+      (column) =>
+        `<div class="${ROW_COLUMN_CLASS}">${column.blocks.map(serializeBlock).join('')}</div>`
+    )
+    .join('');
+}
+
 function serializeBlock(block: Block): string {
   switch (block.type) {
     case 'paragraph':
@@ -151,6 +168,8 @@ function serializeBlock(block: Block): string {
       return serializeTable(block.head, block.rows, rootAttributes(block));
     case 'button':
       return `<div${rootAttributes(block, BUTTON_WRAPPER_CLASS)}><a class="${BUTTON_CLASS}" href="${escapeHtmlAttr(block.href)}">${escapeHtmlText(block.label)}</a></div>`;
+    case 'row':
+      return `<div${rootAttributes(block)}>${serializeRowContent(block)}</div>`;
     case 'unsupported':
       return block.html;
   }
@@ -165,19 +184,32 @@ function serializeBlock(block: Block): string {
  * document of nothing but empty paragraphs is emitted as a single empty `<p>` so
  * the page renders and the editor has somewhere to put the cursor.
  */
+/**
+ * Whether a block has anything a reader would see.
+ *
+ * Recursive for rows because an empty row is dropped exactly as an empty
+ * paragraph is: it is scaffolding until a column holds something. An empty
+ * *column* inside a row with content is still emitted, so a deliberate blank
+ * column keeps its place in the grid instead of collapsing the layout.
+ */
+function hasMeaningfulContent(block: Block): boolean {
+  if (block.type === 'divider') return true;
+  if (block.type === 'row') {
+    return block.columns.some((column) => column.blocks.some(hasMeaningfulContent));
+  }
+  if (block.type === 'unsupported') return block.html.trim().length > 0;
+  if (block.type === 'image') return Boolean(block.src);
+  if (block.type === 'button') return Boolean(block.href) && Boolean(block.label);
+  if (block.type === 'code') return block.text.length > 0;
+  if (block.type === 'table') return block.head.length > 0 || block.rows.length > 0;
+  if (block.type === 'bulletList' || block.type === 'orderedList') {
+    return block.items.some((item) => stripTags(item).trim().length > 0);
+  }
+  return stripTags(block.html).trim().length > 0;
+}
+
 export function serializeBlocks(blocks: Block[]): string {
-  const meaningful = blocks.filter((block) => {
-    if (block.type === 'divider') return true;
-    if (block.type === 'unsupported') return block.html.trim().length > 0;
-    if (block.type === 'image') return Boolean(block.src);
-    if (block.type === 'button') return Boolean(block.href) && Boolean(block.label);
-    if (block.type === 'code') return block.text.length > 0;
-    if (block.type === 'table') return block.head.length > 0 || block.rows.length > 0;
-    if (block.type === 'bulletList' || block.type === 'orderedList') {
-      return block.items.some((item) => stripTags(item).trim().length > 0);
-    }
-    return stripTags(block.html).trim().length > 0;
-  });
+  const meaningful = blocks.filter(hasMeaningfulContent);
 
   if (meaningful.length === 0) return '<p></p>';
   return meaningful.map(serializeBlock).join('');
