@@ -793,7 +793,7 @@ describe('block save shape', () => {
       block: {
         id: 'img',
         type: 'image',
-        src: '/mission.jpg',
+        src: 'https://example.org/mission.jpg',
         alt: 'Volunteers',
         caption: 'A caption',
         width: 640,

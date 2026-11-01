@@ -199,6 +199,12 @@ export const REGISTRY = {
     owner: OWNERS.commerce,
     stores: ['vercel-var', 'edge-secret', 'github-var'],
   },
+  BACKEND_VERIFY_EMAIL: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS.commerce,
+    stores: ['edge-secret'],
+    note: 'Destination for explicitly marked backend verification probes; never used for ordinary contact submissions.',
+  },
   CONTACT_RATE_LIMIT_MAX: {
     exposure: EXPOSURE.public,
     owner: OWNERS['app-runtime'],
