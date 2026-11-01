@@ -486,6 +486,41 @@ export function VisualEditOverlay() {
   const blocksRef = useRef<Block[]>([]);
   blocksRef.current = blocks;
 
+  /**
+   * The block the composer is editing, held by id rather than by index.
+   *
+   * The panel used to store its index. Moving the edited block behind the open
+   * panel then left the panel on the same index — which is now a different
+   * block — so the draft could be rebuilt from that block's markup, and an
+   * Apply could write it onto a block the operator never opened. A move does
+   * not change a block's id, so the index is derived from the current list
+   * instead: the panel follows the block it is editing through a reorder,
+   * keeping the same session and the same draft.
+   */
+  const [vcBlockId, setVcBlockId] = useState<string | null>(null);
+  /**
+   * Where that block currently sits, or null when it is no longer on the page.
+   *
+   * Derived during render, not corrected in an effect: the inspector rebuilds
+   * its draft as soon as it is handed a different block, so a state update
+   * that arrived one render later would already have discarded the draft.
+   */
+  const vcBlockIndex = useMemo(() => {
+    if (vcBlockId === null) return null;
+    const index = blocks.findIndex((block) => block.id === vcBlockId);
+    return index === -1 ? null : index;
+  }, [blocks, vcBlockId]);
+  /**
+   * Open or move the panel by index, as every trigger does.
+   *
+   * The id is captured at the moment of the call, so a later reorder carries
+   * the target with the block. A missing block clears the target rather than
+   * leaving a stale index behind to name someone else's block.
+   */
+  const setVcBlockIndex = useCallback((index: number | null) => {
+    setVcBlockId(index === null ? null : (blocksRef.current[index]?.id ?? null));
+  }, []);
+
   /** Same, for the section model the event handlers translate through. */
   const sectionsRef = useRef<VisualSection[]>([]);
   sectionsRef.current = sections;
@@ -572,7 +607,7 @@ export function VisualEditOverlay() {
       setVcMode(mode);
       setIsVisualComposerOpen(true);
     },
-    [selectedBlockIndexes]
+    [selectedBlockIndexes, setVcBlockIndex]
   );
 
   /** Close the inspector and drop the batch target snapshot with it. */
@@ -612,7 +647,7 @@ export function VisualEditOverlay() {
       setVcSelectedBlockIds([]);
       selectBlockOnly(target);
     },
-    [selectBlockOnly]
+    [selectBlockOnly, setVcBlockIndex]
   );
 
   // Direct In-Place Click-To-Edit Session State
@@ -667,7 +702,6 @@ export function VisualEditOverlay() {
   const [isDiffModalOpen, setIsDiffModalOpen] = useState(false);
   const [isSlashMenuOpen, setIsSlashMenuOpen] = useState(false);
   const [isVisualComposerOpen, setIsVisualComposerOpen] = useState(false);
-  const [vcBlockIndex, setVcBlockIndex] = useState<number | null>(null);
   /**
    * Where the open panel is, readable from a callback that must not be rebuilt
    * on every navigation — the same reason `blocksRef` exists above.
@@ -2765,6 +2799,15 @@ export function VisualEditOverlay() {
       // wrong block and quietly rewrote the page.
       const targetIdx = moveTargetForSection(sections, blockIndex, direction);
       if (targetIdx === null) return;
+      /*
+       * Take the draft off the page before the reorder re-pairs blocks with
+       * elements. The pairing matches on text, and a block whose copy is being
+       * previewed no longer carries the text the section model looks for — so
+       * leaving the preview painted would pair its element with a different
+       * block and strand the moved block with no element at all. The panel
+       * repaints at the block's new index on the next render.
+       */
+      applyComposerDraft(null);
       const nextBlocks = [...blocksRef.current];
       const temp = nextBlocks[blockIndex];
       nextBlocks[blockIndex] = nextBlocks[targetIdx];
@@ -2772,7 +2815,7 @@ export function VisualEditOverlay() {
       commitBlocks(nextBlocks, `move:${blockIndex}`);
       await handlePersistBlocks(nextBlocks, 'Section order updated');
     },
-    [commitBlocks, handlePersistBlocks, sections]
+    [applyComposerDraft, commitBlocks, handlePersistBlocks, sections]
   );
 
   /**
@@ -2787,6 +2830,10 @@ export function VisualEditOverlay() {
       const total = blocksRef.current.length;
       if (from < 0 || to < 0 || from >= total || to >= total) return;
 
+      // Same reason as `handleMoveSection`: the section model pairs blocks to
+      // elements by text, so painted copy must be off the page before a reorder
+      // re-pairs them. The panel restores it at the block's new index.
+      applyComposerDraft(null);
       const next = moveBlockItem(blocksRef.current, { from, to });
       commitBlocks(next, `reorder:${from}`);
       // Selection follows the block, not the slot it left behind.
@@ -2795,7 +2842,7 @@ export function VisualEditOverlay() {
       if (moved) setSelectedBlockIds(new Set([moved.id]));
       void handlePersistBlocks(next, 'Block order updated');
     },
-    [commitBlocks, handlePersistBlocks]
+    [applyComposerDraft, commitBlocks, handlePersistBlocks]
   );
 
   /**

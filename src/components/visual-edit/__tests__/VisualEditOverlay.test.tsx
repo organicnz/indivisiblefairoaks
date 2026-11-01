@@ -1544,6 +1544,63 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(paragraph.hasAttribute('data-vc-draft-preview')).toBe(false);
   });
 
+  it('keeps the composer on the block it is editing when that block moves', async () => {
+    /*
+     * The panel used to address its block by index. Moving the block behind the
+     * open panel then left the panel on the same index — now a different block —
+     * so the next Apply wrote the draft onto a block the operator never opened,
+     * and the draft that belonged to the moved block was rebuilt from the other
+     * block's markup. The panel follows the block's identity, not its slot.
+     */
+    await withPage();
+    const paragraph = pageChildren().children[0] as HTMLElement;
+
+    await openComposerOnFirstBlock();
+    await changeComposerCopy('Fresh intro copy.');
+    expect(paragraph.textContent).toBe('Fresh intro copy.');
+
+    // The sidebar's Move down, which is the same document mutation the frame's
+    // arrow key and the header's section move dispatch.
+    const moveDown = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Move block Intro copy. down"]'
+    );
+    expect(moveDown).not.toBeNull();
+    await act(async () => {
+      moveDown?.click();
+    });
+
+    // The paragraph swapped with the form block, so it is #2 in the document.
+    const panel = document.querySelector<HTMLElement>('aside[role="dialog"]');
+    expect(panel).not.toBeNull();
+    expect(panel?.textContent).toContain('Block #2 ·');
+    // Same block, same draft, same preview.
+    expect(panel?.querySelector<HTMLTextAreaElement>('textarea')?.value).toBe('Fresh intro copy.');
+    expect(paragraph.textContent).toBe('Fresh intro copy.');
+
+    // Applying writes the draft onto the block that moved, not onto the block
+    // that inherited its old index.
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+    expect(document.body.textContent).not.toContain('Visual Composer Inspector');
+    expect(paragraph.textContent).toBe('Fresh intro copy.');
+
+    // Save Block hands the block to the page; the page save writes it. The
+    // payload is what proves the draft went to the block that moved rather than
+    // to the block that inherited its old index.
+    const saveButton = container.querySelector<HTMLButtonElement>(
+      'button[title^="Write this document to Supabase"]'
+    );
+    expect(saveButton).not.toBeNull();
+    await act(async () => {
+      saveButton?.click();
+    });
+    const written = saveContent.mock.calls.at(-1)?.[0].body as string;
+    expect(written).toContain('Fresh intro copy.');
+    expect(written.indexOf('<form>')).toBeLessThan(written.indexOf('Fresh intro copy.'));
+    expect(written.indexOf('Fresh intro copy.')).toBeLessThan(written.indexOf('Mission'));
+  });
+
   it('keeps typed copy on the page when it is applied', async () => {
     await withPage();
     const paragraph = pageChildren().children[0] as HTMLElement;
