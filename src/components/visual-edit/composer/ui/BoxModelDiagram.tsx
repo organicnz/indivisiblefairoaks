@@ -38,6 +38,8 @@ export function BoxModelDiagram({
           type="button"
           onClick={() => setIsSidesLinked((prev) => !prev)}
           title={isSidesLinked ? 'Sides Linked (Sync)' : 'Sides Unlinked (Independent)'}
+          aria-label={isSidesLinked ? 'Unlink spacing sides' : 'Link spacing sides'}
+          aria-pressed={isSidesLinked}
           className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold transition-colors cursor-pointer ${
             isSidesLinked ? 'bg-accent-gold/20 text-accent-gold' : 'bg-white/10 text-slate-300'
           }`}
@@ -95,6 +97,7 @@ export function BoxModelDiagram({
               });
             }}
             title="Click to cycle top margin"
+            aria-label="Cycle top margin"
             className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors cursor-pointer"
           >
             T: {margin.top || '0'}
@@ -118,6 +121,7 @@ export function BoxModelDiagram({
               });
             }}
             title="Click to cycle left margin"
+            aria-label="Cycle left margin"
             className="px-1.5 py-1 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors shrink-0 cursor-pointer"
           >
             L: {margin.left || '0'}
@@ -154,6 +158,7 @@ export function BoxModelDiagram({
                     });
                   }}
                   title="Click to cycle top padding"
+                  aria-label="Cycle top padding"
                   className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors cursor-pointer"
                 >
                   T: {padding.top || '0'}
@@ -179,6 +184,7 @@ export function BoxModelDiagram({
                     });
                   }}
                   title="Click to cycle left padding"
+                  aria-label="Cycle left padding"
                   className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors shrink-0 cursor-pointer"
                 >
                   L: {padding.left || padding.top || '0'}
@@ -211,6 +217,7 @@ export function BoxModelDiagram({
                     });
                   }}
                   title="Click to cycle right padding"
+                  aria-label="Cycle right padding"
                   className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors shrink-0 cursor-pointer"
                 >
                   R: {padding.right || padding.top || '0'}
@@ -235,6 +242,7 @@ export function BoxModelDiagram({
                     });
                   }}
                   title="Click to cycle bottom padding"
+                  aria-label="Cycle bottom padding"
                   className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-500/30 transition-colors cursor-pointer"
                 >
                   B: {padding.bottom || padding.top || '0'}
@@ -258,6 +266,7 @@ export function BoxModelDiagram({
               });
             }}
             title="Click to cycle right margin"
+            aria-label="Cycle right margin"
             className="px-1.5 py-1 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors shrink-0 cursor-pointer"
           >
             R: {margin.right || '0'}
@@ -280,6 +289,7 @@ export function BoxModelDiagram({
               });
             }}
             title="Click to cycle bottom margin"
+            aria-label="Cycle bottom margin"
             className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold hover:bg-amber-500/30 transition-colors cursor-pointer"
           >
             B: {margin.bottom || margin.top || '0'}

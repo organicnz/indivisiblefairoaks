@@ -224,6 +224,7 @@ export function CSSFiltersStudio({
                 })
               }
               title={preset.description}
+              aria-label={`Apply ${preset.name} effects preset`}
               className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95"
             >
               {preset.name}

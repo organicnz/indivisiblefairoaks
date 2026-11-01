@@ -130,6 +130,12 @@ export function BordersStudio({
               ? 'Link corners together'
               : 'Unlink individual 4 corners'
           }
+          aria-label={
+            styles.border.radiusLinked === false
+              ? 'Link corners together'
+              : 'Unlink individual 4 corners'
+          }
+          aria-pressed={styles.border.radiusLinked !== false}
           className="text-[9px] text-accent-gold flex items-center gap-1 hover:underline cursor-pointer"
         >
           {styles.border.radiusLinked === false ? <Unlink2 size={10} /> : <Link2 size={10} />}
@@ -182,6 +188,7 @@ export function BordersStudio({
                 })
               }
               title={preset.description}
+              aria-label={`Apply ${preset.name} border preset`}
               className="px-2 py-1 rounded-lg text-[10px] font-semibold border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all active:scale-95"
             >
               {preset.name}

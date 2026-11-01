@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { type Block, serializeBlocks } from '@/lib/blocks';
 import type { ThemeMode } from '@/lib/theme';
@@ -24,6 +24,7 @@ import {
   DEFAULT_VC_STYLES,
   DevicePreviewFrame,
   getStylesClipboard,
+  INSPECTOR_TABS,
   InspectorFooter,
   InspectorHeader,
   InspectorTabBar,
@@ -110,6 +111,8 @@ export function VisualComposerInspector({
 
   const titleId = useId();
   const descId = useId();
+  /** Ref to the first interactive element — "Block Element" mode button — for focus-on-open. */
+  const firstFocusRef = useRef<HTMLButtonElement>(null);
 
   // Sync block state when props change
   useEffect(() => {
@@ -178,6 +181,37 @@ export function VisualComposerInspector({
   useEffect(() => {
     setInspectorMode(initialMode);
   }, [initialMode]);
+
+  // FR-4: Focus the first interactive element when the inspector opens.
+  useEffect(() => {
+    if (open && firstFocusRef.current) {
+      // Defer to let the animation frame complete before stealing focus.
+      const timer = setTimeout(() => firstFocusRef.current?.focus(), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  // FR-3: Alt+ArrowLeft / Alt+ArrowRight cycles through tabs (block mode only).
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+      if (inspectorMode !== 'block') return;
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;
+      e.preventDefault();
+      setActiveTab((current) => {
+        const idx = INSPECTOR_TABS.findIndex((t) => t.id === current);
+        const next =
+          e.key === 'ArrowRight'
+            ? INSPECTOR_TABS[(idx + 1) % INSPECTOR_TABS.length].id
+            : INSPECTOR_TABS[(idx - 1 + INSPECTOR_TABS.length) % INSPECTOR_TABS.length].id;
+        return next as typeof current;
+      });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, inspectorMode]);
 
   if (!open || !currentBlock || blockIndex === null) return null;
 
@@ -336,6 +370,7 @@ export function VisualComposerInspector({
         onPasteStyles={handlePasteStyles}
         onResetStyles={handleResetStyles}
         onClose={onClose}
+        firstFocusRef={firstFocusRef}
       />
 
       {/* Tabs Navigation (Block Mode) */}

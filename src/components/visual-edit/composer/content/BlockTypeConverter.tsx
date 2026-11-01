@@ -40,6 +40,8 @@ export function BlockTypeConverter({ currentBlock, setCurrentBlock }: BlockTypeC
             key={t.type}
             type="button"
             disabled={currentBlock.type === t.type}
+            aria-label={`Convert to ${t.label}`}
+            aria-pressed={currentBlock.type === t.type}
             onClick={() => {
               const converted = convertBlock(currentBlock, t.type);
               setCurrentBlock(converted);

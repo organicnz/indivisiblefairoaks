@@ -22,6 +22,8 @@ export function HeadingBlockEditor({
             key={lvl}
             type="button"
             onClick={() => setCurrentBlock({ ...currentBlock, level: lvl })}
+            aria-label={`Heading level ${lvl}`}
+            aria-pressed={currentBlock.level === lvl}
             className={`flex-1 py-1.5 rounded-lg font-bold border transition-colors ${
               currentBlock.level === lvl
                 ? 'bg-accent-gold text-ink-strong border-accent-gold font-black'
@@ -43,6 +45,10 @@ export function HeadingBlockEditor({
           onChange={(e) => setCurrentBlock({ ...currentBlock, html: e.target.value })}
           className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none focus:ring-1 focus:ring-accent-gold/40"
         />
+        <span className="text-[10px] text-slate-400">
+          {currentBlock.html.trim() ? currentBlock.html.trim().split(/\s+/).length : 0} words ·{' '}
+          {currentBlock.html.length} chars
+        </span>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react';
+import type React from 'react';
 import type { VisualComposerMode } from '@/types/unified';
 
 export interface InspectorHeaderProps {
@@ -23,6 +24,8 @@ export interface InspectorHeaderProps {
   onPasteStyles: () => void;
   onResetStyles: () => void;
   onClose: () => void;
+  /** Ref forwarded to the 'Block Element' button for focus-on-open (FR-4). */
+  firstFocusRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 export function InspectorHeader({
@@ -37,6 +40,7 @@ export function InspectorHeader({
   onPasteStyles,
   onResetStyles,
   onClose,
+  firstFocusRef,
 }: InspectorHeaderProps) {
   return (
     <>
@@ -111,6 +115,7 @@ export function InspectorHeader({
       <div className="flex border-b border-white/10 bg-slate-900/80 p-2 gap-1.5">
         <button
           type="button"
+          ref={firstFocusRef}
           onClick={() => setInspectorMode('block')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors ${
             inspectorMode === 'block'

@@ -2727,3 +2727,240 @@ describe('VisualComposerInspector', () => {
     expect(compiledClasses).toContain('py-16');
   });
 });
+
+// ── FR-1: aria-label sweep tests ─────────────────────────────────────────
+describe('FR-1: aria-label on icon-only buttons', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('H1–H6 level buttons have aria-label and aria-pressed', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={{ id: 'h1', type: 'heading', level: 2, html: 'Hello' }}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    for (let lvl = 1; lvl <= 6; lvl++) {
+      const btn = document.body.querySelector<HTMLButtonElement>(
+        `button[aria-label="Heading level ${lvl}"]`
+      );
+      expect(btn, `H${lvl} button missing`).not.toBeNull();
+      // H2 is the initial level — its aria-pressed must be true
+      if (lvl === 2) expect(btn?.getAttribute('aria-pressed')).toBe('true');
+      else expect(btn?.getAttribute('aria-pressed')).toBe('false');
+    }
+  });
+
+  it('BlockTypeConverter buttons have aria-label and aria-pressed', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={{ id: 'p1', type: 'paragraph', html: 'Hello' }}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const convertToHeading = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Convert to Heading"]'
+    );
+    expect(convertToHeading).not.toBeNull();
+    expect(convertToHeading?.getAttribute('aria-pressed')).toBe('false');
+
+    // Active block type (paragraph) has aria-pressed=true
+    const activeParagraph = document.body.querySelector<HTMLButtonElement>(
+      'button[aria-label="Convert to Paragraph"]'
+    );
+    expect(activeParagraph?.getAttribute('aria-pressed')).toBe('true');
+    expect(activeParagraph?.disabled).toBe(true);
+  });
+
+  it('BoxModelDiagram margin cycle buttons have aria-label', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={{ id: 'p2', type: 'paragraph', html: 'Test' }}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+          initialMode="block"
+        />
+      );
+    });
+
+    // Navigate to Box Model tab
+    const designTab = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button')).find(
+      (b) => b.textContent?.includes('Box Model')
+    );
+    await act(async () => {
+      designTab?.click();
+    });
+
+    expect(document.body.querySelector('button[aria-label="Cycle top margin"]')).not.toBeNull();
+    expect(document.body.querySelector('button[aria-label="Cycle bottom margin"]')).not.toBeNull();
+    expect(document.body.querySelector('button[aria-label="Cycle top padding"]')).not.toBeNull();
+  });
+});
+
+// ── FR-2: word/char counters ──────────────────────────────────────────────
+describe('FR-2: live word/char count on text editors', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('paragraph editor shows 0 words · 0 chars when empty', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={{ id: 'p3', type: 'paragraph', html: '' }}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('0 words');
+    expect(document.body.textContent).toContain('0 chars');
+  });
+
+  it('paragraph editor counter updates when text changes', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={{ id: 'p4', type: 'paragraph', html: 'hello world' }}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('2 words');
+    expect(document.body.textContent).toContain('11 chars');
+  });
+
+  it('heading editor shows word/char count below textarea', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={{ id: 'h2', type: 'heading', level: 2, html: 'Democracy Now' }}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    expect(document.body.textContent).toContain('2 words');
+    expect(document.body.textContent).toContain('13 chars');
+  });
+});
+
+// ── FR-3: keyboard tab cycling ────────────────────────────────────────────
+describe('FR-3: Alt+Arrow cycles inspector tabs', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    document.body.innerHTML = '';
+  });
+
+  it('Alt+ArrowRight advances to the next tab', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={{ id: 'p5', type: 'paragraph', html: '' }}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    // Default is 'content' tab. Alt+Right → 'presets'
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowRight', altKey: true, bubbles: true })
+      );
+    });
+
+    const activeTabBtn = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.className.includes('bg-accent-gold') && b.textContent?.includes('Presets'));
+    expect(activeTabBtn).not.toBeNull();
+  });
+
+  it('Alt+Arrow does not fire when a textarea is focused', async () => {
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open={true}
+          onClose={vi.fn()}
+          block={{ id: 'p6', type: 'paragraph', html: '' }}
+          blockIndex={0}
+          onSaveBlock={vi.fn()}
+        />
+      );
+    });
+
+    const textarea = document.body.querySelector<HTMLTextAreaElement>('textarea');
+    expect(textarea).not.toBeNull();
+    textarea?.focus();
+
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowRight', altKey: true, bubbles: true })
+      );
+    });
+
+    // Should remain on 'content' tab (Presets tab NOT active)
+    const presetsActive = Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>('button')
+    ).find((b) => b.className.includes('bg-accent-gold') && b.textContent?.includes('Presets'));
+    expect(presetsActive).toBeUndefined();
+  });
+});
