@@ -365,6 +365,13 @@ export function VisualEditOverlay() {
   const router = useRouter();
   const rawPathname = usePathname();
   const pathname = rawPathname ?? '/';
+  /*
+   * `/compose/[id]` is the dedicated composer workspace, and its editing
+   * surface is the Visual Composer Inspector. The route is what decides: on it
+   * a canvas click opens the inspector, so the block is edited in one place
+   * with one undo stack rather than in the inline text panel beside it.
+   */
+  const isComposerWorkspace = pathname.startsWith('/compose/');
   const { enabled, toggle } = useVisualEditMode(pathname);
   const { isAdmin, target } = useEditContext(pathname);
   const { mode: themeMode, effective: effectiveTheme, cycle: cycleTheme } = useThemeMode();
@@ -870,13 +877,13 @@ export function VisualEditOverlay() {
    * thing. Navigating away clears the property so no fallback is needed.
    */
   useEffect(() => {
-    if (!enabled || !isAdmin || !pathname.startsWith('/compose/')) {
+    if (!enabled || !isAdmin || !isComposerWorkspace) {
       applyVisualEditRail(null);
       return;
     }
     applyVisualEditRail(dockCollapsed);
     return () => applyVisualEditRail(null);
-  }, [dockCollapsed, enabled, isAdmin, pathname]);
+  }, [dockCollapsed, enabled, isAdmin, isComposerWorkspace]);
 
   const handleRotateOrientation = useCallback(() => {
     setDeviceOrientation((prev) => (prev === 'portrait' ? 'landscape' : 'portrait'));
@@ -1991,6 +1998,18 @@ export function VisualEditOverlay() {
 
   const handleOpenEditSection = useCallback(
     (blockIndex: number) => {
+      /*
+       * Every legacy entry into the section modal comes through here — Enter on
+       * a selected block, a header chip, the context menu, the command palette
+       * and the inline Full Editor. On the composer route they all open the
+       * composer instead, so "one block editor" is a property of the route
+       * rather than of the handful of buttons that happened to be reviewed.
+       */
+      if (isComposerWorkspace) {
+        openVisualComposer('block', blockIndex);
+        return;
+      }
+
       const targetBlock = blocksRef.current[blockIndex] || {
         id: nextBlockId(),
         type: 'paragraph' as const,
@@ -2000,7 +2019,7 @@ export function VisualEditOverlay() {
       setEditingBlock({ ...targetBlock });
       setIsSectionModalOpen(true);
     },
-    [sections]
+    [sections, isComposerWorkspace, openVisualComposer]
   );
 
   const handleAddNewSection = useCallback(
@@ -2561,6 +2580,48 @@ export function VisualEditOverlay() {
       const inMain = Boolean(target.closest('main'));
       if (!inMain && !target.closest('a')) return;
 
+      /*
+       * One editing surface on the composer route.
+       *
+       * A click used to open the inline `contentEditable` panel here, so the
+       * same block had two editors — both writing `block.html`, each with its
+       * own sense of when a change was committed. The composer's Content tab
+       * edits the same text beside the design controls, and its footer owns the
+       * undo history, so on this route the click opens that and nothing else.
+       * A click outside every block is left alone: the header and footer are
+       * not part of the document here, and swallowing their links would make
+       * the workspace's own navigation dead.
+       */
+      if (isComposerWorkspace) {
+        let composerBlockIndex: number | null = null;
+        for (const sec of sectionsRef.current) {
+          const el = locate(sec.blockIndex);
+          if (el && (el === target || el.contains(target))) {
+            composerBlockIndex = sec.blockIndex;
+            break;
+          }
+        }
+        if (composerBlockIndex === null) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        /*
+         * The panel owns the open draft, and a different block id resets its
+         * history without asking. Clicking another block behind the panel
+         * would therefore discard unapplied edits silently. Block switching
+         * stays in the panel, where it goes through the discard guard.
+         */
+        if (isVisualComposerOpenRef.current) {
+          toast.info('Close the composer to select a different block — it owns the open draft.');
+          return;
+        }
+
+        openVisualComposer('block', composerBlockIndex);
+        setContextMenu(null);
+        return;
+      }
+
       if (
         inlineSessionRef.current &&
         (inlineSessionRef.current.element === target ||
@@ -2727,7 +2788,15 @@ export function VisualEditOverlay() {
       window.removeEventListener('contextmenu', handleContextMenuCapture, { capture: true });
       document.body.removeAttribute('data-editorial-mode');
     };
-  }, [enabled, isAdmin, locate, commitInlineEdit, activeBlockIndex]);
+  }, [
+    enabled,
+    isAdmin,
+    isComposerWorkspace,
+    openVisualComposer,
+    locate,
+    commitInlineEdit,
+    activeBlockIndex,
+  ]);
 
   useEffect(() => {
     if (!inlineSession && !imageSession) return;
@@ -4047,6 +4116,7 @@ export function VisualEditOverlay() {
         onToggleBadges={() => setShowSectionBadges((p) => !p)}
         onToggleFrames={() => setShowAllSectionBorders((p) => !p)}
         onToggleInspector={toggleInspector}
+        isComposerWorkspace={isComposerWorkspace}
         viewportMode={viewportMode}
         deviceOrientation={deviceOrientation}
         onSetViewportMode={setViewportMode}

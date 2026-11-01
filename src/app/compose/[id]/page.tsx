@@ -154,8 +154,8 @@ export default async function ComposerWorkspacePage({ params }: PageProps) {
         ) : null}
 
         <p className="mt-6 text-xs text-muted-foreground">
-          Click any block to edit its copy, or use the section tools to open the composer. The page
-          saves to row #{content.id}.
+          Click any block to edit its content and design in the composer — the only block editor on
+          this route. The page saves to row #{content.id}.
         </p>
 
         {/* Sanitized inside ContentSurface; `html` above is only the emptiness probe. */}

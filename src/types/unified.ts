@@ -96,7 +96,6 @@ export type {
   SlashCommandItem,
   SlashCommandMenuProps,
 } from '@/components/visual-edit/SlashCommandMenu';
-export type { StyleQuickTunerProps } from '@/components/visual-edit/StyleQuickTuner';
 export type {
   UseBlockWriterArgs,
   WriteToBlockArgs,

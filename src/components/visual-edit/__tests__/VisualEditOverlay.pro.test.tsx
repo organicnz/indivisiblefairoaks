@@ -96,6 +96,7 @@ describe('VisualEditOverlay 10x Pro Features', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    pathname.value = '/gallery';
     getCRMEdgeFunctionHealth.mockResolvedValue({
       database: true,
       storage: true,
@@ -319,6 +320,77 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     expect(slashMenu).not.toBeNull();
     expect(slashMenu?.textContent).toContain('Heading 2');
     expect(slashMenu?.textContent).toContain('Callout Box');
+  });
+
+  it('names the composer as the only style surface beside the inline text editor', async () => {
+    const main = document.createElement('main');
+    const p = document.createElement('p');
+    p.textContent = 'Edition of the newsletter';
+    main.appendChild(p);
+    document.body.appendChild(main);
+
+    await mount();
+
+    await act(async () => {
+      p.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    // The duplicate style controls are gone, so the inline panel cannot offer a
+    // second, differently-derived class list for the same block.
+    expect(container.querySelector('button[aria-label="Style quick tuner"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Align center"]')).toBeNull();
+
+    const surface = container.querySelector('[data-canonical-editing-surface="true"]');
+    expect(surface).not.toBeNull();
+    expect(surface?.textContent).toContain('Design & structure');
+    expect(surface?.textContent).toContain('Visual Composer');
+
+    const composerBtn = surface?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Open Visual Composer for block"]'
+    );
+    expect(composerBtn).not.toBeNull();
+
+    await act(async () => {
+      composerBtn?.click();
+    });
+
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+  });
+
+  it('opens the composer on a canvas click on the composer route, never the inline editor', async () => {
+    pathname.value = '/compose/42';
+
+    const main = document.createElement('main');
+    const p = document.createElement('p');
+    p.textContent = 'Composer route copy';
+    main.appendChild(p);
+    document.body.appendChild(main);
+
+    await mount();
+
+    // The workspace states the contract before anything is selected.
+    expect(container.querySelector('[data-testid="canonical-editing-surface"]')).not.toBeNull();
+
+    await act(async () => {
+      p.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    // The click selected the block and opened the inspector, not a
+    // contentEditable session whose save path lives somewhere else.
+    expect(p.getAttribute('contenteditable')).toBeNull();
+    expect(container.querySelector('[data-canonical-editing-surface="true"]')).toBeNull();
+    expect(document.body.textContent).toContain('Visual Composer Inspector');
+    const activeTab = document.querySelector(
+      '[role="tablist"][aria-label="Inspector sections"] [role="tab"][aria-selected="true"]'
+    );
+    expect(activeTab?.textContent).toContain('Content');
+
+    // A second click must not swap the block behind an open draft: switching is
+    // the panel's job, because only the panel can ask before discarding.
+    await act(async () => {
+      p.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('Close the composer'));
   });
 
   it('renders direct Composer and Section buttons in floating inline toolbar and opens inspector', async () => {

@@ -60,7 +60,6 @@ import {
   type InlineFormatCommand,
   InlineFormatToolbar,
 } from './InlineFormatToolbar';
-import { StyleQuickTuner } from './StyleQuickTuner';
 import type { ModifiedBlockItem, ModifiedDataPointItem } from './VisualDiffModal';
 import type { ImageEditSession, InlineEditSession, ViewportMode } from './VisualEditOverlay';
 
@@ -114,6 +113,12 @@ export interface VisualEditorSidebarProps {
   showSectionBadges: boolean;
   showAllSectionBorders: boolean;
   showInspector: boolean;
+  /**
+   * The dedicated `/compose/[id]` workspace. On that route the Visual Composer
+   * is the only block editor: a canvas click opens it, and this sidebar says
+   * so instead of offering a second path.
+   */
+  isComposerWorkspace: boolean;
   onToggleBadges: () => void;
   onToggleFrames: () => void;
   onToggleInspector: () => void;
@@ -374,6 +379,48 @@ function InlineContextZone(props: VisualEditorSidebarProps & { inlineSession: In
         <kbd className="ml-0.5 text-[9px] font-mono opacity-50">esc</kbd>
       </button>
 
+      {/*
+        The single canonical editing surface for a block's content and style is
+        the Visual Composer. This panel edits text in place, so it names the
+        owner of design, spacing and history rather than shipping a second copy
+        of those controls — the two copies had already drifted.
+      */}
+      <div
+        data-canonical-editing-surface="true"
+        className="rounded-xl border border-accent-gold/40 bg-accent-gold/10 p-2.5"
+      >
+        <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-accent-gold">
+          <SlidersHorizontal size={12} />
+          <span>Design &amp; structure</span>
+        </span>
+        <p className="mt-1 text-[10px] leading-snug text-ink-muted-on-dark">
+          Fonts, color, spacing, effects and undo live in the Visual Composer. This panel edits the
+          text in place.
+        </p>
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            onClick={() => props.onOpenVisualComposer('block', composerIdx)}
+            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-md border border-accent-gold/30 bg-accent-gold/15 px-2 py-1 text-[11px] font-bold text-accent-gold transition-colors hover:bg-accent-gold/25"
+            title="Visual Composer: Element Box Model, Effects, Motion & Typography (⌘E)"
+            aria-label="Open Visual Composer for block"
+          >
+            <SlidersHorizontal size={12} />
+            <span>Composer</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => props.onOpenVisualComposer('section', composerIdx)}
+            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-md border border-sky-400/30 bg-sky-500/15 px-2 py-1 text-[11px] font-bold text-sky-400 transition-colors hover:bg-sky-500/25"
+            title="Section Settings: Viewport Min-Height, Cutout Dividers & Grid Columns"
+            aria-label="Open Visual Composer for section"
+          >
+            <LayoutTemplate size={12} />
+            <span>Section</span>
+          </button>
+        </div>
+      </div>
+
       {inlineSession.dataPointKey && (
         <div className="flex items-center gap-1">
           <span
@@ -427,13 +474,6 @@ function InlineContextZone(props: VisualEditorSidebarProps & { inlineSession: In
 
       <div className="my-1 h-px w-full bg-white/15" />
 
-      <StyleQuickTuner
-        element={inlineSession.element}
-        onOpenVisualComposer={() => props.onOpenVisualComposer('block', composerIdx)}
-      />
-
-      <div className="my-1 h-px w-full bg-white/15" />
-
       <CivicGhostwriter
         element={inlineSession.element}
         onTextUpdated={(t) => props.onInlineTextUpdated(t)}
@@ -459,26 +499,6 @@ function InlineContextZone(props: VisualEditorSidebarProps & { inlineSession: In
       {(inlineSession.blockIndex !== null || props.blocks.length > 0) && (
         <>
           <div className="my-1 h-px w-full bg-white/15" />
-          <button
-            type="button"
-            onClick={() => props.onOpenVisualComposer('block', composerIdx)}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-accent-gold/30 bg-accent-gold/15 px-2 py-1 text-[11px] font-bold text-accent-gold transition-colors hover:bg-accent-gold/25"
-            title="Visual Composer: Element Box Model, Effects, Motion & Typography (⌘E)"
-            aria-label="Open Visual Composer for block"
-          >
-            <SlidersHorizontal size={12} />
-            <span className="hidden md:inline">Composer</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => props.onOpenVisualComposer('section', composerIdx)}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-sky-400/30 bg-sky-500/15 px-2 py-1 text-[11px] font-bold text-sky-400 transition-colors hover:bg-sky-500/25"
-            title="Section Settings: Viewport Min-Height, Cutout Dividers & Grid Columns"
-            aria-label="Open Visual Composer for section"
-          >
-            <LayoutTemplate size={12} />
-            <span className="hidden md:inline">Section</span>
-          </button>
           <button
             type="button"
             onClick={() => {
@@ -628,6 +648,22 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
 
   return (
     <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 text-xs">
+      {props.isComposerWorkspace && (
+        <div
+          data-testid="canonical-editing-surface"
+          className="rounded-xl border border-accent-gold/40 bg-accent-gold/10 p-2.5"
+        >
+          <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-accent-gold">
+            <SlidersHorizontal size={12} />
+            <span>Composer workspace</span>
+          </span>
+          <p className="mt-1 text-[10px] leading-snug text-ink-muted-on-dark">
+            Click any block on the page to edit its content and design here. This is the only block
+            editor on this route.
+          </p>
+        </div>
+      )}
+
       {/* ── Document info & status ─────────────────────────────────────── */}
       <div className="flex items-center gap-2">
         {contentRow ? (
@@ -843,7 +879,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
           }`}
         >
           <Eye size={13} />
-          <span className="flex-1 text-left">Inspector: {showInspector ? 'ON' : 'OFF'}</span>
+          <span className="flex-1 text-left">Element HUD: {showInspector ? 'ON' : 'OFF'}</span>
         </button>
 
         <div className="flex gap-2">
@@ -1393,15 +1429,6 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                       {framed ? <Eye size={11} /> : <EyeOff size={11} />}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => props.onOpenEditSection(idx)}
-                    title="Edit block"
-                    aria-label={`Edit block ${label}`}
-                    className="p-0.5 text-accent-gold hover:text-white"
-                  >
-                    <PenLine size={11} />
-                  </button>
                   <button
                     type="button"
                     onClick={() => props.onOpenVisualComposer('block', idx)}
