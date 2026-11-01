@@ -20,6 +20,7 @@ import { stripTags } from '@/lib/blocks';
 import {
   applyInlineFormat,
   currentLinkHref,
+  EMPTY_SELECTION_FORMAT,
   focusRange,
   INLINE_TEXT_COMMANDS,
   type InlineTextCommand,
@@ -29,8 +30,11 @@ import {
   normalizeLinkTarget,
   placeCaretAtEnd,
   rangeAtEnd,
+  readSelectionFormat,
   rememberSelection,
+  type SelectionFormat,
   selectionRangeInEditor,
+  unlinkSelection,
 } from './richTextDom';
 
 /** The imperative actions a toolbar offers to the editor it formats. */
@@ -169,7 +173,30 @@ interface RichTextToolbarProps {
  */
 function RichTextToolbar({ getEditor, onCommit, actionsRef, className }: RichTextToolbarProps) {
   const [link, setLink] = useState<{ editor: HTMLElement; initialHref: string } | null>(null);
+  const [selectionFormat, setSelectionFormat] = useState<SelectionFormat>(EMPTY_SELECTION_FORMAT);
   const capturedRange = useRef<Range | null>(null);
+  const getEditorRef = useRef(getEditor);
+  getEditorRef.current = getEditor;
+
+  const syncSelectionFormat = useCallback(() => {
+    const editor = getEditorRef.current();
+    setSelectionFormat(editor ? readSelectionFormat(editor) : EMPTY_SELECTION_FORMAT);
+  }, []);
+
+  useEffect(() => {
+    const update = () => syncSelectionFormat();
+    document.addEventListener('selectionchange', update);
+    document.addEventListener('mouseup', update, true);
+    document.addEventListener('keyup', update, true);
+    document.addEventListener('input', update, true);
+    update();
+    return () => {
+      document.removeEventListener('selectionchange', update);
+      document.removeEventListener('mouseup', update, true);
+      document.removeEventListener('keyup', update, true);
+      document.removeEventListener('input', update, true);
+    };
+  }, [syncSelectionFormat]);
 
   const openLink = useCallback((editor: HTMLElement) => {
     const range = selectionRangeInEditor(editor) ?? rangeAtEnd(editor);
@@ -190,9 +217,10 @@ function RichTextToolbar({ getEditor, onCommit, actionsRef, className }: RichTex
       onCommit(link.editor);
       capturedRange.current = null;
       setLink(null);
+      syncSelectionFormat();
       return null;
     },
-    [link, onCommit]
+    [link, onCommit, syncSelectionFormat]
   );
 
   const closeLink = useCallback(() => {
@@ -202,10 +230,18 @@ function RichTextToolbar({ getEditor, onCommit, actionsRef, className }: RichTex
     setLink(null);
     if (!target?.editor.isConnected) return;
     focusRange(target.editor, range ?? rangeAtEnd(target.editor));
-  }, [link]);
+    syncSelectionFormat();
+  }, [link, syncSelectionFormat]);
 
   const handleCommand = useCallback(
     (command: InlineFormatCommand) => {
+      if (command === 'unlink') {
+        const editor = getEditor();
+        if (!editor || !unlinkSelection(editor)) return;
+        onCommit(editor);
+        syncSelectionFormat();
+        return;
+      }
       if (!isInlineTextCommand(command)) return;
       const editor = getEditor();
       if (!editor) return;
@@ -215,8 +251,23 @@ function RichTextToolbar({ getEditor, onCommit, actionsRef, className }: RichTex
       }
       applyInlineFormat(editor, command);
       onCommit(editor);
+      syncSelectionFormat();
     },
-    [getEditor, onCommit, openLink]
+    [getEditor, onCommit, openLink, syncSelectionFormat]
+  );
+
+  const commands = useMemo(
+    () =>
+      selectionFormat.link ? [...INLINE_TEXT_COMMANDS, 'unlink' as const] : INLINE_TEXT_COMMANDS,
+    [selectionFormat.link]
+  );
+
+  const activeCommands = useMemo(
+    () =>
+      selectionFormat.link
+        ? [...selectionFormat.commands, 'link' as const]
+        : selectionFormat.commands,
+    [selectionFormat]
   );
 
   const actions = useMemo<RichTextActions>(
@@ -236,7 +287,8 @@ function RichTextToolbar({ getEditor, onCommit, actionsRef, className }: RichTex
     <>
       <InlineFormatToolbar
         variant="pill"
-        commands={INLINE_TEXT_COMMANDS}
+        commands={commands}
+        activeCommands={activeCommands}
         onCommand={handleCommand}
         className={
           className ??
@@ -569,12 +621,29 @@ export function RichTextListEditor({
   );
 
   const getActiveEditor = useCallback((): HTMLElement | null => {
+    const list = listRef.current;
+    if (!list) return null;
+
+    /*
+     * The selection is the target, not focus. Tabbing to the format strip moves
+     * focus out of the item the admin selected, and the toolbar must still
+     * format that item rather than silently switching to item 1.
+     */
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const node = selection.getRangeAt(0).commonAncestorContainer;
+      const element =
+        node.nodeType === Node.ELEMENT_NODE ? (node as HTMLElement) : node.parentElement;
+      const editor = element?.closest<HTMLElement>('[contenteditable="true"]');
+      if (editor && list.contains(editor)) return editor;
+    }
+
     const active = document.activeElement;
-    if (active instanceof HTMLElement && listRef.current?.contains(active)) {
+    if (active instanceof HTMLElement && list.contains(active)) {
       const editor = active.closest<HTMLElement>('[contenteditable="true"]');
       if (editor) return editor;
     }
-    return listRef.current?.querySelector<HTMLElement>('[contenteditable="true"]') ?? null;
+    return list.querySelector<HTMLElement>('[contenteditable="true"]') ?? null;
   }, []);
 
   const commitEditor = useCallback(

@@ -19,6 +19,16 @@ export type InlineTextCommand = (typeof INLINE_TEXT_COMMANDS)[number];
 
 export type InlineTagCommand = Exclude<InlineTextCommand, 'link'>;
 
+/** What the format strip should show as pressed for the current selection. */
+export interface SelectionFormat {
+  /** Inline tags every selected character carries, or the caret sits inside. */
+  commands: InlineTagCommand[];
+  /** Whether every selected character is linked, or the caret sits in a link. */
+  link: boolean;
+}
+
+export const EMPTY_SELECTION_FORMAT: SelectionFormat = { commands: [], link: false };
+
 const TAG_FOR_COMMAND: Record<InlineTagCommand, string> = {
   bold: 'strong',
   italic: 'em',
@@ -103,14 +113,69 @@ export function placeCaretAtEnd(editor: HTMLElement): void {
   focusRange(editor, rangeAtEnd(editor));
 }
 
-/** The same-tag ancestor whose whole contents the range selects, if any. */
-function fullySelectedTag(editor: HTMLElement, range: Range, tagName: string): HTMLElement | null {
-  const element = elementFor(range.commonAncestorContainer);
-  const tag = element?.closest(tagName) as HTMLElement | null;
-  if (!tag || !editor.contains(tag)) return null;
-  // Toggle off only when the whole run is selected. A partial selection inside
-  // a bold run should be wrapped again, not remove bold from text outside it.
-  return range.toString() === (tag.textContent ?? '') ? tag : null;
+/** Every text node touched by the range, in document order. */
+function textNodesInRange(editor: HTMLElement, range: Range): Text[] {
+  const nodes: Text[] = [];
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE && range.intersectsNode(node)) {
+      nodes.push(node as Text);
+    }
+    node = walker.nextNode();
+  }
+  return nodes;
+}
+
+/**
+ * The matching tags that carry every selected character.
+ *
+ * A collapsed range answers for the caret's tag, which is what makes Bold
+ * pressed while typing inside a bold run. A non-collapsed selection only counts
+ * when every character in it has the tag; a selection that starts inside bold
+ * and ends outside it has no active bold, so applying bold is an explicit
+ * choice rather than a silent nesting of the existing run.
+ */
+function tagsCarryingRange(editor: HTMLElement, range: Range, tagName: string): HTMLElement[] {
+  if (range.collapsed) {
+    const tag = elementFor(range.startContainer)?.closest(tagName) as HTMLElement | null;
+    return tag && editor.contains(tag) ? [tag] : [];
+  }
+
+  const tags: HTMLElement[] = [];
+  for (const node of textNodesInRange(editor, range)) {
+    const tag = node.parentElement?.closest(tagName) as HTMLElement | null;
+    if (!tag || !editor.contains(tag)) return [];
+    if (!tags.includes(tag)) tags.push(tag);
+  }
+  return tags;
+}
+
+/** The links that carry every selected character, or the caret's link. */
+function anchorsCarryingRange(editor: HTMLElement, range: Range): HTMLAnchorElement[] {
+  if (range.collapsed) {
+    const anchor = closestAnchor(editor, range);
+    return anchor ? [anchor] : [];
+  }
+
+  const anchors: HTMLAnchorElement[] = [];
+  for (const node of textNodesInRange(editor, range)) {
+    const anchor = node.parentElement?.closest('a') as HTMLAnchorElement | null;
+    if (!anchor || !editor.contains(anchor)) return [];
+    if (!anchors.includes(anchor)) anchors.push(anchor);
+  }
+  return anchors;
+}
+
+/** Every link the range touches, for removing a link from part of a run. */
+function anchorsIntersectingRange(editor: HTMLElement, range: Range): HTMLAnchorElement[] {
+  if (range.collapsed) {
+    const anchor = closestAnchor(editor, range);
+    return anchor ? [anchor] : [];
+  }
+  return [...editor.querySelectorAll<HTMLAnchorElement>('a')].filter((anchor) =>
+    range.intersectsNode(anchor)
+  );
 }
 
 /** Move a tag's children into its parent and return a range over them. */
@@ -141,10 +206,18 @@ export function applyInlineFormat(editor: HTMLElement, command: InlineTagCommand
   const tagName = TAG_FOR_COMMAND[command];
   const range = selectionRangeInEditor(editor) ?? rangeAtEnd(editor);
 
-  const existing = fullySelectedTag(editor, range, tagName);
-  if (existing) {
-    const next = unwrapTag(existing);
-    focusRange(editor, next ?? rangeAtEnd(editor));
+  const active = tagsCarryingRange(editor, range, tagName);
+  if (active.length > 0) {
+    // The strip says this run is already formatted, so the command turns the
+    // format off. A caret inside the run is the same case — unwrapping is what
+    // stops a second tag being nested inside the first.
+    let restored: Range | null = null;
+    for (const tag of active) {
+      if (!tag.isConnected) continue;
+      const next = unwrapTag(tag);
+      if (next) restored = next;
+    }
+    focusRange(editor, restored ?? rangeAtEnd(editor));
     return;
   }
 
@@ -176,6 +249,48 @@ function closestAnchor(editor: HTMLElement, range: Range): HTMLAnchorElement | n
 /** The href of the link under the selection, for prefilling the link dialog. */
 export function currentLinkHref(editor: HTMLElement, range: Range): string {
   return closestAnchor(editor, range)?.getAttribute('href') ?? '';
+}
+
+/**
+ * Read the formatting the current selection carries.
+ *
+ * This is the single place the toolbar's pressed state comes from. Keeping it
+ * beside the range and tag primitives means the editor never has to infer a
+ * tag from the HTML it just rendered, and it answers for a caret as well as a
+ * selection — the state a visual editor has to show while typing.
+ */
+export function readSelectionFormat(editor: HTMLElement): SelectionFormat {
+  const range = selectionRangeInEditor(editor);
+  if (!range) return EMPTY_SELECTION_FORMAT;
+
+  const commands = (Object.keys(TAG_FOR_COMMAND) as InlineTagCommand[]).filter(
+    (command) => tagsCarryingRange(editor, range, TAG_FOR_COMMAND[command]).length > 0
+  );
+  const anchors = anchorsCarryingRange(editor, range);
+
+  return { commands, link: anchors.length > 0 };
+}
+
+/**
+ * Remove every link the selection touches while keeping its text and children.
+ *
+ * Unwrapping, not deleting, is the point: a link is inline formatting like
+ * bold, so the block's copy has to survive with only the anchor stripped. The
+ * rest of the block HTML — bold, italic, surrounding text — is untouched.
+ */
+export function unlinkSelection(editor: HTMLElement): boolean {
+  const range = selectionRangeInEditor(editor) ?? rangeAtEnd(editor);
+  const anchors = anchorsIntersectingRange(editor, range);
+  if (anchors.length === 0) return false;
+
+  let restored: Range | null = null;
+  for (const anchor of anchors) {
+    if (!anchor.isConnected) continue;
+    const next = unwrapTag(anchor);
+    if (next) restored = next;
+  }
+  focusRange(editor, restored ?? rangeAtEnd(editor));
+  return true;
 }
 
 /** Focus immediately after an inserted or updated anchor. */

@@ -131,6 +131,144 @@ describe('visual rich-text content editors', () => {
     expect(document.activeElement).toBe(contentEditor());
   });
 
+  it.each([
+    { label: 'Bold', tag: 'strong' },
+    { label: 'Italic', tag: 'em' },
+    { label: 'Underline', tag: 'u' },
+    { label: 'Strikethrough', tag: 's' },
+    { label: 'Inline Code', tag: 'code' },
+  ])('shows $label as pressed and toggles it off', async ({ label, tag }) => {
+    await act(async () => {
+      root.render(
+        <BlockHarness
+          initial={{
+            id: `format-${tag}`,
+            type: 'paragraph',
+            html: `<${tag}>Mission</${tag}>`,
+          }}
+        />
+      );
+    });
+
+    await act(async () => {
+      selectContents(contentEditor());
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+
+    const control = () =>
+      container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+    expect(control()?.getAttribute('aria-pressed')).toBe('true');
+
+    await act(async () => {
+      mousedown(control());
+    });
+
+    expect(contentEditor().textContent).toBe('Mission');
+    expect(contentEditor().querySelector(tag)).toBeNull();
+    expect(serialized()).toBe('<p>Mission</p>');
+    expect(control()?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('turns an active format off from a caret instead of nesting a second tag', async () => {
+    await act(async () => {
+      root.render(
+        <BlockHarness
+          initial={{ id: 'caret-bold', type: 'paragraph', html: '<strong>Mission</strong>' }}
+        />
+      );
+    });
+
+    await act(async () => {
+      placeCaretAtText(contentEditor(), 'Mission', 4);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+
+    const bold = () => container.querySelector<HTMLButtonElement>('button[aria-label="Bold"]');
+    expect(bold()?.getAttribute('aria-pressed')).toBe('true');
+
+    await act(async () => {
+      mousedown(bold());
+    });
+
+    // No empty <strong> left behind, and the run is genuinely unformatted.
+    expect(contentEditor().innerHTML).toBe('Mission');
+    expect(contentEditor().querySelector('strong')).toBeNull();
+    expect(serialized()).toBe('<p>Mission</p>');
+  });
+
+  it('keeps the strip in sync as the caret moves and typing changes the run', async () => {
+    await act(async () => {
+      root.render(
+        <BlockHarness
+          initial={{ id: 'caret-sync', type: 'paragraph', html: '<strong>Mission</strong> plain' }}
+        />
+      );
+    });
+
+    const bold = () => container.querySelector<HTMLButtonElement>('button[aria-label="Bold"]');
+
+    // A mixed selection does not carry bold as a whole.
+    await act(async () => {
+      selectContents(contentEditor());
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+    expect(bold()?.getAttribute('aria-pressed')).toBe('false');
+
+    // The caret inside the bold run says it is active.
+    await act(async () => {
+      placeCaretAtText(contentEditor(), 'Mission', 2);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+    expect(bold()?.getAttribute('aria-pressed')).toBe('true');
+
+    // Typing in the plain tail moves the state back off.
+    await act(async () => {
+      placeCaretAtText(contentEditor(), 'plain', 1);
+      contentEditor().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(bold()?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('marks a linked selection and removes the anchor without losing its text', async () => {
+    await act(async () => {
+      root.render(
+        <BlockHarness
+          initial={{
+            id: 'link-active',
+            type: 'paragraph',
+            html: '<strong>Before</strong> <a href="/events">Events</a> after',
+          }}
+        />
+      );
+    });
+
+    await act(async () => {
+      selectText(contentEditor(), 'Events');
+      document.dispatchEvent(new Event('selectionchange'));
+    });
+
+    const editLink = container.querySelector<HTMLButtonElement>('button[aria-label="Edit link"]');
+    expect(editLink?.getAttribute('aria-pressed')).toBe('true');
+    const unlink = container.querySelector<HTMLButtonElement>('button[aria-label="Remove link"]');
+    expect(unlink).not.toBeNull();
+
+    await act(async () => {
+      mousedown(unlink);
+    });
+
+    // The anchor is gone; its text and the surrounding formatting survive.
+    expect(serialized()).toContain('<strong>Before</strong>');
+    expect(serialized()).toContain('Events');
+    expect(serialized()).toContain('after');
+    expect(serialized()).not.toContain('<a');
+    expect(container.querySelector('button[aria-label="Remove link"]')).toBeNull();
+    expect(
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="Insert link"]')
+        ?.getAttribute('aria-pressed')
+    ).toBe('false');
+  });
+
   it('captures the selection before the link dialog takes focus and inserts the link', async () => {
     await act(async () => {
       root.render(<BlockHarness initial={{ id: 'p', type: 'paragraph', html: 'Civic action' }} />);
@@ -438,6 +576,44 @@ function selectContents(editor: HTMLElement) {
   // The gesture that would create this selection in a browser also records it
   // for the toolbar's keyboard path, which runs after focus has moved.
   editor.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+}
+
+/** A run of text the test can address, wherever it sits in the editor. */
+function findTextNode(editor: HTMLElement, text: string): { node: Text; index: number } {
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    const value = node.textContent ?? '';
+    const index = value.indexOf(text);
+    if (index !== -1) return { node: node as Text, index };
+    node = walker.nextNode();
+  }
+  throw new Error(`expected to find "${text}" in the editor`);
+}
+
+/** Selects one run of text by its content, so formatting can be toggled. */
+function selectText(editor: HTMLElement, text: string) {
+  const { node, index } = findTextNode(editor, text);
+  const range = document.createRange();
+  range.setStart(node, index);
+  range.setEnd(node, index + text.length);
+  const selection = window.getSelection();
+  if (!selection) throw new Error('expected a selection');
+  selection.removeAllRanges();
+  selection.addRange(range);
+  editor.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+}
+
+/** Puts a collapsed caret inside a run of text at an offset in that run. */
+function placeCaretAtText(editor: HTMLElement, text: string, offset: number) {
+  const { node, index } = findTextNode(editor, text);
+  const range = document.createRange();
+  range.setStart(node, index + offset);
+  range.collapse(true);
+  const selection = window.getSelection();
+  if (!selection) throw new Error('expected a selection');
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 function mousedown(element: Element | null) {

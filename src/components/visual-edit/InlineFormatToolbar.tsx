@@ -59,6 +59,10 @@ interface CommandSpec {
   label: string;
   /** Shown in the button's `title`, e.g. "Bold (⌘B)". */
   title: string;
+  /** Accessible name while the selection already carries this format. */
+  activeLabel?: string;
+  /** Tooltip while the selection already carries this format. */
+  activeTitle?: string;
   /** Icon for the button; commands that render a word or glyph omit it. */
   icon?: typeof Bold;
   /** Literal text for commands whose control is a word (H2, H3, ¶). */
@@ -81,7 +85,14 @@ const COMMANDS: Record<InlineFormatCommand, CommandSpec> = {
   highlight: { label: 'Highlight', title: 'Highlight selection', icon: Highlighter, group: 'text' },
   bulletList: { label: 'Bullet list', title: 'Bullet list', icon: List, group: 'list' },
   orderedList: { label: 'Numbered list', title: 'Numbered list', icon: ListOrdered, group: 'list' },
-  link: { label: 'Insert link', title: 'Insert link (⌘K)', icon: LinkIcon, group: 'link' },
+  link: {
+    label: 'Insert link',
+    title: 'Insert link (⌘K)',
+    activeLabel: 'Edit link',
+    activeTitle: 'Edit link (⌘K)',
+    icon: LinkIcon,
+    group: 'link',
+  },
   unlink: { label: 'Remove link', title: 'Remove link', icon: Unlink, group: 'link' },
   clear: { label: 'Clear formatting', title: 'Clear formatting', icon: Eraser, group: 'link' },
   editLink: { label: 'Edit link', title: 'Edit link (⌘K)', icon: LinkIcon, group: 'link' },
@@ -98,6 +109,10 @@ const VARIANT_STYLES = {
       'rounded p-1 text-slate-300 hover:bg-white/15 hover:text-white transition-colors cursor-pointer',
     glyphButton:
       'rounded px-1.5 py-0.5 text-slate-300 font-bold hover:bg-white/15 hover:text-white transition-colors cursor-pointer text-[10px]',
+    activeButton:
+      'rounded p-1 bg-accent-gold/20 text-accent-gold ring-1 ring-inset ring-accent-gold/40 hover:bg-accent-gold/25 hover:text-accent-gold',
+    activeGlyphButton:
+      'rounded px-1.5 py-0.5 bg-accent-gold/20 font-bold text-accent-gold ring-1 ring-inset ring-accent-gold/40 text-[10px]',
     separator: 'mx-0.5 h-3.5 w-px bg-white/20',
   },
   /** Light chrome, inside a modal's form. */
@@ -106,9 +121,26 @@ const VARIANT_STYLES = {
     button: 'p-1.5 rounded hover:bg-border text-foreground transition-colors',
     glyphButton:
       'px-1.5 py-1 rounded hover:bg-border text-foreground font-bold text-[11px] transition-colors',
+    activeButton: 'p-1.5 rounded bg-accent-gold/15 text-accent-gold transition-colors',
+    activeGlyphButton:
+      'px-1.5 py-1 rounded bg-accent-gold/15 text-accent-gold font-bold text-[11px] transition-colors',
     separator: 'mx-1 h-5 w-px bg-border',
   },
 } as const;
+
+/** Commands that expose a state rather than being one-shot actions. */
+const TOGGLE_COMMANDS = new Set<InlineFormatCommand>([
+  'bold',
+  'italic',
+  'underline',
+  'strikethrough',
+  'code',
+  'highlight',
+  'bulletList',
+  'orderedList',
+  'link',
+  'editLink',
+]);
 
 /** Wraps or unwraps the active DOM selection with an inline element. */
 export function wrapSelectionWithTag(tagName: string, className?: string) {
@@ -205,6 +237,8 @@ export function applyInlineFormatCommand(command: InlineFormatCommand, onLinkReq
 interface InlineFormatToolbarProps {
   variant: 'pill' | 'panel';
   commands: readonly InlineFormatCommand[];
+  /** Commands the current selection already carries, rendered as pressed. */
+  activeCommands?: readonly InlineFormatCommand[];
   onCommand: (command: InlineFormatCommand) => void;
   /**
    * Optional override for the link command. When provided, the toolbar calls
@@ -216,10 +250,10 @@ interface InlineFormatToolbarProps {
   trailing?: ReactNode;
   className?: string;
 }
-
 export function InlineFormatToolbar({
   variant,
   commands,
+  activeCommands,
   onCommand,
   onLinkRequest,
   trailing,
@@ -233,6 +267,9 @@ export function InlineFormatToolbar({
         const spec = COMMANDS[command];
         const previous = index > 0 ? COMMANDS[commands[index - 1]] : null;
         const Icon = spec.icon;
+        const isActive = activeCommands?.includes(command) ?? false;
+        const label = isActive ? (spec.activeLabel ?? spec.label) : spec.label;
+        const title = isActive ? (spec.activeTitle ?? spec.title) : spec.title;
         /* The pill lives over a contentEditable region, so the mouse-down has
            to be cancelled or the selection collapses before the command runs.
            The modal's toolbar targets a textarea by id and does not have that
@@ -269,9 +306,18 @@ export function InlineFormatToolbar({
             <button
               type="button"
               {...activation}
-              className={Icon ? styles.button : styles.glyphButton}
-              title={spec.title}
-              aria-label={spec.label}
+              className={
+                isActive
+                  ? Icon
+                    ? styles.activeButton
+                    : styles.activeGlyphButton
+                  : Icon
+                    ? styles.button
+                    : styles.glyphButton
+              }
+              title={title}
+              aria-label={label}
+              aria-pressed={TOGGLE_COMMANDS.has(command) ? isActive : undefined}
             >
               {Icon ? <Icon size={styles.icon} /> : spec.glyph}
             </button>
