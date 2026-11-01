@@ -5,8 +5,7 @@ import {
   createContentBlock,
   type InsertableBlockType,
   MAX_ROW_COLUMNS,
-  MIN_ROW_COLUMNS,
-  rowColumnMergeTarget,
+  rowColumnRemovalTarget,
 } from '@/lib/blocks';
 import { createRowColumn } from '@/lib/blocks/create';
 import {
@@ -95,18 +94,16 @@ export function BlockContentStudio({
 
   const removeColumn = (columnIndex: number) => {
     const columns = currentBlock.columns;
-    if (columns.length <= MIN_ROW_COLUMNS || columnIndex < 0 || columnIndex >= columns.length) {
-      return;
-    }
+    const removal = rowColumnRemovalTarget(columns, columnIndex);
+    if (!removal) return;
 
     const nextColumns = [...columns];
     const [removed] = nextColumns.splice(columnIndex, 1);
-    const { index: targetIndex, side } = rowColumnMergeTarget(columnIndex);
-    const target = nextColumns[targetIndex];
-    nextColumns[targetIndex] = {
+    const target = nextColumns[removal.mergeIndex];
+    nextColumns[removal.mergeIndex] = {
       ...target,
       blocks:
-        side === 'left'
+        removal.side === 'left'
           ? [...target.blocks, ...removed.blocks]
           : [...removed.blocks, ...target.blocks],
     };

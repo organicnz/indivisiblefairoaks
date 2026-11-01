@@ -44,18 +44,41 @@ export function createRowBlock(id: string, columnCount = 2): RowBlock {
   };
 }
 
+export interface RowColumnRemovalTarget {
+  /** The surviving column that receives the removed blocks, after the splice. */
+  mergeIndex: number;
+  /** The control to focus after removal; null means Add, the only action at the floor. */
+  focusColumnId: string | null;
+  side: 'left' | 'right';
+}
+
 /**
- * The surviving column that receives a removed column's blocks.
+ * Where a removed column's blocks go, and where focus goes after the removal.
  *
  * A column merges left, except the first, which merges right to keep document
- * order. The merge and the Remove control's wording both read this, so the
- * destination they announce cannot disagree.
+ * order. The merge, the Remove control's wording and the focus handoff all read
+ * this, so a policy change cannot move the blocks somewhere the editor does not
+ * follow. At the one-column floor the surviving Remove control is disabled, so
+ * the focus target is Add rather than a column.
  */
-export function rowColumnMergeTarget(columnIndex: number): {
-  index: number;
-  side: 'left' | 'right';
-} {
-  return columnIndex > 0 ? { index: columnIndex - 1, side: 'left' } : { index: 0, side: 'right' };
+export function rowColumnRemovalTarget(
+  columns: readonly RowColumn[],
+  columnIndex: number
+): RowColumnRemovalTarget | null {
+  if (columns.length <= MIN_ROW_COLUMNS || columnIndex < 0 || columnIndex >= columns.length) {
+    return null;
+  }
+
+  const side = columnIndex > 0 ? 'left' : 'right';
+  const mergeIndex = side === 'left' ? columnIndex - 1 : 0;
+  return {
+    mergeIndex,
+    focusColumnId:
+      columns.length - 1 > MIN_ROW_COLUMNS
+        ? (columns[side === 'left' ? mergeIndex : columnIndex + 1]?.id ?? null)
+        : null,
+    side,
+  };
 }
 
 /**

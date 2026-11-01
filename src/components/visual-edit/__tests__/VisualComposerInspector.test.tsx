@@ -3273,11 +3273,14 @@ describe('VisualComposerInspector batch styling and session history', () => {
       );
     });
 
+    const middleLabel = 'Remove column 2 of 3; its blocks move into the column on its left';
     await act(async () => {
-      byAria('Remove column 2 of 3')?.click();
+      byAria(middleLabel)?.click();
     });
-    expect(byAria('Remove column 2 of 2')).not.toBeNull();
-    expect(byAria('Remove column 3 of 3')).toBeNull();
+    expect(
+      byAria('Remove column 2 of 2; its blocks move into the column on its left')
+    ).not.toBeNull();
+    expect(byAria(middleLabel)).toBeNull();
 
     const undo = byAria('Undo last change');
     expect(undo?.disabled).toBe(false);
@@ -3285,8 +3288,8 @@ describe('VisualComposerInspector batch styling and session history', () => {
       undo?.click();
     });
 
-    expect(byAria('Remove column 3 of 3')).not.toBeNull();
-    expect(byAria('Remove column 2 of 2')).toBeNull();
+    expect(byAria(middleLabel)).not.toBeNull();
+    expect(byAria('Remove column 2 of 2; its blocks move into the column on its left')).toBeNull();
   });
 });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { ChevronDown, ChevronUp, Columns3, GripVertical, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import {
   type Block,
   type ContentBlock,
@@ -9,7 +9,7 @@ import {
   MAX_ROW_COLUMNS,
   MIN_ROW_COLUMNS,
   type RowBlock,
-  rowColumnMergeTarget,
+  rowColumnRemovalTarget,
   stripTags,
 } from '@/lib/blocks';
 import { StudioSection } from '../ui';
@@ -72,6 +72,13 @@ function leafLabel(block: ContentBlock): string {
   return TYPE_FALLBACK[block.type];
 }
 
+/** The Remove control's accessible name, including where its blocks will go. */
+function removeColumnLabel(columns: RowBlock['columns'], columnIndex: number): string {
+  const label = `Remove column ${columnIndex + 1} of ${columns.length}`;
+  const removal = rowColumnRemovalTarget(columns, columnIndex);
+  return removal ? `${label}; its blocks move into the column on its ${removal.side}` : label;
+}
+
 export interface RowBlockEditorProps {
   currentBlock: RowBlock;
   setCurrentBlock: (block: Block) => void;
@@ -114,7 +121,7 @@ export function RowBlockEditor({
   const floorHintId = useId();
   const addColumnRef = useRef<HTMLButtonElement>(null);
   const removeColumnButtons = useRef(new Map<string, HTMLButtonElement>());
-  const pendingFocusColumnId = useRef<string | null>(null);
+  const pendingFocus = useRef<{ afterCount: number; columnId: string | null } | null>(null);
   const [editingLeafId, setEditingLeafId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -122,32 +129,28 @@ export function RowBlockEditor({
   const canRemoveColumn = columnCount > MIN_ROW_COLUMNS;
 
   /*
-   * A removal unmounts the control that was focused, so the next focus target
-   * is recorded before the edit and claimed once the new columns have rendered.
-   * The floor has no enabled remove control, so focus falls back to Add — the
-   * action that makes another removal possible — which describes the hint.
+   * A removal unmounts the control that was focused, so the surviving target is
+   * recorded before the edit and claimed in a layout effect, before paint. The
+   * expected count makes the handoff belong to the removal that set it: a
+   * rejected removal is discarded rather than spent on a later Add. A null id
+   * is the floor, where Add is the only enabled action and describes the hint.
    */
-  useEffect(() => {
-    const columnId = pendingFocusColumnId.current;
-    if (!columnId) return;
-    pendingFocusColumnId.current = null;
-    if (columnCount > MIN_ROW_COLUMNS) {
-      const target = removeColumnButtons.current.get(columnId);
-      if (target) {
-        target.focus();
-        return;
-      }
-    }
-    addColumnRef.current?.focus();
+  useLayoutEffect(() => {
+    const pending = pendingFocus.current;
+    if (!pending) return;
+    pendingFocus.current = null;
+    if (columnCount !== pending.afterCount) return;
+    const target = pending.columnId ? removeColumnButtons.current.get(pending.columnId) : null;
+    (target ?? addColumnRef.current)?.focus();
   }, [columnCount]);
 
   const removeColumn = (columnIndex: number) => {
-    if (!canRemoveColumn) return;
-    const { index: targetIndex, side } = rowColumnMergeTarget(columnIndex);
-    // Before the edit the right-hand target is the next column, not the one
-    // being removed at this index. Record the surviving column's id either way.
-    const target = currentBlock.columns[side === 'right' ? columnIndex + 1 : targetIndex];
-    pendingFocusColumnId.current = target?.id ?? null;
+    const removal = rowColumnRemovalTarget(currentBlock.columns, columnIndex);
+    if (!removal) return;
+    pendingFocus.current = {
+      afterCount: columnCount - 1,
+      columnId: removal.focusColumnId,
+    };
     onRemoveColumn(columnIndex);
   };
 
@@ -228,10 +231,10 @@ export function RowBlockEditor({
                       else removeColumnButtons.current.delete(column.id);
                     }}
                     type="button"
-                    aria-label={`Remove column ${columnIndex + 1} of ${columnCount}`}
+                    aria-label={removeColumnLabel(currentBlock.columns, columnIndex)}
                     title={
                       canRemoveColumn
-                        ? `Remove column ${columnIndex + 1} and move its blocks into the column on its ${rowColumnMergeTarget(columnIndex).side}`
+                        ? removeColumnLabel(currentBlock.columns, columnIndex)
                         : undefined
                     }
                     disabled={!canRemoveColumn}

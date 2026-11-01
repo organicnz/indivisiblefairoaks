@@ -469,25 +469,22 @@ describe('BlockContentStudio & Modular Block Editors', () => {
   it.each([
     {
       removed: 'first',
-      label: 'Remove column 1 of 3',
-      title: 'Remove column 1 and move its blocks into the column on its right',
-      focusLabel: 'Remove column 1 of 2',
+      label: 'Remove column 1 of 3; its blocks move into the column on its right',
+      focusLabel: 'Remove column 1 of 2; its blocks move into the column on its right',
       columnIds: ['c2', 'c3'],
       blockIds: [['a1', 'a2', 'b1'], ['g1']],
     },
     {
       removed: 'middle',
-      label: 'Remove column 2 of 3',
-      title: 'Remove column 2 and move its blocks into the column on its left',
-      focusLabel: 'Remove column 1 of 2',
+      label: 'Remove column 2 of 3; its blocks move into the column on its left',
+      focusLabel: 'Remove column 1 of 2; its blocks move into the column on its right',
       columnIds: ['c1', 'c3'],
       blockIds: [['a1', 'a2', 'b1'], ['g1']],
     },
     {
       removed: 'last',
-      label: 'Remove column 3 of 3',
-      title: 'Remove column 3 and move its blocks into the column on its left',
-      focusLabel: 'Remove column 2 of 2',
+      label: 'Remove column 3 of 3; its blocks move into the column on its left',
+      focusLabel: 'Remove column 2 of 2; its blocks move into the column on its left',
       columnIds: ['c1', 'c2'],
       blockIds: [
         ['a1', 'a2'],
@@ -496,7 +493,7 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     },
   ])(
     'removes the $removed column, merges in document order and keeps focus in the row',
-    async ({ label, title, focusLabel, columnIds, blockIds }) => {
+    async ({ label, focusLabel, columnIds, blockIds }) => {
       const committed: Block[] = [];
       await act(async () => {
         root.render(
@@ -505,11 +502,14 @@ describe('BlockContentStudio & Modular Block Editors', () => {
       });
 
       const remove = container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
-      expect(remove?.title).toBe(title);
+      expect(remove?.getAttribute('aria-label')).toBe(label);
+      expect(remove?.title).toBe(label);
       expect(container.querySelector('button[aria-label="Remove column"]')).toBeNull();
       await act(async () => {
         remove?.focus();
         remove?.click();
+        // The layout effect hands off before the interaction returns, not after paint.
+        expect(document.activeElement).not.toBe(document.body);
       });
 
       const next = expectRow(committed.at(-1));
@@ -542,13 +542,17 @@ describe('BlockContentStudio & Modular Block Editors', () => {
       root.render(<RowHarness initial={row} onCommit={(next) => committed.push(next)} />);
     });
 
+    const removeLabel = 'Remove column 2 of 2; its blocks move into the column on its left';
     const remove = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Remove column 2 of 2"]'
+      `button[aria-label="${removeLabel}"]`
     );
-    expect(remove?.title).toBe('Remove column 2 and move its blocks into the column on its left');
+    expect(remove?.getAttribute('aria-label')).toBe(removeLabel);
+    expect(remove?.title).toBe(removeLabel);
     await act(async () => {
       remove?.focus();
       remove?.click();
+      // The floor fallback is a layout effect too; body must never hold focus.
+      expect(document.activeElement).not.toBe(document.body);
     });
 
     const next = expectRow(committed.at(-1));
@@ -573,6 +577,42 @@ describe('BlockContentStudio & Modular Block Editors', () => {
       onlyRemove?.click();
     });
     expect(committed).toHaveLength(1);
+    expect(document.activeElement).toBe(add);
+  });
+
+  it('does not spend a pending focus target on a later Add', async () => {
+    const row: Block = {
+      id: 'r',
+      type: 'row',
+      columns: [
+        { id: 'c1', blocks: [] },
+        { id: 'c2', blocks: [] },
+      ],
+    };
+    await act(async () => {
+      root.render(<RejectingRemovalHarness initial={row} />);
+    });
+
+    const remove = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Remove column 2 of 2; its blocks move into the column on its left"]'
+    );
+    await act(async () => {
+      remove?.focus();
+      remove?.click();
+    });
+
+    // The parent refused the removal, so the row did not shrink.
+    expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(2);
+    expect(document.activeElement).toBe(remove);
+
+    const add = container.querySelector<HTMLButtonElement>('button[aria-label="Add column"]');
+    await act(async () => {
+      add?.focus();
+      add?.click();
+    });
+
+    expect(container.querySelectorAll('[data-testid^="row-column-"]')).toHaveLength(3);
+    // The refused removal's target must not steal focus from the later Add.
     expect(document.activeElement).toBe(add);
   });
 });
@@ -608,6 +648,22 @@ function RowHarness({ initial, onCommit }: { initial: Block; onCommit?: (next: B
       setCurrentBlock={(next) => {
         setRow(next);
         onCommit?.(next);
+      }}
+    />
+  );
+}
+
+/** A parent that refuses a removal, to prove a pending target cannot outlive it. */
+function RejectingRemovalHarness({ initial }: { initial: Block }) {
+  const [row, setRow] = useState<Block>(initial);
+  return (
+    <BlockContentStudio
+      currentBlock={row}
+      setCurrentBlock={(next) => {
+        if (row.type === 'row' && next.type === 'row' && next.columns.length < row.columns.length) {
+          return;
+        }
+        setRow(next);
       }}
     />
   );
