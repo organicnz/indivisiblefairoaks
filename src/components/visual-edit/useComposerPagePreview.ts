@@ -19,16 +19,22 @@ import type { VisualComposerMode, VisualComposerThemeMode } from '@/types/unifie
  *  1. **Nothing is written.** The DOM is the only thing touched; the block
  *     model, the autosave and the dirty flag are unchanged, so closing with
  *     "Discard" leaves no trace.
- *  2. **The original attributes are captured first.** Class, inline style and
- *     theme are stored exactly as they were and put back byte-for-byte on
- *     discard, close, navigation, or unmount. A preview that "cleans up" by
- *     removing classes it added would still lose a class it failed to notice;
- *     restoring the captured string cannot.
+ *  2. **The original markup is captured first.** Class, inline style, theme and
+ *     the element's inner HTML are stored exactly as they were and put back
+ *     byte-for-byte on discard, close, navigation, or unmount. A preview that
+ *     "cleans up" by removing classes it added would still lose a class it
+ *     failed to notice; restoring the captured string cannot.
  *  3. **A successful apply converts the preview into the page's state.** The
- *     captured attributes are replaced with the applied ones and the entry is
- *     marked committed, so closing no longer reverts a design that was just
- *     saved. Without that, the page would snap back to its old look for the two
- *     seconds between Apply and the autosave's refresh.
+ *     captured attributes and markup are replaced with the applied ones and the
+ *     entry is marked committed, so closing no longer reverts a design or a
+ *     sentence that was just saved. Without that, the page would snap back for
+ *     the two seconds between Apply and the autosave's refresh.
+ *
+ * Copy is painted too. A heading's text and a badge live in the block's HTML,
+ * so a composer that only previewed the design would let an operator retype a
+ * headline in the panel while the page, and the banner claiming the page is the
+ * preview, went on showing the old one. WPBakery-class editors edit and see the
+ * real thing; so does this one.
  *
  * Structural `cw-*` classes are preserved on purpose. They are how the block
  * parser recognises a callout or a table; they belong to the page, not to the
@@ -38,11 +44,26 @@ import type { VisualComposerMode, VisualComposerThemeMode } from '@/types/unifie
 export interface ComposerDraftPreview {
   mode: VisualComposerMode;
   blockIndexes: readonly number[];
-  /** The compiled class list for the draft, without structural classes. */
-  classes: string;
-  /** Inline CSS from the Code tab, or an empty string. */
-  style: string;
-  themeMode: VisualComposerThemeMode;
+  /**
+   * The design to paint, or null when only the copy changed.
+   *
+   * A copy edit is not a design edit: opening a block and retyping its text
+   * must not restyle it with the editor's defaults. The split is what lets the
+   * page show the new sentence without also showing a design nobody chose.
+   */
+  design: {
+    /** The compiled class list for the draft, without structural classes. */
+    classes: string;
+    /** Inline CSS from the Code tab, or an empty string. */
+    style: string;
+    themeMode: VisualComposerThemeMode;
+  } | null;
+  /**
+   * The block's copy as the save would write it, or null when this draft does
+   * not touch copy — a batch styles many blocks and must not copy one block's
+   * text onto the rest, and section mode has no content fields.
+   */
+  contentHtml: string | null;
 }
 
 interface AppliedPreview {
@@ -52,8 +73,12 @@ interface AppliedPreview {
   styleAttr: string | null;
   themeAttr: string | null;
   themeModeAttr: string | null;
+  /** The element's markup before the first copy preview. */
+  innerHtml: string;
   /** Tokens this preview added on top of the element's own markup. */
   paintedClasses: string[];
+  /** True while this entry's copy, not the page's, is inside the element. */
+  paintedContent: boolean;
   /** True once the design was applied for real; the saved attrs are then the
    *  applied ones, so restoring them is a no-op rather than a rollback. */
   committed: boolean;
@@ -97,12 +122,13 @@ function writeOrRemove(element: HTMLElement, name: string, value: string | null)
 }
 
 /** Put one element back exactly as it was captured. */
-function restoreAttrs(element: HTMLElement, attrs: SavedAttrs) {
-  writeOrRemove(element, 'class', attrs.classAttr);
-  writeOrRemove(element, 'style', attrs.styleAttr);
-  writeOrRemove(element, 'data-theme', attrs.themeAttr);
-  writeOrRemove(element, 'data-theme-mode', attrs.themeModeAttr);
-  element.removeAttribute(PREVIEW_ATTR);
+function restorePreview(entry: AppliedPreview) {
+  if (entry.paintedContent) {
+    entry.element.innerHTML = entry.innerHtml;
+    entry.paintedContent = false;
+  }
+  restoreDesign(entry);
+  entry.element.removeAttribute(PREVIEW_ATTR);
 }
 
 /** Dedupe while keeping the first occurrence; class order is not semantic. */
@@ -110,14 +136,14 @@ function uniqueTokens(tokens: readonly string[]): string[] {
   return [...new Set(tokens.filter(Boolean))];
 }
 
-function paint(
+function paintDesign(
   entry: AppliedPreview,
-  draft: ComposerDraftPreview,
+  design: NonNullable<ComposerDraftPreview['design']>,
   structural: string,
   shell: PreviewShell
 ) {
   const { element } = entry;
-  const draftTokens = draft.classes.split(/\s+/).filter(Boolean);
+  const draftTokens = design.classes.split(/\s+/).filter(Boolean);
   const structuralTokens = structural.split(/\s+/).filter(Boolean);
 
   const classes =
@@ -142,24 +168,65 @@ function paint(
    * transform) in a way the saved page would not. The class changes still
    * preview the design, and the Code tab's own live sample covers the rest.
    */
-  writeOrRemove(element, 'style', shell === 'replace' ? draft.style.trim() : entry.styleAttr);
+  writeOrRemove(element, 'style', shell === 'replace' ? design.style.trim() : entry.styleAttr);
 
   entry.paintedClasses =
     shell === 'replace' ? [] : uniqueTokens([...draftTokens, ...structuralTokens]);
 
   // Mirror the save path: one theme attribute, and the other one clears.
-  if (draft.themeMode === 'dark' || draft.themeMode === 'light') {
-    element.setAttribute('data-theme', draft.themeMode);
+  if (design.themeMode === 'dark' || design.themeMode === 'light') {
+    element.setAttribute('data-theme', design.themeMode);
     element.removeAttribute('data-theme-mode');
-  } else if (draft.themeMode === 'system') {
+  } else if (design.themeMode === 'system') {
     element.removeAttribute('data-theme');
     element.setAttribute('data-theme-mode', 'system');
   } else {
     element.removeAttribute('data-theme');
     element.removeAttribute('data-theme-mode');
   }
+}
 
-  element.setAttribute(PREVIEW_ATTR, 'true');
+/** Put the page's own design attributes back, keeping any copy preview. */
+function restoreDesign(entry: AppliedPreview) {
+  writeOrRemove(entry.element, 'class', entry.classAttr);
+  writeOrRemove(entry.element, 'style', entry.styleAttr);
+  writeOrRemove(entry.element, 'data-theme', entry.themeAttr);
+  writeOrRemove(entry.element, 'data-theme-mode', entry.themeModeAttr);
+  entry.paintedClasses = [];
+}
+
+/**
+ * Paint one entry for a draft: design if it has one, copy if it has one.
+ *
+ * The two are independent on purpose. A copy-only draft leaves the element's
+ * classes exactly as the page has them, and a later design draft can land on
+ * top of painted copy without recapturing it as the page's own markup.
+ */
+function paint(
+  entry: AppliedPreview,
+  draft: ComposerDraftPreview,
+  structural: string,
+  shell: PreviewShell
+) {
+  if (draft.design) paintDesign(entry, draft.design, structural, shell);
+  else restoreDesign(entry);
+
+  /*
+   * The copy, including the draft badge. The save writes this same markup
+   * inside the block's shell, so the page, the mini preview and the eventual
+   * write cannot disagree about a heading's text. Null means the draft does not
+   * touch copy, and a copy preview from an earlier draft goes back first.
+   */
+  if (draft.contentHtml !== null) {
+    entry.element.innerHTML = draft.contentHtml;
+    entry.paintedContent = true;
+  } else if (entry.paintedContent) {
+    entry.element.innerHTML = entry.innerHtml;
+    entry.paintedContent = false;
+  }
+
+  if (draft.design || draft.contentHtml !== null) entry.element.setAttribute(PREVIEW_ATTR, 'true');
+  else entry.element.removeAttribute(PREVIEW_ATTR);
 }
 
 export interface UseComposerPagePreviewOptions {
@@ -200,7 +267,7 @@ export function useComposerPagePreview({
 
   const clearDraft = useCallback(() => {
     for (const entry of appliedRef.current.values()) {
-      restoreAttrs(entry.element, entry);
+      restorePreview(entry);
     }
     appliedRef.current.clear();
   }, []);
@@ -227,7 +294,7 @@ export function useComposerPagePreview({
       // another block — goes back to the page's design.
       for (const [element, entry] of applied) {
         if (!entry.committed && !keep.has(entry.index)) {
-          restoreAttrs(element, entry);
+          restorePreview(entry);
           applied.delete(element);
         }
       }
@@ -241,7 +308,7 @@ export function useComposerPagePreview({
           // The same element now addresses a different block. Put the old base
           // back before recapturing, or the recapture would treat a stale
           // preview as the page's own markup.
-          restoreAttrs(element, entry);
+          restorePreview(entry);
           applied.delete(element);
           entry = undefined;
         }
@@ -250,7 +317,9 @@ export function useComposerPagePreview({
             index,
             element,
             ...readAttrs(element),
+            innerHtml: element.innerHTML,
             paintedClasses: [],
+            paintedContent: false,
             committed: false,
           };
           applied.set(element, entry);
@@ -278,6 +347,7 @@ export function useComposerPagePreview({
       entry.styleAttr = current.styleAttr;
       entry.themeAttr = current.themeAttr;
       entry.themeModeAttr = current.themeModeAttr;
+      entry.innerHtml = entry.element.innerHTML;
       entry.committed = true;
       entry.element.removeAttribute(PREVIEW_ATTR);
     }

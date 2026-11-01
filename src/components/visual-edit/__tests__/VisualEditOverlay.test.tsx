@@ -225,6 +225,17 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     });
   };
 
+  /** Type into the composer's copy field, the way the Content tab does. */
+  const changeComposerCopy = async (text: string) => {
+    const textarea = document.querySelector<HTMLTextAreaElement>('aside[role="dialog"] textarea');
+    expect(textarea).not.toBeNull();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+      setter?.call(textarea, text);
+      textarea?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+
   const asRect = (top: number, bottom: number): DOMRect =>
     ({
       top,
@@ -1504,6 +1515,52 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     expect(paragraph.hasAttribute('data-vc-draft-preview')).toBe(false);
   });
 
+  it('paints typed copy onto the block and takes it back on discard', async () => {
+    await withPage();
+    const paragraph = pageChildren().children[0] as HTMLElement;
+
+    await openComposerOnFirstBlock();
+    await changeComposerCopy('Fresh intro copy.');
+
+    /*
+     * The page is the preview, copy included. Typing alone must not restyle the
+     * block: the design half of the draft is clean, so the paragraph keeps its
+     * own (here, absent) classes while its sentence changes.
+     */
+    expect(paragraph.textContent).toBe('Fresh intro copy.');
+    expect(paragraph.getAttribute('data-vc-draft-preview')).toBe('true');
+    expect(paragraph.getAttribute('class')).toBeNull();
+    expect(document.body.textContent).toContain('Previewing on the page');
+
+    await act(async () => {
+      byText('Cancel')?.click();
+    });
+    expect(document.body.textContent).toContain('Discard unsaved changes?');
+    await act(async () => {
+      byText('Discard')?.click();
+    });
+
+    expect(paragraph.textContent).toBe('Intro copy.');
+    expect(paragraph.hasAttribute('data-vc-draft-preview')).toBe(false);
+  });
+
+  it('keeps typed copy on the page when it is applied', async () => {
+    await withPage();
+    const paragraph = pageChildren().children[0] as HTMLElement;
+
+    await openComposerOnFirstBlock();
+    await changeComposerCopy('Applied intro.');
+    await act(async () => {
+      byText('Save Block')?.click();
+    });
+
+    // The panel is gone; the page already shows what was applied rather than
+    // snapping back to the old sentence until the autosave refresh lands.
+    expect(document.body.textContent).not.toContain('Visual Composer Inspector');
+    expect(paragraph.textContent).toBe('Applied intro.');
+    expect(paragraph.hasAttribute('data-vc-draft-preview')).toBe(false);
+  });
+
   it('keeps the page’s own classes when the design will be wrapped around them', async () => {
     /*
      * A plain heading is not a `<div>` wrapper: the save leaves its own classes
@@ -1675,5 +1732,17 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     // The library is aimed at the gap after block #1, which reads as "above the
     // block that comes next".
     expect(document.body.textContent).toContain('Insert element above block #2');
+
+    /*
+     * One way to add a block at the frame, not three. The pill's duplicate
+     * insert-after and the dropdown's second add menu both went away; the dock
+     * and the element-library shortcut still own the general add paths.
+     */
+    expect(container.querySelector('button[aria-label="Add block below"]')).toBeNull();
+    expect(
+      Array.from(container.querySelectorAll('button')).some(
+        (button) => button.textContent?.trim() === 'Insert Element'
+      )
+    ).toBe(false);
   });
 });

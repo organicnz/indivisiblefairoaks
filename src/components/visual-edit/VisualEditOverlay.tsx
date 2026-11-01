@@ -3982,53 +3982,6 @@ export function VisualEditOverlay() {
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
 
-                  {/* Add block below — a menu of every type, not just a paragraph.
-                      A pen-over-here control that can only append one block type
-                      is a control that lies by omission; the dock menu already
-                      owns the canonical option list, so this reuses it. */}
-                  <DropdownMenu.Root>
-                    <DropdownMenu.Trigger asChild>
-                      <button
-                        type="button"
-                        title="Add block below"
-                        aria-label="Add block below"
-                        className="rounded p-1 text-emerald-400 hover:bg-white/15 hover:text-emerald-300 transition-colors"
-                      >
-                        <Plus size={13} />
-                      </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content
-                        side="bottom"
-                        align="start"
-                        sideOffset={6}
-                        aria-label="Add block below"
-                        className="z-50 w-48 rounded-xl border border-white/15 bg-secondary p-1.5 shadow-float data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
-                      >
-                        {BLOCK_TYPE_OPTIONS.map((option) => (
-                          <DropdownMenu.Item
-                            key={option.type}
-                            onSelect={() => handleAddNewSection(option.type, item.blockIndex)}
-                            className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-ink-on-dark hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                          >
-                            {option.label}
-                          </DropdownMenu.Item>
-                        ))}
-                        <div className="my-1 h-px bg-white/10" />
-                        <DropdownMenu.Item
-                          onSelect={() => {
-                            setLibraryTargetIndex(item.blockIndex);
-                            setIsBlockLibraryOpen(true);
-                          }}
-                          className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-accent-gold hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
-                        >
-                          <Layers size={13} />
-                          <span>Element Library...</span>
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu.Root>
-
                   {/* Turn off visual frame for this section */}
                   <button
                     type="button"
@@ -4057,23 +4010,6 @@ export function VisualEditOverlay() {
                     <Trash2 size={13} />
                   </ConfirmAction>
                 </div>
-              </div>
-
-              {/* On-Canvas Section Inserter Divider */}
-              <div className="pointer-events-auto absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center opacity-0 hover:opacity-100 focus-within:opacity-100 transition-opacity z-10">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLibraryTargetIndex(item.blockIndex + 1);
-                    setIsBlockLibraryOpen(true);
-                  }}
-                  title={`Insert element after ${item.label}`}
-                  aria-label={`Insert element after ${item.label}`}
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-accent-gold/60 bg-secondary/95 text-[10px] font-bold text-accent-gold shadow-md backdrop-blur-md hover:bg-accent-gold hover:text-ink-strong transition-all transform hover:scale-105"
-                >
-                  <Plus size={11} />
-                  <span>Insert Element</span>
-                </button>
               </div>
             </div>
           ))}

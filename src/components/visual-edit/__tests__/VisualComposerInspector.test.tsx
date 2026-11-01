@@ -4523,8 +4523,14 @@ describe('VisualComposerInspector live page preview', () => {
     await applyBorderPreset();
 
     const draft = onPreviewChange.mock.calls.at(-1)?.[0];
-    expect(draft).toMatchObject({ mode: 'block', blockIndexes: [0], themeMode: 'inherit' });
-    expect(draft.classes).toContain('rounded-2xl');
+    expect(draft).toMatchObject({
+      mode: 'block',
+      blockIndexes: [0],
+      design: { themeMode: 'inherit' },
+      // A design change alone has no copy to carry.
+      contentHtml: null,
+    });
+    expect(draft.design.classes).toContain('rounded-2xl');
     expect(document.body.textContent).toContain('Previewing on the page');
     expect(document.body.textContent).toContain('nothing is saved until you apply');
 
@@ -4535,6 +4541,49 @@ describe('VisualComposerInspector live page preview', () => {
     // Back to what the page already carries, so the preview is withdrawn.
     expect(onPreviewChange).toHaveBeenLastCalledWith(null);
     expect(document.body.textContent).not.toContain('Previewing on the page');
+  });
+
+  it('reports draft copy without restyling the block', async () => {
+    const onPreviewChange = vi.fn();
+    await mount(onPreviewChange);
+
+    const textarea = document.querySelector<HTMLTextAreaElement>('aside[role="dialog"] textarea');
+    expect(textarea).not.toBeNull();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+      setter?.call(textarea, 'A new mission');
+      textarea?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const draft = onPreviewChange.mock.calls.at(-1)?.[0];
+    /*
+     * The copy travels as HTML, badge included, and the design is null: retyping
+     * a headline must not apply the editor's defaults to a block nobody styled.
+     */
+    expect(draft).toMatchObject({ mode: 'block', blockIndexes: [0], design: null });
+    expect(draft.contentHtml).toContain('A new mission');
+    expect(document.body.textContent).toContain('Previewing on the page');
+  });
+
+  it('puts the draft badge into the reported copy, exactly as the save will', async () => {
+    const onPreviewChange = vi.fn();
+    await mount(onPreviewChange);
+
+    // The badge fields live in the Box Model tab's decorative badge studio.
+    await act(async () => {
+      byText('Box Model')?.click();
+    });
+    const badge = document.querySelector<HTMLInputElement>('#block-badge-text-input');
+    expect(badge).not.toBeNull();
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      setter?.call(badge, 'Civic Update');
+      badge?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const draft = onPreviewChange.mock.calls.at(-1)?.[0];
+    expect(draft.contentHtml).toContain('data-vc-badge');
+    expect(draft.contentHtml).toContain('Civic Update');
   });
 
   it('withdraws the preview when the panel closes', async () => {

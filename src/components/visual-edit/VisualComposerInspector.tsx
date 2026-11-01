@@ -316,6 +316,45 @@ function revertKeys(
 }
 
 /**
+ * The block a save will write, with the draft badge folded in.
+ *
+ * The live preview composes the same block before extracting its copy, so the
+ * page cannot show a badge the write omits — or show the old badge after the
+ * operator changed it. The regular expression is the one the save always used:
+ * an existing badge is replaced, never stacked.
+ */
+function composeDraftBlock(block: Block, styles: VisualComposerStyles): Block {
+  const finalBlock: Block = { ...block };
+  const badgeHtml = compileBadgeHtml(styles);
+  if ('html' in finalBlock && typeof finalBlock.html === 'string') {
+    let content = finalBlock.html.replace(/<span\s+data-vc-badge[^>]*>.*?<\/span>/gi, '');
+    if (badgeHtml) content = `${badgeHtml}${content}`;
+    return { ...finalBlock, html: content };
+  }
+  if (!badgeHtml) return finalBlock;
+  const serialized = serializeBlocks([finalBlock]);
+  return { id: finalBlock.id, type: 'unsupported', html: `${badgeHtml}${serialized}` };
+}
+
+/**
+ * The inside of the one element a serialized block produces.
+ *
+ * `null` when there is no single top-level element to read — a document of
+ * nothing, or unsupported markup with several roots. Painting nothing is the
+ * honest answer there; guessing would put copy on the page that the save would
+ * not write in that shape. A DOM parse rather than string surgery because the
+ * serializer's element may nest, and because a void element (a divider) has no
+ * inside at all. The server pass skips it: the report runs in an effect.
+ */
+function blockInnerHtml(serialized: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const template = document.createElement('template');
+  template.innerHTML = serialized;
+  const elements = template.content.children;
+  return elements.length === 1 ? elements[0].innerHTML : null;
+}
+
+/**
  * One tab's panel.
  *
  * Only the active panel renders, which is what keeps the strip cheap; the
@@ -496,6 +535,7 @@ export function VisualComposerInspector({
   const [baseline, setBaseline] = useState<VisualComposerStyles>(() => ({ ...DEFAULT_VC_STYLES }));
   const baselineSignature = useMemo(() => JSON.stringify(baseline), [baseline]);
   const stylesSignature = useMemo(() => JSON.stringify(styles), [styles]);
+  const designDirty = stylesSignature !== baselineSignature;
 
   /**
    * Unsaved work is not only style work.
@@ -510,16 +550,18 @@ export function VisualComposerInspector({
     [currentBlock]
   );
   const contentDirty = currentBlockSignature !== '' && currentBlockSignature !== blockSignature;
-  const dirty = stylesSignature !== baselineSignature || contentDirty;
-
   /**
-   * A design the page has not agreed to yet.
+   * The badge is a design control whose output is markup, not a class.
    *
-   * Only this paints the live preview: opening the panel on an untouched block
-   * must not restyle it with the editor's defaults, and typed copy does not
-   * change the look.
+   * It lives inside the block's HTML, so a badge draft has to reach the page
+   * through the copy preview even when not a character of copy changed. Without
+   * this the mini preview shows the new ribbon and the page keeps the old one.
    */
-  const designDirty = stylesSignature !== baselineSignature;
+  const badgeDirty =
+    styles.badgeText !== baseline.badgeText ||
+    styles.badgeTone !== baseline.badgeTone ||
+    styles.badgePosition !== baseline.badgePosition;
+  const dirty = designDirty || contentDirty;
 
   /**
    * What the draft actually changes, grouped the way an operator thinks.
@@ -668,35 +710,60 @@ export function VisualComposerInspector({
       ? (styles.section.themeMode ?? styles.themeMode ?? 'system')
       : (styles.themeMode ?? 'system');
 
+  /**
+   * The copy the page should show for this draft.
+   *
+   * Composed through the same block the save writes, so the sentence, the badge
+   * and the markup the operator will get on Apply are one thing rather than two
+   * hand-copied shapes. A batch and section mode carry no copy: the batch would
+   * otherwise stamp the primary block's text onto every target.
+   */
+  const previewContentHtml = useMemo(() => {
+    if ((!contentDirty && !badgeDirty) || inspectorMode !== 'block' || isBatchMode || !currentBlock)
+      return null;
+    return blockInnerHtml(serializeBlocks([composeDraftBlock(currentBlock, styles)]));
+  }, [contentDirty, badgeDirty, inspectorMode, isBatchMode, currentBlock, styles]);
+
   /*
    * Report the draft to the page. The cleanup is deliberately not part of this
    * effect: it would fire between two keystrokes, and the page would flash its
    * original design back for a frame before the next one. Clearing is explicit
    * — a clean draft, a closed panel, or unmount.
+   *
+   * Copy is reported as its own half. A design that has not been touched stays
+   * off the page, so retyping a headline shows the new sentence without also
+   * applying the editor's default classes to a block nobody restyled.
    */
   // biome-ignore lint/correctness/useExhaustiveDependencies: previewIndexKey is the trigger; the effect reads the live indexes through a ref so the array's identity cannot repaint the page.
   useEffect(() => {
     const report = previewReporterRef.current;
     if (!report) return;
-    if (!open || !designDirty) {
+    if (!open || !dirty) {
       report(null);
       return;
     }
     report({
       mode: inspectorMode,
       blockIndexes: previewIndexesRef.current,
-      classes: compiledClassNames,
-      style: styles.customStyle ?? '',
-      themeMode: previewThemeMode,
+      design: designDirty
+        ? {
+            classes: compiledClassNames,
+            style: styles.customStyle ?? '',
+            themeMode: previewThemeMode,
+          }
+        : null,
+      contentHtml: previewContentHtml,
     });
   }, [
     open,
+    dirty,
     designDirty,
     inspectorMode,
     compiledClassNames,
     previewIndexKey,
     styles.customStyle,
     previewThemeMode,
+    previewContentHtml,
   ]);
 
   useEffect(
@@ -1141,25 +1208,7 @@ export function VisualComposerInspector({
 
   const handleApply = () => {
     if (!currentBlock || applyDisabled) return;
-    let finalBlock: Block = { ...currentBlock };
-    const badgeHtml = compileBadgeHtml(styles);
-    if ('html' in finalBlock && typeof finalBlock.html === 'string') {
-      let content = finalBlock.html.replace(/<span\s+data-vc-badge[^>]*>.*?<\/span>/gi, '');
-      if (badgeHtml) {
-        content = `${badgeHtml}${content}`;
-      }
-      finalBlock = {
-        ...finalBlock,
-        html: content,
-      };
-    } else if (badgeHtml) {
-      const serialized = serializeBlocks([finalBlock]);
-      finalBlock = {
-        id: finalBlock.id,
-        type: 'unsupported',
-        html: `${badgeHtml}${serialized}`,
-      };
-    }
+    const finalBlock = composeDraftBlock(currentBlock, styles);
 
     const accepted =
       isBatchMode && onSaveBlocks && selectedBlockIndexes.length > 1
@@ -1456,16 +1505,26 @@ export function VisualComposerInspector({
 
       {/*
         The page is the preview now. Say so while the draft is live, and say
-        the part that matters: this is a look, not a write. An operator who does
+        the part that matters: this is a draft, not a write. An operator who does
         not know the difference is one Esc away from a scare they did not earn.
+        The last sentence is the honest part: the preview paints copy, classes,
+        inline theme and the badge, but inline CSS on a block that will be
+        wrapped, and the anchor id, only exist after the save.
+
+        The gate is "something is painted", not "something is dirty". A copy
+        draft on markup with no single root has nothing to paint, and a banner
+        that claimed otherwise would be the bug this line exists to avoid.
       */}
-      {designDirty && onPreviewChange ? (
+      {(designDirty || previewContentHtml !== null) && onPreviewChange ? (
         <p
           data-testid="composer-live-preview-status"
           className="flex items-center gap-1.5 border-b border-emerald-400/20 bg-emerald-500/[0.07] px-5 py-1.5 text-[10px] font-semibold text-emerald-200"
         >
           <Eye size={11} className="shrink-0" aria-hidden="true" />
-          <span>Previewing on the page — nothing is saved until you apply.</span>
+          <span>
+            Previewing on the page — nothing is saved until you apply. Inline CSS and anchor id
+            apply on save.
+          </span>
         </p>
       ) : null}
 
