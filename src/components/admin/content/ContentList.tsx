@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type ContentListRow, deleteContent, setContentStatus } from '@/lib/actions/content';
-import { CONTENT_TYPES } from '@/lib/content';
+import { CONTENT_TYPES, contentComposeHref, contentPublicHref } from '@/lib/content';
 
 const STATUS_BADGE: Record<string, string> = {
   publish: 'bg-emerald-100 text-emerald-800 border-emerald-300',
@@ -290,25 +290,41 @@ export function ContentList({ initialRows, initialTotal, initialPage, pageSize }
                               (into the editor, which renders unsaved work
                               through the real sanitizer) when it is not.
                             */}
-                              {row.status === 'publish' ? (
-                                <Link
-                                  href={`/${row.slug}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={`View /${row.slug}`}
-                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
-                                >
-                                  View
-                                </Link>
-                              ) : (
-                                <Link
-                                  href={`/admin/content/${row.id}`}
-                                  title="Not published yet — opens the editor to preview it"
-                                  className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
-                                >
-                                  Preview
-                                </Link>
-                              )}
+                              <Link
+                                href={contentComposeHref(row)}
+                                target="_blank"
+                                rel="noreferrer"
+                                title={`Compose ${contentComposeHref(row)} visually`}
+                                className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                              >
+                                Compose
+                              </Link>
+                              {(() => {
+                                const publicHref = contentPublicHref(row);
+                                return publicHref ? (
+                                  <Link
+                                    href={publicHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={`View ${publicHref}`}
+                                    className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                                  >
+                                    View
+                                  </Link>
+                                ) : (
+                                  <Link
+                                    href={`/admin/content/${row.id}`}
+                                    title={
+                                      row.status === 'publish'
+                                        ? 'Its slug is served by a coded route or redirect — opens the editor'
+                                        : 'Not published yet — opens the editor to preview it'
+                                    }
+                                    className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-primary dark:hover:text-primary-on-dark focus-visible:ring-2 focus-visible:ring-primary"
+                                  >
+                                    Preview
+                                  </Link>
+                                );
+                              })()}
                               <button
                                 type="button"
                                 onClick={() => handleToggle(row)}

@@ -4,6 +4,8 @@ import { isLegacySlug } from '@/config/legacy-redirects';
 import { ROUTES } from '@/config/routes';
 import {
   CONTENT_TYPES,
+  contentComposeHref,
+  contentPublicHref,
   describeSlugConflict,
   MAX_BODY_BYTES,
   readingStats,
@@ -82,6 +84,49 @@ describe('describeSlugConflict', () => {
   it('allows a normal CMS slug', () => {
     expect(describeSlugConflict('summer-rally')).toBeNull();
     expect(describeSlugConflict('carmichael-park-rally')).toBeNull();
+  });
+});
+
+describe('contentPublicHref', () => {
+  it('links a normal published page at its own path', () => {
+    expect(contentPublicHref({ slug: 'summer-rally', status: 'publish' })).toBe('/summer-rally');
+  });
+
+  it('returns null for a draft, which has no public page', () => {
+    expect(contentPublicHref({ slug: 'summer-rally', status: 'draft' })).toBeNull();
+  });
+
+  it('links a copy region to the page it renders into', () => {
+    // The row's slug is `copy-home-hero`, but `/copy-home-hero` is deliberately
+    // not a route; `/` is where a reader actually sees it.
+    expect(contentPublicHref({ slug: 'copy-home-hero', status: 'publish' })).toBe('/');
+  });
+
+  it('returns null for a region no page renders', () => {
+    expect(contentPublicHref({ slug: 'copy-orphan', status: 'publish' })).toBeNull();
+  });
+
+  it('returns null for a slug a coded route or legacy 301 shadows', () => {
+    // `/${slug}` opens the coded page or the redirect, not this row, so a View
+    // link would be a promise the row cannot keep.
+    expect(contentPublicHref({ slug: 'about', status: 'publish' })).toBeNull();
+    expect(contentPublicHref({ slug: 'about-us', status: 'publish' })).toBeNull();
+  });
+});
+
+describe('contentComposeHref', () => {
+  it('opens a normal row in the dedicated workspace', () => {
+    expect(contentComposeHref({ id: 42, slug: 'summer-rally' })).toBe('/compose/42');
+  });
+
+  it('opens a region on its host page with the region selected', () => {
+    expect(contentComposeHref({ id: 23, slug: 'copy-home-hero' })).toBe(
+      '/?visual-edit=1&region=home-hero'
+    );
+  });
+
+  it('does not route an unregistered region to its own unreachable path', () => {
+    expect(contentComposeHref({ id: 99, slug: 'copy-orphan' })).toBe('/compose/99');
   });
 });
 

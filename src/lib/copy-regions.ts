@@ -104,6 +104,47 @@ export function copyRegionSlug(id: string): string {
   return `${COPY_REGION_SLUG_PREFIX}${id}`;
 }
 
+/** A region together with the page it renders into. */
+export interface CopyRegionLocation {
+  /** The public path whose render includes the region. */
+  path: string;
+  region: CopyRegionDefinition;
+}
+
+/**
+ * Reverse-resolve a stored region slug to the page that renders it.
+ *
+ * A region is a slice of a coded page, not a page of its own. The composer has
+ * to know the difference: `/copy-home-hero` is a row, `/` is the document a
+ * reader sees. Resolving the registry by region id is the only way to answer
+ * that from the slug alone, and it keeps the registry as the single owner of
+ * the mapping rather than duplicating paths in the admin surfaces.
+ */
+export function copyRegionLocationForSlug(slug: string): CopyRegionLocation | null {
+  const id = copyRegionIdForSlug(slug);
+  if (!id) return null;
+  for (const [path, regions] of Object.entries(PAGE_COPY_REGIONS)) {
+    const region = regions.find((candidate) => candidate.id === id);
+    if (region) return { path, region };
+  }
+  return null;
+}
+
+/**
+ * The host-page URL that opens this region for editing.
+ *
+ * The query is the address, not a decoration: the visual editor reads `region`
+ * once per pathname and selects it before loading the document. Without it the
+ * host page would open on the whole page, which is the wrong document for a
+ * region row. `visual-edit=1` is what turns the editor on in the first place.
+ */
+export function copyRegionComposeHref(slug: string): string | null {
+  const location = copyRegionLocationForSlug(slug);
+  if (!location) return null;
+  const search = new URLSearchParams({ 'visual-edit': '1', region: location.region.id });
+  return `${location.path}?${search.toString()}`;
+}
+
 /** The copy regions registered for a pathname, in registry order. */
 export function getPageCopyRegions(pathname: string): readonly CopyRegionDefinition[] {
   return PAGE_COPY_REGIONS[pathname] ?? [];

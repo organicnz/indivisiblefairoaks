@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { ContentSurface } from '@/components/content/ContentSurface';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { ROBOTS, siteUrl } from '@/config/site';
@@ -11,7 +12,7 @@ import { pageMetadata } from '@/lib/metadata';
 import { isOwnImageUrl } from '@/lib/own-media';
 import { getDataPoints } from '@/lib/queries/civic';
 import { getAllPublishedSlugs, getPublishedContent } from '@/lib/queries/content';
-import { htmlToExcerpt, sanitizeWPContent } from '@/lib/sanitize';
+import { htmlToExcerpt } from '@/lib/sanitize';
 import { serializeJsonLd } from '@/lib/utils';
 
 export async function generateStaticParams() {
@@ -120,7 +121,6 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
     return notFound();
   }
 
-  const cleanBody = sanitizeWPContent(content.body || '');
   const canonical = siteUrl(`/${slug}`);
   // Only ours: the sanitizer's outbound-link rule is for anchors a reader can
   // follow, but this is a URL the page hands to next/image, and an authored
@@ -222,27 +222,10 @@ async function ContentBody({ params }: { params: Promise<{ slug: string }> }) {
           </div>
         )}
 
-        {/*
-          The body container is the visual-editing section root.
-
-          Marking the element rather than passing a ref keeps this a Server
-          Component: the overlay queries the DOM it finds. The attribute is
-          inert for every reader — it carries no styling and no behaviour of its
-          own — and it is the only thing the section list is measured against,
-          which is why it sits on the element whose children *are* the sections
-          rather than on the page wrapper.
-        */}
-        <div
-          className="cw prose prose-slate prose-lg max-w-none
-            prose-headings:text-foreground prose-headings:uppercase prose-headings:font-black
-            prose-p:text-muted-foreground prose-p:leading-relaxed
-            prose-a:text-primary dark:prose-a:text-primary-on-dark prose-a:font-bold prose-a:no-underline hover:prose-a:underline
-            prose-strong:text-foreground prose-strong:font-black
-            prose-img:rounded-3xl prose-img:shadow-lg"
-          data-visual-edit-root=""
-          // cleanBody is produced by sanitizeWPContent (line 28)
-          dangerouslySetInnerHTML={{ __html: cleanBody }}
-        />
+        {/* The body surface is shared with the composer workspace, so the page
+            and the editor cannot disagree about classes or the root marker. */}
+        {/* ContentSurface sanitizes; the body is passed through as stored. */}
+        <ContentSurface html={content.body || ''} />
         {content.type === 'post' && (
           <div className="mt-20 pt-10 border-t border-border flex justify-between items-center">
             <Link

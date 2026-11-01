@@ -89,6 +89,7 @@ import {
 import { saveDataPoint } from '@/lib/queries/civic-client';
 import { isStaleConflict } from '@/lib/visual-edit/conflict';
 import { extractBlocksFromDOM } from '@/lib/visual-edit/extract-blocks-from-dom';
+import { readComposerContentId } from '@/lib/visual-edit-document';
 import { VISUAL_EDIT_EVENTS } from '@/lib/visual-edit-events';
 import { highlightPageSection } from '@/lib/visual-edit-mode';
 import {
@@ -1040,13 +1041,15 @@ export function VisualEditOverlay() {
     if (!isRegion && !slug && (pathname === '/' || pathname === '')) {
       slug = 'home';
     }
-    // The edit URL targets a specific row for the page document, and a region is
-    // never that row, so it is only honoured when no region is active.
+    // The dedicated composer workspace names its row in the DOM. It is the
+    // strongest address available: the URL is `/compose/13`, which names no
+    // slug, and the row can be one the public path shadows. The edit URL is the
+    // next fallback for an ordinary page, and a region is never either row.
+    const declaredRowId = isRegion ? null : readComposerContentId(document);
     const rowId = isRegion
       ? null
-      : target?.editUrl
-        ? Number.parseInt(target.editUrl.split('/').pop() || '', 10)
-        : null;
+      : (declaredRowId ??
+        (target?.editUrl ? Number.parseInt(target.editUrl.split('/').pop() || '', 10) : null));
 
     /*
      * What document this load is for.
@@ -1413,17 +1416,25 @@ export function VisualEditOverlay() {
    * then reloads for the new page, so resetting first also keeps that reload
    * from reading the old page's blocks.
    *
-   * `pathname` is read through a ref rather than listed as a dependency: the
-   * dep is the *change*, not the value, and declaring it as a dep re-runs the
-   * effect on mount for a value that has not changed.
+   * `?region=` is how a region is addressed at all: it is a slice of a coded
+   * page, not a path, so there is nothing else in the URL to point at. The id
+   * is validated against *this* page's registry before it is accepted, which is
+   * the same rule the reset exists for — a stale or hand-edited value must not
+   * select another page's row.
+   *
+   * Read from `window.location` rather than `useSearchParams`: this overlay is
+   * mounted by the root layout, which has no Suspense boundary above it, and
+   * `useSearchParams` would make every prerendered route depend on one. The
+   * editor only renders for a signed-in admin, after hydration, so the search
+   * string is available when this runs.
    */
-  const pathnameRef = useRef(pathname);
   useEffect(() => {
-    const previous = pathnameRef.current;
-    pathnameRef.current = pathname;
-    if (previous === pathname) return;
-    setActiveRegionId(null);
-  }, [pathname]);
+    if (typeof window === 'undefined') return;
+    const requested = new URLSearchParams(window.location.search).get('region');
+    const next =
+      requested && pageRegions.some((region) => region.id === requested) ? requested : null;
+    setActiveRegionId((current) => (current === next ? current : next));
+  }, [pageRegions]);
 
   // Re-pair whenever the document or the DOM changes.
   useEffect(() => {

@@ -8,6 +8,7 @@ import {
   Eye,
   History,
   Loader2,
+  Paintbrush,
   Redo2,
   RotateCcw,
   Save,
@@ -30,7 +31,13 @@ import {
   setContentStatus,
 } from '@/lib/actions/content';
 import { type Block, isTransient, parseHtml, serializeBlocks } from '@/lib/blocks';
-import { CONTENT_TYPES, type ContentType, readingStats, slugifyTitle } from '@/lib/content';
+import {
+  CONTENT_TYPES,
+  type ContentType,
+  contentComposeHref,
+  readingStats,
+  slugifyTitle,
+} from '@/lib/content';
 import { clearDraft, isWorthRecovering, readDraft, writeDraft } from '@/lib/draft-recovery';
 import {
   canRedo,
@@ -920,6 +927,25 @@ export function ContentEditor({ initial, siteHost }: Props) {
                 <Eye size={15} aria-hidden="true" />
                 Preview
               </button>
+              {/*
+                The canvas lives outside `/admin` so it can render the row at
+                its real width with the site's own chrome. A new tab keeps this
+                editor's unsaved state and its autosave loop intact.
+              */}
+              <Link
+                href={contentComposeHref({ id: initial.id, slug })}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:border-border focus-visible:ring-2 focus-visible:ring-primary"
+                title={
+                  contentComposeHref({ id: initial.id, slug }).startsWith('/compose/')
+                    ? 'Open the full-page visual composer'
+                    : 'Open the page this copy region renders into, with the region selected'
+                }
+              >
+                <Paintbrush size={15} aria-hidden="true" />
+                Compose
+              </Link>
               <ConfirmAction
                 label={`Delete ${title}`}
                 message={`Delete “${title}”? This cannot be undone.`}

@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   COPY_REGION_OMISSIONS,
   COPY_REGION_SLUG_PREFIX,
+  copyRegionComposeHref,
   copyRegionIdForSlug,
+  copyRegionLocationForSlug,
   copyRegionSlug,
   describeCopyRegionSlugConflict,
   getPageCopyRegions,
@@ -32,6 +34,41 @@ describe('copy region slugs', () => {
   });
 });
 
+describe('resolving a region row back to its page', () => {
+  it('finds the host page and region from the stored slug', () => {
+    expect(copyRegionLocationForSlug('copy-home-hero')).toEqual({
+      path: '/',
+      region: { id: 'home-hero', label: 'Hero & Headline' },
+    });
+    expect(copyRegionLocationForSlug('copy-about-mission')?.path).toBe('/about');
+  });
+
+  it('returns null for a normal slug or an unregistered region', () => {
+    expect(copyRegionLocationForSlug('about')).toBeNull();
+    expect(copyRegionLocationForSlug('copy-nope')).toBeNull();
+  });
+
+  it('addresses the host page with the region selected', () => {
+    // `/copy-home-hero` is not a route. The editor's address is the page the
+    // region renders into, plus the query that says which slice to open.
+    expect(copyRegionComposeHref('copy-home-hero')).toBe('/?visual-edit=1&region=home-hero');
+    expect(copyRegionComposeHref('copy-about-mission')).toBe(
+      '/about?visual-edit=1&region=about-mission'
+    );
+    expect(copyRegionComposeHref('copy-nope')).toBeNull();
+  });
+
+  it('never addresses a region row at its own path', () => {
+    for (const [path, regions] of Object.entries(PAGE_COPY_REGIONS)) {
+      for (const region of regions) {
+        const href = copyRegionComposeHref(copyRegionSlug(region.id));
+        expect(href, region.id).toBe(`${path}?visual-edit=1&region=${region.id}`);
+        expect(href?.startsWith('/copy-'), region.id).toBe(false);
+      }
+    }
+  });
+});
+
 describe('page copy region registry', () => {
   it('returns regions only for registered paths', () => {
     expect(getPageCopyRegions('/').map((r) => r.id)).toEqual([
@@ -39,8 +76,8 @@ describe('page copy region registry', () => {
       'home-pillars',
       'home-voter-hub',
     ]);
-    expect(getPageCopyRegions('/cart')).toEqual([]);
-    expect(pageHasCopyRegions('/cart')).toBe(false);
+    expect(getPageCopyRegions('/wishlist')).toEqual([]);
+    expect(pageHasCopyRegions('/wishlist')).toBe(false);
   });
 
   it('never registers a region id that collides with another region', () => {

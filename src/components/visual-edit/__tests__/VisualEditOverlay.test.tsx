@@ -138,6 +138,7 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
     editContext.target = null;
     visualMode.enabled = true;
     pathname.value = '/about';
+    window.history.replaceState({}, '', '/');
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -1815,5 +1816,91 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
         (button) => button.textContent?.trim() === 'Insert Element'
       )
     ).toBe(false);
+  });
+
+  it('loads the row the composer workspace names, even when the path names no slug', async () => {
+    /*
+     * `/compose/42` is not a CMS path: it has two segments, so `cmsSlugForPath`
+     * returns null and the old loader would have fallen back to extracting the
+     * DOM and saving under a slug invented from the admin URL. The row id in the
+     * markup is the only address that survives that shape, and it has to win
+     * over the path-derived slug.
+     */
+    const page = renderPage(rendered);
+    page.setAttribute('data-visual-edit-content-id', '42');
+    pathname.value = '/compose/42';
+    getContentForEdit.mockResolvedValue({
+      id: 42,
+      title: 'Composed Row',
+      slug: 'composed-row',
+      excerpt: null,
+      type: 'page',
+      status: 'draft',
+      body,
+      featured_image: null,
+      metadata: {},
+      updated_at: '2026-10-09T00:00:00Z',
+    });
+
+    await mount();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(getContentForEdit).toHaveBeenCalledWith(42);
+    expect(getContentBySlugForEdit).not.toHaveBeenCalled();
+  });
+
+  it('opens the region a ?region= link names', async () => {
+    /*
+     * A region is not a page, so a link to it cannot be a path. The composer's
+     * link carries `?region=home-hero` on the host page, and the overlay has to
+     * turn that into the region's own `copy-` row. Without this the host page
+     * opened on the whole-page document and the operator edited `/`, not the
+     * region they clicked.
+     */
+    window.history.replaceState({}, '', '/?visual-edit=1&region=home-hero');
+    pathname.value = '/';
+    renderPage('<div data-copy-region="home-hero"><h2 class="cw cw--h2">Mission</h2></div>');
+    getContentBySlugForEdit.mockImplementation(async (slug: string) =>
+      slug === 'copy-home-hero'
+        ? {
+            id: 23,
+            title: 'Hero & Headline',
+            slug: 'copy-home-hero',
+            excerpt: null,
+            type: 'page',
+            status: 'publish',
+            body: '<h2 class="cw cw--h2">Mission</h2>',
+            featured_image: null,
+            metadata: {},
+            updated_at: '2026-10-09T00:00:00Z',
+          }
+        : null
+    );
+
+    await mount();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(getContentBySlugForEdit).toHaveBeenCalledWith('copy-home-hero');
+    // Other pages' regions are not addressable from here: region slugs are
+    // unique site-wide, and anchoring by pathname is what keeps a hand-edited
+    // URL from editing a different page's row while framing this one.
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
+  });
+
+  it('ignores a region id that belongs to a different page', async () => {
+    window.history.replaceState({}, '', '/?visual-edit=1&region=about-mission');
+    pathname.value = '/';
+    renderPage('<div data-copy-region="home-hero"><h2 class="cw cw--h2">Mission</h2></div>');
+
+    await mount();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(getContentBySlugForEdit).not.toHaveBeenCalledWith('copy-about-mission');
   });
 });
