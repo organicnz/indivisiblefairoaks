@@ -45,7 +45,22 @@ const contextCache = new Map<string, EditContextState>();
 const NOT_ADMIN: EditContextState = { loading: false, isAdmin: false, target: null };
 
 export function useEditContext(pathname: string): EditContextState {
-  const [state, setState] = useState<EditContextState>(() => contextCache.get(pathname) ?? IDLE);
+  /*
+   * The initial state is IDLE even when the cache knows the answer.
+   *
+   * The header is a Suspense boundary and the overlay below it is not, so the
+   * overlay hydrates first — and its fetch can resolve before React reaches
+   * the streamed header. A `useState` initializer that read this module-level
+   * cache would then render the header with `loading: false` on the client
+   * against server HTML that rendered the skeleton, and React would throw away
+   * the whole header and re-render it (a hydration mismatch on every page).
+   *
+   * The cache is applied in the effect instead: after mount is exactly when
+   * "the answer is already known" can differ from the server's HTML without
+   * producing a mismatch. A client-side navigation to a cached path pays one
+   * commit of the skeleton, which is the same cost as the uncached path.
+   */
+  const [state, setState] = useState<EditContextState>(IDLE);
 
   useEffect(() => {
     const cached = contextCache.get(pathname);

@@ -94,7 +94,26 @@ describe('requireAdmin', () => {
   it('sends a signed-out visitor to sign in, remembering the section', async () => {
     mockCreateServerClient.mockResolvedValue(mockSessionClient({ user: null }));
 
-    expect(await redirectUrl(() => requireAdmin())).toBe('/login?next=/admin');
+    expect(await redirectUrl(() => requireAdmin())).toBe('/login?next=%2Fadmin');
+  });
+
+  it('remembers the page an admin was trying to reach, not just /admin', async () => {
+    mockCreateServerClient.mockResolvedValue(mockSessionClient({ user: null }));
+
+    // The composer is outside /admin, and a shared /compose/23 link is how a
+    // page gets handed to a colleague. Hard-coding /admin there dropped them at
+    // the section root and lost the row.
+    expect(await redirectUrl(() => requireAdmin('/compose/23'))).toBe(
+      '/login?next=%2Fcompose%2F23'
+    );
+  });
+
+  it('refuses an external return path', async () => {
+    mockCreateServerClient.mockResolvedValue(mockSessionClient({ user: null }));
+
+    expect(await redirectUrl(() => requireAdmin('//evil.example/compose/23'))).toBe(
+      '/login?next=%2Fadmin'
+    );
   });
 
   /**
@@ -112,7 +131,7 @@ describe('requireAdmin', () => {
       })
     );
 
-    expect(await redirectUrl(() => requireAdmin())).toBe('/auth/mfa?next=/admin');
+    expect(await redirectUrl(() => requireAdmin())).toBe('/auth/mfa?next=%2Fadmin');
   });
 
   /**
@@ -131,7 +150,7 @@ describe('requireAdmin', () => {
 
     const url = await redirectUrl(() => requireAdmin());
     expect(url).not.toBe('/auth/mfa');
-    expect(url).toBe('/auth/mfa?next=/admin');
+    expect(url).toBe('/auth/mfa?next=%2Fadmin');
   });
 
   it('throws — rather than redirecting — when the MFA state cannot be read', async () => {

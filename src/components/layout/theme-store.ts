@@ -363,9 +363,18 @@ function getSnapshot(): ThemeState {
   return state;
 }
 
-/** Server render: no storage, no OS preference, no flash to prevent. */
+/**
+ * Server render: no storage, no OS preference, no flash to prevent.
+ *
+ * A module constant, not an object literal, because `useSyncExternalStore`
+ * compares snapshots by identity. Returning a fresh object on each call makes
+ * React report "The result of getServerSnapshot should be cached to avoid an
+ * infinite loop" and re-render the whole tree that reads the theme.
+ */
+const SERVER_THEME_STATE: ThemeState = Object.freeze({ mode: 'system', effective: 'light' });
+
 function getServerSnapshot(): ThemeState {
-  return { mode: 'system', effective: 'light' };
+  return SERVER_THEME_STATE;
 }
 
 /**

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { assertMfaVerified, isStepUpChallenge } from '@/lib/mfa-guard';
+import { getSafeNextPath } from '@/lib/safe-redirect';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
 
 export type AdminSession = {
@@ -28,12 +29,23 @@ export type AdminSession = {
  */
 export const requireAdmin = cache(requireAdminUncached);
 
-async function requireAdminUncached(): Promise<AdminSession> {
+async function requireAdminUncached(nextPath = '/admin'): Promise<AdminSession> {
+  /*
+   * Where to send the operator after they authenticate.
+   *
+   * `/admin` is right for an admin route, but the composer is not under /admin
+   * and a shared `/compose/23` link is the normal way to hand a page to a
+   * colleague. Hard-coding `/admin` there meant signing in dropped them at the
+   * section root and lost the row they were sent to. The value is validated
+   * through the same helper the login page uses, so a caller cannot smuggle an
+   * external URL into the redirect.
+   */
+  const returnTo = getSafeNextPath(nextPath, '/admin') ?? '/admin';
   const supabase = await createServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login?next=/admin');
+  if (!user) redirect(`/login?next=${encodeURIComponent(returnTo)}`);
 
   // Step-up: admins with MFA enrolled must hold an AAL2 session.
   //
@@ -53,7 +65,7 @@ async function requireAdminUncached(): Promise<AdminSession> {
      * root rather than the exact page. The challenge re-validates it through
      * `getSafeNextPath`, so nothing untrusted reaches the redirect.
      */
-    if (isStepUpChallenge(mfa)) redirect('/auth/mfa?next=/admin');
+    if (isStepUpChallenge(mfa)) redirect(`/auth/mfa?next=${encodeURIComponent(returnTo)}`);
     throw new Error(mfa.error);
   }
 

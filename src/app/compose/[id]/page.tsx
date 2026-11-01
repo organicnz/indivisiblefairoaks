@@ -49,7 +49,7 @@ function rowIdFromParam(value: string): number | null {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const id = rowIdFromParam((await params).id);
-  const content = id === null ? null : await getContentForEdit(id);
+  const content = id === null ? null : await getContentForEdit(id, `/compose/${id}`);
   return {
     title: content ? `${content.title} — Visual composer` : 'Visual composer',
     description: 'Compose a CMS page visually.',
@@ -61,7 +61,7 @@ export default async function ComposerWorkspacePage({ params }: PageProps) {
   const id = rowIdFromParam((await params).id);
   if (id === null) notFound();
 
-  const content = await getContentForEdit(id);
+  const content = await getContentForEdit(id, `/compose/${id}`);
   if (!content) notFound();
 
   const regionHref = copyRegionComposeHref(content.slug);

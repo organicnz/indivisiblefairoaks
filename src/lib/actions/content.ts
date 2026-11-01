@@ -157,8 +157,12 @@ export async function getContentList({
   };
 }
 
-export async function getContentForEdit(id: number): Promise<ContentRow | null> {
-  const { adminClient } = await requireAdmin();
+export async function getContentForEdit(
+  id: number,
+  /** Where the login redirect should return. Defaults to the admin section. */
+  nextPath?: string
+): Promise<ContentRow | null> {
+  const { adminClient } = await requireAdmin(nextPath);
   const { data, error } = await adminClient.from('content').select('*').eq('id', id).maybeSingle();
   if (error) throw new Error(`Failed to load content: ${error.message}`);
   return data;
