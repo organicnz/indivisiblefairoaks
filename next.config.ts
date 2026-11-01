@@ -25,6 +25,14 @@ const sentryHost = (() => {
   }
 })();
 
+// PostHog session replay (src/lib/posthog.ts). The SDK lazy-loads its recorder
+// bundle from PostHog's CDN and sends events to the ingestion host, and PostHog
+// serves from subdomains that change over time — so the allowlist is the
+// wildcard, not a pair of hosts that will be stale in a release or two. It is
+// added only when a project token is configured, so a build without analytics
+// keeps the tighter policy it had before.
+const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ? 'https://*.posthog.com' : '';
+
 // Hosts that may serve first-party imagery. All three apex spellings are listed
 // because CMS content migrated from Google Sites still references the bare apex
 // while newer entries use the `www` and staging hosts — omitting one silently
@@ -40,7 +48,7 @@ const firstPartyHosts = [
 // JSON-LD + framework bootstrap scripts, which cannot carry per-request nonces.
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.com",
+  `script-src 'self' 'unsafe-inline' https://js.stripe.com https://m.stripe.com ${posthogHost}`.trim(),
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${supabaseHost ? `https://${supabaseHost}` : ''} https://images.unsplash.com https://*.googleusercontent.com https://i.ytimg.com ${firstPartyHosts.map((h) => `https://${h}`).join(' ')} https://i0.wp.com https://i1.wp.com https://i2.wp.com`.replace(
     /\s+/g,
@@ -53,12 +61,14 @@ const csp = [
   ),
   // Same-origin `/_vercel/*` covers the RUM beacons, so no extra origins needed.
   // Sentry ingest is dynamically allowed when DSN is configured.
-  `connect-src 'self' ${supabaseHost ? `https://${supabaseHost}` : ''} https://api.stripe.com https://m.stripe.com ${sentryHost ? `https://${sentryHost}` : ''}`.replace(
+  `connect-src 'self' ${supabaseHost ? `https://${supabaseHost}` : ''} https://api.stripe.com https://m.stripe.com ${sentryHost ? `https://${sentryHost}` : ''} ${posthogHost}`.replace(
     /\s+/g,
     ' '
   ),
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://js.stripe.com https://hooks.stripe.com https://secure.actblue.com https://www.mobilize.us",
-  "worker-src 'self' blob:",
+  // `data:` arrives with the session replay recorder, which runs in an inlined
+  // worker. Without analytics the policy is unchanged.
+  `worker-src 'self' blob:${posthogHost ? ' data:' : ''}`.trim(),
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -118,6 +128,18 @@ const legacyRedirects = LEGACY_REDIRECTS.map(({ source, destination, permanent }
   destination,
   permanent,
 }));
+
+// Addresses the legacy commerce removal took away. They are listed rather than
+// left to fall through: `/cart` and the Stripe return pages were top-level
+// segments, so a request for one now reaches the catch-all `[slug]` content
+// route and answers a streamed 200 carrying the not-found page — a soft 404
+// that tells a crawler the URL still exists. A 308 to the catalog says the
+// truth and keeps the old bookmarks useful.
+const removedCommerceRedirects = [
+  { source: '/cart', destination: '/products', permanent: true },
+  { source: '/success', destination: '/products', permanent: true },
+  { source: '/cancel', destination: '/products', permanent: true },
+];
 
 // True only for the throwaway bundle CI builds for the browser suite
 // (see the comment on `nextConfig` below). Never true on Vercel.
@@ -190,7 +212,7 @@ const nextConfig: NextConfig = {
     return routeHeaders;
   },
   async redirects() {
-    return legacyRedirects;
+    return [...legacyRedirects, ...removedCommerceRedirects];
   },
   images: {
     // Cache transforms for 31 days — product photos rarely change, so repeat

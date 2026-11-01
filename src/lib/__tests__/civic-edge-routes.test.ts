@@ -50,8 +50,12 @@ describe('Civic Events Edge API Route (/api/civic/events)', () => {
     createPublicClient.mockReturnValue({
       from: () => ({
         select: () => ({
-          order: () => ({
-            order: async () => ({ data: mockEvents, error: null }),
+          // Issue #153: the read now excludes hidden Mobilize rows before the
+          // two ordering clauses.
+          eq: () => ({
+            order: () => ({
+              order: async () => ({ data: mockEvents, error: null }),
+            }),
           }),
         }),
       }),

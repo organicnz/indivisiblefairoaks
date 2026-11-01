@@ -3,6 +3,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { Hono } from 'jsr:@hono/hono'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { resolveContactNotificationRecipient } from '../_shared/contact-recipient.ts'
+import { htmlToText, sendResendEmail } from '../_shared/email.ts'
 
 // ---------------------------------------------------------------------------
 // Contact form email delivery.
@@ -35,11 +37,7 @@ const RESEND_API_KEY = REQUIRED_ENV[2][1]!
 
 const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'contact@indivisiblefairoaks.org'
 const TO_EMAIL = Deno.env.get('ADMIN_ORDER_EMAIL') ?? 'contact@indivisiblefairoaks.org'
-
-// Max notifications per rolling 10 minutes, globally.
-// Same per-call bound as crm-broadcast-send. Every other outbound call in the
-// repo carries one; these two were the exception.
-const RESEND_TIMEOUT_MS = 20_000
+const BACKEND_VERIFY_EMAIL = Deno.env.get('BACKEND_VERIFY_EMAIL')
 
 const NOTIFY_VOLUME_CAP = 5
 
@@ -168,8 +166,15 @@ app.post('*', async (c) => {
     return c.json({ ok: true, skipped: 'unclaimed-or-unknown' })
   }
 
-  if (!TO_EMAIL) {
-    console.warn(`[contact:${id}] ADMIN_ORDER_EMAIL not set — releasing claim, skipping send`)
+  const recipient = resolveContactNotificationRecipient({
+    name: claimed.name,
+    message: claimed.message,
+    defaultRecipient: TO_EMAIL,
+    verificationRecipient: BACKEND_VERIFY_EMAIL,
+  })
+
+  if (!recipient) {
+    console.warn(`[contact:${id}] no safe notification recipient — releasing claim, skipping send`)
     await releaseClaim(id)
     return c.json({ ok: true, skipped: 'no-recipient' })
   }
@@ -219,78 +224,66 @@ app.post('*', async (c) => {
     hour12: true,
   })
 
-  // Bounded, and a thrown fetch releases the claim. Before this, a hung or
-  // reset connection threw past `releaseClaim`, so the row stayed claimed with
-  // `email_sent_at` set and the notification was never retried: the chapter
-  // silently never heard about the message. The idempotency key makes that
-  // retry safe if the timeout fired after Resend had in fact accepted the send.
-  let res: Response
-  try {
-    res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-        'Idempotency-Key': `contact-notify/${id}`,
-      },
-      body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: [TO_EMAIL],
-        reply_to: contactEmail,
-        subject: `New message from ${contactName} — indivisiblefairoaks.org`,
-        html: buildEmail(contactName, contactEmail, claimed.message, receivedPt),
-      }),
-      signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
-    })
-  } catch (err) {
-    console.error(`[contact:${id}] Resend request failed:`, err)
+  // Both sends go through the shared sender rather than a hand-rolled fetch.
+  // The three things it adds are the reason: a bounded timeout (so a hung
+  // connection cannot strand the claim — before this a throw escaped past
+  // `releaseClaim` and the chapter never heard about the message), the
+  // Idempotency-Key, and the plain-text part below. The `text` field is
+  // required by `SendEmailInput`; without it these were the only two emails in
+  // the project shipped HTML-only, which costs deliverability in every client
+  // that down-weights Single-Part HTML.
+  const notifyHtml = buildEmail(contactName, contactEmail, claimed.message, receivedPt)
+  const notifyResult = await sendResendEmail(
+    { apiKey: RESEND_API_KEY, from: FROM_EMAIL },
+    {
+      to: recipient,
+      replyTo: contactEmail,
+      subject: `New message from ${contactName} — indivisiblefairoaks.org`,
+      html: notifyHtml,
+      text: htmlToText(notifyHtml),
+      idempotencyKey: `contact-notify/${id}`,
+      tags: [{ name: 'type', value: 'contact-notify' }],
+    },
+  )
+
+  if (!notifyResult.ok) {
+    // `error` is the shared sender's log-safe form: a transport name or a
+    // capped provider body, never the API key.
+    console.error(`[contact:${id}] notification send failed:`, notifyResult.error)
     await releaseClaim(id)
     return c.json({ ok: false, error: 'send-failed' }, 502)
   }
 
-  if (!res.ok) {
-    const err = await res.text()
-    console.error(`[contact:${id}] Resend rejected the email:`, err)
-    await releaseClaim(id)
-    return c.json({ ok: false, error: 'send-failed' }, 502)
-  }
-
-  console.log(`[contact:${id}] notification sent to ${TO_EMAIL}`)
+  console.log(`[contact:${id}] notification sent to ${recipient}`)
 
   // Sender's copy: opt-in only, recipient locked to the row's own address so
   // the feature can never relay spam to arbitrary third parties. Best-effort
   // — a failed copy never un-delivers the admin notification.
   let copied = false
   if (claimed.wants_copy) {
-    // Best-effort, so a thrown or timed-out copy is reported as `copied:
+    // Best-effort, so a failed or timed-out copy is reported as `copied:
     // false` rather than turning a delivered notification into a 500.
-    const copyRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-        'Idempotency-Key': `contact-copy/${id}`,
-      },
-      body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: [contactEmail],
-        reply_to: TO_EMAIL,
+    const copyHtml = buildCustomerCopy(
+      contactName,
+      contactEmail,
+      claimed.message,
+      receivedPt,
+    )
+    const copyResult = await sendResendEmail(
+      { apiKey: RESEND_API_KEY, from: FROM_EMAIL },
+      {
+        to: contactEmail,
+        replyTo: recipient,
         subject: 'Copy of your message to Indivisible Fair Oaks',
-        html: buildCustomerCopy(
-          contactName,
-          contactEmail,
-          claimed.message,
-          receivedPt
-        ),
-      }),
-      signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
-    }).catch((err: unknown) => {
-      console.error(`[contact:${id}] sender copy request failed:`, err)
-      return null
-    })
-    copied = copyRes?.ok ?? false
-    if (copyRes && !copied) {
-      console.error(`[contact:${id}] sender copy failed:`, await copyRes.text())
+        html: copyHtml,
+        text: htmlToText(copyHtml),
+        idempotencyKey: `contact-copy/${id}`,
+        tags: [{ name: 'type', value: 'contact-copy' }],
+      },
+    )
+    copied = copyResult.ok
+    if (!copyResult.ok) {
+      console.error(`[contact:${id}] sender copy failed:`, copyResult.error)
     }
   }
 

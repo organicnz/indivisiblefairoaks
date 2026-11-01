@@ -57,11 +57,6 @@ export const VARS = {
       'inside a request that cannot survive it. Set this together with deploying ' +
       'the crm-broadcast-send edge function.',
   },
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: {
-    required: true,
-    example: 'pk_live_…',
-    note: 'Publishable counterpart to STRIPE_SECRET_KEY. Safe as a var.',
-  },
   NEXT_PUBLIC_SENTRY_DSN: {
     required: true,
     example: 'https://<key>@o4509901022691328.ingest.de.sentry.io/<projectId>',
@@ -71,6 +66,18 @@ export const VARS = {
       'never a secret. Absent, the SDK never initialises, which is how local ' +
       'dev and the CI/e2e builds stay quiet: neither may file events against ' +
       'the production project.',
+  },
+  NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: {
+    required: false,
+    example: 'phc_…',
+    note:
+      'PostHog session replay. Public by construction — the client SDK ships it ' +
+      'in the bundle — so a var, never a secret. Absent, src/lib/posthog.ts never ' +
+      'imports the SDK: local dev, CI and the e2e bundle file no replays, which ' +
+      'is the same switch shape NEXT_PUBLIC_SENTRY_DSN uses. A key alone does not ' +
+      'start a recording; recording is consent-gated and excluded on /admin, ' +
+      '/account, /auth, /login and /success. Setting this also widens the CSP to ' +
+      'https://*.posthog.com (see next.config.ts).',
   },
   RESEND_FROM_EMAIL: {
     required: true,
@@ -101,19 +108,6 @@ export const SECRETS = {
       'src/lib/supabase-server.ts for every server-side read. This is the single ' +
       'most damaging value in the repository — a leak makes the row-level ' +
       'security model decorative.',
-  },
-  STRIPE_SECRET_KEY: {
-    required: true,
-    example: 'sk_live_…',
-    note: 'Checkout sessions and refunds. src/app/api/checkout, src/app/api/webhooks/stripe.',
-  },
-  STRIPE_WEBHOOK_SECRET: {
-    required: true,
-    example: 'whsec_…',
-    note:
-      'Verifies the Stripe signature on incoming webhooks. If this is absent, ' +
-      'src/app/api/webhooks/stripe/route.ts cannot distinguish a real event from ' +
-      'a forged one.',
   },
   RESEND_API_KEY: {
     required: true,

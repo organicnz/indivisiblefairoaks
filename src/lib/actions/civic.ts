@@ -1,5 +1,6 @@
 'use server';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { requireAdmin } from '@/lib/admin-auth';
@@ -7,7 +8,12 @@ import { requireAdmin } from '@/lib/admin-auth';
 export interface CivicEventRecord {
   slug: string;
   title: string;
-  category: 'Meetings' | 'Resistance Choir' | 'Voter Mobilization' | 'Rallies & Street Action';
+  category:
+    | 'Meetings'
+    | 'Resistance Choir'
+    | 'Voter Mobilization'
+    | 'Rallies & Street Action'
+    | 'Community';
   date_label: string;
   time_label: string;
   starts_at: string | null;
@@ -20,6 +26,13 @@ export interface CivicEventRecord {
   sort_order: number;
   created_at?: string;
   updated_at?: string;
+  /** Issue #153: provenance for rows the Mobilize sync owns. */
+  source?: 'manual' | 'mobilize';
+  external_id?: string | null;
+  external_url?: string | null;
+  is_hidden?: boolean;
+  sync_locked?: boolean;
+  last_synced_at?: string | null;
 }
 
 export interface CivicNewsletterRecord {
@@ -58,6 +71,7 @@ const eventSchema = z.object({
     'Resistance Choir',
     'Voter Mobilization',
     'Rallies & Street Action',
+    'Community',
   ]),
   date_label: z.string().trim().min(1, 'Date label is required').max(100),
   time_label: z.string().trim().min(1, 'Time label is required').max(100),
@@ -118,6 +132,26 @@ export async function saveCivicEvent(
       ? slugify(payload.slug)
       : slugify(payload.title) || `event-${Date.now()}`;
 
+    // `events` gained `external_id` / `sync_locked` in the Mobilize migration,
+    // which the generated types do not know about until the next
+    // `types:generate` run against a project that has it. Untyped here for the
+    // same stated reason `src/lib/queries/civic.ts` casts its client.
+    const eventsClient = adminClient as unknown as SupabaseClient;
+
+    // Issue #153: editing a Mobilize-sourced row is a human asserting ownership
+    // of its wording. The sync must then leave it alone entirely — otherwise a
+    // corrected title or a shortened description is overwritten within the
+    // hour, and the editor silently loses the argument.
+    let locksSync = false;
+    if (payload.slug) {
+      const { data: existing } = await eventsClient
+        .from('events')
+        .select('external_id')
+        .eq('slug', finalSlug)
+        .maybeSingle();
+      locksSync = Boolean(existing?.external_id);
+    }
+
     const upsertRow = {
       slug: finalSlug,
       title: payload.title,
@@ -133,9 +167,10 @@ export async function saveCivicEvent(
       highlight: payload.highlight,
       sort_order: payload.sort_order,
       updated_at: new Date().toISOString(),
+      ...(locksSync ? { sync_locked: true } : {}),
     };
 
-    const { data, error } = await adminClient
+    const { data, error } = await eventsClient
       .from('events')
       .upsert(upsertRow, { onConflict: 'slug' })
       .select('*')

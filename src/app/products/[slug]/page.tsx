@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
-import { AddToCartButton } from '@/components/checkout/AddToCartButton';
 import { ProductSlider } from '@/components/products/ProductSlider';
 import { WishlistButton } from '@/components/products/WishlistButton';
 import { DataPoint } from '@/components/ui/DataPoint';
@@ -22,7 +21,6 @@ import {
 import { htmlToExcerpt, sanitizeWPContent } from '@/lib/sanitize';
 import { getStorageUrl } from '@/lib/supabase';
 import { serializeJsonLd } from '@/lib/utils';
-import type { Json } from '@/types/supabase';
 
 export async function generateStaticParams() {
   return getAllProductSlugs();
@@ -329,27 +327,17 @@ async function ProductDetailsBody({ params }: { params: Promise<{ slug: string }
             </div>
 
             <div className="mt-10 pt-10 border-t border-border flex flex-col gap-4">
-              <AddToCartButton
-                product={{
-                  ...product,
-                  stock_status: product.stock_status || 'instock',
-                }}
-                variations={
-                  (
-                    product.product_variations as unknown as {
-                      id: number;
-                      price: number | null;
-                      attributes: Json | null;
-                      stock_status: string | null;
-                    }[]
-                  )?.map((v) => ({
-                    id: v.id,
-                    price: v.price || 0,
-                    attributes: (v.attributes as Record<string, string>) || {},
-                    stock_status: v.stock_status,
-                  })) || []
-                }
-              />
+              {/* The storefront has no online checkout: purchases are arranged with
+                  the chapter directly, so the primary action is an enquiry rather
+                  than a cart hand-off. */}
+              <Link
+                href={`/contact?about=${encodeURIComponent(product.name)}`}
+                className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-black py-4 rounded-full transition-all uppercase tracking-widest text-xs dark:bg-primary-bright dark:hover:bg-primary-light"
+              >
+                <DataPoint name="product.cta.enquire" initialData={dataPoints}>
+                  Ask about this item
+                </DataPoint>
+              </Link>
               <WishlistButton product={product} showText={true} />
             </div>
 

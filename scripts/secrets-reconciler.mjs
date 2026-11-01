@@ -16,8 +16,6 @@ import {
 export const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
 
 export const REPEATS_ACROSS_STORES = new Set([
-  'STRIPE_SECRET_KEY',
-  'STRIPE_WEBHOOK_SECRET',
   'RESEND_API_KEY',
   'SUPABASE_SECRET_KEY',
 ]);

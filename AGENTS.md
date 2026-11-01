@@ -24,7 +24,7 @@ checker, not for Playwright, not for the scripts.
 | Project scripts | Bun | `bun scripts/<name>.mjs` |
 | Edge Functions | Deno | `deno check` / `supabase functions deploy` |
 
-`package.json` declares `"engines": { "bun": ">=1.4.3" }` and **no `node`
+`package.json` declares `"engines": { "bun": ">=1.4.4" }` and **no `node`
 engine** — the absence is the declaration. The toolchain itself runs the
 Bun **canary** (`.mise.toml`); production runs a stable Bun, because Vercel's
 Bun runtime accepts only `1.4.x` and `1.x`. See "The toolchain runs on the Bun
@@ -65,16 +65,16 @@ workflows, pre-commit hooks, and npm scripts exclusively run `tsrs`
 compiler divergence, provides sub-second diagnostics with 70% lower memory,
 and runs identically in local development and CI runners.
 
-**`tsrs` is pinned exactly, and it is the newest release.** `0.18.0` was
+**`tsrs` is pinned exactly, and it is the newest release.** `0.20.1` was
 verified three ways — the npm `latest` dist-tag, the publish-time-sorted
 version list, and the GitHub release list — because there is **no canary or
 beta dist-tag for `tsrs`**, only `latest` and a 2024 `snapshot`. The channel
 is not available to pin here, so the version is. The exact pin (rather than
 the `^` most dependencies use) is deliberate: `tsrs` gates the type check, and
-it moves fast — nine minor versions in nine days, 0.12.0 to 0.18.0 — so a
-caret range would let a release change a gate's output under a routine
-`bun install`. Its version also encodes the TypeScript commit it ports
-(`ts7.1.0-dev.20260929`), which is what makes the pin legible.
+it moves fast — 0.12.0 to 0.20.1 in a few weeks — so a caret range would let a
+release change a gate's output under a routine `bun install`. Its version also
+encodes the TypeScript commit it ports (`ts7.1.0-beta`), which is what makes
+the pin legible.
 
 **One difference, and it is only a difference of vocabulary.** For a
 missing-property assignment failure, `tsc` reports `TS2741` ("Property 'x' is
@@ -288,7 +288,7 @@ file rather than of the project.
 
 **"Vitest on Bun" means the workers too, not just the CLI.** This was
 measured rather than assumed: inside a test, `process.execPath` is the `bun`
-binary, `Bun.version` is `1.4.3`, and `process.versions.node` reads `26.3.0`
+binary, `Bun.version` is `1.4.4`, and `process.versions.node` reads `26.3.0`
 — Bun's Node-compatibility string, not a Node runtime. Vitest's workers are
 spawned with `process.execPath`, so the same is true of the Playwright
 workers. The practical consequence is that `Bun.file`, `Bun.write` and
@@ -490,7 +490,7 @@ the hoisted one, and the gate still reports 58 and 78 relationships.
 **The e2e suite runs on Bun's runtime too, not just Bun's package manager.**
 Playwright is launched as `bun node_modules/@playwright/test/cli.js`, and its
 workers are spawned with `process.execPath` — so the worker process is Bun
-(verified: `Bun.version` and `process.versions.bun` both report 1.4.3 inside a
+(verified: `Bun.version` and `process.versions.bun` both report 1.4.4 inside a
 spec). That is why the specs read `Bun.env` and `Bun.file` directly, and why
 `e2e/auth.setup.ts` writes its storage state with `Bun.write` — which creates
 the parent directory on the way, so the explicit `mkdir` went away. Playwright's

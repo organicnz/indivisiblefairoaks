@@ -103,26 +103,11 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --no-verify-jwt
 
-      - name: Deploy Edge Function — checkout
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy checkout \
-            --project-ref "$SUPABASE_PROJECT_REF"
-
       - name: Deploy Edge Function — search
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase functions deploy search \
-            --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt
-
-      - name: Deploy Edge Function — webhook
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy webhook \
             --project-ref "$SUPABASE_PROJECT_REF" \
             --no-verify-jwt
 
@@ -179,6 +164,18 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --no-verify-jwt
 
+      # JWT verification stays ON. The only callers are pg_cron (which reads the
+      # service key from Vault at run time) and an admin-gated server action.
+      # The function writes rows into `events`, so an unauthenticated POST must
+      # not reach it — this is why it gets the credentialed deploy rather than
+      # the `--no-verify-jwt` shape the public read functions use.
+      - name: Deploy Edge Function — sync-mobilize-events
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy sync-mobilize-events \
+            --project-ref "$SUPABASE_PROJECT_REF"
+
       - name: Assert required edge secrets are set in the hosted project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -187,7 +184,7 @@ jobs:
           # workflow has ever verified that the secrets the code reads actually
           # exist in the project. The live probes in the verify job all fail on a
           # validation or method check that runs BEFORE any secret is read, so a
-          # missing STRIPE_SECRET_KEY or RESEND_API_KEY deployed green and broke
+          # missing RESEND_API_KEY deployed green and broke
           # silently for users at runtime. This is the gate that closes that.
           #
           # Platform-injected names (SUPABASE_URL, SUPABASE_ANON_KEY,
@@ -422,8 +419,6 @@ jobs:
 
           check_post notify-contact 400 '{}'
           check_post search 400 '{"q":""}'
-          check_post checkout '400|401' '{}'
-          check_post webhook 400 ''
 
           # The broadcast sender is probed with the *publishable* key, not the
           # service-role key, and the expectation is a rejection. That is the
@@ -446,6 +441,20 @@ jobs:
 
           check_get wall-e-chat
           check_get walle-refresh
+
+          # Issue #153: same assertion shape as crm-broadcast-send. The publishable
+          # key is not the service key, so a 401 proves the route exists, is
+          # reachable, and still refuses an unauthenticated caller. A 404 means
+          # the deploy step above did not ship it; a 200 means it stopped
+          # requiring a key, which would let anyone trigger a write into `events`.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H "$AUTH_HEADER" -H "$APIKEY_HEADER" -H 'Content-Type: application/json' \
+            -d '{"force":true}' "$EDGE_BASE/sync-mobilize-events" || echo 000)
+          echo "sync-mobilize-events → HTTP $code (unauthenticated POST)"
+          if [ "$code" != "401" ]; then
+            echo "::error::sync-mobilize-events returned HTTP $code — expected 401. A 404 means the function is not deployed; a 200 means it stopped requiring the service key."
+            exit 1
+          fi
 
           echo "Probing $EDGE_BASE/data-points ..."
           DP_STATUS=$(curl -s -o /tmp/dp.json -w '%{http_code}' \

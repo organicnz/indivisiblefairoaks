@@ -52,3 +52,7 @@ e2e/.auth/
 .worktrees/
 .vitest/
 .agents/tasks/
+.agents/pipeline/
+
+# Agent runtime state (may contain local credentials)
+.freebuff/

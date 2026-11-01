@@ -3,10 +3,15 @@
 import {
   Calendar,
   ExternalLink,
+  Eye,
+  EyeOff,
   Loader2,
+  Lock,
+  LockOpen,
   MapPin,
   Pencil,
   Plus,
+  Radio,
   RefreshCw,
   Search,
   Star,
@@ -16,6 +21,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { type CivicEventRecord, deleteCivicEvent, getCivicEventsAdmin } from '@/lib/actions/civic';
+import { setEventSyncLock, setMobilizeEventHidden } from '@/lib/actions/mobilize';
 import { CivicEventEditorModal } from './CivicEventEditorModal';
 
 interface CivicEventManagerProps {
@@ -29,6 +35,7 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CivicEventRecord | null>(null);
+  const [busySlug, setBusySlug] = useState<string | null>(null);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -62,6 +69,47 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error deleting event');
+    }
+  };
+
+  /** Issue #153: hide a synced row without deleting it, or bring it back. */
+  const handleToggleHidden = async (evt: CivicEventRecord) => {
+    if (!evt.external_id) return;
+    setBusySlug(evt.slug);
+    try {
+      const res = await setMobilizeEventHidden(evt.external_id, !evt.is_hidden);
+      if (res.success) {
+        setEvents((prev) =>
+          prev.map((row) => (row.slug === evt.slug ? { ...row, is_hidden: !row.is_hidden } : row))
+        );
+        toast.success(evt.is_hidden ? 'Event restored' : 'Event hidden from the site');
+      } else {
+        toast.error(res.error);
+      }
+    } finally {
+      setBusySlug(null);
+    }
+  };
+
+  /** Stop the Mobilize sync overwriting an edited row, or let it resume. */
+  const handleToggleLock = async (evt: CivicEventRecord) => {
+    setBusySlug(evt.slug);
+    try {
+      const res = await setEventSyncLock(evt.slug, !evt.sync_locked);
+      if (res.success) {
+        setEvents((prev) =>
+          prev.map((row) =>
+            row.slug === evt.slug ? { ...row, sync_locked: !row.sync_locked } : row
+          )
+        );
+        toast.success(
+          evt.sync_locked ? 'Sync resumed for this event' : 'Sync paused for this event'
+        );
+      } else {
+        toast.error(res.error);
+      }
+    } finally {
+      setBusySlug(null);
     }
   };
 
@@ -104,6 +152,7 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
             <option value="Resistance Choir">Resistance Choir</option>
             <option value="Voter Mobilization">Voter Mobilization</option>
             <option value="Rallies & Street Action">Rallies &amp; Street Action</option>
+            <option value="Community">Community</option>
           </select>
 
           <button
@@ -168,6 +217,21 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
                         <Star size={11} fill="currentColor" /> Highlighted
                       </span>
                     )}
+                    {evt.source === 'mobilize' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-300">
+                        <Radio size={11} /> Mobilize
+                      </span>
+                    )}
+                    {evt.is_hidden && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                        <EyeOff size={11} /> Hidden
+                      </span>
+                    )}
+                    {evt.sync_locked && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-600">
+                        <Lock size={11} /> Sync paused
+                      </span>
+                    )}
                     <span className="text-xs font-semibold text-muted-foreground">
                       {evt.date_label} • {evt.time_label}
                     </span>
@@ -197,6 +261,42 @@ export function CivicEventManager({ onRefreshParent }: CivicEventManagerProps) {
                   >
                     <ExternalLink size={14} />
                   </a>
+                )}
+                {evt.source === 'mobilize' && evt.external_id && (
+                  <button
+                    type="button"
+                    onClick={() => void handleToggleHidden(evt)}
+                    disabled={busySlug === evt.slug}
+                    title={evt.is_hidden ? 'Restore to the site' : 'Hide from the site'}
+                    aria-label={
+                      evt.is_hidden
+                        ? `Restore ${evt.title} to the site`
+                        : `Hide ${evt.title} from the site`
+                    }
+                    className="p-1.5 rounded-lg border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    {evt.is_hidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                  </button>
+                )}
+                {evt.source === 'mobilize' && (
+                  <button
+                    type="button"
+                    onClick={() => void handleToggleLock(evt)}
+                    disabled={busySlug === evt.slug}
+                    title={
+                      evt.sync_locked
+                        ? 'Resume Mobilize sync for this event'
+                        : 'Pause Mobilize sync for this event'
+                    }
+                    aria-label={
+                      evt.sync_locked
+                        ? `Resume Mobilize sync for ${evt.title}`
+                        : `Pause Mobilize sync for ${evt.title}`
+                    }
+                    className="p-1.5 rounded-lg border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    {evt.sync_locked ? <LockOpen size={14} /> : <Lock size={14} />}
+                  </button>
                 )}
                 <button
                   type="button"

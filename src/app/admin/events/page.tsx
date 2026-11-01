@@ -1,5 +1,5 @@
 import { Calendar } from 'lucide-react';
-import { CivicEventManager } from '@/components/admin/civic/CivicEventManager';
+import { EventsAdminTabs } from '@/components/admin/civic/EventsAdminTabs';
 import { requireAdmin } from '@/lib/admin-auth';
 
 export const instant = false;
@@ -37,7 +37,7 @@ export default async function AdminEventsPage() {
         </p>
       </div>
 
-      <CivicEventManager />
+      <EventsAdminTabs />
     </div>
   );
 }

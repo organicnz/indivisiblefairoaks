@@ -1,20 +1,18 @@
 'use client';
 
-import { Heart, ShoppingCart, Trash2 } from 'lucide-react';
+import { Heart, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
 import { useDataPoints } from '@/hooks/useDataPoints';
-import { useCartStore } from '@/lib/store/cart';
 import { useWishlistStore } from '@/lib/store/wishlist';
 import { getStorageUrl } from '@/lib/supabase';
 
 export default function WishlistPage() {
   const { dataPoints } = useDataPoints('wishlist');
   const { items, removeItem, clearWishlist } = useWishlistStore();
-  const addItemToCart = useCartStore((state) => state.addItem);
   const mountedRef = useRef(false);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -28,24 +26,6 @@ export default function WishlistPage() {
   if (!isMounted) {
     return <div className="min-h-screen bg-background" />;
   }
-
-  const handleMoveToCart = (item: {
-    id: number;
-    name: string;
-    slug: string;
-    price: number;
-    image_url: string | null;
-  }) => {
-    addItemToCart({
-      id: item.id,
-      name: item.name,
-      slug: item.slug,
-      price: item.price,
-      image_url: item.image_url,
-      quantity: 1,
-    });
-    removeItem(item.id);
-  };
 
   return (
     <div className="bg-background min-h-screen pt-(--header-h) pb-16 px-4 sm:px-6 lg:px-8">
@@ -128,16 +108,6 @@ export default function WishlistPage() {
                     </p>
 
                     <div className="flex flex-col gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleMoveToCart(item)}
-                        className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white font-black py-4 rounded-full transition-all uppercase tracking-widest text-xs dark:bg-primary-bright dark:hover:bg-primary-light"
-                      >
-                        <ShoppingCart size={16} />{' '}
-                        <DataPoint initialData={dataPoints} name="wishlist.btn.add_to_cart">
-                          Add to Cart
-                        </DataPoint>
-                      </button>
                       <button
                         type="button"
                         onClick={() => removeItem(item.id)}

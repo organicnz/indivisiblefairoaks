@@ -3,7 +3,7 @@
  *
  * Caveat: state lives per server isolate, so on serverless infrastructure
  * limits are enforced per-instance rather than globally. This is deliberate —
- * it raises the abuse bar (form spam, checkout-session flooding) without
+ * it raises the abuse bar (contact-form spam, error-report floods) without
  * adding an external dependency. Pair with platform-level controls
  * (Vercel Firewall) if global precision becomes necessary.
  */

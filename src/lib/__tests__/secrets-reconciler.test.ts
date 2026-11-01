@@ -82,7 +82,7 @@ describe('reconcile: required-missing', () => {
   it('reports a required value absent from a reachable store', () => {
     const declared = new Map([
       [
-        'STRIPE_SECRET_KEY',
+        'SUPABASE_SECRET_KEY',
         {
           sources: new Set(['vercel-env.mjs']),
           required: true,
@@ -95,7 +95,7 @@ describe('reconcile: required-missing', () => {
     expect(findings).toHaveLength(1);
     expect(findings[0].code).toBe('required-missing');
     expect(findings[0].severity).toBe('critical');
-    expect(findings[0].name).toBe('STRIPE_SECRET_KEY');
+    expect(findings[0].name).toBe('SUPABASE_SECRET_KEY');
     expect(findings[0].store).toBe('vercel-secret');
   });
 
@@ -176,15 +176,15 @@ describe('reconcile: misfiled', () => {
   it('reports a value in an unexpected store', () => {
     const declared = new Map([
       [
-        'STRIPE_SECRET_KEY',
+        'RESEND_WEBHOOK_SECRET',
         {
           sources: new Set(['vercel-env.mjs']),
           required: true,
-          stores: new Set(['vercel-secret', 'edge-secret']),
+          stores: new Set(['vercel-secret']),
         },
       ],
     ]);
-    const live = makeLive([['github-secret', 'ok', ['STRIPE_SECRET_KEY']]]);
+    const live = makeLive([['github-secret', 'ok', ['RESEND_WEBHOOK_SECRET']]]);
     const findings = reconcile(declared, live);
     const finding = mustFind(findings, 'misfiled');
     expect(finding.store).toBe('github-secret');
@@ -193,7 +193,7 @@ describe('reconcile: misfiled', () => {
   it('does not report a value in an expected store', () => {
     const declared = new Map([
       [
-        'STRIPE_SECRET_KEY',
+        'SUPABASE_SECRET_KEY',
         {
           sources: new Set(['vercel-env.mjs']),
           required: true,
@@ -201,14 +201,14 @@ describe('reconcile: misfiled', () => {
         },
       ],
     ]);
-    const live = makeLive([['vercel-secret', 'ok', ['STRIPE_SECRET_KEY']]]);
+    const live = makeLive([['vercel-secret', 'ok', ['SUPABASE_SECRET_KEY']]]);
     expect(reconcile(declared, live)).toEqual([]);
   });
 
   it('does not report values in the local store', () => {
     const declared = new Map([
       [
-        'STRIPE_SECRET_KEY',
+        'SUPABASE_SECRET_KEY',
         {
           sources: new Set(['vercel-env.mjs']),
           required: true,
@@ -216,7 +216,7 @@ describe('reconcile: misfiled', () => {
         },
       ],
     ]);
-    const live = makeLive([['local', 'ok', ['STRIPE_SECRET_KEY']]]);
+    const live = makeLive([['local', 'ok', ['SUPABASE_SECRET_KEY']]]);
     expect(reconcile(declared, live)).toEqual([]);
   });
 });
@@ -265,7 +265,7 @@ describe('reconcile: undeclared-live', () => {
 
   it('does not report registered values as undeclared', () => {
     const declared = buildDeclared();
-    const live = makeLive([['edge-secret', 'ok', ['STRIPE_SECRET_KEY']]]);
+    const live = makeLive([['edge-secret', 'ok', ['SUPABASE_SECRET_KEY']]]);
     const findings = reconcile(declared, live);
     expect(findings.find((f) => f.code === 'undeclared-live')).toBeUndefined();
   });
@@ -289,8 +289,8 @@ describe('reconcile: rotation-blast-radius', () => {
   it('reports info when a privileged value is in multiple stores', () => {
     const declared = buildDeclared();
     const live = makeLive([
-      ['vercel-secret', 'ok', ['STRIPE_SECRET_KEY']],
-      ['edge-secret', 'ok', ['STRIPE_SECRET_KEY']],
+      ['vercel-secret', 'ok', ['SUPABASE_SECRET_KEY']],
+      ['github-secret', 'ok', ['SUPABASE_SECRET_KEY']],
     ]);
     const findings = reconcile(declared, live);
     const finding = mustFind(findings, 'rotation-blast-radius');
@@ -299,7 +299,7 @@ describe('reconcile: rotation-blast-radius', () => {
 
   it('does not report when a privileged value is in only one store', () => {
     const declared = buildDeclared();
-    const live = makeLive([['vercel-secret', 'ok', ['STRIPE_SECRET_KEY']]]);
+    const live = makeLive([['vercel-secret', 'ok', ['SUPABASE_SECRET_KEY']]]);
     const findings = reconcile(declared, live);
     expect(findings.find((f) => f.code === 'rotation-blast-radius')).toBeUndefined();
   });
@@ -326,7 +326,6 @@ describe('reconcile: full declared contract', () => {
           'NEXT_PUBLIC_SITE_URL',
           'NEXT_PUBLIC_SUPABASE_URL',
           'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
-          'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
           'NEXT_PUBLIC_SENTRY_DSN',
           'RESEND_FROM_EMAIL',
         ],
@@ -334,14 +333,7 @@ describe('reconcile: full declared contract', () => {
       [
         'vercel-secret',
         'ok',
-        [
-          'SUPABASE_SECRET_KEY',
-          'STRIPE_SECRET_KEY',
-          'STRIPE_WEBHOOK_SECRET',
-          'RESEND_API_KEY',
-          'RESEND_WEBHOOK_SECRET',
-          'SENTRY_AUTH_TOKEN',
-        ],
+        ['SUPABASE_SECRET_KEY', 'RESEND_API_KEY', 'RESEND_WEBHOOK_SECRET', 'SENTRY_AUTH_TOKEN'],
       ],
       [
         'github-var',
@@ -372,14 +364,7 @@ describe('reconcile: full declared contract', () => {
       [
         'edge-secret',
         'ok',
-        [
-          'STRIPE_SECRET_KEY',
-          'STRIPE_WEBHOOK_SECRET',
-          'APP_URL',
-          'RESEND_API_KEY',
-          'RESEND_FROM_EMAIL',
-          'ADMIN_ORDER_EMAIL',
-        ],
+        ['APP_URL', 'RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'ADMIN_ORDER_EMAIL'],
       ],
       ['edge-platform', 'ok', ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY']],
       ['local', 'ok', []],

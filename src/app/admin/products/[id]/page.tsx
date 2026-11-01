@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, DollarSign, Package, ShoppingBag, Tag } from 'lucide-react';
+import { ArrowLeft, Calendar, Package, Tag } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -7,7 +7,6 @@ import { ProductImageUpload } from '@/components/admin/ProductImageUpload';
 import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 import { getStorageUrl } from '@/lib/supabase';
-import { formatDate, statusStyle } from '@/types/orders';
 
 // Deliberate Cache Components opt-out (Block): admin surface behind requireAdmin() session gate.
 export const instant = false;
@@ -45,12 +44,16 @@ type Product = {
   gallery_urls: string[] | null;
   created_at: string | null;
   product_categories: { categories: { name: string }[] }[];
-  order_items: {
-    quantity: number | null;
-    unit_price: number | null;
-    orders: { id: number; created_at: string | null; status: string | null };
-  }[];
 };
+
+function formatDate(value: string | null): string {
+  if (!value) return 'N/A';
+  return new Date(value).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 
 export default async function AdminProductDetailPage({
   params,
@@ -68,8 +71,7 @@ export default async function AdminProductDetailPage({
     .select(
       `id, name, slug, price, regular_price, stock_status,
        short_description, description, image_url, gallery_urls, created_at,
-       product_categories ( categories ( name ) ),
-        order_items ( quantity, unit_price, orders ( id, created_at, status ) )`
+       product_categories ( categories ( name ) )`
     )
     .eq('id', productId)
     .single();
@@ -81,27 +83,6 @@ export default async function AdminProductDetailPage({
     .flatMap((c) => c.categories ?? [])
     .map((c) => c.name)
     .filter(Boolean);
-
-  const items = product.order_items || [];
-  // Cancelled/refunded orders are not sales — exclude from the stats
-  const NO_SALE_STATUSES = new Set(['cancelled', 'refunded']);
-  const activeItems = items.filter((i) => !NO_SALE_STATUSES.has(i.orders?.status ?? ''));
-  const unitsSold = activeItems.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
-  const revenue = activeItems.reduce(
-    (s, i) => s + (Number(i.quantity) || 0) * (Number(i.unit_price) || 0),
-    0
-  );
-  const ordersByProduct = new Map<number, (typeof items)[number]>();
-  for (const item of activeItems) {
-    const order = item.orders;
-    if (!ordersByProduct.has(order.id)) ordersByProduct.set(order.id, item);
-  }
-  const orderCount = ordersByProduct.size;
-  const recentOrders = [...ordersByProduct.values()]
-    .sort((a, b) =>
-      String(b.orders.created_at || '').localeCompare(String(a.orders.created_at || ''))
-    )
-    .slice(0, 10);
 
   const rawImages = [
     ...(product.image_url ? [product.image_url] : []),
@@ -175,23 +156,6 @@ export default async function AdminProductDetailPage({
         <div className="h-1.5 w-24 bg-primary mt-3" />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-        {[
-          { label: 'Units Sold', value: String(unitsSold), icon: ShoppingBag },
-          { label: 'Revenue', value: formatPrice(revenue), icon: DollarSign },
-          { label: 'Orders', value: String(orderCount), icon: Package },
-        ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="bg-secondary rounded-3xl p-6">
-            <Icon size={16} className="text-primary-on-dark mb-3" />
-            <p className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] mb-1">
-              {label}
-            </p>
-            <p className="text-2xl font-black text-white">{value}</p>
-          </div>
-        ))}
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Editor */}
         <section className="bg-surface-card border border-border rounded-3xl p-6 shadow-sm lg:col-span-2">
@@ -238,50 +202,6 @@ export default async function AdminProductDetailPage({
           )}
         </section>
       </div>
-
-      {/* Recent orders */}
-      <section className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm mt-6">
-        <div className="bg-surface-muted px-8 py-4 border-b border-border flex items-center gap-2">
-          <ShoppingBag size={12} className="text-primary dark:text-primary-on-dark" />
-          <h2 className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.25em]">
-            Recent orders containing this product ({orderCount})
-          </h2>
-        </div>
-        {recentOrders.length === 0 ? (
-          <div className="px-8 py-12 text-center">
-            <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">
-              No sales yet.
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-border">
-            {recentOrders.map((item) => (
-              <li key={item.orders.id} className="px-8 py-4 flex flex-wrap items-center gap-4">
-                <Link
-                  href={`/admin/orders/${item.orders.id}`}
-                  className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark transition-colors"
-                >
-                  #{item.orders.id}
-                </Link>
-                <span
-                  className={`text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 ${statusStyle(item.orders.status)}`}
-                >
-                  {item.orders.status || 'unknown'}
-                </span>
-                <span className="text-[11px] text-muted-foreground font-bold">
-                  {formatDate(item.orders.created_at)}
-                </span>
-                <span className="text-[11px] text-muted-foreground font-bold">
-                  Qty: {item.quantity}
-                </span>
-                <span className="ml-auto text-sm font-black text-primary dark:text-primary-on-dark">
-                  {formatPrice((Number(item.unit_price) || 0) * (Number(item.quantity) || 0))}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }

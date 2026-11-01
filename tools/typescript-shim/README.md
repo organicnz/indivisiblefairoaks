@@ -93,6 +93,6 @@ runtime that cannot parse it.
 - One more moving part, and a `--showConfig` implementation that is not
   `tsc`'s. If `tsrs` ever implements `--showConfig`, the shim should
   delegate to it and this file should lose the JSONC parsing.
-- `tsrs` 0.18.0 publishes binaries for `darwin-arm64` and
+- `tsrs` 0.20.1 publishes binaries for `darwin-arm64` and
   `linux-{arm64,x64}-{gnu,musl}`. A host outside that set gets tsrs's own
   "This platform is not supported" error, which names the supported set.

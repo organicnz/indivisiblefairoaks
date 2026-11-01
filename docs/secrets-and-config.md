@@ -140,7 +140,6 @@ red pipeline. Also the hardest to audit from a checkout, because
 | `NEXT_PUBLIC_SITE_URL` | yes | **The apex-cutover variable.** Drives metadataBase, canonicals, `og:url`, sitemap, robots. A non-apex value makes the build `noindex, nofollow` site-wide. |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | yes | Anon-role. Safe as a var. |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | yes | Read by `StripeExpressCheckout`, which the cart renders. Was missing from `.env.example` — local dev could not mount it and nothing flagged it. |
 | `RESEND_FROM_EMAIL` | yes | Must have a published Resend DKIM record or DMARC fails. |
 | `ADMIN_ORDER_EMAIL` | no | Defaults in code. |
 | `CONTACT_RATE_LIMIT_MAX` | no | Defaults in code. |
@@ -150,9 +149,7 @@ red pipeline. Also the hardest to audit from a checkout, because
 | Name | Notes |
 |---|---|
 | `SUPABASE_SECRET_KEY` | **Bypasses RLS on the entire database.** The most damaging value here; a leak makes the row-level security model decorative. |
-| `STRIPE_SECRET_KEY` | Checkout sessions and refunds. |
-| `STRIPE_WEBHOOK_SECRET` | Verifies Stripe event signatures. Absent → forged events are accepted. |
-| `RESEND_API_KEY` | Contact form and order confirmation. |
+| `RESEND_API_KEY` | Contact form notifications. |
 
 ### Must **not** be set in Vercel
 
@@ -179,11 +176,16 @@ manual by necessity — it needs network and project auth.
 `supabase functions deploy` ships **code only**. `supabase.yml` never runs
 `supabase secrets set`, so these are set by hand in the dashboard and CI could
 not see them. The `verify` job's probes all fail on a validation or method check
-that runs *before* any secret is read — so a missing `STRIPE_SECRET_KEY` used to
-deploy green and break silently for users.
+that runs *before* any secret is read, so a missing value used to deploy green
+and break silently for users.
 
-Required set: `APP_URL`, `RESEND_API_KEY`, `STRIPE_SECRET_KEY`,
-`STRIPE_WEBHOOK_SECRET`.
+Required set: `APP_URL`, `RESEND_API_KEY`.
+
+> **The Stripe values below are historical.** `STRIPE_SECRET_KEY` and
+> `STRIPE_WEBHOOK_SECRET` belonged to the `checkout` and `webhook` edge
+> functions, which were removed with the legacy checkout. The incident notes
+> that follow are kept because they record how a fail-closed path still produced
+> an outage; they no longer describe a required configuration.
 
 > **Correction (2026-09-27).** This document previously stated that the
 > platform-injected values are "absent from `secrets list` by design and must not

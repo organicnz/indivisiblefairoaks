@@ -406,6 +406,26 @@ jobs:
         run: bun scripts/check-migrations.mjs
         continue-on-error: true
 
+      # The catalogue counterpart to the history check above. History asks "is
+      # this migration recorded"; hygiene asks "is the schema still shaped the
+      # way we agreed" — RLS present on every table, no index duplicating a
+      # sibling, every foreign key indexed, and no service-only table still
+      # granting the public roles. Four audits re-derived those queries by hand
+      # before this existed, and each one found something the last had missed.
+      #
+      # Advisory for the same reason as the step above: a fork PR carries no
+      # SUPABASE_ACCESS_TOKEN, and the script reports that as a configuration
+      # fault rather than a pass — but failing the build for it would block every
+      # fork PR. A finding is also a question rather than a verdict (two indexes
+      # with equal columns are not always interchangeable), so it belongs in
+      # front of a human, not in front of a merge.
+      - name: Check schema hygiene
+        env:
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: bun scripts/check-schema-hygiene.mjs
+        continue-on-error: true
+
   # ── 4. Build + E2E — E2E's fixture, NOT a merge gate ──────────────────────
   # DO NOT add this to branch protection's required checks.
   #

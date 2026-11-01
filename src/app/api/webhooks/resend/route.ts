@@ -71,7 +71,7 @@ import type { Json } from '@/types/supabase';
  * ## This route does NOT call requireAdmin()
  *
  * It is an unauthenticated inbound webhook authenticated solely by the HMAC
- * signature. `createAdminClient()` is called directly, same as the Stripe
+ * signature. `createAdminClient()` is called directly, same as the (removed) Stripe
  * webhook handler. The only write it can perform in the suppress direction is
  * `do_not_email = true` — it can never set `false` or `NULL`, so a forged
  * event (which still needs the secret) is a mailing-list DoS, not a

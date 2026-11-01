@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AdminNav, LEGACY_ADMIN_ITEMS } from '@/components/admin/AdminNav';
+import { AdminNav } from '@/components/admin/AdminNav';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -16,10 +16,8 @@ vi.mock('@/hooks/useDataPoints', () => ({
       'admin.nav.dashboard': 'Dashboard',
       'admin.nav.content': 'Pages & Posts',
       'admin.nav.crm': 'Civic CRM',
-      'admin.nav.orders': 'Orders',
       'admin.nav.products': 'Products',
       'admin.nav.customers': 'Customers',
-      'admin.nav.coupons': 'Coupons',
     },
   }),
 }));
@@ -45,7 +43,7 @@ describe('AdminNav', () => {
     container.remove();
   });
 
-  it('renders active admin navigation links and omits legacy orders', () => {
+  it('renders the admin navigation links', () => {
     act(() => {
       root.render(<AdminNav />);
     });
@@ -62,13 +60,8 @@ describe('AdminNav', () => {
     expect(hrefs).toContain('/admin/crm');
     expect(hrefs).toContain('/admin/products');
     expect(hrefs).toContain('/admin/customers');
-    expect(hrefs).toContain('/admin/coupons');
 
-    // Orders is hidden from active navigation
+    // The legacy order surface is gone, not merely hidden.
     expect(hrefs).not.toContain('/admin/orders');
-  });
-
-  it('exports LEGACY_ADMIN_ITEMS containing /admin/orders for reference', () => {
-    expect(LEGACY_ADMIN_ITEMS.some((item) => item.href === '/admin/orders')).toBe(true);
   });
 });

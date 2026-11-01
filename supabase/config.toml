@@ -418,6 +418,45 @@ port = 54327
 backend = "postgres"
 
 # Experimental features may be deprecated any time
+# ---------------------------------------------------------------------------
+# Edge Functions — JWT verification, stated per function.
+#
+# These are the same values `.github/workflows/supabase.yml` passes on the
+# command line. They live here as well because a flag is only true for the
+# invocation that carries it: `supabase functions deploy notify-contact`
+# without `--no-verify-jwt` deploys with the gateway verifying JWTs, and that
+# endpoint is called by a Postgres trigger through pg_net with no JWT at all.
+# The result would be a 401 on every contact notification, logged nowhere the
+# chapter looks. Config makes the safe posture the default.
+#
+# `verify_jwt = false` is deliberate for the four public functions; each has
+# its own boundary — `data-points` is read-only, `notify-contact` claims the
+# submission row atomically, `search` is rate limited, `health` is a read-only
+# probe.
+[functions.notify-contact]
+verify_jwt = false
+
+[functions.data-points]
+verify_jwt = false
+
+[functions.search]
+verify_jwt = false
+
+[functions.health]
+verify_jwt = false
+
+[functions.wall-e-chat]
+verify_jwt = true
+
+[functions.walle-refresh]
+verify_jwt = true
+
+[functions.crm-broadcast-send]
+verify_jwt = true
+
+[functions.sync-mobilize-events]
+verify_jwt = true
+
 [experimental]
 # Configures Postgres storage engine to use OrioleDB (S3)
 orioledb_version = ""

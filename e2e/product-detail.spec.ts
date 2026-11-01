@@ -74,6 +74,9 @@ test('products listing links navigate to detail pages', async ({ page }) => {
   await page.waitForLoadState('load');
 
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
-  const addBtn = page.getByRole('button', { name: /add to (?:bag|cart)|out of stock/i });
-  await expect(addBtn).toBeVisible({ timeout: 10_000 });
+  // There is no cart: the product's primary action is an enquiry link into
+  // /contact, so that is the affordance navigation has to preserve.
+  const enquiry = page.getByRole('link', { name: /ask about this item/i });
+  await expect(enquiry).toBeVisible({ timeout: 10_000 });
+  await expect(enquiry).toHaveAttribute('href', /^\/contact\?about=/);
 });

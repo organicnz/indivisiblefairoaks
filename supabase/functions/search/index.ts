@@ -63,10 +63,6 @@ app.use(
 // Per‑IP rate limiting using a PostgreSQL table with a rolling window.
 // ---------------------------------------------------------------------------
 
-// Dedup map: track recent queries per IP to avoid double-counting same query
-const recentQueryDedup = new Map<string, Map<string, number>>()
-const DEDUP_WINDOW_MIN = 1 // 1-minute dedup window
-
 // Circuit breaker state for RPC calls
 interface CircuitBreaker {
   failures: number
@@ -93,35 +89,19 @@ const rpcBreaker: CircuitBreaker = {
 // ---------------------------------------------------------------------------
 // Per‑IP rate limiting using a PostgreSQL table with a rolling window.
 // ---------------------------------------------------------------------------
-async function checkRateLimit(supabase: ReturnType<typeof supabaseAdmin>, ip: string, query: string): Promise<{
+//
+// Every request is counted. An earlier version kept an in-memory map of recent
+// queries per IP and returned `ok: true` immediately for a repeat, on the theory
+// that a double-submit should not cost quota. It could not work: the window is
+// counted from rows, and that branch still inserted a row, so "not counted" was
+// never true. What it actually did was skip the check entirely, so repeating one
+// query was an unmetered path through the limiter — the cheapest possible flood.
+// The limit is 30 requests per 10 minutes, which is already generous enough for
+// a double-submit; correctness wins over the optimisation.
+async function checkRateLimit(supabase: ReturnType<typeof supabaseAdmin>, ip: string): Promise<{
   ok: boolean
   remaining: number
-  deduplicated: boolean
 }> {
-  const dedupKey = query
-  let querySet = recentQueryDedup.get(ip)
-  if (!querySet) {
-    querySet = new Map()
-    recentQueryDedup.set(ip, querySet)
-  }
-  const now = Date.now()
-  const dedupWindowMs = DEDUP_WINDOW_MIN * 60_000
-  for (const [key, seenAt] of querySet) {
-    if (now - seenAt >= dedupWindowMs) querySet.delete(key)
-  }
-  const alreadySeen = (querySet.get(dedupKey) ?? 0) > now - dedupWindowMs
-  if (alreadySeen) {
-    // Still insert the new row so the table stays fresh, but don't count it
-    const { error: insertError } = await supabase
-      .from('search_rate_limit')
-      .insert({ ip, created_at: new Date().toISOString() })
-    if (insertError && !insertError.message?.includes('duplicate key')) {
-      console.error('[search] rate-limit insert error:', insertError.message)
-    }
-    return { ok: true, remaining: RATE_LIMIT_MAX, deduplicated: true }
-  }
-  querySet.set(dedupKey, now)
-
   // --- Insert new rate-limit row ---
   const { error: insertError } = await supabase
     .from('search_rate_limit')
@@ -142,7 +122,7 @@ async function checkRateLimit(supabase: ReturnType<typeof supabaseAdmin>, ip: st
 
   if (countError) {
     console.error('[search] rate-limit count error:', countError.message)
-    return { ok: true, remaining: RATE_LIMIT_MAX, deduplicated: false }
+    return { ok: true, remaining: RATE_LIMIT_MAX }
   }
 
   const remaining = RATE_LIMIT_MAX - (count ?? 0)
@@ -150,21 +130,20 @@ async function checkRateLimit(supabase: ReturnType<typeof supabaseAdmin>, ip: st
     console.warn(
       `[search] rate limit exceeded: ${count}/${RATE_LIMIT_MAX} in ${RATE_LIMIT_WINDOW_MIN}min`
     )
-    return { ok: false, remaining: 0, deduplicated: false }
+    return { ok: false, remaining: 0 }
   }
 
-  return { ok: true, remaining, deduplicated: false }
+  return { ok: true, remaining }
 }
 
-// Ensure the rate-limit table exists (best‑effort, migration should already be applied).
+// One service-role client for this module's own writes.
+//
+// There used to be an `__ensure__` insert here, on the theory that it ensured
+// the rate-limit table existed. It could not: an insert cannot create a table,
+// and the schema is owned by `supabase/migrations`. What it did do was write a
+// junk row into `search_rate_limit` on every isolate cold start, where the cron
+// prune then had to wait seven days to collect it.
 const admin = supabaseAdmin()
-  ; (async () => {
-    try {
-      await admin.from('search_rate_limit').insert({ ip: '__ensure__', created_at: new Date().toISOString() })
-    } catch {
-      // table may already exist or be missing — either way proceed
-    }
-  })()
 
 // ---------------------------------------------------------------------------
 // Log a search to error_reports analytics table
@@ -281,7 +260,7 @@ app.post('*', async (c) => {
   const forwardedFor = c.req.header('x-forwarded-for')
   const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
 
-  const { ok, remaining, deduplicated: _deduplicated } = await checkRateLimit(admin, ip, cleanQuery)
+  const { ok, remaining } = await checkRateLimit(admin, ip)
   if (!ok) {
     await logSearchError(admin, 'Search rate limit exceeded')
     return c.json({ error: 'Rate limit exceeded. Try again in 10 minutes.' }, 429, {

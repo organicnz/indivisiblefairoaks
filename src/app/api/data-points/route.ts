@@ -157,41 +157,20 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    // Attempt to update via Supabase Edge Function if available
-    const edgeBase = env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '');
-    const serviceRoleKey = env.SUPABASE_SECRET_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-    if (process.env.NODE_ENV !== 'test' && edgeBase && serviceRoleKey) {
-      try {
-        const edgeRes = await fetch(`${edgeBase}/functions/v1/data-points`, {
-          method: 'POST',
-          headers: {
-            apikey: serviceRoleKey,
-            Authorization: `Bearer ${serviceRoleKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(upsertRow),
-          signal: AbortSignal.timeout(8_000),
-        });
-
-        if (edgeRes.ok) {
-          const edgeJson = await edgeRes.json();
-          try {
-            revalidateTag('data-points', 'hours');
-            revalidatePath('/');
-          } catch {
-            // Revalidation outside request lifecycle
-          }
-          return NextResponse.json(
-            { success: true, dataPoint: edgeJson.record || upsertRow },
-            { status: 200 }
-          );
-        }
-      } catch {
-        // Fall back to direct database upsert below
-      }
-    }
-
+    // The write goes straight to the database, with no service-key hop through
+    // the `data-points` edge function.
+    //
+    // That hop used to run first, and it was pure duplication: this handler has
+    // already authenticated the user and checked `profiles.is_admin`, and RLS
+    // enforces `is_admin()` again on INSERT and UPDATE. What the hop added was a
+    // network round trip, an 8s timeout, a second code path that could drift
+    // from this one, and an edge function holding the service-role key with a
+    // write branch nothing else called. Removing it means `data_points` is
+    // writable by exactly one path, and that path cannot bypass RLS.
+    //
+    // The two checks agree for every current admin: `is_admin()` matches
+    // `profiles.user_id = auth.uid()`, and every admin row has `user_id` set and
+    // equal to `id`. The `.or()` above stays as a legacy-row tolerance.
     const { data, error } = await authClient
       .from('data_points')
       .upsert(upsertRow, { onConflict: 'key' })

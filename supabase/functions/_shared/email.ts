@@ -1,9 +1,15 @@
 // ---------------------------------------------------------------------------
 // Shared Resend email helper for edge functions.
 //
-// Single source of truth for transactional email delivery. Both
-// `notify-contact` and `webhook` (order notifications) send through here so
-// FROM defaults, timeouts, escaping, and error shapes stay consistent.
+// `webhook` sends the admin order notification through here, so FROM
+// defaults, timeouts, escaping and error shapes are one implementation rather
+// than two.
+//
+// `notify-contact` and `crm-broadcast-send` keep their own Resend calls on
+// purpose: each owns state this helper does not model — a claimed database row
+// that must be released on failure, and List-Unsubscribe plus per-campaign
+// headers. Both already bound their requests. They are not stragglers to
+// "clean up".
 //
 // Design notes:
 // - Raw `fetch` to api.resend.com (no npm:resend dep) — zero cold-start cost,
@@ -70,6 +76,12 @@ export interface SendEmailInput {
   replyTo?: string
   /** Resend tags for dashboard filtering, e.g. [{name:'type',value:'contact'}] */
   tags?: { name: string; value: string }[]
+  /**
+   * Resend idempotency key. A retry carrying the same key is answered from
+   * Resend's 24h cache instead of mailing twice — the difference between a
+   * Stripe redelivery being harmless and it paging the chapter a second time.
+   */
+  idempotencyKey?: string
 }
 
 export type SendEmailResult =
@@ -100,6 +112,10 @@ export async function sendResendEmail(
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         'Content-Type': 'application/json',
+        // Controlled input, but a CR/LF here would be header injection.
+        ...(input.idempotencyKey
+          ? { 'Idempotency-Key': stripControls(input.idempotencyKey) }
+          : {}),
       },
       body: JSON.stringify({
         from: config.from,

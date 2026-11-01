@@ -83,7 +83,14 @@ export async function getEvents(): Promise<CivicEvent[]> {
       .select(
         'slug, title, category, date_label, time_label, starts_at, ends_at, location_name, address, description, rsvp_url, highlight, sort_order'
       )
-      .order('sort_order', { ascending: true });
+      // Issue #153: a Mobilize event that was deleted, cancelled or has run out
+      // of timeslots is hidden rather than deleted, so the row keeps its
+      // history and a mistaken hide can be undone from the admin tab.
+      .eq('is_hidden', false)
+      .order('sort_order', { ascending: true })
+      // Synced rows share sort_order = 100, so without this tiebreaker their
+      // order would be whatever the planner returned.
+      .order('starts_at', { ascending: true, nullsFirst: false });
     const rows = (data ?? []) as EventRow[];
     return rows.map((row) => ({
       id: row.slug,
@@ -91,6 +98,9 @@ export async function getEvents(): Promise<CivicEvent[]> {
       category: row.category as CivicEvent['category'],
       dateLabel: row.date_label,
       timeLabel: row.time_label,
+      // Carried so the admin edit modal round-trips them (issue #153).
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
       isoDateStart: instantToPacificBasic(row.starts_at),
       isoDateEnd: instantToPacificBasic(row.ends_at),
       locationName: row.location_name,

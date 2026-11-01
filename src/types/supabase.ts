@@ -1285,16 +1285,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      cleanup_old_audit_logs: { Args: never; Returns: undefined }
       crm_stats: { Args: never; Returns: Json }
       crm_sync_historical_records: { Args: never; Returns: Json }
       decrement_stock: {
         Args: { decrement_by?: number; p_id: number }
         Returns: undefined
       }
-      get_user_org_id: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
-      is_service_role: { Args: never; Returns: boolean }
       log_audit: {
         Args: {
           p_action: string
@@ -1311,7 +1308,6 @@ export type Database = {
         Args: { p_actor_id?: string; p_keep_id: string; p_remove_id: string }
         Returns: string
       }
-      move_to_dlq: { Args: never; Returns: undefined }
       search_content: {
         Args: { max_rows?: number; search_query: string }
         Returns: {

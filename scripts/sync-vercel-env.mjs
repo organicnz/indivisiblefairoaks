@@ -169,12 +169,7 @@ async function vercelEnvAdd({ name, target, sensitive, value }) {
 }
 
 /** Values that are `required: true` and exist in no readable store. */
-const UNSOURCED_NOTE = {
-  STRIPE_SECRET_KEY:
-    'Stripe dashboard → Developers → API keys. Not in .env.local, and the Supabase edge store is write-only, so it cannot be copied from there.',
-  STRIPE_WEBHOOK_SECRET:
-    'Stripe dashboard → Developers → Webhooks → your endpoint → Signing secret. Only obtainable at Stripe.',
-};
+const UNSOURCED_NOTE = {};
 
 async function main() {
   await assertEnvFileIgnored();

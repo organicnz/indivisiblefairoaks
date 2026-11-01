@@ -2,17 +2,13 @@ import { AlertTriangle, ArrowRight, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AccountTabShell } from '@/components/account/AccountTabShell';
-import { AdminOrdersPanel } from '@/components/account/AdminOrdersPanel';
 import { LogoutButton } from '@/components/account/LogoutButton';
 import { MfaSettings } from '@/components/account/MfaSettings';
-import { MyOrdersPanel } from '@/components/account/MyOrdersPanel';
 import { UserSettings } from '@/components/account/UserSettings';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
-import { ENABLE_LEGACY_ORDERS } from '@/config/commerce';
 import { getDataPoints } from '@/lib/queries/civic';
 import { createAdminClient, createServerClient } from '@/lib/supabase-server';
-import type { AdminOrder, MyOrder } from '@/types/orders';
 
 // Deliberate Cache Components opt-out (Block): per-user auth + MFA state, entire surface is request-time.
 export const instant = false;
@@ -23,7 +19,7 @@ export const metadata = {
 };
 
 /** The real tabs. Used to bound what the MFA gate reflects back as `?next=`. */
-const ALLOWED_TABS = new Set(['admin', 'orders', 'settings']);
+const ALLOWED_TABS = new Set(['settings']);
 
 export default async function AccountPage(props: {
   searchParams: Promise<Record<string, string>>;
@@ -36,7 +32,7 @@ export default async function AccountPage(props: {
 
   // Read before the gate: the challenge has to be able to send the user back to
   // the tab they were on. `?tab=settings` is how someone reaches the 2FA panel
-  // at all, so bouncing to `/account` unqualified drops them on Orders.
+  // at all, so bouncing to `/account` unqualified drops them on the first tab.
   const sp = await props.searchParams;
 
   // MFA gate — only send the user to the TOTP challenge when a verified factor
@@ -78,7 +74,7 @@ export default async function AccountPage(props: {
       // page through `getSafeNextPath`, and the value here originates in the URL
       // a third party can hand a user. Restricting it to the three real tabs
       // means a crafted `?tab=…` cannot smuggle anything into the return path.
-      const tab = ALLOWED_TABS.has(sp.tab) ? sp.tab : 'orders';
+      const tab = ALLOWED_TABS.has(sp.tab) ? sp.tab : 'settings';
       redirect(`/auth/mfa?next=${encodeURIComponent(`/account?tab=${tab}`)}`);
     }
   }
@@ -102,94 +98,37 @@ export default async function AccountPage(props: {
 
   const isAdmin = profile?.is_admin === true;
 
-  // The legacy order experience is hidden from active navigation tabs by default.
-  // When ENABLE_LEGACY_ORDERS is false, absent ?tab falls back to 'settings'.
-  // If ENABLE_LEGACY_ORDERS is true, it restores the full live admin/orders default.
-  const activeTab = sp.tab ?? (ENABLE_LEGACY_ORDERS ? (isAdmin ? 'admin' : 'orders') : 'settings');
+  const activeTab = sp.tab ?? 'settings';
 
-  // Fetch data
-  const needOrders = ENABLE_LEGACY_ORDERS || sp.tab === 'admin' || sp.tab === 'orders';
-  const [allOrdersResult, myOrdersResult, dataPoints] = await Promise.all([
-    isAdmin && needOrders
-      ? createAdminClient().then((ac) =>
-          ac
-            .from('orders')
-            .select(`id, created_at, status, total, currency,
-              stripe_session_id, shipping_address, billing_address,
-              order_items ( id, product_name, quantity, unit_price ),
-              profiles ( first_name, last_name, email )`)
-            .order('created_at', { ascending: false })
-            .limit(200)
-        )
-      : Promise.resolve({ data: [] as AdminOrder[] }),
-    profile && needOrders
-      ? supabase
-          .from('orders')
-          .select('id, created_at, status, total, order_items(product_name, quantity, unit_price)')
-          .eq('user_id', profile.id)
-          .order('created_at', { ascending: false })
-      : Promise.resolve({ data: [] as MyOrder[] }),
-    getDataPoints('account'),
-  ]);
+  const dataPoints = await getDataPoints('account');
 
-  const allOrders = (allOrdersResult.data ?? []) as AdminOrder[];
-  const myOrders = (myOrdersResult.data ?? []) as MyOrder[];
-  const processing = allOrders.filter((o) => o.status === 'processing').length;
-
-  const showLegacyOrders = ENABLE_LEGACY_ORDERS || sp.tab === 'admin' || sp.tab === 'orders';
   const tabs = [
     {
       id: 'settings',
       label: dataPoints['account.tab.settings'] || 'Settings',
     },
-    ...(showLegacyOrders
-      ? [
-          ...(isAdmin
-            ? [
-                {
-                  id: 'admin',
-                  label: dataPoints['account.tab.all_orders'] || 'All Orders',
-                  badge: processing,
-                },
-              ]
-            : []),
-          {
-            id: 'orders',
-            label: isAdmin
-              ? dataPoints['account.tab.my_orders'] || 'My Orders'
-              : dataPoints['account.tab.orders'] || 'Orders',
-          },
-        ]
-      : []),
   ];
 
-  let panel: React.ReactNode;
-  if (activeTab === 'admin' && isAdmin) {
-    panel = <AdminOrdersPanel orders={allOrders} />;
-  } else if (activeTab === 'orders') {
-    panel = <MyOrdersPanel orders={myOrders} />;
-  } else {
-    panel = (
-      <div className="max-w-2xl space-y-12">
-        <UserSettings />
-        <MfaSettings />
-        <div className="pt-8 border-t border-border">
-          <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-1">
-            <DataPoint name="account.session.title" initialData={dataPoints}>
-              Session Control
-            </DataPoint>
-          </h3>
-          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-6">
-            <DataPoint name="account.session.signed_in_as" as="span" initialData={dataPoints}>
-              Signed in as
-            </DataPoint>{' '}
-            <span className="text-foreground font-medium">{user.email}</span>
-          </p>
-          <LogoutButton />
-        </div>
+  const panel = (
+    <div className="max-w-2xl space-y-12">
+      <UserSettings />
+      <MfaSettings />
+      <div className="pt-8 border-t border-border">
+        <h3 className="text-sm font-black text-foreground uppercase tracking-widest mb-1">
+          <DataPoint name="account.session.title" initialData={dataPoints}>
+            Session Control
+          </DataPoint>
+        </h3>
+        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mb-6">
+          <DataPoint name="account.session.signed_in_as" as="span" initialData={dataPoints}>
+            Signed in as
+          </DataPoint>{' '}
+          <span className="text-foreground font-medium">{user.email}</span>
+        </p>
+        <LogoutButton />
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className="relative overflow-hidden bg-background min-h-screen pt-(--header-h) pb-16 text-foreground transition-colors duration-300">
@@ -215,6 +154,19 @@ export default async function AccountPage(props: {
                 you are a chapter lead, please ensure you are signed in with your authorized
                 administrator email.
               </DataPoint>
+              {/*
+                The sentence above is CMS copy and has to read for every visitor,
+                so it says "ensure you are signed in". This reader already is —
+                which made the notice a dead end: it named no account and no next
+                step. The app knows both, so it says them, outside the editable
+                copy so a copy edit cannot remove the diagnosis.
+              */}
+              <p className="mt-2 text-xs text-amber-800 dark:text-amber-300">
+                You are signed in as{' '}
+                <span className="font-semibold">{user.email ?? 'this account'}</span>, and this
+                account does not have administrator access. Ask a chapter lead to grant it, or sign
+                out and sign in with an administrator account.
+              </p>
             </div>
           </div>
         )}

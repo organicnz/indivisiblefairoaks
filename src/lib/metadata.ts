@@ -122,8 +122,8 @@ export function pageMetadata({
 }
 
 /**
- * Metadata for a page that must never be indexed: cart, login, wishlist,
- * checkout results. Emits `noindex, nofollow` and, critically, **no canonical**
+ * Metadata for a page that must never be indexed: login, wishlist, account.
+ * Emits `noindex, nofollow` and, critically, **no canonical**
  * — a noindexed page that also self-canonicalizes sends Google contradictory
  * signals and can end up indexed-but-unwanted.
  */

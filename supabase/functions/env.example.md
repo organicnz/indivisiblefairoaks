@@ -39,21 +39,12 @@ SUPABASE_SERVICE_ROLE_KEY=
 APP_URL=https://test.indivisiblefairoaks.org
 ```
 
-Used for CORS `access-control-allow-origin`, Stripe `success_url`/`cancel_url`,
-and the URLs WALL-E cites as sources. The code falls back to
+Used for CORS `access-control-allow-origin` and the URLs WALL-E cites as
+sources. The code falls back to
 `https://indivisiblefairoaks.org`, which is **currently wrong**: the apex 302s to
 the legacy Google Site, so every WALL-E citation and checkout return URL points
 somewhere that does not serve this app. Update at cutover alongside
 `NEXT_PUBLIC_SITE_URL`.
-
-### Stripe — `checkout`, `webhook` [required]
-
-```
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-```
-
-Absent → webhook signature verification is skipped, which accepts forged events.
 
 ### Email — `notify-contact`, `webhook`
 
@@ -61,6 +52,8 @@ Absent → webhook signature verification is skipped, which accepts forged event
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=contact@indivisiblefairoaks.org
 ADMIN_ORDER_EMAIL=contact@indivisiblefairoaks.org
+# Optional. Marked backend verification probes go here instead of the chapter inbox.
+BACKEND_VERIFY_EMAIL=tamerlanium@gmail.com
 ```
 
 `RESEND_API_KEY` is required; a missing key means a silently unsent contact form.
@@ -123,8 +116,8 @@ reads environment variables can never use it.
 - CI cannot see them.
 - The "Verify live edge functions" job probes each function, but every probe
   fails on a validation or method check that happens **before** any secret is
-  read — a missing `STRIPE_SECRET_KEY` or `ZAI_API_KEY` passes verification green
-  and breaks silently for users at runtime.
+  read — a missing `ZAI_API_KEY` passes verification green and breaks silently
+  for users at runtime.
 
 `supabase/functions/secrets.manifest.mjs` declares what each function needs;
 `scripts/check-edge-secrets.mjs` (pre-commit) keeps that in sync with the code and

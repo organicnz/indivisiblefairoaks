@@ -1,6 +1,6 @@
 'use client';
 
-import { Package, Settings, ShoppingBag } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useTransition } from 'react';
 
@@ -11,8 +11,6 @@ interface Tab {
 }
 
 const ICONS: Record<string, React.ElementType> = {
-  admin: Package,
-  orders: ShoppingBag,
   settings: Settings,
 };
 
@@ -42,7 +40,7 @@ export function AccountTabShell({ tabs, activeTab, children }: Props) {
         style={{ scrollbarWidth: 'none' }}
       >
         {tabs.map((tab, idx) => {
-          const Icon = ICONS[tab.id] ?? Package;
+          const Icon = ICONS[tab.id] ?? Settings;
           const isActive = activeTab === tab.id;
           return (
             <button

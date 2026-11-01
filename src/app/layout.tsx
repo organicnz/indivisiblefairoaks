@@ -6,6 +6,7 @@ import './globals.css';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { SettingsHydrator } from '@/components/account/SettingsHydrator';
+import { PostHogAnalytics } from '@/components/analytics/PostHogAnalytics';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { ThemeAwareToaster } from '@/components/layout/ThemeAwareToaster';
@@ -186,6 +187,11 @@ export default function RootLayout({
           <>
             <Analytics />
             <SpeedInsights />
+            {/* Session replay, consent-aware and masked. Renders nothing; the
+                rules it applies live in src/lib/posthog.ts. In the e2e guard
+                for the same reason as the two above: a throwaway test bundle
+                must not file replays against the production project. */}
+            <PostHogAnalytics />
           </>
         )}
       </body>

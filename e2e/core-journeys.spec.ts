@@ -20,7 +20,6 @@ const STATIC_PAGES = [
   '/privacy-policy',
   '/terms-and-conditions',
   '/donate',
-  '/cart',
   '/wishlist',
   '/gallery',
   '/search?q=community',

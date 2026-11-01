@@ -35,7 +35,7 @@ describe('isActiveRoute', () => {
   });
 
   it('highlights nothing for a path outside the nav', () => {
-    expect(ROUTES.some((route) => isActiveRoute('/admin/orders', route))).toBe(false);
+    expect(ROUTES.some((route) => isActiveRoute('/admin/crm/imports', route))).toBe(false);
   });
 });
 
@@ -89,7 +89,7 @@ describe('ROUTES', () => {
 
   it('excludes private surfaces from primary navigation', () => {
     const hrefs = ROUTES.map((route) => route.href);
-    for (const privatePath of ['/cart', '/login', '/account', '/admin', '/wishlist']) {
+    for (const privatePath of ['/login', '/account', '/admin', '/wishlist']) {
       expect(hrefs).not.toContain(privatePath);
     }
   });

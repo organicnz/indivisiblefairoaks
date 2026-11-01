@@ -28,6 +28,7 @@ const CATEGORIES = [
   'Resistance Choir',
   'Voter Mobilization',
   'Rallies & Street Action',
+  'Community',
 ] as const;
 
 export function CivicEventEditorModal({

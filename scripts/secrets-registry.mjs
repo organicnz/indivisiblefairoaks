@@ -21,8 +21,10 @@
  *
  *   - 3 of 4 `verify: true` edge secrets unset (`STRIPE_SECRET_KEY`,
  *     `STRIPE_WEBHOOK_SECRET`, `APP_URL`) → checkout and order fulfillment
- *     return 503 in production. The guard that would have caught this existed
- *     in `supabase.yml` but was **uncommitted**, so it had never run.
+ *     returned 503 in production. The guard that would have caught this existed
+ *     in `supabase.yml` but was **uncommitted**, so it had never run. (The two
+ *     Stripe values belonged to functions removed with the legacy checkout;
+ *     `APP_URL` is still required.)
  *   - All three `NEXT_PUBLIC_*` values stored as GitHub **secrets** rather than
  *     variables. They ship in the client bundle, so they are public by
  *     construction, and repository secrets are withheld from `pull_request` runs
@@ -108,7 +110,7 @@ export const EXPOSURE = {
  */
 export const OWNERS = {
   'repo-maintainer': { id: 'repo-maintainer', label: 'Repository maintainer (full env + deploy access).' },
-  commerce: { id: 'commerce', label: 'Payments and order fulfillment. Stripe keys, order mail.' },
+  commerce: { id: 'commerce', label: 'Chapter correspondence: contact mail and CRM reply-to.' },
   platform: { id: 'platform', label: 'Hosting, DNS, CI and database provisioning.' },
   'edge-runtime': { id: 'edge-runtime', label: 'Edge Function runtime config. APP_URL, CORS, LLM keys.' },
   'app-runtime': { id: 'app-runtime', label: 'Values the Next.js app reads at build or request time.' },
@@ -132,8 +134,6 @@ export const OWNERS = {
  * @type {Record<string, number>}
  */
 export const ROTATION_INTERVALS = {
-  STRIPE_SECRET_KEY: 90,
-  STRIPE_WEBHOOK_SECRET: 90,
   RESEND_API_KEY: 180,
   RESEND_WEBHOOK_SECRET: 180,
   SUPABASE_SECRET_KEY: 90,
@@ -148,9 +148,9 @@ export const ROTATION_INTERVALS = {
  * Every secret and config value the audit knows about, keyed by name.
  *
  * `stores` lists every store a value is legitimately expected in. More than one
- * is normal and correct: the same Stripe key is required in both the Vercel
- * project (for `/api/checkout`) and the edge project (for the `checkout` and
- * `webhook` functions), because they are two independent runtimes.
+ * is normal and correct: `SUPABASE_SECRET_KEY` is required in both the Vercel
+ * project and the GitHub store (the WALL-E refresh job), because they are two
+ * independent runtimes.
  *
  * A value found in a store not listed here is reported as `misfiled`. It is not
  * removed automatically — a credential in an unexpected place is often evidence
@@ -185,11 +185,6 @@ export const REGISTRY = {
     stores: ['vercel-var', 'github-var'],
     note: 'Anon-role. Safe to publish *because* of what the RLS policies allow it to do.',
   },
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: {
-    exposure: EXPOSURE.public,
-    owner: OWNERS.commerce,
-    stores: ['vercel-var'],
-  },
   RESEND_FROM_EMAIL: {
     exposure: EXPOSURE.public,
     owner: OWNERS.commerce,
@@ -208,6 +203,16 @@ export const REGISTRY = {
     exposure: EXPOSURE.public,
     owner: OWNERS['app-runtime'],
     stores: ['vercel-var'],
+  },
+  NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: {
+    exposure: EXPOSURE.public,
+    owner: OWNERS['app-runtime'],
+    stores: ['vercel-var'],
+    note:
+      'PostHog session replay project token. Inlined into the client bundle, so ' +
+      'it is configuration rather than a credential. Deliberately NOT in ' +
+      'github-var for the same reason as the Sentry DSN: CI and e2e builds carry ' +
+      'no token so neither can file replays against the production project.',
   },
   NEXT_PUBLIC_SENTRY_DSN: {
     exposure: EXPOSURE.public,
@@ -232,26 +237,6 @@ export const REGISTRY = {
       'Bypasses RLS on the entire database. Stored in GitHub *only* for the ' +
       'scheduled WALL-E refresh workflow, which is the single job scoped to hold ' +
       'it. Widening that scope makes the row-level security model decorative.',
-  },
-  STRIPE_SECRET_KEY: {
-    exposure: EXPOSURE.privileged,
-    owner: OWNERS.commerce,
-    stores: ['vercel-secret', 'edge-secret'],
-    note:
-      'Two independent runtimes need it, so two copies are correct: the Next ' +
-      'route handlers and the `checkout`/`webhook` functions. Missing from the ' +
-      'edge store at audit time, which returns 503 from both functions.',
-  },
-  STRIPE_WEBHOOK_SECRET: {
-    exposure: EXPOSURE.privileged,
-    owner: OWNERS.commerce,
-    stores: ['vercel-secret', 'edge-secret'],
-    note:
-      'The only thing distinguishing a real Stripe event from a forged one. The ' +
-      'function it guards is deployed `--no-verify-jwt` and is therefore public. ' +
-      'The code is fail-closed (`assertRuntimeConfig` runs before signature ' +
-      'verification), so an absent value means events are rejected — not accepted ' +
-      'unverified. Verified by reading the handler, not assumed.',
   },
   RESEND_API_KEY: {
     exposure: EXPOSURE.server,
@@ -464,7 +449,7 @@ export const REGISTRY = {
     owner: OWNERS['edge-runtime'],
     stores: ['edge-secret'],
     note:
-      'CORS origin, Stripe return URLs, WALL-E citation URLs. Unset at audit ' +
+      'CORS origin and WALL-E citation URLs. Unset at audit ' +
       'time while the code still defaults it to the apex — which 302s to the ' +
       'legacy Google Site, so the default points citations at something that does ' +
       'not serve this app.',

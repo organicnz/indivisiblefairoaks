@@ -13,7 +13,7 @@ Platform for [Indivisible Fair Oaks-Carmichael](https://indivisiblefairoaks.org)
 
 | Layer | Technology |
 |---|---|
-| Runtime | Bun ≥1.4.3 — **no Node.js anywhere** (server, build, type check, tests, scripts) |
+| Runtime | Bun ≥1.4.4 — **no Node.js anywhere** (server, build, type check, tests, scripts) |
 | Frontend | Next.js 16.4 · App Router · React 19 · tsrs (TypeScript 7 in Rust) |
 | Backend | Supabase (PostgreSQL · Auth · Storage · Edge Functions) |
 | Payments | Stripe Checkout + Webhooks |
@@ -54,7 +54,7 @@ A modern, 10x pro visual editor allowing direct on-canvas editing and deep eleme
 ## Getting Started
 
 ### Prerequisites
-- Bun ≥1.4.3
+- Bun ≥1.4.4
 - A Supabase project with migrations applied (see `supabase/migrations/`)
 
 ### Install

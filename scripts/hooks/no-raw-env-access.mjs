@@ -104,7 +104,7 @@ if (violations.length > 0) {
   console.log('');
   console.log('   Import the validated env object instead:');
   console.log("   import { env } from '@/lib/env';");
-  console.log('   env.STRIPE_SECRET_KEY  (not process.env.STRIPE_SECRET_KEY)');
+  console.log('   env.SUPABASE_SECRET_KEY  (not process.env.SUPABASE_SECRET_KEY)');
   console.log('');
   console.log('   `Bun.env` is worse than `process.env` here: it does not exist in');
   console.log('   a browser or on the Edge runtime, so it is a crash rather than');

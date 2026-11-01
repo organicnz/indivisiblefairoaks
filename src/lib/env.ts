@@ -15,7 +15,6 @@ const publicSchema = z.object({
     .string()
     .min(1)
     .default('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder'),
-  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_SITE_URL: z.string().url().default('https://indivisiblefairoaks.org'),
   // Sentry error monitoring (indivisiblefairoaks-web project). Optional with
   // no default: absent means the SDK never initialises, which is how local dev
@@ -25,15 +24,16 @@ const publicSchema = z.object({
   // malformed values to undefined (same precedent as RESEND_API_KEY) so a
   // half-filled .env.local disables Sentry instead of failing validation.
   NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional().catch(undefined),
+  // PostHog session replay (project API key, `phc_…`). Optional with no default,
+  // exactly like the Sentry DSN above: absent means `src/lib/posthog.ts` never
+  // imports the SDK, which is how local dev, CI and the e2e bundle stay quiet —
+  // none of them may file replays against the production project. Public by
+  // construction, because the client SDK ships it in the bundle.
+  NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: z.string().min(1).optional().catch(undefined),
 });
 
 const serverSchema = publicSchema.extend({
   SUPABASE_SECRET_KEY: z.string().min(1).optional(),
-  // Optional at build time — these are only needed by runtime Stripe routes,
-  // which validate them explicitly. Keeps preview builds green when the
-  // Preview environment has no secrets (production-only env vars).
-  STRIPE_SECRET_KEY: z.string().min(1).optional().catch(undefined),
-  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional().catch(undefined),
   // Contact notifications: test/ops overrides (defaults are derived in-code).
   CONTACT_FUNCTION_URL: z.string().url().optional(),
   // Background broadcast sender. Required before a chapter-wide send will work;
@@ -46,11 +46,12 @@ const serverSchema = publicSchema.extend({
   // Resend email delivery
   RESEND_API_KEY: z.string().min(1).optional().catch(undefined),
   // Verifies Resend webhook signatures on /api/webhooks/resend. Optional at
-  // build time for the same reason as the Stripe secrets: the route validates
-  // explicitly and answers 400 when absent, so preview builds without it stay
-  // green.
+  // build time: the route validates explicitly and answers 400 when absent, so
+  // preview builds without it stay green.
   RESEND_WEBHOOK_SECRET: z.string().min(1).optional().catch(undefined),
   RESEND_FROM_EMAIL: z.string().min(1).optional().default('contact@indivisiblefairoaks.org'),
+  // The chapter's inbox: CRM reply-to and the destination for contact-form
+  // notifications. Optional, defaulting to the same address in code.
   ADMIN_ORDER_EMAIL: z.string().email().optional().catch(undefined),
 });
 
@@ -60,17 +61,16 @@ type EnvValue = z.infer<typeof serverSchema>;
 
 // Bundlers only inline dotted member accesses into the client bundle; a
 // spread is opaque there, where `process.env` is an empty stub — every public
-// var would arrive undefined and validation would explode at module scope
-// (this bricked /cart via StripeExpressCheckout). So on the client we pick
-// each public var explicitly; on the server the full env is available and a
-// spread is safe.
+// var would arrive undefined and validation would explode at module scope.
+// So on the client we pick each public var explicitly; on the server the full
+// env is available and a spread is safe.
 const rawEnv: Record<string, string | undefined> = isClient
   ? {
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
       NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
       NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+      NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN: process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN,
     }
   : { ...process.env };
 

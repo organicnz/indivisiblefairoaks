@@ -1,21 +1,18 @@
 'use client';
 
 import {
-  BadgePercent,
   Calendar,
   FileText,
   LayoutDashboard,
   Link2,
   Newspaper,
   Package,
-  ShoppingBag,
   Users,
   UsersRound,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-import { ENABLE_LEGACY_ORDERS } from '@/config/commerce';
 import { useDataPoints } from '@/hooks/useDataPoints';
 
 interface AdminNavItem {
@@ -39,22 +36,9 @@ const BASE_ITEMS: AdminNavItem[] = [
   { href: '/admin/crm', labelKey: 'admin.nav.crm', label: 'Civic CRM', icon: UsersRound },
   { href: '/admin/products', labelKey: 'admin.nav.products', label: 'Products', icon: Package },
   { href: '/admin/customers', labelKey: 'admin.nav.customers', label: 'Customers', icon: Users },
-  {
-    href: '/admin/coupons',
-    labelKey: 'admin.nav.coupons',
-    label: 'Coupons',
-    icon: BadgePercent,
-  },
 ];
 
-/** Legacy admin navigation items preserved for reference and data-points contract */
-export const LEGACY_ADMIN_ITEMS: AdminNavItem[] = [
-  { href: '/admin/orders', labelKey: 'admin.nav.orders', label: 'Orders', icon: ShoppingBag },
-];
-
-const ITEMS: AdminNavItem[] = ENABLE_LEGACY_ORDERS
-  ? [...BASE_ITEMS.slice(0, 6), ...LEGACY_ADMIN_ITEMS, ...BASE_ITEMS.slice(6)]
-  : BASE_ITEMS;
+const ITEMS: AdminNavItem[] = BASE_ITEMS;
 
 export function AdminNav() {
   const pathname = usePathname();

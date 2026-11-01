@@ -1,8 +1,6 @@
 import { Search, Users } from 'lucide-react';
-import Link from 'next/link';
 import { CustomerAdminToggle } from '@/components/admin/CustomerAdminToggle';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { formatPrice } from '@/config/commerce';
 import { requireAdmin } from '@/lib/admin-auth';
 import { getDataPoints } from '@/lib/queries/civic';
 
@@ -21,12 +19,6 @@ type Customer = {
   last_name: string | null;
   is_admin: boolean | null;
   created_at: string | null;
-  orders: {
-    id: number;
-    total: number | null;
-    created_at: string | null;
-    status: string | null;
-  }[];
 };
 
 export default async function AdminCustomersPage({
@@ -41,8 +33,7 @@ export default async function AdminCustomersPage({
   const [{ data: customers }, dataPoints] = await Promise.all([
     adminClient
       .from('profiles')
-      .select(`id, email, first_name, last_name, is_admin, created_at,
-      orders ( id, total, created_at, status )`)
+      .select('id, email, first_name, last_name, is_admin, created_at')
       .order('created_at', { ascending: false })
       .limit(500),
     getDataPoints('admin'),
@@ -53,7 +44,6 @@ export default async function AdminCustomersPage({
     const name = [c.first_name, c.last_name].filter(Boolean).join(' ').toLowerCase();
     return name.includes(query) || c.email.toLowerCase().includes(query) || String(c.id) === query;
   });
-  const neverOrderedLabel = dataPoints['admin.customers.never_ordered'] || 'Never ordered';
 
   return (
     <div>
@@ -105,113 +95,49 @@ export default async function AdminCustomersPage({
             </p>
           </div>
         ) : (
-          rows.map((c) => {
-            const spent = c.orders.reduce((s, o) => s + (Number(o.total) || 0), 0);
-            const lastOrder = [...c.orders].sort((a, b) =>
-              String(b.created_at || '').localeCompare(String(a.created_at || ''))
-            )[0];
-            return (
-              <div
-                key={c.id}
-                className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm"
-              >
-                <div className="px-8 py-5 grid grid-cols-2 md:grid-cols-5 gap-4 items-center">
-                  <div className="col-span-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Link
-                        href={`/admin/customers/${c.id}`}
-                        className="text-sm font-black text-foreground uppercase tracking-wider hover:text-primary dark:hover:text-primary-on-dark transition-colors"
-                      >
-                        {[c.first_name, c.last_name].filter(Boolean).join(' ') ||
-                          dataPoints['admin.customers.guest'] ||
-                          'Guest'}
-                      </Link>
-                      {c.is_admin && (
-                        <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary dark:bg-primary-bright text-white">
-                          <DataPoint
-                            as="span"
-                            name="admin.customers.admin_badge"
-                            initialData={dataPoints}
-                          >
-                            Admin
-                          </DataPoint>
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground font-bold mt-0.5">{c.email}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
+          rows.map((c) => (
+            <div
+              key={c.id}
+              className="bg-surface-card border border-border rounded-3xl overflow-hidden shadow-sm"
+            >
+              <div className="px-8 py-5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-black text-foreground uppercase tracking-wider">
+                    {[c.first_name, c.last_name].filter(Boolean).join(' ') ||
+                      dataPoints['admin.customers.guest'] ||
+                      'Guest'}
+                  </span>
+                  {c.is_admin && (
+                    <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 bg-primary dark:bg-primary-bright text-white">
                       <DataPoint
                         as="span"
-                        name="admin.customers.joined_label"
+                        name="admin.customers.admin_badge"
                         initialData={dataPoints}
                       >
-                        Joined
-                      </DataPoint>{' '}
-                      {c.created_at
-                        ? new Date(c.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })
-                        : 'N/A'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      <DataPoint
-                        as="span"
-                        name="admin.customers.orders_label"
-                        initialData={dataPoints}
-                      >
-                        Orders
+                        Admin
                       </DataPoint>
-                    </p>
-                    <p className="text-sm text-foreground font-black">{c.orders.length}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      <DataPoint
-                        as="span"
-                        name="admin.customers.spend_label"
-                        initialData={dataPoints}
-                      >
-                        Lifetime Spend
-                      </DataPoint>
-                    </p>
-                    <p className="text-lg text-primary dark:text-primary-on-dark font-black">
-                      {formatPrice(spent)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-black mb-1">
-                      <DataPoint
-                        as="span"
-                        name="admin.customers.last_order_label"
-                        initialData={dataPoints}
-                      >
-                        Last Order
-                      </DataPoint>
-                    </p>
-                    <p className="text-sm text-foreground font-black">
-                      {lastOrder
-                        ? new Date(lastOrder.created_at || '').toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })
-                        : '—'}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {lastOrder ? lastOrder.status : neverOrderedLabel}
-                    </p>
-                  </div>
+                    </span>
+                  )}
                 </div>
-                <div className="px-8 py-3 bg-surface-muted border-t border-border">
-                  <CustomerAdminToggle profileId={c.id} isAdmin={c.is_admin} />
-                </div>
+                <p className="text-[11px] text-muted-foreground font-bold mt-0.5">{c.email}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  <DataPoint as="span" name="admin.customers.joined_label" initialData={dataPoints}>
+                    Joined
+                  </DataPoint>{' '}
+                  {c.created_at
+                    ? new Date(c.created_at).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                    : 'N/A'}
+                </p>
               </div>
-            );
-          })
+              <div className="px-8 py-3 bg-surface-muted border-t border-border">
+                <CustomerAdminToggle profileId={c.id} isAdmin={c.is_admin} />
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>

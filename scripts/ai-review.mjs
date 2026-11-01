@@ -28,7 +28,7 @@ const PROVIDERS = {
 
 const SYSTEM_PROMPT = [
   'You are a meticulous senior engineer reviewing production e-commerce code',
-  '(Next.js 16 App Router + Supabase + Stripe). Review the provided changes',
+  '(Next.js 16 App Router + Supabase). Review the provided changes',
   'for: security issues (injection, authz, secret handling, abuse vectors),',
   'correctness bugs, race conditions, error-handling gaps, and performance.',
   'Ignore styling/nits. Respond with findings ONLY, each as:',

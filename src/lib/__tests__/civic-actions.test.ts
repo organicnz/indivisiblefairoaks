@@ -95,6 +95,13 @@ describe('Civic Server Actions', () => {
       requireAdmin.mockResolvedValue({
         adminClient: {
           from: () => ({
+            // The action reads the row's `external_id` before writing, to decide
+            // whether an edit should pause the Mobilize sync (issue #153).
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
             upsert: () => ({
               select: () => ({
                 single: async () => ({ data: savedEvent, error: null }),
@@ -110,6 +117,50 @@ describe('Civic Server Actions', () => {
         expect(res.data.slug).toBe('rallies-action');
         expect(res.data.title).toBe('Peaceful Rally');
       }
+    });
+
+    it('pauses the Mobilize sync when an admin edits a synced row', async () => {
+      // Issue #153: a corrected title must not be overwritten by the next sync
+      // pass, so editing a sourced row sets `sync_locked`.
+      const synced = {
+        slug: 'mobilize-1011420',
+        title: 'Choir rehearsal (edited)',
+        category: 'Resistance Choir' as const,
+        date_label: 'Wednesday, October 21',
+        time_label: '6:30 PM',
+        starts_at: null,
+        ends_at: null,
+        location_name: 'Church hall',
+        address: '',
+        description: 'Edited by an organizer',
+        rsvp_url: 'https://www.mobilize.us/indivisible/event/1011420/',
+        highlight: false,
+        sort_order: 100,
+      };
+      const upsert = vi.fn(() => ({
+        select: () => ({
+          single: async () => ({ data: { ...synced, sync_locked: true }, error: null }),
+        }),
+      }));
+
+      requireAdmin.mockResolvedValue({
+        adminClient: {
+          from: () => ({
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: { external_id: '1011420' }, error: null }),
+              }),
+            }),
+            upsert,
+          }),
+        },
+      });
+
+      const res = await saveCivicEvent(synced);
+      expect(res.success).toBe(true);
+      expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ sync_locked: true }), {
+        onConflict: 'slug',
+      });
     });
 
     it('rejects invalid categories or empty titles', async () => {

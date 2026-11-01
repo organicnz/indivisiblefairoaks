@@ -219,9 +219,9 @@ describe('pageMetadata', () => {
   it('noindexes private surfaces', async () => {
     const { metadata } = await loadSite(PRODUCTION);
     const result = metadata.privateMetadata({
-      title: 'Your Cart',
-      description: 'Review your items.',
-      path: '/cart',
+      title: 'Your Wishlist',
+      description: 'Items you saved.',
+      path: '/wishlist',
     });
     expect(result.robots).toEqual({ index: false, follow: false });
   });

@@ -75,7 +75,7 @@ export const FUNCTION_SECRETS = {
     APP_URL: {
       verify: true,
       note:
-        'CORS origin, Stripe success/cancel URLs, and WALL-E citation URLs. The code ' +
+        'CORS origin and WALL-E citation URLs. The code ' +
         "defaults to 'https://indivisiblefairoaks.org', which is wrong until cutover: the apex " +
         'redirects to the legacy Google Site, so every citation and return URL points ' +
         'somewhere that does not serve this app.',
@@ -86,16 +86,11 @@ export const FUNCTION_SECRETS = {
     RESEND_API_KEY: { verify: true, note: 'Sends the contact notification. Absent → silent no-send.' },
     RESEND_FROM_EMAIL: { verify: false, note: 'Defaults in code.' },
     ADMIN_ORDER_EMAIL: { verify: false, note: 'Defaults in code.' },
-  },
-  checkout: {
-    STRIPE_SECRET_KEY: { verify: true, note: 'Creates Checkout Sessions.' },
-  },
-  webhook: {
-    STRIPE_SECRET_KEY: { verify: true, note: 'Reads events and issues refunds.' },
-    STRIPE_WEBHOOK_SECRET: { verify: true, note: 'Verifies the Stripe signature. Absent → signature checks skipped.' },
-    RESEND_API_KEY: { verify: true, note: 'Order confirmation email.' },
-    RESEND_FROM_EMAIL: { verify: false, note: 'Defaults in code.' },
-    ADMIN_ORDER_EMAIL: { verify: false, note: 'Defaults in code.' },
+    BACKEND_VERIFY_EMAIL: {
+      verify: false,
+      note:
+        'Destination for explicitly marked backend verification probes. Missing means the probe is skipped; it never falls back to the chapter inbox.',
+    },
   },
   'crm-broadcast-send': {
     RESEND_API_KEY: {
@@ -142,13 +137,20 @@ export const FUNCTION_SECRETS = {
   },
   health: {},
   'data-points': {},
+  // Issue #153. Uses only platform-injected values (SUPABASE_URL,
+  // SUPABASE_SERVICE_ROLE_KEY) and a public, keyless third-party API
+  // (api.mobilize.us), so there is no operator secret to declare. The value the
+  // *cron job* needs is the service key, and it lives in Supabase Vault rather
+  // than here — see scripts/seed-mobilize-cron.mjs. This entry exists so the
+  // completeness check in scripts/check-edge-secrets.mjs recognizes the
+  // function directory.
+  'sync-mobilize-events': {},
 }
 
 /** Secrets shared by more than one function, listed for the docs table. */
 export const SHARED = {
-  RESEND_API_KEY: ['notify-contact', 'webhook'],
-  STRIPE_SECRET_KEY: ['checkout', 'webhook'],
-  SUPABASE_SERVICE_ROLE_KEY: ['notify-contact', 'checkout', 'search', 'webhook', 'walle-refresh', 'wall-e-chat', 'data-points'],
+  RESEND_API_KEY: ['notify-contact'],
+  SUPABASE_SERVICE_ROLE_KEY: ['notify-contact', 'search', 'walle-refresh', 'wall-e-chat', 'data-points'],
 }
 
 /** Flat set of every operator-managed secret, for `supabase secrets list`. */

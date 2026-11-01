@@ -22,13 +22,26 @@ import { useDataPoints } from '@/hooks/useDataPoints';
 import { type CivicEventRecord, deleteCivicEvent } from '@/lib/actions/civic';
 import { instantToPacificBasic } from '@/lib/calendar-time';
 import { buildGoogleCalendarUrl, buildIcsCalendar } from '@/lib/civic-events';
+import { captureAnalyticsEvent } from '@/lib/posthog';
 
 export interface CivicEvent {
   id: string;
   title: string;
-  category: 'Meetings' | 'Resistance Choir' | 'Voter Mobilization' | 'Rallies & Street Action';
+  category:
+    | 'Meetings'
+    | 'Resistance Choir'
+    | 'Voter Mobilization'
+    | 'Rallies & Street Action'
+    | 'Community';
   dateLabel: string;
   timeLabel: string;
+  /**
+   * Raw UTC instants. The edit modal writes these back: without them it saved
+   * every event with `starts_at: null`, which quietly broke the Calendar and
+   * .ics links of any event an admin touched from the calendar.
+   */
+  startsAt?: string | null;
+  endsAt?: string | null;
   /** Pacific wall stamps (`YYYYMMDDTHHMMSS`, no `Z`) — see `@/lib/calendar-time`. */
   isoDateStart: string;
   isoDateEnd: string;
@@ -107,6 +120,9 @@ const CATEGORIES = [
   'Resistance Choir',
   'Voter Mobilization',
   'Rallies & Street Action',
+  // Issue #153: Mobilize's COMMUNITY / POSTCARD_WRITING / WORKSHOP events have
+  // no honest home among the four editorial categories.
+  'Community',
 ] as const;
 
 export function InteractiveEventsCalendar({
@@ -166,8 +182,8 @@ export function InteractiveEventsCalendar({
       category: event.category,
       date_label: event.dateLabel,
       time_label: event.timeLabel,
-      starts_at: null,
-      ends_at: null,
+      starts_at: event.startsAt ?? null,
+      ends_at: event.endsAt ?? null,
       location_name: event.locationName,
       address: event.address,
       description: event.description,
@@ -212,6 +228,8 @@ export function InteractiveEventsCalendar({
       // Pacific wall time — the zone the links and the .ics pin explicitly —
       // instead of slicing the string into a floating stamp the viewer's
       // clock reinterprets (the original 2:30 AM bug).
+      startsAt: savedRecord.starts_at,
+      endsAt: savedRecord.ends_at,
       isoDateStart: instantToPacificBasic(savedRecord.starts_at),
       isoDateEnd: instantToPacificBasic(savedRecord.ends_at),
       locationName: savedRecord.location_name,
@@ -433,7 +451,10 @@ export function InteractiveEventsCalendar({
                     {/* iCal / Outlook .ics Download */}
                     <button
                       type="button"
-                      onClick={() => downloadIcsFile(event)}
+                      onClick={() => {
+                        downloadIcsFile(event);
+                        captureAnalyticsEvent('event_calendar_downloaded', { event_id: event.id });
+                      }}
                       className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground border border-border dark:bg-white/5 dark:hover:bg-white/10 dark:text-ink-on-dark dark:border-white/10 text-xs font-semibold transition-colors"
                       title="Download iCal .ics for Apple Calendar & Outlook"
                     >
@@ -446,6 +467,9 @@ export function InteractiveEventsCalendar({
                     href={event.rsvpUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() =>
+                      captureAnalyticsEvent('event_rsvp_clicked', { event_id: event.id })
+                    }
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-bright hover:bg-primary-light text-white font-bold text-xs uppercase tracking-wider shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 focus-visible:ring-offset-secondary transition-colors duration-300 ease-out"
                   >
                     <span>RSVP for Event</span>

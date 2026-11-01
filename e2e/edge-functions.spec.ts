@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test';
 /**
  * Live Supabase edge-function deployment guards.
  *
- * Proves all five functions (health, notify-contact, search, checkout,
- * webhook) are actually deployed to the canonical project
+ * Proves the deployed functions (health, notify-contact, search,
+ * wall-e-chat, walle-refresh) are actually deployed to the canonical project
  * (configured in env) — the "forgot to deploy" class of bug.
  *
  * Strategy: send deliberately INVALID payloads and assert the function
@@ -55,19 +55,6 @@ test.describe('edge function liveness', () => {
   test('search rejects empty query with 400', async ({ request }) => {
     const res = await request.post(edge('search'), { headers, data: { q: '' } });
     expect(res.status(), 'search must run its validation path').toBe(400);
-  });
-
-  test('checkout answers its gateway or validation path', async ({ request }) => {
-    const res = await request.post(edge('checkout'), { headers, data: {} });
-    expect(res.status(), 'checkout function missing — not deployed?').not.toBe(404);
-  });
-
-  test('webhook answers its gateway or validation path', async ({ request }) => {
-    const res = await request.post(edge('webhook'), {
-      headers,
-      data: 'probe',
-    });
-    expect(res.status(), 'webhook function missing — not deployed?').not.toBe(404);
   });
 
   for (const name of ['wall-e-chat', 'walle-refresh']) {

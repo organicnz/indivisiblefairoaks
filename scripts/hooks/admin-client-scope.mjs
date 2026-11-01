@@ -8,7 +8,7 @@
  *
  * Current allowlist (from audit):
  *   src/app/admin/         — admin dashboard (is_admin check required)
- *   src/app/api/webhooks/  — stripe webhook (server-to-server, no user session)
+ *   src/app/api/webhooks/  — provider webhooks (server-to-server, no user session)
  *   src/app/products/page.tsx — public product listing (read-only, no write)
  *   src/app/account/page.tsx  — profile fetch with user-id scoping
  *   src/lib/admin-auth.ts     — admin-only chokepoint: verifies is_admin

@@ -1,0 +1,42 @@
+-- Migration: 20261101070000_revoke_rate_limit_table_grants.sql
+--
+-- `search_rate_limit` is service-role-only by usage, and public by privilege.
+--
+-- Every caller passes a service-role client and bypasses RLS:
+--
+--   supabase/functions/search/index.ts     supabaseAdmin() → SERVICE_ROLE_KEY
+--   supabase/functions/checkout/index.ts   supabaseAdmin() → SERVICE_ROLE_KEY
+--   supabase/functions/wall-e-chat/index.ts createClient(…, SERVICE_KEY)
+--
+-- Nothing in `src/` touches the table. But `pg_class.relacl` grants anon and
+-- authenticated INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+-- and MAINTAIN on it. The only thing preventing a public write is that RLS is
+-- enabled with **zero policies**, so every non-bypass role is denied. That is
+-- one policy away from being wrong: the moment somebody adds a permissive
+-- policy — a plausible "let the client record its own request" — the table
+-- becomes readable and writable from the publishable key, because the grants
+-- are already there.
+--
+-- TRUNCATE is the sharper half. Postgres does **not** apply row security to
+-- TRUNCATE, so no policy can protect it: the grant alone is the whole story.
+-- PostgREST exposes no TRUNCATE verb, so it is not reachable over the API
+-- today — which is exactly the kind of "not reachable today" that stops being
+-- true when a SECURITY DEFINER function or a future integration reaches the
+-- table with the wrong role's privileges.
+--
+-- This mirrors the pattern already used for the other service-only tables,
+-- which revoke at creation rather than relying on deny-all:
+--
+--   20260917000000_walle_knowledge_snapshots.sql
+--     REVOKE ALL ON public.walle_knowledge_snapshots FROM anon, authenticated;
+--   20261031120000_mobilize_events.sql
+--     REVOKE ALL ON public.mobilize_settings    FROM anon, authenticated;
+--
+-- `search_rate_limit` was written before that convention existed and was never
+-- brought in line. RLS stays enabled: the revoke is the primary control, and a
+-- future policy added by mistake would then find no privileges to grant.
+--
+-- The cron prune (20261008000000_prune_rate_limit.sql) runs as the owner and is
+-- unaffected. service_role keeps ALL, so every function above is unaffected.
+
+REVOKE ALL ON public.search_rate_limit FROM anon, authenticated;

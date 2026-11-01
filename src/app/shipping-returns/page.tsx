@@ -99,7 +99,7 @@ export default async function ShippingReturnsPage() {
                     as="span"
                     initialData={dataPoints}
                   >
-                    Indicative delivery times provided at order
+                    Indicative delivery times confirmed when you request an item
                   </DataPoint>
                 </li>
                 <li>
@@ -234,7 +234,7 @@ export default async function ShippingReturnsPage() {
             initialData={dataPoints}
             className="text-2xl font-black uppercase mb-4 text-foreground dark:text-white"
           >
-            Need help with materials or an order?
+            Need help with materials or a delivery?
           </DataPoint>
           <DataPoint
             name="shipping.help.body"

@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 // Issue #149: the GET payload feeds the calendar's rows and links; stamps must
@@ -14,6 +15,7 @@ const eventSchema = z.object({
     'Resistance Choir',
     'Voter Mobilization',
     'Rallies & Street Action',
+    'Community',
   ]),
   date_label: z.string().trim().min(1, 'Date label is required').max(100),
   time_label: z.string().trim().min(1, 'Time label is required').max(100),
@@ -45,14 +47,20 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const category = searchParams.get('category');
 
-    const supabase = createPublicClient();
+    // Untyped: `is_hidden` and the Mobilize provenance columns arrived in a
+    // migration the generated types do not know about yet (issue #153), the
+    // same reason `src/lib/queries/civic.ts` casts its client.
+    const supabase = createPublicClient() as unknown as SupabaseClient;
     let query = supabase
       .from('events')
       .select(
         'slug, title, category, date_label, time_label, starts_at, ends_at, location_name, address, description, rsvp_url, highlight, sort_order'
       )
+      // Hidden rows are Mobilize events that were deleted or have finished
+      // (issue #153). They stay in the table so the admin tab can restore one.
+      .eq('is_hidden', false)
       .order('sort_order', { ascending: true })
-      .order('starts_at', { ascending: true });
+      .order('starts_at', { ascending: true, nullsFirst: false });
 
     if (category) {
       query = query.eq('category', category);
@@ -71,6 +79,12 @@ export async function GET(req: NextRequest) {
       category: row.category,
       dateLabel: row.date_label,
       timeLabel: row.time_label,
+      // Raw instants are returned alongside the Pacific wall stamps: the admin
+      // edit modal round-trips `starts_at`/`ends_at`, and without them the
+      // calendar's Edit button saved every event with null instants — which
+      // silently broke its Calendar and .ics links.
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
       isoDateStart: instantToPacificBasic(row.starts_at),
       isoDateEnd: instantToPacificBasic(row.ends_at),
       locationName: row.location_name,
@@ -137,6 +151,19 @@ export async function POST(req: NextRequest) {
       ? slugify(payload.slug)
       : slugify(payload.title) || `event-${Date.now()}`;
 
+    // Issue #153: editing a Mobilize-sourced row claims it for a human — the
+    // sync then skips it rather than overwriting the edit on its next pass.
+    const eventsClient = authClient as unknown as SupabaseClient;
+    let locksSync = false;
+    if (payload.slug) {
+      const { data: existing } = await eventsClient
+        .from('events')
+        .select('external_id')
+        .eq('slug', finalSlug)
+        .maybeSingle();
+      locksSync = Boolean(existing?.external_id);
+    }
+
     const upsertRow = {
       slug: finalSlug,
       title: payload.title,
@@ -152,9 +179,10 @@ export async function POST(req: NextRequest) {
       highlight: payload.highlight,
       sort_order: payload.sort_order,
       updated_at: new Date().toISOString(),
+      ...(locksSync ? { sync_locked: true } : {}),
     };
 
-    const { data, error } = await authClient
+    const { data, error } = await eventsClient
       .from('events')
       .upsert(upsertRow, { onConflict: 'slug' })
       .select('*')

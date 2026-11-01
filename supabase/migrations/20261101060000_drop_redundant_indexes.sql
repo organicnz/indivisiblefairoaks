@@ -1,0 +1,46 @@
+-- Migration: 20261101060000_drop_redundant_indexes.sql
+--
+-- Three indexes on this database are exact duplicates of a sibling, so every
+-- write to their table maintains two structures to answer the same lookups.
+-- Found by comparing `pg_index.indkey` across each table and then reading the
+-- definitions, because a matching key alone does not mean a matching index.
+--
+--   1. products_slug_idx          (slug)
+--      duplicates products_slug_key UNIQUE (slug). A btree on the same column
+--      with the same operator class answers every equality lookup the plain
+--      one did; the unique one is simply also allowed to reject duplicates.
+--
+--   2. idx_crm_contacts_email     (email)
+--      duplicates crm_contacts_email_key UNIQUE (email), same reasoning. This
+--      one is maintained on the contact-form sync path, which upserts with
+--      ON CONFLICT (email) DO UPDATE — the conflict target the unique index
+--      serves and the duplicate does not.
+--
+--   3. idx_crm_contacts_created_at (created_at DESC)
+--      is an exact prefix of idx_crm_contacts_created_id
+--      (created_at DESC, id DESC). A composite btree serves every query that
+--      the leading-column index served, including ORDER BY created_at DESC.
+--
+-- What was checked and deliberately KEPT, because the key comparison flags it
+-- but the definitions differ:
+--
+--   * idx_crm_contacts_opted_in_id  (id) WHERE do_not_email IS FALSE
+--     shares its key with crm_contacts_pkey but is partial, so it is a much
+--     smaller index for the opt-in sweep and the pkey cannot replace it.
+--   * crm_broadcasts_recent_idx (created_at DESC) WHERE status <> 'draft'
+--   * idx_crm_broadcasts_stranded (created_at DESC) WHERE status = 'sending'
+--     Both are partial. Neither can serve an unfiltered ORDER BY created_at,
+--     which is what idx_crm_broadcasts_created_at is for, so all three stay.
+--
+-- Nothing depends on the dropped indexes: all three are non-unique, none is a
+-- constraint, and none carries a predicate. There are also no foreign keys
+-- without a supporting index on this database (checked across pg_constraint),
+-- so nothing loses a referential-integrity path here.
+--
+-- Plain DROP INDEX rather than CONCURRENTLY: the largest affected table holds
+-- eight rows and the whole set is under 48 kB, so the ACCESS EXCLUSIVE lock is
+-- momentary and CONCURRENTLY's extra passes would buy nothing.
+
+DROP INDEX IF EXISTS public.products_slug_idx;
+DROP INDEX IF EXISTS public.idx_crm_contacts_email;
+DROP INDEX IF EXISTS public.idx_crm_contacts_created_at;
