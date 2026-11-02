@@ -278,7 +278,7 @@ export function MeetingMaterials() {
 
             {/* Key Discussion Points */}
             <div className="space-y-3">
-              <h4 className="text-xs font-black uppercase tracking-wider text-accent-gold flex items-center gap-1.5">
+              <h4 className="text-xs font-black uppercase tracking-wider text-primary-ink dark:text-accent-gold flex items-center gap-1.5">
                 <CheckCircle2 size={14} />
                 Key Motions &amp; Discussion Points
               </h4>
