@@ -564,6 +564,13 @@ export function VisualEditOverlay() {
   // Atomic delete confirmation dialog state
   const [deleteConfirmIndexes, setDeleteConfirmIndexes] = useState<number[] | null>(null);
 
+  // Atomic drag-and-drop reorder confirmation dialog state
+  const [reorderConfirm, setReorderConfirm] = useState<{
+    fromIndex: number;
+    toIndex: number;
+    label: string;
+  } | null>(null);
+
   // Page settings modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [pageTitle, setPageTitle] = useState('');
@@ -3046,6 +3053,16 @@ export function VisualEditOverlay() {
     ]
   );
 
+  const handleReorderSectionWithConfirmation = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (fromIndex === toIndex) return;
+      const blk = blocksRef.current[fromIndex];
+      const label = blk ? sectionLabelForBlock(blk) : `Block #${fromIndex + 1}`;
+      setReorderConfirm({ fromIndex, toIndex, label });
+    },
+    []
+  );
+
   /**
    * The lift/drop gesture, in its own hook beside the pure arithmetic in
    * `@/lib/block-order`.
@@ -3159,9 +3176,10 @@ export function VisualEditOverlay() {
       const key = event.key.toLowerCase();
       const mod = event.metaKey || event.ctrlKey;
 
-      if (key === 'escape' && deleteConfirmIndexes !== null) {
+      if (key === 'escape' && (deleteConfirmIndexes !== null || reorderConfirm !== null)) {
         event.preventDefault();
         setDeleteConfirmIndexes(null);
+        setReorderConfirm(null);
         return;
       }
 
@@ -4292,6 +4310,7 @@ export function VisualEditOverlay() {
         isUploadingImage={isUploadingImage}
         onUploadClick={() => imageFileInputRef.current?.click()}
         onSetAltTextModal={(state) => setAltTextModal(state)}
+        onSaveImageAlt={handleSaveImageAlt}
         onCancelImageEdit={(session) => {
           session.element.src = session.initialSrc;
           session.element.alt = session.initialAlt;
@@ -4335,7 +4354,7 @@ export function VisualEditOverlay() {
         onOpenEditSection={handleOpenEditSection}
         onDuplicateSection={handleDuplicateSection}
         onMoveSection={handleMoveSection}
-        onReorderSection={(from, to) => moveBlockTo(from, to)}
+        onReorderSection={handleReorderSectionWithConfirmation}
         onDeleteSection={(idx) => handleDeleteSection(idx)}
         blockTypeOptions={BLOCK_TYPE_OPTIONS}
         adminEditUrl={target?.editUrl ?? null}
@@ -5615,7 +5634,7 @@ export function VisualEditOverlay() {
           jumpTo(idx);
         }}
         onMoveBlock={(idx, dir) => handleMoveSection(idx, dir)}
-        onReorderBlock={(from, to) => moveBlockTo(from, to)}
+        onReorderBlock={handleReorderSectionWithConfirmation}
         onDuplicateBlock={(idx) => handleDuplicateSection(idx)}
         onDeleteBlock={(idx) => handleDeleteSection(idx)}
         onOpenComposer={(idx, mode = 'block') => {
@@ -5854,6 +5873,57 @@ export function VisualEditOverlay() {
                 className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {savingBackend ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Atomic Section Drag-and-Drop Reorder Confirmation Modal ───────── */}
+      {reorderConfirm !== null && (
+        <div
+          data-testid="block-reorder-confirm-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-reorder-dialog-title"
+          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setReorderConfirm(null);
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setReorderConfirm(null);
+          }}
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-secondary p-5 shadow-2xl text-ink-on-dark space-y-4">
+            <div className="flex items-center gap-2 text-accent-gold font-bold text-sm">
+              <GripVertical size={18} />
+              <h3 id="confirm-reorder-dialog-title" className="text-white text-base">
+                Confirm Move Section?
+              </h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Move &ldquo;{reorderConfirm.label}&rdquo; from position #{reorderConfirm.fromIndex + 1} to #{reorderConfirm.toIndex + 1}?
+              This will update the page layout order.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setReorderConfirm(null)}
+                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingBackend}
+                onClick={async () => {
+                  const { fromIndex, toIndex } = reorderConfirm;
+                  setReorderConfirm(null);
+                  await moveBlockTo(fromIndex, toIndex);
+                }}
+                className="px-4 py-1.5 rounded-xl bg-accent-gold hover:bg-accent-gold/90 text-ink-strong text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-md"
+              >
+                {savingBackend ? 'Moving…' : 'Confirm Move'}
               </button>
             </div>
           </div>

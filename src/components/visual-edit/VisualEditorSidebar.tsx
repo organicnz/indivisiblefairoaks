@@ -170,6 +170,7 @@ export interface VisualEditorSidebarProps {
   isUploadingImage: boolean;
   onUploadClick: () => void;
   onSetAltTextModal: (state: { session: ImageEditSession; value: string }) => void;
+  onSaveImageAlt?: (session: ImageEditSession, value: string) => Promise<void> | void;
   onCancelImageEdit: (session: ImageEditSession) => void;
 
   // ── Action handlers ─────────────────────────────────────────────────────
@@ -542,6 +543,24 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
   // A const, because the onClick closure below cannot inherit the JSX
   // conditional's narrowing — a narrow const does.
   const imageBlockIndex = imageSession.blockIndex;
+  const [altText, setAltText] = useState(imageSession.element.alt || '');
+  const [isSavingAlt, setIsSavingAlt] = useState(false);
+
+  const handleSaveAlt = async () => {
+    setIsSavingAlt(true);
+    try {
+      if (props.onSaveImageAlt) {
+        await props.onSaveImageAlt(imageSession, altText);
+      } else {
+        props.onSetAltTextModal({
+          session: imageSession,
+          value: altText,
+        });
+      }
+    } finally {
+      setIsSavingAlt(false);
+    }
+  };
 
   return (
     <div
@@ -584,12 +603,45 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
         <span>{props.isUploadingImage ? 'Uploading…' : 'Upload'}</span>
       </button>
 
+      <div className="mt-1 flex flex-col gap-1.5 rounded-lg border border-white/10 bg-white/5 p-2">
+        <label
+          htmlFor="sidebar-image-alt-input"
+          className="text-[10px] font-bold uppercase tracking-wider text-slate-300"
+        >
+          Alt Text (Accessibility)
+        </label>
+        <div className="flex items-center gap-1.5">
+          <input
+            id="sidebar-image-alt-input"
+            type="text"
+            value={altText}
+            onChange={(e) => setAltText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void handleSaveAlt();
+              }
+            }}
+            placeholder="Describe image for screen readers"
+            className="min-w-0 flex-1 rounded border border-white/15 bg-slate-900 px-2 py-1 text-xs text-white placeholder:text-white/30 focus:border-accent-gold/60 focus:outline-none"
+          />
+          <button
+            type="button"
+            disabled={isSavingAlt}
+            onClick={() => void handleSaveAlt()}
+            className="rounded bg-sky-600 hover:bg-sky-500 px-2.5 py-1 text-[11px] font-bold text-white transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {isSavingAlt ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={() =>
           props.onSetAltTextModal({
             session: imageSession,
-            value: imageSession.element.alt || '',
+            value: altText,
           })
         }
         className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
@@ -597,7 +649,7 @@ function ImageContextZone(props: VisualEditorSidebarProps & { imageSession: Imag
         aria-label="Edit image alt text"
       >
         <Settings size={12} />
-        <span className="hidden sm:inline">Alt Text</span>
+        <span className="hidden sm:inline">Alt Text Dialog</span>
       </button>
 
       {imageBlockIndex !== null && (

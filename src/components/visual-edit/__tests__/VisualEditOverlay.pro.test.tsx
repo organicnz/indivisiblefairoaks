@@ -573,4 +573,115 @@ describe('VisualEditOverlay 10x Pro Features', () => {
 
     expect(document.querySelector('[data-testid="block-delete-confirm-dialog"]')).toBeNull();
   });
+
+  it('requires confirmation before reordering sections via drag and drop', async () => {
+    const main = document.createElement('main');
+    const p1 = document.createElement('p');
+    p1.textContent = 'Section Alpha';
+    const p2 = document.createElement('p');
+    p2.textContent = 'Section Beta';
+    main.appendChild(p1);
+    main.appendChild(p2);
+    document.body.appendChild(main);
+
+    await mount();
+
+    const blockItems = document.querySelectorAll('[data-testid="sidebar-block-item"]');
+    expect(blockItems.length).toBeGreaterThanOrEqual(2);
+
+    const dragHandle = blockItems[0]?.querySelector('span[draggable="true"]');
+    expect(dragHandle).not.toBeNull();
+
+    // Start drag on block 0
+    await act(async () => {
+      dragHandle?.dispatchEvent(new MouseEvent('dragstart', { bubbles: true, cancelable: true }));
+    });
+
+    // Drop on block 1
+    await act(async () => {
+      blockItems[1]?.dispatchEvent(new MouseEvent('drop', { bubbles: true, cancelable: true }));
+    });
+
+    // Reorder confirmation modal should be displayed
+    const confirmDialog = document.querySelector<HTMLElement>(
+      '[data-testid="block-reorder-confirm-dialog"]'
+    );
+    expect(confirmDialog).not.toBeNull();
+    expect(confirmDialog?.textContent).toContain('Confirm Move Section?');
+    expect(confirmDialog?.textContent).toContain('from position #1 to #2');
+
+    // Clicking Cancel dismisses without saving
+    const cancelBtn = Array.from(confirmDialog?.querySelectorAll('button') ?? []).find(
+      (b) => b.textContent?.trim() === 'Cancel'
+    );
+    expect(cancelBtn).toBeDefined();
+
+    await act(async () => {
+      cancelBtn?.click();
+    });
+
+    expect(document.querySelector('[data-testid="block-reorder-confirm-dialog"]')).toBeNull();
+    expect(saveContent).not.toHaveBeenCalled();
+
+    // Trigger drag-and-drop again
+    await act(async () => {
+      dragHandle?.dispatchEvent(new MouseEvent('dragstart', { bubbles: true, cancelable: true }));
+    });
+    await act(async () => {
+      blockItems[1]?.dispatchEvent(new MouseEvent('drop', { bubbles: true, cancelable: true }));
+    });
+
+    const confirmDialog2 = document.querySelector<HTMLElement>(
+      '[data-testid="block-reorder-confirm-dialog"]'
+    );
+    expect(confirmDialog2).not.toBeNull();
+
+    // Click Confirm Move
+    const confirmMoveBtn = Array.from(confirmDialog2?.querySelectorAll('button') ?? []).find(
+      (b) => b.textContent?.trim() === 'Confirm Move'
+    );
+    expect(confirmMoveBtn).toBeDefined();
+
+    await act(async () => {
+      confirmMoveBtn?.click();
+    });
+
+    expect(document.querySelector('[data-testid="block-reorder-confirm-dialog"]')).toBeNull();
+    expect(saveContent).toHaveBeenCalled();
+  });
+
+  it('dismisses reorder confirmation dialog on Escape key and backdrop click', async () => {
+    const main = document.createElement('main');
+    const p1 = document.createElement('p');
+    p1.textContent = 'Alpha';
+    const p2 = document.createElement('p');
+    p2.textContent = 'Beta';
+    main.appendChild(p1);
+    main.appendChild(p2);
+    document.body.appendChild(main);
+
+    await mount();
+
+    const blockItems = document.querySelectorAll('[data-testid="sidebar-block-item"]');
+    const dragHandle = blockItems[0]?.querySelector('span[draggable="true"]');
+
+    await act(async () => {
+      dragHandle?.dispatchEvent(new MouseEvent('dragstart', { bubbles: true, cancelable: true }));
+    });
+    await act(async () => {
+      blockItems[1]?.dispatchEvent(new MouseEvent('drop', { bubbles: true, cancelable: true }));
+    });
+
+    const dialog = document.querySelector<HTMLElement>(
+      '[data-testid="block-reorder-confirm-dialog"]'
+    );
+    expect(dialog).not.toBeNull();
+
+    // Escape dismisses
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+
+    expect(document.querySelector('[data-testid="block-reorder-confirm-dialog"]')).toBeNull();
+  });
 });
