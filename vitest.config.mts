@@ -155,6 +155,7 @@ export default defineConfig({
         'src/config/routes.ts',
         'src/config/legacy-redirects.ts',
         'src/app/auth/callback/route.ts',
+        'src/app/contact/actions.ts',
       ],
 
       // ── Reporters ─────────────────────────────────────────────────────────

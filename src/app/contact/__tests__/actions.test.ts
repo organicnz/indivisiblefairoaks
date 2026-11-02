@@ -9,13 +9,10 @@ process.env.NEXT_PUBLIC_SUPABASE_URL ||= 'https://stub.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||= 'stub-publishable-key';
 
 /**
- * `bun test` lacks reliable vi.mock hoisting: the real action chain (and its
- * env/Supabase imports) would evaluate despite the mocks above. The suite is
- * fully covered under vitest and again end-to-end by Playwright, so under
- * bun we skip rather than run against unmocked infrastructure.
+ * Vitest on Bun runtime correctly hoists vi.mock calls, executing the full
+ * action validation and notification propagation suite with complete isolation.
  */
-const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== 'undefined';
-const describeSuite = isBun ? describe.skip : describe;
+const describeSuite = describe;
 
 let submitContact!: (formData: FormData) => Promise<ContactResult>;
 const loadAction = async () => {
@@ -33,7 +30,12 @@ let rpcResult: { data: number | null; error: { message: string } | null } = {
 const rateLimitOk = { ok: true as const, retryAfterSec: 0 };
 let rateLimitResult: { ok: boolean; retryAfterSec: number } = rateLimitOk;
 
-let fetchResponse: { ok: boolean; status?: number; json: () => Promise<unknown> } | null = null;
+let fetchResponse: {
+  ok: boolean;
+  status?: number;
+  text?: () => Promise<string>;
+  json: () => Promise<unknown>;
+} | null = null;
 let fetchShouldReject = false;
 const fetchCalls: { url: string; init: RequestInit | undefined }[] = [];
 const testEnv = vi.hoisted(() => ({
@@ -280,7 +282,23 @@ describeSuite('submitContact() delivery status propagation', () => {
   });
 
   it('maps an admin-send failure (502) to failed without pretending success', async () => {
-    fetchResponse = { ok: false, status: 502, json: () => Promise.resolve({}) };
+    fetchResponse = {
+      ok: false,
+      status: 502,
+      text: () => Promise.resolve('bad gateway'),
+      json: () => Promise.resolve({}),
+    };
+    const r = await submitContact(makeForm());
+    expect(r).toEqual({ success: true, emailStatus: 'failed', copyStatus: 'not-requested' });
+  });
+
+  it('handles response text extraction failure on non-ok status', async () => {
+    fetchResponse = {
+      ok: false,
+      status: 502,
+      text: () => Promise.reject(new Error('stream error')),
+      json: () => Promise.resolve({}),
+    };
     const r = await submitContact(makeForm());
     expect(r).toEqual({ success: true, emailStatus: 'failed', copyStatus: 'not-requested' });
   });
