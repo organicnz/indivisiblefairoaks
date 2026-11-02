@@ -620,6 +620,17 @@ export function VisualEditOverlay() {
   // Backend health details popover state
   const [showHealthDetails, setShowHealthDetails] = useState(false);
 
+  const [dockCollapsed, setDockCollapsed] = useState(() => {
+    try {
+      return (
+        typeof window !== 'undefined' &&
+        window.localStorage?.getItem('visual_edit_dock_collapsed') === 'true'
+      );
+    } catch {
+      return false;
+    }
+  });
+
   /**
    * The single path into the Visual Composer Inspector.
    *
@@ -651,6 +662,7 @@ export function VisualEditOverlay() {
       setVcSelectedBlockIds(useBatch ? selectedIds : []);
       if (!useBatch) setSelectedBlockIds(new Set([target.id]));
       setVcMode(mode);
+      setDockCollapsed(false);
       setIsVisualComposerOpen(true);
     },
     [selectedBlockIndexes, setVcBlockIndex]
@@ -843,16 +855,6 @@ export function VisualEditOverlay() {
       );
     } catch {
       return true;
-    }
-  });
-  const [dockCollapsed, setDockCollapsed] = useState(() => {
-    try {
-      return (
-        typeof window !== 'undefined' &&
-        window.localStorage?.getItem('visual_edit_dock_collapsed') === 'true'
-      );
-    } catch {
-      return false;
     }
   });
   const toggleInspector = useCallback(() => {
@@ -4389,6 +4391,8 @@ export function VisualEditOverlay() {
         onOpenEditSection={handleOpenEditSection}
         onDuplicateSection={handleDuplicateSection}
         onMoveSection={handleMoveSection}
+        onReorderSection={(from, to) => moveBlockTo(from, to)}
+        onDeleteSection={(idx) => handleDeleteSection(idx)}
         blockTypeOptions={BLOCK_TYPE_OPTIONS}
         adminEditUrl={target?.editUrl ?? null}
       />
@@ -4956,7 +4960,7 @@ export function VisualEditOverlay() {
                         { label: 'Donate to Chapter', href: '/donate' },
                         { label: 'Volunteer Today', href: '/contact?topic=volunteer' },
                         { label: 'Browse Events', href: '/events' },
-                        { label: 'Defend Democracy Store', href: '/products' },
+                        { label: 'Request Civic Materials', href: '/contact?topic=materials' },
                       ].map((preset) => (
                         <button
                           key={preset.label}

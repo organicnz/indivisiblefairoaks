@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
   type InlineFormatCommand,
   InlineFormatToolbar,
@@ -572,6 +573,8 @@ export interface RichTextListEditorProps {
   label?: string;
   items: string[];
   onChange: (items: string[]) => void;
+  /** When true and item has non-empty text, require confirmation before deleting. */
+  confirmDelete?: boolean;
 }
 
 /**
@@ -589,6 +592,7 @@ export function RichTextListEditor({
   label = 'List Items',
   items,
   onChange,
+  confirmDelete = false,
 }: RichTextListEditorProps) {
   const autoId = useId();
   const id = explicitId ?? autoId;
@@ -873,20 +877,34 @@ export function RichTextListEditor({
                         </button>
                       </div>
                     )}
-                    <button
-                      type="button"
-                      aria-label={`Remove list item ${index + 1}`}
-                      title={
-                        safeItems.length <= 1
-                          ? 'A list needs at least one item'
-                          : `Remove list item ${index + 1}`
-                      }
-                      disabled={safeItems.length <= 1}
-                      onClick={() => removeItem(index)}
-                      className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-30"
-                    >
-                      <Trash2 size={11} />
-                    </button>
+                    {confirmDelete && safeItems.length > 1 && stripTags(item).trim().length > 0 ? (
+                      <ConfirmAction
+                        label={`Remove list item ${index + 1}`}
+                        message={`Delete list item ${index + 1}?`}
+                        confirmLabel="Delete"
+                        cancelLabel="Cancel"
+                        danger
+                        idleClassName="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-200 cursor-pointer"
+                        onConfirm={() => removeItem(index)}
+                      >
+                        <Trash2 size={11} />
+                      </ConfirmAction>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label={`Remove list item ${index + 1}`}
+                        title={
+                          safeItems.length <= 1
+                            ? 'A list needs at least one item'
+                            : `Remove list item ${index + 1}`
+                        }
+                        disabled={safeItems.length <= 1}
+                        onClick={() => removeItem(index)}
+                        className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}

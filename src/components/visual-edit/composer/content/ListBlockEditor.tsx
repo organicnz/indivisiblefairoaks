@@ -20,6 +20,7 @@ export function ListBlockEditor({
       ordered={currentBlock.type === 'orderedList'}
       items={currentBlock.items}
       onChange={(items) => setCurrentBlock({ ...currentBlock, items })}
+      confirmDelete={true}
     />
   );
 }

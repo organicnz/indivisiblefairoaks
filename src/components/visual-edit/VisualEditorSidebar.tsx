@@ -16,6 +16,7 @@ import {
   EyeOff,
   FilePlus2,
   FolderOpen,
+  GripVertical,
   History,
   Image as ImageIcon,
   ImagePlus,
@@ -41,13 +42,16 @@ import {
   Sparkles,
   Sun,
   Tablet,
+  Trash2,
   Undo2,
   Upload,
   UsersRound,
   X,
 } from 'lucide-react';
 import type React from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import type { Block } from '@/lib/blocks';
 import type { CopyRegionDefinition } from '@/lib/copy-regions';
 import { canRedo, canUndo, type History as EditorHistory } from '@/lib/editor-history';
@@ -194,6 +198,8 @@ export interface VisualEditorSidebarProps {
   onOpenEditSection: (blockIndex: number) => void;
   onDuplicateSection: (blockIndex: number) => void;
   onMoveSection: (blockIndex: number, direction: 'up' | 'down') => void;
+  onReorderSection?: (fromIndex: number, toIndex: number) => void;
+  onDeleteSection?: (blockIndex: number) => void;
 
   // ── Constants ───────────────────────────────────────────────────────────
   blockTypeOptions: ReadonlyArray<{ type: Block['type']; label: string }>;
@@ -512,13 +518,13 @@ function InlineContextZone(props: VisualEditorSidebarProps & { inlineSession: In
             onClick={() => {
               const idx = inlineSession.blockIndex;
               if (idx !== null) {
-                props.onOpenEditSection(idx);
+                props.onOpenVisualComposer('block', idx);
               }
             }}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold text-slate-300 transition-colors hover:bg-white/10"
-            title="Open comprehensive block editor modal"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold text-accent-gold transition-colors hover:bg-white/10 hover:text-white"
+            title="Open Full Visual Composer Editor (⌘E)"
           >
-            <Settings size={12} />
+            <SlidersHorizontal size={12} />
             <span className="hidden md:inline">Full Editor</span>
           </button>
         </>
@@ -653,6 +659,9 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
     blockTypeOptions,
     adminEditUrl,
   } = props;
+
+  const [draggingBlockIndex, setDraggingBlockIndex] = useState<number | null>(null);
+  const [dragOverBlockIndex, setDragOverBlockIndex] = useState<number | null>(null);
 
   return (
     <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 text-xs">
@@ -1413,11 +1422,69 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
               const label = sectionLabelForBlock(block);
               const section = sections.find((item) => item.blockIndex === idx);
               const framed = section ? enabledSectionKeys.has(section.key) : false;
+              const isDragging = draggingBlockIndex === idx;
+              const isDragOver = dragOverBlockIndex === idx;
               return (
-                <div
+                <section
                   key={block.id}
-                  className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-ink-on-dark"
+                  aria-label={`Block #${idx + 1}: ${label}`}
+                  data-testid="sidebar-block-item"
+                  onDragOver={(e) => {
+                    if (
+                      !props.onReorderSection ||
+                      draggingBlockIndex === null ||
+                      draggingBlockIndex === idx
+                    )
+                      return;
+                    e.preventDefault();
+                    if (e.dataTransfer) {
+                      e.dataTransfer.dropEffect = 'move';
+                    }
+                    if (dragOverBlockIndex !== idx) setDragOverBlockIndex(idx);
+                  }}
+                  onDragLeave={(e) => {
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    if (dragOverBlockIndex === idx) setDragOverBlockIndex(null);
+                  }}
+                  onDrop={(e) => {
+                    if (!props.onReorderSection) return;
+                    const dragFrom =
+                      draggingBlockIndex ?? Number(e.dataTransfer?.getData('text/plain'));
+                    if (Number.isNaN(dragFrom) || dragFrom === idx) return;
+                    e.preventDefault();
+                    props.onReorderSection(dragFrom, idx);
+                    setDraggingBlockIndex(null);
+                    setDragOverBlockIndex(null);
+                  }}
+                  className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-ink-on-dark transition-all ${
+                    isDragOver
+                      ? 'border-accent-gold/80 bg-accent-gold/20 shadow-md ring-1 ring-accent-gold/50'
+                      : isDragging
+                        ? 'opacity-40 border-white/10 bg-white/5'
+                        : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                  }`}
                 >
+                  {props.onReorderSection && (
+                    <span
+                      draggable
+                      aria-hidden="true"
+                      title={`Drag block #${idx + 1} (${label}) to reorder`}
+                      onDragStart={(e) => {
+                        setDraggingBlockIndex(idx);
+                        if (e.dataTransfer) {
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('text/plain', String(idx));
+                        }
+                      }}
+                      onDragEnd={() => {
+                        setDraggingBlockIndex(null);
+                        setDragOverBlockIndex(null);
+                      }}
+                      className="cursor-grab select-none p-0.5 text-slate-400 hover:text-white active:cursor-grabbing"
+                    >
+                      <GripVertical size={11} />
+                    </span>
+                  )}
                   <span className="flex-1 truncate font-semibold" title={label}>
                     {label}
                   </span>
@@ -1464,6 +1531,19 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                   >
                     <Copy size={11} />
                   </button>
+                  {props.onDeleteSection && (
+                    <ConfirmAction
+                      label={`Delete block ${label}`}
+                      message={`Delete ${label}?`}
+                      confirmLabel="Delete"
+                      cancelLabel="Cancel"
+                      danger
+                      idleClassName="p-0.5 text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
+                      onConfirm={() => props.onDeleteSection?.(idx)}
+                    >
+                      <Trash2 size={11} />
+                    </ConfirmAction>
+                  )}
                   {idx > 0 && (
                     <button
                       type="button"
@@ -1486,7 +1566,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                       <ArrowDown size={11} />
                     </button>
                   )}
-                </div>
+                </section>
               );
             })}
           </div>
