@@ -1753,6 +1753,14 @@ describe('VisualEditOverlay addresses the block, not the element', () => {
       await act(async () => {
         window.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientY: 220 }));
       });
+
+      const confirmDialog = document.querySelector('[data-testid="block-reorder-confirm-dialog"]');
+      if (confirmDialog) {
+        const confirmBtn = confirmDialog.querySelector<HTMLButtonElement>('button:last-child');
+        await act(async () => {
+          confirmBtn?.click();
+        });
+      }
     } finally {
       spy.mockRestore();
     }

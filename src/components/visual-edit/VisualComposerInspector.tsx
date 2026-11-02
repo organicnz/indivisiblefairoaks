@@ -490,6 +490,8 @@ export interface VisualComposerInspectorProps {
   onDeleteBlock?: (blockIndex: number) => void;
   /** Delete every selected block in batch mode. */
   onDeleteBlocks?: (blockIndexes: number[]) => void;
+  /** When true, renders inside the unified sidebar rather than as a floating drawer. */
+  embedded?: boolean;
   /** Copy active block definition to clipboard as JSON. */
   onCopyBlockJson?: () => void;
   /** Paste active block definition from clipboard JSON. */
@@ -497,6 +499,7 @@ export interface VisualComposerInspectorProps {
 }
 
 export function VisualComposerInspector({
+  embedded = false,
   open,
   onClose,
   block,
@@ -1542,7 +1545,11 @@ export function VisualComposerInspector({
       aria-describedby={descId}
       tabIndex={-1}
       onKeyDown={handleInspectorKeyDown}
-      className="fixed inset-y-0 right-0 z-[10010] flex w-full max-w-md flex-col border-l border-white/20 bg-slate-950/95 text-white shadow-2xl backdrop-blur-2xl animate-in slide-in-from-right duration-200 pointer-events-auto"
+      className={
+        embedded
+          ? 'flex h-full w-full flex-col bg-slate-950/95 text-white pointer-events-auto overflow-hidden'
+          : 'fixed inset-y-0 right-0 z-[10010] flex w-full max-w-md flex-col border-l border-white/20 bg-slate-950/95 text-white shadow-2xl backdrop-blur-2xl animate-in slide-in-from-right duration-200 pointer-events-auto'
+      }
     >
       {/* Drawer Header & Mode Switcher */}
       <InspectorHeader

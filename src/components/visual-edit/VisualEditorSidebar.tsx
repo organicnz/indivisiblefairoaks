@@ -64,6 +64,10 @@ import {
   type InlineFormatCommand,
   InlineFormatToolbar,
 } from './InlineFormatToolbar';
+import {
+  VisualComposerInspector,
+  type VisualComposerInspectorProps,
+} from './VisualComposerInspector';
 import type { ModifiedBlockItem, ModifiedDataPointItem } from './VisualDiffModal';
 import type { ImageEditSession, InlineEditSession, ViewportMode } from './VisualEditOverlay';
 
@@ -207,6 +211,9 @@ export interface VisualEditorSidebarProps {
 
   // ── Admin link ──────────────────────────────────────────────────────────
   adminEditUrl: string | null;
+
+  // ── Composer Studio ─────────────────────────────────────────────────────
+  composerProps?: VisualComposerInspectorProps | null;
 }
 
 /**

@@ -138,6 +138,7 @@ import {
   getStylesClipboard,
   setStylesClipboard,
   VisualComposerInspector,
+  type VisualComposerInspectorProps,
 } from './VisualComposerInspector';
 import {
   type ModifiedBlockItem,
@@ -3077,7 +3078,14 @@ export function VisualEditOverlay() {
     locate,
     disabled: isVisualComposerOpen,
     onDragStart: selectBlockOnly,
-    onMove: moveBlockTo,
+    onMove: (fromIndex, toIndex) => {
+      const sec = sections.find((s) => s.blockIndex === fromIndex);
+      setReorderConfirm({
+        fromIndex,
+        toIndex,
+        label: sec?.label || `Block #${fromIndex + 1}`,
+      });
+    },
     totalBlocks: blocks.length,
   });
 
@@ -3651,6 +3659,35 @@ export function VisualEditOverlay() {
     } finally {
       setSavingBackend(false);
     }
+  };
+
+  const composerProps: VisualComposerInspectorProps = {
+    open: isVisualComposerOpen,
+    onClose: closeVisualComposer,
+    block: vcBlockIndex !== null ? (blocks[vcBlockIndex] ?? null) : null,
+    blockIndex: vcBlockIndex,
+    onSaveBlock: handleSaveVcBlock,
+    onSaveBlocks: handleSaveVcBlocks,
+    selectedBlockIndexes: vcSelectedBlockIndexes,
+    selectedBlockTargets: vcSelectedTargets,
+    expectedSelectedCount: vcSelectedBlockIds.length,
+    takenAnchorIds: vcTakenAnchorIds,
+    onLocateBlock: revealBlock,
+    onNavigateBlock: navigateComposerBlock,
+    onMoveBlock: (dir) => {
+      if (vcBlockIndex !== null) {
+        handleMoveSection(vcBlockIndex, dir);
+      }
+    },
+    canNavigatePrevious: vcBlockIndex !== null && vcBlockIndex > 0,
+    canNavigateNext: vcBlockIndex !== null && vcBlockIndex < blocks.length - 1,
+    initialMode: vcMode,
+    onPreviewChange: applyComposerDraft,
+    closeRequest: composerCloseRequest,
+    onDeleteBlock: handleDeleteSection,
+    onDeleteBlocks: handleDeleteSections,
+    onCopyBlockJson: handleCopyBlockJson,
+    onPasteBlockJson: handlePasteBlockJson,
   };
 
   if (!enabled || !isAdmin) return null;
@@ -4358,6 +4395,7 @@ export function VisualEditOverlay() {
         onDeleteSection={(idx) => handleDeleteSection(idx)}
         blockTypeOptions={BLOCK_TYPE_OPTIONS}
         adminEditUrl={target?.editUrl ?? null}
+        composerProps={composerProps}
       />
 
       {/* ── Page Settings Modal (Title, Slug, Featured Image) ─────────── */}
