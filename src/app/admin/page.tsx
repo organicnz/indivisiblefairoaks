@@ -106,14 +106,14 @@ export default async function AdminDashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <Link
             href="/admin/content/new?type=post"
-            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-primary dark:bg-primary-bright text-white hover:bg-primary-dark dark:hover:bg-primary-light transition-all text-center shadow-xs font-bold text-xs uppercase tracking-wider group"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-primary dark:bg-primary-bright text-white hover:bg-primary-dark dark:hover:bg-primary-light transition-[background-color,border-color,transform] duration-150 text-center shadow-xs font-bold text-xs uppercase tracking-wider group focus-visible:ring-2 focus-visible:ring-accent-gold"
           >
             <FilePlus2 size={20} className="group-hover:scale-110 transition-transform" />
             <span>New Post</span>
           </Link>
           <Link
             href="/admin/events"
-            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all text-center font-bold text-xs uppercase tracking-wider group"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-[background-color,border-color,transform] duration-150 text-center font-bold text-xs uppercase tracking-wider group focus-visible:ring-2 focus-visible:ring-accent-gold"
           >
             <Calendar
               size={20}
@@ -123,7 +123,7 @@ export default async function AdminDashboardPage() {
           </Link>
           <Link
             href="/admin/news"
-            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all text-center font-bold text-xs uppercase tracking-wider group"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-[background-color,border-color,transform] duration-150 text-center font-bold text-xs uppercase tracking-wider group focus-visible:ring-2 focus-visible:ring-accent-gold"
           >
             <Newspaper
               size={20}
@@ -133,7 +133,7 @@ export default async function AdminDashboardPage() {
           </Link>
           <Link
             href="/admin/links"
-            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all text-center font-bold text-xs uppercase tracking-wider group"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-[background-color,border-color,transform] duration-150 text-center font-bold text-xs uppercase tracking-wider group focus-visible:ring-2 focus-visible:ring-accent-gold"
           >
             <Link2
               size={20}
@@ -143,7 +143,7 @@ export default async function AdminDashboardPage() {
           </Link>
           <Link
             href="/admin/content"
-            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all text-center font-bold text-xs uppercase tracking-wider group"
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-surface-muted border border-border text-foreground hover:border-primary/40 hover:bg-primary/5 transition-[background-color,border-color,transform] duration-150 text-center font-bold text-xs uppercase tracking-wider group focus-visible:ring-2 focus-visible:ring-accent-gold"
           >
             <FileText
               size={20}
