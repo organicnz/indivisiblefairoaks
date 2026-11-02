@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { effect, frame, init, target, uniforms } from 'vgpu/mock';
+import { effect, frame, frameLoop, init, target, uniforms } from 'vgpu/mock';
 import { describe, expect, it } from 'vitest';
 import { THEME_SHADER, THEME_WGSL } from '@/components/layout/VgpuThemeCanvas';
 import {
@@ -634,6 +634,43 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
       });
     }).not.toThrow();
 
+    gpu.dispose();
+  });
+
+  it('executes frameLoop with f.pass without throwing reentrant frame errors', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    const aurora = effect(gpu, POLAR_AURORA_SHADER, {
+      label: 'test-aurora-frameloop',
+      set: {
+        params: {
+          time: 0,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 0.0,
+          effectiveTheme: 0.0,
+        },
+      },
+    });
+
+    await aurora.compile(renderTarget);
+
+    let loopError: unknown = null;
+    let loop: { stop: () => void } | null = null;
+    try {
+      loop = frameLoop(gpu, (f) => {
+        f.pass(renderTarget, aurora);
+      });
+    } catch (err) {
+      loopError = err;
+    }
+
+    expect(loopError).toBeNull();
+    loop?.stop();
     gpu.dispose();
   });
 });

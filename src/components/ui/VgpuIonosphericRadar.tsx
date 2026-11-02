@@ -141,6 +141,7 @@ export function VgpuIonosphericRadar({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderFrameRef = useRef<((time: number) => void) | null>(null);
+  const isReducedMotionRef = useRef(false);
 
   const [isWebGPUActive, setIsWebGPUActive] = useState(false);
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
@@ -152,8 +153,8 @@ export function VgpuIonosphericRadar({
   useEffect(() => {
     themeModeRef.current = mode;
     effectiveThemeRef.current = effective;
-    if (renderFrameRef.current) {
-      renderFrameRef.current(performance.now() * 0.001);
+    if (isReducedMotionRef.current && renderFrameRef.current) {
+      renderFrameRef.current(1.0);
     }
   }, [mode, effective]);
 
@@ -177,6 +178,7 @@ export function VgpuIonosphericRadar({
         if (!canvas || !container) return;
 
         const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        isReducedMotionRef.current = isReducedMotion;
 
         const gpu = await init();
         if (disposed) return;
@@ -281,12 +283,30 @@ export function VgpuIonosphericRadar({
           renderFrame(1.0);
         } else {
           const timeTracker = clock(gpu);
-          loop = frameLoop(gpu, () => {
+          loop = frameLoop(gpu, (f) => {
             if (!isVisible) return;
-            const t = timeTracker.time;
+
             currentMouseX += (targetMouseX - currentMouseX) * 0.05;
             currentMouseY += (targetMouseY - currentMouseY) * 0.05;
-            renderFrame(t);
+
+            targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
+            currentEffective += (targetEffective - currentEffective) * 0.08;
+            targetMode =
+              themeModeRef.current === 'dark' ? 2.0 : themeModeRef.current === 'light' ? 1.0 : 0.0;
+            currentMode += (targetMode - currentMode) * 0.08;
+
+            sharedParams.set({
+              time: timeTracker.time,
+              width: currentWidth,
+              height: currentHeight,
+              mouseX: currentMouseX,
+              mouseY: currentMouseY,
+              intensity,
+              themeMode: currentMode,
+              effectiveTheme: currentEffective,
+            });
+
+            f.pass(canvasSurface, radarEffect);
           });
         }
 
@@ -297,6 +317,7 @@ export function VgpuIonosphericRadar({
           unsubscribeResize();
           loop?.stop();
           gpu.dispose();
+          setIsWebGPUActive(false);
         };
       } catch {
         if (!disposed) {
