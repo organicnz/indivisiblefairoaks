@@ -50,12 +50,42 @@ fn fbm(p: vec2f) -> f32 {
   return v;
 }
 
+// C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
+fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
+  let core = exp(-((d * d) / (coreW * coreW)));
+  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  return core + halo;
+}
+
+// Multi-octave magnetohydrodynamic domain warping
+fn mhdWarp(p: vec2f, t: f32) -> vec2f {
+  let q = vec2f(
+    fbm(p + vec2f(-t * 0.08, t * 0.04)),
+    fbm(p + vec2f(3.8 + t * 0.05, 1.9 - t * 0.03))
+  );
+  let r = vec2f(
+    fbm(p + 3.0 * q + vec2f(2.4 - t * 0.04, 5.1 + t * 0.06)),
+    fbm(p + 3.0 * q + vec2f(7.2 + t * 0.05, 3.3 - t * 0.04))
+  );
+  return p + 0.3 * r;
+}
+
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.45;
+  let t = params.time * 0.4;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -66,10 +96,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
   // Background deep magnetotail twilight
-  let bgDarkStart = vec3f(0.015, 0.03, 0.09);
-  let bgDarkEnd   = vec3f(0.04, 0.06, 0.16);
-  let bgLightStart = vec3f(0.92, 0.95, 0.99);
-  let bgLightEnd   = vec3f(0.85, 0.89, 0.96);
+  let bgDarkStart = vec3f(0.012, 0.026, 0.08);
+  let bgDarkEnd   = vec3f(0.035, 0.055, 0.15);
+  let bgLightStart = vec3f(0.93, 0.95, 0.99);
+  let bgLightEnd   = vec3f(0.86, 0.90, 0.96);
   let bgSystemStart = mix(bgLightStart, bgDarkStart, darkFactor);
   let bgSystemEnd   = mix(bgLightEnd, bgDarkEnd, darkFactor);
 
@@ -78,42 +108,50 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
 
+  let pWarp = mhdWarp(p, t * 0.25);
+
   // Parabolic Bow Shock Stand-off Curve (deflecting incoming solar flux)
-  let bowApexX = -0.15 + sin(t * 0.5) * 0.03;
-  let bowParabola = pow(p.y, 2.0) * 1.8 + bowApexX;
-  let distToBow = abs(p.x - bowParabola);
-  let bowShock = exp(-distToBow * 14.0) * (0.8 + 0.2 * sin(p.y * 18.0 - t * 2.0));
+  let bowApexX = -0.16 + sin(t * 0.4) * 0.02;
+  let bowParabola = pow(pWarp.y, 2.0) * 1.6 + bowApexX;
+  let distToBow = abs(pWarp.x - bowParabola);
+  let bowShock = dualLobe(distToBow, 0.045, 0.16) * (0.75 + 0.25 * sin(p.y * 8.0 - t * 1.5));
 
-  // Magnetic field lines (Dipole flux loops protecting coalition core)
-  let dipoleY = p.y;
-  let dipoleX = p.x + 0.1;
-  let r = length(vec2f(dipoleX, dipoleY));
-  let fluxPhase = sin(dipoleY * 12.0 + t * 0.8 + fbm(vec2f(dipoleX * 2.0, t * 0.2)) * 1.5);
-  let magneticField = exp(-abs(fluxPhase) * 6.0) * exp(-r * 1.6) * 0.85;
+  // Volumetric Dipole Magnetic Flux Tubes protecting coalition core
+  let dipoleY = pWarp.y;
+  let dipoleX = pWarp.x + 0.12;
+  let rDipole = length(vec2f(dipoleX, dipoleY));
+  let fluxPhase = sin(dipoleY * 7.0 + t * 0.6 + fbm(vec2f(dipoleX * 2.0, t * 0.15)) * 1.6);
+  let magneticField = dualLobe(abs(fluxPhase) * 0.2, 0.05, 0.18) * exp(-rDipole * 1.4);
 
-  // Magnetopause boundary layer turbulence
-  let magnetopauseDist = abs(p.x - (bowParabola + 0.12));
-  let turbulence = noise(vec2f(p.x * 12.0 + t, p.y * 8.0 - t * 0.5));
-  let boundarySheath = exp(-magnetopauseDist * 16.0) * turbulence * 1.1;
+  // Volumetric Magnetosheath boundary layer
+  let magnetopauseDist = abs(pWarp.x - (bowParabola + 0.14));
+  let sheath = dualLobe(magnetopauseDist, 0.06, 0.22) * (0.6 + 0.4 * fbm(vec2f(p.x * 3.0 + t * 0.3, p.y * 3.0)));
 
-  // Kinetic deflection flare from cursor (community defense interaction)
-  let shockCompression = exp(-mouseDist * 2.8) * 0.5 * params.intensity;
+  // Dynamic deflection flare at cursor
+  let shockCompression = dualLobe(mouseDist, 0.08, 0.32) * params.intensity;
 
   // Emission spectral colors:
   // 1. Electric Cobalt Magnetic Flux (460 nm)
-  let cobaltFlux = vec3f(0.20, 0.55, 0.98);
+  let cobaltFlux = vec3f(0.22, 0.58, 0.98);
   // 2. Amber Bow Shock Deflection (589 nm)
-  let bowGold    = vec3f(0.98, 0.82, 0.25);
+  let bowGold    = vec3f(0.98, 0.80, 0.26);
   // 3. Violet Plasma Sheath (420 nm)
-  let violetSheath = vec3f(0.72, 0.28, 0.95);
+  let violetSheath = vec3f(0.68, 0.32, 0.95);
 
-  let shieldColor = mix(cobaltFlux, bowGold, smoothstep(-0.3, 0.4, p.x));
-  let totalEmission = (bowShock * bowGold + magneticField * cobaltFlux + boundarySheath * violetSheath + shockCompression * bowGold) * 1.4;
+  let totalEmission = bowShock * bowGold * 1.4 + magneticField * cobaltFlux * 1.2 + sheath * violetSheath * 1.1 + shockCompression * bowGold * 1.8;
 
-  let lum = (bowShock + magneticField * 0.75 + boundarySheath * 0.6 + shockCompression) * mix(0.42, 0.92, darkFactor) * params.intensity;
-  col = mix(col, col + totalEmission, clamp(lum, 0.0, 1.0));
+  // Theme-adaptive transfer
+  let darkRad = col + totalEmission * mix(0.7, 1.25, params.intensity);
+  let lightRad = col * (1.0 - (bowShock * 0.25 + magneticField * 0.18)) + (bowShock * bowGold * 0.68 + magneticField * cobaltFlux * 0.62 + shockCompression * bowGold * 0.75);
+  var radiance = mix(lightRad, darkRad, darkFactor);
 
-  return vec4f(col, 1.0);
+  radiance = tonemap(radiance);
+
+  // Golden ratio temporal blue-noise dither
+  let dither = (hash21(uv * 1254.56 + vec2f(params.time * 0.015, params.time * 0.025)) - 0.5) * (1.0 / 255.0);
+  radiance += vec3f(dither);
+
+  return vec4f(clamp(radiance, vec3f(0.0), vec3f(1.0)), 1.0);
 }
 `;
 
@@ -220,7 +258,8 @@ export function VgpuMagnetosphere({ className = '', intensity = 1.0 }: VgpuMagne
         let currentWidth = canvasSurface.size[0];
         let currentHeight = canvasSurface.size[1];
 
-        void magnetosphereEffect.compile(canvasSurface);
+        await magnetosphereEffect.compile(canvasSurface);
+        if (disposed) return;
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;

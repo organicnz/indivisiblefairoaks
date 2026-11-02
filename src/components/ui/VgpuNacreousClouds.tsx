@@ -25,6 +25,10 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+fn tonemap(c: vec3f) -> vec3f {
+  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+}
+
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
@@ -55,7 +59,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.35;
+  let t = params.time * 0.32;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -78,36 +82,65 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
 
-  // Mouse pressure field
-  let mousePush = (mouseP - p) * exp(-mouseDist * 2.8) * 0.35 * params.intensity;
+  // Gentle barometric perturbation from mouse pointer
+  let mousePush = (mouseP - p) * exp(-pow(mouseDist * 2.2, 2.0)) * 0.28 * params.intensity;
   let pShifted = p + mousePush;
 
-  // Stratospheric lenticular cloud sheets
-  let wave1 = sin(pShifted.x * 2.8 + t * 0.4 + fbm(vec2f(pShifted.x * 1.5, t * 0.1)) * 2.0) * 0.2;
-  let wave2 = cos(pShifted.x * 3.4 - t * 0.3 + fbm(vec2f(pShifted.y * 2.0, t * 0.15)) * 1.6) * 0.16;
+  // Fluid multi-octave domain warping for lenticular stratospheric clouds
+  let warpQ = vec2f(
+    fbm(vec2f(pShifted.x * 1.6 + t * 0.15, pShifted.y * 1.2)),
+    fbm(vec2f(pShifted.x * 1.6 - t * 0.12, pShifted.y * 1.2 + 2.4))
+  );
 
-  let distSheet1 = exp(-abs(pShifted.y - wave1 - 0.05) * 6.5);
-  let distSheet2 = exp(-abs(pShifted.y - wave2 + 0.12) * 8.0);
-  let cloudDensity = max(distSheet1 * 0.85, distSheet2 * 0.75);
+  // Smooth lenticular wave crests with zero sharp creases
+  let wave1 = sin(pShifted.x * 2.2 + t * 0.35 + warpQ.x * 1.6) * 0.18;
+  let wave2 = cos(pShifted.x * 2.8 - t * 0.28 + warpQ.y * 1.4) * 0.15 - 0.08;
 
-  // Optical diffraction phase angle through uniform ice micro-crystals
-  let diffPhase = cloudDensity * 14.0 + pShifted.x * 5.0 + sin(pShifted.y * 10.0 - t * 0.6) * 1.8;
+  // Gaussian thickness profiles for billowy stratospheric ice sheets
+  let distSheet1 = exp(-pow((pShifted.y - wave1 - 0.04) * 4.8, 2.0));
+  let distSheet2 = exp(-pow((pShifted.y - wave2 + 0.10) * 5.4, 2.0));
+  let cloudDensity = max(distSheet1 * 0.88, distSheet2 * 0.78);
 
-  // Mother-of-pearl iridescent diffraction spectral bands
-  let peachOpal = vec3f(1.0, 0.76, 0.68);
-  let seafoamAqua = vec3f(0.48, 0.95, 0.86);
-  let amethystViolet = vec3f(0.84, 0.68, 0.96);
-  let champagneGold = vec3f(0.98, 0.90, 0.62);
+  // Gentle diffraction phase: slow, continuous color dispersion without Moire banding
+  let diffPhase = cloudDensity * 3.5 + pShifted.x * 2.4 + sin(pShifted.y * 3.2 - t * 0.5) * 0.8;
 
-  let iridMix1 = sin(diffPhase) * 0.5 + 0.5;
-  let iridMix2 = cos(diffPhase * 1.3 + 1.2) * 0.5 + 0.5;
+  // Mother-of-pearl iridescent diffraction spectral palette:
+  // 1. Soft Rose Peach (1.0, 0.78, 0.70)
+  let peachOpal = vec3f(1.0, 0.78, 0.70);
+  // 2. Iridescent Seafoam Aqua (0.45, 0.94, 0.84)
+  let seafoamAqua = vec3f(0.45, 0.94, 0.84);
+  // 3. Lavender Amethyst (0.85, 0.72, 0.96)
+  let amethystViolet = vec3f(0.85, 0.72, 0.96);
+  // 4. Champagne Pearl Gold (0.98, 0.92, 0.65)
+  let champagneGold = vec3f(0.98, 0.92, 0.65);
 
-  let pearlescent = mix(mix(peachOpal, seafoamAqua, iridMix1), mix(amethystViolet, champagneGold, iridMix2), 0.5);
+  let irid1 = sin(diffPhase) * 0.5 + 0.5;
+  let irid2 = cos(diffPhase * 1.1 + 1.4) * 0.5 + 0.5;
 
-  let totalNacreous = pearlescent * cloudDensity * 1.35;
+  let pearlescent = mix(
+    mix(peachOpal, seafoamAqua, irid1),
+    mix(amethystViolet, champagneGold, irid2),
+    0.5
+  );
 
-  let intensityScale = mix(0.42, 0.88, darkFactor) * params.intensity;
-  col = mix(col, col + totalNacreous, clamp(cloudDensity * intensityScale, 0.0, 1.0));
+  // Theme-adaptive transfer function:
+  // In Dark Mode: Luminous mother-of-pearl post-sunset cloud glow
+  // In Light Mode: Shimmering iridescent crystal clouds against daylight sky
+  let darkRadiance = pearlescent * cloudDensity * 1.45;
+  let lightRadiance = mix(col * 0.75 + pearlescent * 0.70, champagneGold, 0.18 * cloudDensity);
+  let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
+
+  let finalRadiance = lightRadiance * modeLight + darkRadiance * modeDark + sysRadiance * modeSystem;
+  let intensityScale = mix(0.48, 0.92, darkFactor) * params.intensity;
+
+  col = mix(col, col + finalRadiance, clamp(cloudDensity * intensityScale, 0.0, 1.0));
+
+  // Filmic tone-mapping to compress dynamic highlights
+  col = tonemap(col);
+
+  // Golden-ratio temporal dithering to eliminate 8-bit gradient banding
+  let dither = (hash21(uv * vec2f(params.width, params.height) + fract(params.time * 0.6180339887)) - 0.5) / 255.0;
+  col += vec3f(dither);
 
   return vec4f(col, 1.0);
 }
@@ -216,7 +249,11 @@ export function VgpuNacreousClouds({ className = '', intensity = 1.0 }: VgpuNacr
         let currentWidth = canvasSurface.size[0];
         let currentHeight = canvasSurface.size[1];
 
-        void nacreousEffect.compile(canvasSurface);
+        await nacreousEffect.compile(canvasSurface);
+        if (disposed) {
+          gpu.dispose();
+          return;
+        }
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;

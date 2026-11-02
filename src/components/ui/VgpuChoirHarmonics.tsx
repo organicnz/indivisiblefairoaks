@@ -25,106 +25,133 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+fn noise(p: vec2f) -> f32 {
+  let i = floor(p);
+  let f = fract(p);
+  let u = f * f * (3.0 - 2.0 * f);
+
+  return mix(
+    mix(hash21(i + vec2f(0.0, 0.0)), hash21(i + vec2f(1.0, 0.0)), u.x),
+    mix(hash21(i + vec2f(0.0, 1.0)), hash21(i + vec2f(1.0, 1.0)), u.x),
+    u.y
+  );
+}
+
+fn fbm(p: vec2f) -> f32 {
+  var v = 0.0;
+  var a = 0.5;
+  var shift = vec2f(100.0, 100.0);
+  var q = p;
+  for (var i = 0; i < 4; i = i + 1) {
+    v += a * noise(q);
+    q = q * 2.05 + shift;
+    a *= 0.5;
+  }
+  return v;
+}
+
+// C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
+fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
+  let core = exp(-((d * d) / (coreW * coreW)));
+  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  return core + halo;
+}
+
+// Multi-octave acoustic hall domain warping
+fn choirWarp(p: vec2f, t: f32) -> vec2f {
+  let q = vec2f(
+    fbm(p + vec2f(t * 0.05, -t * 0.04)),
+    fbm(p + vec2f(3.9 - t * 0.03, 1.6 + t * 0.05))
+  );
+  let r = vec2f(
+    fbm(p + 2.5 * q + vec2f(1.4 - t * 0.04, 7.1 + t * 0.03)),
+    fbm(p + 2.5 * q + vec2f(6.2 + t * 0.04, 2.8 - t * 0.05))
+  );
+  return p + 0.26 * r;
+}
+
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.6;
+  let t = params.time * 0.45;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
-  let mouseInfluence = exp(-mouseDist * 2.8) * params.intensity;
+  let mouseInfluence = dualLobe(mouseDist, 0.08, 0.35) * params.intensity;
 
   let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
 
-  // Continuous partition of unity across optical profiles:
-  // themeMode = 2.0 (Dark: Obsidian Kerr Singularity & Relativistic Lensing)
-  // themeMode = 1.0 (Light: Solar Diamond Caustics with Prismatic Dispersion)
-  // themeMode = 0.0 (System: Quantum Bloch Sphere Geodesic Superposition)
   let modeDark = clamp(params.themeMode - 1.0, 0.0, 1.0);
   let modeLight = clamp(1.0 - abs(params.themeMode - 1.0), 0.0, 1.0);
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
-  // 1. Bass Voice: Deep, resonant, foundation wave (Indigo / Royal Cobalt)
-  let bassFreq = 2.4;
-  let bassW = sin(p.x * bassFreq + t * 0.6) * 0.16 
-            + sin(p.x * 4.8 - t * 0.3) * 0.08
-            + mouseInfluence * 0.08 * sin(p.x * 12.0 + t * 3.0);
-  let distBass = abs(p.y + 0.08 - bassW);
-  let bassGlow = exp(-distBass * 14.0) * 0.9;
-  let bassDark   = vec3f(0.12, 0.28, 0.85);
-  let bassLight  = vec3f(0.20, 0.42, 0.98);
-  let bassSystem = vec3f(0.10, 0.35, 0.75);
-  let bassColor = bassLight * modeLight + bassDark * modeDark + bassSystem * modeSystem;
-  let colBass = bassColor * bassGlow;
+  // Background acoustic concert hall ambience
+  let bgDarkStart = vec3f(0.015, 0.032, 0.08);
+  let bgDarkEnd   = vec3f(0.04, 0.068, 0.16);
+  let bgLightStart = vec3f(0.93, 0.95, 0.99);
+  let bgLightEnd   = vec3f(0.86, 0.91, 0.97);
+  let bgSystemStart = mix(bgLightStart, bgDarkStart, darkFactor);
+  let bgSystemEnd   = mix(bgLightEnd, bgDarkEnd, darkFactor);
 
-  // 2. Tenor Voice: Warm, rhythmic community heart (Amber Gold / Copper)
-  let tenorFreq = 3.6;
-  let tenorW = sin(p.x * tenorFreq - t * 0.85 + 1.2) * 0.13
-             + cos(p.x * 7.2 + t * 0.5) * 0.06
-             + mouseInfluence * 0.06 * cos(p.x * 15.0 - t * 2.5);
-  let distTenor = abs(p.y + 0.02 - tenorW);
-  let tenorGlow = exp(-distTenor * 18.0) * 0.85;
-  let tenorDark   = vec3f(0.96, 0.72, 0.22);
-  let tenorLight  = vec3f(1.00, 0.80, 0.28);
-  let tenorSystem = vec3f(0.96, 0.76, 0.16);
-  let tenorColor = tenorLight * modeLight + tenorDark * modeDark + tenorSystem * modeSystem;
-  let colTenor = tenorColor * tenorGlow;
+  let bgStart = bgLightStart * modeLight + bgDarkStart * modeDark + bgSystemStart * modeSystem;
+  let bgEnd   = bgLightEnd * modeLight + bgDarkEnd * modeDark + bgSystemEnd * modeSystem;
 
-  // 3. Alto Voice: Harmonic bridge (Cyan / Emerald Glow)
-  let altoFreq = 5.2;
-  let altoW = cos(p.x * altoFreq + t * 1.1 + 2.4) * 0.11
-            + sin(p.x * 10.4 - t * 0.7) * 0.05
-            + mouseInfluence * 0.07 * sin(p.x * 18.0 + t * 4.0);
-  let distAlto = abs(p.y - 0.04 - altoW);
-  let altoGlow = exp(-distAlto * 20.0) * 0.8;
-  let altoDark   = vec3f(0.15, 0.85, 0.75);
-  let altoLight  = vec3f(0.25, 0.92, 0.82);
-  let altoSystem = vec3f(0.08, 0.86, 0.52);
-  let altoColor = altoLight * modeLight + altoDark * modeDark + altoSystem * modeSystem;
-  let colAlto = altoColor * altoGlow;
+  var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
 
-  // 4. Soprano Voice: High, clear, radiant freedom call (Brilliant Cyan / Diamond White)
-  let sopFreq = 7.5;
-  let sopW = sin(p.x * sopFreq - t * 1.4 + 4.0) * 0.09
-           + cos(p.x * 15.0 + t * 1.0) * 0.04
-           + mouseInfluence * 0.09 * sin(p.x * 24.0 - t * 5.0);
-  let distSop = abs(p.y - 0.10 - sopW);
-  let sopGlow = exp(-distSop * 24.0) * 0.95;
-  let sopDark   = vec3f(0.85, 0.95, 1.0);
-  let sopLight  = vec3f(0.96, 0.98, 1.0);
-  let sopSystem = vec3f(0.75, 0.96, 1.0);
-  let sopColor = sopLight * modeLight + sopDark * modeDark + sopSystem * modeSystem;
-  let colSop = sopColor * sopGlow;
+  let pWarp = choirWarp(p, t * 0.2);
 
-  // Background acoustic hall ambience
-  let bgDark = mix(vec3f(0.086, 0.188, 0.361), vec3f(0.11, 0.23, 0.44), smoothstep(-0.5, 0.5, p.y) * 0.4);
-  let bgLight = mix(vec3f(0.933, 0.957, 1.0), vec3f(0.88, 0.92, 0.98), smoothstep(-0.5, 0.5, p.y) * 0.4);
-  let bgSystem = mix(bgLight, bgDark, darkFactor);
-  let bgGradient = bgLight * modeLight + bgDark * modeDark + bgSystem * modeSystem;
+  // 1. Bass Voice: Deep, resonant foundation ribbon (Indigo / Royal Cobalt)
+  let bassW = sin(pWarp.x * 2.2 + t * 0.5) * 0.15 + sin(pWarp.x * 4.4 - t * 0.25) * 0.06 + mouseInfluence * 0.04;
+  let distBass = abs(pWarp.y + 0.08 - bassW);
+  let bassGlow = dualLobe(distBass, 0.065, 0.22);
+  let colBass = vec3f(0.18, 0.45, 0.98) * bassGlow;
 
-  let particleGrid = uv * vec2f(40.0 * aspect, 40.0);
-  let particleCell = floor(particleGrid);
-  let randVal = hash21(particleCell);
-  var particleLight = 0.0;
-  if (randVal > 0.965) {
-    let pPos = fract(particleGrid) - 0.5;
-    let pDist = length(pPos);
-    let shimmer = sin(t * 3.5 + randVal * 6.28) * 0.5 + 0.5;
-    particleLight = exp(-pDist * 16.0) * shimmer * 0.5;
-  }
+  // 2. Tenor Voice: Warm, rhythmic community heart ribbon (Amber Gold / Copper)
+  let tenorW = sin(pWarp.x * 3.4 - t * 0.7 + 1.2) * 0.12 + cos(pWarp.x * 6.8 + t * 0.4) * 0.05 - mouseInfluence * 0.03;
+  let distTenor = abs(pWarp.y + 0.02 - tenorW);
+  let tenorGlow = dualLobe(distTenor, 0.055, 0.20);
+  let colTenor = vec3f(0.98, 0.78, 0.25) * tenorGlow;
 
-  let ripple = sin(mouseDist * 32.0 - t * 6.0) * 0.5 + 0.5;
-  let cursorAura = exp(-mouseDist * 4.0) * (0.25 + ripple * 0.25) * params.intensity;
-  let colCursor = mix(vec3f(0.35, 0.75, 1.0), vec3f(0.2, 0.6, 1.0), darkFactor) * cursorAura;
+  // 3. Alto Voice: Harmonic bridge ribbon (Cyan / Emerald Glow)
+  let altoW = cos(pWarp.x * 4.8 + t * 0.9 + 2.4) * 0.10 + sin(pWarp.x * 9.6 - t * 0.5) * 0.04 + mouseInfluence * 0.03;
+  let distAlto = abs(pWarp.y - 0.04 - altoW);
+  let altoGlow = dualLobe(distAlto, 0.05, 0.18);
+  let colAlto = vec3f(0.16, 0.92, 0.72) * altoGlow;
 
-  var finalColor = bgGradient + colBass + colTenor + colAlto + colSop + colCursor;
-  finalColor += vec3f(0.9, 0.8, 1.0) * particleLight;
+  // 4. Soprano Voice: High radiant freedom call ribbon (Brilliant Diamond Ice)
+  let sopW = sin(pWarp.x * 6.8 - t * 1.1 + 4.0) * 0.08 + cos(pWarp.x * 13.6 + t * 0.7) * 0.03 + mouseInfluence * 0.05;
+  let distSop = abs(pWarp.y - 0.10 - sopW);
+  let sopGlow = dualLobe(distSop, 0.045, 0.16);
+  let colSop = vec3f(0.85, 0.95, 1.0) * sopGlow;
 
-  let vig = (1.0 - length(uv - 0.5) * 0.75) * (1.0 - uv.y * 0.25);
-  finalColor *= max(vig, 0.2);
+  // Dynamic cursor acoustic resonance
+  let colCursor = vec3f(0.25, 0.82, 0.98) * mouseInfluence * 1.6;
 
-  return vec4f(finalColor, 1.0);
+  let totalAcoustic = (colBass * 1.2 + colTenor * 1.35 + colAlto * 1.2 + colSop * 1.4 + colCursor);
+
+  // Theme-adaptive transfer
+  let darkRad = col + totalAcoustic * mix(0.7, 1.25, params.intensity);
+  let lightRad = col * (1.0 - (bassGlow * 0.16 + tenorGlow * 0.16 + altoGlow * 0.16)) + (colBass * 0.65 + colTenor * 0.68 + colAlto * 0.65 + colSop * 0.72 + colCursor * 0.6);
+  var radiance = mix(lightRad, darkRad, darkFactor);
+
+  radiance = tonemap(radiance);
+
+  // Golden ratio temporal blue-noise dither
+  let dither = (hash21(uv * 1224.56 + vec2f(params.time * 0.015, params.time * 0.025)) - 0.5) * (1.0 / 255.0);
+  radiance += vec3f(dither);
+
+  return vec4f(clamp(radiance, vec3f(0.0), vec3f(1.0)), 1.0);
 }
 `;
 
@@ -246,7 +273,8 @@ export function VgpuChoirHarmonics({ className = '', intensity = 1.0 }: VgpuChoi
         let currentHeight = canvasSurface.size[1];
 
         // Pre-warm the GPU render pipeline
-        void harmonics.compile(canvasSurface);
+        await harmonics.compile(canvasSurface);
+        if (disposed) return;
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;

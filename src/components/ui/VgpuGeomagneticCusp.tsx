@@ -25,6 +25,10 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+fn tonemap(c: vec3f) -> vec3f {
+  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+}
+
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
@@ -37,12 +41,34 @@ fn noise(p: vec2f) -> f32 {
   );
 }
 
+fn fbm(p: vec2f) -> f32 {
+  var v = 0.0;
+  var a = 0.5;
+  var shift = vec2f(100.0, 100.0);
+  var q = p;
+  for (var i = 0; i < 4; i = i + 1) {
+    v += a * noise(q);
+    q = q * 2.04 + shift;
+    a *= 0.5;
+  }
+  return v;
+}
+
+// Volumetric magnetic flux tube cross section (Gaussian core + diffuse plasma halo)
+fn fluxTube(distField: f32, fi: f32) -> f32 {
+  let coreScale = 14.0 - fi * 0.8;
+  let haloScale = 3.6 - fi * 0.2;
+  let core = exp(-pow(distField * coreScale, 2.0));
+  let halo = exp(-abs(distField) * haloScale) * 0.45;
+  return core + halo;
+}
+
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.5;
+  let t = params.time * 0.45;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -68,51 +94,71 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   // Magnetic Cusp Apex: Located at (0.0, -0.32)
   let cuspCenter = vec2f(0.0, -0.32);
 
-  // Magnetic reconnection deflection from mouse pointer
-  let mouseForce = (mouseP - p) * exp(-mouseDist * 2.5) * 0.25 * params.intensity;
+  // Soft magnetic reconnection deflection from mouse pointer
+  let mouseForce = (mouseP - p) * exp(-pow(mouseDist * 2.2, 2.0)) * 0.30 * params.intensity;
   let pWarped = p + mouseForce;
+
+  // Fluid domain warp modeling magnetohydrodynamic turbulence
+  let warpX = fbm(vec2f(pWarped.x * 2.0, t * 0.3)) * 0.04;
 
   var totalFlux = 0.0;
   var fluxColor = vec3f(0.0);
 
-  let goldCol = vec3f(0.98, 0.76, 0.22);
-  let cyanCol = vec3f(0.20, 0.75, 0.98);
-  let violetCol = vec3f(0.65, 0.35, 0.98);
+  let goldCol   = vec3f(0.98, 0.78, 0.24);
+  let cyanCol   = vec3f(0.22, 0.78, 0.98);
+  let violetCol = vec3f(0.68, 0.36, 0.98);
 
-  // Generate 7 parabolic geomagnetic dipole arches
+  // Generate 7 volumetric geomagnetic dipole arches
   for (var i = 1; i <= 7; i = i + 1) {
     let fi = f32(i);
-    let archHeight = -0.3 + fi * 0.11;
-    let archCurvature = 1.1 + fi * 0.45;
+    let archHeight = -0.30 + fi * 0.11;
+    let archCurvature = 1.05 + fi * 0.42;
 
-    // Field line equation: y = archHeight - curvature * x^2
-    let expectedY = archHeight - (pWarped.x * pWarped.x) * archCurvature;
+    // Field line equation with subtle fluid undulation
+    let expectedY = archHeight - (pWarped.x * pWarped.x) * archCurvature + warpX * (fi * 0.25);
     let distField = abs(pWarped.y - expectedY);
 
     // Plasma flow along the magnetic flux tube
-    let alongArc = pWarped.x * (2.0 + fi * 0.5);
-    let flowPulse = sin(alongArc * 8.0 - t * (1.5 + fi * 0.3) + fi * 1.3) * 0.5 + 0.5;
-    let waveFbm = noise(vec2f(alongArc * 4.0, t * 0.4 + fi));
+    let alongArc = pWarped.x * (1.8 + fi * 0.45);
+    let flowPulse = sin(alongArc * 6.0 - t * (1.4 + fi * 0.25) + fi * 1.2) * 0.5 + 0.5;
+    let waveFbm = noise(vec2f(alongArc * 3.5, t * 0.35 + fi));
 
-    let fluxLine = exp(-distField * (35.0 - fi * 2.0)) * (0.45 + flowPulse * 0.55 * waveFbm);
+    let fluxLine = fluxTube(distField, fi) * (0.55 + flowPulse * 0.45 * waveFbm);
 
     // Color gradient across field lines:
-    // Inner cusp glows with gold/amber guidance, outer arches glow with sapphire cyan and violet
+    // Inner cusp glows with gold/amber civic guidance, outer arches glow with sapphire cyan and violet
     let archColor = mix(goldCol, mix(cyanCol, violetCol, fi / 7.0), smoothstep(1.0, 5.0, fi));
 
     totalFlux += fluxLine;
     fluxColor += fluxLine * archColor;
   }
 
-  // Central Polar Cusp Funnel Glow
+  // Central Polar Cusp Funnel Glow (True North beacon)
   let distCusp = length(pWarped - cuspCenter);
-  let cuspGlow = exp(-distCusp * 3.5) * (sin(t * 2.0) * 0.15 + 0.85);
-  fluxColor += goldCol * cuspGlow * 0.8;
-  totalFlux += cuspGlow * 0.6;
+  let cuspCore = exp(-pow(distCusp * 2.8, 2.0));
+  let cuspHalo = exp(-distCusp * 1.4) * 0.45;
+  let cuspGlow = (cuspCore + cuspHalo) * (sin(t * 1.8) * 0.12 + 0.88);
+  fluxColor += goldCol * cuspGlow * 0.9;
+  totalFlux += cuspGlow * 0.65;
 
-  // Composite plasma stream
-  let intensityScale = mix(0.40, 0.90, darkFactor) * params.intensity;
-  col = mix(col, col + fluxColor * 1.2, clamp(totalFlux * intensityScale, 0.0, 1.0));
+  // Theme-adaptive composite:
+  // In Dark Mode: Luminous plasma glow against deep magnetosphere
+  // In Light Mode: Saturated radiant amber-cyan guidance arcs
+  let darkRadiance = fluxColor * 1.35;
+  let lightRadiance = mix(col * 0.8 + fluxColor * 0.6, goldCol, 0.2);
+  let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
+
+  let finalRadiance = lightRadiance * modeLight + darkRadiance * modeDark + sysRadiance * modeSystem;
+  let intensityScale = mix(0.48, 0.92, darkFactor) * params.intensity;
+
+  col = mix(col, col + finalRadiance, clamp(totalFlux * intensityScale, 0.0, 1.0));
+
+  // Filmic tone-mapping to compress dynamic highlights
+  col = tonemap(col);
+
+  // Golden-ratio temporal dithering to eliminate 8-bit gradient banding
+  let dither = (hash21(uv * vec2f(params.width, params.height) + fract(params.time * 0.6180339887)) - 0.5) / 255.0;
+  col += vec3f(dither);
 
   return vec4f(col, 1.0);
 }
@@ -221,7 +267,11 @@ export function VgpuGeomagneticCusp({ className = '', intensity = 1.0 }: VgpuGeo
         let currentWidth = canvasSurface.size[0];
         let currentHeight = canvasSurface.size[1];
 
-        void cuspEffect.compile(canvasSurface);
+        await cuspEffect.compile(canvasSurface);
+        if (disposed) {
+          gpu.dispose();
+          return;
+        }
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;

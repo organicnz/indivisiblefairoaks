@@ -25,6 +25,10 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+fn tonemap(c: vec3f) -> vec3f {
+  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+}
+
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
@@ -45,7 +49,7 @@ fn fbm(p: vec2f) -> f32 {
   var pos = p;
   for (var i = 0; i < 4; i++) {
     v += a * noise(pos);
-    pos = pos * 2.0 + shift;
+    pos = pos * 2.02 + shift;
     a *= 0.5;
   }
   return v;
@@ -60,8 +64,9 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
-  let mouseGlow = exp(-mouseDist * 2.6) * 0.42 * params.intensity;
+  let mouseGlow = exp(-pow(mouseDist * 2.2, 2.0)) * 0.45 * params.intensity;
 
+  // Fluid multi-octave domain warping (advective curl flow)
   let q = vec2f(
     fbm(p * 1.3 + vec2f(t * 0.35, t * 0.18)),
     fbm(p * 1.3 + vec2f(-t * 0.28, t * 0.45))
@@ -71,6 +76,8 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
     fbm(p * 1.6 + q * 1.3 + vec2f(t * 0.5, -t * 0.25)),
     fbm(p * 1.6 + q * 1.3 + vec2f(-t * 0.35, t * 0.6))
   );
+
+  let wave = fbm(p + r * 1.8 + vec2f(t * 0.15, -t * 0.3));
 
   // Continuous partition of unity across optical profiles:
   // themeMode = 2.0 (Dark: Obsidian Kerr Singularity & Relativistic Vortex)
@@ -82,20 +89,20 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   // 1. Relativistic Kerr vortex warping (Dark mode)
   let kerrAngle = atan2(p.y - mouseP.y, p.x - mouseP.x);
-  let kerrVortex = sin(kerrAngle * 4.0 + mouseDist * 28.0 - t * 3.5) * 0.06 * exp(-mouseDist * 2.2) * modeDark;
+  let kerrVortex = sin(kerrAngle * 4.0 + mouseDist * 22.0 - t * 3.5) * 0.05 * exp(-pow(mouseDist * 1.8, 2.0)) * modeDark;
 
   // 2. Solar crystal wave interference caustics (Light mode)
-  let k1 = (p.x * 24.0 + t * 2.2);
-  let k2 = (-0.5 * p.x + 0.866 * p.y) * 24.0 - t * 1.8;
-  let caustics = (cos(k1) + cos(k2)) * 0.025 * modeLight;
+  let k1 = (p.x * 20.0 + t * 2.2);
+  let k2 = (-0.5 * p.x + 0.866 * p.y) * 20.0 - t * 1.8;
+  let caustics = (cos(k1) + cos(k2)) * 0.02 * modeLight;
 
   // 3. Quantum wave packets & Bloch sphere geodesic superposition (System mode)
   let blochTheta = wave * 3.14159265;
   let blochPhi = t * 2.5 + dot(p, vec2f(1.618, 1.0)) * 5.0;
-  let quantumFringe = sin(blochTheta) * cos(blochPhi) * 0.04 * modeSystem;
+  let quantumFringe = sin(blochTheta) * cos(blochPhi) * 0.035 * modeSystem;
 
   let waveMod = wave + kerrVortex + caustics + quantumFringe;
-  let auroraRibbon = smoothstep(0.35, 0.75, sin(waveMod * 4.5 + t * 0.8) * 0.5 + 0.5);
+  let auroraRibbon = smoothstep(0.32, 0.72, sin(waveMod * 4.2 + t * 0.8) * 0.5 + 0.5);
 
   let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
 
@@ -110,15 +117,15 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let lightBase     = vec3f(0.933, 0.957, 1.0);
   let lightMidnight = vec3f(0.88, 0.92, 0.98);
   let lightSapphire = vec3f(0.80, 0.88, 0.99);
-  let lightCyanGlow = vec3f(0.45, 0.75, 0.98);
-  let lightAmber    = vec3f(0.98, 0.82, 0.45);
+  let lightCyanGlow = vec3f(0.42, 0.72, 0.96);
+  let lightAmber    = vec3f(0.96, 0.78, 0.40);
 
   // System Quantum Superposition Palette
   let sysBase      = mix(vec3f(0.933, 0.957, 1.0), vec3f(0.086, 0.188, 0.361), darkFactor);
   let sysMidnight  = mix(vec3f(0.88, 0.92, 0.98), vec3f(0.11, 0.23, 0.44), darkFactor);
   let sysSapphire  = mix(vec3f(0.80, 0.88, 0.99), vec3f(0.14, 0.32, 0.65), darkFactor);
-  let sysEmerald   = mix(vec3f(0.45, 0.75, 0.98), vec3f(0.25, 0.68, 0.95), darkFactor);
-  let sysAmber     = mix(vec3f(0.98, 0.82, 0.45), vec3f(0.96, 0.74, 0.24), darkFactor);
+  let sysEmerald   = mix(vec3f(0.42, 0.72, 0.96), vec3f(0.25, 0.68, 0.95), darkFactor);
+  let sysAmber     = mix(vec3f(0.96, 0.78, 0.40), vec3f(0.96, 0.74, 0.24), darkFactor);
 
   // Dynamic chromatic morphing across theme transitions
   let baseDark = lightBase * modeLight + darkBase * modeDark + sysBase * modeSystem;
@@ -130,26 +137,33 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   var col = mix(baseDark, midnight, smoothstep(0.05, 0.45, waveMod));
   col = mix(col, sapphire, smoothstep(0.35, 0.75, waveMod));
   col = mix(col, cyanGlow, auroraRibbon * 0.45);
-  col = mix(col, amberGold, pow(smoothstep(0.65, 0.95, waveMod), 2.8) * 0.40);
+  col = mix(col, amberGold, pow(smoothstep(0.65, 0.95, waveMod), 2.5) * 0.38);
 
   col += cyanGlow * mouseGlow;
-  col += amberGold * (mouseGlow * 0.4);
+  col += amberGold * (mouseGlow * 0.35);
 
   // Organic twinkling democratic stardust & solar sparkles
   let starGrid = uv * vec2f(45.0 * aspect, 45.0);
   let starCell = floor(starGrid);
   let starRandom = hash21(starCell);
-  if (starRandom > 0.972) {
+  if (starRandom > 0.975) {
     let starPos = fract(starGrid) - 0.5;
     let starDist = length(starPos);
     let pulse = sin(params.time * 2.0 + starRandom * 6.28) * 0.5 + 0.5;
-    let starLight = exp(-starDist * 18.0) * pulse * 0.65;
-    col += mix(cyanGlow, amberGold, starRandom) * starLight;
+    let starLight = exp(-pow(starDist * 14.0, 2.0)) * pulse * 0.6;
+    col += mix(cyanGlow, amberGold, starRandom) * starLight * (0.4 + darkFactor * 0.6);
   }
 
   // Dark-mode vignette; in light mode keep luminous edges
-  let vig = mix(1.0, (1.0 - length(uv - 0.5) * 0.62) * (1.0 - uv.y * 0.3), darkFactor);
-  col *= max(vig, 0.25);
+  let vig = mix(1.0, (1.0 - length(uv - 0.5) * 0.55) * (1.0 - uv.y * 0.25), darkFactor);
+  col *= max(vig, 0.3);
+
+  // Filmic tone-mapping to compress dynamic highlights
+  col = tonemap(col);
+
+  // Golden-ratio temporal dithering to eliminate 8-bit gradient banding
+  let dither = (hash21(uv * vec2f(params.width, params.height) + fract(params.time * 0.6180339887)) - 0.5) / 255.0;
+  col += vec3f(dither);
 
   return vec4f(col, 1.0);
 }
@@ -227,9 +241,6 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
           }
         });
 
-        setIsSupported(true);
-        setIsWebGPUActive(true);
-
         const canvasSurface = surface(gpu, canvas, { dpr: [1, 2.5] });
 
         let currentMouseX = 0.5;
@@ -275,7 +286,14 @@ export function VgpuCivicAtmosphere({ className = '', intensity = 1.0 }: VgpuCiv
         });
 
         // Pre-warm the GPU render pipeline
-        void atmosphere.compile(canvasSurface);
+        await atmosphere.compile(canvasSurface);
+        if (disposed) {
+          gpu.dispose();
+          return;
+        }
+
+        setIsSupported(true);
+        setIsWebGPUActive(true);
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;

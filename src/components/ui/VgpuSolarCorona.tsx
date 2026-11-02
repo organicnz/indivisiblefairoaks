@@ -50,12 +50,42 @@ fn fbm(p: vec2f) -> f32 {
   return v;
 }
 
+// C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
+fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
+  let core = exp(-((d * d) / (coreW * coreW)));
+  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  return core + halo;
+}
+
+// Multi-octave advective magnetohydrodynamic domain warping
+fn domainWarp(p: vec2f, t: f32) -> vec2f {
+  let q = vec2f(
+    fbm(p + vec2f(t * 0.05, -t * 0.04)),
+    fbm(p + vec2f(5.2 - t * 0.03, 1.3 + t * 0.06))
+  );
+  let r = vec2f(
+    fbm(p + 3.0 * q + vec2f(1.7 - t * 0.06, 9.2 + t * 0.04)),
+    fbm(p + 3.0 * q + vec2f(8.3 + t * 0.04, 2.8 - t * 0.05))
+  );
+  return p + 0.32 * r;
+}
+
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.4;
+  let t = params.time * 0.35;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -66,10 +96,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
   // Background deep space chromosphere
-  let bgDarkStart = vec3f(0.02, 0.03, 0.08);
-  let bgDarkEnd   = vec3f(0.06, 0.05, 0.12);
-  let bgLightStart = vec3f(0.98, 0.95, 0.90);
-  let bgLightEnd   = vec3f(0.94, 0.88, 0.82);
+  let bgDarkStart = vec3f(0.02, 0.03, 0.07);
+  let bgDarkEnd   = vec3f(0.05, 0.04, 0.11);
+  let bgLightStart = vec3f(0.98, 0.95, 0.91);
+  let bgLightEnd   = vec3f(0.94, 0.89, 0.83);
   let bgSystemStart = mix(bgLightStart, bgDarkStart, darkFactor);
   let bgSystemEnd   = mix(bgLightEnd, bgDarkEnd, darkFactor);
 
@@ -79,39 +109,50 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.8);
 
   // Central solar limb offset just below the banner
-  let sunCenter = vec2f(0.0, -0.45);
-  let r = length(p - sunCenter);
-  let theta = atan2(p.y - sunCenter.y, p.x - sunCenter.x);
+  let sunCenter = vec2f(0.0, -0.42);
+  let pWarp = domainWarp(p - sunCenter, t * 0.2);
+  let r = length(pWarp);
+  let theta = atan2(pWarp.y, pWarp.x);
 
-  // Radial coronal streamers with magnetic field twist
-  let streamerRays = sin(theta * 14.0 + t * 0.6 + fbm(vec2f(theta * 3.0, t * 0.15)) * 3.0) * 0.5 + 0.5;
-  let fineStreamers = pow(noise(vec2f(theta * 42.0 - t * 0.3, r * 4.0)), 2.0) * 1.5;
-  let coronaDecay = exp(-max(r - 0.25, 0.0) * 3.8);
-  let coronaStreamers = coronaDecay * (0.6 + streamerRays * 0.8 + fineStreamers * 0.6);
+  // Volumetric Parker spiral coronal helmet streamers
+  let spiralTheta = theta + 0.22 * r;
+  let streamerFbm = fbm(vec2f(spiralTheta * 2.6, r * 1.4 - t * 0.25));
+  let streamerRadial = exp(-r * 1.6) * smoothstep(0.12, 0.42, r);
+  let helmetStreamers = streamerRadial * (0.35 + 0.65 * streamerFbm);
 
-  // Prominence plasma loops arching over the solar limb
-  let loopPhase = theta * 6.0 + sin(t * 0.7) * 0.4;
-  let loopHeight = 0.38 + sin(loopPhase) * 0.12 + fbm(vec2f(p.x * 4.0, t * 0.5)) * 0.06;
-  let loopDistance = abs(r - loopHeight);
-  let prominenceLoop = exp(-loopDistance * 18.0) * (0.7 + 0.3 * sin(theta * 24.0 + t * 2.0));
+  // Volumetric prominence plasma arcade loops (magnetic flux ropes)
+  let loopR = 0.36 + 0.07 * sin(theta * 3.0 + sin(t * 0.4) * 0.5) + 0.03 * fbm(vec2f(theta * 2.0, t * 0.2));
+  let loopDist = abs(r - loopR);
+  let prominence = dualLobe(loopDist, 0.045, 0.14) * smoothstep(0.1, 0.5, p.y - sunCenter.y + 0.4);
 
-  // Kinetic flare perturbation at cursor (solar eruption)
-  let flareIntensity = exp(-mouseDist * 3.2) * 0.65 * params.intensity;
+  // Dynamic coronal mass ejection / flare at cursor
+  let flare = dualLobe(mouseDist, 0.09, 0.35) * params.intensity;
 
-  // H-Alpha (656.3 nm) & Helium (587.6 nm) emission colors:
-  let hAlphaRed = vec3f(0.96, 0.24, 0.18);
-  let heliumGold = vec3f(0.99, 0.76, 0.22);
-  let pearlCorona = vec3f(1.0, 0.94, 0.82);
+  // Physical spectral lines:
+  // H-Alpha (656.3 nm) deep crimson ruby
+  let hAlphaRed = vec3f(0.98, 0.26, 0.18);
+  // Helium D3 (587.6 nm) golden amber
+  let heliumGold = vec3f(1.0, 0.78, 0.22);
+  // Thomson-scattered K-corona champagne pearl
+  let pearlCorona = vec3f(1.0, 0.95, 0.88);
 
-  let plasmaColor = mix(hAlphaRed, heliumGold, smoothstep(0.3, 0.7, r));
-  let coronaColor = mix(plasmaColor, pearlCorona, smoothstep(0.4, 0.9, r));
+  let plasmaColor = mix(hAlphaRed, heliumGold, smoothstep(0.25, 0.65, r));
+  let coronaColor = mix(plasmaColor, pearlCorona, smoothstep(0.35, 0.85, r));
 
-  let totalRadiance = (coronaStreamers * coronaColor + prominenceLoop * hAlphaRed + flareIntensity * heliumGold) * 1.5;
+  let totalRadiance = prominence * hAlphaRed * 1.6 + helmetStreamers * coronaColor * 1.3 + flare * heliumGold * 2.0;
 
-  let lum = (coronaStreamers + prominenceLoop * 0.8 + flareIntensity) * mix(0.45, 0.92, darkFactor) * params.intensity;
-  col = mix(col, col + totalRadiance, clamp(lum, 0.0, 1.0));
+  // Theme-adaptive transfer: luminous emission in dark mode, spectral absorption/enrichment in light mode
+  let darkRad = col + totalRadiance * mix(0.75, 1.25, params.intensity);
+  let lightRad = col * (1.0 - (prominence * 0.28 + helmetStreamers * 0.18)) + (prominence * hAlphaRed * 0.7 + helmetStreamers * heliumGold * 0.6 + flare * heliumGold * 0.75);
+  var radiance = mix(lightRad, darkRad, darkFactor);
 
-  return vec4f(col, 1.0);
+  radiance = tonemap(radiance);
+
+  // Golden ratio temporal blue-noise dither
+  let dither = (hash21(uv * 1284.56 + vec2f(params.time * 0.015, params.time * 0.025)) - 0.5) * (1.0 / 255.0);
+  radiance += vec3f(dither);
+
+  return vec4f(clamp(radiance, vec3f(0.0), vec3f(1.0)), 1.0);
 }
 `;
 
@@ -218,7 +259,8 @@ export function VgpuSolarCorona({ className = '', intensity = 1.0 }: VgpuSolarCo
         let currentWidth = canvasSurface.size[0];
         let currentHeight = canvasSurface.size[1];
 
-        void coronaEffect.compile(canvasSurface);
+        await coronaEffect.compile(canvasSurface);
+        if (disposed) return;
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;

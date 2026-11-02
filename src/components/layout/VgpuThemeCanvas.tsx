@@ -137,17 +137,17 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
     let hawking  = vec3f(0.38, 0.72, 1.0);
 
     // Accretion disk Doppler beaming and relativistic Kerr vortex
-    let doppler = cos(angle * 3.0 - time * 5.0 + wave.phase) * 0.5 + 0.5;
-    let vortex = sin(angle * 6.0 + dist * 40.0 - time * 7.0 + wave.phase) * 0.08 * (1.0 - wave.progress);
+    let doppler = cos(angle * 2.0 - time * 3.5 + wave.phase) * 0.5 + 0.5;
+    let vortex = sin(angle * 4.0 + dist * 22.0 - time * 5.0 + wave.phase) * 0.06 * (1.0 - wave.progress);
     // Gravitational redshift effect near event horizon
-    let grav_redshift = 1.0 / (1.0 + exp(-18.0 * (dist - 0.2)));
-    ripple = (sin(dist * 56.0 - time * 8.0) * 0.08 + vortex) * (1.0 - wave.progress);
+    let grav_redshift = 1.0 / (1.0 + exp(-14.0 * (dist - 0.2)));
+    ripple = (sin(dist * 28.0 - time * 5.0) * 0.06 + vortex) * (1.0 - wave.progress);
     let tone = mix(sapphire, celestial, doppler * grav_redshift);
 
     // Relativistic photon ring glow around the singularity
-    let photon_ring = exp(-32.0 * abs(dist - wave_pos * 0.38)) * pow(1.0 - wave.progress, 2.0) * 0.42;
+    let photon_ring = exp(-24.0 * abs(dist - wave_pos * 0.38)) * pow(1.0 - wave.progress, 2.0) * 0.42;
     // Hawking radiation diffuse aura
-    let hawking_aura = exp(-6.5 * dist) * pow(1.0 - wave.progress, 2.0) * 0.26;
+    let hawking_aura = exp(-5.0 * dist) * pow(1.0 - wave.progress, 2.0) * 0.26;
 
     wave_color = vec3f(
       cobalt.r * w_red * 0.82 + photon_ring * 0.12 + hawking_aura * hawking.r,
@@ -162,20 +162,20 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
     let solar_ruby  = vec3f(1.0, 0.42, 0.12);
 
     // 4-Plane wave interference simulating high-order crystal water caustics
-    let k1 = (p.x) * 36.0 + time * 3.2;
-    let k2 = (-0.5 * p.x + 0.866 * p.y) * 36.0 - time * 2.8;
-    let k3 = (-0.5 * p.x - 0.866 * p.y) * 36.0 + time * 3.6;
-    let k4 = (0.707 * p.x + 0.707 * p.y) * 44.0 - time * 2.2;
+    let k1 = (p.x) * 20.0 + time * 2.2;
+    let k2 = (-0.5 * p.x + 0.866 * p.y) * 20.0 - time * 1.8;
+    let k3 = (-0.5 * p.x - 0.866 * p.y) * 20.0 + time * 2.4;
+    let k4 = (0.707 * p.x + 0.707 * p.y) * 24.0 - time * 1.6;
     let caustic = (cos(k1) + cos(k2) + cos(k3) + cos(k4)) * 0.03 * (1.0 - wave.progress);
 
     // Crystalline 8-point diamond star glints along wavefront crest
-    let star_axis = max(0.0, cos(angle * 8.0 + time * 3.0)) * max(0.0, sin(angle * 8.0 - time * 3.0));
-    let glint = (pow(max(0.0, sin(p.x * 65.0 + time * 4.0) * cos(p.y * 65.0 - time * 4.0)), 12.0) * 0.45 + pow(star_axis, 4.0) * 0.25) * (1.0 - wave.progress);
+    let star_axis = max(0.0, cos(angle * 6.0 + time * 2.0)) * max(0.0, sin(angle * 6.0 - time * 2.0));
+    let glint = (pow(max(0.0, sin(p.x * 32.0 + time * 2.5) * cos(p.y * 32.0 - time * 2.5)), 8.0) * 0.35 + pow(star_axis, 3.0) * 0.2) * (1.0 - wave.progress);
 
     // Solar flare corona at interaction epicenter
-    let solar_corona = exp(-10.0 * dist) * pow(1.0 - wave.progress, 2.0) * 0.38;
+    let solar_corona = exp(-8.0 * dist) * pow(1.0 - wave.progress, 2.0) * 0.38;
 
-    ripple = (cos(dist * 48.0 - wave_pos * 20.0 + wave.phase) * 0.06 + caustic + glint) * (1.0 - wave.progress);
+    ripple = (cos(dist * 26.0 - wave_pos * 14.0 + wave.phase) * 0.05 + caustic + glint) * (1.0 - wave.progress);
 
     let spectral_r = mix(amber_gold.r, solar_white.r, 0.35) * (w_red + w_amber * 0.5) + solar_corona * solar_ruby.r;
     let spectral_g = mix(amber_gold.g, warm_topaz.g, 0.5) * (w_yellow + w_green + ripple + fresnel) + solar_corona * warm_topaz.g;
@@ -190,15 +190,15 @@ fn sampleWave(uv: vec2f, wave: WaveParams, aspect: f32, time: f32, mouse: vec2f,
 
     // Bloch sphere geodesic parameterization
     let bloch_theta = wave.progress * 3.14159265;
-    let bloch_phi = time * 4.5 + angle * 4.0 + wave.phase;
+    let bloch_phi = time * 3.0 + angle * 3.0 + wave.phase;
     let quantum_interference = sin(bloch_theta) * cos(bloch_phi);
 
-    let orbital_angle = angle + 2.5 * (1.0 - wave.progress);
-    let wave_packet = sin(orbital_angle * 8.0 + dist * 44.0 - time * 7.5 + wave.phase) * cos(orbital_angle * 12.0 - dist * 26.0 + time * 6.0 + wave.phase);
-    let slit_interference = pow(cos(angle * 16.0 + wave.phase), 2.0) * 0.06 * (1.0 - wave.progress);
+    let orbital_angle = angle + 2.0 * (1.0 - wave.progress);
+    let wave_packet = sin(orbital_angle * 6.0 + dist * 24.0 - time * 5.0 + wave.phase) * cos(orbital_angle * 8.0 - dist * 16.0 + time * 4.0 + wave.phase);
+    let slit_interference = pow(cos(angle * 10.0 + wave.phase), 2.0) * 0.05 * (1.0 - wave.progress);
     let quantum_mix = mix(primary_tone, secondary_tone, clamp(wave_packet * 0.35 + quantum_interference * 0.35 + 0.5, 0.0, 1.0));
 
-    ripple = (sin(dist * 66.0 - time * 10.0) * 0.06 + slit_interference) * (1.0 - wave.progress);
+    ripple = (sin(dist * 34.0 - time * 6.5) * 0.05 + slit_interference) * (1.0 - wave.progress);
 
     wave_color = vec3f(
       quantum_mix.r * (w_red + w_amber * 0.4),
@@ -590,7 +590,8 @@ export function VgpuThemeCanvas() {
 
         // Pre-warm the render pipeline to eliminate first-interaction hitching
         if (currentSurface && themeEffect) {
-          void themeEffect.compile(currentSurface);
+          await themeEffect.compile(currentSurface);
+          if (disposed) return;
         }
 
         // If any wave was requested before compile finished, start loop

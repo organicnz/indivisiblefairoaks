@@ -50,12 +50,42 @@ fn fbm(p: vec2f) -> f32 {
   return v;
 }
 
+// C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
+fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
+  let core = exp(-((d * d) / (coreW * coreW)));
+  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  return core + halo;
+}
+
+// Multi-octave helical plasma domain warping
+fn helicalWarp(p: vec2f, t: f32) -> vec2f {
+  let q = vec2f(
+    fbm(p + vec2f(t * 0.05, -t * 0.04)),
+    fbm(p + vec2f(5.1 - t * 0.03, 1.4 + t * 0.05))
+  );
+  let r = vec2f(
+    fbm(p + 2.8 * q + vec2f(2.1 - t * 0.05, 8.4 + t * 0.03)),
+    fbm(p + 2.8 * q + vec2f(7.3 + t * 0.04, 3.2 - t * 0.04))
+  );
+  return p + 0.3 * r;
+}
+
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.5;
+  let t = params.time * 0.38;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -66,8 +96,8 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
   // Background deep ionospheric twilight gradient
-  let bgDarkStart = vec3f(0.02, 0.035, 0.09);
-  let bgDarkEnd   = vec3f(0.045, 0.07, 0.18);
+  let bgDarkStart = vec3f(0.015, 0.028, 0.08);
+  let bgDarkEnd   = vec3f(0.038, 0.06, 0.16);
   let bgLightStart = vec3f(0.93, 0.96, 0.99);
   let bgLightEnd   = vec3f(0.86, 0.91, 0.97);
   let bgSystemStart = mix(bgLightStart, bgDarkStart, darkFactor);
@@ -78,53 +108,52 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
 
+  let pWarp = helicalWarp(p, t * 0.25);
+
   // Dual intertwined helical Birkeland current ropes
-  let helixFreq = 5.5;
-  let helixSpeed = t * 1.5;
-  let helixPhase1 = p.x * helixFreq + helixSpeed;
-  let helixPhase2 = p.x * helixFreq + helixSpeed + 3.14159;
+  let helixFreq = 4.2;
+  let helixSpeed = t * 1.2;
+  let helixPhase1 = pWarp.x * helixFreq + helixSpeed;
+  let helixPhase2 = pWarp.x * helixFreq + helixSpeed + 3.14159;
 
-  let yHelix1 = sin(helixPhase1) * 0.18 + fbm(vec2f(p.x * 2.0, t * 0.2)) * 0.08;
-  let yHelix2 = sin(helixPhase2) * 0.18 + fbm(vec2f(p.x * 2.0 + 1.5, t * 0.2)) * 0.08;
+  let yHelix1 = sin(helixPhase1) * 0.16 + fbm(vec2f(pWarp.x * 1.8, t * 0.15)) * 0.06;
+  let yHelix2 = sin(helixPhase2) * 0.16 + fbm(vec2f(pWarp.x * 1.8 + 1.2, t * 0.15)) * 0.06;
 
-  let distH1 = abs(p.y - yHelix1);
-  let distH2 = abs(p.y - yHelix2);
+  let distH1 = abs(pWarp.y - yHelix1);
+  let distH2 = abs(pWarp.y - yHelix2);
 
-  // Filamentary sub-threads within the current rope
-  let fineFilaments1 = pow(noise(vec2f(p.x * 32.0 - t * 2.0, p.y * 14.0)), 2.0) * 1.6;
-  let fineFilaments2 = pow(noise(vec2f(p.x * 32.0 + t * 2.0, p.y * 14.0)), 2.0) * 1.6;
+  // Volumetric dual-lobe helical current sheaths
+  let currentRope1 = dualLobe(distH1, 0.05, 0.18) * (0.8 + 0.2 * cos(pWarp.x * 3.0 + t));
+  let currentRope2 = dualLobe(distH2, 0.05, 0.18) * (0.8 + 0.2 * sin(pWarp.x * 3.0 - t));
 
-  let currentRope1 = exp(-distH1 * 12.0) * (0.7 + fineFilaments1 * 0.7);
-  let currentRope2 = exp(-distH2 * 12.0) * (0.7 + fineFilaments2 * 0.7);
-
-  // Electrostatic node discharge around mouse position
-  let cursorDischarge = exp(-mouseDist * 3.0) * 0.55 * params.intensity;
+  // Dynamic resonant node discharge at cursor
+  let cursorDischarge = dualLobe(mouseDist, 0.08, 0.35) * params.intensity;
 
   // Emission spectral colors:
   // 1. Electric Sapphire (470 nm)
   let sapphire = vec3f(0.18, 0.65, 0.98);
   // 2. Ionized Emerald (557.7 nm)
-  let emerald  = vec3f(0.15, 0.95, 0.60);
+  let emerald  = vec3f(0.16, 0.94, 0.62);
   // 3. Auroral Amethyst (427.8 nm)
-  let amethyst = vec3f(0.78, 0.28, 0.92);
+  let amethyst = vec3f(0.76, 0.32, 0.94);
 
-  let colorRope1 = mix(sapphire, emerald, sin(p.x * 3.0 + t) * 0.5 + 0.5);
-  let colorRope2 = mix(amethyst, sapphire, cos(p.x * 3.0 - t) * 0.5 + 0.5);
+  let colorRope1 = mix(sapphire, emerald, sin(p.x * 2.5 + t) * 0.5 + 0.5);
+  let colorRope2 = mix(amethyst, sapphire, cos(p.x * 2.5 - t) * 0.5 + 0.5);
 
-  let totalEmission = (currentRope1 * colorRope1 + currentRope2 * colorRope2 + cursorDischarge * emerald) * 1.45;
+  let totalEmission = currentRope1 * colorRope1 * 1.35 + currentRope2 * colorRope2 * 1.35 + cursorDischarge * emerald * 1.8;
 
-  let lum = (currentRope1 + currentRope2 + cursorDischarge * 0.8) * mix(0.42, 0.94, darkFactor) * params.intensity;
-  col = mix(col, col + totalEmission, clamp(lum, 0.0, 1.0));
+  // Theme-adaptive transfer
+  let darkRad = col + totalEmission * mix(0.7, 1.25, params.intensity);
+  let lightRad = col * (1.0 - (currentRope1 * 0.22 + currentRope2 * 0.22)) + (currentRope1 * colorRope1 * 0.65 + currentRope2 * colorRope2 * 0.65 + cursorDischarge * emerald * 0.75);
+  var radiance = mix(lightRad, darkRad, darkFactor);
 
-  // High-altitude ion flow sparkles
-  let ionCoord = floor(p * 45.0);
-  let ionRand = hash21(ionCoord);
-  if (ionRand > 0.978 && darkFactor > 0.35) {
-    let ionTwinkle = sin(t * 5.0 + ionRand * 30.0) * 0.5 + 0.5;
-    col += sapphire * ionTwinkle * 0.4 * darkFactor;
-  }
+  radiance = tonemap(radiance);
 
-  return vec4f(col, 1.0);
+  // Golden ratio temporal blue-noise dither
+  let dither = (hash21(uv * 1274.56 + vec2f(params.time * 0.015, params.time * 0.025)) - 0.5) * (1.0 / 255.0);
+  radiance += vec3f(dither);
+
+  return vec4f(clamp(radiance, vec3f(0.0), vec3f(1.0)), 1.0);
 }
 `;
 
@@ -237,7 +266,8 @@ export function VgpuBirkelandCurrents({
         let currentWidth = canvasSurface.size[0];
         let currentHeight = canvasSurface.size[1];
 
-        void birkelandEffect.compile(canvasSurface);
+        await birkelandEffect.compile(canvasSurface);
+        if (disposed) return;
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;

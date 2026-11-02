@@ -51,18 +51,48 @@ fn fbm(p: vec2f) -> f32 {
   return v;
 }
 
+// C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
+fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
+  let core = exp(-((d * d) / (coreW * coreW)));
+  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  return core + halo;
+}
+
+// Multi-octave cirrostratus cloud domain warping
+fn cirrusWarp(p: vec2f, t: f32) -> vec2f {
+  let q = vec2f(
+    fbm(p + vec2f(t * 0.04, -t * 0.03)),
+    fbm(p + vec2f(3.4 - t * 0.02, 1.8 + t * 0.04))
+  );
+  let r = vec2f(
+    fbm(p + 2.5 * q + vec2f(1.9 - t * 0.04, 6.2 + t * 0.03)),
+    fbm(p + 2.5 * q + vec2f(5.8 + t * 0.03, 2.7 - t * 0.04))
+  );
+  return p + 0.25 * r;
+}
+
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.4;
-  let mouseP = vec2f((params.mouseX - 0.5) * aspect * 0.4, (params.mouseY - 0.5) * 0.4);
+  let t = params.time * 0.35;
+  let mouseP = vec2f((params.mouseX - 0.5) * aspect * 0.35, (params.mouseY - 0.5) * 0.35);
 
   // Solar / Lunar light source center (subtly influenced by cursor)
-  let sunCenter = mouseP * 0.35;
+  let sunCenter = mouseP * 0.3;
+  let pWarp = cirrusWarp(p, t * 0.2);
   let r = length(p - sunCenter);
-  let angle = atan2(p.y - sunCenter.y, p.x - sunCenter.x);
 
   let darkFactor = clamp(params.effectiveTheme, 0.0, 1.0);
 
@@ -71,10 +101,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
   // Background cirrostratus atmospheric sky gradient
-  let bgDarkStart = vec3f(0.02, 0.04, 0.08);
-  let bgDarkEnd   = vec3f(0.05, 0.08, 0.16);
-  let bgLightStart = vec3f(0.92, 0.95, 0.99);
-  let bgLightEnd   = vec3f(0.85, 0.91, 0.97);
+  let bgDarkStart = vec3f(0.015, 0.032, 0.07);
+  let bgDarkEnd   = vec3f(0.04, 0.065, 0.15);
+  let bgLightStart = vec3f(0.93, 0.95, 0.99);
+  let bgLightEnd   = vec3f(0.86, 0.91, 0.97);
   let bgSystemStart = mix(bgLightStart, bgDarkStart, darkFactor);
   let bgSystemEnd   = mix(bgLightEnd, bgDarkEnd, darkFactor);
 
@@ -83,84 +113,71 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
 
-  // Cirrus fibratus cloud veil modulation
-  let cirrus = fbm(vec2f(p.x * 3.5 + t * 0.15, p.y * 5.0 - t * 0.08));
-  let iceCrystalDensity = 0.7 + cirrus * 0.5;
+  // Cirrostratus ice crystal sheet modulation
+  let cirrus = fbm(vec2f(pWarp.x * 2.5 + t * 0.12, pWarp.y * 3.5 - t * 0.06));
+  let iceCrystalDensity = 0.7 + cirrus * 0.45;
 
-  // 22° Halo Ring (minimum angle of deviation ~0.38 in screen coords)
+  // 22° Halo Ring (minimum angle of deviation ~0.38 in normalized coordinates)
   let haloRadius = 0.38;
   let distFromHalo = r - haloRadius;
 
-  // Asymmetric dispersion: sharp inner edge (cutoff), diffused outer tail
-  var haloRing = 0.0;
-  if (distFromHalo >= -0.04) {
-    let innerEdge = smoothstep(-0.04, 0.0, distFromHalo);
-    let outerTail = exp(-max(0.0, distFromHalo) * 14.0);
-    haloRing = innerEdge * outerTail * iceCrystalDensity;
-  }
-
-  // Chromatic dispersion across halo boundary:
+  // Continuous chromatic dispersion across halo boundary:
   // Red inner fringe (less deviated), diamond white core, ice-blue outer veil
-  let redDispersion   = exp(-pow((distFromHalo + 0.015) * 22.0, 2.0));
-  let goldDispersion  = exp(-pow(distFromHalo * 20.0, 2.0));
-  let blueDispersion  = exp(-pow((distFromHalo - 0.025) * 16.0, 2.0));
+  let redDispersion  = dualLobe(distFromHalo + 0.016, 0.028, 0.08);
+  let goldDispersion = dualLobe(distFromHalo, 0.032, 0.09);
+  let blueDispersion = dualLobe(distFromHalo - 0.022, 0.038, 0.11);
 
-  let colRed  = vec3f(0.98, 0.42, 0.22);
-  let colGold = vec3f(0.98, 0.86, 0.45);
-  let colBlue = vec3f(0.38, 0.72, 0.98);
-  let colIce  = vec3f(0.85, 0.94, 1.0);
+  let colRed  = vec3f(0.98, 0.38, 0.22);
+  let colGold = vec3f(0.98, 0.85, 0.42);
+  let colBlue = vec3f(0.38, 0.75, 0.98);
+  let colIce  = vec3f(0.88, 0.95, 1.0);
 
-  var haloColor = colRed * redDispersion * 0.7 +
-                  colGold * goldDispersion * 0.9 +
-                  colBlue * blueDispersion * 0.8 +
-                  colIce * haloRing * 0.4;
+  let haloColor = colRed * redDispersion * 0.85 +
+                  colGold * goldDispersion * 1.1 +
+                  colBlue * blueDispersion * 0.95 +
+                  colIce * (redDispersion + blueDispersion) * 0.35;
 
   // Parhelia (Sun Dogs): bright optical spots at azimuth 0 and PI on the 22° ring
   let dogLeftDist  = length(p - sunCenter - vec2f(-haloRadius, 0.0));
   let dogRightDist = length(p - sunCenter - vec2f(haloRadius, 0.0));
 
-  let parhelionLeft  = exp(-dogLeftDist * 9.0) * iceCrystalDensity;
-  let parhelionRight = exp(-dogRightDist * 9.0) * iceCrystalDensity;
+  let parhelionLeft  = dualLobe(dogLeftDist, 0.065, 0.22) * iceCrystalDensity;
+  let parhelionRight = dualLobe(dogRightDist, 0.065, 0.22) * iceCrystalDensity;
 
-  // Horizontal parhelic white tails extending outward
-  let leftTail = exp(-abs(p.y - sunCenter.y) * 28.0) *
-                 smoothstep(-haloRadius * 2.2, -haloRadius, p.x - sunCenter.x) *
-                 step(p.x - sunCenter.x, -haloRadius);
-  let rightTail = exp(-abs(p.y - sunCenter.y) * 28.0) *
-                  smoothstep(haloRadius * 2.2, haloRadius, p.x - sunCenter.x) *
-                  step(haloRadius, p.x - sunCenter.x);
+  // Smooth horizontal parhelic white tails extending outward
+  let tailY = abs(p.y - sunCenter.y);
+  let leftTail = dualLobe(tailY, 0.035, 0.12) * smoothstep(-haloRadius * 2.5, -haloRadius, p.x - sunCenter.x) * smoothstep(-haloRadius * 0.8, -haloRadius, p.x - sunCenter.x);
+  let rightTail = dualLobe(tailY, 0.035, 0.12) * smoothstep(haloRadius * 2.5, haloRadius, p.x - sunCenter.x) * smoothstep(haloRadius * 0.8, haloRadius, p.x - sunCenter.x);
 
-  let parheliaGlow = (parhelionLeft + parhelionRight) * 1.6 + (leftTail + rightTail) * 0.45;
+  let parheliaGlow = (parhelionLeft + parhelionRight) * 1.5 + (leftTail + rightTail) * 0.4;
 
-  // Upper Tangent Arc: kisses the top of the 22° halo
+  // Upper Tangent Arc: kisses the top of the 22° halo with smooth parabolic curve
   let tangentApex = sunCenter + vec2f(0.0, haloRadius);
-  let tangentY = tangentApex.y + pow((p.x - tangentApex.x) * 1.8, 2.0);
+  let tangentY = tangentApex.y + pow((p.x - tangentApex.x) * 1.5, 2.0);
   let distTangent = abs(p.y - tangentY);
-  let tangentArc = exp(-distTangent * 18.0) * smoothstep(0.4, 0.0, abs(p.x - tangentApex.x)) * 0.6;
+  let tangentArc = dualLobe(distTangent, 0.04, 0.14) * smoothstep(0.45, 0.0, abs(p.x - tangentApex.x)) * 0.6;
 
   // Central solar glow
-  let solarGlow = exp(-r * 6.5) * 0.7;
+  let solarGlow = dualLobe(r, 0.09, 0.35) * 0.8;
 
   // Total optical emission
-  let totalHalo = (haloRing * haloColor +
-                   parheliaGlow * colGold +
-                   tangentArc * colIce +
-                   solarGlow * mix(colGold, colIce, 0.5)) * 1.35;
+  let totalHalo = (haloColor * iceCrystalDensity * 1.25 +
+                   parheliaGlow * colGold * 1.4 +
+                   tangentArc * colIce * 1.1 +
+                   solarGlow * mix(colGold, colIce, 0.5) * 1.2);
 
-  let totalLum = (haloRing + parheliaGlow + tangentArc + solarGlow) *
-                 mix(0.38, 0.88, darkFactor) * params.intensity;
+  // Theme-adaptive transfer
+  let darkRad = col + totalHalo * mix(0.7, 1.25, params.intensity);
+  let lightRad = col * (1.0 - (goldDispersion * 0.2 + parheliaGlow * 0.18)) + (haloColor * 0.65 + parheliaGlow * colGold * 0.62 + solarGlow * colGold * 0.65);
+  var radiance = mix(lightRad, darkRad, darkFactor);
 
-  col = mix(col, col + totalHalo, clamp(totalLum, 0.0, 1.0));
+  radiance = tonemap(radiance);
 
-  // Shimmering diamond dust ice crystals
-  let dustCoord = floor(p * 55.0);
-  let dustRand = hash21(dustCoord);
-  if (dustRand > 0.982 && darkFactor > 0.25) {
-    let sparkle = sin(t * 6.0 + dustRand * 40.0) * 0.5 + 0.5;
-    col += colIce * sparkle * 0.35 * darkFactor;
-  }
+  // Golden ratio temporal blue-noise dither
+  let dither = (hash21(uv * 1244.56 + vec2f(params.time * 0.015, params.time * 0.025)) - 0.5) * (1.0 / 255.0);
+  radiance += vec3f(dither);
 
-  return vec4f(col, 1.0);
+  return vec4f(clamp(radiance, vec3f(0.0), vec3f(1.0)), 1.0);
 }
 `;
 
@@ -273,7 +290,8 @@ export function VgpuAtmosphericHalo({
         let currentWidth = canvasSurface.size[0];
         let currentHeight = canvasSurface.size[1];
 
-        void haloEffect.compile(canvasSurface);
+        await haloEffect.compile(canvasSurface);
+        if (disposed) return;
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;

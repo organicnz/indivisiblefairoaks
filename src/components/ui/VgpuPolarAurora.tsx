@@ -25,6 +25,10 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+fn tonemap(c: vec3f) -> vec3f {
+  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+}
+
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
@@ -44,10 +48,17 @@ fn fbm(p: vec2f) -> f32 {
   var q = p;
   for (var i = 0; i < 4; i = i + 1) {
     v += a * noise(q);
-    q = q * 2.05 + shift;
+    q = q * 2.04 + shift;
     a *= 0.5;
   }
   return v;
+}
+
+// Dual-lobe atmospheric scattering envelope: smooth Gaussian core + expansive Rayleigh haze
+fn auroralLobe(distY: f32, coreScale: f32, haloScale: f32) -> f32 {
+  let core = exp(-pow(distY * coreScale, 2.0));
+  let halo = exp(-abs(distY) * haloScale) * 0.42;
+  return core + halo;
 }
 
 @fragment
@@ -55,7 +66,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.45;
+  let t = params.time * 0.40;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -79,53 +90,83 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
 
-  // Aurora Curtain 1: Primary drapery fold
-  let fold1 = sin(p.x * 1.8 + t * 0.7 + fbm(vec2f(p.x * 1.2, t * 0.2)) * 2.2) * 0.22;
-  let distY1 = p.y - fold1;
-  let vertRays1 = pow(noise(vec2f(p.x * 28.0 - t * 0.35, p.y * 1.2)), 2.2) * 1.8;
-  let curtain1 = exp(-abs(distY1) * 7.5) * (0.65 + vertRays1 * 0.75);
+  // Interactive solar wind perturbation from cursor (soft magnetic deflection)
+  let solarWind = (mouseP - p) * exp(-pow(mouseDist * 2.2, 2.0)) * 0.35 * params.intensity;
+  let pWarp = p + solarWind;
 
-  // Aurora Curtain 2: Secondary dancing ribbon
-  let fold2 = sin(p.x * 2.4 - t * 0.5 + 1.6 + fbm(vec2f(p.x * 1.5, t * 0.18)) * 1.8) * 0.18 - 0.12;
-  let distY2 = p.y - fold2;
-  let vertRays2 = pow(noise(vec2f(p.x * 34.0 + t * 0.4 + 2.0, p.y * 1.5)), 2.0) * 1.6;
-  let curtain2 = exp(-abs(distY2) * 8.5) * (0.55 + vertRays2 * 0.7);
+  // Fluid multi-octave domain warping (advective curl turbulence)
+  let warpQ = vec2f(
+    fbm(vec2f(pWarp.x * 1.4 + t * 0.25, pWarp.y * 0.8)),
+    fbm(vec2f(pWarp.x * 1.4 - t * 0.20, pWarp.y * 0.8 + 2.5))
+  );
 
-  // Interactive solar wind perturbation from cursor
-  let solarDeflection = exp(-mouseDist * 2.8) * 0.45 * params.intensity;
+  // Aurora Curtain 1: Primary volumetric drapery fold (120 km altitude oxygen emission)
+  let fold1 = sin(pWarp.x * 1.6 + t * 0.65 + warpQ.x * 1.8) * 0.20;
+  let distY1 = pWarp.y - fold1;
+  let rays1 = smoothstep(0.15, 0.85, noise(vec2f(pWarp.x * 16.0 - t * 0.28 + warpQ.y * 0.9, pWarp.y * 1.4))) * 0.85 + 0.35;
+  let curtain1 = auroralLobe(distY1, 6.5, 2.4) * rays1;
 
-  // Emission spectral colors:
-  // 1. Emerald atomic oxygen (557.7 nm)
-  let greenO2 = vec3f(0.12, 0.98, 0.55);
-  // 2. Violet-magenta ionized nitrogen fringe (427.8 nm)
-  let violetN2 = vec3f(0.85, 0.22, 0.75);
-  // 3. High-altitude crimson crown (630.0 nm)
-  let crimsonO2 = vec3f(0.92, 0.18, 0.32);
+  // Aurora Curtain 2: Secondary dancing ribbon (100 km nitrogen-excited shear wave)
+  let fold2 = sin(pWarp.x * 2.2 - t * 0.45 + 1.8 + warpQ.y * 1.5) * 0.16 - 0.10;
+  let distY2 = pWarp.y - fold2;
+  let rays2 = smoothstep(0.2, 0.85, noise(vec2f(pWarp.x * 20.0 + t * 0.35 + warpQ.x * 0.8, pWarp.y * 1.6))) * 0.80 + 0.35;
+  let curtain2 = auroralLobe(distY2, 7.5, 2.8) * rays2;
 
-  // Gradient along curtain vertical profile:
-  // Lower border gets nitrogen violet, center gets oxygen green, top gets crimson crown
-  let c1Color = mix(violetN2, greenO2, smoothstep(-0.25, 0.05, distY1));
-  let finalC1 = mix(c1Color, crimsonO2, smoothstep(0.05, 0.35, distY1));
+  // Aurora Curtain 3: Distant faint coronal veil (250 km high-altitude thermosphere)
+  let fold3 = cos(pWarp.x * 1.2 + t * 0.3 + 3.2 + warpQ.x * 1.2) * 0.14 + 0.14;
+  let distY3 = pWarp.y - fold3;
+  let curtain3 = auroralLobe(distY3, 5.0, 1.8) * 0.55;
 
-  let c2Color = mix(violetN2, greenO2, smoothstep(-0.2, 0.08, distY2));
-  let finalC2 = mix(c2Color, crimsonO2, smoothstep(0.08, 0.3, distY2));
+  // Physical emission spectral colors:
+  // 1. Radiant emerald atomic oxygen transition (557.7 nm)
+  let greenO2 = vec3f(0.14, 0.96, 0.54);
+  // 2. Ionized molecular nitrogen border fringe (427.8 nm violet-pink)
+  let violetN2 = vec3f(0.82, 0.25, 0.78);
+  // 3. High-altitude nitrogen/oxygen crimson crown (630.0 nm)
+  let crimsonO2 = vec3f(0.92, 0.20, 0.32);
+  // 4. Cyan twilight scattering
+  let cyanScatter = vec3f(0.22, 0.78, 0.96);
 
-  let totalCurtain = (curtain1 * finalC1 + curtain2 * finalC2) * (1.0 + solarDeflection);
+  // Altitude color dispersion along curtain vertical cross-sections
+  let c1Col = mix(violetN2, greenO2, smoothstep(-0.22, 0.04, distY1));
+  let finalC1 = mix(c1Col, crimsonO2, smoothstep(0.04, 0.32, distY1));
 
-  // Blend into base atmosphere
-  let auroraLum = (curtain1 + curtain2) * 0.9;
-  let intensityScale = mix(0.42, 0.95, darkFactor) * params.intensity;
+  let c2Col = mix(violetN2, greenO2, smoothstep(-0.18, 0.06, distY2));
+  let finalC2 = mix(c2Col, crimsonO2, smoothstep(0.06, 0.28, distY2));
 
-  col = mix(col, col + totalCurtain * 1.35, clamp(auroraLum * intensityScale, 0.0, 1.0));
+  let finalC3 = mix(greenO2, crimsonO2, smoothstep(-0.1, 0.25, distY3));
 
-  // Subtle star field twinkle behind auroral drapery in dark mode
-  let starGrid = floor(p * 55.0);
+  let totalRadiance = (curtain1 * finalC1 + curtain2 * finalC2 + curtain3 * finalC3);
+  let totalDensity = (curtain1 + curtain2 * 0.9 + curtain3 * 0.5) * params.intensity;
+
+  // Theme-adaptive transfer function:
+  // In Dark Mode: Luminous emission against Arctic night sky
+  // In Light Mode: Saturated prismatic atmospheric scattering (never washing out)
+  let darkEmission = totalRadiance * 1.45;
+  let lightEmission = mix(col * 0.75 + totalRadiance * 0.65, cyanScatter, 0.25);
+  let sysEmission = mix(lightEmission, darkEmission, darkFactor);
+
+  let blendedEmission = lightEmission * modeLight + darkEmission * modeDark + sysEmission * modeSystem;
+  let densityFactor = clamp(totalDensity * mix(0.48, 0.92, darkFactor), 0.0, 1.0);
+
+  col = mix(col, col + blendedEmission, densityFactor);
+
+  // Twinkling stars with atmospheric scintillation in dark mode
+  let starGrid = floor(pWarp * 55.0);
   let starRand = hash21(starGrid);
-  if (starRand > 0.982 && darkFactor > 0.4) {
-    let starTwinkle = sin(t * 4.0 + starRand * 20.0) * 0.5 + 0.5;
-    let starGlow = smoothstep(0.982, 1.0, starRand) * starTwinkle * (1.0 - clamp(auroraLum * 1.2, 0.0, 0.8));
-    col += vec3f(0.85, 0.92, 1.0) * starGlow * 0.45 * darkFactor;
+  if (starRand > 0.982 && darkFactor > 0.35) {
+    let starTwinkle = sin(t * 3.5 + starRand * 25.0) * 0.5 + 0.5;
+    let starPos = fract(pWarp * 55.0) - 0.5;
+    let starGlow = exp(-pow(length(starPos) * 12.0, 2.0)) * starTwinkle * (1.0 - clamp(totalDensity * 0.9, 0.0, 0.8));
+    col += vec3f(0.85, 0.92, 1.0) * starGlow * 0.5 * darkFactor;
   }
+
+  // Filmic tone-mapping to compress HDR highlights
+  col = tonemap(col);
+
+  // Golden-ratio temporal dithering to eliminate 8-bit gradient banding
+  let dither = (hash21(uv * vec2f(params.width, params.height) + fract(params.time * 0.6180339887)) - 0.5) / 255.0;
+  col += vec3f(dither);
 
   return vec4f(col, 1.0);
 }
@@ -234,7 +275,11 @@ export function VgpuPolarAurora({ className = '', intensity = 1.0 }: VgpuPolarAu
         let currentWidth = canvasSurface.size[0];
         let currentHeight = canvasSurface.size[1];
 
-        void aurora.compile(canvasSurface);
+        await aurora.compile(canvasSurface);
+        if (disposed) {
+          gpu.dispose();
+          return;
+        }
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;

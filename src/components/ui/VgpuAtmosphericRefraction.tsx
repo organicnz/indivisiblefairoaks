@@ -51,12 +51,42 @@ fn fbm(p: vec2f) -> f32 {
   return v;
 }
 
+// C-infinity smooth dual-lobe volumetric envelope (zero razor cusps)
+fn dualLobe(d: f32, coreW: f32, haloW: f32) -> f32 {
+  let core = exp(-((d * d) / (coreW * coreW)));
+  let halo = exp(-((d * d) / (haloW * haloW))) * 0.35;
+  return core + halo;
+}
+
+// Multi-octave atmospheric mirage domain warping
+fn mirageWarp(p: vec2f, t: f32) -> vec2f {
+  let q = vec2f(
+    fbm(p + vec2f(t * 0.05, -t * 0.04)),
+    fbm(p + vec2f(4.2 - t * 0.03, 1.7 + t * 0.05))
+  );
+  let r = vec2f(
+    fbm(p + 2.6 * q + vec2f(1.5 - t * 0.04, 7.8 + t * 0.03)),
+    fbm(p + 2.6 * q + vec2f(6.4 + t * 0.04, 2.3 - t * 0.05))
+  );
+  return p + 0.28 * r;
+}
+
+// ACES-inspired filmic tone mapping to eliminate harsh digital clipping
+fn tonemap(x: vec3f) -> vec3f {
+  let a = 2.51;
+  let b = 0.03;
+  let c = 2.43;
+  let d = 0.59;
+  let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3f(0.0), vec3f(1.0));
+}
+
 @fragment
 fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.45;
+  let t = params.time * 0.38;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -67,10 +97,10 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let modeSystem = clamp(1.0 - params.themeMode, 0.0, 1.0);
 
   // Background atmospheric horizon gradient
-  let bgDarkStart = vec3f(0.015, 0.035, 0.08);
-  let bgDarkEnd   = vec3f(0.04, 0.075, 0.16);
-  let bgLightStart = vec3f(0.92, 0.95, 0.99);
-  let bgLightEnd   = vec3f(0.85, 0.90, 0.96);
+  let bgDarkStart = vec3f(0.012, 0.028, 0.07);
+  let bgDarkEnd   = vec3f(0.035, 0.06, 0.15);
+  let bgLightStart = vec3f(0.93, 0.95, 0.99);
+  let bgLightEnd   = vec3f(0.86, 0.90, 0.96);
   let bgSystemStart = mix(bgLightStart, bgDarkStart, darkFactor);
   let bgSystemEnd   = mix(bgLightEnd, bgDarkEnd, darkFactor);
 
@@ -79,63 +109,50 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.7);
 
-  // Coherent Probing Beam (LIDAR atmospheric search pulse)
-  // Sweeps smoothly horizontally across the field of view
-  let scanX = sin(t * 0.8) * (aspect * 0.42);
-  let beamAngle = -0.18 + sin(t * 0.3) * 0.06;
+  let pWarp = mirageWarp(p, t * 0.22);
+
+  // Volumetric Coherent LIDAR Probing Beam (smooth Gaussian waist + Rayleigh backscattering)
+  let scanX = sin(t * 0.7) * (aspect * 0.38);
+  let beamAngle = -0.15 + sin(t * 0.25) * 0.05;
   let beamDist = abs((p.x - scanX) - p.y * beamAngle);
 
-  let beamCore = exp(-beamDist * 32.0);
-  let beamHalo = exp(-beamDist * 6.0) * 0.4;
-  let beamPulse = sin(p.y * 30.0 - t * 8.0) * 0.5 + 0.5;
+  let lidarBeam = dualLobe(beamDist, 0.035, 0.16) * (0.8 + 0.2 * sin(p.y * 12.0 - t * 4.0));
 
-  let lidarBeam = (beamCore + beamHalo * beamPulse) * 1.5;
+  // Volumetric Atmospheric Inversion Layer & Mirage Waves (Fata Morgana refraction)
+  let mirageBaseY = -0.16;
+  let thermalWave = sin(pWarp.x * 6.0 + t * 1.5) * 0.016 + fbm(vec2f(pWarp.x * 2.5, t * 0.3)) * 0.02;
 
-  // Atmospheric Inversion Layer & Mirage Waves (Fata Morgana refraction)
-  let mirageBaseY = -0.18;
-  let inversionDist = abs(p.y - mirageBaseY);
-  let thermalWave = sin(p.x * 12.0 + t * 2.5) * 0.018 +
-                    fbm(vec2f(p.x * 4.0, t * 0.4)) * 0.025;
-
-  let mirageLayer1 = exp(-pow((p.y - mirageBaseY - thermalWave) * 24.0, 2.0));
-  let mirageLayer2 = exp(-pow((p.y - (mirageBaseY + 0.06) + thermalWave * 0.7) * 20.0, 2.0));
+  let mirageLayer1 = dualLobe(abs(pWarp.y - mirageBaseY - thermalWave), 0.04, 0.15);
+  let mirageLayer2 = dualLobe(abs(pWarp.y - (mirageBaseY + 0.07) + thermalWave * 0.6), 0.045, 0.16);
 
   // Chromatic dispersion across refraction layers:
   // Emerald green flash (530 nm), Electric cyan (480 nm), Ruby amber (620 nm)
-  let colEmerald = vec3f(0.22, 0.96, 0.55);
-  let colCyan    = vec3f(0.20, 0.82, 0.98);
-  let colAmber   = vec3f(0.98, 0.76, 0.28);
-  let colViolet  = vec3f(0.68, 0.35, 0.98);
+  let colEmerald = vec3f(0.24, 0.95, 0.58);
+  let colCyan    = vec3f(0.22, 0.82, 0.98);
+  let colAmber   = vec3f(0.98, 0.78, 0.28);
+  let colViolet  = vec3f(0.68, 0.36, 0.96);
 
-  let mirageColor = mix(colEmerald, colCyan, sin(p.x * 5.0 + t) * 0.5 + 0.5) * mirageLayer1 +
-                    mix(colViolet, colAmber, cos(p.x * 6.0 - t) * 0.5 + 0.5) * mirageLayer2;
+  let mirageColor = mix(colEmerald, colCyan, sin(p.x * 3.0 + t) * 0.5 + 0.5) * mirageLayer1 +
+                    mix(colViolet, colAmber, cos(p.x * 3.5 - t) * 0.5 + 0.5) * mirageLayer2;
 
-  // Active Search Optic Lens (Cursor interaction: focused caustic ring)
-  let causticRing = exp(-pow((mouseDist - 0.12) * 25.0, 2.0)) * 0.7;
-  let causticCore = exp(-mouseDist * 18.0) * 0.9;
-  let searchOptic = (causticRing + causticCore) * params.intensity;
+  // Active Search Optic Lens at cursor (focused caustic with dual-lobe envelope)
+  let searchOptic = dualLobe(mouseDist, 0.07, 0.32) * params.intensity;
 
   // Total Luminous Emission
-  let totalLidar = lidarBeam * colCyan;
-  let totalMirage = mirageColor * 1.35;
-  let totalOptic = searchOptic * mix(colAmber, colCyan, 0.5);
+  let totalEmission = lidarBeam * colCyan * 1.35 + mirageColor * 1.35 + searchOptic * mix(colAmber, colCyan, 0.5) * 1.8;
 
-  let totalEmission = (totalLidar + totalMirage + totalOptic) * 1.4;
-  let lum = (beamCore + mirageLayer1 * 0.8 + mirageLayer2 * 0.6 + causticCore * 0.8) *
-            mix(0.42, 0.92, darkFactor) * params.intensity;
+  // Theme-adaptive transfer
+  let darkRad = col + totalEmission * mix(0.7, 1.25, params.intensity);
+  let lightRad = col * (1.0 - (mirageLayer1 * 0.2 + lidarBeam * 0.18)) + (lidarBeam * colCyan * 0.65 + mirageColor * 0.65 + searchOptic * colAmber * 0.75);
+  var radiance = mix(lightRad, darkRad, darkFactor);
 
-  col = mix(col, col + totalEmission, clamp(lum, 0.0, 1.0));
+  radiance = tonemap(radiance);
 
-  // Rayleigh backscatter dust sparkles illuminated by search sweep
-  let dustCoord = floor(p * 50.0);
-  let dustRand = hash21(dustCoord);
-  if (dustRand > 0.98 && darkFactor > 0.3) {
-    let proximityToScan = exp(-abs(p.x - scanX) * 8.0);
-    let sparkle = (sin(t * 7.0 + dustRand * 50.0) * 0.5 + 0.5) * proximityToScan;
-    col += colCyan * sparkle * 0.5 * darkFactor;
-  }
+  // Golden ratio temporal blue-noise dither
+  let dither = (hash21(uv * 1234.56 + vec2f(params.time * 0.015, params.time * 0.025)) - 0.5) * (1.0 / 255.0);
+  radiance += vec3f(dither);
 
-  return vec4f(col, 1.0);
+  return vec4f(clamp(radiance, vec3f(0.0), vec3f(1.0)), 1.0);
 }
 `;
 
@@ -248,7 +265,8 @@ export function VgpuAtmosphericRefraction({
         let currentWidth = canvasSurface.size[0];
         let currentHeight = canvasSurface.size[1];
 
-        void refractionEffect.compile(canvasSurface);
+        await refractionEffect.compile(canvasSurface);
+        if (disposed) return;
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;

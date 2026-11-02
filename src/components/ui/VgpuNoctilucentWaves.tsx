@@ -25,6 +25,10 @@ fn hash21(p: vec2f) -> f32 {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+fn tonemap(c: vec3f) -> vec3f {
+  return (c * (1.0 + c * 0.22)) / (1.0 + c);
+}
+
 fn noise(p: vec2f) -> f32 {
   let i = floor(p);
   let f = fract(p);
@@ -55,7 +59,7 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
   let aspect = params.width / max(params.height, 1.0);
   let p = vec2f((uv.x - 0.5) * aspect, uv.y - 0.5);
 
-  let t = params.time * 0.42;
+  let t = params.time * 0.38;
   let mouseP = vec2f((params.mouseX - 0.5) * aspect, params.mouseY - 0.5);
   let mouseDist = length(p - mouseP);
 
@@ -78,36 +82,59 @@ fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f {
 
   var col = mix(bgStart, bgEnd, smoothstep(-0.5, 0.5, p.y) * 0.75);
 
-  // Atmospheric gravity wave field
+  // Soft atmospheric wind shear from cursor
+  let windShear = (mouseP - p) * exp(-pow(mouseDist * 2.2, 2.0)) * 0.30 * params.intensity;
+  let pWarp = p + windShear;
+
+  // Multi-scale atmospheric gravity wave field
+  // Domain warping simulates fluid shear instability at the 85km mesopause
+  let warpFlow = vec2f(
+    fbm(vec2f(pWarp.x * 2.2 + t * 0.2, pWarp.y * 1.5)),
+    fbm(vec2f(pWarp.x * 2.2 - t * 0.15, pWarp.y * 1.5 + 3.0))
+  );
+
   // Primary longitudinal gravity wave
-  let wave1 = sin(p.x * 8.0 + p.y * 5.5 - t * 0.9 + fbm(vec2f(p.x * 2.5, t * 0.2)) * 1.8);
-  // Secondary transverse billow wave
-  let wave2 = cos(p.x * 12.0 - p.y * 10.0 + t * 0.7 + fbm(vec2f(p.y * 3.0, t * 0.15)) * 1.5);
-  // High-frequency ice-crystal filament ripples
-  let ripples = sin(p.x * 48.0 + p.y * 24.0 - t * 1.5) * 0.5 + 0.5;
+  let wave1 = sin(pWarp.x * 6.5 + pWarp.y * 4.0 - t * 0.85 + warpFlow.x * 1.6);
+  // Secondary transverse billow train (Kelvin-Helmholtz curls)
+  let wave2 = cos(pWarp.x * 9.5 - pWarp.y * 7.5 + t * 0.65 + warpFlow.y * 1.4);
+  // Delicate sub-micron ice crystal filaments (organic undulating ripples)
+  let ripples = sin(pWarp.x * 18.0 + pWarp.y * 12.0 - t * 1.1 + warpFlow.x * 1.2) * 0.5 + 0.5;
 
-  // Height envelope concentrating noctilucent bands in upper middle mesopause
-  let envelope1 = exp(-pow(p.y - 0.08, 2.0) * 16.0);
-  let envelope2 = exp(-pow(p.y + 0.18, 2.0) * 22.0);
+  // Height envelopes concentrating clouds in middle-upper mesopause
+  let envelope1 = exp(-pow((pWarp.y - 0.06) * 4.2, 2.0));
+  let envelope2 = exp(-pow((pWarp.y + 0.16) * 5.0, 2.0));
 
-  let billows1 = pow(max(0.0, (wave1 + wave2 * 0.7) * 0.6), 2.4) * (0.55 + ripples * 0.45);
-  let billows2 = pow(max(0.0, (-wave1 * 0.8 + wave2) * 0.55), 2.0) * (0.6 + ripples * 0.4);
+  let billows1 = smoothstep(-0.2, 0.85, (wave1 + wave2 * 0.65) * 0.6) * (0.65 + ripples * 0.35);
+  let billows2 = smoothstep(-0.25, 0.80, (-wave1 * 0.7 + wave2) * 0.55) * (0.70 + ripples * 0.30);
 
   let nlcDensity = (billows1 * envelope1 + billows2 * envelope2 * 0.75);
 
-  // Cursor turbulence interaction
-  let windShear = exp(-mouseDist * 3.0) * 0.5 * params.intensity;
+  // Wavelength colors: Sub-horizon sunlight scattering on pure ice crystals (85 km)
+  let iceCyan    = vec3f(0.25, 0.82, 0.98);
+  let iceSilver  = vec3f(0.90, 0.96, 1.0);
+  let deepAzure  = vec3f(0.14, 0.48, 0.92);
+  let twilightGold = vec3f(0.98, 0.82, 0.45);
 
-  // Wavelength colors: Sub-horizon sunlight scattering on pure ice crystals
-  let iceCyan = vec3f(0.24, 0.78, 0.98);
-  let iceSilver = vec3f(0.88, 0.95, 1.0);
-  let deepAzure = vec3f(0.12, 0.45, 0.88);
+  let nlcColor = mix(iceCyan, iceSilver, smoothstep(0.15, 0.75, nlcDensity));
 
-  let nlcColor = mix(iceCyan, iceSilver, smoothstep(0.2, 0.8, nlcDensity));
-  let totalNlc = (nlcColor * nlcDensity + deepAzure * (nlcDensity * 0.4)) * (1.0 + windShear);
+  // Theme-adaptive composite:
+  // In Dark Mode: Luminous electric blue night-shining clouds
+  // In Light Mode: Delicate crisp azure and silver ice wave billows
+  let darkRadiance = (nlcColor * nlcDensity * 1.45 + deepAzure * (nlcDensity * 0.5));
+  let lightRadiance = mix(col * 0.75 + nlcColor * 0.65, twilightGold, 0.15 * nlcDensity);
+  let sysRadiance = mix(lightRadiance, darkRadiance, darkFactor);
 
-  let intensityScale = mix(0.45, 0.92, darkFactor) * params.intensity;
-  col = mix(col, col + totalNlc * 1.4, clamp(nlcDensity * intensityScale, 0.0, 1.0));
+  let finalRadiance = lightRadiance * modeLight + darkRadiance * modeDark + sysRadiance * modeSystem;
+  let intensityScale = mix(0.50, 0.94, darkFactor) * params.intensity;
+
+  col = mix(col, col + finalRadiance, clamp(nlcDensity * intensityScale, 0.0, 1.0));
+
+  // Filmic tone-mapping to compress dynamic highlights
+  col = tonemap(col);
+
+  // Golden-ratio temporal dithering to eliminate 8-bit gradient banding
+  let dither = (hash21(uv * vec2f(params.width, params.height) + fract(params.time * 0.6180339887)) - 0.5) / 255.0;
+  col += vec3f(dither);
 
   return vec4f(col, 1.0);
 }
@@ -216,7 +243,11 @@ export function VgpuNoctilucentWaves({ className = '', intensity = 1.0 }: VgpuNo
         let currentWidth = canvasSurface.size[0];
         let currentHeight = canvasSurface.size[1];
 
-        void nlcEffect.compile(canvasSurface);
+        await nlcEffect.compile(canvasSurface);
+        if (disposed) {
+          gpu.dispose();
+          return;
+        }
 
         const renderFrame = (time: number) => {
           targetEffective = effectiveThemeRef.current === 'dark' ? 1.0 : 0.0;
