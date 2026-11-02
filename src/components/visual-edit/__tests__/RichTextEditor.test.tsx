@@ -475,6 +475,26 @@ describe('visual rich-text content editors', () => {
     expect(document.activeElement).toBe(container.querySelectorAll('[contenteditable="true"]')[1]);
   });
 
+  it('removes an empty list item on Backspace and moves focus to the previous item', async () => {
+    await act(async () => {
+      root.render(<ListHarness initial={{ id: 'l', type: 'bulletList', items: ['Vote', ''] }} />);
+    });
+
+    const editors = container.querySelectorAll<HTMLElement>('[contenteditable="true"]');
+    expect(editors).toHaveLength(2);
+
+    await act(async () => {
+      editors[1].focus();
+      editors[1].dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(items()).toEqual(['Vote']);
+    expect(container.querySelectorAll('[contenteditable="true"]')).toHaveLength(1);
+    expect(document.activeElement).toBe(container.querySelectorAll('[contenteditable="true"]')[0]);
+  });
+
   it('round-trips a list through the raw HTML escape hatch', async () => {
     await act(async () => {
       root.render(

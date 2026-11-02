@@ -315,6 +315,7 @@ interface EditableInlineProps {
   dataListIndex?: number;
   onFormatShortcut?: (command: InlineTextCommand) => void;
   onEnter?: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
+  onBackspace?: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
 }
 
 /**
@@ -340,6 +341,7 @@ function EditableInline({
   dataListIndex,
   onFormatShortcut,
   onEnter,
+  onBackspace,
 }: EditableInlineProps) {
   const localRef = useRef<HTMLDivElement | null>(null);
   const resolvedRef = editorRef ?? localRef;
@@ -395,6 +397,12 @@ function EditableInline({
             event.preventDefault();
             onFormatShortcut?.(shortcut);
             return;
+          }
+          if (event.key === 'Backspace' && !event.nativeEvent.isComposing) {
+            if (onBackspace) {
+              onBackspace(event);
+              if (event.defaultPrevented) return;
+            }
           }
           if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
             event.preventDefault();
@@ -707,6 +715,18 @@ export function RichTextListEditor({
     [addItem, setItem]
   );
 
+  const handleBackspace = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>, index: number) => {
+      const editor = event.currentTarget;
+      const text = stripTags(editor.innerHTML).trim();
+      if (text === '' && safeItems.length > 1 && index > 0) {
+        event.preventDefault();
+        removeItem(index);
+      }
+    },
+    [removeItem, safeItems.length]
+  );
+
   const stats = safeItems.reduce(
     (total, item) => {
       const itemStats = textStats(item);
@@ -764,6 +784,7 @@ export function RichTextListEditor({
                       placeholder={index === 0 ? 'Write the first item…' : undefined}
                       onFormatShortcut={(command) => actionsRef.current?.applyCommand(command)}
                       onEnter={(event) => handleEnter(event, index)}
+                      onBackspace={(event) => handleBackspace(event, index)}
                       className="min-w-0 flex-1 text-sm leading-relaxed text-slate-100"
                     />
                     <button

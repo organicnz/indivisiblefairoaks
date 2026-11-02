@@ -4760,3 +4760,102 @@ describe('VisualComposerInspector live page preview', () => {
     expect(onPreviewChange).toHaveBeenLastCalledWith(null);
   });
 });
+
+describe('VisualComposerInspector atomic deletion', () => {
+  let root: Root;
+  let container: HTMLDivElement;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    vi.restoreAllMocks();
+  });
+
+  it('invokes onDeleteBlock with the active index after confirmation', async () => {
+    const onDeleteBlock = vi.fn();
+    const onPreviewChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open
+          onClose={vi.fn()}
+          block={{ id: 'b1', type: 'paragraph', html: 'Fair Oaks' }}
+          blockIndex={3}
+          onSaveBlock={vi.fn()}
+          onDeleteBlock={onDeleteBlock}
+          onPreviewChange={onPreviewChange}
+        />
+      );
+    });
+
+    const deleteBtn = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Delete block #4"]'
+    );
+    expect(deleteBtn).not.toBeNull();
+
+    await act(async () => {
+      deleteBtn?.click();
+    });
+
+    const confirmBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Delete'
+    );
+    expect(confirmBtn).toBeDefined();
+
+    await act(async () => {
+      confirmBtn?.click();
+    });
+
+    expect(onDeleteBlock).toHaveBeenCalledWith(3);
+    expect(onPreviewChange).toHaveBeenCalledWith(null);
+  });
+
+  it('invokes onDeleteBlocks with all selected indexes in batch mode after confirmation', async () => {
+    const onDeleteBlocks = vi.fn();
+    const onPreviewChange = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <VisualComposerInspector
+          open
+          onClose={vi.fn()}
+          block={{ id: 'b1', type: 'paragraph', html: 'Fair Oaks' }}
+          blockIndex={1}
+          selectedBlockIndexes={[1, 2, 4]}
+          onSaveBlock={vi.fn()}
+          onDeleteBlocks={onDeleteBlocks}
+          onPreviewChange={onPreviewChange}
+        />
+      );
+    });
+
+    const batchDeleteBtn = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Delete 3 selected blocks"]'
+    );
+    expect(batchDeleteBtn).not.toBeNull();
+    expect(batchDeleteBtn?.textContent).toContain('Delete (3)');
+
+    await act(async () => {
+      batchDeleteBtn?.click();
+    });
+
+    const confirmBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Delete'
+    );
+    expect(confirmBtn).toBeDefined();
+
+    await act(async () => {
+      confirmBtn?.click();
+    });
+
+    expect(onDeleteBlocks).toHaveBeenCalledWith([1, 2, 4]);
+    expect(onPreviewChange).toHaveBeenCalledWith(null);
+  });
+});

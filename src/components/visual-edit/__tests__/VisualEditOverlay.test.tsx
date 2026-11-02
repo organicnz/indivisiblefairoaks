@@ -47,7 +47,14 @@ vi.mock('@/lib/actions/content', () => ({
   getContentRevisions,
   restoreContentRevision,
 }));
-vi.mock('@/lib/actions/crm', () => ({ getCRMEdgeFunctionHealth, uploadCRMMedia: vi.fn() }));
+vi.mock('@/lib/actions/crm', () => ({
+  getCRMEdgeFunctionHealth,
+  uploadCRMMedia: vi.fn(),
+  getCRMContacts: vi.fn().mockResolvedValue({ contacts: [], total: 0 }),
+}));
+vi.mock('../CRMPanel', () => ({
+  CRMPanel: () => null,
+}));
 vi.mock('@/lib/actions/visual', () => ({ getVisualPageContext }));
 vi.mock('sonner', () => ({ toast }));
 

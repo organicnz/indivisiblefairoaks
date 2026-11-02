@@ -31,7 +31,7 @@ test.beforeAll(async () => {
   productName = data?.name ?? null;
 });
 
-test('product detail page renders name, price, image, and add-to-bag', async ({ page }) => {
+test('product detail page renders name, price, image, and enquiry link', async ({ page }) => {
   test.skip(!productSlug, 'no in-stock product seeded');
 
   await page.goto(`/products/${productSlug}`);
@@ -48,10 +48,10 @@ test('product detail page renders name, price, image, and add-to-bag', async ({ 
   // Price label visible
   await expect(page.getByText(/^\$\d+\.\d{2}$/).first()).toBeVisible({ timeout: 10_000 });
 
-  // Add to bag button enabled (in-stock product)
-  const addBtn = page.getByRole('button', { name: /add to bag/i });
-  await expect(addBtn).toBeVisible({ timeout: 10_000 });
-  await expect(addBtn).toBeEnabled();
+  // Enquiry link to contact chapter
+  const enquiry = page.getByRole('link', { name: /ask about this item/i });
+  await expect(enquiry).toBeVisible({ timeout: 10_000 });
+  await expect(enquiry).toHaveAttribute('href', /^\/contact\?about=/);
 
   // At least one image visible
   await expect(page.getByRole('img').first()).toBeVisible({ timeout: 10_000 });

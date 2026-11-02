@@ -196,7 +196,7 @@ describe('PageNavigatorDrawer', () => {
     });
     expect(onDuplicateBlock).toHaveBeenCalledWith(0);
 
-    // Click delete button
+    // Click delete button to enter confirmation
     const deleteButton = document.querySelector<HTMLButtonElement>(
       'button[aria-label="Delete block #1"]'
     );
@@ -204,6 +204,80 @@ describe('PageNavigatorDrawer', () => {
     await act(async () => {
       deleteButton?.click();
     });
+    // Confirmation fieldset should now appear
+    const confirmButton = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Delete'
+    );
+    expect(confirmButton).toBeDefined();
+    await act(async () => {
+      confirmButton?.click();
+    });
     expect(onDeleteBlock).toHaveBeenCalledWith(0);
+  });
+
+  it('supports drag-and-drop reordering when onReorderBlock is provided', async () => {
+    const onReorderBlock = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <PageNavigatorDrawer
+          open={true}
+          onClose={vi.fn()}
+          sections={sampleSections}
+          blocks={sampleBlocks}
+          activeBlockIndex={0}
+          onSelectBlock={vi.fn()}
+          onMoveBlock={vi.fn()}
+          onDuplicateBlock={vi.fn()}
+          onDeleteBlock={vi.fn()}
+          onOpenComposer={vi.fn()}
+          onOpenLibrary={vi.fn()}
+          onReorderBlock={onReorderBlock}
+        />
+      );
+    });
+
+    const dragHandle = document.querySelector<HTMLSpanElement>(
+      'span[title="Drag block #1 to reorder"]'
+    );
+    expect(dragHandle).not.toBeNull();
+
+    const mockDataTransfer = {
+      effectAllowed: 'none',
+      dropEffect: 'none',
+      setData: vi.fn(),
+      getData: vi.fn().mockReturnValue('0'),
+    };
+
+    await act(async () => {
+      dragHandle?.dispatchEvent(
+        new CustomEvent('dragstart', {
+          bubbles: true,
+          detail: mockDataTransfer,
+        })
+      );
+    });
+
+    // Target block item for drop
+    const items = document.querySelectorAll('[data-testid="page-navigator-item"]');
+    const targetItem = items[2];
+    expect(targetItem).toBeDefined();
+
+    await act(async () => {
+      targetItem?.dispatchEvent(
+        new CustomEvent('dragover', {
+          bubbles: true,
+          detail: mockDataTransfer,
+        })
+      );
+      targetItem?.dispatchEvent(
+        new CustomEvent('drop', {
+          bubbles: true,
+          detail: mockDataTransfer,
+        })
+      );
+    });
+
+    expect(onReorderBlock).toHaveBeenCalledWith(0, 2);
   });
 });

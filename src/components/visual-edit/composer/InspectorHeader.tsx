@@ -10,9 +10,11 @@ import {
   LayoutTemplate,
   RotateCcw,
   SlidersHorizontal,
+  Trash2,
   X,
 } from 'lucide-react';
 import type React from 'react';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import type { VisualComposerMode } from '@/types/unified';
 
 export interface InspectorHeaderProps {
@@ -47,6 +49,8 @@ export interface InspectorHeaderProps {
   canNavigateNext?: boolean;
   /** Ref forwarded to the 'Block Element' button for focus-on-open (FR-4). */
   firstFocusRef?: React.RefObject<HTMLButtonElement | null>;
+  /** Optional atomic deletion callback for this block or batch. */
+  onDeleteBlock?: () => void;
 }
 
 export function InspectorHeader({
@@ -69,6 +73,7 @@ export function InspectorHeader({
   canNavigatePrevious = false,
   canNavigateNext = false,
   firstFocusRef,
+  onDeleteBlock,
 }: InspectorHeaderProps) {
   return (
     <>
@@ -192,6 +197,32 @@ export function InspectorHeader({
             <RotateCcw size={12} />
             <span>Reset</span>
           </button>
+
+          {/* Quick Delete Block Button */}
+          {onDeleteBlock ? (
+            <ConfirmAction
+              label={
+                isBatchMode && selectedCount > 1
+                  ? `Delete ${selectedCount} selected blocks`
+                  : `Delete block #${blockIndex + 1}`
+              }
+              message={
+                isBatchMode && selectedCount > 1
+                  ? `Delete ${selectedCount} blocks?`
+                  : `Delete #${blockIndex + 1} (${blockType})?`
+              }
+              confirmLabel="Delete"
+              cancelLabel="Cancel"
+              danger
+              idleClassName="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:text-white hover:bg-rose-500/25 transition-colors cursor-pointer"
+              onConfirm={onDeleteBlock}
+            >
+              <Trash2 size={12} />
+              <span>
+                {isBatchMode && selectedCount > 1 ? `Delete (${selectedCount})` : 'Delete'}
+              </span>
+            </ConfirmAction>
+          ) : null}
 
           <button
             type="button"

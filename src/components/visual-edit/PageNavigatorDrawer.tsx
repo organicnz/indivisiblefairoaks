@@ -6,6 +6,7 @@ import {
   Code,
   Copy,
   FolderTree,
+  GripVertical,
   Image as ImageIcon,
   Layers,
   LayoutTemplate,
@@ -25,6 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import type { Block, ContentBlockType } from '@/lib/blocks';
 import type { VisualSection } from '@/lib/visual-sections';
 
@@ -36,6 +38,7 @@ export interface PageNavigatorDrawerProps {
   activeBlockIndex: number | null;
   onSelectBlock: (index: number) => void;
   onMoveBlock: (index: number, direction: 'up' | 'down') => void;
+  onReorderBlock?: (fromIndex: number, toIndex: number) => void;
   onDuplicateBlock: (index: number) => void;
   onDeleteBlock: (index: number) => void;
   onOpenComposer: (index: number, mode?: 'block' | 'section') => void;
@@ -78,12 +81,14 @@ export function PageNavigatorDrawer({
   activeBlockIndex,
   onSelectBlock,
   onMoveBlock,
+  onReorderBlock,
   onDuplicateBlock,
   onDeleteBlock,
   onOpenComposer,
   onOpenLibrary,
 }: PageNavigatorDrawerProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const titleId = useId();
   const descId = useId();
   const searchInputId = useId();
@@ -163,12 +168,12 @@ export function PageNavigatorDrawer({
       </div>
 
       {/* Structure Tree List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-1.5 text-xs">
+      <ol className="flex-1 overflow-y-auto p-3 space-y-1.5 text-xs list-none m-0">
         {filteredSections.length === 0 ? (
-          <div className="py-12 text-center text-slate-400">
+          <li className="py-12 text-center text-slate-400">
             <FolderTree size={28} className="mx-auto mb-2 text-slate-400" />
             <p className="text-xs font-medium">No matching blocks found</p>
-          </div>
+          </li>
         ) : (
           filteredSections.map((sec) => {
             const Icon = getBlockIcon(sec.blockType);
@@ -177,19 +182,57 @@ export function PageNavigatorDrawer({
             const canMoveDown = sec.blockIndex < blocks.length - 1;
 
             return (
-              <div
+              <li
                 key={sec.key}
+                data-testid="page-navigator-item"
+                onDragOver={(e) => {
+                  if (!onReorderBlock || draggingIndex === null || draggingIndex === sec.blockIndex)
+                    return;
+                  e.preventDefault();
+                  if (e.dataTransfer) {
+                    e.dataTransfer.dropEffect = 'move';
+                  }
+                }}
+                onDrop={(e) => {
+                  if (!onReorderBlock || draggingIndex === null || draggingIndex === sec.blockIndex)
+                    return;
+                  e.preventDefault();
+                  onReorderBlock(draggingIndex, sec.blockIndex);
+                  setDraggingIndex(null);
+                }}
                 className={`group flex items-center justify-between rounded-xl border p-2 transition-all ${
+                  draggingIndex === sec.blockIndex ? 'opacity-40 ' : ''
+                }${
                   isActive
                     ? 'border-accent-gold bg-accent-gold/15 text-white shadow-md'
                     : 'border-white/10 bg-white/5 text-slate-300 hover:border-white/20 hover:bg-white/10'
                 }`}
               >
+                {/* Drag Handle */}
+                {onReorderBlock && (
+                  <span
+                    draggable
+                    aria-hidden="true"
+                    title={`Drag block #${sec.ordinal} to reorder`}
+                    onDragStart={(e) => {
+                      setDraggingIndex(sec.blockIndex);
+                      if (e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', String(sec.blockIndex));
+                      }
+                    }}
+                    onDragEnd={() => setDraggingIndex(null)}
+                    className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing mr-1 shrink-0"
+                  >
+                    <GripVertical size={13} />
+                  </span>
+                )}
+
                 {/* Clickable Title & Details */}
                 <button
                   type="button"
                   onClick={() => onSelectBlock(sec.blockIndex)}
-                  className="flex flex-1 items-center gap-2.5 text-left overflow-hidden mr-2"
+                  className="flex flex-1 items-center gap-2.5 text-left overflow-hidden mr-2 cursor-pointer"
                 >
                   <span
                     className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
@@ -217,7 +260,7 @@ export function PageNavigatorDrawer({
                       onClick={() => onMoveBlock(sec.blockIndex, 'up')}
                       title="Move Up"
                       aria-label={`Move block #${sec.ordinal} up`}
-                      className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors"
+                      className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
                     >
                       <ArrowUp size={12} />
                     </button>
@@ -228,7 +271,7 @@ export function PageNavigatorDrawer({
                       onClick={() => onMoveBlock(sec.blockIndex, 'down')}
                       title="Move Down"
                       aria-label={`Move block #${sec.ordinal} down`}
-                      className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors"
+                      className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
                     >
                       <ArrowDown size={12} />
                     </button>
@@ -238,7 +281,7 @@ export function PageNavigatorDrawer({
                     onClick={() => onOpenComposer(sec.blockIndex, 'block')}
                     title="Customize Block Styles & Box Model in Visual Composer"
                     aria-label={`Customize block #${sec.ordinal} in Visual Composer`}
-                    className="rounded p-1 text-accent-gold hover:bg-white/15 hover:text-white transition-colors"
+                    className="rounded p-1 text-accent-gold hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
                   >
                     <SlidersHorizontal size={12} />
                   </button>
@@ -247,7 +290,7 @@ export function PageNavigatorDrawer({
                     onClick={() => onOpenComposer(sec.blockIndex, 'section')}
                     title="Customize Section / Row Settings (Containers, Dividers & Columns)"
                     aria-label={`Customize section #${sec.ordinal} settings`}
-                    className="rounded p-1 text-sky-400 hover:bg-white/15 hover:text-white transition-colors"
+                    className="rounded p-1 text-sky-400 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
                   >
                     <LayoutTemplate size={12} />
                   </button>
@@ -256,25 +299,27 @@ export function PageNavigatorDrawer({
                     onClick={() => onDuplicateBlock(sec.blockIndex)}
                     title="Duplicate block"
                     aria-label={`Duplicate block #${sec.ordinal}`}
-                    className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors"
+                    className="rounded p-1 text-slate-400 hover:bg-white/15 hover:text-white transition-colors cursor-pointer"
                   >
                     <Copy size={12} />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => onDeleteBlock(sec.blockIndex)}
-                    title="Delete block"
-                    aria-label={`Delete block #${sec.ordinal}`}
-                    className="rounded p-1 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+                  <ConfirmAction
+                    label={`Delete block #${sec.ordinal}`}
+                    message={`Delete #${sec.ordinal} (${sec.blockType})?`}
+                    confirmLabel="Delete"
+                    cancelLabel="Cancel"
+                    danger
+                    idleClassName="rounded p-1 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors cursor-pointer"
+                    onConfirm={() => onDeleteBlock(sec.blockIndex)}
                   >
                     <Trash2 size={12} />
-                  </button>
+                  </ConfirmAction>
                 </div>
-              </div>
+              </li>
             );
           })
         )}
-      </div>
+      </ol>
 
       {/* Drawer Footer */}
       <div className="border-t border-white/10 bg-slate-900/80 px-4 py-2.5 flex items-center justify-between text-[11px] text-slate-400">

@@ -484,6 +484,10 @@ export interface VisualComposerInspectorProps {
    * this panel only says what the draft looks like.
    */
   onPreviewChange?: (draft: ComposerDraftPreview | null) => void;
+  /** Delete this block from the document, through the same atomic deletion flow as the page. */
+  onDeleteBlock?: (blockIndex: number) => void;
+  /** Delete every selected block in batch mode. */
+  onDeleteBlocks?: (blockIndexes: number[]) => void;
 }
 
 export function VisualComposerInspector({
@@ -505,6 +509,8 @@ export function VisualComposerInspector({
   keepOpenOnApplyInitial = false,
   closeRequest = 0,
   onPreviewChange,
+  onDeleteBlock,
+  onDeleteBlocks,
 }: VisualComposerInspectorProps) {
   const [inspectorMode, setInspectorMode] = useState<VisualComposerMode>(initialMode);
   const [activeTab, setActiveTab] = useState<VisualComposerTab>('content');
@@ -1109,6 +1115,17 @@ export function VisualComposerInspector({
     setPendingNavigation(null);
   }, []);
 
+  const handleDeleteFromInspector = useCallback(() => {
+    previewReporterRef.current?.(null);
+    if (isBatchMode && selectedBlockIndexes.length > 0 && onDeleteBlocks) {
+      onDeleteBlocks(selectedBlockIndexes);
+      return;
+    }
+    if (blockIndex !== null && onDeleteBlock) {
+      onDeleteBlock(blockIndex);
+    }
+  }, [isBatchMode, selectedBlockIndexes, blockIndex, onDeleteBlock, onDeleteBlocks]);
+
   /*
    * ⌘E is the shortcut that opened this panel, so it reads as the shortcut to
    * close it — and while the panel is open it must not bypass the panel's own
@@ -1527,6 +1544,7 @@ export function VisualComposerInspector({
         onNavigate={isBatchMode ? undefined : handleNavigate}
         canNavigatePrevious={canNavigatePrevious}
         canNavigateNext={canNavigateNext}
+        onDeleteBlock={onDeleteBlock || onDeleteBlocks ? handleDeleteFromInspector : undefined}
       />
 
       {/*
@@ -1674,7 +1692,7 @@ export function VisualComposerInspector({
             <ComposerTabPanel idBase={tabIdBase} tab="code" activeTab={activeTab}>
               <CodeStudio
                 currentBlock={currentBlock}
-                setCurrentBlock={setCurrentBlock}
+                setCurrentBlock={updateCurrentBlock}
                 styles={styles}
                 setStyles={updateStyles}
                 customStyleInputId="block-custom-style-input"

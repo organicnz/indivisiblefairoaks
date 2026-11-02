@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronUp, Columns3, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import {
   type Block,
   type ContentBlock,
@@ -337,17 +338,20 @@ export function RowBlockEditor({
                           >
                             <ChevronDown size={12} />
                           </button>
-                          <button
-                            type="button"
-                            aria-label={`Delete ${leafLabel(child)}`}
-                            onClick={() => {
+                          <ConfirmAction
+                            label={`Delete ${leafLabel(child)}`}
+                            message={`Delete ${leafLabel(child)}?`}
+                            confirmLabel="Delete"
+                            cancelLabel="Cancel"
+                            danger
+                            idleClassName="inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-rose-500/20 hover:text-rose-200 transition-colors cursor-pointer"
+                            onConfirm={() => {
                               if (editing) setEditingLeafId(null);
                               onRemoveBlock(child.id);
                             }}
-                            className="inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-rose-500/20 hover:text-rose-200"
                           >
                             <Trash2 size={11} />
-                          </button>
+                          </ConfirmAction>
                         </div>
                         {editing && (
                           <div className="border-t border-white/10 p-2">

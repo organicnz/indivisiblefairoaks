@@ -1802,7 +1802,11 @@ export function VisualEditOverlay() {
   // --- CRUD Operations connected to Supabase Backend ---
 
   const handlePersistBlocks = useCallback(
-    async (newBlocks: Block[], successMessage = 'Page saved') => {
+    async (
+      newBlocks: Block[],
+      successMessage = 'Page saved',
+      toastOptions?: { action?: { label: string; onClick: () => void } }
+    ) => {
       setSavingBackend(true);
       const newBody = serializeBlocks(newBlocks);
 
@@ -1842,7 +1846,13 @@ export function VisualEditOverlay() {
         });
 
         if (res.success) {
-          toast.success(successMessage);
+          if (successMessage) {
+            if (toastOptions) {
+              toast.success(successMessage, toastOptions);
+            } else {
+              toast.success(successMessage);
+            }
+          }
           setContentRow((prev) =>
             prev
               ? { ...prev, body: newBody, updated_at: res.data?.updatedAt }
@@ -2890,15 +2900,85 @@ export function VisualEditOverlay() {
     contentRow,
   ]);
 
-  const handleDeleteSection = useCallback(
-    async (blockIndex: number) => {
-      const nextBlocks = blocksRef.current.filter((_, i) => i !== blockIndex);
-      // Null is deliberate: a discrete operation gets its own undo step, so two
-      // deletes are two undos rather than one.
-      commitBlocks(nextBlocks, null);
-      await handlePersistBlocks(nextBlocks, 'Section deleted from Supabase');
+  /**
+   * Stage a deletion (single or multi-block) locally without immediate persistence.
+   *
+   * Deletion is now *atomic* — it commits to the local history (undoable) but does
+   * not hit the backend until the operator explicitly saves (⌘S) or autosave fires.
+   * This matches the CMS editor's contract: local edits are reversible until saved.
+   * The batch selection bar exposes "Delete selected" so multi-block deletion is
+   * one intentional action, not a loop of single deletes.
+   */
+  const handleDeleteSections = useCallback(
+    async (blockIndexes: number[]) => {
+      if (blockIndexes.length === 0) return;
+      applyComposerDraft(null);
+
+      const deletedIds = new Set<string>();
+      const sorted = [...blockIndexes].sort((a, b) => b - a); // highest first so indices stay valid
+      const nextBlocks = [...blocksRef.current];
+      for (const idx of sorted) {
+        if (idx >= 0 && idx < nextBlocks.length) {
+          const [removed] = nextBlocks.splice(idx, 1);
+          if (removed?.id) deletedIds.add(removed.id);
+        }
+      }
+
+      // Atomic cleanup of selections
+      setSelectedBlockIds((prev) => {
+        const next = new Set(prev);
+        for (const id of deletedIds) next.delete(id);
+        return next;
+      });
+      setVcSelectedBlockIds((prev) => prev.filter((id) => !deletedIds.has(id)));
+
+      // Active block index fallback
+      if (activeBlockIndex !== null && blockIndexes.includes(activeBlockIndex)) {
+        const fallback =
+          nextBlocks.length > 0
+            ? Math.max(0, Math.min(activeBlockIndex, nextBlocks.length - 1))
+            : null;
+        setActiveBlockIndex(fallback);
+      }
+
+      // Visual Composer inspected block fallback
+      if (vcBlockIndex !== null && blockIndexes.includes(vcBlockIndex)) {
+        if (nextBlocks.length > 0) {
+          const fallback = Math.max(0, Math.min(vcBlockIndex, nextBlocks.length - 1));
+          setVcBlockIndex(fallback);
+        } else {
+          setVcBlockIndex(null);
+          setIsVisualComposerOpen(false);
+        }
+      }
+
+      commitBlocks(nextBlocks, blockIndexes.length > 1 ? 'batch-delete' : null);
+      await handlePersistBlocks(
+        nextBlocks,
+        blockIndexes.length === 1 ? 'Section deleted' : `${blockIndexes.length} sections deleted`,
+        {
+          action: {
+            label: 'Undo',
+            onClick: () => handleUndo(),
+          },
+        }
+      );
     },
-    [commitBlocks, handlePersistBlocks]
+    [
+      applyComposerDraft,
+      commitBlocks,
+      handlePersistBlocks,
+      handleUndo,
+      activeBlockIndex,
+      vcBlockIndex,
+      setVcBlockIndex,
+    ]
+  );
+
+  /** Convenience wrapper for single-block deletion (back-compat with existing call sites). */
+  const handleDeleteSection = useCallback(
+    (blockIndex: number) => handleDeleteSections([blockIndex]),
+    [handleDeleteSections]
   );
 
   const handleMoveSection = useCallback(
@@ -2923,9 +3003,14 @@ export function VisualEditOverlay() {
       nextBlocks[blockIndex] = nextBlocks[targetIdx];
       nextBlocks[targetIdx] = temp;
       commitBlocks(nextBlocks, `move:${blockIndex}`);
-      await handlePersistBlocks(nextBlocks, 'Section order updated');
+      await handlePersistBlocks(nextBlocks, 'Section order updated', {
+        action: {
+          label: 'Undo',
+          onClick: () => handleUndo(),
+        },
+      });
     },
-    [applyComposerDraft, commitBlocks, handlePersistBlocks, sections]
+    [applyComposerDraft, commitBlocks, handlePersistBlocks, handleUndo, sections]
   );
 
   /**
@@ -2950,9 +3035,14 @@ export function VisualEditOverlay() {
       setActiveBlockIndex(to);
       const moved = next[to];
       if (moved) setSelectedBlockIds(new Set([moved.id]));
-      void handlePersistBlocks(next, 'Block order updated');
+      void handlePersistBlocks(next, 'Block order updated', {
+        action: {
+          label: 'Undo',
+          onClick: () => handleUndo(),
+        },
+      });
     },
-    [applyComposerDraft, commitBlocks, handlePersistBlocks]
+    [applyComposerDraft, commitBlocks, handlePersistBlocks, handleUndo]
   );
 
   /**
@@ -4003,13 +4093,26 @@ export function VisualEditOverlay() {
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-accent-gold px-3 py-1 text-[11px] font-black text-ink-strong transition-colors hover:bg-accent-gold/90"
           >
             <Sparkles size={12} />
-            Style together
+            <span>Style together</span>
           </button>
+          <ConfirmAction
+            label="Delete selected blocks"
+            message={`Delete ${selectedBlockIndexes.size} blocks?`}
+            confirmLabel="Delete All"
+            cancelLabel="Cancel"
+            danger
+            busy={savingBackend}
+            idleClassName="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-rose-500/20 border border-rose-500/40 px-3 py-1 text-[11px] font-black text-rose-200 transition-colors hover:bg-rose-500 hover:text-white"
+            onConfirm={() => handleDeleteSections(Array.from(selectedBlockIndexes))}
+          >
+            <Trash2 size={12} />
+            <span>Delete selected</span>
+          </ConfirmAction>
           <button
             type="button"
             onClick={clearSelection}
             aria-label="Clear block selection"
-            className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
           >
             <X size={13} />
           </button>
@@ -6102,6 +6205,8 @@ export function VisualEditOverlay() {
         initialMode={vcMode}
         onPreviewChange={applyComposerDraft}
         closeRequest={composerCloseRequest}
+        onDeleteBlock={handleDeleteSection}
+        onDeleteBlocks={handleDeleteSections}
       />
 
       {/* ── Visual Composer Element Library & Templates Modal (⌘⇧E) ─────────── */}
@@ -6123,6 +6228,7 @@ export function VisualEditOverlay() {
           jumpTo(idx);
         }}
         onMoveBlock={(idx, dir) => handleMoveSection(idx, dir)}
+        onReorderBlock={(from, to) => moveBlockTo(from, to)}
         onDuplicateBlock={(idx) => handleDuplicateSection(idx)}
         onDeleteBlock={(idx) => handleDeleteSection(idx)}
         onOpenComposer={(idx, mode = 'block') => {
@@ -6277,18 +6383,23 @@ export function VisualEditOverlay() {
 
           <div className="my-1 border-t border-white/10" />
 
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              handleDeleteSection(contextMenu.blockIndex);
-              setContextMenu(null);
-            }}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-300 hover:bg-rose-500/20 hover:text-rose-200 transition-colors text-left"
-          >
-            <Trash2 size={13} className="text-rose-400" />
-            <span className="flex-1">Delete Block</span>
-          </button>
+          <div className="pt-0.5">
+            <ConfirmAction
+              label={`Delete Block #${contextMenu.blockIndex + 1}`}
+              message={`Delete Block #${contextMenu.blockIndex + 1}?`}
+              confirmLabel="Delete"
+              cancelLabel="Cancel"
+              danger
+              idleClassName="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-rose-300 hover:bg-rose-500/20 hover:text-rose-200 transition-colors text-left"
+              onConfirm={() => {
+                handleDeleteSection(contextMenu.blockIndex);
+                setContextMenu(null);
+              }}
+            >
+              <Trash2 size={13} className="text-rose-400" />
+              <span className="flex-1">Delete Block</span>
+            </ConfirmAction>
+          </div>
         </div>
       )}
     </>

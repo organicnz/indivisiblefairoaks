@@ -402,6 +402,13 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     await act(async () => {
       (container.querySelector('[aria-label="Delete Agenda"]') as HTMLButtonElement).click();
     });
+    const confirmDelete = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Delete'
+    );
+    expect(confirmDelete).toBeDefined();
+    await act(async () => {
+      confirmDelete?.click();
+    });
     const deleted = expectRow(committed.at(-1));
     expect(deleted.columns[0].blocks.map((block) => block.type)).toEqual(['paragraph']);
     expect(deleted.columns[1].blocks).toHaveLength(1);

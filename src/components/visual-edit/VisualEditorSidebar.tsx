@@ -301,6 +301,15 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
         </div>
         <button
           type="button"
+          onClick={() => void props.onOpenShortcuts()}
+          title="Keyboard shortcuts cheat sheet"
+          aria-label="Keyboard shortcuts cheat sheet"
+          className="shrink-0 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
+        >
+          <Keyboard size={14} />
+        </button>
+        <button
+          type="button"
           onClick={onToggleCollapsed}
           title="Collapse Visual Editor Sidebar"
           aria-label="Collapse Visual Editor Sidebar"
@@ -309,7 +318,6 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
           <ChevronRight size={14} />
         </button>
       </div>
-
       {/* ── Context zone ─────────────────────────────────────────────────── */}
       {inlineSession ? (
         <InlineContextZone {...props} inlineSession={inlineSession} />
