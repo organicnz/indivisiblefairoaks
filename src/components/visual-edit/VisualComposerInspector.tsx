@@ -1547,8 +1547,8 @@ export function VisualComposerInspector({
       onKeyDown={handleInspectorKeyDown}
       className={
         embedded
-          ? 'flex h-full w-full flex-col bg-slate-950/95 text-white pointer-events-auto overflow-hidden'
-          : 'fixed inset-y-0 right-0 z-[10010] flex w-full max-w-md flex-col border-l border-white/20 bg-slate-950/95 text-white shadow-2xl backdrop-blur-2xl animate-in slide-in-from-right duration-200 pointer-events-auto'
+          ? 'flex h-full w-full flex-col bg-slate-950/95 text-white pointer-events-auto overflow-hidden overscroll-contain'
+          : 'fixed inset-y-0 right-0 z-[10010] flex w-full max-w-md flex-col border-l border-white/20 bg-slate-950/95 text-white shadow-2xl backdrop-blur-2xl animate-in slide-in-from-right duration-200 pointer-events-auto overscroll-contain'
       }
     >
       {/* Drawer Header & Mode Switcher */}
@@ -1678,7 +1678,7 @@ export function VisualComposerInspector({
       />
 
       {/* Tab Content Panels */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
+      <div className="flex-1 overflow-y-auto overscroll-contain touch-manipulation p-5 space-y-5 text-xs">
         {/* ── Section / Row Mode Settings ───────────────────────────────── */}
         {inspectorMode === 'section' && (
           <SectionStudio

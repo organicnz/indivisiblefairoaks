@@ -274,10 +274,10 @@ export function PresetStudio({
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={
                 activeTab === 'blocks'
-                  ? 'Search block presets (e.g. hero, glass, civic)...'
-                  : 'Search section templates (e.g. hero, split, matrix)...'
+                  ? 'Search block presets (e.g. hero, glass, civic)…'
+                  : 'Search section templates (e.g. hero, split, matrix)…'
               }
-              className="w-full pl-8 pr-8 py-1.5 rounded-lg border border-white/10 bg-slate-900 text-xs text-white placeholder:text-slate-400 focus:border-accent-gold/50 focus:outline-none transition-colors"
+              className="w-full pl-8 pr-8 py-1.5 rounded-lg border border-white/10 bg-slate-900 text-xs text-white placeholder:text-slate-400 focus:border-accent-gold/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold/50 transition-colors"
             />
             {searchQuery && (
               <button

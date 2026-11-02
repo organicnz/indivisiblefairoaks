@@ -306,7 +306,7 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
       aria-label="Visual Editor Toolbar"
       data-testid="visual-edit-overlay"
       style={sidebarStyle}
-      className={`fixed inset-y-0 right-0 z-[9998] flex flex-col border-l border-white/20 bg-secondary/95 text-ink-on-dark shadow-float backdrop-blur-md transition-all duration-200 ${
+      className={`fixed inset-y-0 right-0 z-[9998] flex flex-col border-l border-white/20 bg-secondary/95 text-ink-on-dark shadow-float backdrop-blur-md transition-[width,background-color,border-color] duration-200 ${
         isComposerActive ? 'w-[28rem] max-w-[100vw]' : 'w-72'
       }`}
     >
@@ -320,11 +320,20 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
           </span>
         </div>
         {isComposerActive && (
-          <div className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5 text-[10px] font-bold">
+          <div
+            role="tablist"
+            aria-label="Editor views"
+            className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5 text-[10px] font-bold"
+          >
             <button
               type="button"
+              role="tab"
+              id="sidebar-tab-button-composer"
+              aria-selected={sidebarTab === 'composer'}
+              aria-controls="sidebar-tab-composer"
+              tabIndex={sidebarTab === 'composer' ? 0 : -1}
               onClick={() => setSidebarTab('composer')}
-              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold ${
                 sidebarTab === 'composer'
                   ? 'bg-accent-gold text-ink-strong'
                   : 'text-slate-300 hover:text-white'
@@ -334,8 +343,13 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
             </button>
             <button
               type="button"
+              role="tab"
+              id="sidebar-tab-button-blocks"
+              aria-selected={sidebarTab === 'blocks'}
+              aria-controls="sidebar-tab-blocks"
+              tabIndex={sidebarTab === 'blocks' ? 0 : -1}
               onClick={() => setSidebarTab('blocks')}
-              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold ${
                 sidebarTab === 'blocks'
                   ? 'bg-accent-gold text-ink-strong'
                   : 'text-slate-300 hover:text-white'
@@ -351,7 +365,7 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
             onClick={() => void props.onOpenShortcuts()}
             title="Keyboard shortcuts cheat sheet"
             aria-label="Keyboard shortcuts cheat sheet"
-            className="shrink-0 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
+            className="shrink-0 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer touch-manipulation focus-visible:ring-1 focus-visible:ring-accent-gold"
           >
             <Keyboard size={14} />
           </button>
@@ -360,7 +374,7 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
             onClick={onToggleCollapsed}
             title="Collapse Visual Editor Sidebar"
             aria-label="Collapse Visual Editor Sidebar"
-            className="shrink-0 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer"
+            className="shrink-0 rounded-full bg-white/10 p-1.5 text-white hover:bg-white/20 cursor-pointer touch-manipulation focus-visible:ring-1 focus-visible:ring-accent-gold"
           >
             <ChevronRight size={14} />
           </button>
@@ -370,14 +384,22 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
       {isComposerActive && props.composerProps ? (
         <>
           <div
-            className={`flex-1 flex flex-col min-h-0 overflow-hidden ${
+            id="sidebar-tab-composer"
+            role="tabpanel"
+            aria-labelledby="sidebar-tab-button-composer"
+            tabIndex={0}
+            className={`flex-1 flex flex-col min-h-0 overflow-hidden overscroll-contain ${
               sidebarTab === 'composer' ? 'flex' : 'hidden'
             }`}
           >
             <VisualComposerInspector {...props.composerProps} embedded={true} />
           </div>
           <div
-            className={`flex-1 overflow-y-auto ${sidebarTab === 'blocks' ? 'block' : 'hidden'}`}
+            id="sidebar-tab-blocks"
+            role="tabpanel"
+            aria-labelledby="sidebar-tab-button-blocks"
+            tabIndex={0}
+            className={`flex-1 overflow-y-auto overscroll-contain ${sidebarTab === 'blocks' ? 'block' : 'hidden'}`}
           >
             {inlineSession ? (
               <InlineContextZone {...props} inlineSession={inlineSession} />
@@ -778,7 +800,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
   const [dragOverBlockIndex, setDragOverBlockIndex] = useState<number | null>(null);
 
   return (
-    <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-3 py-3 text-xs">
+    <div className="flex flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 py-3 text-xs">
       {props.isComposerWorkspace && (
         <div
           data-testid="canonical-editing-surface"
@@ -922,7 +944,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
             ? 'Write this document to Supabase'
             : 'Create the Supabase CMS row for this page from what is on screen'
         }
-        className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider shadow-raised transition-all disabled:opacity-50 ${
+        className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider shadow-raised transition-colors disabled:opacity-50 ${
           dirty
             ? 'bg-accent text-ink-strong hover:bg-accent-gold'
             : 'bg-white/10 text-ink-muted-on-dark'
@@ -1056,7 +1078,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
         onClick={props.onCycleTheme}
         title={`Preview theme: ${themeModeLabel(themeMode)}${themeMode === 'system' ? ` (${effectiveTheme})` : ''} (click to cycle)`}
         aria-label="Cycle theme mode preview"
-        className="inline-flex w-full items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-all duration-300 hover:bg-white/10 hover:text-white active:scale-95 cursor-pointer"
+        className="inline-flex w-full items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-bold text-ink-on-dark transition-colors duration-200 hover:bg-white/10 hover:text-white active:scale-95 cursor-pointer touch-manipulation focus-visible:ring-1 focus-visible:ring-accent-gold"
       >
         {themeMode === 'light' ? (
           <Sun size={13} className="animate-in fade-in zoom-in-75 text-amber-300 duration-200" />
@@ -1214,7 +1236,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
               className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold text-accent-gold hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none"
             >
               <Layers size={13} />
-              <span>Element Library &amp; Templates...</span>
+              <span>Element Library &amp; Templates…</span>
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
@@ -1569,7 +1591,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                     setDraggingBlockIndex(null);
                     setDragOverBlockIndex(null);
                   }}
-                  className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-ink-on-dark transition-all ${
+                  className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-ink-on-dark transition-[border-color,background-color,opacity,box-shadow] duration-150 ${
                     isDragOver
                       ? 'border-accent-gold/80 bg-accent-gold/20 shadow-md ring-1 ring-accent-gold/50'
                       : isDragging
@@ -1593,7 +1615,7 @@ function DefaultContextZone(props: VisualEditorSidebarProps) {
                         setDraggingBlockIndex(null);
                         setDragOverBlockIndex(null);
                       }}
-                      className="cursor-grab select-none p-0.5 text-slate-400 hover:text-white active:cursor-grabbing"
+                      className="cursor-grab select-none p-0.5 text-slate-400 hover:text-white active:cursor-grabbing touch-manipulation"
                     >
                       <GripVertical size={11} />
                     </span>

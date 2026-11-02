@@ -5846,7 +5846,7 @@ export function VisualEditOverlay() {
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeleteConfirmIndexes(null);
           }}
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in overscroll-contain touch-manipulation"
         >
           <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-secondary p-5 shadow-2xl text-ink-on-dark space-y-4">
             <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
@@ -5859,14 +5859,14 @@ export function VisualEditOverlay() {
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
               {deleteConfirmIndexes.length === 1
-                ? `Are you sure you want to delete "${sections.find((s) => s.blockIndex === deleteConfirmIndexes[0])?.label || 'this section'}"? Undo will be available in this session.`
+                ? `Are you sure you want to delete “${sections.find((s) => s.blockIndex === deleteConfirmIndexes[0])?.label || 'this section'}”? Undo will be available in this session.`
                 : `Are you sure you want to delete ${deleteConfirmIndexes.length} selected sections? Undo will be available in this session.`}
             </p>
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
               <button
                 type="button"
                 onClick={() => setDeleteConfirmIndexes(null)}
-                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
                 Cancel
               </button>
@@ -5878,7 +5878,7 @@ export function VisualEditOverlay() {
                   setDeleteConfirmIndexes(null);
                   await handleDeleteSections(indexes);
                 }}
-                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
               >
                 {savingBackend ? 'Deleting…' : 'Delete'}
               </button>
@@ -5900,7 +5900,7 @@ export function VisualEditOverlay() {
           onClick={(e) => {
             if (e.target === e.currentTarget) setReorderConfirm(null);
           }}
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in overscroll-contain touch-manipulation"
         >
           <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-secondary p-5 shadow-2xl text-ink-on-dark space-y-4">
             <div className="flex items-center gap-2 text-accent-gold font-bold text-sm">
@@ -5910,14 +5910,14 @@ export function VisualEditOverlay() {
               </h3>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Move &ldquo;{reorderConfirm.label}&rdquo; from position #{reorderConfirm.fromIndex + 1} to #{reorderConfirm.toIndex + 1}?
+              Move “{reorderConfirm.label}” from position #{reorderConfirm.fromIndex + 1} to #{reorderConfirm.toIndex + 1}?
               This will update the page layout order.
             </p>
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
               <button
                 type="button"
                 onClick={() => setReorderConfirm(null)}
-                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-xl border border-white/15 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
                 Cancel
               </button>
@@ -5929,7 +5929,7 @@ export function VisualEditOverlay() {
                   setReorderConfirm(null);
                   await moveBlockTo(fromIndex, toIndex);
                 }}
-                className="px-4 py-1.5 rounded-xl bg-accent-gold hover:bg-accent-gold/90 text-ink-strong text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-md"
+                className="px-4 py-1.5 rounded-xl bg-accent-gold hover:bg-accent-gold/90 text-ink-strong text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-md touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
               >
                 {savingBackend ? 'Moving…' : 'Confirm Move'}
               </button>

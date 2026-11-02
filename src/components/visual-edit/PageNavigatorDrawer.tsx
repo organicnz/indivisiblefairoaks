@@ -110,7 +110,7 @@ export function PageNavigatorDrawer({
     <aside
       aria-labelledby={titleId}
       aria-describedby={descId}
-      className="fixed inset-y-0 left-0 z-[10010] flex w-full max-w-sm flex-col border-r border-white/20 bg-slate-950/95 text-white shadow-2xl backdrop-blur-2xl animate-in slide-in-from-left duration-200 pointer-events-auto"
+      className="fixed inset-y-0 left-0 z-[10010] flex w-full max-w-sm flex-col border-r border-white/20 bg-slate-950/95 text-white shadow-2xl backdrop-blur-2xl animate-in slide-in-from-left duration-200 pointer-events-auto overscroll-contain"
     >
       {/* Drawer Header */}
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5">
@@ -161,14 +161,14 @@ export function PageNavigatorDrawer({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter sections &amp; blocks..."
+            placeholder="Filter sections &amp; blocks…"
             className="w-full rounded-xl border border-white/10 bg-white/5 py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none focus:ring-1 focus:ring-accent-gold/40"
           />
         </div>
       </div>
 
       {/* Structure Tree List */}
-      <ol className="flex-1 overflow-y-auto p-3 space-y-1.5 text-xs list-none m-0">
+      <ol className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-1.5 text-xs list-none m-0">
         {filteredSections.length === 0 ? (
           <li className="py-12 text-center text-slate-400">
             <FolderTree size={28} className="mx-auto mb-2 text-slate-400" />
@@ -200,7 +200,7 @@ export function PageNavigatorDrawer({
                   onReorderBlock(draggingIndex, sec.blockIndex);
                   setDraggingIndex(null);
                 }}
-                className={`group flex items-center justify-between rounded-xl border p-2 transition-all ${
+                className={`group flex items-center justify-between rounded-xl border p-2 transition-[border-color,background-color,box-shadow,opacity] duration-150 ${
                   draggingIndex === sec.blockIndex ? 'opacity-40 ' : ''
                 }${
                   isActive
@@ -222,7 +222,7 @@ export function PageNavigatorDrawer({
                       }
                     }}
                     onDragEnd={() => setDraggingIndex(null)}
-                    className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing mr-1 shrink-0"
+                    className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing mr-1 shrink-0 touch-manipulation"
                   >
                     <GripVertical size={13} />
                   </span>

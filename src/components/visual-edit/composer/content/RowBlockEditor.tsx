@@ -254,7 +254,7 @@ export function RowBlockEditor({
                 setDraggingColIndex(null);
                 setDragOverColIndex(null);
               }}
-              className={`min-w-0 space-y-2 rounded-xl border p-2 transition-all ${
+              className={`min-w-0 space-y-2 rounded-xl border p-2 transition-[border-color,background-color,box-shadow,opacity] duration-150 ${
                 dragOverColIndex === columnIndex
                   ? 'border-accent-gold/80 bg-accent-gold/5 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
                   : draggingColIndex === columnIndex
@@ -333,7 +333,7 @@ export function RowBlockEditor({
                     }
                     disabled={!canRemoveColumn}
                     onClick={() => removeColumn(columnIndex)}
-                    className="inline-flex size-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-30"
+                    className="inline-flex size-5 items-center justify-center rounded text-slate-400 transition-colors hover:bg-rose-500/20 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer focus-visible:ring-1 focus-visible:ring-accent-gold"
                   >
                     <Trash2 size={11} />
                   </button>
