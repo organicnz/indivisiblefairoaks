@@ -115,8 +115,8 @@ test.describe('MFA step-up challenge', () => {
   });
 
   /**
-   * The step-up gate protects `/account`, which holds another person's order
-   * data for an admin. An AAL1 session must not render it even briefly.
+   * The step-up gate protects `/account`, which holds sensitive account
+   * credentials and profile data for an admin. An AAL1 session must not render it even briefly.
    */
   test('an AAL1 session is denied the account surface', async ({ page }) => {
     await page.waitForURL(/\/auth\/mfa/, { timeout: 20_000 });

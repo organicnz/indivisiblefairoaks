@@ -477,7 +477,7 @@ export async function restoreContentRevision(
 }
 
 /**
- * Raster allowlist, identical to the product uploader.
+ * Raster allowlist for uploaded media assets.
  *
  * SVG is excluded deliberately: it is active content that executes on the
  * storage origin under the site's own CSP, so an uploaded SVG is stored XSS

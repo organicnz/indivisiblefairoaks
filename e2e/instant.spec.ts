@@ -8,7 +8,7 @@ import { APP_URL } from './helpers/ports';
  * navigation lands — before any streamed data arrives.
  *
  * Shell contract (every route): header logo, primary nav, footer tagline.
- * Route data (product info, article prose) is explicitly NOT instant; it
+ * Route data (civic info, article prose) is explicitly NOT instant; it
  * streams behind Suspense by design and must never be asserted here.
  */
 
