@@ -228,3 +228,23 @@ The application sends from `contact@indivisiblefairoaks.org` (see `src/lib/email
 
 **Do not** add `include:_spf.resend.com`: that hostname is now NXDOMAIN, and an unresolvable `include` makes the whole SPF record a `permerror`. The apex is already complete for Resend under its modern CNAME scheme (`send`/`rsend` → `send.forge.rmta.net`, plus a `tracking` CNAME), which covers bounce handling and tracking but **cannot** authorize apex sending — a CNAME at `send.` does not redirect an apex `TXT` SPF record. Resolving apex SPF therefore requires either a deliberate inclusion authorized for this account, or moving application sends to the verified `test.` subdomain. Treat as a decision, not a mechanical fix.
 
+---
+
+## 9. Verification & DMARC Telemetry Ingestion (November 2026)
+
+### Status: 100% Authenticated
+Verification of subsequent aggregate reports (Google `report_id: 1195748035876372617` and Microsoft `report_id: faba5b606f214a28a0c8e3d2385d4dd9`) confirmed **100% pass rate**:
+- `google._domainkey` DKIM signature: **PASS** across all Google Workspace outbound mail.
+- `resend._domainkey` DKIM signature: **PASS** across application mail.
+- Evaluated policy disposition: `none` across all 44 messages (zero quarantined or rejected).
+- Policy enforcement: `p=quarantine`, `sp=quarantine`, `pct=100`, `aspf=r`, `adkim=r`.
+
+### Daily Aggregate Reports (RUA) Management
+The continuation of daily emails from Google and Microsoft is expected behavior under RFC 7489 when an email address is specified in `rua=mailto:tamerlanium@gmail.com`. They are diagnostic telemetry logs, not error notifications.
+
+Action items tracked in [#161](https://github.com/organicnz/indivisiblefairoaks/issues/161):
+1. Route `rua` to Cloudflare DMARC Management (`rua=mailto:xxxx@dmarc.cloudflare.com`) for automated parsing into visual dashboards, or
+2. Add a Gmail filter to auto-archive `DMARC Aggregate Report` emails, or
+3. Remove the `rua=` tag from `_dmarc` TXT record in Cloudflare DNS to silence telemetry entirely while preserving `p=quarantine`.
+
+
