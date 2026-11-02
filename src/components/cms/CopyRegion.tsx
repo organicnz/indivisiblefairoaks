@@ -1,7 +1,36 @@
 import type { ReactNode } from 'react';
 import { copyRegionSlug } from '@/lib/copy-regions';
+import { getDataPoints } from '@/lib/queries/civic';
 import { getCopyRegionBody } from '@/lib/queries/content';
 import { sanitizeWPContent } from '@/lib/sanitize';
+
+/**
+ * Hydrates any `data-data-point="KEY"` container inside a CMS copy region with
+ * the live, authoritative value fetched from Supabase `data_points`.
+ * If an author cleared or left `<br>` in the visual editor, or if the stored
+ * copy differs from the database, this guarantees the data point is never empty.
+ */
+function hydrateDataPointsInHtml(html: string, dataPoints: Record<string, string>): string {
+  if (!html || !dataPoints || Object.keys(dataPoints).length === 0) return html;
+
+  return html.replace(
+    /(<([a-zA-Z0-9]+)\b[^>]*\bdata-data-point=(["'])([^"']+)\3[^>]*>)([\s\S]*?)(<\/\2>)/gi,
+    (match, openTag, _tagName, _quote, key, currentContent, closeTag) => {
+      const val = dataPoints[key];
+      if (val !== undefined && val !== null && val.trim() !== '') {
+        const trimmed = currentContent
+          .replace(/<br\s*\/?>/gi, '')
+          .replace(/&nbsp;/gi, '')
+          .replace(/\u00a0/g, '')
+          .trim();
+        if (trimmed === '') {
+          return `${openTag}${val}${closeTag}`;
+        }
+      }
+      return match;
+    }
+  );
+}
 
 /**
  * One addressable slice of a coded page, CMS-backed with a JSX fallback.
@@ -35,10 +64,17 @@ export async function CopyRegion({
 }) {
   const slug = copyRegionSlug(id);
 
-  // Cached in `getCopyRegionBody`, not here: `'use cache'` is what keeps
+  // Cached in `getCopyRegionBody` and `getDataPoints`, not here: `'use cache'` is what keeps
   // `new Date()` out of the prerender and costs one query per region per build
   // rather than one per route.
-  const body = await getCopyRegionBody(slug);
+  const [body, dataPoints] = await Promise.all([getCopyRegionBody(slug), getDataPoints()]);
+
+  const sanitized = body
+    ? hydrateDataPointsInHtml(
+        sanitizeWPContent(body).replace(/\s*contenteditable=["']false["']/gi, ''),
+        dataPoints
+      )
+    : null;
 
   // `display: contents` in both branches, deliberately. It is what makes the
   // two modes interchangeable for layout *and* for the visual editor: the
@@ -47,7 +83,7 @@ export async function CopyRegion({
   // both modes — which is exactly the shape `buildVisualSections` pairs blocks
   // against. Nesting the HTML one level deeper would silently shift every
   // section's DOM ordinal.
-  return body ? (
+  return sanitized ? (
     <div
       data-copy-region={id}
       data-copy-region-source="cms"
@@ -57,7 +93,7 @@ export async function CopyRegion({
       // The suppression is on this line, not the file, and it is the same
       // boundary the whole CMS rests on.
       // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitizeWPContent(body) above is the security boundary; it strips script/style/iframe and migrates furniture
-      dangerouslySetInnerHTML={{ __html: sanitizeWPContent(body) }}
+      dangerouslySetInnerHTML={{ __html: sanitized }}
     />
   ) : (
     <div data-copy-region={id} data-copy-region-source="fallback" className="contents">

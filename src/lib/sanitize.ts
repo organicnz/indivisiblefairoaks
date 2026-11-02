@@ -296,7 +296,16 @@ const HTML_SANITIZE_OPTIONS: IOptions = {
     'ul',
   ],
   allowedAttributes: {
-    '*': ['class', 'id', 'title', 'aria-label', 'aria-describedby', 'role'],
+    '*': [
+      'class',
+      'id',
+      'title',
+      'aria-label',
+      'aria-describedby',
+      'role',
+      'data-data-point',
+      'data-copy-region',
+    ],
     a: ['href', 'name', 'target', 'rel'],
     img: ['src', 'alt', 'width', 'height', 'loading'],
   },
