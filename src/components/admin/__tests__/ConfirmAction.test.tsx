@@ -81,6 +81,22 @@ describe('ConfirmAction', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
+  it('cancels confirmation when Escape key is pressed', () => {
+    render();
+    click(button('🗑'));
+    expect(container.textContent).toContain('Delete “Rally”? This cannot be undone.');
+
+    act(() => {
+      container.querySelector('fieldset')?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+      );
+    });
+
+    expect(container.textContent).not.toContain('This cannot be undone.');
+    expect(container.querySelector('button[aria-label="Delete page"]')).not.toBeNull();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
   it('disables the whole step while busy', () => {
     render({ busy: true });
     click(button('🗑'));

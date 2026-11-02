@@ -62,7 +62,16 @@ export function ConfirmAction({
   }
 
   return (
-    <fieldset disabled={busy} className="inline-flex flex-wrap items-center gap-2">
+    <fieldset
+      disabled={busy}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          setConfirming(false);
+        }
+      }}
+      className="inline-flex flex-wrap items-center gap-2"
+    >
       <legend className="sr-only">{label}</legend>
       <span className="text-xs font-medium text-muted-foreground">{message}</span>
       <button
@@ -71,7 +80,7 @@ export function ConfirmAction({
           setConfirming(false);
           onConfirm();
         }}
-        className={`rounded-lg px-2.5 py-1.5 text-xs font-bold text-white transition-colors focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 ${
+        className={`rounded-lg px-2.5 py-1.5 text-xs font-bold text-white transition-colors touch-manipulation focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 cursor-pointer ${
           danger ? 'bg-accent-red hover:bg-red-700' : 'bg-primary hover:bg-primary-dark'
         }`}
       >
@@ -80,7 +89,7 @@ export function ConfirmAction({
       <button
         type="button"
         onClick={() => setConfirming(false)}
-        className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-surface-card focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
+        className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold text-muted-foreground transition-colors touch-manipulation hover:bg-surface-card focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 cursor-pointer"
       >
         {cancelLabel}
       </button>
