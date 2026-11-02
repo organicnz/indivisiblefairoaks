@@ -1,6 +1,6 @@
 'use server';
 
-import { cacheLife, cacheTag, revalidatePath, revalidateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { requireAdmin } from '@/lib/admin-auth';
 import {
@@ -2695,9 +2695,6 @@ export async function getCRMBroadcastDrafts(): Promise<CRMBroadcast[]> {
  * forget to check.
  */
 export async function getCRMExistingTags(): Promise<CRMTagScan> {
-  'use cache';
-  cacheLife('hours');
-  cacheTag('crm-tags');
   // Authorize first, outside any cache. A server action is callable by anyone
   // who can POST to it, so the check has to run on every call; only the data
   // behind it is cached. See `getCachedCRMTags` for why the two are separate.
