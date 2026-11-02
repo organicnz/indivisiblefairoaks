@@ -1,5 +1,6 @@
-import { Mail, Megaphone, Newspaper, Send } from 'lucide-react';
+import { Megaphone, Newspaper } from 'lucide-react';
 import type { Metadata } from 'next';
+import { ActionAlertsSubscription } from '@/components/ui/ActionAlertsSubscription';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveNewslettersList } from '@/components/ui/InteractiveNewslettersList';
 import { InteractivePostsList } from '@/components/ui/InteractivePostsList';
@@ -55,45 +56,8 @@ export default async function NewsPage() {
       </section>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
-        {/* Newsletter Subscription Card */}
-        <div className="p-8 rounded-2xl bg-surface-card border border-border dark:bg-gradient-to-tr dark:from-blue-900/60 dark:via-slate-900 dark:to-indigo-950/60 dark:border-primary-bright/30 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-accent-gold/20 text-ink-strong dark:text-accent-gold text-[11px] font-bold uppercase tracking-wider">
-              <Mail size={12} />
-              <DataPoint initialData={dataPoints} as="span" name="news.subscribe.badge">
-                Direct To Your Inbox
-              </DataPoint>
-            </div>
-            <DataPoint
-              initialData={dataPoints}
-              name="news.subscribe.headline"
-              as="h2"
-              className="text-2xl font-black text-foreground dark:text-white"
-            >
-              Subscribe to Action Alerts
-            </DataPoint>
-            <DataPoint
-              initialData={dataPoints}
-              name="news.subscribe.intro"
-              as="p"
-              className="text-xs sm:text-sm text-muted-foreground dark:text-ink-on-dark max-w-xl leading-relaxed"
-            >
-              Receive notifications for upcoming meetings, emergency rapid response rallies, choir
-              rehearsal locations, and legislative call-to-action alerts.
-            </DataPoint>
-          </div>
-          <div className="shrink-0 w-full md:w-auto">
-            <a
-              href="mailto:subscribe@indivisiblefairoaks.org?subject=Subscribe%20to%20Indivisible%20Fair%20Oaks%20Newsletter"
-              className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-accent-gold hover:brightness-105 text-ink-strong font-bold text-xs uppercase tracking-wider shadow-lg transition-all"
-            >
-              <Send size={16} />
-              <DataPoint initialData={dataPoints} as="span" name="news.subscribe.btn">
-                Email to Subscribe
-              </DataPoint>
-            </a>
-          </div>
-        </div>
+        {/* Interactive Action Alerts Subscription */}
+        <ActionAlertsSubscription initialData={dataPoints} />
 
         {/* Chapter Articles & Dispatches */}
         <InteractivePostsList initialPosts={postsRows} />

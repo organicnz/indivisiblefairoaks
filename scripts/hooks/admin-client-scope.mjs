@@ -19,6 +19,12 @@
  *                              per-contact UUID, update is idempotent and
  *                              rate-limited (20/10min/IP). Read + opt-out
  *                              write only — cannot escalate or exfiltrate.
+ *   src/app/news/actions.ts   — public Action Alerts subscriber landing zone:
+ *                              no user session exists for anonymous visitors.
+ *                              Strict honeypot defense, input sanitization,
+ *                              IP rate limiting (5/10min). Targeted upsert to
+ *                              crm_contacts and note append to crm_activities
+ *                              only — cannot escalate or exfiltrate.
  *
  * Test files are excluded, and the reasoning is narrow rather than
  * convenient. A file under `__tests__` is never shipped, so it cannot
@@ -46,7 +52,7 @@
  */
 
 const ALLOWLIST =
-  'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/products/page.tsx|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts|src/lib/crm-tag-scan.ts';
+  'src/app/admin/|src/app/api/webhooks/|src/app/api/crm/unsubscribe/|src/app/news/actions.ts|src/app/products/page.tsx|src/app/account/page.tsx|src/lib/supabase-server.ts|src/lib/admin-auth.ts|src/lib/crm-tag-scan.ts';
 
 const files = process.argv.slice(2);
 const violations = [];
