@@ -57,6 +57,8 @@ export interface InspectorHeaderProps {
   onMoveBlock?: (direction: 'up' | 'down') => void;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
+  onCopyBlockJson?: () => void;
+  onPasteBlockJson?: () => void;
 }
 
 export function InspectorHeader({
@@ -83,6 +85,8 @@ export function InspectorHeader({
   onMoveBlock,
   canMoveUp = false,
   canMoveDown = false,
+  onCopyBlockJson,
+  onPasteBlockJson,
 }: InspectorHeaderProps) {
   return (
     <>
@@ -231,6 +235,32 @@ export function InspectorHeader({
             <ClipboardPaste size={12} />
             <span>Paste</span>
           </button>
+
+          {/* Quick Copy Block JSON Button */}
+          {onCopyBlockJson && (
+            <button
+              type="button"
+              onClick={onCopyBlockJson}
+              title="Copy block definition as JSON"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <ClipboardCopy size={12} />
+              <span>Copy JSON</span>
+            </button>
+          )}
+
+          {/* Quick Paste Block JSON Button */}
+          {onPasteBlockJson && (
+            <button
+              type="button"
+              onClick={onPasteBlockJson}
+              title="Paste block definition from JSON"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <ClipboardPaste size={12} />
+              <span>Paste JSON</span>
+            </button>
+          )}
 
           {/* Quick Reset Styles Button */}
           <button

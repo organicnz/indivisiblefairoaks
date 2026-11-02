@@ -892,7 +892,7 @@ export function VisualEditOverlay() {
   const featuredImageId = useId();
 
   /** Copy the currently edited block to the clipboard as structured JSON */
-  const _handleCopyBlockJson = useCallback(() => {
+  const handleCopyBlockJson = useCallback(() => {
     const activeBlock = vcBlockIndex !== null ? blocksRef.current[vcBlockIndex] : null;
     if (!activeBlock) return;
     void navigator.clipboard?.writeText(JSON.stringify(activeBlock, null, 2));
@@ -900,7 +900,7 @@ export function VisualEditOverlay() {
   }, [vcBlockIndex]);
 
   /** Paste block JSON from clipboard to update the currently edited block */
-  const _handlePasteBlockJson = useCallback(async () => {
+  const handlePasteBlockJson = useCallback(async () => {
     if (vcBlockIndex === null) return;
     try {
       const text = await navigator.clipboard?.readText();
@@ -5592,6 +5592,8 @@ export function VisualEditOverlay() {
         closeRequest={composerCloseRequest}
         onDeleteBlock={handleDeleteSection}
         onDeleteBlocks={handleDeleteSections}
+        onCopyBlockJson={handleCopyBlockJson}
+        onPasteBlockJson={handlePasteBlockJson}
       />
 
       {/* ── Visual Composer Element Library & Templates Modal (⌘⇧E) ─────────── */}

@@ -490,6 +490,10 @@ export interface VisualComposerInspectorProps {
   onDeleteBlock?: (blockIndex: number) => void;
   /** Delete every selected block in batch mode. */
   onDeleteBlocks?: (blockIndexes: number[]) => void;
+  /** Copy active block definition to clipboard as JSON. */
+  onCopyBlockJson?: () => void;
+  /** Paste active block definition from clipboard JSON. */
+  onPasteBlockJson?: () => void;
 }
 
 export function VisualComposerInspector({
@@ -514,6 +518,8 @@ export function VisualComposerInspector({
   onPreviewChange,
   onDeleteBlock,
   onDeleteBlocks,
+  onCopyBlockJson,
+  onPasteBlockJson,
 }: VisualComposerInspectorProps) {
   const [inspectorMode, setInspectorMode] = useState<VisualComposerMode>(initialMode);
   const [activeTab, setActiveTab] = useState<VisualComposerTab>('content');
@@ -1550,6 +1556,8 @@ export function VisualComposerInspector({
         onCopyStyles={handleCopyStyles}
         onPasteStyles={handlePasteStyles}
         onResetStyles={handleResetStyles}
+        onCopyBlockJson={onCopyBlockJson}
+        onPasteBlockJson={onPasteBlockJson}
         onClose={requestClose}
         firstFocusRef={firstFocusRef}
         isBatchMode={isBatchMode}
