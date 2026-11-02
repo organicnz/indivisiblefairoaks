@@ -14,17 +14,15 @@ import {
   ListOrdered,
   Minus,
   Quote,
-  Search,
   Sparkles,
   Table,
   Type,
   Users,
-  X,
 } from 'lucide-react';
 import type React from 'react';
-import { useId, useMemo, useState } from 'react';
 import type { Block, HeadingLevel } from '@/lib/blocks';
 import type { VisualComposerBlockCategory } from '@/types/unified';
+import { BlockLibraryPanel } from './BlockLibraryPanel';
 
 export interface BlockTemplate {
   id: string;
@@ -294,143 +292,22 @@ export function BlockLibraryModal({
   onInsertBlock,
   insertTargetIndex,
 }: BlockLibraryModalProps) {
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const titleId = useId();
-  const descId = useId();
-
-  const categories = ['All', 'Typography', 'Media', 'Action', 'Structure'];
-
-  const filteredTemplates = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    return BLOCK_TEMPLATES.filter((t) => {
-      const matchesCategory = selectedCategory === 'All' || t.category === selectedCategory;
-      const matchesSearch =
-        !q ||
-        t.title.toLowerCase().includes(q) ||
-        t.description.toLowerCase().includes(q) ||
-        t.category.toLowerCase().includes(q);
-      return matchesCategory && matchesSearch;
-    });
-  }, [search, selectedCategory]);
-
   if (!open) return null;
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby={titleId}
-      aria-describedby={descId}
+      aria-label="Visual Composer Element Library"
       className="fixed inset-0 z-[10020] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in-0 pointer-events-auto"
     >
       <div className="flex flex-col w-full max-w-3xl max-h-[85vh] rounded-3xl border border-white/20 bg-slate-950/95 text-white shadow-2xl overflow-hidden overscroll-contain">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-gold/20 text-accent-gold">
-              <Layers size={18} />
-            </div>
-            <div>
-              <h2 id={titleId} className="text-base font-bold text-white tracking-wide">
-                Visual Composer Element Library
-              </h2>
-              <p id={descId} className="text-xs text-slate-400">
-                {insertTargetIndex !== null && insertTargetIndex !== undefined
-                  ? `Insert element above block #${insertTargetIndex + 1}`
-                  : 'Select an element to insert into the page layout'}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close Element Library"
-            className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-accent-gold"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Filter & Search Bar */}
-        <div className="border-b border-white/10 bg-slate-900/60 p-4 space-y-3">
-          <div className="relative">
-            <Search
-              size={14}
-              className="absolute left-3.5 top-3 text-slate-400 pointer-events-none"
-            />
-            <input
-              type="text"
-              aria-label="Search elements"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search elements (e.g. heading, button, callout, table, image)…"
-              className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-4 text-xs text-white placeholder:text-white/40 focus:border-accent-gold/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold/60"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-accent-gold ${
-                  selectedCategory === cat
-                    ? 'bg-accent-gold text-ink-strong font-black'
-                    : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Templates Grid */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          {filteredTemplates.map((template) => {
-            const Icon = template.icon;
-            return (
-              <button
-                key={template.id}
-                type="button"
-                onClick={() => {
-                  onInsertBlock(template, insertTargetIndex ?? undefined);
-                  onClose();
-                }}
-                className="group flex flex-col items-start p-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-accent-gold/50 text-left transition-[border-color,background-color] duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent-gold"
-              >
-                <div className="flex items-center justify-between w-full mb-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-gold/15 text-accent-gold group-hover:scale-110 transition-transform">
-                    <Icon size={16} />
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    {template.category}
-                  </span>
-                </div>
-                <h3 className="text-xs font-bold text-white group-hover:text-accent-gold transition-colors mb-1">
-                  {template.title}
-                </h3>
-                <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-2">
-                  {template.description}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-white/10 bg-slate-900/80 px-6 py-3 flex items-center justify-between text-xs text-slate-400">
-          <span>{filteredTemplates.length} elements available</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-1.5 font-bold text-slate-300 hover:bg-white/10 transition-colors"
-          >
-            Close
-          </button>
-        </div>
+        <BlockLibraryPanel
+          onInsertBlock={onInsertBlock}
+          insertTargetIndex={insertTargetIndex}
+          onClose={onClose}
+          embedded={false}
+        />
       </div>
     </div>
   );

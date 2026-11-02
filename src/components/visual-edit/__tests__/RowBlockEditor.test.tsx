@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RowBlockEditor } from '@/components/visual-edit/composer/content/RowBlockEditor';
 import type { RowBlock } from '@/lib/blocks';
 
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 describe('RowBlockEditor', () => {
   let container: HTMLDivElement;
   let root: ReturnType<typeof createRoot>;

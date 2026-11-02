@@ -571,6 +571,11 @@ export function VisualEditOverlay() {
     label: string;
   } | null>(null);
 
+  // Active sidebar dock tab ('composer' | 'blocks' | 'library')
+  const [sidebarActiveTab, setSidebarActiveTab] = useState<
+    'composer' | 'blocks' | 'library' | undefined
+  >(undefined);
+
   // Page settings modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [pageTitle, setPageTitle] = useState('');
@@ -658,6 +663,7 @@ export function VisualEditOverlay() {
       setVcMode(mode);
       setDockCollapsed(false);
       setIsVisualComposerOpen(true);
+      setSidebarActiveTab('composer');
     },
     [selectedBlockIndexes, setVcBlockIndex]
   );
@@ -840,6 +846,12 @@ export function VisualEditOverlay() {
   );
   const [isBlockLibraryOpen, setIsBlockLibraryOpen] = useState(false);
   const [libraryTargetIndex, setLibraryTargetIndex] = useState<number | null>(null);
+
+  const handleOpenBlockLibrary = useCallback((insertAfterIndex: number | null) => {
+    setLibraryTargetIndex(insertAfterIndex);
+    setDockCollapsed(false);
+    setSidebarActiveTab('library');
+  }, []);
   const [isPageNavigatorOpen, setIsPageNavigatorOpen] = useState(false);
   const [showInspector, setShowInspector] = useState(() => {
     try {
@@ -2136,8 +2148,10 @@ export function VisualEditOverlay() {
       } as Block;
 
       const nextBlocks = [...blocksRef.current];
+      let insertionIdx = nextBlocks.length;
       if (typeof targetIndex === 'number' && targetIndex >= 0 && targetIndex <= nextBlocks.length) {
         nextBlocks.splice(targetIndex, 0, newBlock);
+        insertionIdx = targetIndex;
       } else {
         nextBlocks.push(newBlock);
       }
@@ -2145,8 +2159,9 @@ export function VisualEditOverlay() {
       setBlocks(nextBlocks);
       commitBlocks(nextBlocks, `insert-library:${template.id}`);
       toast.success(`Inserted ${template.title} into layout`);
+      openVisualComposer('block', insertionIdx);
     },
-    [commitBlocks]
+    [commitBlocks, openVisualComposer]
   );
 
   const cancelInlineEdit = useCallback((session: InlineEditSession) => {
@@ -3341,8 +3356,7 @@ export function VisualEditOverlay() {
       // Visual Composer Block Library (⌘⇧E)
       if (key === 'e' && event.shiftKey) {
         event.preventDefault();
-        setLibraryTargetIndex(activeBlockIndex);
-        setIsBlockLibraryOpen((prev) => !prev);
+        handleOpenBlockLibrary(activeBlockIndex);
         return;
       }
       // Visual Composer Structure Navigator & Tree (⌘7)
@@ -3778,8 +3792,7 @@ export function VisualEditOverlay() {
                 <button
                   type="button"
                   onClick={() => {
-                    setLibraryTargetIndex(item.blockIndex + 1);
-                    setIsBlockLibraryOpen(true);
+                    handleOpenBlockLibrary(item.blockIndex + 1);
                   }}
                   aria-label={`Add a block after ${item.label}`}
                   title="Add a block after this one"
@@ -4381,10 +4394,11 @@ export function VisualEditOverlay() {
         onTogglePageStatus={handleTogglePageStatus}
         onInitializeCMSPage={handleInitializeCMSPage}
         onAddBlock={(type) => handleAddNewSection(type)}
-        onOpenBlockLibrary={(insertAfterIndex) => {
-          setLibraryTargetIndex(insertAfterIndex);
-          setIsBlockLibraryOpen(true);
-        }}
+        onOpenBlockLibrary={handleOpenBlockLibrary}
+        libraryTargetIndex={libraryTargetIndex}
+        onAddBlockTemplate={handleInsertBlockFromLibrary}
+        activeSidebarTab={sidebarActiveTab}
+        onSidebarTabChange={setSidebarActiveTab}
         onJumpToBlock={jumpTo}
         onToggleSectionFrame={toggleSectionFrame}
         onOpenEditSection={handleOpenEditSection}
@@ -5585,8 +5599,7 @@ export function VisualEditOverlay() {
         onOpenDiff={() => setIsDiffModalOpen(true)}
         onOpenVisualComposer={() => openVisualComposer('block', activeBlockIndex ?? 0)}
         onOpenBlockLibrary={() => {
-          setLibraryTargetIndex(activeBlockIndex);
-          setIsBlockLibraryOpen(true);
+          handleOpenBlockLibrary(activeBlockIndex);
         }}
         onOpenNavigator={() => setIsPageNavigatorOpen(true)}
         onExportJson={handleExportPageJson}
@@ -5651,8 +5664,7 @@ export function VisualEditOverlay() {
           openVisualComposer(mode, idx);
         }}
         onOpenLibrary={(targetIndex) => {
-          setLibraryTargetIndex(targetIndex ?? null);
-          setIsBlockLibraryOpen(true);
+          handleOpenBlockLibrary(targetIndex ?? null);
         }}
       />
 
@@ -5800,8 +5812,7 @@ export function VisualEditOverlay() {
             type="button"
             role="menuitem"
             onClick={() => {
-              setLibraryTargetIndex(contextMenu.blockIndex + 1);
-              setIsBlockLibraryOpen(true);
+              handleOpenBlockLibrary(contextMenu.blockIndex + 1);
               setContextMenu(null);
             }}
             className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-200 hover:bg-white/10 hover:text-white transition-colors text-left"

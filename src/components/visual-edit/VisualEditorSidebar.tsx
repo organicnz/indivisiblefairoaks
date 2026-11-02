@@ -49,7 +49,7 @@ import {
   X,
 } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import type { Block } from '@/lib/blocks';
@@ -58,6 +58,8 @@ import { canRedo, canUndo, type History as EditorHistory } from '@/lib/editor-hi
 import { type EffectiveTheme, type ThemeMode, themeModeLabel } from '@/lib/theme';
 import { sectionLabelForBlock, type VisualSection } from '@/lib/visual-sections';
 import type { BackendStatus, BackendSummary, MediaTarget, VisualContentRow } from '@/types/unified';
+import { type BlockTemplate } from './BlockLibraryModal';
+import { BlockLibraryPanel } from './BlockLibraryPanel';
 import { CivicGhostwriter } from './CivicGhostwriter';
 import {
   applyInlineFormatCommand,
@@ -214,6 +216,12 @@ export interface VisualEditorSidebarProps {
 
   // ── Composer Studio ─────────────────────────────────────────────────────
   composerProps?: VisualComposerInspectorProps | null;
+
+  // ── Block Library & Full Sidebar Editor ──────────────────────────────────
+  onAddBlockTemplate?: (template: BlockTemplate, targetIndex?: number) => void;
+  libraryTargetIndex?: number | null;
+  activeSidebarTab?: 'composer' | 'blocks' | 'library';
+  onSidebarTabChange?: (tab: 'composer' | 'blocks' | 'library') => void;
 }
 
 /**
@@ -243,7 +251,7 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
   };
 
   // ── Collapsed: a narrow icon strip ──────────────────────────────────────
-  if (collapsed && !isComposerActive) {
+  if (collapsed && !isComposerActive && !props.inlineSession && !props.imageSession) {
     return (
       <aside
         aria-label="Visual Editor Toolbar"
@@ -299,7 +307,22 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
 
   // ── Expanded: full sidebar with context zone ────────────────────────────
   const { inlineSession, imageSession } = props;
-  const [sidebarTab, setSidebarTab] = useState<'composer' | 'blocks'>('composer');
+  const [uncontrolledTab, setUncontrolledTab] = useState<'composer' | 'blocks' | 'library'>(
+    isComposerActive ? 'composer' : 'blocks'
+  );
+  const sidebarTab = props.activeSidebarTab ?? uncontrolledTab;
+  const handleSetTab = (tab: 'composer' | 'blocks' | 'library') => {
+    setUncontrolledTab(tab);
+    props.onSidebarTabChange?.(tab);
+  };
+
+  useEffect(() => {
+    if (isComposerActive && !props.activeSidebarTab) {
+      setUncontrolledTab('composer');
+    }
+  }, [isComposerActive, props.activeSidebarTab]);
+
+  const isWide = isComposerActive || sidebarTab === 'composer' || sidebarTab === 'library';
 
   return (
     <aside
@@ -307,7 +330,7 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
       data-testid="visual-edit-overlay"
       style={sidebarStyle}
       className={`fixed inset-y-0 right-0 z-[9998] flex flex-col border-l border-white/20 bg-secondary/95 text-ink-on-dark shadow-float backdrop-blur-md transition-[width,background-color,border-color] duration-200 ${
-        isComposerActive ? 'w-[28rem] max-w-[100vw]' : 'w-72'
+        isWide ? 'w-[28rem] max-w-[100vw]' : 'w-72'
       }`}
     >
       {/* ── Header ───────────────────────────────────────────────────────── */}
@@ -319,46 +342,60 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
             {props.documentTitle}
           </span>
         </div>
-        {isComposerActive && (
-          <div
-            role="tablist"
-            aria-label="Editor views"
-            className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5 text-[10px] font-bold"
+        <div
+          role="tablist"
+          aria-label="Editor views"
+          className="flex items-center gap-1 bg-white/10 rounded-lg p-0.5 text-[10px] font-bold"
+        >
+          <button
+            type="button"
+            role="tab"
+            id="sidebar-tab-button-composer"
+            aria-selected={sidebarTab === 'composer'}
+            aria-controls="sidebar-tab-composer"
+            tabIndex={sidebarTab === 'composer' ? 0 : -1}
+            onClick={() => handleSetTab('composer')}
+            className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold ${
+              sidebarTab === 'composer'
+                ? 'bg-accent-gold text-ink-strong'
+                : 'text-slate-300 hover:text-white'
+            }`}
           >
-            <button
-              type="button"
-              role="tab"
-              id="sidebar-tab-button-composer"
-              aria-selected={sidebarTab === 'composer'}
-              aria-controls="sidebar-tab-composer"
-              tabIndex={sidebarTab === 'composer' ? 0 : -1}
-              onClick={() => setSidebarTab('composer')}
-              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold ${
-                sidebarTab === 'composer'
-                  ? 'bg-accent-gold text-ink-strong'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Studio
-            </button>
-            <button
-              type="button"
-              role="tab"
-              id="sidebar-tab-button-blocks"
-              aria-selected={sidebarTab === 'blocks'}
-              aria-controls="sidebar-tab-blocks"
-              tabIndex={sidebarTab === 'blocks' ? 0 : -1}
-              onClick={() => setSidebarTab('blocks')}
-              className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold ${
-                sidebarTab === 'blocks'
-                  ? 'bg-accent-gold text-ink-strong'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Blocks
-            </button>
-          </div>
-        )}
+            Studio
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="sidebar-tab-button-blocks"
+            aria-selected={sidebarTab === 'blocks'}
+            aria-controls="sidebar-tab-blocks"
+            tabIndex={sidebarTab === 'blocks' ? 0 : -1}
+            onClick={() => handleSetTab('blocks')}
+            className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold ${
+              sidebarTab === 'blocks'
+                ? 'bg-accent-gold text-ink-strong'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            Blocks
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="sidebar-tab-button-library"
+            aria-selected={sidebarTab === 'library'}
+            aria-controls="sidebar-tab-library"
+            tabIndex={sidebarTab === 'library' ? 0 : -1}
+            onClick={() => handleSetTab('library')}
+            className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold ${
+              sidebarTab === 'library'
+                ? 'bg-accent-gold text-ink-strong'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            Library
+          </button>
+        </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -381,42 +418,99 @@ export function VisualEditorSidebar(props: VisualEditorSidebarProps) {
         </div>
       </div>
       {/* ── Context zone ─────────────────────────────────────────────────── */}
-      {isComposerActive && props.composerProps ? (
-        <>
-          <div
-            id="sidebar-tab-composer"
-            role="tabpanel"
-            aria-labelledby="sidebar-tab-button-composer"
-            tabIndex={0}
-            className={`flex-1 flex flex-col min-h-0 overflow-hidden overscroll-contain ${
-              sidebarTab === 'composer' ? 'flex' : 'hidden'
-            }`}
-          >
-            <VisualComposerInspector {...props.composerProps} embedded={true} />
+      <div
+        id="sidebar-tab-composer"
+        role="tabpanel"
+        aria-labelledby="sidebar-tab-button-composer"
+        tabIndex={0}
+        className={`flex-1 flex flex-col min-h-0 overflow-hidden overscroll-contain ${
+          sidebarTab === 'composer' ? 'flex' : 'hidden'
+        }`}
+      >
+        {props.composerProps && props.composerProps.open && props.composerProps.block ? (
+          <VisualComposerInspector {...props.composerProps} embedded={true} />
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-white space-y-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-gold/20 text-accent-gold shadow-inner">
+              <SlidersHorizontal size={22} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-white tracking-wide">
+                Visual Composer Studio
+              </h3>
+              <p className="text-xs text-slate-300 max-w-xs leading-relaxed">
+                Select any block on the page or tree to edit its styles, box model, colors, and animations.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 w-full max-w-xs pt-2">
+              <button
+                type="button"
+                onClick={() => handleSetTab('library')}
+                className="w-full rounded-xl bg-accent-gold hover:bg-accent-gold/90 px-3 py-2 text-xs font-black text-ink-strong transition-colors cursor-pointer shadow-md"
+              >
+                Add Element from Library →
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetTab('blocks')}
+                className="w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 text-xs font-bold text-slate-200 transition-colors cursor-pointer"
+              >
+                Browse Document Blocks →
+              </button>
+            </div>
           </div>
-          <div
-            id="sidebar-tab-blocks"
-            role="tabpanel"
-            aria-labelledby="sidebar-tab-button-blocks"
-            tabIndex={0}
-            className={`flex-1 overflow-y-auto overscroll-contain ${sidebarTab === 'blocks' ? 'block' : 'hidden'}`}
-          >
-            {inlineSession ? (
-              <InlineContextZone {...props} inlineSession={inlineSession} />
-            ) : imageSession ? (
-              <ImageContextZone {...props} imageSession={imageSession} />
-            ) : (
-              <DefaultContextZone {...props} />
-            )}
-          </div>
-        </>
-      ) : inlineSession ? (
-        <InlineContextZone {...props} inlineSession={inlineSession} />
-      ) : imageSession ? (
-        <ImageContextZone {...props} imageSession={imageSession} />
-      ) : (
-        <DefaultContextZone {...props} />
-      )}
+        )}
+      </div>
+
+      <div
+        id="sidebar-tab-blocks"
+        role="tabpanel"
+        aria-labelledby="sidebar-tab-button-blocks"
+        tabIndex={0}
+        className={`flex-1 overflow-y-auto overscroll-contain ${
+          sidebarTab === 'blocks' ? 'block' : 'hidden'
+        }`}
+      >
+        {inlineSession ? (
+          <InlineContextZone {...props} inlineSession={inlineSession} />
+        ) : imageSession ? (
+          <ImageContextZone {...props} imageSession={imageSession} />
+        ) : (
+          <DefaultContextZone
+            {...props}
+            onOpenBlockLibrary={(targetIndex) => {
+              props.onOpenBlockLibrary(targetIndex);
+              handleSetTab('library');
+            }}
+          />
+        )}
+      </div>
+
+      <div
+        id="sidebar-tab-library"
+        role="tabpanel"
+        aria-labelledby="sidebar-tab-button-library"
+        tabIndex={0}
+        className={`flex-1 flex flex-col min-h-0 overflow-hidden overscroll-contain ${
+          sidebarTab === 'library' ? 'flex' : 'hidden'
+        }`}
+      >
+        <BlockLibraryPanel
+          embedded={true}
+          insertTargetIndex={props.libraryTargetIndex ?? props.activeBlockIndex}
+          onInsertBlock={(template, targetIdx) => {
+            if (props.onAddBlockTemplate) {
+              props.onAddBlockTemplate(
+                template,
+                targetIdx ?? props.libraryTargetIndex ?? props.activeBlockIndex ?? undefined
+              );
+            } else {
+              props.onOpenBlockLibrary(targetIdx ?? null);
+            }
+            handleSetTab('composer');
+          }}
+        />
+      </div>
     </aside>
   );
 }
