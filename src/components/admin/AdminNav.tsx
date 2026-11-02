@@ -35,7 +35,7 @@ export function AdminNav() {
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-12">
       <nav
-        className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0"
+        className="flex items-center gap-2 overflow-x-auto overscroll-x-contain pb-2 -mx-4 px-4 sm:mx-0 sm:px-0"
         aria-label={dataPoints['admin.nav.aria'] || 'Admin sections'}
       >
         {ITEMS.map(({ href, labelKey, label, icon: Icon }) => {
@@ -47,7 +47,8 @@ export function AdminNav() {
             <Link
               key={href}
               href={href}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-colors shrink-0 ${
+              aria-current={active ? 'page' : undefined}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest transition-colors shrink-0 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 active
                   ? 'bg-primary text-white'
                   : 'bg-surface-muted text-muted-foreground hover:bg-surface-muted hover:text-foreground'

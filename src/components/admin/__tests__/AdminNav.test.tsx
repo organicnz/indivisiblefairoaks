@@ -59,6 +59,13 @@ describe('AdminNav', () => {
     expect(hrefs).toContain('/admin/links');
     expect(hrefs).toContain('/admin/crm');
 
+    // Accessibility: aria-current="page" on the active route
+    const dashboardLink = links.find((l) => l.getAttribute('href') === '/admin');
+    expect(dashboardLink?.getAttribute('aria-current')).toBe('page');
+
+    const contentLink = links.find((l) => l.getAttribute('href') === '/admin/content');
+    expect(contentLink?.getAttribute('aria-current')).toBeNull();
+
     // Legacy commerce surfaces are gone, not merely hidden.
     expect(hrefs).not.toContain('/admin/products');
     expect(hrefs).not.toContain('/admin/customers');

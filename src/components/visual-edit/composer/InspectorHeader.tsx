@@ -136,7 +136,7 @@ export function InspectorHeader({
                     ? 'Edit the previous block (⌥↑)'
                     : 'This is the first block on the page'
                 }
-                className="rounded-l-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                className="rounded-l-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
               >
                 <ChevronLeft size={14} />
               </button>
@@ -152,7 +152,7 @@ export function InspectorHeader({
                     ? 'Edit the next block (⌥↓)'
                     : 'This is the last block on the page'
                 }
-                className="rounded-r-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                className="rounded-r-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
               >
                 <ChevronRight size={14} />
               </button>
@@ -173,7 +173,7 @@ export function InspectorHeader({
                     ? 'Move this block up in the page (⌥⇧↑)'
                     : 'This is the first block on the page'
                 }
-                className="rounded-l-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                className="rounded-l-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
               >
                 <ArrowUp size={14} />
               </button>
@@ -189,7 +189,7 @@ export function InspectorHeader({
                     ? 'Move this block down in the page (⌥⇧↓)'
                     : 'This is the last block on the page'
                 }
-                className="rounded-r-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+                className="rounded-r-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
               >
                 <ArrowDown size={14} />
               </button>
@@ -203,7 +203,7 @@ export function InspectorHeader({
               onClick={onLocate}
               aria-label="Show this block on the page"
               title="Scroll this block into view on the page"
-              className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-accent-gold"
+              className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-accent-gold touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
             >
               <Crosshair size={14} />
             </button>
@@ -214,7 +214,7 @@ export function InspectorHeader({
             type="button"
             onClick={onCopyStyles}
             title="Copy current styles to clipboard"
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
           >
             <ClipboardCopy size={12} />
             <span>Copy</span>
@@ -226,7 +226,7 @@ export function InspectorHeader({
             onClick={onPasteStyles}
             disabled={!hasCopiedStyles}
             title={hasCopiedStyles ? 'Paste copied styles' : 'Clipboard empty'}
-            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border transition-colors ${
+            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold ${
               hasCopiedStyles
                 ? 'border-accent-gold/40 bg-accent-gold/15 text-accent-gold hover:bg-accent-gold/25'
                 : 'border-white/5 bg-white/5 text-slate-400 opacity-40 cursor-not-allowed'
@@ -242,7 +242,7 @@ export function InspectorHeader({
               type="button"
               onClick={onCopyBlockJson}
               title="Copy block definition as JSON"
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
             >
               <ClipboardCopy size={12} />
               <span>Copy JSON</span>
@@ -255,7 +255,7 @@ export function InspectorHeader({
               type="button"
               onClick={onPasteBlockJson}
               title="Paste block definition from JSON"
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
             >
               <ClipboardPaste size={12} />
               <span>Paste JSON</span>
@@ -268,7 +268,7 @@ export function InspectorHeader({
             onClick={onResetStyles}
             title="Reset design to defaults — keeps the block's anchor id"
             aria-label="Reset design to defaults, keeping the anchor id"
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-accent-gold hover:bg-white/10 transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-white/10 bg-white/5 text-slate-300 hover:text-accent-gold hover:bg-white/10 transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
           >
             <RotateCcw size={12} />
             <span>Reset</span>
@@ -290,7 +290,7 @@ export function InspectorHeader({
               confirmLabel="Delete"
               cancelLabel="Cancel"
               danger
-              idleClassName="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:text-white hover:bg-rose-500/25 transition-colors cursor-pointer"
+              idleClassName="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:text-white hover:bg-rose-500/25 transition-colors cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-400"
               onConfirm={onDeleteBlock}
             >
               <Trash2 size={12} />
@@ -304,7 +304,7 @@ export function InspectorHeader({
             type="button"
             onClick={onClose}
             aria-label="Close Inspector"
-            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition-colors ml-1"
+            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition-colors ml-1 touch-manipulation focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-gold"
           >
             <X size={16} />
           </button>
@@ -318,7 +318,7 @@ export function InspectorHeader({
           ref={firstFocusRef}
           aria-pressed={inspectorMode === 'block'}
           onClick={() => setInspectorMode('block')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
             inspectorMode === 'block'
               ? 'bg-accent-gold text-ink-strong shadow-md font-black'
               : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -331,7 +331,7 @@ export function InspectorHeader({
           type="button"
           aria-pressed={inspectorMode === 'section'}
           onClick={() => setInspectorMode('section')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-colors touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold ${
             inspectorMode === 'section'
               ? 'bg-accent-gold text-ink-strong shadow-md font-black'
               : 'text-slate-400 hover:text-white hover:bg-white/5'
