@@ -619,8 +619,7 @@ export function BlockEditor({ blocks, onChange, composeHref = null }: Props) {
                 `@media (hover: hover)` underneath, so on a touch device the whole
                 row stayed at `opacity: 0` while remaining clickable and still in
                 the tab order — invisible controls an author could hit by accident
-                and had to Tab to with no visual feedback. Same rule as
-                `ProductCard`'s wishlist button: reveal on hover-capable devices
+                and had to Tab to with no visual feedback. Reveal on hover-capable devices
                 only, and on focus-within for everyone.
 
                 `focus-within` is also what makes the drag grip reachable: it is

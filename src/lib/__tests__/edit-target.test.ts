@@ -17,7 +17,7 @@ describe('cmsSlugForPath', () => {
       null,
       undefined,
       'about',
-      '/products/yard-sign',
+      '/events/yard-sign',
       '/admin/content',
       '/api/crm/unsubscribe',
       '/auth/mfa',
@@ -105,7 +105,7 @@ describe('resolveEditContext', () => {
 
   it('skips the lookup for reserved and nested paths', async () => {
     const findContentBySlug = vi.fn();
-    for (const path of ['/admin/crm', '/products/sign', '/']) {
+    for (const path of ['/admin/crm', '/events/rally', '/']) {
       const res = await resolveEditContext(path, {
         isAdmin: async () => true,
         findContentBySlug,

@@ -17,17 +17,6 @@ import type { Database } from '@/types/supabase';
 
 const MAX_QUERY_LENGTH = 100;
 
-export interface RankedProductRow {
-  id: number;
-  name: string;
-  slug: string;
-  price: number;
-  regular_price: number | null;
-  sale_price: number | null;
-  image_url: string | null;
-  stock_status: string | null;
-}
-
 export interface RankedContentRow {
   id: number;
   title: string;
@@ -48,27 +37,6 @@ function asUntyped(client: SupabaseClient<Database>): SupabaseClient {
 interface RpcResult<T> {
   data: T[] | null;
   error: { message: string } | null;
-}
-
-export async function searchProductsRanked(
-  client: SupabaseClient<Database>,
-  query: string,
-  maxRows = 24
-): Promise<RankedProductRow[] | null> {
-  const { data, error } = (await asUntyped(client).rpc('search_products', {
-    search_query: query,
-    max_rows: maxRows,
-  })) as unknown as RpcResult<RankedProductRow>;
-
-  if (error) return null;
-  return Array.isArray(data)
-    ? data.map((row) => ({
-        ...row,
-        price: Number(row.price),
-        regular_price: row.regular_price == null ? null : Number(row.regular_price),
-        sale_price: row.sale_price == null ? null : Number(row.sale_price),
-      }))
-    : [];
 }
 
 export async function searchContentRanked(

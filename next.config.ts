@@ -98,11 +98,7 @@ const securityHeaders = [
 // noindex via the header below and a page-level `robots` directive, which is the
 // combination that actually works.
 const noIndexPaths = [
-  '/success',
-  '/cancel',
-  '/cart',
   '/login',
-  '/wishlist',
   '/search',
   '/account/:path*',
   '/admin/:path*',
@@ -130,15 +126,17 @@ const legacyRedirects = LEGACY_REDIRECTS.map(({ source, destination, permanent }
 }));
 
 // Addresses the legacy commerce removal took away. They are listed rather than
-// left to fall through: `/cart` and the Stripe return pages were top-level
-// segments, so a request for one now reaches the catch-all `[slug]` content
-// route and answers a streamed 200 carrying the not-found page — a soft 404
-// that tells a crawler the URL still exists. A 308 to the catalog says the
-// truth and keeps the old bookmarks useful.
+// left to fall through: `/products`, `/cart`, `/wishlist`, `/shipping-returns`,
+// and the Stripe return pages were top-level segments. A 308 redirect to the
+// homepage preserves link equity and gracefully handles any lingering external links.
 const removedCommerceRedirects = [
-  { source: '/cart', destination: '/products', permanent: true },
-  { source: '/success', destination: '/products', permanent: true },
-  { source: '/cancel', destination: '/products', permanent: true },
+  { source: '/products', destination: '/', permanent: true },
+  { source: '/products/:path*', destination: '/', permanent: true },
+  { source: '/cart', destination: '/', permanent: true },
+  { source: '/wishlist', destination: '/', permanent: true },
+  { source: '/shipping-returns', destination: '/', permanent: true },
+  { source: '/success', destination: '/', permanent: true },
+  { source: '/cancel', destination: '/', permanent: true },
 ];
 
 // True only for the throwaway bundle CI builds for the browser suite

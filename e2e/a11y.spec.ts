@@ -19,12 +19,10 @@ import { expect, test } from '@playwright/test';
 
 const PAGES: { path: string; name?: string }[] = [
   { path: '/' },
-  { path: '/products' },
   { path: '/about' },
   { path: '/faqs' },
   { path: '/partners' },
   { path: '/contact' },
-  { path: '/shipping-returns' },
   { path: '/gallery' },
   { path: '/news', name: 'Newsletters' },
   { path: '/events', name: 'Events' },

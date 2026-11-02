@@ -15,7 +15,6 @@ import { useEffect, useState } from 'react';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { cycleThemeMode, useThemeMode } from '@/components/layout/theme-store';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { CURRENCY_CODE } from '@/config/commerce';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { useSettingsStore } from '@/lib/store/settings';
 
@@ -227,28 +226,18 @@ export function UserSettings() {
           <dl className="space-y-4">
             <div className="p-4 bg-surface-muted rounded-2xl flex items-center justify-between gap-4">
               <dt className="text-xs font-black text-foreground uppercase tracking-wider">
-                <DataPoint
-                  as="span"
-                  name="account.settings.currency_label"
-                  initialData={dataPoints}
-                >
-                  Currency
-                </DataPoint>
+                <span>Chapter</span>
               </dt>
               <dd className="text-sm font-bold text-primary-ink dark:text-primary-on-dark">
-                {CURRENCY_CODE}
+                Fair Oaks &amp; Carmichael
               </dd>
             </div>
             <div className="p-4 bg-surface-muted rounded-2xl flex items-center justify-between gap-4">
               <dt className="text-xs font-black text-foreground uppercase tracking-wider">
-                <DataPoint as="span" name="account.settings.ships_label" initialData={dataPoints}>
-                  Ships from
-                </DataPoint>
+                <span>District</span>
               </dt>
               <dd className="text-sm font-bold text-primary-ink dark:text-primary-on-dark text-right">
-                <DataPoint as="span" name="account.settings.ships_val" initialData={dataPoints}>
-                  Carmichael, CA
-                </DataPoint>
+                <span>CA-03 / Sacramento County</span>
               </dd>
             </div>
           </dl>

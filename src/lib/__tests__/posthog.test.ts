@@ -140,7 +140,7 @@ describe('replay route allowlist', () => {
       '/administration',
       '/login-help',
       '/accountability',
-      '/products/choir-songbook',
+      '/events/choir-concert',
     ]) {
       expect(isReplayAllowedPath(pathname), `${pathname} should be recordable`).toBe(true);
     }

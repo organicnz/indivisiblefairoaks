@@ -63,9 +63,8 @@ async function checkRateLimit(client: AnyClient, ip: string): Promise<boolean> {
 async function retrieve(message: string): Promise<Source[]> {
   const client = createClient<any>(SUPABASE_URL, SERVICE_KEY)
   const terms = termsFor(message)
-  const [contentResult, productsResult, eventsResult, partnersResult, coalitionResult, newslettersResult, galleryResult] = await Promise.all([
+  const [contentResult, eventsResult, partnersResult, coalitionResult, newslettersResult, galleryResult] = await Promise.all([
     client.from('content').select('title,slug,type,body,excerpt,status,published_at').eq('status', 'publish').or(`published_at.is.null,published_at.lte.${new Date().toISOString()}`).limit(30),
-    client.from('products').select('name,slug,description,short_description,price,stock_status').limit(30),
     client.from('events').select('slug,title,date_label,time_label,location_name,address,description,rsvp_url').limit(30),
     client.from('partners').select('slug,name,category,description,url').limit(30),
     client.from('coalition_links').select('slug,name,category,description,url,badge').limit(30),
@@ -75,9 +74,6 @@ async function retrieve(message: string): Promise<Source[]> {
   const sources: Source[] = []
   for (const row of (contentResult.data ?? []) as Record<string, unknown>[]) {
     if (matches(row, terms)) sources.push({ title: cleanText(row.title, 120), url: `${APP_URL}/${cleanText(row.slug, 120)}`, text: `Page: ${cleanText(row.title)}\n${cleanText(row.excerpt)}\n${cleanText(row.body, 4_000)}` })
-  }
-  for (const row of (productsResult.data ?? []) as Record<string, unknown>[]) {
-    if (matches(row, terms)) sources.push({ title: cleanText(row.name, 120), url: `${APP_URL}/products/${cleanText(row.slug, 120)}`, text: `Product: ${cleanText(row.name)}\n${cleanText(row.short_description)}\n${cleanText(row.description, 3_000)}\nPrice: ${cleanText(row.price)} USD. Stock: ${cleanText(row.stock_status)}.` })
   }
   for (const row of (eventsResult.data ?? []) as Record<string, unknown>[]) {
     if (matches(row, terms)) sources.push({ title: cleanText(row.title, 120), url: `${APP_URL}/events`, text: `Event: ${cleanText(row.title)}\n${cleanText(row.date_label)} ${cleanText(row.time_label)}\n${cleanText(row.location_name)}, ${cleanText(row.address)}\n${cleanText(row.description, 2_000)}\nRSVP: ${cleanText(row.rsvp_url, 300)}` })
@@ -111,9 +107,7 @@ async function retrieve(message: string): Promise<Source[]> {
       const slug = cleanText(record.slug, 120)
       const url = snapshot.source_key === 'content' && slug
         ? `${APP_URL}/${slug}`
-        : snapshot.source_key === 'products' && slug
-          ? `${APP_URL}/products/${slug}`
-          : `${APP_URL}/${snapshot.source_key === 'newsletters' ? 'news' : snapshot.source_key}`
+        : `${APP_URL}/${snapshot.source_key === 'newsletters' ? 'news' : snapshot.source_key}`
       sources.push({
         title,
         url,

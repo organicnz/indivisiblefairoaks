@@ -1,6 +1,5 @@
 import { instant } from '@next/playwright';
 import { expect, test } from '@playwright/test';
-import { createClient } from '@supabase/supabase-js';
 import { APP_URL } from './helpers/ports';
 
 /**
@@ -12,23 +11,6 @@ import { APP_URL } from './helpers/ports';
  * Route data (product info, article prose) is explicitly NOT instant; it
  * streams behind Suspense by design and must never be asserted here.
  */
-
-const supabase = createClient(
-  Bun.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-  Bun.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
-);
-
-let productPath = '/products';
-
-test.beforeAll(async () => {
-  const { data } = await supabase
-    .from('products')
-    .select('slug')
-    .eq('stock_status', 'instock')
-    .limit(1)
-    .single();
-  if (data?.slug) productPath = `/products/${data.slug}`;
-});
 
 // The horizontal nav row only renders from 2xl; below that the drawer serves it.
 // These assertions are about the *shell* painting instantly, so the viewport has
@@ -61,34 +43,29 @@ test('shell paints instantly: home → faqs', async ({ page }) => {
   );
 });
 
-test('shell paints instantly: home → products listing (deliberate block route)', async ({
-  page,
-}) => {
+test('shell paints instantly: home → events listing', async ({ page }) => {
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await page.goto('/');
   await instant(
     page,
     async () => {
-      const navigation = page.waitForURL('/products');
-      // Nav has no "Shop" link — use the Gallery link which exists and assert shell
-      await page.goto('/products');
+      const navigation = page.waitForURL('/events');
+      await page.getByRole('banner').getByRole('link', { name: 'Events', exact: true }).click();
       await navigation;
-      // Block route streams its body, but the shared shell must still be immediate.
       await shellAssertions(page);
     },
     { baseURL: APP_URL }
   );
 });
 
-test('shell paints instantly: listing → product detail', async ({ page }) => {
+test('shell paints instantly: home → news listing', async ({ page }) => {
   await page.setViewportSize(DESKTOP_VIEWPORT);
-  test.skip(productPath === '/products', 'no instock products seeded');
-  await page.goto('/products');
+  await page.goto('/');
   await instant(
     page,
     async () => {
-      const navigation = page.waitForURL(productPath);
-      await page.locator(`a[href="${productPath}"]`).first().click();
+      const navigation = page.waitForURL('/news');
+      await page.goto('/news');
       await navigation;
       await shellAssertions(page);
     },

@@ -12,7 +12,7 @@ export async function GET() {
   const startedAt = Date.now();
   let db: 'up' | 'degraded' | 'down' = 'down';
   try {
-    const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/products?select=id&limit=1`, {
+    const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/events?select=slug&limit=1`, {
       headers: {
         apikey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
         Authorization: `Bearer ${env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}`,

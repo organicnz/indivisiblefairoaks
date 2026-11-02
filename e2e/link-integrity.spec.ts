@@ -11,12 +11,12 @@ import { expect, test } from '@playwright/test';
 
 const CRAWL_SEEDS = [
   '/',
-  '/products',
+  '/events',
   '/about-us',
   '/faqs',
   '/partners',
   '/contact',
-  '/shipping-returns',
+  '/gallery',
 ];
 
 const EXCLUDED_PREFIXES = ['/api/', '/_next', 'mailto:', 'tel:', '#'];

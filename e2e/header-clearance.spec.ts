@@ -14,14 +14,12 @@ import { expect, test } from '@playwright/test';
 type Route = { path: string; heading: RegExp };
 
 const guardedRoutes: Route[] = [
-  { path: '/products', heading: /All Gear|Gear/ },
+  { path: '/events', heading: /Events/i },
   { path: '/faqs', heading: /Frequently Asked Questions/i },
   { path: '/partners', heading: /Partner/i },
   { path: '/contact', heading: /Contact/i },
-  { path: '/shipping-returns', heading: /Shipping/i },
   { path: '/privacy-policy', heading: /Privacy/i },
   { path: '/terms-and-conditions', heading: /Terms/i },
-  { path: '/wishlist', heading: /Wishlist/i },
   { path: '/search?q=braid', heading: /Search Results/ },
 ];
 
@@ -73,7 +71,7 @@ test.describe('header clearance', () => {
     test.slow();
     await page.setViewportSize({ width: 390, height: 844 });
 
-    const mobileRoutes = [guardedRoutes[0], guardedRoutes[1], guardedRoutes[7]];
+    const mobileRoutes = [guardedRoutes[0], guardedRoutes[1], guardedRoutes[6]];
     const failures: string[] = [];
     for (const route of mobileRoutes) {
       await page.goto(route.path);

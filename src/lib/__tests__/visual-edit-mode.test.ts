@@ -136,8 +136,8 @@ describe('visualEditModeHref', () => {
 
   it('preserves every other parameter', () => {
     // An admin mid-filter must not lose the filter by toggling a mode.
-    expect(visualEditModeHref('/products?category=signs&sort=price', true)).toBe(
-      '/products?category=signs&sort=price&visual-edit=1'
+    expect(visualEditModeHref('/events?category=rallies&sort=date', true)).toBe(
+      '/events?category=rallies&sort=date&visual-edit=1'
     );
   });
 

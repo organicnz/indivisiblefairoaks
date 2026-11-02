@@ -46,7 +46,7 @@ test.describe('mobile navigation contract', () => {
 
   test('keeps the mobile layout within the viewport in landscape', async ({ page }) => {
     await page.setViewportSize({ width: 844, height: 390 });
-    await page.goto('/products');
+    await page.goto('/events');
 
     const report = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);

@@ -22,7 +22,7 @@ export type NavLink = {
   /**
    * Extra path prefixes that should also mark this link active. A link is active
    * when the current path is the href itself or sits under one of these prefixes —
-   * without this, `/products/yard-sign` highlights nothing at all.
+   * without this, `/events/rally` highlights nothing at all.
    */
   matchPrefixes?: readonly string[];
   /**
@@ -84,7 +84,7 @@ export const NOT_FOUND_ROUTES: readonly NavLink[] = [
   { label: 'Events & Actions', href: '/events' },
   { label: 'Voter Info', href: '/voter-info' },
   { label: 'News', href: '/news' },
-  { label: 'Materials & Gear', href: '/products' },
+  { label: 'Gallery', href: '/gallery' },
 ] as const;
 
 /**

@@ -33,7 +33,7 @@ type PageMetadataInput = {
   /** Bare page title. The root `title.template` appends the brand suffix. */
   title: string;
   description: string;
-  /** Root-relative path, e.g. `/about` or `/products/yard-sign`. */
+  /** Root-relative path, e.g. `/about` or `/events/rally`. */
   path: string;
   /** Absolute or root-relative OG image URL(s). */
   images?: OgImages;
@@ -122,7 +122,7 @@ export function pageMetadata({
 }
 
 /**
- * Metadata for a page that must never be indexed: login, wishlist, account.
+ * Metadata for a page that must never be indexed: login, account, admin.
  * Emits `noindex, nofollow` and, critically, **no canonical**
  * — a noindexed page that also self-canonicalizes sends Google contradictory
  * signals and can end up indexed-but-unwanted.

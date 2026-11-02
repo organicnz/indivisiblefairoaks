@@ -10,7 +10,7 @@ import {
 import { installFetchMock } from './fetch-mock';
 
 describe('errorReportSchema', () => {
-  const valid = { message: 'Boom', stack: 'at fn', digest: 'abc123', path: '/products' };
+  const valid = { message: 'Boom', stack: 'at fn', digest: 'abc123', path: '/events' };
 
   it('accepts a well-formed report', () => {
     expect(errorReportSchema.safeParse(valid).success).toBe(true);

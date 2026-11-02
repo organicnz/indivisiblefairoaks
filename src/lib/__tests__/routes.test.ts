@@ -16,7 +16,7 @@ describe('isActiveRoute', () => {
     if (!home) throw new Error('ROUTES must contain a Home entry');
     expect(isActiveRoute('/', home)).toBe(true);
     expect(isActiveRoute('/about', home)).toBe(false);
-    expect(isActiveRoute('/products/yard-sign', home)).toBe(false);
+    expect(isActiveRoute('/events/rally', home)).toBe(false);
   });
 
   it('does not treat a sibling with a shared prefix as active', () => {
@@ -24,9 +24,9 @@ describe('isActiveRoute', () => {
   });
 
   it('matches nested paths under a declared prefix', () => {
-    const products = { label: 'Shop', href: '/products', matchPrefixes: ['/products'] };
-    expect(isActiveRoute('/products', products)).toBe(true);
-    expect(isActiveRoute('/products/yard-sign', products)).toBe(true);
+    const events = { label: 'Events', href: '/events', matchPrefixes: ['/events'] };
+    expect(isActiveRoute('/events', events)).toBe(true);
+    expect(isActiveRoute('/events/rally', events)).toBe(true);
   });
 
   it('does not match a path that merely starts with the prefix characters', () => {
@@ -89,7 +89,7 @@ describe('ROUTES', () => {
 
   it('excludes private surfaces from primary navigation', () => {
     const hrefs = ROUTES.map((route) => route.href);
-    for (const privatePath of ['/login', '/account', '/admin', '/wishlist']) {
+    for (const privatePath of ['/login', '/account', '/admin']) {
       expect(hrefs).not.toContain(privatePath);
     }
   });

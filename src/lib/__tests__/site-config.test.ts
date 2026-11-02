@@ -173,9 +173,9 @@ describe('pageMetadata', () => {
   it('lets a page override the default card with its own image', async () => {
     const { metadata } = await loadSite(PRODUCTION);
     const withImage = metadata.pageMetadata({
-      title: 'Yard sign',
-      description: 'A sign.',
-      path: '/products/s',
+      title: 'Action Rally',
+      description: 'Join the rally.',
+      path: '/events/rally',
       images: [{ url: 'https://cdn.example/s.png' }],
     });
     expect(withImage.twitter).toMatchObject({ card: 'summary_large_image' });
@@ -219,9 +219,9 @@ describe('pageMetadata', () => {
   it('noindexes private surfaces', async () => {
     const { metadata } = await loadSite(PRODUCTION);
     const result = metadata.privateMetadata({
-      title: 'Your Wishlist',
-      description: 'Items you saved.',
-      path: '/wishlist',
+      title: 'Your Account',
+      description: 'Account settings.',
+      path: '/account',
     });
     expect(result.robots).toEqual({ index: false, follow: false });
   });

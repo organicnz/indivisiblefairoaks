@@ -16,11 +16,9 @@ const STATIC_PAGES = [
   '/about-us',
   '/faqs',
   '/partners',
-  '/shipping-returns',
   '/privacy-policy',
   '/terms-and-conditions',
   '/donate',
-  '/wishlist',
   '/gallery',
   '/search?q=community',
 ];
@@ -70,20 +68,6 @@ test.describe('home shell', () => {
   });
 });
 
-test.describe('wishlist journey', () => {
-  test('empty wishlist shows empty state with Explore Gear link', async ({ page }) => {
-    await page.goto('/wishlist');
-    await expect(page.getByRole('heading', { name: /my wishlist/i })).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(page.getByText(/your wishlist is empty/i)).toBeVisible({ timeout: 5_000 });
-
-    const explore = page.getByRole('link', { name: /explore gear/i });
-    await expect(explore).toBeVisible();
-    await explore.click();
-    await page.waitForURL('/products');
-  });
-});
 
 test.describe('events search control', () => {
   // The collapsed trigger carries `size-9`, but the input wrapper beside it
