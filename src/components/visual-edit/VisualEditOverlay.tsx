@@ -3213,6 +3213,12 @@ export function VisualEditOverlay() {
       const key = event.key.toLowerCase();
       const mod = event.metaKey || event.ctrlKey;
 
+      if (key === 'escape' && deleteConfirmIndexes !== null) {
+        event.preventDefault();
+        setDeleteConfirmIndexes(null);
+        return;
+      }
+
       /*
        * Plain-key navigation: J/K move the selected section, Enter edits it.
        * These are the shortcuts the cheat sheet has always advertised, and they
@@ -3239,14 +3245,34 @@ export function VisualEditOverlay() {
             }
           }
           if (key === 'enter' && activeBlockIndex !== null) {
-            const onControl = Boolean(
-              target.closest(
-                'button, a[href], input, textarea, select, [role="button"], [role="menuitem"]'
-              )
-            );
+            const onControl =
+              typeof target?.closest === 'function' &&
+              Boolean(
+                target.closest(
+                  'button, a[href], input, textarea, select, [role="button"], [role="menuitem"]'
+                )
+              );
             if (!onControl) {
               event.preventDefault();
               handleOpenEditSection(activeBlockIndex);
+              return;
+            }
+          }
+          if ((key === 'delete' || key === 'backspace') && activeBlockIndex !== null) {
+            const onControl =
+              typeof target?.closest === 'function' &&
+              Boolean(
+                target.closest(
+                  'button, a[href], input, textarea, select, [role="button"], [role="menuitem"]'
+                )
+              );
+            if (!onControl) {
+              event.preventDefault();
+              if (selectedBlockIndexes.size > 1) {
+                setDeleteConfirmIndexes(Array.from(selectedBlockIndexes));
+              } else {
+                setDeleteConfirmIndexes([activeBlockIndex]);
+              }
               return;
             }
           }
@@ -3313,7 +3339,7 @@ export function VisualEditOverlay() {
         return;
       }
       // Delete section (⌘⌫ or ⌘Delete) with confirmation
-      if ((key === 'backspace' || key === 'delete') && event.shiftKey) {
+      if (key === 'backspace' || key === 'delete') {
         event.preventDefault();
         if (selectedBlockIndexes.size > 1) {
           setDeleteConfirmIndexes(Array.from(selectedBlockIndexes));
@@ -3402,6 +3428,7 @@ export function VisualEditOverlay() {
     isVisualComposerOpen,
     closeVisualComposer,
     openVisualComposer,
+    deleteConfirmIndexes,
   ]);
 
   // Revisions management — restore is destructive; the confirm step lives at the
@@ -6504,6 +6531,13 @@ export function VisualEditOverlay() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-dialog-title"
+          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setDeleteConfirmIndexes(null);
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteConfirmIndexes(null);
+          }}
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in"
         >
           <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-secondary p-5 shadow-2xl text-ink-on-dark space-y-4">

@@ -508,4 +508,69 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     expect(document.querySelector('[data-testid="block-delete-confirm-dialog"]')).toBeNull();
     expect(document.body.textContent).not.toContain('Are you sure you want to delete');
   });
+
+  it('dismisses delete confirmation dialog on Escape key and backdrop click', async () => {
+    const main = document.createElement('main');
+    const p = document.createElement('p');
+    p.textContent = 'Section to confirm';
+    main.appendChild(p);
+    document.body.appendChild(main);
+
+    await mount();
+
+    // Select the block
+    await act(async () => {
+      p.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    // Press ⌘⌫ (without Shift)
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Backspace',
+          metaKey: true,
+          bubbles: true,
+        })
+      );
+    });
+
+    const dialog = document.querySelector<HTMLElement>(
+      '[data-testid="block-delete-confirm-dialog"]'
+    );
+    expect(dialog).not.toBeNull();
+
+    // Press Escape to dismiss
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          bubbles: true,
+        })
+      );
+    });
+
+    expect(document.querySelector('[data-testid="block-delete-confirm-dialog"]')).toBeNull();
+
+    // Press Delete key directly (non-mod)
+    await act(async () => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Delete',
+          bubbles: true,
+        })
+      );
+    });
+
+    const dialog2 = document.querySelector<HTMLElement>(
+      '[data-testid="block-delete-confirm-dialog"]'
+    );
+    expect(dialog2).not.toBeNull();
+
+    // Click backdrop
+    await act(async () => {
+      dialog2?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+
+    expect(document.querySelector('[data-testid="block-delete-confirm-dialog"]')).toBeNull();
+  });
 });

@@ -282,4 +282,102 @@ describe('TableBlockEditor Atomic Operations', () => {
       ['Fair Oaks', '95628'],
     ]);
   });
+
+  it('reorders columns left and right with move buttons', async () => {
+    const committed: Extract<Block, { type: 'table' }>[] = [];
+    const tableBlock: Extract<Block, { type: 'table' }> = {
+      id: 'tbl-1',
+      type: 'table',
+      head: ['Col A', 'Col B', 'Col C'],
+      rows: [
+        ['1A', '1B', '1C'],
+        ['2A', '2B', '2C'],
+      ],
+    };
+
+    await act(async () => {
+      root.render(<TableHarness initial={tableBlock} onChange={(b) => committed.push(b)} />);
+    });
+
+    // Move Col B left to position 0
+    const moveColBLeftBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Move column 2 left"]'
+    );
+    expect(moveColBLeftBtn).not.toBeNull();
+
+    await act(async () => {
+      moveColBLeftBtn?.click();
+    });
+
+    expect(committed.at(-1)?.head).toEqual(['Col B', 'Col A', 'Col C']);
+    expect(committed.at(-1)?.rows).toEqual([
+      ['1B', '1A', '1C'],
+      ['2B', '2A', '2C'],
+    ]);
+
+    // Move Col B (now at index 0) right to position 1
+    const moveColBRightBtn = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Move column 1 right"]'
+    );
+    expect(moveColBRightBtn).not.toBeNull();
+
+    await act(async () => {
+      moveColBRightBtn?.click();
+    });
+
+    expect(committed.at(-1)?.head).toEqual(['Col A', 'Col B', 'Col C']);
+    expect(committed.at(-1)?.rows).toEqual([
+      ['1A', '1B', '1C'],
+      ['2A', '2B', '2C'],
+    ]);
+  });
+
+  it('reorders columns via drag and drop', async () => {
+    const committed: Extract<Block, { type: 'table' }>[] = [];
+    const tableBlock: Extract<Block, { type: 'table' }> = {
+      id: 'tbl-1',
+      type: 'table',
+      head: ['Col 1', 'Col 2', 'Col 3'],
+      rows: [
+        ['R1C1', 'R1C2', 'R1C3'],
+        ['R2C1', 'R2C2', 'R2C3'],
+      ],
+    };
+
+    await act(async () => {
+      root.render(<TableHarness initial={tableBlock} onChange={(b) => committed.push(b)} />);
+    });
+
+    const dragHandle1 = container.querySelector<HTMLSpanElement>(
+      'span[title="Drag Column #1 to reorder"]'
+    );
+    expect(dragHandle1).not.toBeNull();
+
+    const col3 = container.querySelector('[data-testid="table-col-2"]');
+    expect(col3).not.toBeNull();
+
+    // Drag Col 1 onto Col 3
+    const startEvent = new Event('dragstart', { bubbles: true, cancelable: true });
+    Object.defineProperty(startEvent, 'dataTransfer', {
+      value: { setData: vi.fn(), effectAllowed: 'all' },
+    });
+    const overEvent = new Event('dragover', { bubbles: true, cancelable: true });
+    Object.defineProperty(overEvent, 'dataTransfer', { value: { dropEffect: 'none' } });
+    const dropEvent = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(dropEvent, 'dataTransfer', {
+      value: { getData: (k: string) => (k === 'text/plain' ? '0' : '') },
+    });
+
+    await act(async () => {
+      dragHandle1?.dispatchEvent(startEvent);
+      col3?.dispatchEvent(overEvent);
+      col3?.dispatchEvent(dropEvent);
+    });
+
+    expect(committed.at(-1)?.head).toEqual(['Col 2', 'Col 3', 'Col 1']);
+    expect(committed.at(-1)?.rows).toEqual([
+      ['R1C2', 'R1C3', 'R1C1'],
+      ['R2C2', 'R2C3', 'R2C1'],
+    ]);
+  });
 });

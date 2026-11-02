@@ -1,6 +1,16 @@
 'use client';
 
-import { ChevronDown, ChevronUp, FileText, Grid, GripVertical, Plus, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  FileText,
+  Grid,
+  GripVertical,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import type { Block } from '@/lib/blocks';
@@ -21,6 +31,7 @@ export function TableBlockEditor({
 }: TableBlockEditorProps) {
   const [editorMode, setEditorMode] = useState<'visual' | 'raw'>('visual');
   const [draggingRowIndex, setDraggingRowIndex] = useState<number | null>(null);
+  const [draggingColIndex, setDraggingColIndex] = useState<number | null>(null);
 
   const head = currentBlock.head ?? [];
   const rows = currentBlock.rows ?? [];
@@ -48,6 +59,35 @@ export function TableBlockEditor({
     if (head.length <= 1) return;
     const nextHead = head.filter((_, i) => i !== colIndex);
     const nextRows = rows.map((r) => r.filter((_, i) => i !== colIndex));
+    setCurrentBlock({
+      ...currentBlock,
+      head: nextHead,
+      rows: nextRows,
+    });
+  };
+
+  const handleMoveColumn = (fromIndex: number, direction: 'left' | 'right') => {
+    const targetIndex = direction === 'left' ? fromIndex - 1 : fromIndex + 1;
+    if (targetIndex < 0 || targetIndex >= head.length) return;
+    handleReorderColumn(fromIndex, targetIndex);
+  };
+
+  const handleReorderColumn = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= head.length || toIndex >= head.length) return;
+    const nextHead = [...head];
+    const [movedCol] = nextHead.splice(fromIndex, 1);
+    if (!movedCol) return;
+    nextHead.splice(toIndex, 0, movedCol);
+
+    const nextRows = rows.map((r) => {
+      const nextR = [...r];
+      while (nextR.length < head.length) nextR.push('');
+      const [movedCell] = nextR.splice(fromIndex, 1);
+      nextR.splice(toIndex, 0, movedCell ?? '');
+      return nextR;
+    });
+
     setCurrentBlock({
       ...currentBlock,
       head: nextHead,
@@ -187,10 +227,48 @@ export function TableBlockEditor({
           >
             <div className="space-y-2">
               {columnItems.map((col) => (
-                <div
+                <section
                   key={col.key}
-                  className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] p-1.5"
+                  aria-label={`Column ${col.colIdx + 1}`}
+                  data-testid={`table-col-${col.colIdx}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer) {
+                      e.dataTransfer.dropEffect = 'move';
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const raw = e.dataTransfer?.getData('text/plain');
+                    const parsed = raw ? parseInt(raw, 10) : Number.NaN;
+                    const from = !Number.isNaN(parsed) ? parsed : draggingColIndex;
+                    if (from !== null && from !== col.colIdx) {
+                      handleReorderColumn(from, col.colIdx);
+                    }
+                    setDraggingColIndex(null);
+                  }}
+                  className={`flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] p-1.5 transition-all ${
+                    draggingColIndex === col.colIdx
+                      ? 'border-accent-gold/80 bg-accent-gold/5 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                      : ''
+                  }`}
                 >
+                  <span
+                    draggable={head.length > 1}
+                    aria-hidden="true"
+                    title={`Drag Column #${col.colIdx + 1} to reorder`}
+                    onDragStart={(e) => {
+                      setDraggingColIndex(col.colIdx);
+                      if (e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', String(col.colIdx));
+                      }
+                    }}
+                    onDragEnd={() => setDraggingColIndex(null)}
+                    className="cursor-grab p-0.5 text-slate-400 hover:text-white active:cursor-grabbing"
+                  >
+                    <GripVertical size={11} />
+                  </span>
                   <span className="min-w-6 text-center font-mono text-[10px] text-accent-gold font-bold">
                     C{col.colIdx + 1}
                   </span>
@@ -202,19 +280,39 @@ export function TableBlockEditor({
                     aria-label={`Column ${col.colIdx + 1} header`}
                     className="min-w-0 flex-1 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-white placeholder:text-white/30 focus:border-accent-gold/50 focus:outline-none font-medium"
                   />
-                  <ConfirmAction
-                    label={`Delete column ${col.colIdx + 1}`}
-                    message={`Delete "${col.colName || `Column ${col.colIdx + 1}`}" and its data across all rows?`}
-                    confirmLabel="Delete"
-                    cancelLabel="Cancel"
-                    danger
-                    disabled={head.length <= 1}
-                    idleClassName="inline-flex size-6 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-rose-500/20 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-30 transition-colors cursor-pointer"
-                    onConfirm={() => handleDeleteColumn(col.colIdx)}
-                  >
-                    <Trash2 size={12} />
-                  </ConfirmAction>
-                </div>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveColumn(col.colIdx, 'left')}
+                      disabled={col.colIdx === 0}
+                      aria-label={`Move column ${col.colIdx + 1} left`}
+                      className="inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                    >
+                      <ChevronLeft size={11} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveColumn(col.colIdx, 'right')}
+                      disabled={col.colIdx === head.length - 1}
+                      aria-label={`Move column ${col.colIdx + 1} right`}
+                      className="inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                    >
+                      <ChevronRight size={11} />
+                    </button>
+                    <ConfirmAction
+                      label={`Delete column ${col.colIdx + 1}`}
+                      message={`Delete "${col.colName || `Column ${col.colIdx + 1}`}" and its data across all rows?`}
+                      confirmLabel="Delete"
+                      cancelLabel="Cancel"
+                      danger
+                      disabled={head.length <= 1}
+                      idleClassName="inline-flex size-5 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-rose-500/20 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-30 transition-colors cursor-pointer"
+                      onConfirm={() => handleDeleteColumn(col.colIdx)}
+                    >
+                      <Trash2 size={11} />
+                    </ConfirmAction>
+                  </div>
+                </section>
               ))}
             </div>
           </StudioSection>
@@ -247,16 +345,19 @@ export function TableBlockEditor({
                   <li
                     key={rowItem.key}
                     onDragOver={(e) => {
-                      if (draggingRowIndex === null || draggingRowIndex === rowItem.rowIdx) return;
                       e.preventDefault();
                       if (e.dataTransfer) {
                         e.dataTransfer.dropEffect = 'move';
                       }
                     }}
                     onDrop={(e) => {
-                      if (draggingRowIndex === null || draggingRowIndex === rowItem.rowIdx) return;
                       e.preventDefault();
-                      handleReorderRow(draggingRowIndex, rowItem.rowIdx);
+                      const raw = e.dataTransfer?.getData('text/plain');
+                      const parsed = raw ? parseInt(raw, 10) : Number.NaN;
+                      const from = !Number.isNaN(parsed) ? parsed : draggingRowIndex;
+                      if (from !== null && from !== rowItem.rowIdx) {
+                        handleReorderRow(from, rowItem.rowIdx);
+                      }
                       setDraggingRowIndex(null);
                     }}
                     className={`space-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] p-2 transition-opacity ${
