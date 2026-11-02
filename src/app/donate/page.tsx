@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { CopyRegion } from '@/components/cms/CopyRegion';
 import { ActBlueDonationCalculator } from '@/components/ui/ActBlueDonationCalculator';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { VgpuSolarCorona } from '@/components/ui/VgpuSolarCorona';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints } from '@/lib/queries/civic';
 
@@ -19,9 +19,9 @@ export default async function DonatePage() {
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Constellation Network */}
+      {/* Header Banner with VGPU Solar Corona & Prominence Loops */}
       <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 py-16">
-        <VgpuCivicConstellation />
+        <VgpuSolarCorona />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent-gold/15 border border-accent-gold/40 text-amber-800 dark:text-accent-gold text-xs font-bold uppercase tracking-wider mb-4">
             <Heart size={14} className="fill-current text-accent dark:text-accent-gold" />

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { VgpuAtmosphericRefraction } from '@/components/ui/VgpuAtmosphericRefraction';
 import { getDataPoints } from '@/lib/queries/civic';
 import { buildTextSearchOr } from '@/lib/queries/content';
 import {
@@ -63,9 +63,9 @@ export default async function SearchPage({
 
   return (
     <div className="w-full bg-background min-h-[70vh] text-foreground pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Constellation Network */}
+      {/* Header Banner with VGPU Atmospheric Refraction & Mirage LIDAR Scan */}
       <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-12 mb-10">
-        <VgpuCivicConstellation />
+        <VgpuAtmosphericRefraction />
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground dark:text-white uppercase">
             <DataPoint name="search.header.title" initialData={dataPoints}>

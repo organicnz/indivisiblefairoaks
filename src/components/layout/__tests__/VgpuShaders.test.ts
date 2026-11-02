@@ -34,6 +34,30 @@ import {
   COSMIC_RAY_CASCADE_SHADER,
   WGSL_COSMIC_RAY_CASCADE,
 } from '@/components/ui/VgpuCosmicRayCascade';
+import {
+  IONOSPHERIC_RADAR_SHADER,
+  WGSL_IONOSPHERIC_RADAR,
+} from '@/components/ui/VgpuIonosphericRadar';
+import {
+  SOLAR_CORONA_SHADER,
+  WGSL_SOLAR_CORONA,
+} from '@/components/ui/VgpuSolarCorona';
+import {
+  MAGNETOSPHERE_SHADER,
+  WGSL_MAGNETOSPHERE,
+} from '@/components/ui/VgpuMagnetosphere';
+import {
+  BIRKELAND_CURRENTS_SHADER,
+  WGSL_BIRKELAND_CURRENTS,
+} from '@/components/ui/VgpuBirkelandCurrents';
+import {
+  ATMOSPHERIC_HALO_SHADER,
+  WGSL_ATMOSPHERIC_HALO,
+} from '@/components/ui/VgpuAtmosphericHalo';
+import {
+  ATMOSPHERIC_REFRACTION_SHADER,
+  WGSL_ATMOSPHERIC_REFRACTION,
+} from '@/components/ui/VgpuAtmosphericRefraction';
 
 describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
   it('compiles THEME_WGSL without WGSL errors and executes a multi-wave render pass', async () => {
@@ -402,6 +426,210 @@ describe('VGPU WebGPU Shader Compilation & Pipeline Verification', () => {
       frame(gpu, (f) => {
         f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
           p.draw(cosmic);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_IONOSPHERIC_RADAR and executes radio wave render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_IONOSPHERIC_RADAR.length).toBeGreaterThan(0);
+    const radar = effect(gpu, IONOSPHERIC_RADAR_SHADER, {
+      label: 'test-ionospheric-radar',
+      set: {
+        params: {
+          time: 3.0,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 1.0,
+          effectiveTheme: 0.0,
+        },
+      },
+    });
+
+    await radar.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(radar);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_SOLAR_CORONA and executes prominence loop render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_SOLAR_CORONA.length).toBeGreaterThan(0);
+    const corona = effect(gpu, SOLAR_CORONA_SHADER, {
+      label: 'test-solar-corona',
+      set: {
+        params: {
+          time: 2.5,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 2.0,
+          effectiveTheme: 1.0,
+        },
+      },
+    });
+
+    await corona.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(corona);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_MAGNETOSPHERE and executes bow shock render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_MAGNETOSPHERE.length).toBeGreaterThan(0);
+    const magnetosphere = effect(gpu, MAGNETOSPHERE_SHADER, {
+      label: 'test-magnetosphere',
+      set: {
+        params: {
+          time: 1.5,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 0.0,
+          effectiveTheme: 0.0,
+        },
+      },
+    });
+
+    await magnetosphere.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(magnetosphere);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_BIRKELAND_CURRENTS and executes helical current render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_BIRKELAND_CURRENTS.length).toBeGreaterThan(0);
+    const birkeland = effect(gpu, BIRKELAND_CURRENTS_SHADER, {
+      label: 'test-birkeland-currents',
+      set: {
+        params: {
+          time: 4.0,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 2.0,
+          effectiveTheme: 1.0,
+        },
+      },
+    });
+
+    await birkeland.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(birkeland);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_ATMOSPHERIC_HALO and executes ice halo & parhelia render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_ATMOSPHERIC_HALO.length).toBeGreaterThan(0);
+    const halo = effect(gpu, ATMOSPHERIC_HALO_SHADER, {
+      label: 'test-atmospheric-halo',
+      set: {
+        params: {
+          time: 2.0,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 1.0,
+          effectiveTheme: 0.0,
+        },
+      },
+    });
+
+    await halo.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(halo);
+        });
+      });
+    }).not.toThrow();
+
+    gpu.dispose();
+  });
+
+  it('compiles WGSL_ATMOSPHERIC_REFRACTION and executes mirage & lidar render pass', async () => {
+    const gpu = await init();
+    const renderTarget = target(gpu, { size: [256, 256] });
+
+    expect(WGSL_ATMOSPHERIC_REFRACTION.length).toBeGreaterThan(0);
+    const refraction = effect(gpu, ATMOSPHERIC_REFRACTION_SHADER, {
+      label: 'test-atmospheric-refraction',
+      set: {
+        params: {
+          time: 3.5,
+          width: 256,
+          height: 256,
+          mouseX: 0.5,
+          mouseY: 0.5,
+          intensity: 1.0,
+          themeMode: 2.0,
+          effectiveTheme: 1.0,
+        },
+      },
+    });
+
+    await refraction.compile(renderTarget);
+
+    expect(() => {
+      frame(gpu, (f) => {
+        f.pass({ target: renderTarget, clear: [0, 0, 0, 1] }, (p) => {
+          p.draw(refraction);
         });
       });
     }).not.toThrow();

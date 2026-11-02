@@ -3,7 +3,7 @@
 import { Mail } from 'lucide-react';
 import { useState } from 'react';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { VgpuIonosphericRadar } from '@/components/ui/VgpuIonosphericRadar';
 import { useDataPoints } from '@/hooks/useDataPoints';
 import { type ContactResult, type EmailStatus, submitContact } from './actions';
 
@@ -89,9 +89,9 @@ export default function ContactPage() {
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20 transition-colors duration-300">
-      {/* Header Banner with VGPU Constellation Network */}
+      {/* Header Banner with VGPU Ionospheric Radar & Propagation */}
       <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
-        <VgpuCivicConstellation />
+        <VgpuIonosphericRadar />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Mail size={14} className="text-accent-gold" />

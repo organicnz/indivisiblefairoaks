@@ -2,7 +2,7 @@ import { ExternalLink, Handshake } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { VgpuMagnetosphere } from '@/components/ui/VgpuMagnetosphere';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getPartners } from '@/lib/queries/civic';
 
@@ -74,9 +74,9 @@ export default async function PartnersPage() {
 
   return (
     <div className="bg-background text-foreground min-h-screen">
-      {/* Header Banner with VGPU Constellation Network */}
+      {/* Header Banner with VGPU Magnetosphere & Coalition Shield */}
       <div className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-950 dark:border-white/10 pt-28 pb-16 px-4 sm:px-6 lg:px-8">
-        <VgpuCivicConstellation />
+        <VgpuMagnetosphere />
         <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary-ink dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Handshake size={14} className="text-accent-gold" />

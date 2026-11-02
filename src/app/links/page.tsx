@@ -2,7 +2,7 @@ import { Compass } from 'lucide-react';
 import type { Metadata } from 'next';
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveLinksDirectory } from '@/components/ui/InteractiveLinksDirectory';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { VgpuBirkelandCurrents } from '@/components/ui/VgpuBirkelandCurrents';
 import { pageMetadata } from '@/lib/metadata';
 import { getCoalitionLinks, getDataPoints } from '@/lib/queries/civic';
 
@@ -165,9 +165,9 @@ export default async function LinksPage() {
 
   return (
     <div className="w-full bg-background text-foreground min-h-screen pt-(--header-clearance) pb-20">
-      {/* Header Banner with VGPU Constellation Network */}
+      {/* Header Banner with VGPU Birkeland Helical Plasma Currents */}
       <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16">
-        <VgpuCivicConstellation />
+        <VgpuBirkelandCurrents />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center pointer-events-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Compass size={14} className="text-accent-gold" />

@@ -2,7 +2,7 @@ import { HelpCircle } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DataPoint } from '@/components/ui/DataPoint';
-import { VgpuCivicConstellation } from '@/components/ui/VgpuCivicConstellation';
+import { VgpuAtmosphericHalo } from '@/components/ui/VgpuAtmosphericHalo';
 import { siteUrl } from '@/config/site';
 import { pageMetadata } from '@/lib/metadata';
 import { type FAQRow, getDataPoints, getFaqs } from '@/lib/queries/civic';
@@ -120,9 +120,9 @@ export default async function FAQPage() {
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqJsonLd) }}
       />
 
-      {/* Header Banner with VGPU Constellation Network */}
+      {/* Header Banner with VGPU Atmospheric 22° Ice Halo & Parhelia */}
       <section className="relative overflow-hidden bg-surface-muted border-b border-border text-foreground dark:bg-secondary dark:text-white py-16 mb-12">
-        <VgpuCivicConstellation />
+        <VgpuAtmosphericHalo />
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <HelpCircle size={14} className="text-accent-gold" />
