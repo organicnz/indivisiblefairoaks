@@ -172,4 +172,67 @@ describe('InteractiveEventsCalendar', () => {
 
     expect(document.body.textContent).toContain('Import Mobilize Event');
   });
+
+  it('expands search input on button click and collapses when cleared', async () => {
+    await act(async () => {
+      root.render(<InteractiveEventsCalendar />);
+    });
+
+    const searchButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Search events"]'
+    );
+    expect(searchButton).not.toBeNull();
+
+    await act(async () => {
+      searchButton?.click();
+    });
+
+    const searchInput = container.querySelector<HTMLInputElement>('input[type="text"]');
+    expect(searchInput).not.toBeNull();
+
+    await act(async () => {
+      if (searchInput) {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        )?.set;
+        nativeInputValueSetter?.call(searchInput, 'Meeting');
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    const clearButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Clear search"]'
+    );
+    expect(clearButton).not.toBeNull();
+
+    await act(async () => {
+      clearButton?.click();
+    });
+
+    expect(searchInput?.value).toBe('');
+  });
+
+  it('scrolls filters horizontally on vertical mouse wheel event', async () => {
+    await act(async () => {
+      root.render(<InteractiveEventsCalendar />);
+    });
+
+    const filtersContainer = container.querySelector<HTMLDivElement>('div.overflow-x-auto');
+    expect(filtersContainer).not.toBeNull();
+
+    if (filtersContainer) {
+      filtersContainer.scrollLeft = 0;
+      await act(async () => {
+        const wheelEvent = new WheelEvent('wheel', {
+          bubbles: true,
+          deltaY: 120,
+          deltaX: 0,
+        });
+        filtersContainer.dispatchEvent(wheelEvent);
+      });
+      expect(filtersContainer.scrollLeft).toBe(120);
+    }
+  });
 });

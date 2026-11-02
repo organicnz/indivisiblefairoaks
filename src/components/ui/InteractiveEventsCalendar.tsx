@@ -4,6 +4,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuPortal,
   DropdownMenuTrigger,
 } from '@radix-ui/react-dropdown-menu';
 import {
@@ -18,8 +19,9 @@ import {
   Plus,
   Search,
   Trash2,
+  X,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmAction } from '@/components/admin/ConfirmAction';
 import { CivicEventEditorModal } from '@/components/admin/civic/CivicEventEditorModal';
@@ -142,6 +144,8 @@ export function InteractiveEventsCalendar({
   const { isAdmin } = useEditContext('/events');
   const [activeCategory, setActiveCategory] = useState<string>('All Actions');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [eventsList, setEventsList] = useState<CivicEvent[]>(
     initialEvents && initialEvents.length > 0 ? initialEvents : EVENTS
   );
@@ -293,35 +297,108 @@ export function InteractiveEventsCalendar({
     document.body.removeChild(link);
   };
 
+  const handleFiltersWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    // When using a vertical scroll wheel (deltaY) over the single-line filters,
+    // convert it to smooth horizontal scrolling.
+    if (e.deltaY !== 0 && e.deltaX === 0) {
+      e.currentTarget.scrollLeft += e.deltaY;
+    }
+  };
+
+  const handleCategoryClick = (cat: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    setActiveCategory(cat);
+    e.currentTarget?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  };
+
   return (
     <div className="space-y-8">
-      {/* Controls: Search and Filter Chips */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 p-4 rounded-2xl bg-surface-card border border-border backdrop-blur-md shadow-xs">
-        {/* Search Bar */}
-        <div className="relative flex-1">
-          <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark"
-            size={16}
-          />
-          <input
-            type="text"
-            placeholder={
-              dataPoints['events.search.placeholder'] || 'Search actions, meetings, or locations...'
-            }
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-muted border border-border text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark text-xs sm:text-sm focus:outline-none focus:border-primary transition-colors"
-          />
+      {/* Controls: Expandable Search, Single-Line Scrollable Filters, and Admin Actions */}
+      <div className="relative z-20 flex items-center justify-between gap-3 p-2.5 sm:p-3 rounded-2xl bg-surface-card border border-border backdrop-blur-md shadow-xs">
+        {/* Expandable Search Button & Input */}
+        <div
+          className={`relative flex items-center transition-all duration-300 ease-out shrink-0 ${
+            isSearchOpen || searchQuery ? 'w-52 sm:w-64 md:w-72' : 'w-9'
+          }`}
+        >
+          {/* Collapsed Search Icon Button */}
+          {!isSearchOpen && !searchQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsSearchOpen(true);
+                setTimeout(() => searchInputRef.current?.focus(), 50);
+              }}
+              aria-label="Search events"
+              className="size-9 rounded-full bg-surface-muted/80 dark:bg-slate-800/80 hover:bg-surface-muted dark:hover:bg-slate-750 border border-border dark:border-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white transition-all cursor-pointer shadow-xs"
+            >
+              <Search size={16} />
+            </button>
+          )}
+
+          {/* Expanded / Always-Mounted Search Input Field */}
+          <div
+            className={`relative w-full flex items-center transition-opacity duration-200 ${
+              isSearchOpen || searchQuery
+                ? 'opacity-100 pointer-events-auto'
+                : 'opacity-0 pointer-events-none absolute inset-0'
+            }`}
+          >
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-ink-muted-on-dark pointer-events-none"
+              size={15}
+            />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder={
+                dataPoints['events.search.placeholder'] ||
+                'Search actions, meetings, or locations...'
+              }
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchOpen(true)}
+              onBlur={() => {
+                if (!searchQuery) {
+                  setIsSearchOpen(false);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setSearchQuery('');
+                  setIsSearchOpen(false);
+                  searchInputRef.current?.blur();
+                }
+              }}
+              className="w-full pl-9 pr-8 py-1.5 rounded-full bg-surface-muted dark:bg-slate-800/90 border border-border dark:border-white/15 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-ink-muted-on-dark text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+            />
+            {(isSearchOpen || searchQuery) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setIsSearchOpen(false);
+                  searchInputRef.current?.blur();
+                }}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-muted-foreground hover:text-foreground dark:text-ink-muted-on-dark dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Category Filters */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* Category Filters (Single-line, horizontally scrollable via vertical mouse wheel) */}
+        <div
+          onWheel={handleFiltersWheel}
+          className="flex items-center gap-1.5 flex-nowrap overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden flex-1 min-w-0 py-1"
+        >
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               type="button"
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              onClick={(e) => handleCategoryClick(cat, e)}
+              className={`shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeCategory === cat
                   ? 'bg-primary-bright text-white shadow-md'
                   : 'bg-surface-muted text-muted-foreground hover:text-foreground border border-border dark:bg-secondary/60 dark:border-transparent dark:text-ink-muted-on-dark dark:hover:text-ink-on-dark dark:hover:bg-white/5'
@@ -347,45 +424,47 @@ export function InteractiveEventsCalendar({
                   <ChevronDown size={14} className="opacity-70" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                sideOffset={6}
-                className="z-[110] min-w-56 rounded-2xl bg-surface-card dark:bg-slate-900 p-2 shadow-2xl border border-border dark:border-white/10"
-              >
-                <DropdownMenuItem
-                  className="flex items-start gap-3 p-2.5 rounded-xl cursor-pointer outline-none transition-colors hover:bg-surface-muted dark:hover:bg-white/10"
-                  onClick={handleOpenCreateModal}
+              <DropdownMenuPortal>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={6}
+                  className="z-[9999] min-w-56 rounded-2xl bg-surface-card dark:bg-slate-900 p-2 shadow-2xl border border-border dark:border-white/10 backdrop-blur-xl animate-in fade-in-0 zoom-in-95"
                 >
-                  <div className="size-8 rounded-lg bg-accent-gold/20 text-accent-gold flex items-center justify-center shrink-0 mt-0.5">
-                    <Plus size={16} />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-foreground dark:text-white">
-                      Add Event
-                    </span>
-                    <span className="block text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
-                      Manually create a new civic event
-                    </span>
-                  </div>
-                </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="flex items-start gap-3 p-2.5 rounded-xl cursor-pointer outline-none transition-colors hover:bg-surface-muted dark:hover:bg-white/10"
+                    onClick={handleOpenCreateModal}
+                  >
+                    <div className="size-8 rounded-lg bg-accent-gold/20 text-accent-gold flex items-center justify-center shrink-0 mt-0.5">
+                      <Plus size={16} />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-bold text-foreground dark:text-white">
+                        Add Event
+                      </span>
+                      <span className="block text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
+                        Manually create a new civic event
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
 
-                <DropdownMenuItem
-                  className="flex items-start gap-3 p-2.5 rounded-xl cursor-pointer outline-none transition-colors hover:bg-surface-muted dark:hover:bg-white/10 mt-1"
-                  onClick={() => setIsMobilizeModalOpen(true)}
-                >
-                  <div className="size-8 rounded-lg bg-primary/15 text-primary-bright dark:text-accent-gold flex items-center justify-center shrink-0 mt-0.5">
-                    <Download size={16} />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-foreground dark:text-white">
-                      Import Mobilize
-                    </span>
-                    <span className="block text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
-                      1-click import from any Mobilize URL
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
+                  <DropdownMenuItem
+                    className="flex items-start gap-3 p-2.5 rounded-xl cursor-pointer outline-none transition-colors hover:bg-surface-muted dark:hover:bg-white/10 mt-1"
+                    onClick={() => setIsMobilizeModalOpen(true)}
+                  >
+                    <div className="size-8 rounded-lg bg-primary/15 text-primary-bright dark:text-accent-gold flex items-center justify-center shrink-0 mt-0.5">
+                      <Download size={16} />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-bold text-foreground dark:text-white">
+                        Import Mobilize
+                      </span>
+                      <span className="block text-[11px] text-muted-foreground dark:text-ink-muted-on-dark">
+                        1-click import from any Mobilize URL
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenuPortal>
             </DropdownMenu>
           </div>
         )}
