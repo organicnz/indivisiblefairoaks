@@ -103,15 +103,19 @@ jobs:
           {
             echo '#!/usr/bin/env bash'
             echo 'set -e'
+            echo 'ARGS=("$@")'
+            echo 'if [[ "$*" == *"functions deploy"* && "$*" != *"--yes"* ]]; then'
+            echo '  ARGS+=("--yes")'
+            echo 'fi'
             echo 'ATTEMPT=1'
             echo 'MAX_ATTEMPTS=3'
             echo 'while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do'
-            echo '  if "$@"; then exit 0; fi'
+            echo '  if "${ARGS[@]}"; then exit 0; fi'
             echo '  echo "⚠️ Command failed (attempt $ATTEMPT/$MAX_ATTEMPTS). Retrying in 5s..."'
             echo '  ATTEMPT=$((ATTEMPT + 1))'
             echo '  sleep 5'
             echo 'done'
-            echo 'echo "::error::Command failed after $MAX_ATTEMPTS attempts: $*"'
+            echo 'echo "::error::Command failed after $MAX_ATTEMPTS attempts: ${ARGS[*]}"'
             echo 'exit 1'
           } > "$BIN/supabase_retry"
           chmod +x "$BIN/supabase_retry"
@@ -122,7 +126,8 @@ jobs:
         run: |
           supabase_retry supabase functions deploy notify-contact \
             --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt
+            --no-verify-jwt \
+            --yes
 
       - name: Deploy Edge Function — search
         env:
@@ -130,7 +135,8 @@ jobs:
         run: |
           supabase_retry supabase functions deploy search \
             --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt
+            --no-verify-jwt \
+            --yes
 
       - name: Deploy Edge Function — health
         env:
@@ -138,7 +144,8 @@ jobs:
         run: |
           supabase_retry supabase functions deploy health \
             --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt
+            --no-verify-jwt \
+            --yes
 
       # NOTE: wall-e-chat / walle-refresh keep gateway JWT verification ON
       # (no --no-verify-jwt). Callers present a valid key: the Next.js proxy
@@ -148,14 +155,16 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase_retry supabase functions deploy wall-e-chat \
-            --project-ref "$SUPABASE_PROJECT_REF"
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --yes
 
       - name: Deploy Edge Function — walle-refresh
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase_retry supabase functions deploy walle-refresh \
-            --project-ref "$SUPABASE_PROJECT_REF"
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --yes
 
       # crm-broadcast-send is the one function the campaign composer cannot work
       # without: sendCRMBroadcast writes a `queued` row and dispatches here, so
@@ -175,7 +184,8 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase_retry supabase functions deploy crm-broadcast-send \
-            --project-ref "$SUPABASE_PROJECT_REF"
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --yes
 
       - name: Deploy Edge Function — data-points
         env:
@@ -183,7 +193,8 @@ jobs:
         run: |
           supabase_retry supabase functions deploy data-points \
             --project-ref "$SUPABASE_PROJECT_REF" \
-            --no-verify-jwt
+            --no-verify-jwt \
+            --yes
 
       # JWT verification stays ON. The only callers are pg_cron (which reads the
       # service key from Vault at run time) and an admin-gated server action.
@@ -195,7 +206,8 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase_retry supabase functions deploy sync-mobilize-events \
-            --project-ref "$SUPABASE_PROJECT_REF"
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --yes
 
       - name: Assert required edge secrets are set in the hosted project
         env:
