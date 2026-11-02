@@ -312,7 +312,7 @@ export default async function VoterInfoPage() {
                         as="p"
                         className="text-xs text-muted-foreground dark:text-ink-muted-on-dark leading-relaxed"
                       >
-                        Background report on judicial races, school boards, and county supervisors.
+                        Election protection guide and regional ballot measure background report.
                       </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-primary-ink dark:text-accent-gold group-hover:text-primary dark:group-hover:text-amber-200 transition-colors">
@@ -344,7 +344,7 @@ export default async function VoterInfoPage() {
                         as="h3"
                         className="font-bold text-sm text-foreground dark:text-white leading-snug"
                       >
-                        Voter Information Doc
+                        Voter Information Doc &amp; Deadlines
                       </DataPoint>
                       <DataPoint
                         initialData={dataPoints}
@@ -352,7 +352,7 @@ export default async function VoterInfoPage() {
                         as="p"
                         className="text-xs text-muted-foreground dark:text-ink-muted-on-dark leading-relaxed"
                       >
-                        Full reference document on deadlines, polling sites, and voter rights.
+                        Official schedule of voter registration deadlines and vote-by-mail dates.
                       </DataPoint>
                     </div>
                     <div className="pt-3 flex items-center gap-1.5 text-xs font-bold text-primary-ink dark:text-accent-gold group-hover:text-primary dark:group-hover:text-amber-200 transition-colors">
@@ -361,7 +361,7 @@ export default async function VoterInfoPage() {
                         name="voter.guide.voter_doc.btn"
                         as="span"
                       >
-                        Read Document
+                        View Deadlines
                       </DataPoint>
                       <ExternalLink size={13} />
                     </div>
@@ -466,12 +466,29 @@ export default async function VoterInfoPage() {
                   Sacramento County at the local, county, state, and federal levels, including
                   contact telephone numbers and district offices.
                 </DataPoint>
-                <div className="pt-2">
+                <div className="pt-2 flex flex-wrap items-center gap-2">
+                  <a
+                    href="#representatives"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary hover:bg-primary-dark text-white text-xs font-bold transition-colors"
+                  >
+                    <Search size={14} />
+                    <span>Find Your Reps</span>
+                  </a>
+                  <a
+                    href="https://5calls.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-muted dark:bg-white/10 hover:bg-primary hover:text-white dark:hover:bg-primary-bright dark:hover:text-white text-primary-ink dark:text-white text-xs font-bold transition-colors"
+                  >
+                    <Phone size={14} />
+                    <span>5 Calls App</span>
+                    <ExternalLink size={12} />
+                  </a>
                   <a
                     href="https://drive.google.com/open?id=1cugSjV00M6yL3e414nUq8j2hC9H-Kq6L"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/10 hover:bg-primary hover:text-white dark:hover:bg-primary-bright dark:hover:text-white text-primary-ink dark:text-white text-xs font-bold transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-muted dark:bg-white/10 hover:bg-primary hover:text-white dark:hover:bg-primary-bright dark:hover:text-white text-primary-ink dark:text-white text-xs font-bold transition-colors"
                   >
                     <FileDown size={14} />
                     <DataPoint initialData={dataPoints} name="voter.guide1.btn" as="span">
@@ -542,9 +559,9 @@ export default async function VoterInfoPage() {
                   immediately upon release from prison. If you are on parole, probation, or in
                   county jail, you have the right to register and vote!
                 </DataPoint>
-                <div className="pt-2">
+                <div className="pt-2 flex flex-wrap items-center gap-2">
                   <a
-                    href="https://www.sos.ca.gov/elections/voting-resources/voting-california/who-can-vote-california/voting-rights-californians-criminal-history"
+                    href="https://www.sos.ca.gov/elections/voting-rights-restored"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/10 hover:bg-primary hover:text-white dark:hover:bg-primary-bright dark:hover:text-white text-primary-ink dark:text-white text-xs font-bold transition-colors"
@@ -553,6 +570,16 @@ export default async function VoterInfoPage() {
                     <DataPoint initialData={dataPoints} name="voter.guide3.btn" as="span">
                       CA Secretary of State Guide
                     </DataPoint>
+                  </a>
+                  <a
+                    href="https://www.sos.ca.gov/elections/voter-bill-rights"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-muted dark:bg-white/10 hover:bg-primary hover:text-white dark:hover:bg-primary-bright dark:hover:text-white text-primary-ink dark:text-white text-xs font-bold transition-colors"
+                  >
+                    <Shield size={14} />
+                    <span>Voter Bill of Rights</span>
+                    <ExternalLink size={12} />
                   </a>
                 </div>
               </div>
@@ -582,7 +609,7 @@ export default async function VoterInfoPage() {
                 </DataPoint>
                 <div className="pt-2">
                   <a
-                    href="https://www.sos.ca.gov/elections/voting-resources/voting-california/homeless"
+                    href="https://www.sos.ca.gov/elections/voting-resources/voting-california/who-can-vote-california"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-muted dark:bg-white/10 hover:bg-primary hover:text-white dark:hover:bg-primary-bright dark:hover:text-white text-primary-ink dark:text-white text-xs font-bold transition-colors"

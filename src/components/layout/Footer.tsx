@@ -107,7 +107,7 @@ export async function Footer() {
               <li>
                 <Link href="/links" className="hover:text-white transition-colors">
                   <DataPoint name="footer.nav.links" as="span" initialData={dataPoints}>
-                    Coalition & Action Links
+                    Link Tree & Action Links
                   </DataPoint>
                 </Link>
               </li>

@@ -4,15 +4,16 @@ import { ActionAlertsSubscription } from '@/components/ui/ActionAlertsSubscripti
 import { DataPoint } from '@/components/ui/DataPoint';
 import { InteractiveNewslettersList } from '@/components/ui/InteractiveNewslettersList';
 import { InteractivePostsList } from '@/components/ui/InteractivePostsList';
+import { MeetingMaterials } from '@/components/ui/MeetingMaterials';
 import { VgpuNoctilucentWaves } from '@/components/ui/VgpuNoctilucentWaves';
 import { pageMetadata } from '@/lib/metadata';
 import { getDataPoints, getNewsletters } from '@/lib/queries/civic';
 import { getPublishedPosts } from '@/lib/queries/content';
 
 export const metadata: Metadata = pageMetadata({
-  title: 'Newsletters & Bulletins',
+  title: 'Newsletters, Meeting Materials & Bulletins',
   description:
-    'Read past chapter newsletters, stay informed about Sacramento County grassroots organizing, and subscribe to receive action alerts directly in your inbox.',
+    'Read past chapter newsletters, access printable meeting handouts and minutes, stay informed about Sacramento County grassroots organizing, and subscribe to action alerts.',
   path: '/news',
 });
 
@@ -32,7 +33,7 @@ export default async function NewsPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Newspaper size={14} className="text-accent-gold" />
             <DataPoint initialData={dataPoints} name="news.hero.eyebrow">
-              Chapter Bulletins & Insights
+              Chapter Bulletins, Minutes &amp; Handouts
             </DataPoint>
           </div>
           <DataPoint
@@ -41,7 +42,7 @@ export default async function NewsPage() {
             as="h1"
             className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
           >
-            Newsletters & Chapter Updates
+            Newsletters &amp; Chapter Updates
           </DataPoint>
           <DataPoint
             initialData={dataPoints}
@@ -49,8 +50,9 @@ export default async function NewsPage() {
             as="p"
             className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
-            Stay up to date with our grassroots organizing, local legislative actions, and community
-            resistance across Fair Oaks, Carmichael, and Sacramento County.
+            Stay up to date with our grassroots organizing, chapter meeting minutes, printable
+            handouts, and Christiana&apos;s regular email news blasts across Fair Oaks, Carmichael, and
+            Sacramento County.
           </DataPoint>
         </div>
       </section>
@@ -59,17 +61,20 @@ export default async function NewsPage() {
         {/* Interactive Action Alerts Subscription */}
         <ActionAlertsSubscription initialData={dataPoints} />
 
+        {/* Meeting Reviews, Minutes & Printable Handouts */}
+        <MeetingMaterials />
+
         {/* Chapter Articles & Dispatches */}
         <InteractivePostsList initialPosts={postsRows} />
 
-        {/* Bulletins Archive with In-Page Visual CRUD */}
+        {/* Bulletins & News Blast Archive with In-Page Visual CRUD */}
         <div className="space-y-6">
           <h2 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
             <span className="text-primary-ink dark:text-primary-on-dark-muted font-mono text-xl">
               ✦
             </span>
             <DataPoint initialData={dataPoints} as="span" name="news.archive.title">
-              Past Bulletins &amp; Archives
+              Chapter News Blasts &amp; Bulletin Archive
             </DataPoint>
           </h2>
 

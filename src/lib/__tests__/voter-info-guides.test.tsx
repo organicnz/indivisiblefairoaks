@@ -80,6 +80,19 @@ describe('VoterInfoPage & 2026 Voter Guides', () => {
     const docLink = links.find((a) => a.href.includes('1XyqCKsSKaQqrrzX7CSl3G3v0ChUtH98U'));
     expect(docLink).toBeDefined();
     expect(docLink?.target).toBe('_blank');
+
+    const fiveCallsLink = links.find((a) => a.href.includes('5calls.org'));
+    expect(fiveCallsLink).toBeDefined();
+    expect(fiveCallsLink?.target).toBe('_blank');
+
+    const rightsRestoredLink = links.find((a) => a.href === 'https://www.sos.ca.gov/elections/voting-rights-restored');
+    expect(rightsRestoredLink).toBeDefined();
+
+    const voterBillOfRightsLink = links.find((a) => a.href === 'https://www.sos.ca.gov/elections/voter-bill-rights');
+    expect(voterBillOfRightsLink).toBeDefined();
+
+    const whoCanVoteLink = links.find((a) => a.href === 'https://www.sos.ca.gov/elections/voting-resources/voting-california/who-can-vote-california');
+    expect(whoCanVoteLink).toBeDefined();
   });
 
   it('renders the SAVE America Act educational video spotlight with valid iframe attributes', async () => {

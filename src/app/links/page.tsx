@@ -7,9 +7,9 @@ import { pageMetadata } from '@/lib/metadata';
 import { getCoalitionLinks, getDataPoints } from '@/lib/queries/civic';
 
 export const metadata: Metadata = pageMetadata({
-  title: 'Coalition & Action Links',
+  title: 'Link Tree & Civic Directory',
   description:
-    'Recommended civic resources, grassroots coalition partners, voter registration links, and democracy defense organizations in California.',
+    'Official chapter Link Tree, recommended civic resources, grassroots coalition partners, voter registration links, and democracy defense organizations in California.',
   path: '/links',
 });
 
@@ -172,7 +172,7 @@ export default async function LinksPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary dark:bg-primary-bright/10 dark:border-primary-on-dark-muted/30 dark:text-primary-on-dark text-xs font-bold uppercase tracking-wider mb-4">
             <Compass size={14} className="text-accent-gold" />
             <DataPoint name="links.hero.eyebrow" initialData={dataPoints}>
-              Civic Directory
+              Link Tree &amp; Civic Directory
             </DataPoint>
           </div>
           <DataPoint
@@ -181,7 +181,7 @@ export default async function LinksPage() {
             initialData={dataPoints}
             className="text-4xl sm:text-5xl font-black text-foreground dark:text-white tracking-tight mb-4"
           >
-            Coalition &amp; Action Links
+            Link Tree &amp; Coalition Directory
           </DataPoint>
           <DataPoint
             name="links.hero.intro"
@@ -189,7 +189,7 @@ export default async function LinksPage() {
             initialData={dataPoints}
             className="text-lg text-muted-foreground dark:text-ink-on-dark max-w-2xl mx-auto leading-relaxed"
           >
-            Essential websites, nonpartisan voter tools, grassroots allies, and democracy defense
+            Essential chapter quick-access links, nonpartisan voter tools, grassroots allies, and democracy defense
             resources vetted by our chapter.
           </DataPoint>
         </div>

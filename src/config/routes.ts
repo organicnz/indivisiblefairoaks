@@ -74,7 +74,7 @@ export const ROUTES: readonly NavLink[] = [
   },
   { label: 'Gallery', short: 'Gallery', href: '/gallery' },
   { label: 'Newsletters', short: 'News', href: '/news' },
-  { label: 'Coalition', short: 'Links', href: '/links' },
+  { label: 'Link Tree', short: 'Links', href: '/links' },
   { label: 'Contact', short: 'Contact', href: '/contact' },
 ] as const;
 

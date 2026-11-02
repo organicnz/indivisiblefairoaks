@@ -454,7 +454,7 @@ export function SacramentoRepresentativeFinder() {
             &ldquo;{getCallScript()}&rdquo;
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <DataPoint
               name="voter.repfinder.tip_text"
               as="span"
@@ -463,27 +463,40 @@ export function SacramentoRepresentativeFinder() {
             >
               💡 Staffers tally calls by topic daily. 2 minutes makes a measurable difference!
             </DataPoint>
-            <button
-              type="button"
-              onClick={copyScript}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground dark:bg-white/5 dark:hover:bg-slate-700 dark:text-slate-200 dark:hover:text-white border border-border dark:border-slate-700 text-xs font-semibold transition-all shrink-0 cursor-pointer"
-            >
-              {copiedScript ? (
-                <>
-                  <Check size={14} className="text-emerald-500" />
-                  <DataPoint as="span" name="voter.repfinder.copied_btn" initialData={dataPoints}>
-                    Copied!
-                  </DataPoint>
-                </>
-              ) : (
-                <>
-                  <Copy size={14} />
-                  <DataPoint as="span" name="voter.repfinder.copy_btn" initialData={dataPoints}>
-                    Copy Script
-                  </DataPoint>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href="https://5calls.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary-ink dark:bg-primary-bright/20 dark:hover:bg-primary-bright/30 dark:text-primary-on-dark border border-primary/20 text-xs font-semibold transition-all shrink-0"
+                title="Open 5 Calls App for turn-key phone scripts and direct dialing"
+              >
+                <Phone size={13} />
+                <span>5 Calls App</span>
+                <ExternalLink size={12} />
+              </a>
+              <button
+                type="button"
+                onClick={copyScript}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-card hover:bg-surface-muted text-foreground dark:bg-white/5 dark:hover:bg-slate-700 dark:text-slate-200 dark:hover:text-white border border-border dark:border-slate-700 text-xs font-semibold transition-all shrink-0 cursor-pointer"
+              >
+                {copiedScript ? (
+                  <>
+                    <Check size={14} className="text-emerald-500" />
+                    <DataPoint as="span" name="voter.repfinder.copied_btn" initialData={dataPoints}>
+                      Copied!
+                    </DataPoint>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    <DataPoint as="span" name="voter.repfinder.copy_btn" initialData={dataPoints}>
+                      Copy Script
+                    </DataPoint>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

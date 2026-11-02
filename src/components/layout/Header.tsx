@@ -66,11 +66,11 @@ function HeaderFallback() {
             </span>
           </div>
         </div>
-        <div className="hidden 2xl:flex items-center gap-5">
+        <div className="hidden xl:flex items-center gap-3.5 2xl:gap-5">
           {ROUTES.map((link) => (
             <span
               key={link.href}
-              className="whitespace-nowrap text-xs font-bold uppercase tracking-[0.2em] text-white/70"
+              className="whitespace-nowrap text-[11px] 2xl:text-xs font-bold uppercase tracking-[0.12em] 2xl:tracking-[0.2em] text-white/70"
             >
               {link.short ?? link.label}
             </span>
@@ -160,11 +160,11 @@ function HeaderInner() {
               the account control off-screen. Between sm and 2xl the drawer serves
               the links and the account control stays inline from xl up.
             */}
-            <nav aria-label="Primary" className="hidden 2xl:flex items-center gap-5">
+            <nav aria-label="Primary" className="hidden xl:flex items-center gap-3.5 2xl:gap-5">
               {ROUTES.map((link) => {
                 const isActive = isActiveRoute(pathname, link);
                 // Links with children render as a dropdown trigger; the row keeps
-                // one item per route so the 2xl width budget is unchanged.
+                // one item per route so the width budget is unchanged.
                 if (link.children) {
                   return <NavDropdown key={link.href} link={link} isActive={isActive} />;
                 }
@@ -175,7 +175,7 @@ function HeaderInner() {
                     // `aria-current` is what conveys the active page to assistive
                     // tech; the amber text and underline bar are decoration.
                     aria-current={isActive ? 'page' : undefined}
-                    className={`whitespace-nowrap text-xs font-bold uppercase tracking-[0.2em] transition-colors duration-300 ease-out relative py-1 rounded-sm ${FOCUS_RING} ${
+                    className={`whitespace-nowrap text-[11px] 2xl:text-xs font-bold uppercase tracking-[0.12em] 2xl:tracking-[0.2em] transition-colors duration-300 ease-out relative py-1 rounded-sm ${FOCUS_RING} ${
                       isActive
                         ? 'text-accent-gold font-extrabold'
                         : 'text-ink-on-dark hover:text-white'
@@ -216,7 +216,7 @@ function HeaderInner() {
                 type="button"
                 ref={menuButtonRef}
                 // 44px minimum target: p-2 + a 24px glyph is only 40px.
-                className={`2xl:hidden inline-flex items-center justify-center size-11 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
+                className={`xl:hidden inline-flex items-center justify-center size-11 rounded-lg text-ink-on-dark hover:text-white hover:bg-white/10 transition-colors duration-300 ease-out ${FOCUS_RING}`}
                 onClick={() => setIsMenuOpen(true)}
                 aria-label="Open navigation menu"
                 aria-expanded={isMenuOpen}
@@ -250,7 +250,7 @@ function HeaderInner() {
       */}
       <Dialog.Root open={isMenuOpen} onOpenChange={setIsMenuOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[100] bg-secondary/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 2xl:hidden" />
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-secondary/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 xl:hidden" />
           <Dialog.Content
             id={DRAWER_ID}
             // Radix restores focus to whatever was focused when the dialog opened,
@@ -263,7 +263,7 @@ function HeaderInner() {
               event.preventDefault();
               menuButtonRef.current?.focus();
             }}
-            className="fixed inset-0 z-[110] bg-secondary flex flex-col drawer-safe-padding 2xl:hidden focus:outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=open]:duration-300 data-[state=closed]:duration-200"
+            className="fixed inset-0 z-[110] bg-secondary flex flex-col drawer-safe-padding xl:hidden focus:outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-right-full data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right-full data-[state=open]:duration-300 data-[state=closed]:duration-200"
           >
             <Dialog.Title className="sr-only">Navigation menu</Dialog.Title>
             <Dialog.Description className="sr-only">
@@ -308,27 +308,7 @@ function HeaderInner() {
             </div>
 
             <nav aria-label="Mobile" className="flex flex-col gap-1 py-6 overflow-y-auto">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  setIsSearchOpen(true);
-                }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-colors duration-300 ease-out text-sm font-medium ${FOCUS_RING}`}
-              >
-                <Search size={18} className="text-ink-on-dark" aria-hidden="true" />
-                <DataPoint as="span" name="header.drawer.search" initialData={dataPoints}>
-                  Quick Search…
-                </DataPoint>
-                <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-secondary border border-white/20 text-[10px] font-mono text-ink-muted-on-dark">
-                  ⌘K
-                </kbd>
-              </button>
-
-              <EditorialDrawerRow onNavigate={() => setIsMenuOpen(false)} />
-
-              <ThemeToggle variant="block" />
-
+              {/* Primary Route Navigation Links First */}
               {ROUTES.map((link) => {
                 const isActive = isActiveRoute(pathname, link);
                 // Dropdown parents expand inline: drawer users must reach every
@@ -389,6 +369,31 @@ function HeaderInner() {
                   </Link>
                 );
               })}
+
+              <div className="my-3 border-t border-white/10" />
+
+              {/* Quick Search */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  setIsSearchOpen(true);
+                }}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-ink-on-dark hover:text-white transition-colors duration-300 ease-out text-sm font-medium ${FOCUS_RING}`}
+              >
+                <Search size={18} className="text-ink-on-dark" aria-hidden="true" />
+                <DataPoint as="span" name="header.drawer.search" initialData={dataPoints}>
+                  Quick Search…
+                </DataPoint>
+                <kbd className="ml-auto inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-secondary border border-white/20 text-[10px] font-mono text-ink-muted-on-dark">
+                  ⌘K
+                </kbd>
+              </button>
+
+              <EditorialDrawerRow onNavigate={() => setIsMenuOpen(false)} />
+
+              {/* Appearance Mode Settings */}
+              <ThemeToggle variant="block" />
             </nav>
 
             <div className="mt-auto pt-6 border-t border-white/10 flex flex-col gap-4">

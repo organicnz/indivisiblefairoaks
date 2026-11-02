@@ -243,6 +243,17 @@
   },
   "acceptedUnseededReads": {},
   "acceptedMismatches": {
-    "search.empty.btn @ src/app/search/page.tsx (jsx)": "TODO: reason (review this finding)"
+    "footer.nav.links @ src/components/layout/Footer.tsx (jsx)": "superseded: updated to Link Tree & Action Links (issue #164)",
+    "links.hero.eyebrow @ src/app/links/page.tsx (jsx)": "superseded: updated to Link Tree & Civic Directory per leadership request (issue #164)",
+    "links.hero.headline @ src/app/links/page.tsx (jsx)": "superseded: updated to Link Tree & Coalition Directory per leadership request (issue #164)",
+    "links.hero.intro @ src/app/links/page.tsx (jsx)": "superseded: updated to highlight Link Tree and quick-access tools (issue #164)",
+    "news.archive.title @ src/app/news/page.tsx (jsx)": "superseded: updated to highlight news blasts & bulletin archive (issue #164)",
+    "news.hero.eyebrow @ src/app/news/page.tsx (jsx)": "superseded: updated to include meeting minutes & handouts (issue #164)",
+    "news.hero.intro @ src/app/news/page.tsx (jsx)": "superseded: updated to include meeting minutes, printable handouts, and news blasts (issue #164)",
+    "search.empty.btn @ src/app/search/page.tsx (jsx)": "pending wiring — empty-state search button copy",
+    "voter.guide.candidate_brief.desc @ src/app/voter-info/page.tsx (jsx)": "superseded: clarified to describe election protection and measure toolkit (issue #163)",
+    "voter.guide.voter_doc.btn @ src/app/voter-info/page.tsx (jsx)": "superseded: updated to View Deadlines (issue #163)",
+    "voter.guide.voter_doc.desc @ src/app/voter-info/page.tsx (jsx)": "superseded: updated to describe official schedule of deadlines (issue #163)",
+    "voter.guide.voter_doc.title @ src/app/voter-info/page.tsx (jsx)": "superseded: updated to Voter Information Doc & Deadlines (issue #163)"
   }
 }
