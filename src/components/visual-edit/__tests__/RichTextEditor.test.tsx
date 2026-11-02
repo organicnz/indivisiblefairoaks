@@ -3,7 +3,7 @@
 
 import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   HeadingBlockEditor,
   ListBlockEditor,
@@ -473,6 +473,49 @@ describe('visual rich-text content editors', () => {
     });
     expect(items()).toEqual(['Vote', 'Organize']);
     expect(document.activeElement).toBe(container.querySelectorAll('[contenteditable="true"]')[1]);
+  });
+
+  it('reorders list items via drag and drop', async () => {
+    await act(async () => {
+      root.render(
+        <ListHarness
+          initial={{ id: 'l', type: 'bulletList', items: ['Vote', 'Organize', 'Donate'] }}
+        />
+      );
+    });
+
+    const lis = container.querySelectorAll<HTMLLIElement>('li');
+    expect(lis).toHaveLength(3);
+
+    const handle0 = lis[0].querySelector<HTMLElement>('span[draggable="true"]');
+    expect(handle0).not.toBeNull();
+
+    const dataTransfer = {
+      setData: vi.fn(),
+      getData: vi.fn(() => '0'),
+      effectAllowed: 'move',
+      dropEffect: 'move',
+    };
+
+    const dragEvent = (type: string) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'dataTransfer', { value: dataTransfer });
+      return event;
+    };
+
+    act(() => {
+      handle0?.dispatchEvent(dragEvent('dragstart'));
+    });
+
+    act(() => {
+      lis[2].dispatchEvent(dragEvent('dragover'));
+    });
+
+    act(() => {
+      lis[2].dispatchEvent(dragEvent('drop'));
+    });
+
+    expect(items()).toEqual(['Organize', 'Donate', 'Vote']);
   });
 
   it('removes an empty list item on Backspace and moves focus to the previous item', async () => {

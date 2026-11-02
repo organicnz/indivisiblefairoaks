@@ -134,6 +134,8 @@ export function RowBlockEditor({
   const pendingFocus = useRef<{ afterCount: number; columnId: string | null } | null>(null);
   const [editingLeafId, setEditingLeafId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [draggingColIndex, setDraggingColIndex] = useState<number | null>(null);
+  const [dragOverColIndex, setDragOverColIndex] = useState<number | null>(null);
 
   const columnCount = currentBlock.columns.length;
   const canRemoveColumn = columnCount > MIN_ROW_COLUMNS;
@@ -231,13 +233,60 @@ export function RowBlockEditor({
         )}
         <div className="space-y-2">
           {currentBlock.columns.map((column, columnIndex) => (
-            <div
+            <section
               key={column.id}
+              aria-label={`Column ${columnIndex + 1}`}
               data-testid={`row-column-${columnIndex}`}
-              className="min-w-0 space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-2"
+              onDragOver={(event) => {
+                if (draggingColIndex === null || draggingColIndex === columnIndex) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                if (dragOverColIndex !== columnIndex) setDragOverColIndex(columnIndex);
+              }}
+              onDragLeave={(event) => {
+                if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+                if (dragOverColIndex === columnIndex) setDragOverColIndex(null);
+              }}
+              onDrop={(event) => {
+                if (draggingColIndex === null || draggingColIndex === columnIndex) return;
+                event.preventDefault();
+                moveColumn(draggingColIndex, columnIndex);
+                setDraggingColIndex(null);
+                setDragOverColIndex(null);
+              }}
+              className={`min-w-0 space-y-2 rounded-xl border p-2 transition-all ${
+                dragOverColIndex === columnIndex
+                  ? 'border-accent-gold/80 bg-accent-gold/5 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                  : draggingColIndex === columnIndex
+                    ? 'border-white/20 bg-white/[0.01] opacity-50'
+                    : 'border-white/10 bg-white/[0.03]'
+              }`}
             >
               <div className="flex items-center justify-between gap-1">
-                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span
+                  draggable={columnCount > 1}
+                  aria-hidden={columnCount > 1 ? true : undefined}
+                  onDragStart={(event) => {
+                    setDraggingColIndex(columnIndex);
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', String(columnIndex));
+                  }}
+                  onDragEnd={() => {
+                    setDraggingColIndex(null);
+                    setDragOverColIndex(null);
+                  }}
+                  className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${
+                    columnCount > 1
+                      ? 'cursor-grab select-none text-slate-300 hover:text-white active:cursor-grabbing'
+                      : 'text-slate-400'
+                  }`}
+                  title={columnCount > 1 ? `Drag Column ${columnIndex + 1} to reorder` : undefined}
+                >
+                  {columnCount > 1 && (
+                    <span aria-hidden className="cursor-grab text-slate-400 hover:text-white">
+                      <GripVertical size={11} />
+                    </span>
+                  )}
                   <Columns3 size={10} className="text-accent-gold" />
                   Column {columnIndex + 1}
                 </span>
@@ -436,7 +485,7 @@ export function RowBlockEditor({
                   </option>
                 ))}
               </select>
-            </div>
+            </section>
           ))}
         </div>
       </StudioSection>

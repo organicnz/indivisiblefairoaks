@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Code2, Eye, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Code2, Eye, GripVertical, Plus, Trash2 } from 'lucide-react';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
@@ -597,6 +597,8 @@ export function RichTextListEditor({
   const actionsRef = useRef<RichTextActions | null>(null);
   const pendingFocus = useRef<{ index: number; expectedLength: number } | null>(null);
   const [raw, setRaw] = useState(false);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const safeItems = items.length > 0 ? items : [''];
   const keySeed = useRef(0);
@@ -789,8 +791,53 @@ export function RichTextListEditor({
               }`}
             >
               {safeItems.map((item, index) => (
-                <li key={itemKeys[index]}>
-                  <div className="flex items-start gap-1.5">
+                <li
+                  key={itemKeys[index]}
+                  onDragOver={(event) => {
+                    if (draggingIndex === null || draggingIndex === index) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                    if (dragOverIndex !== index) setDragOverIndex(index);
+                  }}
+                  onDragLeave={(event) => {
+                    if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+                    if (dragOverIndex === index) setDragOverIndex(null);
+                  }}
+                  onDrop={(event) => {
+                    if (draggingIndex === null || draggingIndex === index) return;
+                    event.preventDefault();
+                    moveItem(draggingIndex, index);
+                    setDraggingIndex(null);
+                    setDragOverIndex(null);
+                  }}
+                  className={`rounded-lg transition-all ${
+                    dragOverIndex === index
+                      ? 'bg-accent-gold/10 ring-1 ring-accent-gold/60'
+                      : draggingIndex === index
+                        ? 'opacity-40'
+                        : ''
+                  }`}
+                >
+                  <div className="flex items-start gap-1.5 p-0.5">
+                    {safeItems.length > 1 && (
+                      <span
+                        draggable
+                        aria-hidden
+                        title={`Drag list item ${index + 1} to reorder`}
+                        onDragStart={(event) => {
+                          setDraggingIndex(index);
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData('text/plain', String(index));
+                        }}
+                        onDragEnd={() => {
+                          setDraggingIndex(null);
+                          setDragOverIndex(null);
+                        }}
+                        className="mt-1 cursor-grab select-none text-slate-400 hover:text-white active:cursor-grabbing"
+                      >
+                        <GripVertical size={12} />
+                      </span>
+                    )}
                     <EditableInline
                       value={item}
                       onChange={(html) => setItem(index, html)}

@@ -6343,6 +6343,21 @@ export function VisualEditOverlay() {
         </div>
       ) : null}
 
+      {blockDrag ? (
+        <div
+          data-testid="block-drag-hud"
+          className="pointer-events-none fixed bottom-8 left-1/2 -translate-x-1/2 z-[10025] flex items-center gap-2 rounded-full border border-accent-gold/60 bg-slate-950/95 px-4 py-2 text-xs font-bold text-white shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-150"
+        >
+          <GripVertical size={14} className="text-accent-gold" />
+          <span>
+            Moving Section #{blockDrag.fromIndex + 1} → Position #{blockDrag.insertion + 1}
+          </span>
+          <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-300">
+            Esc to cancel
+          </span>
+        </div>
+      ) : null}
+
       {/* ── Visual Composer On-Canvas Right-Click Context Menu ──────────────── */}
       {contextMenu && (
         <div
@@ -6485,6 +6500,7 @@ export function VisualEditOverlay() {
       {/* ── Atomic Delete Confirmation Modal (Minimizes Accidental Deletions) ── */}
       {deleteConfirmIndexes !== null && (
         <div
+          data-testid="block-delete-confirm-dialog"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-dialog-title"

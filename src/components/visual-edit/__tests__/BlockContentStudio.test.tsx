@@ -492,6 +492,48 @@ describe('BlockContentStudio & Modular Block Editors', () => {
     expect(reordered.columns.map((c) => c.id)).toEqual(['c2', 'c1', 'c3']);
   });
 
+  it('reorders columns via drag and drop', async () => {
+    const committed: Block[] = [];
+    await act(async () => {
+      root.render(
+        <RowHarness initial={THREE_COLUMN_ROW} onCommit={(next) => committed.push(next)} />
+      );
+    });
+
+    const col0 = container.querySelector<HTMLElement>('[data-testid="row-column-0"]');
+    const col2 = container.querySelector<HTMLElement>('[data-testid="row-column-2"]');
+    const handle0 = col0?.querySelector<HTMLElement>('span[draggable="true"]');
+    expect(handle0).not.toBeNull();
+
+    const dataTransfer = {
+      setData: vi.fn(),
+      getData: vi.fn(() => '0'),
+      effectAllowed: 'move',
+      dropEffect: 'move',
+    };
+
+    const dragEvent = (type: string) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'dataTransfer', { value: dataTransfer });
+      return event;
+    };
+
+    act(() => {
+      handle0?.dispatchEvent(dragEvent('dragstart'));
+    });
+
+    act(() => {
+      col2?.dispatchEvent(dragEvent('dragover'));
+    });
+
+    act(() => {
+      col2?.dispatchEvent(dragEvent('drop'));
+    });
+
+    const reordered = expectRow(committed.at(-1));
+    expect(reordered.columns.map((c) => c.id)).toEqual(['c2', 'c3', 'c1']);
+  });
+
   it.each([
     {
       removed: 'first',

@@ -490,6 +490,7 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     });
 
     // Dialog should appear
+    expect(document.querySelector('[data-testid="block-delete-confirm-dialog"]')).not.toBeNull();
     expect(document.body.textContent).toContain('Delete Section');
     expect(document.body.textContent).toContain('Are you sure you want to delete');
 
@@ -504,6 +505,7 @@ describe('VisualEditOverlay 10x Pro Features', () => {
     });
 
     // Dialog should close
+    expect(document.querySelector('[data-testid="block-delete-confirm-dialog"]')).toBeNull();
     expect(document.body.textContent).not.toContain('Are you sure you want to delete');
   });
 });
