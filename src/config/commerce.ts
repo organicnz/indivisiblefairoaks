@@ -54,9 +54,9 @@ export const SHIPPING_RATES: readonly ShippingRate[] = [
   },
 ] as const;
 
-/** Where a shopper can collect a product. */
+/** Where an organizer or community member can collect civic materials. */
 export const PICKUP_NOTE =
-  'Products can be collected in Carmichael, CA by arrangement — allow a few days so we can confirm a time.';
+  'Civic materials can be collected in Carmichael, CA by arrangement — allow a few days so we can confirm a time.';
 
-/** Handling time surfaced on the PDP and in the shipping policy. */
-export const FULFILMENT_WINDOW = '2–5 business days after payment.';
+/** Handling time surfaced on the materials detail page and in the distribution policy. */
+export const FULFILMENT_WINDOW = '2–5 business days after request confirmation.';
